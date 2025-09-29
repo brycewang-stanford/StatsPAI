@@ -181,7 +181,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ##  Contact
 
 - **Author**: Bryce Wang
-- **Email**: brycewang2018@gmail.com
+- **Email**: brycew6m@gmail.com
 - **GitHub**: [brycewang-stanford](https://github.com/brycewang-stanford)
 
 ##  Citation
