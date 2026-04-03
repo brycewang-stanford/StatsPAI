@@ -1,54 +1,58 @@
 """
 StatsPAI: The AI-powered Statistics & Econometrics Toolkit for Python
 
-This package provides tools for econometric analysis including:
-- OLS regression with robust standard errors
-- Causal Forest for heterogeneous treatment effects
-- Panel data models (IV/2SLS)
-- Time series analysis
-- Publication-ready output formatting
+Unified API for causal inference and econometrics:
 
-Basic usage:
 >>> import statspai as sp
->>> 
->>> # Traditional regression
->>> result = pe.regress("y ~ x1 + x2", data=df)
->>> result.summary()
->>> 
->>> # Causal Forest for treatment effects
->>> cf = pe.causal_forest("y ~ treatment | x1 + x2", data=df)
->>> effects = cf.effect(df[['x1', 'x2']])
->>> 
->>> # Export results
->>> pe.outreg2(result, cf, filename="results.xlsx")
+>>>
+>>> # OLS regression
+>>> result = sp.regress("y ~ x1 + x2", data=df)
+>>>
+>>> # Difference-in-Differences
+>>> result = sp.did(df, y='wage', treat='treated', time='post')
+>>>
+>>> # Staggered DID (Callaway & Sant'Anna)
+>>> result = sp.did(df, y='wage', treat='first_treat',
+...                time='year', id='worker_id')
+>>>
+>>> # Causal Forest
+>>> cf = sp.causal_forest("y ~ treatment | x1 + x2", data=df)
+>>>
+>>> # Publication-quality export
+>>> sp.outreg2(result, filename="results.xlsx")
 """
-
-from .core.results import EconometricResults
-from .regression.ols import regress
-from .causal.causal_forest import CausalForest, causal_forest
-from .output.outreg2 import OutReg2, outreg2
-
-__version__ = "0.1.0"
-__author__ = "StatsPAI Team"
-__email__ = "contact@statspai.org"
-
-__all__ = [
-    "regress",
-    "EconometricResults", 
-    "CausalForest",
-    "causal_forest",
-    "OutReg2",
-    "outreg2",
-]
 
 __version__ = "0.1.0"
 __author__ = "Bryce Wang"
-__email__ = "your.email@example.com"
+__email__ = "bryce@copaper.ai"
 
+from .core.results import EconometricResults, CausalResult
 from .regression.ols import regress
-from .core.results import EconometricResults
+from .regression.iv import ivreg, IVRegression
+from .causal.causal_forest import CausalForest, causal_forest
+from .did import did, did_2x2, callaway_santanna
+from .rd import rdrobust, rdplot
+from .output.outreg2 import OutReg2, outreg2
 
 __all__ = [
-    "regress",
+    # Core
     "EconometricResults",
+    "CausalResult",
+    # Regression
+    "regress",
+    "ivreg",
+    "IVRegression",
+    # DID
+    "did",
+    "did_2x2",
+    "callaway_santanna",
+    # RD
+    "rdrobust",
+    "rdplot",
+    # Causal Forest
+    "CausalForest",
+    "causal_forest",
+    # Output
+    "OutReg2",
+    "outreg2",
 ]

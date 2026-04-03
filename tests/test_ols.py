@@ -5,8 +5,8 @@ Tests for OLS regression functionality
 import pytest
 import numpy as np
 import pandas as pd
-from pyeconometrics import regress
-from pyeconometrics.regression.ols import OLSRegression
+from statspai import regress
+from statspai.regression.ols import OLSRegression
 
 
 class TestOLSRegression:

@@ -56,6 +56,9 @@ performance = [
     "jax[cpu]>=0.4.0",
     "jaxlib>=0.4.0",
 ]
+fixest = [
+    "pyfixest>=0.25.0",
+]
 plotting = [
     "matplotlib>=3.5.0",
     "seaborn>=0.11.0",

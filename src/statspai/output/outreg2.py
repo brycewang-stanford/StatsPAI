@@ -68,7 +68,7 @@ class OutReg2:
         """Format p-values with stars"""
         if pd.isna(pvalue) or np.isnan(pvalue):
             return ""
-        
+
         stars = ""
         if pvalue < 0.01:
             stars = "***"
@@ -76,91 +76,9 @@ class OutReg2:
             stars = "**"
         elif pvalue < 0.1:
             stars = "*"
-        
+
         return stars
-    
-"""
-Output regression results to Excel in publication-ready format
-Similar to Stata's outreg2 command
-"""
 
-import pandas as pd
-import numpy as np
-from typing import List, Dict, Any, Optional, Union
-import openpyxl
-from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
-from openpyxl.utils.dataframe import dataframe_to_rows
-from pathlib import Path
-import warnings
-
-from ..core.results import EconometricResults
-
-
-class OutReg2:
-    """
-    Export regression results to Excel in publication-ready format
-    
-    Mimics Stata's outreg2 functionality with additional customization options.
-    Now supports both traditional regression models and Causal Forest results.
-    """
-    
-    def __init__(self):
-        self.results = []
-        self.model_names = []
-        self.title = "Regression Results"
-        self.notes = []
-        
-    def add_model(self, results, name: Optional[str] = None):
-        """
-        Add a regression model to the output table
-        
-        Parameters
-        ----------
-        results : EconometricResults or CausalForest
-            Fitted model results
-        name : str, optional
-            Name for the model column
-        """
-        self.results.append(results)
-        if name is None:
-            name = f"Model {len(self.results)}"
-        self.model_names.append(name)
-        
-    def clear(self):
-        """Clear all stored results"""
-        self.results = []
-        self.model_names = []
-        self.notes = []
-    
-    def set_title(self, title: str):
-        """Set the table title"""
-        self.title = title
-        
-    def add_note(self, note: str):
-        """Add a note to be displayed below the table"""
-        self.notes.append(note)
-    
-    def _format_number(self, value: float, decimal_places: int = 3) -> str:
-        """Format numbers for display"""
-        if pd.isna(value) or np.isnan(value):
-            return ""
-        return f"{value:.{decimal_places}f}"
-    
-    def _format_pvalue(self, pvalue: float) -> str:
-        """Format p-values with stars"""
-        if pd.isna(pvalue) or np.isnan(pvalue):
-            return ""
-        
-        stars = ""
-        if pvalue < 0.01:
-            stars = "***"
-        elif pvalue < 0.05:
-            stars = "**"
-        elif pvalue < 0.1:
-            stars = "*"
-        
-        return stars
-    
     def _is_causal_forest(self, result) -> bool:
         """Check if result is a Causal Forest model"""
         return hasattr(result, 'effect') and hasattr(result, '_forest')
