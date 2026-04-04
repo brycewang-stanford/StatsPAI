@@ -405,7 +405,7 @@ pytest
   author={Wang, Bryce},
   year={2025},
   url={https://github.com/brycewang-stanford/statspai},
-  version={0.3.0}
+  version={0.3.1}
 }
 ```
 
