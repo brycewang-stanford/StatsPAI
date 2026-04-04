@@ -172,6 +172,19 @@ class EconometricResults:
         """
         return self.data_info.get('fitted_values')
     
+    def to_docx(self, filename: str, title: Optional[str] = None):
+        """
+        Export results to a Word (.docx) document.
+
+        Parameters
+        ----------
+        filename : str
+            Output path (.docx).
+        title : str, optional
+            Table title. Defaults to model type.
+        """
+        _result_to_docx(self, filename, title)
+
     def __repr__(self) -> str:
         """String representation of results"""
         model_type = self.model_info.get('model_type', 'Unknown')
@@ -677,6 +690,19 @@ class CausalResult:
             raise ValueError("Pre-trend test not available for this method.")
         return self.model_info['pretrend_test']
 
+    def to_docx(self, filename: str, title: Optional[str] = None):
+        """
+        Export results to a Word (.docx) document.
+
+        Parameters
+        ----------
+        filename : str
+            Output path (.docx).
+        title : str, optional
+            Table title. Defaults to method name.
+        """
+        _result_to_docx(self, filename, title)
+
     def __repr__(self) -> str:
         s = self._stars(self.pvalue)
         return (
@@ -686,3 +712,134 @@ class CausalResult:
 
     def __str__(self) -> str:
         return self.summary()
+
+
+# ======================================================================
+# Shared Word export helper
+# ======================================================================
+
+def _result_to_docx(result, filename: str, title: Optional[str] = None):
+    """
+    Export a single EconometricResults or CausalResult to Word (.docx).
+
+    Produces a one-model table with coefficients, SEs, stars, and
+    diagnostics in APA format.
+    """
+    try:
+        from docx import Document
+        from docx.shared import Pt
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.enum.table import WD_TABLE_ALIGNMENT
+        from docx.oxml.ns import qn
+        from docx.oxml import OxmlElement
+    except ImportError:
+        raise ImportError(
+            "python-docx required for Word export. "
+            "Install: pip install python-docx"
+        )
+
+    if not filename.endswith('.docx'):
+        filename += '.docx'
+
+    doc = Document()
+
+    # Title
+    if title is None:
+        title = getattr(result, 'method', None) or result.model_info.get('model_type', 'Results')
+    p = doc.add_paragraph()
+    run = p.add_run(str(title))
+    run.bold = True
+    run.font.size = Pt(12)
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Build rows from result
+    params = result.params
+    std_errors = result.std_errors
+    pvalues = result.pvalues if hasattr(result, 'pvalues') else None
+
+    def _stars(pv):
+        if pv is None or (isinstance(pv, float) and np.isnan(pv)):
+            return ''
+        if pv < 0.01: return '***'
+        if pv < 0.05: return '**'
+        if pv < 0.1: return '*'
+        return ''
+
+    # Table: Variable | Coefficient | SE
+    rows_data = []
+    if isinstance(params, pd.Series):
+        for var in params.index:
+            coef = params[var]
+            se = std_errors[var] if var in std_errors.index else np.nan
+            if pvalues is not None and isinstance(pvalues, pd.Series) and var in pvalues.index:
+                pv = float(pvalues[var])
+            else:
+                pv = np.nan
+            rows_data.append((str(var), f'{coef:.4f}{_stars(pv)}', f'({se:.4f})'))
+
+    n_rows = len(rows_data) * 2 + 1  # coef rows + SE rows + header
+    # Actually: each variable gets 2 rows (coef, SE)
+    table = doc.add_table(rows=1 + len(rows_data) * 2, cols=2)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+    # Header
+    table.rows[0].cells[0].text = ''
+    table.rows[0].cells[1].text = title
+    for cell in table.rows[0].cells:
+        for para in cell.paragraphs:
+            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            for run in para.runs:
+                run.bold = True
+                run.font.size = Pt(10)
+
+    # Data
+    row_idx = 1
+    for var, coef_str, se_str in rows_data:
+        # Coefficient row
+        table.rows[row_idx].cells[0].text = var
+        table.rows[row_idx].cells[1].text = coef_str
+        for cell in table.rows[row_idx].cells:
+            for para in cell.paragraphs:
+                para.alignment = WD_ALIGN_PARAGRAPH.CENTER if cell == table.rows[row_idx].cells[1] else WD_ALIGN_PARAGRAPH.LEFT
+                for run in para.runs:
+                    run.font.size = Pt(9)
+        row_idx += 1
+
+        # SE row
+        table.rows[row_idx].cells[0].text = ''
+        table.rows[row_idx].cells[1].text = se_str
+        for para in table.rows[row_idx].cells[1].paragraphs:
+            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            for run in para.runs:
+                run.font.size = Pt(9)
+        row_idx += 1
+
+    # Diagnostics as additional paragraph
+    diag = getattr(result, 'diagnostics', {})
+    n_obs = None
+    if hasattr(result, 'data_info') and isinstance(result.data_info, dict):
+        n_obs = result.data_info.get('nobs')
+    if hasattr(result, 'n_obs'):
+        n_obs = result.n_obs
+
+    diag_lines = []
+    if n_obs is not None:
+        diag_lines.append(f'Observations: {n_obs:,}')
+    if isinstance(diag, dict):
+        for k, v in diag.items():
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                diag_lines.append(f'{k}: {v:.4f}' if isinstance(v, float) else f'{k}: {v:,}')
+
+    if diag_lines:
+        dp = doc.add_paragraph()
+        for line in diag_lines:
+            run = dp.add_run(line + '\n')
+            run.font.size = Pt(8)
+
+    # Significance note
+    np_ = doc.add_paragraph()
+    run = np_.add_run('* p<0.1, ** p<0.05, *** p<0.01')
+    run.italic = True
+    run.font.size = Pt(8)
+
+    doc.save(filename)

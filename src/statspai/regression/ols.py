@@ -308,9 +308,9 @@ class OLSRegression(BaseModel):
             'Adj. R-squared': results['adj_r_squared'],
             'F-statistic': results['f_statistic'],
             'Prob (F-statistic)': results['f_pvalue'],
-            'Log-Likelihood': np.nan,  # TODO: implement
-            'AIC': np.nan,  # TODO: implement
-            'BIC': np.nan   # TODO: implement
+            'Log-Likelihood': -0.5 * results['nobs'] * (np.log(2 * np.pi * results['rss'] / results['nobs']) + 1),
+            'AIC': results['nobs'] * np.log(results['rss'] / results['nobs']) + 2 * (results['df_model'] + 1),
+            'BIC': results['nobs'] * np.log(results['rss'] / results['nobs']) + np.log(results['nobs']) * (results['df_model'] + 1)
         }
         
         self._results = EconometricResults(

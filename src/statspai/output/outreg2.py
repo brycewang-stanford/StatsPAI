@@ -550,6 +550,155 @@ class OutReg2:
         return latex_code
 
 
+    def to_word(
+        self,
+        filename: str,
+        show_stars: bool = True,
+        show_se: bool = True,
+        show_tstat: bool = False,
+        decimal_places: int = 3,
+        variable_labels: Optional[Dict[str, str]] = None,
+    ):
+        """
+        Export regression results to Word (.docx) file.
+
+        Produces a publication-ready table with APA-style formatting,
+        equivalent to Stata's ``outreg2 using results.doc, word``.
+
+        Parameters
+        ----------
+        filename : str
+            Output Word filename (.docx).
+        show_stars : bool, default True
+            Whether to show significance stars.
+        show_se : bool, default True
+            Whether to show standard errors in parentheses.
+        show_tstat : bool, default False
+            Whether to show t-statistics instead of standard errors.
+        decimal_places : int, default 3
+            Number of decimal places.
+        variable_labels : dict, optional
+            Custom labels for variables.
+
+        Examples
+        --------
+        >>> outreg = OutReg2()
+        >>> outreg.add_model(results1, "OLS")
+        >>> outreg.add_model(results2, "IV")
+        >>> outreg.to_word("table1.docx")
+        """
+        try:
+            from docx import Document
+            from docx.shared import Pt, Inches, Cm
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
+            from docx.enum.table import WD_TABLE_ALIGNMENT
+            from docx.oxml.ns import qn
+        except ImportError:
+            raise ImportError(
+                "python-docx required for Word export. "
+                "Install: pip install python-docx"
+            )
+
+        df = self._create_regression_table(
+            show_stars=show_stars,
+            show_se=show_se,
+            show_tstat=show_tstat,
+            decimal_places=decimal_places,
+            variable_labels=variable_labels,
+        )
+
+        if not filename.endswith('.docx'):
+            filename += '.docx'
+
+        doc = Document()
+
+        # Title
+        if self.title:
+            title_para = doc.add_paragraph()
+            title_run = title_para.add_run(self.title)
+            title_run.bold = True
+            title_run.font.size = Pt(12)
+            title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        # Table
+        n_rows = len(df)
+        n_cols = len(df.columns)
+        table = doc.add_table(rows=n_rows + 1, cols=n_cols)
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        table.style = 'Table Grid'
+
+        # Header row
+        for j, col_name in enumerate(df.columns):
+            cell = table.rows[0].cells[j]
+            cell.text = str(col_name)
+            for paragraph in cell.paragraphs:
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                for run in paragraph.runs:
+                    run.bold = True
+                    run.font.size = Pt(10)
+
+        # Data rows
+        for i, (_, row) in enumerate(df.iterrows()):
+            for j, val in enumerate(row):
+                cell = table.rows[i + 1].cells[j]
+                cell.text = str(val) if val != "" else ""
+                for paragraph in cell.paragraphs:
+                    if j == 0:
+                        paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                    else:
+                        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    for run in paragraph.runs:
+                        run.font.size = Pt(9)
+
+        # APA-style borders: top/bottom thick, header bottom thin
+        self._apply_apa_borders(table, n_rows + 1, n_cols)
+
+        # Notes
+        if self.notes:
+            notes_para = doc.add_paragraph()
+            notes_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            for note in self.notes:
+                run = notes_para.add_run(note + '\n')
+                run.italic = True
+                run.font.size = Pt(8)
+
+        doc.save(filename)
+        print(f"Regression results exported to: {filename}")
+
+    @staticmethod
+    def _apply_apa_borders(table, n_rows, n_cols):
+        """Apply APA-style borders (top, header-bottom, bottom only)."""
+        from docx.oxml.ns import qn
+        from docx.oxml import OxmlElement
+
+        def set_cell_border(cell, top=None, bottom=None, start=None, end=None):
+            tc = cell._tc
+            tcPr = tc.get_or_add_tcPr()
+            tcBorders = OxmlElement('w:tcBorders')
+            for edge, val in [('top', top), ('bottom', bottom),
+                              ('start', start), ('end', end)]:
+                if val is not None:
+                    element = OxmlElement(f'w:{edge}')
+                    element.set(qn('w:val'), val.get('val', 'single'))
+                    element.set(qn('w:sz'), val.get('sz', '4'))
+                    element.set(qn('w:color'), val.get('color', '000000'))
+                    element.set(qn('w:space'), '0')
+                    tcBorders.append(element)
+            tcPr.append(tcBorders)
+
+        thick = {'val': 'single', 'sz': '12', 'color': '000000'}
+        thin = {'val': 'single', 'sz': '4', 'color': '000000'}
+        none_b = {'val': 'none', 'sz': '0', 'color': '000000'}
+
+        for i in range(n_rows):
+            for j in range(n_cols):
+                cell = table.rows[i].cells[j]
+                top = thick if i == 0 else (thin if i == 1 else none_b)
+                bottom = thick if i == n_rows - 1 else (thin if i == 0 else none_b)
+                set_cell_border(cell, top=top, bottom=bottom,
+                                start=none_b, end=none_b)
+
+
 def outreg2(
     *results: EconometricResults,
     filename: str,
@@ -626,8 +775,18 @@ def outreg2(
     if show_stars and not notes:
         reg_table.add_note("* p<0.1, ** p<0.05, *** p<0.01")
     
+    # Auto-detect format from filename extension
+    fmt = format.lower()
+    if fmt == 'auto':
+        if filename.endswith('.docx') or filename.endswith('.doc'):
+            fmt = 'word'
+        elif filename.endswith('.tex'):
+            fmt = 'latex'
+        else:
+            fmt = 'excel'
+
     # Export
-    if format.lower() == "latex":
+    if fmt == "latex":
         return reg_table.to_latex(
             filename=filename if filename.endswith('.tex') else filename + '.tex',
             show_stars=show_stars,
@@ -635,6 +794,16 @@ def outreg2(
             decimal_places=decimal_places,
             variable_labels=variable_labels
         )
+    elif fmt == "word":
+        reg_table.to_word(
+            filename=filename,
+            show_stars=show_stars,
+            show_se=show_se,
+            show_tstat=show_tstat,
+            decimal_places=decimal_places,
+            variable_labels=variable_labels,
+        )
+        return None
     else:
         reg_table.to_excel(
             filename=filename,
