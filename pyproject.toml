@@ -7,7 +7,7 @@ name = "StatsPAI"
 version = "0.1.0"
 description = "The AI-powered Statistics & Econometrics Toolkit for Python"
 readme = "README.md"
-license = "MIT"
+license = {text = "MIT"}
 authors = [
     {name = "Bryce Wang", email = "bryce@copaper.ai"}
 ]
