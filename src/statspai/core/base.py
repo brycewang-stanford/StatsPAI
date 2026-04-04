@@ -18,7 +18,7 @@ class BaseModel(ABC):
         self._results = None
     
     @abstractmethod
-    def fit(self, **kwargs) -> 'EconometricResults':
+    def fit(self, **kwargs) -> 'EconometricResults':  # noqa: F821
         """
         Fit the econometric model
         
