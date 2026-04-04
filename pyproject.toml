@@ -74,7 +74,7 @@ plotting = [
 
 [project.urls]
 Homepage = "https://github.com/brycewang-stanford/statspai"
-Documentation = "https://statspai.readthedocs.io/"
+Documentation = "https://github.com/brycewang-stanford/statspai#quick-example"
 Repository = "https://github.com/brycewang-stanford/statspai"
 "Bug Reports" = "https://github.com/brycewang-stanford/statspai/issues"
 

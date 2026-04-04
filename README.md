@@ -214,7 +214,7 @@ pytest
   author={Wang, Bryce},
   year={2025},
   url={https://github.com/brycewang-stanford/statspai},
-  version={0.1.0}
+  version={0.2.0}
 }
 ```
 
@@ -224,4 +224,4 @@ MIT License. See [LICENSE](LICENSE).
 
 ---
 
-[GitHub](https://github.com/brycewang-stanford/statspai) · [PyPI](https://pypi.org/project/StatsPAI/) · [Documentation](https://statspai.readthedocs.io/) · [CoPaper.AI](https://copaper.ai)
+[GitHub](https://github.com/brycewang-stanford/statspai) · [PyPI](https://pypi.org/project/StatsPAI/) · [User Guide](https://github.com/brycewang-stanford/statspai#quick-example) · [CoPaper.AI](https://copaper.ai)
