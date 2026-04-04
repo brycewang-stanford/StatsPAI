@@ -91,26 +91,6 @@ jobs:
         name: dist-packages
         path: dist/
 
-  publish-test:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    environment: testpypi
-    permissions:
-      id-token: write
-
-    steps:
-    - name: Download build artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: dist-packages
-        path: dist/
-
-    - name: Publish to TestPyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        repository-url: https://test.pypi.org/legacy/
-
   publish-prod:
     needs: test
     runs-on: ubuntu-latest
