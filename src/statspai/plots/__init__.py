@@ -11,13 +11,14 @@ Provides publication-quality academic plots:
 """
 
 from .binscatter import binscatter
-from .themes import set_theme, list_themes
+from .themes import set_theme, list_themes, use_chinese
 from .interactive import interactive, get_code, FigureEditor
 
 __all__ = [
     'binscatter',
     'set_theme',
     'list_themes',
+    'use_chinese',
     'interactive',
     'get_code',
     'FigureEditor',

@@ -52,7 +52,7 @@ from .output.tab import tab
 from .postestimation import margins, marginsplot, test, lincom
 from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, evalue, evalue_from_result
 from .inference import wild_cluster_bootstrap, aipw, ri_test
-from .plots import binscatter, set_theme, list_themes, interactive, get_code
+from .plots import binscatter, set_theme, list_themes, use_chinese, interactive, get_code
 from .utils import label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data
 from .gmm import xtabond
 from .metalearners import metalearner, SLearner, TLearner, XLearner, RLearner, DRLearner
@@ -137,6 +137,7 @@ __all__ = [
     "binscatter",
     "set_theme",
     "list_themes",
+    "use_chinese",
     "interactive",
     "get_code",
     # Utils

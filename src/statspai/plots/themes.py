@@ -157,6 +157,111 @@ def _get_cn_serif_fonts() -> list:
     return found
 
 
+def use_chinese(style: str = 'auto') -> str:
+    """
+    One-line fix for Chinese text rendering in matplotlib.
+
+    Call this **before** creating any plots. Automatically detects
+    the best Chinese font on your system (macOS, Windows, Linux).
+
+    Parameters
+    ----------
+    style : str, default 'auto'
+        - ``'auto'``: auto-detect the best available Chinese font
+        - ``'serif'``: prefer serif fonts (宋体 Songti SC, SimSun)
+        - ``'sans'``: prefer sans-serif fonts (苹方 PingFang, 黑体 SimHei)
+        - Any specific font name, e.g. ``'Songti SC'``, ``'SimHei'``
+
+    Returns
+    -------
+    str
+        The font name that was configured.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> sp.use_chinese()           # auto-detect best font
+    >>> sp.use_chinese('serif')    # prefer 宋体
+    >>> sp.use_chinese('sans')     # prefer 黑体/苹方
+    >>> sp.use_chinese('Kaiti SC') # use specific font
+    """
+    try:
+        import matplotlib as mpl
+        from matplotlib.font_manager import fontManager, findfont, FontProperties
+    except ImportError:
+        raise ImportError("matplotlib required. Install: pip install matplotlib")
+
+    available = {f.name for f in fontManager.ttflist}
+
+    # Priority lists for each platform
+    serif_priority = [
+        'Songti SC', 'Noto Serif CJK SC', 'SimSun', 'STSong',
+        'Hiragino Mincho ProN', 'AR PL UMing CN',
+    ]
+    sans_priority = [
+        'PingFang SC', 'PingFang HK', 'Hiragino Sans GB',
+        'Microsoft YaHei', 'SimHei', 'Noto Sans CJK SC',
+        'Heiti TC', 'STHeiti', 'WenQuanYi Micro Hei',
+        'Hiragino Sans',
+    ]
+    all_priority = sans_priority + serif_priority + ['Arial Unicode MS']
+
+    chosen = None
+
+    if style == 'auto':
+        for font in all_priority:
+            if font in available:
+                chosen = font
+                break
+    elif style == 'serif':
+        for font in serif_priority:
+            if font in available:
+                chosen = font
+                break
+    elif style == 'sans':
+        for font in sans_priority:
+            if font in available:
+                chosen = font
+                break
+    elif style in available:
+        chosen = style
+    else:
+        # Try as-is, matplotlib will warn if not found
+        chosen = style
+
+    if chosen is None:
+        import warnings
+        warnings.warn(
+            "No Chinese font found on this system. "
+            "Install one of: Noto CJK, SimSun, PingFang, "
+            "Microsoft YaHei, or WenQuanYi.",
+            UserWarning, stacklevel=2,
+        )
+        return ''
+
+    # Determine family
+    _serif_names = ('Song', 'Serif', 'Mincho', 'Ming', 'STSong', 'Noto Serif')
+    if any(kw in chosen for kw in _serif_names):
+        family = 'serif'
+        mpl.rcParams['font.family'] = 'serif'
+        current = list(mpl.rcParams.get('font.serif', []))
+        if chosen not in current:
+            current.insert(0, chosen)
+        mpl.rcParams['font.serif'] = current
+    else:
+        family = 'sans-serif'
+        mpl.rcParams['font.family'] = 'sans-serif'
+        current = list(mpl.rcParams.get('font.sans-serif', []))
+        if chosen not in current:
+            current.insert(0, chosen)
+        mpl.rcParams['font.sans-serif'] = current
+
+    # Fix minus sign
+    mpl.rcParams['axes.unicode_minus'] = False
+
+    return chosen
+
+
 def set_theme(
     name: str = 'academic',
     palette: Optional[str] = None,
