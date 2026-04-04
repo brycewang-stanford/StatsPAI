@@ -77,7 +77,10 @@ def xtabond(
         E.g., (2, 5) means Y_{t-2}, ..., Y_{t-5} are instruments.
     method : str, default 'difference'
         ``'difference'`` — Arellano-Bond (first-differenced GMM).
-        ``'system'`` — Blundell-Bond (system GMM, adds level equations).
+        ``'system'`` — Blundell-Bond style: uses longer lag structure
+        for better efficiency with persistent series. (Note: full
+        system GMM with stacked level equations is planned for a
+        future release.)
     twostep : bool, default False
         Use two-step GMM (more efficient but may have finite-sample
         bias — corrected by Windmeijer 2005 when ``robust=True``).
@@ -152,12 +155,23 @@ def xtabond(
 
     # --- Build instruments ---
     # For Arellano-Bond: use lagged levels of Y as instruments for ΔY
+    # For system: also add lagged differences as instruments
     min_gmm_lag, max_gmm_lag = gmm_lags
+    if method == 'system':
+        # Extend lag range for system GMM (more instruments)
+        max_gmm_lag = max(max_gmm_lag, min_gmm_lag + 3)
     iv_cols = []
     for lag in range(min_gmm_lag, max_gmm_lag + 1):
         col = f'_y_iv_lag{lag}'
         df_diff[col] = df_diff.groupby(id)[y].shift(lag)
         iv_cols.append(col)
+
+    # For system GMM: add lagged first-differences as additional instruments
+    if method == 'system':
+        for lag in range(1, min(3, max_gmm_lag)):
+            col = f'_dy_iv_lag{lag}'
+            df_diff[col] = df_diff.groupby(id)[d_y_col].shift(lag)
+            iv_cols.append(col)
 
     # Add exogenous regressors as their own instruments
     for var in x:

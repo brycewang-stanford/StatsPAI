@@ -15,5 +15,6 @@ Iacus, S.M., King, G., and Porro, G. (2012). Political Analysis, 20(1), 1-24.
 """
 
 from .match import match, MatchEstimator
+from .ebalance import ebalance
 
-__all__ = ['match', 'MatchEstimator']
+__all__ = ['match', 'MatchEstimator', 'ebalance']

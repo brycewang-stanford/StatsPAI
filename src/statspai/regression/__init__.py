@@ -6,6 +6,7 @@ from .ols import regress, OLSRegression, OLSEstimator
 from .iv import ivreg, IVRegression, IVEstimator
 from .heckman import heckman
 from .quantile import qreg, sqreg
+from .tobit import tobit
 
 __all__ = [
     "regress",
@@ -17,4 +18,5 @@ __all__ = [
     "heckman",
     "qreg",
     "sqreg",
+    "tobit",
 ]

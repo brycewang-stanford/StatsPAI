@@ -38,7 +38,7 @@ from .synth import (
     synthdid_placebo, synthdid_plot, synthdid_units_plot, synthdid_rmse_plot,
     california_prop99,
 )
-from .matching import match, MatchEstimator
+from .matching import match, MatchEstimator, ebalance
 from .dml import dml, DoubleML
 from .deepiv import deepiv, DeepIV
 from .panel import panel, PanelRegression
@@ -50,13 +50,14 @@ from .output.modelsummary import modelsummary, coefplot
 from .output.sumstats import sumstats, balance_table
 from .output.tab import tab
 from .postestimation import margins, marginsplot, test, lincom
-from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test
+from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test
 from .inference import wild_cluster_bootstrap, aipw, ri_test
 from .plots import binscatter, set_theme
 from .utils import label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data
 from .gmm import xtabond
 from .regression.heckman import heckman
 from .regression.quantile import qreg, sqreg
+from .regression.tobit import tobit
 
 __all__ = [
     # Core
@@ -92,6 +93,7 @@ __all__ = [
     # Matching
     "match",
     "MatchEstimator",
+    "ebalance",
     # Double ML
     "dml",
     "DoubleML",
@@ -132,6 +134,7 @@ __all__ = [
     "heckman",
     "qreg",
     "sqreg",
+    "tobit",
     # Post-estimation
     "margins",
     "marginsplot",
@@ -153,6 +156,7 @@ __all__ = [
     "sensemakr",
     "rddensity",
     "hausman_test",
+    "anderson_rubin_test",
     # Inference
     "wild_cluster_bootstrap",
     "aipw",

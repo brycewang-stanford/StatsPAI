@@ -11,6 +11,7 @@ from .tests import diagnose, het_test, reset_test, vif
 from .sensemakr import sensemakr
 from .rddensity import rddensity
 from .hausman import hausman_test
+from .weak_iv import anderson_rubin_test
 
 __all__ = [
     'oster_bounds',
@@ -22,4 +23,5 @@ __all__ = [
     'sensemakr',
     'rddensity',
     'hausman_test',
+    'anderson_rubin_test',
 ]
