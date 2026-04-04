@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Bryce Wang"
 __email__ = "bryce@copaper.ai"
 
@@ -41,7 +41,11 @@ from .mediation import mediate, MediationAnalysis
 from .bartik import bartik, BartikIV
 from .output.outreg2 import OutReg2, outreg2
 from .output.modelsummary import modelsummary, coefplot
+from .output.sumstats import sumstats, balance_table
+from .output.tab import tab
+from .postestimation import margins, marginsplot, test, lincom
 from .diagnostics import oster_bounds, mccrary_test
+from .inference import wild_cluster_bootstrap, aipw
 
 __all__ = [
     # Core
@@ -81,6 +85,14 @@ __all__ = [
     "outreg2",
     "modelsummary",
     "coefplot",
+    "sumstats",
+    "balance_table",
+    "tab",
+    # Post-estimation
+    "margins",
+    "marginsplot",
+    "test",
+    "lincom",
     # Mediation
     "mediate",
     "MediationAnalysis",
@@ -90,4 +102,7 @@ __all__ = [
     # Diagnostics
     "oster_bounds",
     "mccrary_test",
+    # Inference
+    "wild_cluster_bootstrap",
+    "aipw",
 ]

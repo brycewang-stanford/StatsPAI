@@ -1,0 +1,16 @@
+"""
+Post-estimation tools for StatsPAI.
+
+Provides:
+- margins(): Average Marginal Effects (AME), Marginal Effects at the Mean (MEM)
+- marginsplot(): Visualize marginal effects
+- test(): Wald / F test for linear restrictions (beta1 = beta2, joint significance)
+- lincom(): Linear combinations of coefficients with inference
+
+Equivalent to Stata's ``margins``, ``test``, ``lincom`` commands.
+"""
+
+from .margins import margins, marginsplot
+from .hypothesis import test, lincom
+
+__all__ = ['margins', 'marginsplot', 'test', 'lincom']

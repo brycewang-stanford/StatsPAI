@@ -1,199 +1,227 @@
-# StatsPAI
+# StatsPAI: The Causal Inference & Econometrics Toolkit for Python
 
-[![PyPI version](https://badge.fury.io/py/StatsPAI.svg)](https://badge.fury.io/py/StatsPAI)
+[![PyPI version](https://badge.fury.io/py/StatsPAI.svg)](https://pypi.org/project/StatsPAI/)
 [![Python versions](https://img.shields.io/pypi/pyversions/StatsPAI.svg)](https://pypi.org/project/StatsPAI/)
-[![License](https://img.shields.io/github/license/brycewang-stanford/statspai.svg)](https://github.com/brycewang-stanford/statspai/blob/main/LICENSE)
-[![Build Status](https://github.com/brycewang-stanford/statspai/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/brycewang-stanford/statspai/actions)
-[![codecov](https://codecov.io/gh/brycewang-stanford/statspai/branch/main/graph/badge.svg)](https://codecov.io/gh/brycewang-stanford/statspai)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/brycewang-stanford/statspai/blob/main/LICENSE)
+[![Tests](https://github.com/brycewang-stanford/statspai/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/brycewang-stanford/statspai/actions)
+[![Downloads](https://static.pepy.tech/badge/statspai/month)](https://pepy.tech/project/statspai)
 
-**The AI-powered Statistics & Econometrics Toolkit for Python**
+StatsPAI is a Python package for causal inference and applied econometrics. It provides a unified, Stata-style API covering the complete empirical research workflow — from estimation to publication-ready tables in Word, Excel, and LaTeX.
 
-StatsPAI bridges the gap between user-friendly syntax and powerful econometric analysis, making advanced techniques accessible to researchers and practitioners.
+It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact) into a single, consistent Python package.
 
-##  Features
+> Built by the team behind [CoPaper.AI](https://copaper.ai) · Stanford REAP Program
 
-### Core Econometric Methods
-- **Linear Regression**: OLS, WLS with robust standard errors
-- **Instrumental Variables**: 2SLS estimation 
-- **Panel Data**: Fixed Effects, Random Effects models
-- **Causal Inference**: Causal Forest implementation (inspired by EconML)
+---
 
-### User Experience
-- **Formula Interface**: Intuitive R/Stata-style syntax `"y ~ x1 + x2"`
-- **Excel Export**: Professional output tables via `outreg2` (Stata-inspired)
-- **Flexible API**: Both formula and matrix interfaces supported
-- **Rich Output**: Detailed summary statistics and diagnostic tests
+## Main Features
 
-### Technical Excellence
-- **Robust Implementation**: Based on proven econometric theory
-- **Performance Optimized**: Efficient algorithms for large datasets
-- **Well Tested**: Comprehensive test suite ensuring reliability
-- **Type Hints**: Full type annotation for better development experience
+**Regression Models:**
 
-##  Installation
+- Ordinary Least Squares with robust / clustered / HAC standard errors
+- Instrumental Variables / Two-Stage Least Squares (2SLS), with first-stage F, Sargan, and Hausman tests
+- Panel data: Fixed Effects, Random Effects, Between, First Differences (via linearmodels)
+- High-dimensional Fixed Effects (via pyfixest)
+
+**Causal Inference — Difference-in-Differences:**
+
+- Classic 2x2 DID estimator
+- Staggered DID with heterogeneous treatment effects (Callaway & Sant'Anna 2021)
+- Event study plots and pre-trend tests
+
+**Causal Inference — Regression Discontinuity:**
+
+- Sharp and Fuzzy RD with local polynomial estimation
+- MSE-optimal bandwidth selection (CCT 2014)
+- Robust bias-corrected confidence intervals
+- RD plots with binned scatter and polynomial fit
+
+**Causal Inference — Matching:**
+
+- Propensity Score Matching (logit-based PSM)
+- Mahalanobis distance matching
+- Coarsened Exact Matching (CEM)
+- Balance diagnostics with standardized mean differences
+
+**Causal Inference — Synthetic Control:**
+
+- Abadie-Diamond-Hainmueller SCM
+- Penalized / ridge SCM for many donors
+- Placebo (permutation) inference with MSPE ratios
+- Donor weight tables and gap plots
+
+**Causal Inference — Machine Learning Methods:**
+
+- Double/Debiased Machine Learning: Partially Linear (PLR) and Interactive (IRM) models with cross-fitting (Chernozhukov et al. 2018)
+- Causal Forest for heterogeneous treatment effects (HTE)
+- Compatible with any scikit-learn estimator as first-stage ML model
+
+**Causal Inference — Other Methods:**
+
+- Causal Impact: Bayesian structural time-series intervention analysis (Brodersen et al. 2015)
+- Causal Mediation Analysis: ACME / ADE decomposition with bootstrap inference (Imai et al. 2010)
+- Shift-Share / Bartik IV with Rotemberg weight diagnostics (GPSS 2020)
+
+**Post-Estimation:**
+
+- Marginal effects (AME / MEM) with delta-method standard errors, equivalent to Stata's `margins, dydx(*)`
+- Wald test for linear restrictions, equivalent to Stata's `test`
+- Linear combinations of coefficients with inference, equivalent to Stata's `lincom`
+
+**Diagnostics:**
+
+- Oster (2019) coefficient stability / selection-on-unobservables bounds
+- McCrary (2008) density manipulation test for RD validity
+
+**Publication-Quality Output:**
+
+- Multi-model comparison tables (equivalent to R's `modelsummary` / Stata's `esttab`)
+- Coefficient forest plots across models
+- Summary statistics tables (equivalent to Stata's `tabstat`)
+- Balance tables for matching / DID / RCT papers
+- Cross-tabulation with chi-squared / Fisher's exact test (equivalent to Stata's `tab, chi2`)
+- **Export to Word (.docx), Excel (.xlsx), LaTeX (.tex), HTML** — all tables, all formats
+- Every result object has `.summary()`, `.plot()`, `.to_latex()`, `.to_docx()`, `.cite()`
+
+---
+
+## Installation
 
 ```bash
-# Latest stable version
-pip install StatsPAI
-
-# Development version
-pip install git+https://github.com/brycewang-stanford/statspai.git
+pip install statspai
 ```
 
-### Requirements
-- Python 3.8+
-- NumPy, SciPy, Pandas
-- scikit-learn (for Causal Forest)
-- openpyxl (for Excel export)
+With optional dependencies:
 
-##  Quick Start
-
-### Basic Regression Analysis
-```python
-import pandas as pd
-from statspai import reg, outreg2
-
-# Load your data
-df = pd.read_csv('data.csv')
-
-# Run OLS regression
-result1 = reg('wage ~ education + experience', data=df)
-print(result1.summary())
-
-# Add control variables
-result2 = reg('wage ~ education + experience + age + gender', data=df)
-
-# Export results to Excel
-outreg2([result1, result2], 'regression_results.xlsx', 
-        title='Wage Regression Analysis')
-```
-
-### Instrumental Variables
-```python
-# 2SLS estimation
-iv_result = reg('wage ~ education | mother_education + father_education', 
-                data=df, method='2sls')
-print(iv_result.summary())
-```
-
-### Panel Data Analysis
-```python
-# Fixed effects model
-fe_result = reg('y ~ x1 + x2', data=df, 
-                entity_col='firm_id', time_col='year', 
-                method='fixed_effects')
-```
-
-### Causal Forest for Heterogeneous Treatment Effects
-```python
-from statspai import CausalForest
-
-# Initialize Causal Forest
-cf = CausalForest(n_estimators=100, random_state=42)
-
-# Fit model: outcome ~ treatment | features | controls
-cf.fit('income ~ job_training | age + education + experience | region + year', 
-       data=df)
-
-# Estimate individual treatment effects
-individual_effects = cf.effect(df)
-
-# Get confidence intervals
-effects_ci = cf.effect_interval(df, alpha=0.05)
-
-# Export results
-cf_summary = cf.summary()
-outreg2([cf_summary], 'causal_forest_results.xlsx')
-```
-
-##  Advanced Usage
-
-### Robust Standard Errors
-```python
-# Heteroskedasticity-robust standard errors
-result = reg('y ~ x1 + x2', data=df, robust=True)
-
-# Clustered standard errors
-result = reg('y ~ x1 + x2', data=df, cluster='firm_id')
-```
-
-### Model Comparison
-```python
-from statspai import compare_models
-
-models = [
-    reg('y ~ x1', data=df),
-    reg('y ~ x1 + x2', data=df),
-    reg('y ~ x1 + x2 + x3', data=df)
-]
-
-comparison = compare_models(models)
-print(comparison.summary())
-```
-
-### Custom Output Formatting
-```python
-outreg2(results, 'output.xlsx',
-        title='Regression Results',
-        add_stats={'Observations': lambda r: r.nobs,
-                  'R-squared': lambda r: r.rsquared},
-        decimal_places=4,
-        star_levels=[0.01, 0.05, 0.1])
-```
-
-##  Documentation
-
-- **[User Guide](docs/user_guide.md)**: Comprehensive tutorials and examples
-- **[API Reference](docs/api_reference.md)**: Detailed function documentation  
-- **[Theory Guide](docs/theory_guide.md)**: Mathematical foundations
-- **[Examples](examples/)**: Jupyter notebooks with real-world applications
-
-##  Contributing
-
-We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Setup
 ```bash
-# Clone repository
+pip install statspai[plotting]    # matplotlib, seaborn
+pip install statspai[fixest]      # pyfixest for high-dimensional FE
+```
+
+**Requirements:** Python >= 3.9
+
+**Core dependencies:** NumPy, SciPy, Pandas, statsmodels, scikit-learn, linearmodels, patsy, openpyxl, python-docx
+
+---
+
+## Quick Example
+
+```python
+import statspai as sp
+
+# --- Estimation ---
+r1 = sp.regress("wage ~ education + experience", data=df, robust='hc1')
+r2 = sp.ivreg("wage ~ (education ~ parent_edu) + experience", data=df)
+r3 = sp.did(df, y='wage', treat='policy', time='year', id='worker')
+r4 = sp.rdrobust(df, y='score', x='running_var', c=0)
+r5 = sp.match(df, y='outcome', treat='treated', covariates=['age', 'edu'])
+r6 = sp.dml(df, y='wage', treat='training', covariates=['age', 'edu', 'exp'])
+
+# --- Post-estimation ---
+me = sp.margins(r1, data=df)            # Marginal effects
+sp.test(r1, "education = experience")   # Wald test: beta_edu = beta_exp?
+sp.lincom(r1, "education + experience") # Linear combination
+
+# --- Tables (to Word / Excel / LaTeX) ---
+sp.modelsummary(r1, r2, output='table2.docx')
+sp.outreg2(r1, r2, r3, filename='results.xlsx')
+sp.sumstats(df, vars=['wage', 'education', 'age'], output='table1.docx')
+sp.balance_table(df, treat='treated', covariates=['age', 'edu'], output='balance.docx')
+sp.tab(df, 'treatment', 'outcome', output='crosstab.docx')
+```
+
+---
+
+## API Summary
+
+| Category | Functions | Description |
+| --- | --- | --- |
+| **Regression** | `regress`, `ivreg`, `panel`, `fixest.feols` | OLS, IV/2SLS, Panel (FE/RE/FD/BE), High-dimensional FE |
+| **DID** | `did`, `did_2x2`, `callaway_santanna` | Classic 2x2, Staggered (C&S 2021), Event study |
+| **RD** | `rdrobust`, `rdplot` | Sharp/Fuzzy RD, CCT robust inference, RD plots |
+| **Matching** | `match` | PSM, CEM, Mahalanobis, Balance diagnostics |
+| **Synth** | `synth` | Abadie SCM, Penalized SCM, Placebo inference |
+| **ML Causal** | `dml`, `causal_forest` | Double ML (PLR/IRM), Causal Forest (HTE) |
+| **Other Causal** | `causal_impact`, `mediate`, `bartik` | Intervention analysis, Mediation, Shift-share IV |
+| **Post-estimation** | `margins`, `marginsplot`, `test`, `lincom` | Marginal effects, Wald tests, Linear combinations |
+| **Diagnostics** | `oster_bounds`, `mccrary_test` | Coefficient stability, Density manipulation |
+| **Tables** | `modelsummary`, `outreg2`, `sumstats`, `balance_table`, `tab` | Multi-model tables, Summary stats, Balance, Cross-tabs |
+| **Plots** | `coefplot`, `marginsplot`, `rdplot`, `result.plot()` | Coefficient, Margins, RD, Event study plots |
+| **Export** | `.to_docx()`, `.to_latex()`, `output='*.xlsx'` | Word, Excel, LaTeX, HTML — all tables, all formats |
+
+All causal methods return a unified **`CausalResult`** object:
+
+```python
+result.estimate       # Point estimate
+result.se             # Standard error
+result.pvalue         # P-value
+result.ci             # Confidence interval
+result.summary()      # Formatted text summary
+result.plot()         # Appropriate visualization
+result.to_latex()     # LaTeX table
+result.to_docx()      # Word document
+result.cite()         # BibTeX citation for the method
+```
+
+---
+
+## Comparison with Stata and R
+
+| Task | Stata | R | StatsPAI |
+| --- | --- | --- | --- |
+| OLS with robust SE | `reg y x, r` | `feols(y ~ x, vcov="HC1")` | `sp.regress("y ~ x", robust='hc1')` |
+| IV regression | `ivregress 2sls y (x = z)` | `feols(y ~ 1 \| x ~ z)` | `sp.ivreg("y ~ (x ~ z)")` |
+| Staggered DID | `csdid y, ivar(id) time(t) gvar(g)` | `att_gt(y ~ 1, ...)` | `sp.did(df, y, treat, time, id)` |
+| RD design | `rdrobust y x, c(0)` | `rdrobust(Y, X, c=0)` | `sp.rdrobust(df, y, x, c=0)` |
+| PSM matching | `psmatch2 treat x1 x2` | `matchit(treat ~ x1+x2)` | `sp.match(df, y, treat, covs)` |
+| Double ML | — | `DoubleML$new(...)` | `sp.dml(df, y, treat, covs)` |
+| Marginal effects | `margins, dydx(*)` | `margins(model)` | `sp.margins(result, data=df)` |
+| Wald test | `test x1 = x2` | `linearHypothesis(...)` | `sp.test(result, "x1 = x2")` |
+| Export to Word | `outreg2 using r.doc, word` | `modelsummary(output="t.docx")` | `sp.outreg2(r, filename="r.docx")` |
+| Summary stats | `tabstat y x, s(mean sd)` | `datasummary(...)` | `sp.sumstats(df, vars=[...])` |
+
+---
+
+## About
+
+**StatsPAI Inc.** is the research infrastructure company behind [CoPaper.AI](https://copaper.ai) — the AI co-authoring platform for empirical research, born out of Stanford's [REAP](https://reap.fsi.stanford.edu/) program.
+
+**CoPaper.AI** — Upload your data, set your research question, and produce a fully reproducible academic paper with code, tables, and formatted output. Powered by StatsPAI under the hood. [copaper.ai](https://copaper.ai)
+
+**Team:**
+
+- **Bryce Wang** — Founder. Economics, Finance, CS & AI. Stanford REAP.
+- **Dr. Scott Rozelle** — Co-founder & Strategic Advisor. Stanford Senior Fellow, author of *Invisible China*.
+
+---
+
+## Contributing
+
+```bash
 git clone https://github.com/brycewang-stanford/statspai.git
 cd statspai
-
-# Install in development mode
-pip install -e ".[dev]"
-
-# Install pre-commit hooks
-pre-commit install
-
-# Run tests
+pip install -e ".[dev,plotting,fixest]"
 pytest
 ```
 
-##  License
+---
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-##  Acknowledgments
-
-- Inspired by Stata's `outreg2` command for output formatting
-- Causal Forest implementation based on Wager & Athey (2018)
-- Built on the shoulders of NumPy, SciPy, and scikit-learn
-
-##  Contact
-
-- **Author**: Bryce Wang
-- **Email**: brycew6m@gmail.com
-- **GitHub**: [brycewang-stanford](https://github.com/brycewang-stanford)
-
-##  Citation
-
-If you use StatsPAI in your research, please cite:
+## Citation
 
 ```bibtex
-@software{wang2024statspai,
-  title={StatsPAI: The AI-powered Statistics & Econometrics Toolkit for Python},
+@software{wang2025statspai,
+  title={StatsPAI: The Causal Inference & Econometrics Toolkit for Python},
   author={Wang, Bryce},
-  year={2024},
+  year={2025},
   url={https://github.com/brycewang-stanford/statspai},
   version={0.1.0}
 }
 ```
+
+## License
+
+MIT License. See [LICENSE](LICENSE).
+
+---
+
+[GitHub](https://github.com/brycewang-stanford/statspai) · [PyPI](https://pypi.org/project/StatsPAI/) · [Documentation](https://statspai.readthedocs.io/) · [CoPaper.AI](https://copaper.ai)

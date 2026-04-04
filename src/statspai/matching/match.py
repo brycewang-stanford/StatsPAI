@@ -190,7 +190,27 @@ class MatchEstimator:
     # ------------------------------------------------------------------
 
     def _psm(self, Y, X, T, idx_t, idx_c):
-        """Propensity Score Matching."""
+        """Propensity Score Matching.
+
+        References
+        ----------
+        Rosenbaum, P.R. and Rubin, D.B. (1983). Biometrika, 70(1), 41-55.
+
+        .. warning::
+            King, G. and Nielsen, R. (2019). "Why Propensity Scores Should
+            Not Be Used for Matching." *Political Analysis*, 27(4), 435-454.
+            PSM can increase imbalance, model dependence, and bias. Consider
+            using CEM (method='cem'), Mahalanobis matching
+            (method='mahalanobis'), or entropy balancing as alternatives.
+        """
+        import warnings
+        warnings.warn(
+            "PSM can increase imbalance and bias (King & Nielsen 2019, "
+            "Political Analysis). Consider method='cem' or "
+            "method='mahalanobis' as more robust alternatives.",
+            UserWarning,
+            stacklevel=3,
+        )
         # Estimate propensity score via logistic regression
         pscore = self._logit_propensity(X, T)
 
