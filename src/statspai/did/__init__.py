@@ -2,13 +2,10 @@
 Difference-in-Differences (DID) module for StatsPAI.
 
 Provides estimators for:
-- Classic 2x2 DID (two groups, two periods)
-- Staggered DID with heterogeneous treatment effects (Callaway & Sant'Anna, 2021)
-
-Planned:
-- Sun & Abraham (2021) interaction-weighted event study
-- Goodman-Bacon (2021) decomposition
-- Doubly Robust DID (Sant'Anna & Zhao, 2020) — standalone
+- Classic 2×2 DID (two groups, two periods)
+- Callaway & Sant'Anna (2021) — staggered DID with DR/IPW/REG
+- Sun & Abraham (2021) — interaction-weighted event study
+- Goodman-Bacon (2021) — TWFE decomposition diagnostic
 """
 
 from typing import Optional, List
@@ -18,6 +15,8 @@ import pandas as pd
 from ..core.results import CausalResult
 from .did_2x2 import did_2x2
 from .callaway_santanna import callaway_santanna
+from .sun_abraham import sun_abraham
+from .bacon import bacon_decomposition
 
 
 def did(
@@ -128,9 +127,21 @@ def did(
             base_period=base_period, alpha=alpha,
         )
 
+    if method in ('sun_abraham', 'sa', 'sunab'):
+        if id is None:
+            raise ValueError(
+                "'id' (unit identifier) is required for Sun-Abraham."
+            )
+        return sun_abraham(
+            data, y=y, g=treat, t=time, i=id,
+            covariates=covariates, cluster=cluster,
+            alpha=alpha,
+        )
+
     raise ValueError(
         f"Unknown DID method: '{method}'. "
-        "Available: '2x2', 'callaway_santanna' (or 'cs')."
+        "Available: '2x2', 'callaway_santanna' (or 'cs'), "
+        "'sun_abraham' (or 'sa')."
     )
 
 
@@ -138,4 +149,6 @@ __all__ = [
     'did',
     'did_2x2',
     'callaway_santanna',
+    'sun_abraham',
+    'bacon_decomposition',
 ]

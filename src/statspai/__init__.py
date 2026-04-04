@@ -30,7 +30,7 @@ from .core.results import EconometricResults, CausalResult
 from .regression.ols import regress
 from .regression.iv import ivreg, IVRegression
 from .causal.causal_forest import CausalForest, causal_forest
-from .did import did, did_2x2, callaway_santanna
+from .did import did, did_2x2, callaway_santanna, sun_abraham, bacon_decomposition
 from .rd import rdrobust, rdplot
 from .synth import synth, SyntheticControl
 from .matching import match, MatchEstimator
@@ -59,6 +59,8 @@ __all__ = [
     "did",
     "did_2x2",
     "callaway_santanna",
+    "sun_abraham",
+    "bacon_decomposition",
     # RD
     "rdrobust",
     "rdplot",
