@@ -6,7 +6,7 @@
 [![Tests](https://github.com/brycewang-stanford/statspai/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/brycewang-stanford/statspai/actions)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
 
-StatsPAI is a unified Python package for causal inference and applied econometrics. One `import`, 120+ functions, covering the complete empirical research workflow — from estimation to publication-ready tables in Word, Excel, and LaTeX.
+StatsPAI is a unified Python package for causal inference and applied econometrics. One `import`, 150+ functions, covering the complete empirical research workflow — from classical econometrics to cutting-edge ML/AI causal methods to publication-ready tables in Word, Excel, and LaTeX.
 
 It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 
@@ -111,6 +111,51 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 | `policy_tree()` | Optimal treatment assignment rules | Athey & Wager (2021) |
 | `policy_value()` | Policy value evaluation | — |
 
+### Conformal & Bayesian Causal Inference
+
+| Function | Description | Reference |
+| --- | --- | --- |
+| `conformal_cate()` | Distribution-free prediction intervals for ITE | Lei & Candes (2021) |
+| `bcf()` | Bayesian Causal Forest (separate mu/tau) | Hahn, Murray & Carvalho (2020) |
+
+### Dose-Response & Multi-valued Treatment
+
+| Function | Description | Reference |
+| --- | --- | --- |
+| `dose_response()` | Continuous treatment dose-response curve (GPS) | Hirano & Imbens (2004) |
+| `multi_treatment()` | Multi-valued treatment AIPW | Cattaneo (2010) |
+
+### Bounds & Partial Identification
+
+| Function | Description | Reference |
+| --- | --- | --- |
+| `lee_bounds()` | Sharp bounds under sample selection | Lee (2009) |
+| `manski_bounds()` | Worst-case bounds (no assumption / MTR / MTS) | Manski (1990) |
+
+### Interference & Spillover
+
+| Function | Description | Reference |
+| --- | --- | --- |
+| `spillover()` | Direct + spillover + total effect decomposition | Hudgens & Halloran (2008) |
+
+### Dynamic Treatment Regimes
+
+| Function | Description | Reference |
+| --- | --- | --- |
+| `g_estimation()` | Multi-stage optimal DTR via G-estimation | Robins (2004) |
+
+### Bunching & Tax Policy
+
+| Function | Description | Reference |
+| --- | --- | --- |
+| `bunching()` | Kink/notch bunching estimator with elasticity | Kleven & Waseem (2013) |
+
+### Matrix Completion (Panel)
+
+| Function | Description | Reference |
+| --- | --- | --- |
+| `mc_panel()` | Causal panel data via nuclear-norm matrix completion | Athey et al. (2021) |
+
 ### Other Causal Methods
 
 | Function | Description | Stata/R equivalent |
@@ -137,6 +182,7 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 | `mccrary_test()` | Density discontinuity test | McCrary (2008) |
 | `hausman_test()` | FE vs RE specification test | Hausman (1978) |
 | `anderson_rubin_test()` | Weak instrument robust inference | Anderson & Rubin (1949) |
+| `evalue()` | E-value sensitivity to unmeasured confounding | VanderWeele & Ding (2017) |
 | `het_test()` | Breusch-Pagan / White heteroskedasticity | — |
 | `reset_test()` | Ramsey RESET specification test | — |
 | `vif()` | Variance Inflation Factor | — |
@@ -298,7 +344,7 @@ sp.subgroup_analysis(df, formula="wage ~ education + experience",
 ## API at a Glance
 
 ```text
-120 public functions/classes
+150+ public functions/classes
 
 Regression:     regress, ivreg, panel, heckman, qreg, sqreg, tobit, xtabond
 DID:            did, did_2x2, callaway_santanna, sun_abraham, bacon_decomposition, honest_did
@@ -309,9 +355,17 @@ ML Causal:      dml, causal_forest, deepiv, metalearner, tmle, aipw
 Neural:         tarnet, cfrnet, dragonnet
 Discovery:      notears, pc_algorithm
 Policy:         policy_tree, policy_value
+Conformal/Bayes:conformal_cate, bcf
+Dose-Response:  dose_response
+Multi-Treat:    multi_treatment
+Bounds:         lee_bounds, manski_bounds
+Interference:   spillover
+DTR:            g_estimation
+Bunching:       bunching
+Panel MC:       mc_panel
 Other:          causal_impact, mediate, bartik
 Post-est:       margins, marginsplot, test, lincom
-Diagnostics:    oster_bounds, sensemakr, mccrary_test, hausman_test, het_test, reset_test, vif
+Diagnostics:    oster_bounds, sensemakr, evalue, mccrary_test, hausman_test, het_test, reset_test, vif
 Robustness:     spec_curve, robustness_report, subgroup_analysis
 Inference:      wild_cluster_bootstrap, ri_test
 Output:         modelsummary, outreg2, sumstats, balance_table, tab, coefplot, binscatter
@@ -351,7 +405,7 @@ pytest
   author={Wang, Bryce},
   year={2025},
   url={https://github.com/brycewang-stanford/statspai},
-  version={0.2.0}
+  version={0.3.0}
 }
 ```
 
