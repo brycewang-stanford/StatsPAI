@@ -170,12 +170,36 @@ def create_jupyter_panel(editor: FigureEditor):
     def _on_ax_change(change):
         """Update all widgets when axis selection changes."""
         ax = axes[change['new']]
+        # Text tab
         title_text.value = ax.get_title()
         title_size.value = ax.title.get_fontsize()
         xlabel_text.value = ax.get_xlabel()
         xlabel_size.value = ax.xaxis.label.get_fontsize()
         ylabel_text.value = ax.get_ylabel()
         ylabel_size.value = ax.yaxis.label.get_fontsize()
+        # Layout tab: spines
+        spine_top.value = ax.spines['top'].get_visible()
+        spine_right.value = ax.spines['right'].get_visible()
+        spine_bottom.value = ax.spines['bottom'].get_visible()
+        spine_left.value = ax.spines['left'].get_visible()
+        # Layout tab: grid
+        gridlines = ax.xaxis.get_gridlines()
+        grid_toggle.value = (
+            gridlines[0].get_visible() if gridlines else False
+        )
+        # Layout tab: axis limits
+        xl = ax.get_xlim()
+        yl = ax.get_ylim()
+        xr = max(xl[1] - xl[0], 0.01)
+        yr = max(yl[1] - yl[0], 0.01)
+        xlim_range.min = xl[0] - xr * 0.5
+        xlim_range.max = xl[1] + xr * 0.5
+        xlim_range.step = xr / 50
+        xlim_range.value = [xl[0], xl[1]]
+        ylim_range.min = yl[0] - yr * 0.5
+        ylim_range.max = yl[1] + yr * 0.5
+        ylim_range.step = yr / 50
+        ylim_range.value = [yl[0], yl[1]]
         # Rebuild style tab content
         _rebuild_style_widgets()
 
@@ -431,6 +455,27 @@ def create_jupyter_panel(editor: FigureEditor):
 
             al.observe(_make_alpha_cb(i), names='value')
             children.append(al)
+
+            # Marker
+            current_marker = line.get_marker()
+            mk_options = [(name, code) for code, name in _MARKERS]
+            mk = widgets.Dropdown(
+                options=mk_options,
+                value=(current_marker
+                       if current_marker in [c for c, _ in _MARKERS]
+                       else ''),
+                description='Marker:',
+                layout=widgets.Layout(width='95%'),
+            )
+
+            def _make_mk_cb(idx):
+                def _cb(change):
+                    editor.set_marker(idx, change['new'],
+                                      ax_index=ax_idx)
+                return _cb
+
+            mk.observe(_make_mk_cb(i), names='value')
+            children.append(mk)
 
         # Scatter / Collection controls
         import matplotlib.collections as mcoll
@@ -775,6 +820,20 @@ def create_jupyter_panel(editor: FigureEditor):
             'all edits.</span>'
         ),
     ])
+
+    # ---- Live code auto-update ----
+    def _live_code_update(figure):
+        """Auto-update the code textarea on every edit."""
+        try:
+            code_output.value = editor.generate_code()
+            edit_summary.value = (
+                f'<span style="color:#2ECC71">'
+                f'{len(editor.edits)} edit(s) — code updated</span>'
+            )
+        except Exception:
+            pass
+
+    editor.on_refresh(_live_code_update)
 
     # ==================================================================
     # Assemble tabs

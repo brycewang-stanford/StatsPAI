@@ -357,9 +357,12 @@ class FigureEditor:
             return ArtistRole.CI
 
         # 2. Reference lines: constant x or y (horizontal/vertical)
-        if len(xdata) >= 2 and len(set(ydata)) == 1:
+        #    Guard: only classify as REFERENCE if few points (<=10).
+        #    Real data series with constant values (e.g., flat baseline)
+        #    typically have many points and should remain DATA.
+        if len(xdata) >= 2 and len(set(ydata)) == 1 and len(xdata) <= 10:
             return ArtistRole.REFERENCE
-        if len(ydata) >= 2 and len(set(xdata)) == 1:
+        if len(ydata) >= 2 and len(set(xdata)) == 1 and len(ydata) <= 10:
             return ArtistRole.REFERENCE
 
         # 3. Matplotlib internal artists (label starts with '_')
@@ -986,10 +989,11 @@ class FigureEditor:
         val = edit.new_value
         axes = self.fig.get_axes()
 
-        # Parse axis index from target_desc like "ax.title" or "ax1.xlabel"
+        # Parse axis index from target_desc like "ax.title" or "ax12.xlabel"
         ax_idx = 0
-        if td.startswith('ax') and len(td) > 2 and td[2].isdigit():
-            ax_idx = int(td[2])
+        ax_match = re.match(r'^ax(\d+)\.', td)
+        if ax_match:
+            ax_idx = int(ax_match.group(1))
         ax = axes[ax_idx] if ax_idx < len(axes) else axes[0]
 
         # Parse line/collection index from target like "ax.line2"
