@@ -102,10 +102,11 @@ _THEMES: Dict[str, Dict[str, Any]] = {
     },
     'cn_journal': {
         # Chinese journal style (三线表配套)
+        # font.serif is set dynamically in set_theme() via _get_cn_serif()
         'figure.figsize': (8, 5.5),
         'figure.dpi': 150,
         'font.family': 'serif',
-        'font.serif': ['SimSun', 'STSong', 'Times New Roman', 'DejaVu Serif'],
+        'font.serif': None,  # resolved at runtime
         'font.size': 10.5,  # 五号字
         'axes.titlesize': 12,
         'axes.labelsize': 10.5,
@@ -137,6 +138,23 @@ _PALETTES = {
 }
 
 _original_rcparams = None
+
+
+def _get_cn_serif_fonts() -> list:
+    """Auto-detect the best Chinese serif fonts on this system."""
+    try:
+        from matplotlib.font_manager import fontManager
+        available = {f.name for f in fontManager.ttflist}
+    except Exception:
+        available = set()
+
+    candidates = [
+        'Songti SC', 'Noto Serif CJK SC', 'SimSun', 'STSong',
+        'Hiragino Mincho ProN', 'AR PL UMing CN',
+    ]
+    found = [f for f in candidates if f in available]
+    found.extend(['Times New Roman', 'DejaVu Serif'])
+    return found
 
 
 def set_theme(
@@ -197,6 +215,10 @@ def set_theme(
     # --- 1. StatsPAI custom themes ---
     if name in _THEMES:
         theme = _THEMES[name].copy()
+
+        # Resolve Chinese fonts at runtime for cn_journal theme
+        if theme.get('font.serif') is None:
+            theme['font.serif'] = _get_cn_serif_fonts()
 
         # Apply font scaling
         if font_scale != 1.0:

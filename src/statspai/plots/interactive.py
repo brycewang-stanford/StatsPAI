@@ -35,6 +35,71 @@ from enum import Enum, auto
 # Font presets for academic publishing
 # ------------------------------------------------------------------
 
+def _detect_chinese_fonts() -> Dict[str, List[str]]:
+    """
+    Detect available Chinese fonts on the current system.
+
+    Returns dict with 'serif' and 'sans-serif' lists, ordered by
+    priority (most common/reliable first).
+    """
+    try:
+        from matplotlib.font_manager import fontManager
+    except ImportError:
+        return {'serif': [], 'sans-serif': []}
+
+    available = {f.name for f in fontManager.ttflist}
+
+    # Candidate fonts in priority order per platform
+    serif_candidates = [
+        # macOS
+        'Songti SC', 'Noto Serif CJK SC', 'Hiragino Mincho ProN',
+        # Windows
+        'SimSun', 'NSimSun',
+        # Linux
+        'Noto Serif CJK SC', 'WenQuanYi Micro Hei',
+        # Cross-platform
+        'STSong', 'AR PL UMing CN',
+    ]
+    sans_candidates = [
+        # macOS
+        'PingFang SC', 'PingFang HK', 'Heiti TC', 'Hiragino Sans GB',
+        'Hiragino Sans',
+        # Windows
+        'Microsoft YaHei', 'SimHei',
+        # Linux
+        'Noto Sans CJK SC', 'WenQuanYi Micro Hei',
+        # Cross-platform
+        'STHeiti', 'Kaiti SC',
+    ]
+
+    found_serif = [f for f in serif_candidates if f in available]
+    found_sans = [f for f in sans_candidates if f in available]
+
+    return {'serif': found_serif, 'sans-serif': found_sans}
+
+
+def _get_chinese_serif() -> List[str]:
+    """Get the best available Chinese serif font list for this system."""
+    detected = _detect_chinese_fonts()
+    result = detected['serif']
+    if not result:
+        # Fallback: try sans-serif Chinese fonts + generic
+        result = detected['sans-serif']
+    # Always append English serif as final fallback
+    result.extend(['Times New Roman', 'DejaVu Serif'])
+    return result
+
+
+def _get_chinese_sans() -> List[str]:
+    """Get the best available Chinese sans-serif font list."""
+    detected = _detect_chinese_fonts()
+    result = detected['sans-serif']
+    if not result:
+        result = detected['serif']
+    result.extend(['Helvetica', 'Arial', 'DejaVu Sans'])
+    return result
+
+
 FONT_PRESETS = {
     # --- English journals ---
     'AER / Econometrica': {
@@ -67,21 +132,20 @@ FONT_PRESETS = {
         'fonts': ['Helvetica', 'Arial', 'DejaVu Sans'],
         'title_size': 10, 'label_size': 9, 'tick_size': 8,
     },
-    # --- Chinese academic ---
+    # --- Chinese academic (auto-detect best available font) ---
     'Chinese Thesis (中文学位论文)': {
         'family': 'serif',
-        'fonts': ['SimSun', 'STSong', 'Songti SC', 'Times New Roman'],
+        'fonts': None,  # filled at runtime by _get_chinese_serif()
         'title_size': 12, 'label_size': 10.5, 'tick_size': 9,
     },
     'Chinese Journal (中文期刊)': {
         'family': 'serif',
-        'fonts': ['SimSun', 'STSong', 'Songti SC', 'Times New Roman'],
+        'fonts': None,  # filled at runtime
         'title_size': 12, 'label_size': 10.5, 'tick_size': 9,
     },
     'Chinese Slide (中文PPT)': {
         'family': 'sans-serif',
-        'fonts': ['SimHei', 'STHeiti', 'Heiti SC', 'Microsoft YaHei',
-                  'Arial'],
+        'fonts': None,  # filled at runtime by _get_chinese_sans()
         'title_size': 16, 'label_size': 13, 'tick_size': 11,
     },
     # --- Presentation ---
@@ -92,27 +156,81 @@ FONT_PRESETS = {
     },
 }
 
-# Common fonts available on most systems
-FONT_CHOICES = {
-    'English Serif': [
-        'Times New Roman', 'Palatino', 'Georgia', 'Garamond',
-        'Computer Modern', 'DejaVu Serif',
-    ],
-    'English Sans-serif': [
-        'Helvetica', 'Arial', 'Calibri', 'Verdana',
-        'DejaVu Sans', 'Liberation Sans',
-    ],
-    'Chinese (中文)': [
-        'SimSun (宋体)', 'SimHei (黑体)', 'KaiTi (楷体)',
-        'FangSong (仿宋)', 'Microsoft YaHei (微软雅黑)',
-        'STSong (华文宋体)', 'STHeiti (华文黑体)',
-        'Songti SC', 'Heiti SC', 'PingFang SC',
-    ],
-    'Monospace': [
-        'Courier New', 'Consolas', 'DejaVu Sans Mono',
-        'Source Code Pro',
-    ],
-}
+
+def _resolve_preset_fonts(preset: Dict) -> List[str]:
+    """Resolve None font lists to auto-detected Chinese fonts."""
+    if preset['fonts'] is not None:
+        return preset['fonts']
+    if preset['family'] == 'serif':
+        return _get_chinese_serif()
+    return _get_chinese_sans()
+
+
+# Common fonts — auto-detect Chinese availability
+def _build_font_choices() -> Dict[str, List[str]]:
+    """Build font choice list with system-detected Chinese fonts."""
+    detected = _detect_chinese_fonts()
+
+    # Build Chinese choices with display names
+    cn_fonts = []
+    _cn_display = {
+        'Songti SC': 'Songti SC (宋体)',
+        'SimSun': 'SimSun (宋体)',
+        'NSimSun': 'NSimSun (新宋体)',
+        'STSong': 'STSong (华文宋体)',
+        'Noto Serif CJK SC': 'Noto Serif CJK SC (思源宋体)',
+        'Hiragino Mincho ProN': 'Hiragino Mincho ProN (ヒラギノ明朝)',
+        'PingFang SC': 'PingFang SC (苹方)',
+        'PingFang HK': 'PingFang HK (蘋方)',
+        'Heiti TC': 'Heiti TC (黑体)',
+        'Hiragino Sans GB': 'Hiragino Sans GB (冬青黑体)',
+        'Hiragino Sans': 'Hiragino Sans (ヒラギノ角ゴ)',
+        'Microsoft YaHei': 'Microsoft YaHei (微软雅黑)',
+        'SimHei': 'SimHei (黑体)',
+        'STHeiti': 'STHeiti (华文黑体)',
+        'Kaiti SC': 'Kaiti SC (楷体)',
+        'Noto Sans CJK SC': 'Noto Sans CJK SC (思源黑体)',
+        'WenQuanYi Micro Hei': 'WenQuanYi Micro Hei (文泉驿)',
+    }
+    seen = set()
+    for f in detected['serif'] + detected['sans-serif']:
+        if f not in seen:
+            seen.add(f)
+            cn_fonts.append(_cn_display.get(f, f))
+
+    return {
+        'English Serif': [
+            'Times New Roman', 'Palatino', 'Georgia', 'Garamond',
+            'Computer Modern', 'DejaVu Serif',
+        ],
+        'English Sans-serif': [
+            'Helvetica', 'Arial', 'Calibri', 'Verdana',
+            'DejaVu Sans', 'Liberation Sans',
+        ],
+        'Chinese (中文)': cn_fonts if cn_fonts else [
+            '(No Chinese fonts detected)',
+        ],
+        'Monospace': [
+            'Courier New', 'Consolas', 'DejaVu Sans Mono',
+            'Source Code Pro',
+        ],
+    }
+
+
+# Lazy-initialized on first access
+_font_choices_cache = None
+
+
+def get_font_choices() -> Dict[str, List[str]]:
+    """Get available font choices (cached, auto-detects Chinese fonts)."""
+    global _font_choices_cache
+    if _font_choices_cache is None:
+        _font_choices_cache = _build_font_choices()
+    return _font_choices_cache
+
+
+# Backward compatibility alias
+FONT_CHOICES = property(lambda self: get_font_choices())  # type: ignore
 
 
 class ArtistRole(Enum):
@@ -515,8 +633,9 @@ class FigureEditor:
         mpl.rcParams['font.family'] = font_family
 
         # Set specific font at top of preference list
+        clean_name = None
         if font_name:
-            # Strip Chinese label in parens if present: "SimSun (宋体)" -> "SimSun"
+            # Strip Chinese label in parens: "Songti SC (宋体)" -> "Songti SC"
             clean_name = font_name.split(' (')[0].strip()
             key = f'font.{font_family}'
             current = list(mpl.rcParams.get(key, []))
@@ -524,27 +643,40 @@ class FigureEditor:
                 current.insert(0, clean_name)
             mpl.rcParams[key] = current
 
+            # Auto-fix minus sign for CJK fonts
+            _cn_keywords = ('Song', 'Hei', 'Kai', 'Fang', 'PingFang',
+                            'Hiragino', 'Noto', 'WenQuanYi', 'STH', 'STS',
+                            'SC', 'TC', 'HK', 'JP', 'KR')
+            if any(kw in clean_name for kw in _cn_keywords):
+                mpl.rcParams['axes.unicode_minus'] = False
+
         # Update all text in this axis to use the new font
         for artist in [ax.title, ax.xaxis.label, ax.yaxis.label]:
             artist.set_fontfamily(font_family)
-            if font_name:
-                artist.set_fontname(font_name.split(' (')[0].strip())
+            if clean_name:
+                artist.set_fontname(clean_name)
 
         # Tick labels
         for label in ax.get_xticklabels() + ax.get_yticklabels():
             label.set_fontfamily(font_family)
-            if font_name:
-                label.set_fontname(font_name.split(' (')[0].strip())
+            if clean_name:
+                label.set_fontname(clean_name)
 
-        code_parts = [f"import matplotlib as mpl"]
+        code_parts = ["import matplotlib as mpl"]
         code_parts.append(
             f"mpl.rcParams['font.family'] = {font_family!r}")
-        if font_name:
-            clean = font_name.split(' (')[0].strip()
+        if clean_name:
             code_parts.append(
                 f"mpl.rcParams['font.{font_family}'] = "
-                f"[{clean!r}] + mpl.rcParams.get('font.{font_family}', [])"
+                f"[{clean_name!r}] + mpl.rcParams.get("
+                f"'font.{font_family}', [])"
             )
+            # Include unicode_minus fix in generated code
+            if any(kw in clean_name for kw in ('Song', 'Hei', 'Kai',
+                   'Fang', 'PingFang', 'Hiragino', 'Noto', 'SC', 'TC')):
+                code_parts.append(
+                    "mpl.rcParams['axes.unicode_minus'] = False"
+                )
 
         code = '\n'.join(code_parts)
         display_name = font_name or font_family
@@ -578,15 +710,17 @@ class FigureEditor:
 
         import matplotlib as mpl
 
-        # Apply font
+        # Resolve fonts (Chinese presets auto-detect at runtime)
         family = preset['family']
-        fonts = preset['fonts']
+        fonts = _resolve_preset_fonts(preset)
+
         mpl.rcParams['font.family'] = family
         mpl.rcParams[f'font.{family}'] = fonts
 
-        # Handle Chinese minus sign
-        if any(f in str(fonts) for f in ('Sim', 'ST', 'Song', 'Hei',
-                                          'Kai', 'Fang', 'PingFang')):
+        # Auto-detect Chinese fonts and fix minus sign
+        _cn_keywords = ('Song', 'Hei', 'Kai', 'Fang', 'PingFang',
+                        'Hiragino', 'Noto', 'WenQuanYi', 'STH', 'STS')
+        if any(kw in str(fonts) for kw in _cn_keywords):
             mpl.rcParams['axes.unicode_minus'] = False
 
         # Apply to axis text

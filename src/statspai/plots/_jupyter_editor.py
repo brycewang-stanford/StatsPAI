@@ -215,7 +215,7 @@ def create_jupyter_panel(editor: FigureEditor):
     tick_size.observe(_on_tick_size, names='value')
 
     # ---- Font controls ----
-    from .interactive import FONT_PRESETS, FONT_CHOICES
+    from .interactive import FONT_PRESETS, get_font_choices
 
     # Font preset dropdown (journal/thesis standards)
     preset_options = [('-- Custom --', '')] + [
@@ -266,12 +266,13 @@ def create_jupyter_panel(editor: FigureEditor):
 
     # Specific font dropdown (updates based on family selection)
     def _get_font_options(family):
+        choices = get_font_choices()
         if family == 'serif':
-            fonts = FONT_CHOICES['English Serif'] + FONT_CHOICES['Chinese (中文)']
+            fonts = choices['English Serif'] + choices['Chinese (中文)']
         elif family == 'sans-serif':
-            fonts = FONT_CHOICES['English Sans-serif'] + FONT_CHOICES['Chinese (中文)']
+            fonts = choices['English Sans-serif'] + choices['Chinese (中文)']
         else:
-            fonts = FONT_CHOICES['Monospace']
+            fonts = choices['Monospace']
         return [('(auto)', '')] + [(f, f) for f in fonts]
 
     font_name = widgets.Dropdown(
