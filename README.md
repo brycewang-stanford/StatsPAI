@@ -4,7 +4,7 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/StatsPAI.svg)](https://pypi.org/project/StatsPAI/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/brycewang-stanford/statspai/blob/main/LICENSE)
 [![Tests](https://github.com/brycewang-stanford/statspai/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/brycewang-stanford/statspai/actions)
-[![Downloads](https://static.pepy.tech/badge/statspai/month)](https://pepy.tech/project/statspai)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
 
 StatsPAI is a Python package for causal inference and applied econometrics. It provides a unified, Stata-style API covering the complete empirical research workflow — from estimation to publication-ready tables in Word, Excel, and LaTeX.
 
