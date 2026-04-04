@@ -173,7 +173,7 @@ def anderson_rubin_test(
     beta_2sls = float(D_hat @ Y / denom) if abs(denom) > 1e-10 else 0
 
     # Adaptive grid: center on 2SLS estimate, span ±10 SEs
-    se_2sls = abs(beta_2sls) / max(abs(t_treat), 1) if 't_treat' in dir() else max(abs(beta_2sls), 1)
+    se_2sls = max(abs(beta_2sls), 1)
     half_range = max(10 * se_2sls, 5 * abs(beta_2sls), 5)
     grid = np.linspace(beta_2sls - half_range, beta_2sls + half_range, 300)
     ci_set = []
