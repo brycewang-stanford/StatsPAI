@@ -50,9 +50,9 @@ from .output.modelsummary import modelsummary, coefplot
 from .output.sumstats import sumstats, balance_table
 from .output.tab import tab
 from .postestimation import margins, marginsplot, test, lincom
-from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test
+from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, evalue, evalue_from_result
 from .inference import wild_cluster_bootstrap, aipw, ri_test
-from .plots import binscatter, set_theme, interactive, get_code
+from .plots import binscatter, set_theme, list_themes, interactive, get_code
 from .utils import label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data
 from .gmm import xtabond
 from .metalearners import metalearner, SLearner, TLearner, XLearner, RLearner, DRLearner
@@ -68,6 +68,11 @@ from .conformal_causal import conformal_cate, ConformalCATE
 from .bcf import bcf, BayesianCausalForest
 from .bunching import bunching, BunchingEstimator
 from .matrix_completion import mc_panel, MCPanel
+from .dose_response import dose_response, DoseResponse
+from .bounds import lee_bounds, manski_bounds
+from .interference import spillover, SpilloverEstimator
+from .dtr import g_estimation, GEstimation
+from .multi_treatment import multi_treatment, MultiTreatment
 from .robustness import spec_curve, SpecCurveResult, robustness_report, RobustnessResult, subgroup_analysis, SubgroupResult
 
 __all__ = [
@@ -131,6 +136,7 @@ __all__ = [
     # Plots
     "binscatter",
     "set_theme",
+    "list_themes",
     "interactive",
     "get_code",
     # Utils
@@ -170,6 +176,8 @@ __all__ = [
     "rddensity",
     "hausman_test",
     "anderson_rubin_test",
+    "evalue",
+    "evalue_from_result",
     # Inference
     "wild_cluster_bootstrap",
     "aipw",
@@ -211,6 +219,33 @@ __all__ = [
     "policy_tree",
     "PolicyTree",
     "policy_value",
+    # Conformal Causal Inference
+    "conformal_cate",
+    "ConformalCATE",
+    # Bayesian Causal Forest
+    "bcf",
+    "BayesianCausalForest",
+    # Bunching
+    "bunching",
+    "BunchingEstimator",
+    # Matrix Completion
+    "mc_panel",
+    "MCPanel",
+    # Dose-Response
+    "dose_response",
+    "DoseResponse",
+    # Bounds
+    "lee_bounds",
+    "manski_bounds",
+    # Interference
+    "spillover",
+    "SpilloverEstimator",
+    # Dynamic Treatment Regimes
+    "g_estimation",
+    "GEstimation",
+    # Multi-valued Treatment
+    "multi_treatment",
+    "MultiTreatment",
     # Robustness
     "spec_curve",
     "SpecCurveResult",

@@ -31,24 +31,26 @@ def create_script_editor(editor: FigureEditor):
     from matplotlib.widgets import Button, TextBox
 
     fig = editor.fig
-    axes = fig.get_axes()
-    if not axes:
+    # Capture plot axes BEFORE adding toolbar widget axes
+    plot_axes = list(fig.get_axes())
+    if not plot_axes:
         plt.show()
         return
 
-    ax = axes[0]
+    ax = plot_axes[0]
 
     # Store state for click-editing
     _state = {
         'selected_text': None,
         'editing': False,
+        'plot_axes': plot_axes,  # only real plot axes, not toolbar
     }
 
     # ------------------------------------------------------------------
     # Click-to-edit text elements
     # ------------------------------------------------------------------
-    # Make text elements pickable
-    for a in fig.get_axes():
+    # Make text elements pickable (only for plot axes, not toolbar)
+    for a in plot_axes:
         a.title.set_picker(True)
         a.xaxis.label.set_picker(True)
         a.yaxis.label.set_picker(True)
@@ -94,7 +96,7 @@ def create_script_editor(editor: FigureEditor):
             return
 
         # Determine what we're editing and track it
-        for i, a in enumerate(fig.get_axes()):
+        for i, a in enumerate(_state['plot_axes']):
             prefix = f'ax{i}' if i > 0 else 'ax'
             if target is a.title:
                 editor.set_title(text, ax_index=i)

@@ -12,6 +12,7 @@ from .sensemakr import sensemakr
 from .rddensity import rddensity
 from .hausman import hausman_test
 from .weak_iv import anderson_rubin_test
+from .evalue import evalue, evalue_from_result
 
 __all__ = [
     'oster_bounds',
@@ -24,4 +25,6 @@ __all__ = [
     'rddensity',
     'hausman_test',
     'anderson_rubin_test',
+    'evalue',
+    'evalue_from_result',
 ]

@@ -7,7 +7,6 @@ real-time cosmetic editing with live preview and code generation.
 
 from __future__ import annotations
 
-import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -32,19 +31,6 @@ _MARKERS = [
 ]
 
 
-def _debounce(editor, method_name, *args, _last_call={}, _delay=0.15,
-              **kwargs):
-    """Simple debounce: skip if called within _delay seconds."""
-    key = (method_name, args[:1])  # group by method + first arg
-    now = time.time()
-    if key in _last_call and (now - _last_call[key]) < _delay:
-        # Still execute but don't record duplicate edits:
-        # just update the figure directly without tracking
-        return False
-    _last_call[key] = now
-    return True
-
-
 def create_jupyter_panel(editor: FigureEditor):
     """
     Build and display an ipywidgets control panel for the editor.
@@ -66,6 +52,7 @@ def create_jupyter_panel(editor: FigureEditor):
         print("  editor.generate_code()")
         return
 
+    import io
     import matplotlib.pyplot as plt
     from .interactive import ArtistRole
 
@@ -76,10 +63,55 @@ def create_jupyter_panel(editor: FigureEditor):
         print("No axes found in figure.")
         return
 
-    # ---- Output area for the figure ----
-    fig_output = widgets.Output()
-    with fig_output:
-        plt.show()
+    # ---- Live preview: render figure to Image widget ----
+    preview_dpi = 100  # preview resolution (fast)
+
+    def _render_fig_to_png(figure, dpi=preview_dpi):
+        """Render a matplotlib figure to PNG bytes."""
+        buf = io.BytesIO()
+        figure.savefig(buf, format='png', dpi=dpi,
+                       bbox_inches='tight', facecolor=figure.get_facecolor())
+        buf.seek(0)
+        return buf.read()
+
+    fig_image = widgets.Image(
+        value=_render_fig_to_png(fig),
+        format='png',
+        layout=widgets.Layout(
+            max_width='100%',
+            border='1px solid #eee',
+        ),
+    )
+
+    # Status bar showing edit count
+    status_bar = widgets.HTML(
+        '<span style="font-size:11px; color:#999">'
+        'Ready — make edits on the right panel</span>'
+    )
+
+    def _live_refresh(figure):
+        """Callback: re-render the figure into the Image widget."""
+        try:
+            fig_image.value = _render_fig_to_png(figure)
+            n = len(editor.edits)
+            status_bar.value = (
+                f'<span style="font-size:11px; color:#2ECC71">'
+                f'{n} edit(s) — preview updated</span>'
+            )
+        except Exception:
+            pass
+
+    # Register the live refresh callback
+    editor.on_refresh(_live_refresh)
+
+    # Preview container (figure + status bar)
+    fig_container = widgets.VBox([
+        fig_image,
+        status_bar,
+    ], layout=widgets.Layout(
+        flex='1 1 auto',
+        min_width='400px',
+    ))
 
     # ---- Axis selector (for multi-panel figures) ----
     ax_selector = widgets.Dropdown(
@@ -182,6 +214,86 @@ def create_jupyter_panel(editor: FigureEditor):
     ylabel_size.observe(_on_ylabel_size, names='value')
     tick_size.observe(_on_tick_size, names='value')
 
+    # ---- Font controls ----
+    from .interactive import FONT_PRESETS, FONT_CHOICES
+
+    # Font preset dropdown (journal/thesis standards)
+    preset_options = [('-- Custom --', '')] + [
+        (name, name) for name in FONT_PRESETS.keys()
+    ]
+    font_preset = widgets.Dropdown(
+        options=preset_options, value='',
+        description='Preset:',
+        layout=widgets.Layout(width='95%'),
+    )
+    font_preset_info = widgets.HTML('')
+
+    def _on_font_preset(change):
+        name = change['new']
+        if not name:
+            return
+        try:
+            editor.apply_font_preset(name, ax_index=_get_ax_idx())
+            preset = FONT_PRESETS[name]
+            font_preset_info.value = (
+                f'<span style="color:#2ECC71; font-size:11px">'
+                f'{name}: {preset["fonts"][0]}, '
+                f'title {preset["title_size"]}pt, '
+                f'label {preset["label_size"]}pt</span>'
+            )
+            # Sync size sliders
+            title_size.value = preset['title_size']
+            xlabel_size.value = preset['label_size']
+            ylabel_size.value = preset['label_size']
+            tick_size.value = preset['tick_size']
+        except Exception as e:
+            font_preset_info.value = (
+                f'<span style="color:#E74C3C; font-size:11px">'
+                f'Error: {e}</span>'
+            )
+
+    font_preset.observe(_on_font_preset, names='value')
+
+    # Font family dropdown
+    font_family = widgets.Dropdown(
+        options=[('Serif (衬线)', 'serif'),
+                 ('Sans-serif (无衬线)', 'sans-serif'),
+                 ('Monospace (等宽)', 'monospace')],
+        value='serif',
+        description='Family:',
+        layout=widgets.Layout(width='95%'),
+    )
+
+    # Specific font dropdown (updates based on family selection)
+    def _get_font_options(family):
+        if family == 'serif':
+            fonts = FONT_CHOICES['English Serif'] + FONT_CHOICES['Chinese (中文)']
+        elif family == 'sans-serif':
+            fonts = FONT_CHOICES['English Sans-serif'] + FONT_CHOICES['Chinese (中文)']
+        else:
+            fonts = FONT_CHOICES['Monospace']
+        return [('(auto)', '')] + [(f, f) for f in fonts]
+
+    font_name = widgets.Dropdown(
+        options=_get_font_options('serif'),
+        value='',
+        description='Font:',
+        layout=widgets.Layout(width='95%'),
+    )
+
+    def _on_font_family(change):
+        font_name.options = _get_font_options(change['new'])
+        font_name.value = ''
+        editor.set_font(change['new'], ax_index=_get_ax_idx())
+
+    def _on_font_name(change):
+        if change['new']:
+            editor.set_font(font_family.value, change['new'],
+                            ax_index=_get_ax_idx())
+
+    font_family.observe(_on_font_family, names='value')
+    font_name.observe(_on_font_name, names='value')
+
     text_tab = widgets.VBox([
         widgets.HTML('<b>Text & Labels</b>'),
         ax_selector if len(axes) > 1 else widgets.HTML(''),
@@ -191,6 +303,20 @@ def create_jupyter_panel(editor: FigureEditor):
         ylabel_text, ylabel_size,
         widgets.HTML('<hr style="margin:4px 0">'),
         tick_size,
+        widgets.HTML('<hr style="margin:4px 0">'),
+        widgets.HTML('<b>Font</b>'),
+        widgets.HTML(
+            '<span style="font-size:11px; color:#666">'
+            'Quick preset (journal/thesis standard):</span>'
+        ),
+        font_preset,
+        font_preset_info,
+        widgets.HTML(
+            '<span style="font-size:11px; color:#666">'
+            'Or choose manually:</span>'
+        ),
+        font_family,
+        font_name,
     ])
 
     # ==================================================================
@@ -494,28 +620,59 @@ def create_jupyter_panel(editor: FigureEditor):
     ])
 
     # ==================================================================
-    # Tab 4: Theme
+    # Tab 4: Theme (StatsPAI + matplotlib + seaborn)
     # ==================================================================
+    from .themes import list_themes
+    all_themes = list_themes()
+
+    # Build grouped options for the dropdown
+    theme_options = [('-- Reset to Default --', 'default')]
+    # StatsPAI themes first
+    for t in all_themes.get('statspai', []):
+        theme_options.append((f'[StatsPAI]  {t}', t))
+    # matplotlib styles
+    for t in all_themes.get('matplotlib', []):
+        theme_options.append((f'[matplotlib]  {t}', t))
+    # seaborn styles
+    for t in all_themes.get('seaborn', []):
+        theme_options.append((f'[seaborn]  {t}', t))
+
     theme_dropdown = widgets.Dropdown(
-        options=['academic', 'aea', 'minimal', 'cn_journal', 'default'],
+        options=theme_options,
         value='academic',
         description='Theme:',
         layout=widgets.Layout(width='95%'),
     )
+
     theme_info = widgets.HTML(
-        '<span style="font-size:11px; color:#666">'
-        'Note: themes affect global matplotlib settings. '
-        'Use this before generating your plot for full effect.</span>'
+        f'<span style="font-size:11px; color:#666">'
+        f'{len(theme_options) - 1} themes available. '
+        f'Themes affect global matplotlib settings — '
+        f'best applied before generating your plot.</span>'
     )
 
+    theme_preview = widgets.HTML('')
+
     def _on_theme(change):
-        editor.apply_theme(change['new'])
+        name = change['new']
+        try:
+            editor.apply_theme(name)
+            theme_preview.value = (
+                f'<span style="color:#2ECC71; font-size:11px">'
+                f'Applied: {name}</span>'
+            )
+        except ValueError as e:
+            theme_preview.value = (
+                f'<span style="color:#E74C3C; font-size:11px">'
+                f'Error: {e}</span>'
+            )
 
     theme_dropdown.observe(_on_theme, names='value')
 
     theme_tab = widgets.VBox([
-        widgets.HTML('<b>StatsPAI Themes</b>'),
+        widgets.HTML('<b>Themes</b>'),
         theme_dropdown,
+        theme_preview,
         theme_info,
     ])
 
@@ -570,6 +727,7 @@ def create_jupyter_panel(editor: FigureEditor):
 
     def _on_undo(btn):
         editor.undo()
+        _live_refresh(fig)  # force preview update
         edit_summary.value = (
             f'<span style="color:#F39C12">'
             f'Undone. {len(editor.edits)} edit(s) remaining</span>'
@@ -577,6 +735,7 @@ def create_jupyter_panel(editor: FigureEditor):
 
     def _on_reset(btn):
         editor.reset()
+        _live_refresh(fig)  # force preview update
         edit_summary.value = (
             '<span style="color:#E74C3C">Reset to original</span>'
         )
@@ -633,24 +792,34 @@ def create_jupyter_panel(editor: FigureEditor):
             '<h3 style="margin:0 0 8px 0; color:#2C3E50">'
             'StatsPAI Plot Editor</h3>'
             '<span style="font-size:11px; color:#E74C3C">'
-            'Data elements are locked for statistical integrity'
+            'Data locked &nbsp;|&nbsp; '
+            'Left: live preview &nbsp;|&nbsp; '
+            'Right: edit controls'
             '</span>'
         ),
         tabs,
     ], layout=widgets.Layout(
         width='400px',
+        min_width='360px',
         padding='8px',
         border='1px solid #ddd',
         border_radius='4px',
-        max_height='600px',
+        max_height='650px',
         overflow_y='auto',
     ))
 
-    # Side-by-side layout
+    # ====== Layout: [Live Preview | Controls] ======
+    # Like Stata's Graph Editor: figure on left, properties on right
     full_layout = widgets.HBox(
-        [fig_output, panel],
-        layout=widgets.Layout(align_items='flex-start'),
+        [fig_container, panel],
+        layout=widgets.Layout(
+            align_items='flex-start',
+            width='100%',
+        ),
     )
+
+    # Close the inline figure to avoid duplicate display
+    plt.close(fig)
 
     display(full_layout)
 

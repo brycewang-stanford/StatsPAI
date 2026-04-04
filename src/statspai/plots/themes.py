@@ -1,18 +1,22 @@
 """
-Academic plot themes for StatsPAI.
+Plot themes for StatsPAI.
 
 Provides one-line theme switching for publication-quality matplotlib
-aesthetics, replacing matplotlib's ugly defaults.
+aesthetics. Supports three theme sources:
 
-Inspired by R's ggplot2::theme_minimal() and Stata's graph schemes.
+1. **StatsPAI themes** — custom academic themes (academic, aea, minimal, cn_journal)
+2. **matplotlib styles** — built-in styles (ggplot, fivethirtyeight, bmh, dark_background, ...)
+3. **seaborn styles** — if seaborn is installed (darkgrid, whitegrid, ticks, ...)
 
 Usage
 -----
 >>> import statspai as sp
->>> sp.set_theme('academic')   # clean academic style
->>> sp.set_theme('aea')        # AER/AEA house style
->>> sp.set_theme('minimal')    # ggplot2 minimal equivalent
->>> sp.set_theme('default')    # reset to matplotlib default
+>>> sp.set_theme('academic')          # StatsPAI clean serif style
+>>> sp.set_theme('aea')               # AER journal specifications
+>>> sp.set_theme('ggplot')            # matplotlib ggplot style
+>>> sp.set_theme('seaborn-whitegrid') # seaborn white grid
+>>> sp.set_theme('fivethirtyeight')   # FiveThirtyEight style
+>>> sp.set_theme('default')           # reset to matplotlib default
 """
 
 from typing import Optional, Dict, Any
@@ -143,23 +147,35 @@ def set_theme(
     """
     Set global matplotlib theme for publication-quality plots.
 
+    Supports three theme sources:
+
+    - **StatsPAI**: ``'academic'``, ``'aea'``, ``'minimal'``, ``'cn_journal'``
+    - **matplotlib**: ``'ggplot'``, ``'fivethirtyeight'``, ``'bmh'``,
+      ``'dark_background'``, ``'grayscale'``, ``'classic'``, etc.
+    - **seaborn**: ``'seaborn-whitegrid'``, ``'seaborn-darkgrid'``,
+      ``'seaborn-ticks'``, ``'seaborn-paper'``, ``'seaborn-talk'``, etc.
+
     Parameters
     ----------
     name : str, default 'academic'
-        Theme name: ``'academic'``, ``'aea'``, ``'minimal'``,
-        ``'cn_journal'``, or ``'default'`` (reset).
+        Theme name. Use ``list_themes()`` to see all available options.
+        ``'default'`` resets to matplotlib defaults.
     palette : str, optional
         Color palette name. Defaults to matching the theme.
+        Only applies to StatsPAI themes.
     font_scale : float, default 1.0
         Scale factor for all font sizes.
 
     Examples
     --------
     >>> import statspai as sp
-    >>> sp.set_theme('academic')  # clean serif style, no top/right spines
-    >>> sp.set_theme('aea')       # AER journal specifications
-    >>> sp.set_theme('cn_journal')  # Chinese journal with SimSun/宋体
-    >>> sp.set_theme('default')   # reset to matplotlib defaults
+    >>> sp.set_theme('academic')          # clean serif, no top/right spines
+    >>> sp.set_theme('aea')               # AER journal specifications
+    >>> sp.set_theme('ggplot')            # R ggplot2 style
+    >>> sp.set_theme('seaborn-whitegrid') # seaborn white grid
+    >>> sp.set_theme('fivethirtyeight')   # FiveThirtyEight journalism style
+    >>> sp.set_theme('dark_background')   # dark theme for slides
+    >>> sp.set_theme('default')           # reset to matplotlib defaults
     """
     try:
         import matplotlib.pyplot as plt
@@ -178,30 +194,123 @@ def set_theme(
         mpl.rcParams.update(_original_rcparams)
         return
 
-    if name not in _THEMES:
-        raise ValueError(
-            f"Unknown theme '{name}'. "
-            f"Available: {list(_THEMES.keys()) + ['default']}"
-        )
+    # --- 1. StatsPAI custom themes ---
+    if name in _THEMES:
+        theme = _THEMES[name].copy()
 
-    theme = _THEMES[name].copy()
+        # Apply font scaling
+        if font_scale != 1.0:
+            for key in ('font.size', 'axes.titlesize', 'axes.labelsize',
+                        'xtick.labelsize', 'ytick.labelsize',
+                        'legend.fontsize'):
+                if key in theme:
+                    theme[key] = theme[key] * font_scale
 
-    # Apply font scaling
-    if font_scale != 1.0:
-        for key in ('font.size', 'axes.titlesize', 'axes.labelsize',
-                    'xtick.labelsize', 'ytick.labelsize', 'legend.fontsize'):
-            if key in theme:
-                theme[key] = theme[key] * font_scale
+        # Set color cycle
+        pal_name = palette or name
+        pal_colors = _PALETTES.get(pal_name, _PALETTES['academic'])
+        theme['axes.prop_cycle'] = cycler('color', pal_colors)
 
-    # Set color cycle
-    pal_name = palette or name
-    pal_colors = _PALETTES.get(pal_name, _PALETTES['academic'])
-    theme['axes.prop_cycle'] = cycler('color', pal_colors)
+        # Apply
+        for key, val in theme.items():
+            if val is not None:
+                try:
+                    mpl.rcParams[key] = val
+                except (KeyError, ValueError):
+                    pass
+        return
 
-    # Apply
-    for key, val in theme.items():
-        if val is not None:
-            try:
-                mpl.rcParams[key] = val
-            except (KeyError, ValueError):
-                pass  # skip unsupported params on older matplotlib
+    # --- 2. Normalize seaborn shorthand names ---
+    resolved = _resolve_external_style(name)
+    if resolved is not None:
+        plt.style.use(resolved)
+        # Apply font scaling on top of external style
+        if font_scale != 1.0:
+            for key in ('font.size', 'axes.titlesize', 'axes.labelsize',
+                        'xtick.labelsize', 'ytick.labelsize',
+                        'legend.fontsize'):
+                try:
+                    current = mpl.rcParams[key]
+                    if isinstance(current, (int, float)):
+                        mpl.rcParams[key] = current * font_scale
+                except (KeyError, ValueError):
+                    pass
+        return
+
+    # --- 3. Unknown theme ---
+    available = list_themes()
+    raise ValueError(
+        f"Unknown theme '{name}'. Use list_themes() to see "
+        f"{len(available)} available options."
+    )
+
+
+def _resolve_external_style(name: str) -> Optional[str]:
+    """
+    Resolve a theme name to a matplotlib style string.
+
+    Handles shorthand like 'seaborn-whitegrid' -> 'seaborn-v0_8-whitegrid',
+    and validates against available styles.
+    """
+    import matplotlib.pyplot as plt
+    available = plt.style.available
+
+    # Direct match
+    if name in available:
+        return name
+
+    # seaborn shorthand: 'seaborn-whitegrid' -> 'seaborn-v0_8-whitegrid'
+    if name.startswith('seaborn-'):
+        suffix = name[len('seaborn-'):]
+        versioned = f'seaborn-v0_8-{suffix}'
+        if versioned in available:
+            return versioned
+
+    # seaborn bare: 'seaborn' -> 'seaborn-v0_8'
+    if name == 'seaborn':
+        for s in available:
+            if s == 'seaborn-v0_8':
+                return s
+
+    return None
+
+
+def list_themes() -> Dict[str, list]:
+    """
+    List all available themes grouped by source.
+
+    Returns
+    -------
+    dict
+        Keys: 'statspai', 'matplotlib', 'seaborn'.
+        Values: list of theme name strings.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> themes = sp.list_themes()
+    >>> themes['statspai']
+    ['academic', 'aea', 'minimal', 'cn_journal']
+    """
+    result = {
+        'statspai': list(_THEMES.keys()),
+        'matplotlib': [],
+        'seaborn': [],
+    }
+
+    try:
+        import matplotlib.pyplot as plt
+        for style in sorted(plt.style.available):
+            if style.startswith('_'):
+                continue  # skip internal styles
+            if style.startswith('seaborn'):
+                # Show user-friendly names
+                friendly = style.replace('seaborn-v0_8-', 'seaborn-')
+                friendly = friendly.replace('seaborn-v0_8', 'seaborn')
+                result['seaborn'].append(friendly)
+            else:
+                result['matplotlib'].append(style)
+    except ImportError:
+        pass
+
+    return result
