@@ -8,8 +8,10 @@ Provides robust inference methods that work across all estimators:
 
 from .wild_bootstrap import wild_cluster_bootstrap
 from .aipw import aipw
+from .randomization import ri_test
 
 __all__ = [
     'wild_cluster_bootstrap',
     'aipw',
+    'ri_test',
 ]

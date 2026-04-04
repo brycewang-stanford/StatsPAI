@@ -7,8 +7,19 @@ Provides:
 """
 
 from .sensitivity import oster_bounds, mccrary_test
+from .tests import diagnose, het_test, reset_test, vif
+from .sensemakr import sensemakr
+from .rddensity import rddensity
+from .hausman import hausman_test
 
 __all__ = [
     'oster_bounds',
     'mccrary_test',
+    'diagnose',
+    'het_test',
+    'reset_test',
+    'vif',
+    'sensemakr',
+    'rddensity',
+    'hausman_test',
 ]

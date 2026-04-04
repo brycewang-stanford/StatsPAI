@@ -63,6 +63,9 @@ performance = [
     "jax[cpu]>=0.4.0",
     "jaxlib>=0.4.0",
 ]
+deepiv = [
+    "torch>=2.0.0",
+]
 fixest = [
     "pyfixest>=0.25.0",
 ]

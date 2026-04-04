@@ -30,11 +30,17 @@ from .core.results import EconometricResults, CausalResult
 from .regression.ols import regress
 from .regression.iv import ivreg, IVRegression
 from .causal.causal_forest import CausalForest, causal_forest
-from .did import did, did_2x2, callaway_santanna, sun_abraham, bacon_decomposition
+from .did import did, did_2x2, callaway_santanna, sun_abraham, bacon_decomposition, honest_did, breakdown_m
 from .rd import rdrobust, rdplot
-from .synth import synth, SyntheticControl
+from .synth import (
+    synth, SyntheticControl, sdid,
+    synthdid_estimate, sc_estimate, did_estimate,
+    synthdid_placebo, synthdid_plot, synthdid_units_plot, synthdid_rmse_plot,
+    california_prop99,
+)
 from .matching import match, MatchEstimator
 from .dml import dml, DoubleML
+from .deepiv import deepiv, DeepIV
 from .panel import panel, PanelRegression
 from .causal_impact import causal_impact, CausalImpactEstimator
 from .mediation import mediate, MediationAnalysis
@@ -44,8 +50,13 @@ from .output.modelsummary import modelsummary, coefplot
 from .output.sumstats import sumstats, balance_table
 from .output.tab import tab
 from .postestimation import margins, marginsplot, test, lincom
-from .diagnostics import oster_bounds, mccrary_test
-from .inference import wild_cluster_bootstrap, aipw
+from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test
+from .inference import wild_cluster_bootstrap, aipw, ri_test
+from .plots import binscatter, set_theme
+from .utils import label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data
+from .gmm import xtabond
+from .regression.heckman import heckman
+from .regression.quantile import qreg, sqreg
 
 __all__ = [
     # Core
@@ -61,18 +72,32 @@ __all__ = [
     "callaway_santanna",
     "sun_abraham",
     "bacon_decomposition",
+    "honest_did",
+    "breakdown_m",
     # RD
     "rdrobust",
     "rdplot",
     # Synthetic Control
     "synth",
     "SyntheticControl",
+    "sdid",
+    "synthdid_estimate",
+    "sc_estimate",
+    "did_estimate",
+    "synthdid_placebo",
+    "synthdid_plot",
+    "synthdid_units_plot",
+    "synthdid_rmse_plot",
+    "california_prop99",
     # Matching
     "match",
     "MatchEstimator",
     # Double ML
     "dml",
     "DoubleML",
+    # DeepIV
+    "deepiv",
+    "DeepIV",
     # Panel
     "panel",
     "PanelRegression",
@@ -90,6 +115,23 @@ __all__ = [
     "sumstats",
     "balance_table",
     "tab",
+    # Plots
+    "binscatter",
+    "set_theme",
+    # Utils
+    "label_var",
+    "label_vars",
+    "get_label",
+    "get_labels",
+    "describe",
+    "pwcorr",
+    "winsor",
+    "read_data",
+    # Dynamic Panel GMM
+    "xtabond",
+    "heckman",
+    "qreg",
+    "sqreg",
     # Post-estimation
     "margins",
     "marginsplot",
@@ -104,7 +146,15 @@ __all__ = [
     # Diagnostics
     "oster_bounds",
     "mccrary_test",
+    "diagnose",
+    "het_test",
+    "reset_test",
+    "vif",
+    "sensemakr",
+    "rddensity",
+    "hausman_test",
     # Inference
     "wild_cluster_bootstrap",
     "aipw",
+    "ri_test",
 ]

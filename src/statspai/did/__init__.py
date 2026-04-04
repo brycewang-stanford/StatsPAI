@@ -17,6 +17,7 @@ from .did_2x2 import did_2x2
 from .callaway_santanna import callaway_santanna
 from .sun_abraham import sun_abraham
 from .bacon import bacon_decomposition
+from .honest_did import honest_did, breakdown_m
 
 
 def did(
@@ -151,4 +152,6 @@ __all__ = [
     'callaway_santanna',
     'sun_abraham',
     'bacon_decomposition',
+    'honest_did',
+    'breakdown_m',
 ]
