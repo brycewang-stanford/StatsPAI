@@ -6,82 +6,199 @@
 [![Tests](https://github.com/brycewang-stanford/statspai/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/brycewang-stanford/statspai/actions)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
 
-StatsPAI is a Python package for causal inference and applied econometrics. It provides a unified, Stata-style API covering the complete empirical research workflow — from estimation to publication-ready tables in Word, Excel, and LaTeX.
+StatsPAI is a unified Python package for causal inference and applied econometrics. One `import`, 120+ functions, covering the complete empirical research workflow — from estimation to publication-ready tables in Word, Excel, and LaTeX.
 
-It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact) into a single, consistent Python package.
+It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 
 > Built by the team behind [CoPaper.AI](https://copaper.ai) · Stanford REAP Program
 
 ---
 
-## Main Features
+## Why StatsPAI?
 
-**Regression Models:**
+| Pain point | Stata | R | StatsPAI |
+| --- | --- | --- | --- |
+| Scattered packages | One environment, but \$695+/yr license | 20+ packages with incompatible APIs | **One `import`, unified API** |
+| Publication tables | `outreg2` (limited formats) | `modelsummary` (best-in-class) | **Word + Excel + LaTeX + HTML in every function** |
+| Robustness checks | Manual re-runs | Manual re-runs | **`spec_curve()` + `robustness_report()` — one call** |
+| Heterogeneity analysis | Manual subgroup splits + forest plots | Manual `lapply` + `ggplot` | **`subgroup_analysis()` with Wald test** |
+| Modern ML causal | Limited (no DML, no causal forest) | Fragmented (DoubleML, grf, SuperLearner separate) | **DML, Causal Forest, Meta-Learners, TMLE, DeepIV** |
+| Neural causal models | None | None | **TARNet, CFRNet, DragonNet** |
+| Causal discovery | None | `pcalg` (complex API) | **`notears()`, `pc_algorithm()`** |
+| Policy learning | None | `policytree` (standalone) | **`policy_tree()` + `policy_value()`** |
+| Result objects | Inconsistent across commands | Inconsistent across packages | **Unified `CausalResult` with `.summary()`, `.plot()`, `.to_latex()`, `.cite()`** |
 
-- Ordinary Least Squares with robust / clustered / HAC standard errors
-- Instrumental Variables / Two-Stage Least Squares (2SLS), with first-stage F, Sargan, and Hausman tests
-- Panel data: Fixed Effects, Random Effects, Between, First Differences (via linearmodels)
-- High-dimensional Fixed Effects (via pyfixest)
+---
 
-**Causal Inference — Difference-in-Differences:**
+## Complete Feature List
 
-- Classic 2x2 DID estimator
-- Staggered DID with heterogeneous treatment effects (Callaway & Sant'Anna 2021)
-- Event study plots and pre-trend tests
+### Regression Models
 
-**Causal Inference — Regression Discontinuity:**
+| Function | Description | Stata equivalent | R equivalent |
+| --- | --- | --- | --- |
+| `regress()` | OLS with robust/clustered/HAC SE | `reg y x, r` / `vce(cluster c)` | `fixest::feols()` |
+| `ivreg()` | IV / 2SLS with first-stage diagnostics | `ivregress 2sls` | `fixest::feols()` with IV |
+| `panel()` | Fixed Effects, Random Effects, Between, FD | `xtreg, fe` / `xtreg, re` | `plm::plm()` |
+| `heckman()` | Heckman selection model | `heckman` | `sampleSelection::selection()` |
+| `qreg()`, `sqreg()` | Quantile regression | `qreg` / `sqreg` | `quantreg::rq()` |
+| `tobit()` | Censored regression (Tobit) | `tobit` | `censReg::censReg()` |
+| `xtabond()` | Arellano-Bond dynamic panel GMM | `xtabond` | `plm::pgmm()` |
 
-- Sharp and Fuzzy RD with local polynomial estimation
-- MSE-optimal bandwidth selection (CCT 2014)
-- Robust bias-corrected confidence intervals
-- RD plots with binned scatter and polynomial fit
+### Difference-in-Differences
 
-**Causal Inference — Matching:**
+| Function | Description | Reference |
+| --- | --- | --- |
+| `did()` | Auto-dispatching DID (2×2 or staggered) | — |
+| `did_2x2()` | Classic two-group, two-period DID | — |
+| `callaway_santanna()` | Staggered DID with heterogeneous effects | Callaway & Sant'Anna (2021) |
+| `sun_abraham()` | Interaction-weighted event study | Sun & Abraham (2021) |
+| `bacon_decomposition()` | TWFE decomposition diagnostic | Goodman-Bacon (2021) |
+| `honest_did()` | Sensitivity to parallel trends violations | Rambachan & Roth (2023) |
 
-- Propensity Score Matching (logit-based PSM)
-- Mahalanobis distance matching
-- Coarsened Exact Matching (CEM)
-- Balance diagnostics with standardized mean differences
+### Regression Discontinuity
 
-**Causal Inference — Synthetic Control:**
+| Function | Description | Reference |
+| --- | --- | --- |
+| `rdrobust()` | Sharp/Fuzzy RD with robust bias-corrected inference | Calonico, Cattaneo & Titiunik (2014) |
+| `rdplot()` | RD visualization with binned scatter | — |
+| `rddensity()` | McCrary density manipulation test | McCrary (2008) |
 
-- Abadie-Diamond-Hainmueller SCM
-- Penalized / ridge SCM for many donors
-- Placebo (permutation) inference with MSPE ratios
-- Donor weight tables and gap plots
+### Matching & Reweighting
 
-**Causal Inference — Machine Learning Methods:**
+| Function | Description | Stata equivalent |
+| --- | --- | --- |
+| `match()` | PSM, Mahalanobis, CEM with balance diagnostics | `psmatch2` / `cem` |
+| `ebalance()` | Entropy balancing | `ebalance` |
 
-- Double/Debiased Machine Learning: Partially Linear (PLR) and Interactive (IRM) models with cross-fitting (Chernozhukov et al. 2018)
-- Causal Forest for heterogeneous treatment effects (HTE)
-- Compatible with any scikit-learn estimator as first-stage ML model
+### Synthetic Control
 
-**Causal Inference — Other Methods:**
+| Function | Description | Reference |
+| --- | --- | --- |
+| `synth()` | Abadie-Diamond-Hainmueller SCM | Abadie et al. (2010) |
+| `sdid()` | Synthetic Difference-in-Differences | Arkhangelsky et al. (2021) |
+| Placebo inference, gap plots, weight tables, RMSE plots | — | — |
 
-- Causal Impact: Bayesian structural time-series intervention analysis (Brodersen et al. 2015)
-- Causal Mediation Analysis: ACME / ADE decomposition with bootstrap inference (Imai et al. 2010)
-- Shift-Share / Bartik IV with Rotemberg weight diagnostics (GPSS 2020)
+### Machine Learning Causal Inference
 
-**Post-Estimation:**
+| Function | Description | Reference |
+| --- | --- | --- |
+| `dml()` | Double/Debiased ML (PLR + IRM) with cross-fitting | Chernozhukov et al. (2018) |
+| `causal_forest()` | Causal Forest for heterogeneous treatment effects | Wager & Athey (2018) |
+| `deepiv()` | Deep IV neural network approach | Hartford et al. (2017) |
+| `metalearner()` | S/T/X/R/DR-Learner for CATE estimation | Kunzel et al. (2019), Kennedy (2023) |
+| `tmle()` | Targeted Maximum Likelihood Estimation | van der Laan & Rose (2011) |
+| `aipw()` | Augmented Inverse-Probability Weighting | — |
 
-- Marginal effects (AME / MEM) with delta-method standard errors, equivalent to Stata's `margins, dydx(*)`
-- Wald test for linear restrictions, equivalent to Stata's `test`
-- Linear combinations of coefficients with inference, equivalent to Stata's `lincom`
+### Neural Causal Models
 
-**Diagnostics:**
+| Function | Description | Reference |
+| --- | --- | --- |
+| `tarnet()` | Treatment-Agnostic Representation Network | Shalit et al. (2017) |
+| `cfrnet()` | Counterfactual Regression Network | Shalit et al. (2017) |
+| `dragonnet()` | Dragon Neural Network for CATE | Shi et al. (2019) |
 
-- Oster (2019) coefficient stability / selection-on-unobservables bounds
-- McCrary (2008) density manipulation test for RD validity
+### Causal Discovery
 
-**Publication-Quality Output:**
+| Function | Description | Reference |
+| --- | --- | --- |
+| `notears()` | DAG learning via continuous optimization | Zheng et al. (2018) |
+| `pc_algorithm()` | Constraint-based causal graph learning | Spirtes et al. (2000) |
 
-- Multi-model comparison tables (equivalent to R's `modelsummary` / Stata's `esttab`)
-- Coefficient forest plots across models
-- Summary statistics tables (equivalent to Stata's `tabstat`)
-- Balance tables for matching / DID / RCT papers
-- Cross-tabulation with chi-squared / Fisher's exact test (equivalent to Stata's `tab, chi2`)
-- **Export to Word (.docx), Excel (.xlsx), LaTeX (.tex), HTML** — all tables, all formats
-- Every result object has `.summary()`, `.plot()`, `.to_latex()`, `.to_docx()`, `.cite()`
+### Policy Learning
+
+| Function | Description | Reference |
+| --- | --- | --- |
+| `policy_tree()` | Optimal treatment assignment rules | Athey & Wager (2021) |
+| `policy_value()` | Policy value evaluation | — |
+
+### Other Causal Methods
+
+| Function | Description | Stata/R equivalent |
+| --- | --- | --- |
+| `causal_impact()` | Bayesian structural time-series | R `CausalImpact` |
+| `mediate()` | Mediation analysis (ACME/ADE) | `medeff` / R `mediation` |
+| `bartik()` | Shift-share IV with Rotemberg weights | `bartik_weight` |
+
+### Post-Estimation
+
+| Function | Description | Stata equivalent |
+| --- | --- | --- |
+| `margins()` | Average marginal effects (AME/MEM) | `margins, dydx(*)` |
+| `marginsplot()` | Marginal effects visualization | `marginsplot` |
+| `test()` | Wald test for linear restrictions | `test x1 = x2` |
+| `lincom()` | Linear combinations with inference | `lincom x1 + x2` |
+
+### Diagnostics & Sensitivity
+
+| Function | Description | Reference |
+| --- | --- | --- |
+| `oster_bounds()` | Coefficient stability bounds | Oster (2019) |
+| `sensemakr()` | Sensitivity to omitted variables | Cinelli & Hazlett (2020) |
+| `mccrary_test()` | Density discontinuity test | McCrary (2008) |
+| `hausman_test()` | FE vs RE specification test | Hausman (1978) |
+| `anderson_rubin_test()` | Weak instrument robust inference | Anderson & Rubin (1949) |
+| `het_test()` | Breusch-Pagan / White heteroskedasticity | — |
+| `reset_test()` | Ramsey RESET specification test | — |
+| `vif()` | Variance Inflation Factor | — |
+| `diagnose()` | General model diagnostics | — |
+
+### Robustness Analysis *(unique to StatsPAI)*
+
+| Function | Description | R/Stata equivalent |
+| --- | --- | --- |
+| `spec_curve()` | Specification Curve / Multiverse Analysis | R `specr` (limited) / Stata: none |
+| `robustness_report()` | Automated robustness battery (SE variants, winsorize, trim, add/drop controls, subsamples) | None |
+| `subgroup_analysis()` | Heterogeneity analysis with forest plot + interaction Wald test | None (manual in both) |
+
+### Inference Methods
+
+| Function | Description |
+| --- | --- |
+| `wild_cluster_bootstrap()` | Wild cluster bootstrap (Cameron, Gelbach & Miller 2008) |
+| `ri_test()` | Randomization inference / Fisher exact test |
+
+### CATE Diagnostics (for Meta-Learners & Causal Forest)
+
+| Function | Description |
+| --- | --- |
+| `cate_summary()`, `cate_by_group()` | CATE distribution summaries |
+| `cate_plot()`, `cate_group_plot()` | CATE visualization |
+| `gate_test()` | Group Average Treatment Effect test |
+| `blp_test()` | Best Linear Projection test |
+| `compare_metalearners()` | Compare S/T/X/R/DR-Learner estimates |
+
+### Publication-Quality Output
+
+| Function | Description | Formats |
+| --- | --- | --- |
+| `modelsummary()` | Multi-model comparison tables | Text, LaTeX, HTML, Word, Excel, DataFrame |
+| `outreg2()` | Stata-style regression table export | Excel, LaTeX, Word |
+| `sumstats()` | Summary statistics (Table 1) | Text, LaTeX, HTML, Word, Excel, DataFrame |
+| `balance_table()` | Pre-treatment balance check | Text, LaTeX, HTML, Word, Excel, DataFrame |
+| `tab()` | Cross-tabulation with chi-squared / Fisher | Text, LaTeX, Word, Excel, DataFrame |
+| `coefplot()` | Coefficient forest plot across models | matplotlib Figure |
+| `binscatter()` | Binned scatter with residualization | matplotlib Figure |
+| `set_theme()` | Publication themes (`'academic'`, `'aea'`, `'minimal'`, `'cn_journal'`) | — |
+
+Every result object has:
+
+```python
+result.summary()      # Formatted text summary
+result.plot()         # Appropriate visualization
+result.to_latex()     # LaTeX table
+result.to_docx()      # Word document
+result.cite()         # BibTeX citation for the method
+```
+
+### Utilities
+
+| Function | Description | Stata equivalent |
+| --- | --- | --- |
+| `label_var()`, `label_vars()` | Variable labeling | `label var` |
+| `describe()` | Data description | `describe` |
+| `pwcorr()` | Pairwise correlation with significance stars | `pwcorr, star(.05)` |
+| `winsor()` | Winsorization | `winsor2` |
+| `read_data()` | Multi-format data reader | `use` / `import` |
 
 ---
 
@@ -114,71 +231,91 @@ r1 = sp.regress("wage ~ education + experience", data=df, robust='hc1')
 r2 = sp.ivreg("wage ~ (education ~ parent_edu) + experience", data=df)
 r3 = sp.did(df, y='wage', treat='policy', time='year', id='worker')
 r4 = sp.rdrobust(df, y='score', x='running_var', c=0)
-r5 = sp.match(df, y='outcome', treat='treated', covariates=['age', 'edu'])
-r6 = sp.dml(df, y='wage', treat='training', covariates=['age', 'edu', 'exp'])
+r5 = sp.dml(df, y='wage', treat='training', covariates=['age', 'edu', 'exp'])
+r6 = sp.causal_forest("y ~ treatment | x1 + x2 + x3", data=df)
 
 # --- Post-estimation ---
-me = sp.margins(r1, data=df)            # Marginal effects
-sp.test(r1, "education = experience")   # Wald test: beta_edu = beta_exp?
-sp.lincom(r1, "education + experience") # Linear combination
+sp.margins(r1, data=df)              # Marginal effects
+sp.test(r1, "education = experience") # Wald test
+sp.oster_bounds(df, y='wage', treat='education', controls=['experience'])
 
 # --- Tables (to Word / Excel / LaTeX) ---
 sp.modelsummary(r1, r2, output='table2.docx')
 sp.outreg2(r1, r2, r3, filename='results.xlsx')
 sp.sumstats(df, vars=['wage', 'education', 'age'], output='table1.docx')
-sp.balance_table(df, treat='treated', covariates=['age', 'edu'], output='balance.docx')
-sp.tab(df, 'treatment', 'outcome', output='crosstab.docx')
+
+# --- Robustness (unique to StatsPAI) ---
+sp.spec_curve(df, y='wage', x='education',
+              controls=[[], ['experience'], ['experience', 'female']],
+              se_types=['nonrobust', 'hc1']).plot()
+
+sp.robustness_report(df, formula="wage ~ education + experience",
+                     x='education', extra_controls=['female'],
+                     winsor_levels=[0.01, 0.05]).plot()
+
+sp.subgroup_analysis(df, formula="wage ~ education + experience",
+                     x='education',
+                     by={'Gender': 'female', 'Region': 'region'}).plot()
 ```
 
 ---
 
-## API Summary
+## StatsPAI vs Stata vs R: Honest Comparison
 
-| Category | Functions | Description |
-| --- | --- | --- |
-| **Regression** | `regress`, `ivreg`, `panel`, `fixest.feols` | OLS, IV/2SLS, Panel (FE/RE/FD/BE), High-dimensional FE |
-| **DID** | `did`, `did_2x2`, `callaway_santanna` | Classic 2x2, Staggered (C&S 2021), Event study |
-| **RD** | `rdrobust`, `rdplot` | Sharp/Fuzzy RD, CCT robust inference, RD plots |
-| **Matching** | `match` | PSM, CEM, Mahalanobis, Balance diagnostics |
-| **Synth** | `synth` | Abadie SCM, Penalized SCM, Placebo inference |
-| **ML Causal** | `dml`, `causal_forest` | Double ML (PLR/IRM), Causal Forest (HTE) |
-| **Other Causal** | `causal_impact`, `mediate`, `bartik` | Intervention analysis, Mediation, Shift-share IV |
-| **Post-estimation** | `margins`, `marginsplot`, `test`, `lincom` | Marginal effects, Wald tests, Linear combinations |
-| **Diagnostics** | `oster_bounds`, `mccrary_test` | Coefficient stability, Density manipulation |
-| **Tables** | `modelsummary`, `outreg2`, `sumstats`, `balance_table`, `tab` | Multi-model tables, Summary stats, Balance, Cross-tabs |
-| **Plots** | `coefplot`, `marginsplot`, `rdplot`, `result.plot()` | Coefficient, Margins, RD, Event study plots |
-| **Export** | `.to_docx()`, `.to_latex()`, `output='*.xlsx'` | Word, Excel, LaTeX, HTML — all tables, all formats |
+### Where StatsPAI wins
 
-All causal methods return a unified **`CausalResult`** object:
+| Advantage | Detail |
+| --- | --- |
+| **Unified API** | One package, one `import`, consistent `.summary()` / `.plot()` / `.to_latex()` across all methods. Stata requires paid add-ons; R requires 20+ packages with different interfaces. |
+| **Modern ML causal methods** | DML, Causal Forest, Meta-Learners (S/T/X/R/DR), TMLE, DeepIV, TARNet/CFRNet/DragonNet, Policy Trees — all in one place. Stata has almost none of these. R has them scattered across incompatible packages. |
+| **Robustness automation** | `spec_curve()`, `robustness_report()`, `subgroup_analysis()` — no manual re-running. Neither Stata nor R offers this out-of-the-box. |
+| **Free & open source** | MIT license, \$0. Stata costs \$695–\$1,595/year. |
+| **Python ecosystem** | Integrates naturally with pandas, scikit-learn, PyTorch, Jupyter, cloud pipelines. |
+| **Auto-citations** | Every causal method has `.cite()` returning the correct BibTeX. Neither Stata nor R does this. |
 
-```python
-result.estimate       # Point estimate
-result.se             # Standard error
-result.pvalue         # P-value
-result.ci             # Confidence interval
-result.summary()      # Formatted text summary
-result.plot()         # Appropriate visualization
-result.to_latex()     # LaTeX table
-result.to_docx()      # Word document
-result.cite()         # BibTeX citation for the method
-```
+### Where Stata still wins
+
+| Advantage | Detail |
+| --- | --- |
+| **Battle-tested at scale** | 40+ years of production use in economics. Edge cases are well-handled. |
+| **Speed on very large datasets** | Stata's compiled C backend is faster for simple OLS/FE on datasets with millions of rows. |
+| **Survey data & complex designs** | `svy:` prefix, stratification, clustering — Stata's survey support is unmatched. |
+| **Mature documentation** | Every command has a PDF manual with worked examples. Community is massive. |
+| **Journal acceptance** | Referees in some fields trust Stata output by default. |
+
+### Where R still wins
+
+| Advantage | Detail |
+| --- | --- |
+| **Cutting-edge methods** | New econometric methods (e.g., `fixest`, `did2s`, `HonestDiD`) often appear in R first. |
+| **`ggplot2` visualization** | R's grammar of graphics is more flexible than matplotlib for complex figures. |
+| **`modelsummary`** | R's `modelsummary` is the gold standard for regression tables — StatsPAI's is close but not yet identical. |
+| **CRAN quality control** | R packages go through peer review. Python packages vary in quality. |
+| **Spatial econometrics** | `spdep`, `spatialreg` — R has a deeper spatial ecosystem. |
 
 ---
 
-## Comparison with Stata and R
+## API at a Glance
 
-| Task | Stata | R | StatsPAI |
-| --- | --- | --- | --- |
-| OLS with robust SE | `reg y x, r` | `feols(y ~ x, vcov="HC1")` | `sp.regress("y ~ x", robust='hc1')` |
-| IV regression | `ivregress 2sls y (x = z)` | `feols(y ~ 1 \| x ~ z)` | `sp.ivreg("y ~ (x ~ z)")` |
-| Staggered DID | `csdid y, ivar(id) time(t) gvar(g)` | `att_gt(y ~ 1, ...)` | `sp.did(df, y, treat, time, id)` |
-| RD design | `rdrobust y x, c(0)` | `rdrobust(Y, X, c=0)` | `sp.rdrobust(df, y, x, c=0)` |
-| PSM matching | `psmatch2 treat x1 x2` | `matchit(treat ~ x1+x2)` | `sp.match(df, y, treat, covs)` |
-| Double ML | — | `DoubleML$new(...)` | `sp.dml(df, y, treat, covs)` |
-| Marginal effects | `margins, dydx(*)` | `margins(model)` | `sp.margins(result, data=df)` |
-| Wald test | `test x1 = x2` | `linearHypothesis(...)` | `sp.test(result, "x1 = x2")` |
-| Export to Word | `outreg2 using r.doc, word` | `modelsummary(output="t.docx")` | `sp.outreg2(r, filename="r.docx")` |
-| Summary stats | `tabstat y x, s(mean sd)` | `datasummary(...)` | `sp.sumstats(df, vars=[...])` |
+```text
+120 public functions/classes
+
+Regression:     regress, ivreg, panel, heckman, qreg, sqreg, tobit, xtabond
+DID:            did, did_2x2, callaway_santanna, sun_abraham, bacon_decomposition, honest_did
+RD:             rdrobust, rdplot, rddensity
+Matching:       match, ebalance
+Synth:          synth, sdid
+ML Causal:      dml, causal_forest, deepiv, metalearner, tmle, aipw
+Neural:         tarnet, cfrnet, dragonnet
+Discovery:      notears, pc_algorithm
+Policy:         policy_tree, policy_value
+Other:          causal_impact, mediate, bartik
+Post-est:       margins, marginsplot, test, lincom
+Diagnostics:    oster_bounds, sensemakr, mccrary_test, hausman_test, het_test, reset_test, vif
+Robustness:     spec_curve, robustness_report, subgroup_analysis
+Inference:      wild_cluster_bootstrap, ri_test
+Output:         modelsummary, outreg2, sumstats, balance_table, tab, coefplot, binscatter
+```
 
 ---
 

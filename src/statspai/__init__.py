@@ -52,12 +52,23 @@ from .output.tab import tab
 from .postestimation import margins, marginsplot, test, lincom
 from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test
 from .inference import wild_cluster_bootstrap, aipw, ri_test
-from .plots import binscatter, set_theme
+from .plots import binscatter, set_theme, interactive, get_code
 from .utils import label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data
 from .gmm import xtabond
+from .metalearners import metalearner, SLearner, TLearner, XLearner, RLearner, DRLearner
+from .metalearners import cate_summary, cate_by_group, cate_plot, cate_group_plot, predict_cate, compare_metalearners, gate_test, blp_test
 from .regression.heckman import heckman
 from .regression.quantile import qreg, sqreg
 from .regression.tobit import tobit
+from .neural_causal import tarnet, cfrnet, dragonnet, TARNet, CFRNet, DragonNet
+from .causal_discovery import notears, NOTEARS, pc_algorithm, PCAlgorithm
+from .tmle import tmle, TMLE, super_learner, SuperLearner
+from .policy_learning import policy_tree, PolicyTree, policy_value
+from .conformal_causal import conformal_cate, ConformalCATE
+from .bcf import bcf, BayesianCausalForest
+from .bunching import bunching, BunchingEstimator
+from .matrix_completion import mc_panel, MCPanel
+from .robustness import spec_curve, SpecCurveResult, robustness_report, RobustnessResult, subgroup_analysis, SubgroupResult
 
 __all__ = [
     # Core
@@ -120,6 +131,8 @@ __all__ = [
     # Plots
     "binscatter",
     "set_theme",
+    "interactive",
+    "get_code",
     # Utils
     "label_var",
     "label_vars",
@@ -161,4 +174,48 @@ __all__ = [
     "wild_cluster_bootstrap",
     "aipw",
     "ri_test",
+    # Meta-Learners (HTE)
+    "metalearner",
+    "SLearner",
+    "TLearner",
+    "XLearner",
+    "RLearner",
+    "DRLearner",
+    # CATE Diagnostics
+    "cate_summary",
+    "cate_by_group",
+    "cate_plot",
+    "cate_group_plot",
+    "predict_cate",
+    "compare_metalearners",
+    "gate_test",
+    "blp_test",
+    # Neural Causal Models
+    "tarnet",
+    "cfrnet",
+    "dragonnet",
+    "TARNet",
+    "CFRNet",
+    "DragonNet",
+    # Causal Discovery
+    "notears",
+    "NOTEARS",
+    "pc_algorithm",
+    "PCAlgorithm",
+    # TMLE
+    "tmle",
+    "TMLE",
+    "super_learner",
+    "SuperLearner",
+    # Policy Learning
+    "policy_tree",
+    "PolicyTree",
+    "policy_value",
+    # Robustness
+    "spec_curve",
+    "SpecCurveResult",
+    "robustness_report",
+    "RobustnessResult",
+    "subgroup_analysis",
+    "SubgroupResult",
 ]
