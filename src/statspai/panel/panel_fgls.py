@@ -129,8 +129,9 @@ def panel_fgls(
     # Step 3: Build Omega^{-1} and do GLS
     # For efficiency, do it block by block
 
+    beta_gls = beta_ols.copy()
     for iteration in range(maxiter):
-        beta_old = beta_ols.copy() if iteration == 0 else beta_gls.copy()
+        beta_old = beta_gls.copy()
 
         XtOiX = np.zeros((k_total, k_total))
         XtOiY = np.zeros(k_total)
