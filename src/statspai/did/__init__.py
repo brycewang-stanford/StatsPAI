@@ -9,6 +9,9 @@ Provides estimators for:
 - Synthetic DID (Arkhangelsky et al. 2021)
 - Goodman-Bacon (2021) — TWFE decomposition diagnostic
 - Honest DID (Rambachan & Roth 2023) — parallel trends sensitivity
+- de Chaisemartin & D'Haultfoeuille (2020) — DID with treatment switching
+- Borusyak, Jaravel & Spiess (2024) — imputation DID estimator
+- Stacked DID (Cengiz, Dube, Lindner & Zipperer, 2019)
 - did_analysis() — one-call comprehensive workflow
 """
 
@@ -25,6 +28,10 @@ from .bacon import bacon_decomposition
 from .honest_did import honest_did, breakdown_m
 from .event_study import event_study
 from .analysis import did_analysis, DIDAnalysis
+from .did_multiplegt import did_multiplegt
+from .did_imputation import did_imputation
+from .stacked_did import stacked_did
+from .cic import cic
 from .plots import (
     parallel_trends_plot,
     bacon_plot,
@@ -156,6 +163,21 @@ def did(
                     "DID, or set method='2x2' or method='callaway_santanna'."
                 )
 
+    # ── Normalize aliases ─────────────────────────────────────────── #
+    _METHOD_ALIASES = {'did2s': '2x2'}
+    method = _METHOD_ALIASES.get(method, method)
+
+    # 'classic' / 'twfe': run 2x2 DID.
+    # If time has >2 values, collapse into pre/post using median split.
+    if method in ('classic', 'twfe'):
+        n_time = data[time].nunique()
+        if n_time > 2:
+            time_mid = data[time].median()
+            data = data.copy()
+            data['_post'] = (data[time] >= time_mid).astype(int)
+            time = '_post'
+        method = '2x2'
+
     # ── Dispatch ───────────────────────────────────────────────────── #
 
     if method == '2x2':
@@ -223,8 +245,8 @@ def did(
 
     raise ValueError(
         f"Unknown DID method: '{method}'. "
-        "Available: '2x2', 'ddd', 'callaway_santanna' (or 'cs'), "
-        "'sun_abraham' (or 'sa'), 'sdid'."
+        "Available: '2x2' (or 'classic', 'twfe'), 'ddd', "
+        "'callaway_santanna' (or 'cs'), 'sun_abraham' (or 'sa'), 'sdid'."
     )
 
 
@@ -240,6 +262,10 @@ __all__ = [
     'event_study',
     'did_analysis',
     'DIDAnalysis',
+    'did_multiplegt',
+    'did_imputation',
+    'stacked_did',
+    'cic',
     # Plots
     'parallel_trends_plot',
     'bacon_plot',

@@ -133,17 +133,17 @@ FONT_PRESETS = {
         'title_size': 10, 'label_size': 9, 'tick_size': 8,
     },
     # --- Chinese academic (auto-detect best available font) ---
-    'Chinese Thesis (中文学位论文)': {
+    'CJK Thesis': {
         'family': 'serif',
         'fonts': None,  # filled at runtime by _get_chinese_serif()
         'title_size': 12, 'label_size': 10.5, 'tick_size': 9,
     },
-    'Chinese Journal (中文期刊)': {
+    'CJK Journal': {
         'family': 'serif',
         'fonts': None,  # filled at runtime
         'title_size': 12, 'label_size': 10.5, 'tick_size': 9,
     },
-    'Chinese Slide (中文PPT)': {
+    'CJK Slide': {
         'family': 'sans-serif',
         'fonts': None,  # filled at runtime by _get_chinese_sans()
         'title_size': 16, 'label_size': 13, 'tick_size': 11,
@@ -207,8 +207,8 @@ def _build_font_choices() -> Dict[str, List[str]]:
             'Helvetica', 'Arial', 'Calibri', 'Verdana',
             'DejaVu Sans', 'Liberation Sans',
         ],
-        'Chinese (中文)': cn_fonts if cn_fonts else [
-            '(No Chinese fonts detected)',
+        'CJK': cn_fonts if cn_fonts else [
+            '(No CJK fonts detected)',
         ],
         'Monospace': [
             'Courier New', 'Consolas', 'DejaVu Sans Mono',
@@ -458,6 +458,7 @@ class FigureEditor:
 
         state['fig.figsize'] = tuple(self.fig.get_size_inches())
         state['fig.dpi'] = self.fig.dpi
+        state['fig.facecolor'] = self.fig.get_facecolor()
         if self.fig._suptitle:
             state['fig.suptitle.text'] = self.fig._suptitle.get_text()
             state['fig.suptitle.fontsize'] = (
@@ -638,7 +639,7 @@ class FigureEditor:
         # Set specific font at top of preference list
         clean_name = None
         if font_name:
-            # Strip Chinese label in parens: "Songti SC (宋体)" -> "Songti SC"
+            # Strip CJK label in parens: "Songti SC (宋体)" -> "Songti SC"
             clean_name = font_name.split(' (')[0].strip()
             key = f'font.{font_family}'
             current = list(mpl.rcParams.get(key, []))
@@ -696,7 +697,7 @@ class FigureEditor:
         ----------
         preset_name : str
             One of the keys from FONT_PRESETS, e.g.
-            'AER / Econometrica', 'Chinese Thesis (中文学位论文)',
+            'AER / Econometrica', 'CJK Thesis',
             'Nature / Science', etc.
         ax_index : int
             Which axis to apply to.
@@ -930,6 +931,110 @@ class FigureEditor:
             f'{prefix}.line{line_index}', 'marker', old, marker, code))
         self._refresh()
 
+    def set_dpi(self, dpi: int):
+        """Set figure DPI with tracking."""
+        old = self.fig.dpi
+        self.fig.set_dpi(dpi)
+        self.edits.append(EditRecord(
+            'fig', 'dpi', old, dpi,
+            f"fig.set_dpi({dpi})"))
+        self._refresh()
+
+    def set_background_color(self, color: str, target: str = 'figure',
+                             ax_index: int = 0):
+        """Set background color for figure or axes."""
+        prefix = f'ax{ax_index}' if ax_index > 0 else 'ax'
+        if target == 'figure':
+            old = self.fig.get_facecolor()
+            self.fig.set_facecolor(color)
+            code = f"fig.set_facecolor({color!r})"
+            desc = 'fig.facecolor'
+        else:
+            ax = self.fig.get_axes()[ax_index]
+            old = ax.get_facecolor()
+            ax.set_facecolor(color)
+            code = f"{prefix}.set_facecolor({color!r})"
+            desc = f'{prefix}.facecolor'
+        self.edits.append(EditRecord(desc, 'color', str(old), color, code))
+        self._refresh()
+
+    def set_tick_rotation(self, axis: str, angle: float,
+                          ax_index: int = 0):
+        """Set tick label rotation."""
+        ax = self.fig.get_axes()[ax_index]
+        prefix = f'ax{ax_index}' if ax_index > 0 else 'ax'
+        if axis == 'x':
+            old_labels = ax.get_xticklabels()
+            old = old_labels[0].get_rotation() if old_labels else 0
+            ax.tick_params(axis='x', rotation=angle)
+            code = f"{prefix}.tick_params(axis='x', rotation={angle})"
+        else:
+            old_labels = ax.get_yticklabels()
+            old = old_labels[0].get_rotation() if old_labels else 0
+            ax.tick_params(axis='y', rotation=angle)
+            code = f"{prefix}.tick_params(axis='y', rotation={angle})"
+        self.edits.append(EditRecord(
+            f'{prefix}.{axis}ticks', 'rotation', old, angle, code))
+        self._refresh()
+
+    def set_title_weight(self, weight: str, ax_index: int = 0):
+        """Set title font weight (normal/bold)."""
+        ax = self.fig.get_axes()[ax_index]
+        prefix = f'ax{ax_index}' if ax_index > 0 else 'ax'
+        old = ax.title.get_fontweight()
+        ax.title.set_fontweight(weight)
+        code = f"{prefix}.title.set_fontweight({weight!r})"
+        self.edits.append(EditRecord(
+            f'{prefix}.title', 'fontweight', old, weight, code))
+        self._refresh()
+
+    def set_legend_visible(self, visible: bool, ax_index: int = 0):
+        """Show or hide the legend."""
+        ax = self.fig.get_axes()[ax_index]
+        prefix = f'ax{ax_index}' if ax_index > 0 else 'ax'
+        legend = ax.get_legend()
+        if legend is None:
+            if visible:
+                ax.legend()
+                code = f"{prefix}.legend()"
+            else:
+                return
+        else:
+            legend.set_visible(visible)
+            code = (f"{prefix}.get_legend().set_visible({visible})")
+        self.edits.append(EditRecord(
+            f'{prefix}.legend', 'visible', not visible, visible, code))
+        self._refresh()
+
+    def set_grid_style(self, color: Optional[str] = None,
+                       alpha: Optional[float] = None,
+                       linestyle: Optional[str] = None,
+                       ax_index: int = 0):
+        """Customize grid appearance."""
+        ax = self.fig.get_axes()[ax_index]
+        prefix = f'ax{ax_index}' if ax_index > 0 else 'ax'
+        kwargs = {}
+        if color is not None:
+            kwargs['color'] = color
+        if alpha is not None:
+            kwargs['alpha'] = alpha
+        if linestyle is not None:
+            kwargs['linestyle'] = linestyle
+        ax.grid(True, **kwargs)
+        parts = ', '.join(f'{k}={v!r}' for k, v in kwargs.items())
+        code = f"{prefix}.grid(True, {parts})"
+        self.edits.append(EditRecord(
+            f'{prefix}.grid', 'style', None, kwargs, code))
+        self._refresh()
+
+    def tight_layout(self):
+        """Apply tight_layout to fix overlapping labels."""
+        self.fig.tight_layout()
+        self.edits.append(EditRecord(
+            'fig', 'tight_layout', None, True,
+            "fig.tight_layout()"))
+        self._refresh()
+
     def save(self, filename: str, dpi: int = 300, **kwargs):
         """Save the figure to a file with tracking."""
         self.fig.savefig(filename, dpi=dpi, bbox_inches='tight', **kwargs)
@@ -1076,6 +1181,10 @@ class FigureEditor:
                 import matplotlib as mpl
                 mpl.rcParams['font.family'] = val
             # --- Legend ---
+            elif 'legend' in td and prop == 'visible':
+                legend = ax.get_legend()
+                if legend:
+                    legend.set_visible(val)
             elif 'legend' in td:
                 legend = ax.get_legend()
                 if legend and isinstance(val, dict):
@@ -1083,6 +1192,29 @@ class FigureEditor:
                         legend.set_loc(val['loc'])
                     if 'frameon' in val:
                         legend.set_frame_on(val['frameon'])
+            # --- DPI ---
+            elif td == 'fig' and prop == 'dpi':
+                self.fig.set_dpi(val)
+            # --- Background color ---
+            elif 'facecolor' in td:
+                if td == 'fig.facecolor':
+                    self.fig.set_facecolor(val)
+                else:
+                    ax.set_facecolor(val)
+            # --- Tick rotation ---
+            elif 'ticks' in td and prop == 'rotation':
+                axis_char = 'x' if 'xticks' in td else 'y'
+                ax.tick_params(axis=axis_char, rotation=val)
+            # --- Title weight ---
+            elif 'title' in td and prop == 'fontweight':
+                ax.title.set_fontweight(val)
+            # --- Grid style ---
+            elif 'grid' in td and prop == 'style':
+                if isinstance(val, dict):
+                    ax.grid(True, **val)
+            # --- Tight layout ---
+            elif td == 'fig' and prop == 'tight_layout':
+                self.fig.tight_layout()
         except (IndexError, KeyError, ValueError):
             pass  # Skip edits that reference out-of-range elements
 
@@ -1174,6 +1306,10 @@ class FigureEditor:
 
         if 'fig.figsize' in s:
             self.fig.set_size_inches(s['fig.figsize'])
+        if 'fig.facecolor' in s:
+            self.fig.set_facecolor(s['fig.facecolor'])
+        if 'fig.dpi' in s:
+            self.fig.set_dpi(s['fig.dpi'])
 
     def on_refresh(self, callback):
         """Register a callback to be called after every edit refresh."""
@@ -1182,9 +1318,12 @@ class FigureEditor:
     def _refresh(self):
         """Redraw the figure canvas and notify callbacks."""
         try:
-            self.fig.canvas.draw_idle()
+            self.fig.canvas.draw()
         except Exception:
-            pass
+            try:
+                self.fig.canvas.draw_idle()
+            except Exception:
+                pass
         # Notify registered callbacks (e.g. Jupyter live preview)
         for cb in self._on_refresh_callbacks:
             try:

@@ -403,6 +403,32 @@ class CausalResult:
             "  publisher={Elsevier}\n"
             "}"
         ),
+        'did_multiplegt': (
+            "@article{dechaisemartin2020two,\n"
+            "  title={Two-Way Fixed Effects Estimators with "
+            "Heterogeneous Treatment Effects},\n"
+            "  author={de Chaisemartin, Cl{\\'e}ment and "
+            "D'Haultf{\\oe}uille, Xavier},\n"
+            "  journal={American Economic Review},\n"
+            "  volume={110},\n"
+            "  number={9},\n"
+            "  pages={2964--2996},\n"
+            "  year={2020}\n"
+            "}"
+        ),
+        'stacked_did': (
+            "@article{cengiz2019effect,\n"
+            "  title={The Effect of Minimum Wages on Low-Wage Jobs},\n"
+            "  author={Cengiz, Doruk and Dube, Arindrajit and "
+            "Lindner, Attila and Zipperer, Ben},\n"
+            "  journal={Quarterly Journal of Economics},\n"
+            "  volume={134},\n"
+            "  number={3},\n"
+            "  pages={1405--1454},\n"
+            "  year={2019},\n"
+            "  publisher={Oxford University Press}\n"
+            "}"
+        ),
     }
 
     def __init__(

@@ -92,11 +92,13 @@ def create_jupyter_panel(editor: FigureEditor):
     def _live_refresh(figure):
         """Callback: re-render the figure into the Image widget."""
         try:
-            fig_image.value = _render_fig_to_png(figure)
+            # Use figure's actual DPI for preview (matches user setting)
+            render_dpi = int(figure.dpi)
+            fig_image.value = _render_fig_to_png(figure, dpi=render_dpi)
             n = len(editor.edits)
             status_bar.value = (
                 f'<span style="font-size:11px; color:#2ECC71">'
-                f'{n} edit(s) — preview updated</span>'
+                f'{n} edit(s) — preview updated (DPI: {int(figure.dpi)})</span>'
             )
         except Exception:
             pass
@@ -187,6 +189,10 @@ def create_jupyter_panel(editor: FigureEditor):
         grid_toggle.value = (
             gridlines[0].get_visible() if gridlines else False
         )
+        # Layout tab: legend
+        legend_visible.value = ax.get_legend() is not None
+        # Layout tab: background
+        ax_bg_color.value = _to_hex(ax.get_facecolor())
         # Layout tab: axis limits
         xl = ax.get_xlim()
         yl = ax.get_ylim()
@@ -280,9 +286,9 @@ def create_jupyter_panel(editor: FigureEditor):
 
     # Font family dropdown
     font_family = widgets.Dropdown(
-        options=[('Serif (衬线)', 'serif'),
-                 ('Sans-serif (无衬线)', 'sans-serif'),
-                 ('Monospace (等宽)', 'monospace')],
+        options=[('Serif', 'serif'),
+                 ('Sans-serif', 'sans-serif'),
+                 ('Monospace', 'monospace')],
         value='serif',
         description='Family:',
         layout=widgets.Layout(width='95%'),
@@ -292,9 +298,9 @@ def create_jupyter_panel(editor: FigureEditor):
     def _get_font_options(family):
         choices = get_font_choices()
         if family == 'serif':
-            fonts = choices['English Serif'] + choices['Chinese (中文)']
+            fonts = choices['English Serif'] + choices['CJK']
         elif family == 'sans-serif':
-            fonts = choices['English Sans-serif'] + choices['Chinese (中文)']
+            fonts = choices['English Sans-serif'] + choices['CJK']
         else:
             fonts = choices['Monospace']
         return [('(auto)', '')] + [(f, f) for f in fonts]
@@ -539,7 +545,7 @@ def create_jupyter_panel(editor: FigureEditor):
     _rebuild_style_widgets()
 
     # ==================================================================
-    # Tab 3: Layout (spines, grid, figsize, legend, axes limits)
+    # Tab 3: Layout (spines, grid, figsize, legend, axes limits, etc.)
     # ==================================================================
     spine_top = widgets.Checkbox(
         value=axes[0].spines['top'].get_visible(),
@@ -557,51 +563,190 @@ def create_jupyter_panel(editor: FigureEditor):
         value=axes[0].spines['left'].get_visible(),
         description='Left spine',
     )
+
+    # ---- Grid controls (toggle + style) ----
     grid_toggle = widgets.Checkbox(
         value=False, description='Show grid',
     )
+    grid_color = widgets.ColorPicker(
+        value='#cccccc', description='Grid color:',
+        layout=widgets.Layout(width='95%'),
+    )
+    grid_alpha = widgets.FloatSlider(
+        value=0.7, min=0, max=1, step=0.05,
+        description='Grid alpha:',
+        layout=widgets.Layout(width='95%'),
+        continuous_update=False,
+    )
+    _GRID_STYLES = [('-', 'solid'), ('--', 'dashed'),
+                    (':', 'dotted'), ('-.', 'dashdot')]
+    grid_linestyle = widgets.Dropdown(
+        options=[(name, code) for code, name in _GRID_STYLES],
+        value='-',
+        description='Grid style:',
+        layout=widgets.Layout(width='95%'),
+    )
+    # Hide grid style controls initially
+    grid_style_box = widgets.VBox(
+        [grid_color, grid_alpha, grid_linestyle],
+        layout=widgets.Layout(display='none'),
+    )
+
+    # ---- Figure size with presets ----
+    _SIZE_PRESETS = {
+        '': ('Custom', None),
+        'journal_col': ('Journal column (3.5×2.6)', (3.5, 2.6)),
+        'journal_full': ('Journal full-width (7×4.5)', (7, 4.5)),
+        'aea': ('AER/AEJ (6.5×4.5)', (6.5, 4.5)),
+        'slide_16_9': ('Slide 16:9 (12×6.75)', (12, 6.75)),
+        'slide_4_3': ('Slide 4:3 (10×7.5)', (10, 7.5)),
+        'square': ('Square (6×6)', (6, 6)),
+        'poster': ('Poster (14×10)', (14, 10)),
+        'a4_half': ('A4 Half (8.27×5.83)', (8.27, 5.83)),
+    }
+    size_preset = widgets.Dropdown(
+        options=[(label, key) for key, (label, _) in _SIZE_PRESETS.items()],
+        value='',
+        description='Size preset:',
+        layout=widgets.Layout(width='95%'),
+    )
 
     fig_width = widgets.FloatSlider(
-        value=fig.get_size_inches()[0], min=3, max=20, step=0.5,
-        description='Width:', layout=widgets.Layout(width='95%'),
+        value=fig.get_size_inches()[0], min=2, max=20, step=0.25,
+        description='Width:',
+        layout=widgets.Layout(width='95%'),
         continuous_update=False,
     )
     fig_height = widgets.FloatSlider(
-        value=fig.get_size_inches()[1], min=2, max=15, step=0.5,
-        description='Height:', layout=widgets.Layout(width='95%'),
+        value=fig.get_size_inches()[1], min=1.5, max=15, step=0.25,
+        description='Height:',
+        layout=widgets.Layout(width='95%'),
         continuous_update=False,
     )
 
+    # ---- DPI slider ----
+    fig_dpi = widgets.IntSlider(
+        value=int(fig.dpi), min=72, max=600, step=10,
+        description='Figure DPI:',
+        layout=widgets.Layout(width='95%'),
+        continuous_update=False,
+    )
+
+    # ---- Legend controls ----
+    legend_visible = widgets.Checkbox(
+        value=axes[0].get_legend() is not None,
+        description='Show legend',
+    )
     legend_loc = widgets.Dropdown(
         options=_LEGEND_LOCS, value='best',
         description='Legend loc:',
         layout=widgets.Layout(width='95%'),
     )
+    legend_fontsize = widgets.FloatSlider(
+        value=9, min=5, max=20, step=0.5,
+        description='Legend size:',
+        layout=widgets.Layout(width='95%'),
+        continuous_update=False,
+    )
 
+    # ---- Title font weight ----
+    title_weight = widgets.Dropdown(
+        options=[('Normal', 'normal'), ('Bold', 'bold')],
+        value='normal',
+        description='Title weight:',
+        layout=widgets.Layout(width='95%'),
+    )
+
+    # ---- Tick rotation ----
+    xtick_rotation = widgets.FloatSlider(
+        value=0, min=0, max=90, step=5,
+        description='X tick rot:',
+        layout=widgets.Layout(width='95%'),
+        continuous_update=False,
+    )
+    ytick_rotation = widgets.FloatSlider(
+        value=0, min=0, max=90, step=5,
+        description='Y tick rot:',
+        layout=widgets.Layout(width='95%'),
+        continuous_update=False,
+    )
+
+    # ---- Background color ----
+    fig_bg_color = widgets.ColorPicker(
+        value=_to_hex(fig.get_facecolor()),
+        description='Fig bg:',
+        layout=widgets.Layout(width='95%'),
+    )
+    ax_bg_color = widgets.ColorPicker(
+        value=_to_hex(axes[0].get_facecolor()),
+        description='Axes bg:',
+        layout=widgets.Layout(width='95%'),
+    )
+
+    # ---- Tight layout & annotation ----
+    tight_btn = widgets.Button(
+        description='Tight Layout',
+        button_style='info',
+        icon='compress',
+        layout=widgets.Layout(width='45%'),
+    )
+    tight_info = widgets.HTML('')
+
+    # ---- Annotation ----
+    annot_text = widgets.Text(
+        value='', description='Text:',
+        placeholder='annotation text',
+        layout=widgets.Layout(width='95%'),
+        continuous_update=False,
+    )
+    annot_x = widgets.FloatText(
+        value=0, description='X pos:',
+        layout=widgets.Layout(width='47%'),
+    )
+    annot_y = widgets.FloatText(
+        value=0, description='Y pos:',
+        layout=widgets.Layout(width='47%'),
+    )
+    annot_btn = widgets.Button(
+        description='Add Annotation',
+        button_style='primary',
+        icon='pencil',
+        layout=widgets.Layout(width='45%'),
+    )
+    annot_info = widgets.HTML(
+        '<span style="font-size:10px; color:#999">'
+        'Set X/Y to data coordinates, then click Add</span>'
+    )
+
+    # ---- Axis limits ----
     xlim = axes[0].get_xlim()
     ylim = axes[0].get_ylim()
-    x_range = max(xlim[1] - xlim[0], 0.01)
-    y_range = max(ylim[1] - ylim[0], 0.01)
+    # Ensure lo < hi (axes can be inverted)
+    x_lo, x_hi = min(xlim), max(xlim)
+    y_lo, y_hi = min(ylim), max(ylim)
+    x_range = max(x_hi - x_lo, 0.01)
+    y_range = max(y_hi - y_lo, 0.01)
 
     xlim_range = widgets.FloatRangeSlider(
-        value=[xlim[0], xlim[1]],
-        min=xlim[0] - x_range * 0.5,
-        max=xlim[1] + x_range * 0.5,
+        value=[x_lo, x_hi],
+        min=x_lo - x_range * 0.5,
+        max=x_hi + x_range * 0.5,
         step=x_range / 50,
         description='X range:',
         layout=widgets.Layout(width='95%'),
         continuous_update=False,
     )
     ylim_range = widgets.FloatRangeSlider(
-        value=[ylim[0], ylim[1]],
-        min=ylim[0] - y_range * 0.5,
-        max=ylim[1] + y_range * 0.5,
+        value=[y_lo, y_hi],
+        min=y_lo - y_range * 0.5,
+        max=y_hi + y_range * 0.5,
         step=y_range / 50,
         description='Y range:',
         layout=widgets.Layout(width='95%'),
         continuous_update=False,
     )
 
+    # ---- Callbacks ----
     def _on_spine(spine_name):
         def _cb(change):
             editor.set_spine_visible(spine_name, change['new'],
@@ -614,9 +759,45 @@ def create_jupyter_panel(editor: FigureEditor):
     spine_left.observe(_on_spine('left'), names='value')
 
     def _on_grid(change):
-        editor.set_grid(change['new'], ax_index=_get_ax_idx())
+        if change['new']:
+            grid_style_box.layout.display = ''
+            editor.set_grid(True, ax_index=_get_ax_idx())
+        else:
+            grid_style_box.layout.display = 'none'
+            editor.set_grid(False, ax_index=_get_ax_idx())
 
     grid_toggle.observe(_on_grid, names='value')
+
+    def _on_grid_color(change):
+        if grid_toggle.value:
+            editor.set_grid_style(color=change['new'],
+                                  ax_index=_get_ax_idx())
+
+    def _on_grid_alpha(change):
+        if grid_toggle.value:
+            editor.set_grid_style(alpha=change['new'],
+                                  ax_index=_get_ax_idx())
+
+    def _on_grid_linestyle(change):
+        if grid_toggle.value:
+            editor.set_grid_style(linestyle=change['new'],
+                                  ax_index=_get_ax_idx())
+
+    grid_color.observe(_on_grid_color, names='value')
+    grid_alpha.observe(_on_grid_alpha, names='value')
+    grid_linestyle.observe(_on_grid_linestyle, names='value')
+
+    def _on_size_preset(change):
+        key = change['new']
+        if not key:
+            return
+        _, size = _SIZE_PRESETS[key]
+        if size is not None:
+            fig_width.value = size[0]
+            fig_height.value = size[1]
+            editor.set_figsize(size[0], size[1])
+
+    size_preset.observe(_on_size_preset, names='value')
 
     def _on_figsize_w(change):
         editor.set_figsize(change['new'], fig.get_size_inches()[1])
@@ -627,10 +808,80 @@ def create_jupyter_panel(editor: FigureEditor):
     fig_width.observe(_on_figsize_w, names='value')
     fig_height.observe(_on_figsize_h, names='value')
 
+    def _on_dpi(change):
+        editor.set_dpi(change['new'])
+
+    fig_dpi.observe(_on_dpi, names='value')
+
+    def _on_legend_visible(change):
+        editor.set_legend_visible(change['new'], ax_index=_get_ax_idx())
+
     def _on_legend_loc(change):
         editor.set_legend(loc=change['new'], ax_index=_get_ax_idx())
 
+    def _on_legend_fontsize(change):
+        editor.set_legend(fontsize=change['new'], ax_index=_get_ax_idx())
+
+    legend_visible.observe(_on_legend_visible, names='value')
     legend_loc.observe(_on_legend_loc, names='value')
+    legend_fontsize.observe(_on_legend_fontsize, names='value')
+
+    def _on_title_weight(change):
+        editor.set_title_weight(change['new'], ax_index=_get_ax_idx())
+
+    title_weight.observe(_on_title_weight, names='value')
+
+    def _on_xtick_rot(change):
+        editor.set_tick_rotation('x', change['new'],
+                                 ax_index=_get_ax_idx())
+
+    def _on_ytick_rot(change):
+        editor.set_tick_rotation('y', change['new'],
+                                 ax_index=_get_ax_idx())
+
+    xtick_rotation.observe(_on_xtick_rot, names='value')
+    ytick_rotation.observe(_on_ytick_rot, names='value')
+
+    def _on_fig_bg(change):
+        editor.set_background_color(change['new'], target='figure')
+
+    def _on_ax_bg(change):
+        editor.set_background_color(change['new'], target='axes',
+                                    ax_index=_get_ax_idx())
+
+    fig_bg_color.observe(_on_fig_bg, names='value')
+    ax_bg_color.observe(_on_ax_bg, names='value')
+
+    def _on_tight(btn):
+        editor.tight_layout()
+        tight_info.value = (
+            '<span style="color:#2ECC71; font-size:11px">'
+            'Tight layout applied</span>')
+
+    tight_btn.on_click(_on_tight)
+
+    def _on_annot_add(btn):
+        text = annot_text.value
+        if not text:
+            annot_info.value = (
+                '<span style="color:#E74C3C; font-size:11px">'
+                'Enter annotation text first</span>')
+            return
+        editor.add_annotation(
+            text, xy=(annot_x.value, annot_y.value),
+            ax_index=_get_ax_idx(),
+            fontsize=10,
+            ha='center',
+            bbox=dict(boxstyle='round,pad=0.3',
+                      facecolor='wheat', alpha=0.5),
+        )
+        annot_info.value = (
+            f'<span style="color:#2ECC71; font-size:11px">'
+            f'Added: "{text}" at ({annot_x.value}, {annot_y.value})'
+            f'</span>')
+        annot_text.value = ''
+
+    annot_btn.on_click(_on_annot_add)
 
     def _on_xlim(change):
         editor.set_xlim(change['new'][0], change['new'][1],
@@ -650,19 +901,39 @@ def create_jupyter_panel(editor: FigureEditor):
     ) if editor.protect_data else widgets.HTML('')
 
     layout_tab = widgets.VBox([
-        widgets.HTML('<b>Layout & Spines</b>'),
+        widgets.HTML('<b>Spines</b>'),
         widgets.HBox([spine_top, spine_right]),
         widgets.HBox([spine_bottom, spine_left]),
+        widgets.HTML('<hr style="margin:4px 0">'),
+        widgets.HTML('<b>Grid</b>'),
         grid_toggle,
+        grid_style_box,
         widgets.HTML('<hr style="margin:4px 0">'),
-        widgets.HTML('<i>Figure Size</i>'),
-        fig_width, fig_height,
+        widgets.HTML('<b>Figure Size</b>'),
+        size_preset, fig_width, fig_height,
+        fig_dpi,
         widgets.HTML('<hr style="margin:4px 0">'),
-        legend_loc,
+        widgets.HTML('<b>Background</b>'),
+        fig_bg_color, ax_bg_color,
         widgets.HTML('<hr style="margin:4px 0">'),
-        widgets.HTML('<i>Axis Limits</i>'),
+        widgets.HTML('<b>Legend</b>'),
+        legend_visible, legend_loc, legend_fontsize,
+        widgets.HTML('<hr style="margin:4px 0">'),
+        widgets.HTML('<b>Title Style</b>'),
+        title_weight,
+        widgets.HTML('<hr style="margin:4px 0">'),
+        widgets.HTML('<b>Tick Rotation</b>'),
+        xtick_rotation, ytick_rotation,
+        widgets.HTML('<hr style="margin:4px 0">'),
+        widgets.HTML('<b>Axis Limits</b>'),
         protect_label,
         xlim_range, ylim_range,
+        widgets.HTML('<hr style="margin:4px 0">'),
+        widgets.HTML('<b>Annotation</b>'),
+        annot_text,
+        widgets.HBox([annot_x, annot_y]),
+        widgets.HBox([annot_btn, tight_btn]),
+        annot_info, tight_info,
     ])
 
     # ==================================================================
@@ -805,6 +1076,36 @@ def create_jupyter_panel(editor: FigureEditor):
     reset_btn.on_click(_on_reset)
     save_btn.on_click(_on_save)
 
+    # Copy to clipboard button (uses JavaScript in Jupyter)
+    copy_btn = widgets.Button(
+        description='Copy Code',
+        button_style='info',
+        icon='clipboard',
+    )
+    copy_status = widgets.HTML('')
+
+    def _on_copy(btn):
+        code = editor.generate_code()
+        # Use IPython/JS to copy to clipboard
+        try:
+            from IPython.display import Javascript, display as _disp
+            escaped = code.replace('\\', '\\\\').replace('`', '\\`')
+            _disp(Javascript(
+                f'navigator.clipboard.writeText(`{escaped}`)'
+                f'.then(() => {{}});'
+            ))
+            copy_status.value = (
+                '<span style="color:#2ECC71; font-size:11px">'
+                'Copied to clipboard!</span>'
+            )
+        except Exception:
+            copy_status.value = (
+                '<span style="color:#F39C12; font-size:11px">'
+                'Copy not available — use Generate Code above</span>'
+            )
+
+    copy_btn.on_click(_on_copy)
+
     code_tab = widgets.VBox([
         widgets.HTML('<b>Export & Code</b>'),
         widgets.HBox([save_filename, save_btn]),
@@ -812,6 +1113,7 @@ def create_jupyter_panel(editor: FigureEditor):
         widgets.HTML('<hr style="margin:4px 0">'),
         widgets.HTML('<b>Reproducible Code</b>'),
         widgets.HBox([generate_btn, undo_btn, reset_btn]),
+        widgets.HBox([copy_btn, copy_status]),
         edit_summary,
         code_output,
         widgets.HTML(
