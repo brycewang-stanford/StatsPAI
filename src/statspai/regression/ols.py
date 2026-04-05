@@ -300,7 +300,11 @@ class OLSRegression(BaseModel):
             'df_resid': results['df_resid'],
             'dependent_var': self.dependent_var,
             'fitted_values': results['fitted_values'],
-            'residuals': results['residuals']
+            'residuals': results['residuals'],
+            'X': self.X,
+            'y': self.y,
+            'var_cov': results.get('var_cov'),
+            'var_names': self.var_names,
         }
         
         diagnostics = {

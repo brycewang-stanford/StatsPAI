@@ -13,6 +13,9 @@ Provides estimators for:
 - Borusyak, Jaravel & Spiess (2024) — imputation DID estimator
 - Stacked DID (Cengiz, Dube, Lindner & Zipperer, 2019)
 - did_analysis() — one-call comprehensive workflow
+- Wooldridge (2021) — extended TWFE with cohort × time interactions
+- Sant'Anna & Zhao (2020) — doubly robust DID
+- TWFE decomposition — Bacon (2021) + de Chaisemartin–D'Haultfoeuille (2020) weights
 """
 
 from typing import Optional, List
@@ -32,6 +35,14 @@ from .did_multiplegt import did_multiplegt
 from .did_imputation import did_imputation
 from .stacked_did import stacked_did
 from .cic import cic
+from .pretrends import (
+    pretrends_test,
+    pretrends_power,
+    sensitivity_rr,
+    SensitivityResult,
+    pretrends_summary,
+)
+from .wooldridge_did import wooldridge_did, drdid, twfe_decomposition
 from .plots import (
     parallel_trends_plot,
     bacon_plot,
@@ -266,6 +277,16 @@ __all__ = [
     'did_imputation',
     'stacked_did',
     'cic',
+    # Wooldridge / DR-DID / TWFE decomposition
+    'wooldridge_did',
+    'drdid',
+    'twfe_decomposition',
+    # Pre-trends
+    'pretrends_test',
+    'pretrends_power',
+    'sensitivity_rr',
+    'SensitivityResult',
+    'pretrends_summary',
     # Plots
     'parallel_trends_plot',
     'bacon_plot',

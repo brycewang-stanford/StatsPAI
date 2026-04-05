@@ -10,6 +10,18 @@ Provides Stata-style data manipulation tools:
 from .labels import label_var, label_vars, get_label, get_labels, describe
 from .data_tools import pwcorr, winsor
 from .io import read_data
+from .dgp import (
+    dgp_did,
+    dgp_rd,
+    dgp_iv,
+    dgp_rct,
+    dgp_panel,
+    dgp_observational,
+    dgp_cluster_rct,
+    dgp_bunching,
+    dgp_synth,
+    dgp_bartik,
+)
 
 __all__ = [
     'label_var',
@@ -20,4 +32,15 @@ __all__ = [
     'pwcorr',
     'winsor',
     'read_data',
+    # Data Generating Processes
+    'dgp_did',
+    'dgp_rd',
+    'dgp_iv',
+    'dgp_rct',
+    'dgp_panel',
+    'dgp_observational',
+    'dgp_cluster_rct',
+    'dgp_bunching',
+    'dgp_synth',
+    'dgp_bartik',
 ]

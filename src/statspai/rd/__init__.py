@@ -13,6 +13,9 @@ Provides:
 
 from .rdrobust import rdrobust, rdplot, rdplotdensity
 from .diagnostics import rdbwsensitivity, rdbalance, rdplacebo, rdsummary
+from .rkd import rkd
+from .honest_ci import rd_honest
+from .rdit import rdit
 
 __all__ = [
     'rdrobust',
@@ -22,4 +25,7 @@ __all__ = [
     'rdbalance',
     'rdplacebo',
     'rdsummary',
+    'rkd',
+    'rd_honest',
+    'rdit',
 ]

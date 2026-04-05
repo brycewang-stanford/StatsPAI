@@ -21,5 +21,13 @@ Hainmueller, J. (2012). Political Analysis, 20(1), 25-46.
 
 from .match import match, MatchEstimator, balanceplot, psplot
 from .ebalance import ebalance
+from .ps_diagnostics import (
+    propensity_score, overlap_plot, trimming, love_plot,
+    ps_balance, PSBalanceResult,
+)
 
-__all__ = ['match', 'MatchEstimator', 'ebalance', 'balanceplot', 'psplot']
+__all__ = [
+    'match', 'MatchEstimator', 'ebalance', 'balanceplot', 'psplot',
+    'propensity_score', 'overlap_plot', 'trimming', 'love_plot',
+    'ps_balance', 'PSBalanceResult',
+]

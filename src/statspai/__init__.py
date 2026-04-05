@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 __author__ = "Bryce Wang"
 __email__ = "bryce@copaper.ai"
 
@@ -33,12 +33,14 @@ from .causal.causal_forest import CausalForest, causal_forest
 from .did import (
     did, did_2x2, ddd, callaway_santanna, sun_abraham,
     bacon_decomposition, honest_did, breakdown_m, event_study,
-    did_analysis, DIDAnalysis,
+    did_analysis, DIDAnalysis, did_multiplegt, did_imputation, stacked_did, cic,
+    wooldridge_did, drdid, twfe_decomposition,
+    pretrends_test, pretrends_power, sensitivity_rr, SensitivityResult, pretrends_summary,
     parallel_trends_plot, bacon_plot, group_time_plot, did_plot,
     enhanced_event_study_plot, treatment_rollout_plot,
     sensitivity_plot, cohort_event_study_plot,
 )
-from .rd import rdrobust, rdplot, rdplotdensity, rdbwsensitivity, rdbalance, rdplacebo, rdsummary
+from .rd import rdrobust, rdplot, rdplotdensity, rdbwsensitivity, rdbalance, rdplacebo, rdsummary, rkd, rd_honest, rdit
 from .synth import (
     synth, SyntheticControl, synthplot, sdid, augsynth,
     demeaned_synth, robust_synth, gsynth, staggered_synth, conformal_synth,
@@ -46,23 +48,33 @@ from .synth import (
     synthdid_placebo, synthdid_plot, synthdid_units_plot, synthdid_rmse_plot,
     california_prop99,
 )
-from .matching import match, MatchEstimator, ebalance, balanceplot, psplot
+from .matching import (
+    match, MatchEstimator, ebalance, balanceplot, psplot,
+    propensity_score, overlap_plot, trimming, love_plot,
+    ps_balance, PSBalanceResult,
+)
 from .dml import dml, DoubleML
 from .deepiv import deepiv, DeepIV
 from .panel import panel, panel_compare, PanelResults, PanelCompareResults, PanelRegression
 from .causal_impact import causal_impact, CausalImpactEstimator, impactplot
 from .mediation import mediate, MediationAnalysis
-from .bartik import bartik, BartikIV
+from .bartik import bartik, BartikIV, ssaggregate, shift_share_se
 from .output.outreg2 import OutReg2, outreg2
 from .output.modelsummary import modelsummary, coefplot
 from .output.sumstats import sumstats, balance_table
 from .output.tab import tab
-from .postestimation import margins, marginsplot, test, lincom
-from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, evalue, evalue_from_result, diagnose_result
-from .inference import wild_cluster_bootstrap, aipw, ri_test, ipw, bootstrap, BootstrapResult
+from .output.estimates import eststo, estclear, esttab
+from .output.regression_table import regtable, RegtableResult, mean_comparison, MeanComparisonResult
+from .postestimation import margins, marginsplot, margins_at, margins_at_plot, contrast, pwcompare, test, lincom
+from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, evalue, evalue_from_result, diagnose_result, estat, kitagawa_test, KitagawaResult
+from .inference import wild_cluster_bootstrap, aipw, ri_test, ipw, bootstrap, BootstrapResult, twoway_cluster, conley, pate, PATEEstimator, fisher_exact, FisherResult, jackknife_se, cr2_se, wild_cluster_boot
 from .spatial import sar, sem, sdm, SpatialModel
 from .plots import binscatter, set_theme, list_themes, use_chinese, interactive, get_code
-from .utils import label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data
+from .utils import (
+    label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data,
+    dgp_did, dgp_rd, dgp_iv, dgp_rct, dgp_panel, dgp_observational,
+    dgp_cluster_rct, dgp_bunching, dgp_synth, dgp_bartik,
+)
 from .gmm import xtabond
 from .metalearners import metalearner, SLearner, TLearner, XLearner, RLearner, DRLearner
 from .metalearners import cate_summary, cate_by_group, cate_plot, cate_group_plot, predict_cate, compare_metalearners, gate_test, blp_test
@@ -75,16 +87,21 @@ from .tmle import tmle, TMLE, super_learner, SuperLearner
 from .policy_learning import policy_tree, PolicyTree, policy_value
 from .conformal_causal import conformal_cate, ConformalCATE
 from .bcf import bcf, BayesianCausalForest
-from .bunching import bunching, BunchingEstimator
+from .bunching import bunching, BunchingEstimator, notch, NotchResult
 from .matrix_completion import mc_panel, MCPanel
 from .dose_response import dose_response, DoseResponse
-from .bounds import lee_bounds, manski_bounds
+from .bounds import lee_bounds, manski_bounds, BoundsResult, horowitz_manski, iv_bounds, oster_delta, selection_bounds, breakdown_frontier
 from .interference import spillover, SpilloverEstimator
 from .dtr import g_estimation, GEstimation
 from .multi_treatment import multi_treatment, MultiTreatment
 from .robustness import spec_curve, SpecCurveResult, robustness_report, RobustnessResult, subgroup_analysis, SubgroupResult
 from .survey import svydesign, SurveyDesign, svymean, svytotal, svyglm
 from .dag import dag, DAG, dag_example, dag_examples, dag_example_positions, dag_simulate
+from .power import power, PowerResult, power_rct, power_did, power_rd, power_iv, power_cluster_rct, power_ols, mde
+from .decomposition import oaxaca, gelbach, OaxacaResult, GelbachResult
+from .selection import stepwise, lasso_select, SelectionResult
+from .qte import qdid, qte, QTEResult
+from .mht import romano_wolf, RomanoWolfResult, adjust_pvalues, bonferroni, holm, benjamini_hochberg
 from .registry import list_functions, describe_function, function_schema, search_functions, all_schemas
 
 __all__ = [
@@ -108,6 +125,15 @@ __all__ = [
     "event_study",
     "did_analysis",
     "DIDAnalysis",
+    "did_multiplegt",
+    "did_imputation",
+    "stacked_did",
+    "cic",
+    "pretrends_test",
+    "pretrends_power",
+    "sensitivity_rr",
+    "SensitivityResult",
+    "pretrends_summary",
     "parallel_trends_plot",
     "bacon_plot",
     "group_time_plot",
@@ -116,6 +142,10 @@ __all__ = [
     "treatment_rollout_plot",
     "sensitivity_plot",
     "cohort_event_study_plot",
+    # Wooldridge / DR-DID / TWFE Decomposition
+    "wooldridge_did",
+    "drdid",
+    "twfe_decomposition",
     # RD
     "rdrobust",
     "rdplot",
@@ -124,6 +154,9 @@ __all__ = [
     "rdbalance",
     "rdplacebo",
     "rdsummary",
+    "rkd",
+    "rd_honest",
+    "rdit",
     # Synthetic Control
     "synth",
     "SyntheticControl",
@@ -148,6 +181,13 @@ __all__ = [
     "ebalance",
     "balanceplot",
     "psplot",
+    # PS Diagnostics
+    "propensity_score",
+    "overlap_plot",
+    "trimming",
+    "love_plot",
+    "ps_balance",
+    "PSBalanceResult",
     # Double ML
     "dml",
     "DoubleML",
@@ -174,6 +214,13 @@ __all__ = [
     "sumstats",
     "balance_table",
     "tab",
+    "eststo",
+    "estclear",
+    "esttab",
+    "regtable",
+    "RegtableResult",
+    "mean_comparison",
+    "MeanComparisonResult",
     # Plots
     "binscatter",
     "set_theme",
@@ -199,6 +246,10 @@ __all__ = [
     # Post-estimation
     "margins",
     "marginsplot",
+    "margins_at",
+    "margins_at_plot",
+    "contrast",
+    "pwcompare",
     "test",
     "lincom",
     # Mediation
@@ -207,6 +258,8 @@ __all__ = [
     # Bartik IV
     "bartik",
     "BartikIV",
+    "ssaggregate",
+    "shift_share_se",
     # Diagnostics
     "oster_bounds",
     "mccrary_test",
@@ -221,6 +274,9 @@ __all__ = [
     "evalue",
     "evalue_from_result",
     "diagnose_result",
+    "estat",
+    "kitagawa_test",
+    "KitagawaResult",
     # Inference
     "wild_cluster_bootstrap",
     "aipw",
@@ -228,6 +284,15 @@ __all__ = [
     "ipw",
     "bootstrap",
     "BootstrapResult",
+    "twoway_cluster",
+    "conley",
+    "pate",
+    "PATEEstimator",
+    "fisher_exact",
+    "FisherResult",
+    "jackknife_se",
+    "cr2_se",
+    "wild_cluster_boot",
     # Spatial Econometrics
     "sar",
     "sem",
@@ -279,6 +344,8 @@ __all__ = [
     # Bunching
     "bunching",
     "BunchingEstimator",
+    "notch",
+    "NotchResult",
     # Matrix Completion
     "mc_panel",
     "MCPanel",
@@ -288,6 +355,12 @@ __all__ = [
     # Bounds
     "lee_bounds",
     "manski_bounds",
+    "BoundsResult",
+    "horowitz_manski",
+    "iv_bounds",
+    "oster_delta",
+    "selection_bounds",
+    "breakdown_frontier",
     # Interference
     "spillover",
     "SpilloverEstimator",
@@ -317,10 +390,51 @@ __all__ = [
     "dag_examples",
     "dag_example_positions",
     "dag_simulate",
+    # Power Analysis
+    "power",
+    "PowerResult",
+    "power_rct",
+    "power_did",
+    "power_rd",
+    "power_iv",
+    "power_cluster_rct",
+    "power_ols",
+    "mde",
+    # Decomposition
+    "oaxaca",
+    "gelbach",
+    "OaxacaResult",
+    "GelbachResult",
+    # Variable Selection
+    "stepwise",
+    "lasso_select",
+    "SelectionResult",
+    # Quantile Treatment Effects
+    "qdid",
+    "qte",
+    "QTEResult",
+    # Multiple Hypothesis Testing
+    "romano_wolf",
+    "RomanoWolfResult",
+    "adjust_pvalues",
+    "bonferroni",
+    "holm",
+    "benjamini_hochberg",
     # AI / Agent Registry
     "list_functions",
     "describe_function",
     "function_schema",
     "search_functions",
     "all_schemas",
+    # Data Generating Processes
+    "dgp_did",
+    "dgp_rd",
+    "dgp_iv",
+    "dgp_rct",
+    "dgp_panel",
+    "dgp_observational",
+    "dgp_cluster_rct",
+    "dgp_bunching",
+    "dgp_synth",
+    "dgp_bartik",
 ]

@@ -14,6 +14,8 @@ from .hausman import hausman_test
 from .weak_iv import anderson_rubin_test
 from .evalue import evalue, evalue_from_result
 from .battery import diagnose_result
+from .estat import estat
+from .late_test import kitagawa_test, KitagawaResult
 
 __all__ = [
     'oster_bounds',
@@ -29,4 +31,7 @@ __all__ = [
     'evalue',
     'evalue_from_result',
     'diagnose_result',
+    'estat',
+    'kitagawa_test',
+    'KitagawaResult',
 ]

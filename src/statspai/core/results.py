@@ -429,6 +429,50 @@ class CausalResult:
             "  publisher={Oxford University Press}\n"
             "}"
         ),
+        'wooldridge_twfe': (
+            "@unpublished{wooldridge2021two,\n"
+            "  title={Two-Way Fixed Effects, the Two-Way Mundlak Regression, "
+            "and Difference-in-Differences Estimators},\n"
+            "  author={Wooldridge, Jeffrey M.},\n"
+            "  year={2021},\n"
+            "  note={Working paper, Michigan State University}\n"
+            "}"
+        ),
+        'drdid': (
+            "@article{santanna2020doubly,\n"
+            "  title={Doubly Robust Difference-in-Differences Estimators},\n"
+            "  author={Sant'Anna, Pedro H.C. and Zhao, Jun},\n"
+            "  journal={Journal of Econometrics},\n"
+            "  volume={219},\n"
+            "  number={1},\n"
+            "  pages={101--122},\n"
+            "  year={2020},\n"
+            "  publisher={Elsevier}\n"
+            "}"
+        ),
+        'twfe_decomposition': (
+            "@article{goodman2021difference,\n"
+            "  title={Difference-in-differences with variation in treatment timing},\n"
+            "  author={Goodman-Bacon, Andrew},\n"
+            "  journal={Journal of Econometrics},\n"
+            "  volume={225},\n"
+            "  number={2},\n"
+            "  pages={254--277},\n"
+            "  year={2021},\n"
+            "  publisher={Elsevier}\n"
+            "}\n"
+            "@article{dechaisemartin2020two,\n"
+            "  title={Two-Way Fixed Effects Estimators with "
+            "Heterogeneous Treatment Effects},\n"
+            "  author={de Chaisemartin, Cl{\\'e}ment and "
+            "D'Haultf{\\oe}uille, Xavier},\n"
+            "  journal={American Economic Review},\n"
+            "  volume={110},\n"
+            "  number={9},\n"
+            "  pages={2964--2996},\n"
+            "  year={2020}\n"
+            "}"
+        ),
     }
 
     def __init__(

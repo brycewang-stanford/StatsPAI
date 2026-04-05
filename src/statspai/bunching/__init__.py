@@ -17,5 +17,6 @@ Elasticities. QJE, 126(2), 749-804.
 """
 
 from .bunching import bunching, BunchingEstimator
+from .notch import notch, NotchResult
 
-__all__ = ['bunching', 'BunchingEstimator']
+__all__ = ['bunching', 'BunchingEstimator', 'notch', 'NotchResult']

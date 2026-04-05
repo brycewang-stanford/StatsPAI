@@ -27,6 +27,9 @@ Cunningham, S. (2021). *Causal Inference: The Mixtape*. Yale University Press.
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    import pandas as pd
 from itertools import combinations
 from typing import Dict, FrozenSet, List, Optional, Set, Tuple, Union
 

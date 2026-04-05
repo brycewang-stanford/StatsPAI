@@ -17,5 +17,6 @@ Borusyak, K., Hull, P., and Jaravel, X. (2022).
 """
 
 from .shift_share import bartik, BartikIV
+from .adao_correction import ssaggregate, shift_share_se
 
-__all__ = ['bartik', 'BartikIV']
+__all__ = ['bartik', 'BartikIV', 'ssaggregate', 'shift_share_se']
