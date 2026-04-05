@@ -89,26 +89,93 @@ def create_jupyter_panel(editor: FigureEditor):
         'Ready — make edits on the right panel</span>'
     )
 
+    # ---- Render mode: Auto vs Manual ----
+    _render_state = {'pending': 0}
+
+    render_mode = widgets.ToggleButtons(
+        options=['Auto', 'Manual'],
+        value='Auto',
+        description='',
+        tooltips=[
+            'Re-render preview after every edit',
+            'Batch edits, then click Apply to re-render',
+        ],
+        button_style='',
+        layout=widgets.Layout(width='auto'),
+    )
+    apply_btn = widgets.Button(
+        description=f'Apply',
+        button_style='warning',
+        icon='refresh',
+        layout=widgets.Layout(width='auto', display='none'),
+    )
+
+    def _do_render(figure):
+        """Actually render the figure to the preview widget."""
+        render_dpi = int(figure.dpi)
+        fig_image.value = _render_fig_to_png(figure, dpi=render_dpi)
+        n = len(editor.edits)
+        w_in, h_in = figure.get_size_inches()
+        dpi = int(figure.dpi)
+        px_w, px_h = int(w_in * dpi), int(h_in * dpi)
+        _render_state['pending'] = 0
+        apply_btn.description = 'Apply'
+        status_bar.value = (
+            f'<span style="font-size:11px; color:#2ECC71">'
+            f'{n} edit(s) — DPI: {dpi} → export size: {px_w}×{px_h}px</span>'
+        )
+
     def _live_refresh(figure):
-        """Callback: re-render the figure into the Image widget."""
+        """Callback: re-render or queue depending on render mode."""
         try:
-            # Use figure's actual DPI for preview (matches user setting)
-            render_dpi = int(figure.dpi)
-            fig_image.value = _render_fig_to_png(figure, dpi=render_dpi)
-            n = len(editor.edits)
-            status_bar.value = (
-                f'<span style="font-size:11px; color:#2ECC71">'
-                f'{n} edit(s) — preview updated (DPI: {int(figure.dpi)})</span>'
-            )
+            if render_mode.value == 'Auto':
+                _do_render(figure)
+            else:
+                # Manual mode: count pending edits, don't re-render
+                _render_state['pending'] += 1
+                p = _render_state['pending']
+                n = len(editor.edits)
+                apply_btn.description = f'Apply ({p})'
+                status_bar.value = (
+                    f'<span style="font-size:11px; color:#F39C12">'
+                    f'{n} edit(s) — {p} pending re-render '
+                    f'(click Apply)</span>'
+                )
         except Exception:
             pass
+
+    def _on_apply(btn):
+        _do_render(editor.fig)
+
+    apply_btn.on_click(_on_apply)
+
+    def _on_render_mode(change):
+        if change['new'] == 'Manual':
+            apply_btn.layout.display = ''
+        else:
+            apply_btn.layout.display = 'none'
+            # Switching back to Auto: render immediately if pending
+            if _render_state['pending'] > 0:
+                _do_render(editor.fig)
+
+    render_mode.observe(_on_render_mode, names='value')
 
     # Register the live refresh callback
     editor.on_refresh(_live_refresh)
 
-    # Preview container (figure + status bar)
+    render_bar = widgets.HBox(
+        [render_mode, apply_btn],
+        layout=widgets.Layout(
+            justify_content='flex-start',
+            align_items='center',
+            gap='8px',
+        ),
+    )
+
+    # Preview container (figure + render controls + status bar)
     fig_container = widgets.VBox([
         fig_image,
+        render_bar,
         status_bar,
     ], layout=widgets.Layout(
         flex='1 1 auto',
@@ -631,6 +698,11 @@ def create_jupyter_panel(editor: FigureEditor):
         layout=widgets.Layout(width='95%'),
         continuous_update=False,
     )
+    dpi_hint = widgets.HTML(
+        '<span style="font-size:11px; color:#888">'
+        'DPI affects export/save resolution. '
+        'Preview is scaled to fit — visual size won\'t change.</span>'
+    )
 
     # ---- Legend controls ----
     legend_visible = widgets.Checkbox(
@@ -810,6 +882,8 @@ def create_jupyter_panel(editor: FigureEditor):
 
     def _on_dpi(change):
         editor.set_dpi(change['new'])
+        # Sync save DPI to match figure DPI
+        save_dpi.value = change['new']
 
     fig_dpi.observe(_on_dpi, names='value')
 
@@ -911,7 +985,7 @@ def create_jupyter_panel(editor: FigureEditor):
         widgets.HTML('<hr style="margin:4px 0">'),
         widgets.HTML('<b>Figure Size</b>'),
         size_preset, fig_width, fig_height,
-        fig_dpi,
+        fig_dpi, dpi_hint,
         widgets.HTML('<hr style="margin:4px 0">'),
         widgets.HTML('<b>Background</b>'),
         fig_bg_color, ax_bg_color,
@@ -1024,7 +1098,12 @@ def create_jupyter_panel(editor: FigureEditor):
     )
     save_dpi = widgets.IntSlider(
         value=300, min=72, max=600, step=50,
-        description='DPI:', layout=widgets.Layout(width='95%'),
+        description='Save DPI:', layout=widgets.Layout(width='95%'),
+    )
+    save_dpi_hint = widgets.HTML(
+        '<span style="font-size:11px; color:#888">'
+        'Resolution for exported file. '
+        'Synced from Figure DPI in Layout tab.</span>'
     )
     save_btn = widgets.Button(
         description='Save Figure',
@@ -1109,7 +1188,7 @@ def create_jupyter_panel(editor: FigureEditor):
     code_tab = widgets.VBox([
         widgets.HTML('<b>Export & Code</b>'),
         widgets.HBox([save_filename, save_btn]),
-        save_dpi,
+        save_dpi, save_dpi_hint,
         widgets.HTML('<hr style="margin:4px 0">'),
         widgets.HTML('<b>Reproducible Code</b>'),
         widgets.HBox([generate_btn, undo_btn, reset_btn]),
