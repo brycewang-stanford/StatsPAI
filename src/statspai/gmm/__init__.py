@@ -9,5 +9,6 @@ Provides:
 """
 
 from .arellano_bond import xtabond
+from .general_gmm import gmm
 
-__all__ = ['xtabond']
+__all__ = ['xtabond', 'gmm']

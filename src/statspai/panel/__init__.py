@@ -34,6 +34,7 @@ from .panel_reg import (
     PanelCompareResults,
     PanelRegression,
 )
+from .panel_binary import panel_logit, panel_probit
 from .panel_plots import plot_within_between
 
 __all__ = [
@@ -42,5 +43,7 @@ __all__ = [
     'PanelResults',
     'PanelCompareResults',
     'PanelRegression',
+    'panel_logit',
+    'panel_probit',
     'plot_within_between',
 ]

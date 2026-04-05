@@ -134,6 +134,40 @@ from .rd import rdmc, rdms, RDMultiResult
 # Continuous Treatment DID
 from .did import continuous_did
 
+# === NEW v0.6 Round 2 ===
+# Interactive Fixed Effects
+from .panel.interactive_fe import interactive_fe
+# Panel Unit Root Tests
+from .panel.unit_root import panel_unitroot, PanelUnitRootResult
+# Cointegration
+from .timeseries import engle_granger, johansen, CointegrationResult
+# Fractional Response & Beta Regression
+from .regression.fracreg import fracreg, betareg
+# Sample Selection Models
+from .regression.selection import biprobit, etregress
+# Distributional Treatment Effects
+from .qte import distributional_te, DTEResult
+# Structural Estimation (BLP)
+from .structural import blp, BLPResult
+
+# === NEW v0.6 Round 3 ===
+# Truncated Regression
+from .regression.truncreg import truncreg
+# SUR & 3SLS
+from .regression.sur import sureg, SURResult, three_sls
+# Panel Binary (Logit/Probit FE/RE)
+from .panel.panel_binary import panel_logit, panel_probit
+# Panel FGLS
+from .panel.panel_fgls import panel_fgls
+# Interactive Fixed Effects
+# (already imported in round 2)
+# Mixed Effects / Multilevel
+from .multilevel import mixed, MixedResult
+# Stochastic Frontier
+from .frontier import frontier, FrontierResult
+# General GMM
+from .gmm import gmm
+
 __all__ = [
     # Core
     "EconometricResults",
@@ -505,4 +539,21 @@ __all__ = [
     "rdmc", "rdms", "RDMultiResult",
     # Continuous DID
     "continuous_did",
+    # === v0.6 Round 2 ===
+    "interactive_fe",
+    "panel_unitroot", "PanelUnitRootResult",
+    "engle_granger", "johansen", "CointegrationResult",
+    "fracreg", "betareg",
+    "biprobit", "etregress",
+    "distributional_te", "DTEResult",
+    # Structural Estimation
+    "blp", "BLPResult",
+    # === v0.6 Round 3 ===
+    "truncreg",
+    "sureg", "SURResult", "three_sls",
+    "panel_logit", "panel_probit",
+    "panel_fgls",
+    "mixed", "MixedResult",
+    "frontier", "FrontierResult",
+    "gmm",
 ]

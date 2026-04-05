@@ -18,5 +18,6 @@ Firpo, S. (2007).
 """
 
 from .qte import qdid, qte, QTEResult
+from .distributional import distributional_te, DTEResult
 
-__all__ = ["qdid", "qte", "QTEResult"]
+__all__ = ["qdid", "qte", "QTEResult", "distributional_te", "DTEResult"]
