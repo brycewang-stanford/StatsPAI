@@ -167,7 +167,10 @@ def var(
         X = X[:, :-1]  # remove constant
 
     # OLS for each equation
-    XtX_inv = np.linalg.inv(X.T @ X)
+    try:
+        XtX_inv = np.linalg.inv(X.T @ X)
+    except np.linalg.LinAlgError:
+        XtX_inv = np.linalg.pinv(X.T @ X)
     B = XtX_inv @ X.T @ Y  # (kp+1) x k
 
     residuals = Y - X @ B

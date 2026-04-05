@@ -168,7 +168,10 @@ def sureg(
         se_all = np.concatenate(se_list)
     else:
         # FGLS / SUR
-        Sigma_inv = np.linalg.inv(Sigma)
+        try:
+            Sigma_inv = np.linalg.inv(Sigma)
+        except np.linalg.LinAlgError:
+            Sigma_inv = np.linalg.pinv(Sigma)
 
         for iteration in range(maxiter if method == 'iterative' else 1):
             # Build block-diagonal X and stacked Y

@@ -91,9 +91,11 @@ def _kernel_fn(u, kernel='gaussian'):
 def _silverman_bw(x):
     """Silverman's rule-of-thumb bandwidth."""
     n = len(x)
-    sigma = min(np.std(x, ddof=1), stats.iqr(x) / 1.349)
+    iqr_val = stats.iqr(x)
+    std_val = np.std(x, ddof=1)
+    sigma = min(std_val, iqr_val / 1.349) if iqr_val > 0 else std_val
     if sigma == 0:
-        sigma = np.std(x, ddof=1)
+        sigma = 1.0  # constant data fallback
     return 0.9 * sigma * n**(-1/5)
 
 

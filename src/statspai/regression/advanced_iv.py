@@ -152,7 +152,10 @@ def liml(
     resid = Y - X_all @ beta
 
     # Standard errors
-    XtX_inv = np.linalg.inv(X_all.T @ I_kMz @ X_all) if not np.any(np.isnan(beta)) else np.eye(k)
+    try:
+        XtX_inv = np.linalg.inv(X_all.T @ I_kMz @ X_all) if not np.any(np.isnan(beta)) else np.eye(k)
+    except np.linalg.LinAlgError:
+        XtX_inv = np.linalg.pinv(X_all.T @ I_kMz @ X_all)
 
     if cluster is not None:
         clusters = df[cluster].values

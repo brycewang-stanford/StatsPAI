@@ -140,7 +140,10 @@ def fracreg(
 
     # Robust (sandwich) standard errors — always for QMLE
     score = ((y_data - mu) * dmu / (mu * (1 - mu)))[:, np.newaxis] * X_data
-    XtWX_inv = np.linalg.inv(X_data.T @ np.diag(dmu**2 / (mu * (1 - mu))) @ X_data)
+    try:
+        XtWX_inv = np.linalg.inv(X_data.T @ np.diag(dmu**2 / (mu * (1 - mu))) @ X_data)
+    except np.linalg.LinAlgError:
+        XtWX_inv = np.linalg.pinv(X_data.T @ np.diag(dmu**2 / (mu * (1 - mu))) @ X_data)
 
     if cluster is not None:
         clusters = df[cluster].values

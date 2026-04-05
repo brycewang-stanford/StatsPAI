@@ -122,17 +122,23 @@ def engle_granger(
     max_lag = min(lags, T - 2)
 
     Y_adf = dy[max_lag:]
-    X_adf = y_lag[max_lag:].reshape(-1, 1)
+    n_adf = len(Y_adf)
+    X_adf = y_lag[max_lag:max_lag + n_adf].reshape(-1, 1)
     for j in range(1, max_lag + 1):
-        X_adf = np.column_stack([X_adf, dy[max_lag - j:-j] if j < len(dy) else dy[:1]])
+        lag_slice = dy[max_lag - j:max_lag - j + n_adf]
+        X_adf = np.column_stack([X_adf, lag_slice])
 
     if trend == 'c':
-        X_adf = np.column_stack([X_adf, np.ones(len(Y_adf))])
+        X_adf = np.column_stack([X_adf, np.ones(n_adf)])
 
     beta_adf = np.linalg.lstsq(X_adf, Y_adf, rcond=None)[0]
     resid_adf = Y_adf - X_adf @ beta_adf
-    se_rho = np.sqrt(np.sum(resid_adf**2) / (len(Y_adf) - X_adf.shape[1]) *
-                     np.linalg.inv(X_adf.T @ X_adf)[0, 0])
+    try:
+        XtX_inv = np.linalg.inv(X_adf.T @ X_adf)
+    except np.linalg.LinAlgError:
+        XtX_inv = np.linalg.pinv(X_adf.T @ X_adf)
+    se_rho = np.sqrt(np.sum(resid_adf**2) / max(n_adf - X_adf.shape[1], 1) *
+                     XtX_inv[0, 0])
     adf_stat = beta_adf[0] / se_rho
 
     # Critical values for Engle-Granger (depend on number of variables)

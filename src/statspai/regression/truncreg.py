@@ -71,6 +71,9 @@ def truncreg(
     >>> result = sp.truncreg(df, y='wage', x=['education', 'experience'], ll=0)
     >>> print(result.summary())
     """
+    if ll is not None and ul is not None and ll >= ul:
+        raise ValueError(f"Lower limit ({ll}) must be < upper limit ({ul})")
+
     df = data.dropna(subset=[y] + x)
     n = len(df)
 

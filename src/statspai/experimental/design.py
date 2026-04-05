@@ -186,12 +186,14 @@ def randomize(
             g_n = len(idx)
             # Within each stratum, do complete randomization
             counts = [int(round(p * g_n)) for p in prob]
-            # Adjust rounding
+            # Adjust rounding — ensure no negative counts
             while sum(counts) < g_n:
                 counts[0] += 1
             while sum(counts) > g_n:
-                counts[-1] -= 1
-            arm_labels = np.concatenate([np.full(c, arm) for arm, c in enumerate(counts)])
+                # Find largest count to decrement
+                max_idx = max(range(len(counts)), key=lambda i: counts[i])
+                counts[max_idx] -= 1
+            arm_labels = np.concatenate([np.full(max(c, 0), arm) for arm, c in enumerate(counts)])
             rng.shuffle(arm_labels)
             assignments[idx] = arm_labels[:g_n]
 

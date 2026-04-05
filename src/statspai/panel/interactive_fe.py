@@ -107,8 +107,9 @@ def interactive_fe(
             X_mats[j][i, t] = row[xvar]
 
     # Handle unbalanced panel: create mask
-    valid = np.all(np.isfinite(Y_mat), axis=1) & np.all(
-        [np.all(np.isfinite(xm), axis=1) for xm in X_mats], axis=0)
+    x_valid = np.all(np.array(
+        [np.all(np.isfinite(xm), axis=1) for xm in X_mats]), axis=0)
+    valid = np.all(np.isfinite(Y_mat), axis=1) & x_valid
     if not np.all(valid):
         Y_mat = Y_mat[valid]
         X_mats = [xm[valid] for xm in X_mats]

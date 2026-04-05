@@ -147,7 +147,7 @@ def _cluster_se(
 
     meat = cluster_scores.T @ cluster_scores
     # Small-sample correction: G/(G-1) * n/(n-k)
-    correction = (G / (G - 1)) * (n / max(n - k, 1))
+    correction = (G / max(G - 1, 1)) * (n / max(n - k, 1))
     sandwich = correction * (hessian_inv @ meat @ hessian_inv)
     return np.sqrt(np.maximum(np.diag(sandwich), 1e-20))
 

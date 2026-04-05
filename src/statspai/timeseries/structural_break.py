@@ -151,7 +151,8 @@ def structural_break(
             rss2 = np.sum((y2 - X2 @ b2)**2)
 
             rss_break = rss1 + rss2
-            f_stat = ((rss_full - rss_break) / k) / (rss_break / (n - 2 * k))
+            denom = rss_break / max(n - 2 * k, 1)
+            f_stat = ((rss_full - rss_break) / k) / max(denom, 1e-20)
             f_stats.append((t, f_stat))
 
             if f_stat > best_f:
