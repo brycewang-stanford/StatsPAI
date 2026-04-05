@@ -112,17 +112,19 @@ def create_jupyter_panel(editor: FigureEditor):
 
     def _do_render(figure):
         """Actually render the figure to the preview widget."""
-        render_dpi = int(figure.dpi)
-        fig_image.value = _render_fig_to_png(figure, dpi=render_dpi)
+        # Always use preview_dpi for the live preview (fast).
+        # The figure's own DPI is preserved for export/save.
+        fig_image.value = _render_fig_to_png(figure, dpi=preview_dpi)
         n = len(editor.edits)
         w_in, h_in = figure.get_size_inches()
-        dpi = int(figure.dpi)
-        px_w, px_h = int(w_in * dpi), int(h_in * dpi)
+        export_dpi = int(figure.dpi)
+        px_w, px_h = int(w_in * export_dpi), int(h_in * export_dpi)
         _render_state['pending'] = 0
         apply_btn.description = 'Apply'
         status_bar.value = (
             f'<span style="font-size:11px; color:#2ECC71">'
-            f'{n} edit(s) — DPI: {dpi} → export size: {px_w}×{px_h}px</span>'
+            f'{n} edit(s) — DPI: {export_dpi} → '
+            f'export size: {px_w}\u00d7{px_h}px</span>'
         )
 
     def _live_refresh(figure):
@@ -272,8 +274,9 @@ def create_jupyter_panel(editor: FigureEditor):
         ylim_range.max = yl[1] + yr * 0.5
         ylim_range.step = yr / 50
         ylim_range.value = [yl[0], yl[1]]
-        # Rebuild style tab content
-        _rebuild_style_widgets()
+        # Rebuild style tab content (only if already loaded)
+        if _tab_loaded.get(1, False):
+            _rebuild_style_widgets()
 
     ax_selector.observe(_on_ax_change, names='value')
 
@@ -608,7 +611,8 @@ def create_jupyter_panel(editor: FigureEditor):
 
         style_container.children = children
 
-    _rebuild_style_widgets()
+    # NOTE: _rebuild_style_widgets() is deferred — called on first
+    # tab switch to Style tab (see _on_tab_switch).
 
     # ==================================================================
     # Tab 3: Layout (spines, grid, figsize, legend, axes limits, etc.)
@@ -1216,16 +1220,57 @@ def create_jupyter_panel(editor: FigureEditor):
     editor.on_refresh(_live_code_update)
 
     # ==================================================================
-    # Assemble tabs
+    # Assemble tabs (with lazy loading for non-default tabs)
     # ==================================================================
+    _loading_msg = widgets.HTML(
+        '<div style="padding:20px; color:#999; text-align:center">'
+        'Loading...</div>'
+    )
+    _lazy_placeholders = {
+        1: widgets.VBox([_loading_msg]),
+        2: widgets.VBox([widgets.HTML(
+            '<div style="padding:20px; color:#999; text-align:center">'
+            'Loading...</div>')]),
+        3: widgets.VBox([widgets.HTML(
+            '<div style="padding:20px; color:#999; text-align:center">'
+            'Loading...</div>')]),
+        4: widgets.VBox([widgets.HTML(
+            '<div style="padding:20px; color:#999; text-align:center">'
+            'Loading...</div>')]),
+    }
+    _tab_loaded = {0: True, 1: False, 2: False, 3: False, 4: False}
+    _real_tabs = {
+        1: style_container,
+        2: layout_tab,
+        3: theme_tab,
+        4: code_tab,
+    }
+
     tabs = widgets.Tab(children=[
-        text_tab, style_container, layout_tab, theme_tab, code_tab,
+        text_tab,
+        _lazy_placeholders[1],
+        _lazy_placeholders[2],
+        _lazy_placeholders[3],
+        _lazy_placeholders[4],
     ])
     tabs.set_title(0, 'Text')
     tabs.set_title(1, 'Style')
     tabs.set_title(2, 'Layout')
     tabs.set_title(3, 'Theme')
     tabs.set_title(4, 'Export')
+
+    def _on_tab_switch(change):
+        idx = change['new']
+        if idx is not None and not _tab_loaded.get(idx, True):
+            _tab_loaded[idx] = True
+            children = list(tabs.children)
+            children[idx] = _real_tabs[idx]
+            tabs.children = children
+            # Build style widgets on first visit
+            if idx == 1:
+                _rebuild_style_widgets()
+
+    tabs.observe(_on_tab_switch, names='selected_index')
 
     panel_header = widgets.HBox(
         [
