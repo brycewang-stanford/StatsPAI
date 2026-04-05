@@ -11,6 +11,7 @@ import warnings
 from ..core.base import BaseModel, BaseEstimator
 from ..core.results import EconometricResults
 from ..core.utils import parse_formula, create_design_matrices, prepare_data
+from ..core._numba_kernels import ols_fit as _fast_ols, sandwich_hc as _fast_sandwich_hc, cluster_meat as _fast_cluster_meat, hac_meat as _fast_hac_meat
 
 
 class OLSEstimator(BaseEstimator):
@@ -48,33 +49,32 @@ class OLSEstimator(BaseEstimator):
             Estimation results
         """
         n, k = X.shape
-        
-        # OLS estimation
+
+        # Fast OLS via Numba-accelerated kernel (graceful fallback)
+        params, fitted_values, residuals = _fast_ols(X, y)
+
         try:
             XtX_inv = np.linalg.inv(X.T @ X)
         except np.linalg.LinAlgError:
-            # Use pseudo-inverse if X'X is singular
             XtX_inv = np.linalg.pinv(X.T @ X)
             warnings.warn("X'X matrix is singular, using pseudo-inverse")
-        
-        params = XtX_inv @ X.T @ y
-        fitted_values = X @ params
-        residuals = y - fitted_values
-        
-        # Calculate standard errors
-        if robust == 'nonrobust':
-            # Classical standard errors
+
+        # Variance-covariance via accelerated sandwich kernels
+        if cluster is not None:
+            cluster_arr = np.asarray(cluster)
+            meat = _fast_cluster_meat(X, residuals, cluster_arr)
+            n_clusters = len(np.unique(cluster_arr))
+            correction = (n_clusters / (n_clusters - 1)) * ((n - 1) / (n - k))
+            var_cov = correction * XtX_inv @ meat @ XtX_inv
+        elif robust == 'nonrobust':
             sigma2 = np.sum(residuals**2) / (n - k)
             var_cov = sigma2 * XtX_inv
         elif robust.lower() in ['hc0', 'hc1', 'hc2', 'hc3']:
-            # Heteroskedasticity-robust standard errors
-            var_cov = self._robust_cov_matrix(X, residuals, XtX_inv, robust.lower())
+            var_cov = _fast_sandwich_hc(X, residuals, XtX_inv, robust.lower())
         elif robust.lower() == 'hac':
-            # HAC (Newey-West) standard errors
-            var_cov = self._hac_cov_matrix(X, residuals, XtX_inv, **kwargs)
-        elif cluster is not None:
-            # Clustered standard errors
-            var_cov = self._cluster_cov_matrix(X, residuals, XtX_inv, cluster)
+            lags = kwargs.get('lags', None)
+            meat = _fast_hac_meat(X, residuals, lags)
+            var_cov = XtX_inv @ meat @ XtX_inv
         else:
             raise ValueError(f"Unknown robust option: {robust}")
         

@@ -22,6 +22,7 @@ and Wager, S. (2021).
 """
 
 from .scm import synth, SyntheticControl
+from .augsynth import augsynth
 from .sdid import (
     sdid,
     synthdid_estimate,
@@ -48,6 +49,8 @@ __all__ = [
     'synthdid_plot',
     'synthdid_units_plot',
     'synthdid_rmse_plot',
+    # Augmented SCM
+    'augsynth',
     # Data
     'california_prop99',
 ]

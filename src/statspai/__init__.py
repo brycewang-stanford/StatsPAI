@@ -30,10 +30,10 @@ from .core.results import EconometricResults, CausalResult
 from .regression.ols import regress
 from .regression.iv import ivreg, IVRegression
 from .causal.causal_forest import CausalForest, causal_forest
-from .did import did, did_2x2, callaway_santanna, sun_abraham, bacon_decomposition, honest_did, breakdown_m
+from .did import did, did_2x2, callaway_santanna, sun_abraham, bacon_decomposition, honest_did, breakdown_m, event_study
 from .rd import rdrobust, rdplot
 from .synth import (
-    synth, SyntheticControl, sdid,
+    synth, SyntheticControl, sdid, augsynth,
     synthdid_estimate, sc_estimate, did_estimate,
     synthdid_placebo, synthdid_plot, synthdid_units_plot, synthdid_rmse_plot,
     california_prop99,
@@ -50,8 +50,9 @@ from .output.modelsummary import modelsummary, coefplot
 from .output.sumstats import sumstats, balance_table
 from .output.tab import tab
 from .postestimation import margins, marginsplot, test, lincom
-from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, evalue, evalue_from_result
-from .inference import wild_cluster_bootstrap, aipw, ri_test
+from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, evalue, evalue_from_result, diagnose_result
+from .inference import wild_cluster_bootstrap, aipw, ri_test, ipw, bootstrap, BootstrapResult
+from .spatial import sar, sem, sdm, SpatialModel
 from .plots import binscatter, set_theme, list_themes, use_chinese, interactive, get_code
 from .utils import label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data
 from .gmm import xtabond
@@ -74,6 +75,9 @@ from .interference import spillover, SpilloverEstimator
 from .dtr import g_estimation, GEstimation
 from .multi_treatment import multi_treatment, MultiTreatment
 from .robustness import spec_curve, SpecCurveResult, robustness_report, RobustnessResult, subgroup_analysis, SubgroupResult
+from .survey import svydesign, SurveyDesign, svymean, svytotal, svyglm
+from .dag import dag, DAG
+from .registry import list_functions, describe_function, function_schema, search_functions, all_schemas
 
 __all__ = [
     # Core
@@ -91,6 +95,7 @@ __all__ = [
     "bacon_decomposition",
     "honest_did",
     "breakdown_m",
+    "event_study",
     # RD
     "rdrobust",
     "rdplot",
@@ -106,6 +111,7 @@ __all__ = [
     "synthdid_units_plot",
     "synthdid_rmse_plot",
     "california_prop99",
+    "augsynth",
     # Matching
     "match",
     "MatchEstimator",
@@ -179,10 +185,19 @@ __all__ = [
     "anderson_rubin_test",
     "evalue",
     "evalue_from_result",
+    "diagnose_result",
     # Inference
     "wild_cluster_bootstrap",
     "aipw",
     "ri_test",
+    "ipw",
+    "bootstrap",
+    "BootstrapResult",
+    # Spatial Econometrics
+    "sar",
+    "sem",
+    "sdm",
+    "SpatialModel",
     # Meta-Learners (HTE)
     "metalearner",
     "SLearner",
@@ -254,4 +269,19 @@ __all__ = [
     "RobustnessResult",
     "subgroup_analysis",
     "SubgroupResult",
+    # Survey Design
+    "svydesign",
+    "SurveyDesign",
+    "svymean",
+    "svytotal",
+    "svyglm",
+    # DAG
+    "dag",
+    "DAG",
+    # AI / Agent Registry
+    "list_functions",
+    "describe_function",
+    "function_schema",
+    "search_functions",
+    "all_schemas",
 ]

@@ -18,6 +18,7 @@ from .callaway_santanna import callaway_santanna
 from .sun_abraham import sun_abraham
 from .bacon import bacon_decomposition
 from .honest_did import honest_did, breakdown_m
+from .event_study import event_study
 
 
 def did(
@@ -154,4 +155,5 @@ __all__ = [
     'bacon_decomposition',
     'honest_did',
     'breakdown_m',
+    'event_study',
 ]
