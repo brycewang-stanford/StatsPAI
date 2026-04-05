@@ -255,6 +255,43 @@ class EditRecord:
     new_value: Any
     code_line: str       # Reproducible matplotlib code
 
+    def to_dict(self) -> dict:
+        """Serialize to a JSON-compatible dictionary."""
+        return {
+            'target': self.target_desc,
+            'property': self.property_name,
+            'old': _serialize_value(self.old_value),
+            'new': _serialize_value(self.new_value),
+            'code': self.code_line,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> 'EditRecord':
+        """Deserialize from a dictionary."""
+        return cls(
+            target_desc=d['target'],
+            property_name=d['property'],
+            old_value=d['old'],
+            new_value=d['new'],
+            code_line=d['code'],
+        )
+
+
+def _serialize_value(val: Any) -> Any:
+    """Convert matplotlib/numpy values to JSON-safe Python types."""
+    import numpy as np
+    if isinstance(val, np.ndarray):
+        return val.tolist()
+    if isinstance(val, (np.integer,)):
+        return int(val)
+    if isinstance(val, (np.floating,)):
+        return float(val)
+    if isinstance(val, np.bool_):
+        return bool(val)
+    if isinstance(val, tuple):
+        return list(val)
+    return val
+
 
 @dataclass
 class FigureEditor:
@@ -1381,6 +1418,58 @@ class FigureEditor:
         """Print reproducible code to stdout."""
         code = self.generate_code()
         print(code)
+
+    # ------------------------------------------------------------------
+    # Serialization — for web backends (e.g. CoPaper.ai)
+    # ------------------------------------------------------------------
+
+    def to_edits_json(self) -> str:
+        """Serialize all edits to a JSON string.
+
+        Returns
+        -------
+        str
+            JSON array of edit records, suitable for sending to a
+            web backend that will replay edits on a fresh figure.
+        """
+        import json
+        return json.dumps(
+            [e.to_dict() for e in self.edits],
+            ensure_ascii=False,
+        )
+
+    def apply_edits_json(self, json_str: str):
+        """Apply edits from a JSON string onto this figure.
+
+        Parameters
+        ----------
+        json_str : str
+            JSON array of edit dicts (from ``to_edits_json``).
+        """
+        import json
+        records = [EditRecord.from_dict(d) for d in json.loads(json_str)]
+        for edit in records:
+            self._replay_edit(edit)
+            self.edits.append(edit)
+        self._refresh()
+
+    def to_edits_list(self) -> list:
+        """Return edits as a list of dicts (for direct API use)."""
+        return [e.to_dict() for e in self.edits]
+
+    def apply_edits_list(self, edits: list):
+        """Apply edits from a list of dicts onto this figure.
+
+        Parameters
+        ----------
+        edits : list of dict
+            Each dict has keys: target, property, old, new, code.
+        """
+        records = [EditRecord.from_dict(d) for d in edits]
+        for edit in records:
+            self._replay_edit(edit)
+            self.edits.append(edit)
+        self._refresh()
 
     def summary(self) -> str:
         """Return a summary of all edits."""
