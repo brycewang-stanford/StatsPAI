@@ -16,6 +16,7 @@ from .diagnostics import rdbwsensitivity, rdbalance, rdplacebo, rdsummary
 from .rkd import rkd
 from .honest_ci import rd_honest
 from .rdit import rdit
+from .rdmulti import rdmc, rdms, RDMultiResult
 
 __all__ = [
     'rdrobust',
@@ -28,4 +29,7 @@ __all__ = [
     'rkd',
     'rd_honest',
     'rdit',
+    'rdmc',
+    'rdms',
+    'RDMultiResult',
 ]

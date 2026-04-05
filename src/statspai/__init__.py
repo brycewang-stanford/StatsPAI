@@ -81,6 +81,9 @@ from .metalearners import cate_summary, cate_by_group, cate_plot, cate_group_plo
 from .regression.heckman import heckman
 from .regression.quantile import qreg, sqreg
 from .regression.tobit import tobit
+from .regression.logit_probit import logit, probit, cloglog
+from .regression.glm import glm, GLMRegression, GLMEstimator
+from .regression.count import poisson, nbreg, ppmlhdfe
 from .neural_causal import tarnet, cfrnet, dragonnet, TARNet, CFRNet, DragonNet
 from .causal_discovery import notears, NOTEARS, pc_algorithm, PCAlgorithm
 from .tmle import tmle, TMLE, super_learner, SuperLearner
@@ -103,6 +106,33 @@ from .selection import stepwise, lasso_select, SelectionResult
 from .qte import qdid, qte, QTEResult
 from .mht import romano_wolf, RomanoWolfResult, adjust_pvalues, bonferroni, holm, benjamini_hochberg
 from .registry import list_functions, describe_function, function_schema, search_functions, all_schemas
+
+# === NEW MODULES (v0.6) ===
+# GLM & Discrete Choice
+from .regression.glm import glm, GLMEstimator
+from .regression.logit_probit import logit, probit, cloglog
+from .regression.multinomial import mlogit, ologit, oprobit, clogit
+# Count Data
+from .regression.count import poisson, nbreg, ppmlhdfe
+from .regression.zeroinflated import zip_model, zinb, hurdle
+# Advanced IV
+from .regression.advanced_iv import liml, jive, lasso_iv
+# Survival / Duration
+from .survival import cox, kaplan_meier, survreg, CoxResult, KMResult, logrank_test
+# Nonparametric
+from .nonparametric import lpoly, LPolyResult, kdensity, KDensityResult
+# Time Series (for causal inference)
+from .timeseries import var, VARResult, granger_causality, irf, structural_break, StructuralBreakResult, cusum_test
+# Experimental Design
+from .experimental import randomize, RandomizationResult, balance_check, BalanceResult, attrition_test, attrition_bounds, AttritionResult, optimal_design, OptimalDesignResult
+# Missing Data / Imputation
+from .imputation import mice, MICEResult, mi_estimate
+# Mendelian Randomization
+from .mendelian import mendelian_randomization, MRResult, mr_egger, mr_ivw, mr_median
+# Multi-cutoff / Geographic RD
+from .rd import rdmc, rdms, RDMultiResult
+# Continuous Treatment DID
+from .did import continuous_did
 
 __all__ = [
     # Core
@@ -243,6 +273,15 @@ __all__ = [
     "qreg",
     "sqreg",
     "tobit",
+    "logit",
+    "probit",
+    "cloglog",
+    "glm",
+    "GLMRegression",
+    "GLMEstimator",
+    "poisson",
+    "nbreg",
+    "ppmlhdfe",
     # Post-estimation
     "margins",
     "marginsplot",
@@ -437,4 +476,33 @@ __all__ = [
     "dgp_bunching",
     "dgp_synth",
     "dgp_bartik",
+    # === NEW v0.6 ===
+    # GLM & Discrete Choice
+    "glm", "GLMEstimator",
+    "logit", "probit", "cloglog",
+    "mlogit", "ologit", "oprobit", "clogit",
+    # Count Data
+    "poisson", "nbreg", "ppmlhdfe",
+    "zip_model", "zinb", "hurdle",
+    # Advanced IV
+    "liml", "jive", "lasso_iv",
+    # Survival
+    "cox", "kaplan_meier", "survreg", "CoxResult", "KMResult", "logrank_test",
+    # Nonparametric
+    "lpoly", "LPolyResult", "kdensity", "KDensityResult",
+    # Time Series
+    "var", "VARResult", "granger_causality", "irf",
+    "structural_break", "StructuralBreakResult", "cusum_test",
+    # Experimental Design
+    "randomize", "RandomizationResult", "balance_check", "BalanceResult",
+    "attrition_test", "attrition_bounds", "AttritionResult",
+    "optimal_design", "OptimalDesignResult",
+    # Missing Data
+    "mice", "MICEResult", "mi_estimate",
+    # Mendelian Randomization
+    "mendelian_randomization", "MRResult", "mr_egger", "mr_ivw", "mr_median",
+    # Multi-Cutoff / Geographic RD
+    "rdmc", "rdms", "RDMultiResult",
+    # Continuous DID
+    "continuous_did",
 ]

@@ -43,6 +43,7 @@ from .pretrends import (
     pretrends_summary,
 )
 from .wooldridge_did import wooldridge_did, drdid, twfe_decomposition
+from .continuous_did import continuous_did
 from .plots import (
     parallel_trends_plot,
     bacon_plot,

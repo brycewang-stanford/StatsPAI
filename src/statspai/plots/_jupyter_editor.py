@@ -172,10 +172,9 @@ def create_jupyter_panel(editor: FigureEditor):
         ),
     )
 
-    # Preview container (figure + render controls + status bar)
+    # Preview container (figure + status bar)
     fig_container = widgets.VBox([
         fig_image,
-        render_bar,
         status_bar,
     ], layout=widgets.Layout(
         flex='1 1 auto',
@@ -1228,10 +1227,24 @@ def create_jupyter_panel(editor: FigureEditor):
     tabs.set_title(3, 'Theme')
     tabs.set_title(4, 'Export')
 
+    panel_header = widgets.HBox(
+        [
+            widgets.HTML(
+                '<h3 style="margin:0; color:#2C3E50; white-space:nowrap">'
+                'StatsPAI Plot Editor</h3>'
+            ),
+            render_bar,
+        ],
+        layout=widgets.Layout(
+            justify_content='space-between',
+            align_items='center',
+            width='100%',
+        ),
+    )
+
     panel = widgets.VBox([
+        panel_header,
         widgets.HTML(
-            '<h3 style="margin:0 0 8px 0; color:#2C3E50">'
-            'StatsPAI Plot Editor</h3>'
             '<span style="font-size:11px; color:#E74C3C">'
             'Data locked &nbsp;|&nbsp; '
             'Left: live preview &nbsp;|&nbsp; '
