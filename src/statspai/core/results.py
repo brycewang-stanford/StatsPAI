@@ -171,7 +171,40 @@ class EconometricResults:
             Fitted values
         """
         return self.data_info.get('fitted_values')
-    
+
+    def next_steps(self, print_result: bool = True) -> List[Dict[str, str]]:
+        """
+        Agent-native workflow guidance: what to do after fitting this model.
+
+        Returns a list of recommended next steps — diagnostics, robustness
+        checks, sensitivity analysis, and export options — tailored to the
+        model type (OLS, IV, panel, etc.).
+
+        Parameters
+        ----------
+        print_result : bool, default True
+            Print formatted recommendations to stdout.
+
+        Returns
+        -------
+        list of dict
+            Each dict has keys: ``action``, ``reason``, ``priority``, ``category``.
+
+        Examples
+        --------
+        >>> result = sp.regress("y ~ x1 + x2", data=df)
+        >>> result.next_steps()
+        """
+        from .next_steps import econometric_next_steps, _format_steps
+        steps = econometric_next_steps(self)
+        if print_result:
+            print(_format_steps(steps))
+        return [s.to_dict() for s in steps]
+
+    def _next_steps_html(self) -> str:
+        from .next_steps import econometric_next_steps, _steps_repr_html
+        return _steps_repr_html(econometric_next_steps(self))
+
     def to_docx(self, filename: str, title: Optional[str] = None):
         """
         Export results to a Word (.docx) document.
@@ -963,6 +996,38 @@ class CausalResult:
         if 'pretrend_test' not in self.model_info:
             raise ValueError("Pre-trend test not available for this method.")
         return self.model_info['pretrend_test']
+
+    def next_steps(self, print_result: bool = True) -> List[Dict[str, str]]:
+        """
+        Agent-native workflow guidance: what to do after this causal analysis.
+
+        Returns method-specific recommendations — pre-trend tests for DID,
+        McCrary test for RD, balance checks for matching, etc.
+
+        Parameters
+        ----------
+        print_result : bool, default True
+            Print formatted recommendations to stdout.
+
+        Returns
+        -------
+        list of dict
+            Each dict has keys: ``action``, ``reason``, ``priority``, ``category``.
+
+        Examples
+        --------
+        >>> result = sp.did(df, y='wage', treat='treated', time='post')
+        >>> result.next_steps()
+        """
+        from .next_steps import causal_next_steps, _format_steps
+        steps = causal_next_steps(self)
+        if print_result:
+            print(_format_steps(steps))
+        return [s.to_dict() for s in steps]
+
+    def _next_steps_html(self) -> str:
+        from .next_steps import causal_next_steps, _steps_repr_html
+        return _steps_repr_html(causal_next_steps(self))
 
     def to_docx(self, filename: str, title: Optional[str] = None):
         """
