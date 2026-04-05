@@ -1471,6 +1471,263 @@ class FigureEditor:
             self.edits.append(edit)
         self._refresh()
 
+    # ------------------------------------------------------------------
+    # Headless Web API — for CoPaper.ai and other web backends
+    # ------------------------------------------------------------------
+
+    def render_to_base64(self, dpi: int = 300, fmt: str = 'png') -> str:
+        """Render the figure to a base64-encoded string.
+
+        Parameters
+        ----------
+        dpi : int, default 300
+            Resolution for the rendered image.
+        fmt : str, default 'png'
+            Image format ('png', 'svg', 'pdf').
+
+        Returns
+        -------
+        str
+            Base64-encoded image data.
+        """
+        import base64
+        import io
+        buf = io.BytesIO()
+        self.fig.savefig(buf, format=fmt, dpi=dpi,
+                         bbox_inches='tight',
+                         facecolor=self.fig.get_facecolor())
+        buf.seek(0)
+        return base64.b64encode(buf.read()).decode('ascii')
+
+    def get_editable_schema(self) -> dict:
+        """Export schema of all editable properties and current values.
+
+        Returns a dict that a web frontend can use to dynamically
+        generate an editing panel. Each element includes its current
+        value, role, and whether it's editable.
+
+        Returns
+        -------
+        dict
+            Schema with axes, figure-level settings, font presets,
+            and theme options.
+        """
+        from .themes import list_themes
+
+        axes_schema = []
+        for i, ax in enumerate(self.fig.get_axes()):
+            # Lines
+            lines_schema = []
+            for j, line in enumerate(ax.get_lines()):
+                role = self.artist_roles.get(id(line), ArtistRole.COSMETIC)
+                editable = role not in (
+                    ArtistRole.DATA, ArtistRole.FIT, ArtistRole.CI
+                ) if self.protect_data else True
+                lines_schema.append({
+                    'index': j,
+                    'label': line.get_label() or f'line{j}',
+                    'role': role.name,
+                    'editable': editable,
+                    'color': line.get_color(),
+                    'linewidth': line.get_linewidth(),
+                    'linestyle': line.get_linestyle(),
+                    'alpha': line.get_alpha(),
+                })
+
+            # Collections (scatter, fill_between, etc.)
+            collections_schema = []
+            for j, coll in enumerate(ax.collections):
+                role = self.artist_roles.get(id(coll), ArtistRole.COSMETIC)
+                editable = role not in (
+                    ArtistRole.DATA, ArtistRole.FIT, ArtistRole.CI
+                ) if self.protect_data else True
+                collections_schema.append({
+                    'index': j,
+                    'role': role.name,
+                    'editable': editable,
+                    'alpha': coll.get_alpha(),
+                })
+
+            # Spines
+            spines = {}
+            for name, spine in ax.spines.items():
+                spines[name] = spine.get_visible()
+
+            # Grid
+            gridlines = ax.xaxis.get_gridlines()
+            grid_on = gridlines[0].get_visible() if gridlines else False
+
+            # Legend
+            legend = ax.get_legend()
+            legend_info = None
+            if legend is not None:
+                legend_info = {
+                    'visible': legend.get_visible(),
+                    'loc': legend._loc if hasattr(legend, '_loc') else 'best',
+                }
+
+            axes_schema.append({
+                'index': i,
+                'title': {
+                    'text': ax.get_title(),
+                    'fontsize': ax.title.get_fontsize(),
+                    'color': ax.title.get_color(),
+                },
+                'xlabel': {
+                    'text': ax.get_xlabel(),
+                    'fontsize': ax.xaxis.label.get_fontsize(),
+                },
+                'ylabel': {
+                    'text': ax.get_ylabel(),
+                    'fontsize': ax.yaxis.label.get_fontsize(),
+                },
+                'xlim': list(ax.get_xlim()),
+                'ylim': list(ax.get_ylim()),
+                'lines': lines_schema,
+                'collections': collections_schema,
+                'spines': spines,
+                'grid': grid_on,
+                'legend': legend_info,
+            })
+
+        # Figure-level
+        w, h = self.fig.get_size_inches()
+
+        return {
+            'axes': axes_schema,
+            'figure': {
+                'width': float(w),
+                'height': float(h),
+                'dpi': int(self.fig.dpi),
+                'facecolor': self.fig.get_facecolor(),
+            },
+            'font_presets': list(FONT_PRESETS.keys()),
+            'themes': list_themes(),
+            'protect_data': self.protect_data,
+        }
+
+    def apply_actions(self, actions: list):
+        """Apply a list of action-based edit commands.
+
+        This is the primary API for web frontends. Each action is a
+        dict with an ``action`` key specifying the method to call.
+
+        Parameters
+        ----------
+        actions : list of dict
+            Each dict has ``action`` plus method-specific params.
+            Supported actions::
+
+                {"action": "set_title", "text": "...", "ax_index": 0}
+                {"action": "set_xlabel", "text": "...", "ax_index": 0}
+                {"action": "set_ylabel", "text": "...", "ax_index": 0}
+                {"action": "set_fontsize", "target": "title", "size": 12, "ax_index": 0}
+                {"action": "set_color", "target": "title", "color": "#333", "ax_index": 0}
+                {"action": "set_dpi", "dpi": 300}
+                {"action": "set_figsize", "width": 8, "height": 6}
+                {"action": "set_grid", "visible": true, "ax_index": 0}
+                {"action": "set_spine_visible", "spine": "top", "visible": false, "ax_index": 0}
+                {"action": "apply_font_preset", "preset": "CJK Journal", "ax_index": 0}
+                {"action": "apply_theme", "theme": "clean"}
+                {"action": "set_legend_visible", "visible": true, "ax_index": 0}
+                {"action": "set_line_color", "line_index": 0, "color": "#E74C3C", "ax_index": 0}
+                {"action": "set_line_alpha", "line_index": 0, "alpha": 0.8, "ax_index": 0}
+
+        Raises
+        ------
+        ValueError
+            If an unknown action is encountered.
+        """
+        _dispatch = {
+            'set_title': lambda a: self.set_title(
+                a['text'], ax_index=a.get('ax_index', 0)),
+            'set_xlabel': lambda a: self.set_xlabel(
+                a['text'], ax_index=a.get('ax_index', 0)),
+            'set_ylabel': lambda a: self.set_ylabel(
+                a['text'], ax_index=a.get('ax_index', 0)),
+            'set_fontsize': lambda a: self.set_fontsize(
+                a['target'], a['size'], ax_index=a.get('ax_index', 0)),
+            'set_color': lambda a: self.set_color(
+                a['target'], a['color'], ax_index=a.get('ax_index', 0)),
+            'set_dpi': lambda a: self.set_dpi(a['dpi']),
+            'set_figsize': lambda a: self.set_figsize(
+                a['width'], a['height']),
+            'set_grid': lambda a: self.set_grid(
+                a['visible'], ax_index=a.get('ax_index', 0)),
+            'set_spine_visible': lambda a: self.set_spine_visible(
+                a['spine'], a['visible'], ax_index=a.get('ax_index', 0)),
+            'apply_font_preset': lambda a: self.apply_font_preset(
+                a['preset'], ax_index=a.get('ax_index', 0)),
+            'apply_theme': lambda a: self.apply_theme(a['theme']),
+            'set_legend_visible': lambda a: self.set_legend_visible(
+                a['visible'], ax_index=a.get('ax_index', 0)),
+            'set_line_color': lambda a: self.set_color(
+                f"line{a['line_index']}", a['color'],
+                ax_index=a.get('ax_index', 0)),
+            'set_line_alpha': lambda a: self.set_alpha(
+                f"line{a['line_index']}", a['alpha'],
+                ax_index=a.get('ax_index', 0)),
+            'set_linewidth': lambda a: self.set_linewidth(
+                a['line_index'], a['width'],
+                ax_index=a.get('ax_index', 0)),
+            'set_linestyle': lambda a: self.set_linestyle(
+                a['line_index'], a['style'],
+                ax_index=a.get('ax_index', 0)),
+        }
+
+        for action in actions:
+            name = action.get('action')
+            handler = _dispatch.get(name)
+            if handler is None:
+                raise ValueError(
+                    f"Unknown action: {name!r}. "
+                    f"Supported: {sorted(_dispatch.keys())}")
+            handler(action)
+
+    def export_state(self) -> dict:
+        """Export the full editor state for persistence.
+
+        Returns a dict containing edits and figure metadata,
+        suitable for storing in a database or sending over the wire.
+        Pair with ``import_state()`` to restore edits on a fresh figure.
+
+        Returns
+        -------
+        dict
+            Serialized state with edits, figure settings, and metadata.
+        """
+        w, h = self.fig.get_size_inches()
+        return {
+            'version': 1,
+            'edits': self.to_edits_list(),
+            'figure': {
+                'width': float(w),
+                'height': float(h),
+                'dpi': int(self.fig.dpi),
+            },
+            'code': self.generate_code(include_comment=False),
+        }
+
+    def import_state(self, state: dict):
+        """Restore editor state from a previously exported dict.
+
+        Parameters
+        ----------
+        state : dict
+            State dict from ``export_state()``.
+        """
+        # Apply figure-level settings first
+        fig_state = state.get('figure', {})
+        if 'width' in fig_state and 'height' in fig_state:
+            self.set_figsize(fig_state['width'], fig_state['height'])
+        if 'dpi' in fig_state:
+            self.set_dpi(fig_state['dpi'])
+
+        # Replay edits
+        edits = state.get('edits', [])
+        if edits:
+            self.apply_edits_list(edits)
+
     def summary(self) -> str:
         """Return a summary of all edits."""
         if not self.edits:
