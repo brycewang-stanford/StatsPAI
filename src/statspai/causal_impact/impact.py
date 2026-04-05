@@ -326,6 +326,135 @@ class CausalImpactEstimator:
         return Y_pred, Y_pred_se
 
 
+# ------------------------------------------------------------------
+# Plotting
+# ------------------------------------------------------------------
+
+def impactplot(
+    result: CausalResult,
+    type: str = 'all',
+    ax=None,
+    figsize: tuple = (12, 9),
+    title=None,
+):
+    """
+    Causal Impact visualization (Google-style 3-panel plot).
+
+    Parameters
+    ----------
+    result : CausalResult
+        Result from ``causal_impact()``.
+    type : str, default 'all'
+        'all': 3-panel (original + pointwise + cumulative).
+        'original': actual vs counterfactual.
+        'pointwise': pointwise causal effect.
+        'cumulative': cumulative effect.
+    ax : matplotlib Axes, optional
+        Only for single-panel types.
+    figsize : tuple
+    title : str, optional
+
+    Returns
+    -------
+    (fig, ax) or (fig, axes)
+    """
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        raise ImportError("matplotlib required.")
+
+    mi = result.model_info
+    detail = result.detail
+    if detail is None or 'actual' not in detail.columns:
+        raise ValueError("No detail table. Use causal_impact() result.")
+
+    times = detail['time'].values
+    actual = detail['actual'].values
+    predicted = detail['predicted'].values
+    effect = detail['effect'].values
+    eff_lo = detail['effect_lower'].values
+    eff_hi = detail['effect_upper'].values
+    post = detail['post_intervention'].values
+    intervention_time = mi.get('intervention_time')
+    cum_raw = mi.get('cumulative_effect')
+    if cum_raw is not None and len(cum_raw) < len(times):
+        # cumulative_effect only covers post-period; pad pre with zeros
+        cumulative = np.zeros(len(times))
+        cumulative[post] = cum_raw
+    elif cum_raw is not None:
+        cumulative = cum_raw
+    else:
+        cumulative = np.cumsum(effect * post)
+
+    if type == 'all':
+        fig, axes = plt.subplots(3, 1, figsize=figsize, sharex=True)
+        _original_panel(axes[0], times, actual, predicted,
+                        intervention_time, result.alpha)
+        _pointwise_panel(axes[1], times, effect, eff_lo, eff_hi,
+                         post, intervention_time)
+        _cumulative_panel(axes[2], times, cumulative, post,
+                          intervention_time)
+        fig.suptitle(title or 'Causal Impact Analysis', fontsize=14, y=1.01)
+        fig.tight_layout()
+        return fig, axes
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(figsize[0], figsize[1] // 3 + 1))
+    else:
+        fig = ax.get_figure()
+
+    if type == 'pointwise':
+        _pointwise_panel(ax, times, effect, eff_lo, eff_hi,
+                         post, intervention_time)
+    elif type == 'cumulative':
+        _cumulative_panel(ax, times, cumulative, post, intervention_time)
+    else:
+        _original_panel(ax, times, actual, predicted,
+                        intervention_time, result.alpha)
+
+    ax.set_title(title or f'Causal Impact: {type}', fontsize=13)
+    fig.tight_layout()
+    return fig, ax
+
+
+def _original_panel(ax, times, actual, predicted, t0, alpha):
+    ax.plot(times, actual, color='#2C3E50', linewidth=1.5, label='Observed')
+    ax.plot(times, predicted, color='#3498DB', linewidth=1.5,
+            linestyle='--', label='Counterfactual')
+    if t0 is not None:
+        ax.axvline(x=t0, color='#E74C3C', linestyle=':', linewidth=1,
+                   alpha=0.7, label='Intervention')
+    ax.set_ylabel('Value', fontsize=11)
+    ax.legend(fontsize=9, frameon=False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+
+def _pointwise_panel(ax, times, effect, lo, hi, post, t0):
+    ax.plot(times, effect, color='#2C3E50', linewidth=1.5)
+    ax.fill_between(times, lo, hi, alpha=0.15, color='#3498DB')
+    ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)
+    if t0 is not None:
+        ax.axvline(x=t0, color='#E74C3C', linestyle=':', linewidth=1,
+                   alpha=0.7)
+    ax.set_ylabel('Pointwise Effect', fontsize=11)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+
+def _cumulative_panel(ax, times, cumulative, post, t0):
+    ax.plot(times, cumulative, color='#2C3E50', linewidth=1.5)
+    ax.fill_between(times, 0, cumulative, alpha=0.15, color='#3498DB')
+    ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)
+    if t0 is not None:
+        ax.axvline(x=t0, color='#E74C3C', linestyle=':', linewidth=1,
+                   alpha=0.7)
+    ax.set_xlabel('Time', fontsize=11)
+    ax.set_ylabel('Cumulative Effect', fontsize=11)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+
 # Citation
 CausalResult._CITATIONS['causal_impact'] = (
     "@article{brodersen2015inferring,\n"

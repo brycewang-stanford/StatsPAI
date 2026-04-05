@@ -3,9 +3,13 @@ Difference-in-Differences (DID) module for StatsPAI.
 
 Provides estimators for:
 - Classic 2×2 DID (two groups, two periods)
+- Triple Differences / DDD (two groups, two periods, within-unit subgroup)
 - Callaway & Sant'Anna (2021) — staggered DID with DR/IPW/REG
 - Sun & Abraham (2021) — interaction-weighted event study
+- Synthetic DID (Arkhangelsky et al. 2021)
 - Goodman-Bacon (2021) — TWFE decomposition diagnostic
+- Honest DID (Rambachan & Roth 2023) — parallel trends sensitivity
+- did_analysis() — one-call comprehensive workflow
 """
 
 from typing import Optional, List
@@ -14,11 +18,23 @@ import pandas as pd
 
 from ..core.results import CausalResult
 from .did_2x2 import did_2x2
+from .ddd import ddd
 from .callaway_santanna import callaway_santanna
 from .sun_abraham import sun_abraham
 from .bacon import bacon_decomposition
 from .honest_did import honest_did, breakdown_m
 from .event_study import event_study
+from .analysis import did_analysis, DIDAnalysis
+from .plots import (
+    parallel_trends_plot,
+    bacon_plot,
+    group_time_plot,
+    did_plot,
+    event_study_plot as enhanced_event_study_plot,
+    treatment_rollout_plot,
+    sensitivity_plot,
+    cohort_event_study_plot,
+)
 
 
 def did(
@@ -35,13 +51,19 @@ def did(
     cluster: Optional[str] = None,
     robust: bool = True,
     alpha: float = 0.05,
+    # DDD-specific
+    subgroup: Optional[str] = None,
+    # SDID-specific
+    treat_unit=None,
+    treat_time=None,
+    se_method: str = 'placebo',
     **kwargs,
 ) -> CausalResult:
     """
     Difference-in-Differences estimation.
 
-    Unified entry point that auto-detects 2×2 vs. staggered designs
-    and dispatches to the appropriate estimator.
+    Unified entry point that auto-detects design type and dispatches to
+    the appropriate estimator.
 
     Parameters
     ----------
@@ -55,26 +77,37 @@ def did(
     time : str
         Time period variable.
     id : str, optional
-        Unit identifier. Required for staggered DID (Callaway-Sant'Anna).
+        Unit identifier. Required for staggered DID and SDID.
     covariates : list of str, optional
         Covariate names for conditional parallel trends / controls.
     method : str, default 'auto'
         - ``'auto'`` — 2×2 if ``id`` is None and treatment is binary,
           else Callaway-Sant'Anna.
         - ``'2x2'`` — classic two-period, two-group DID.
+        - ``'ddd'`` — triple differences (requires ``subgroup``).
         - ``'callaway_santanna'`` or ``'cs'`` — staggered DID.
+        - ``'sun_abraham'``, ``'sa'``, or ``'sunab'`` — IW event study.
+        - ``'sdid'`` — synthetic DID (Arkhangelsky et al. 2021).
     estimator : str, default 'dr'
         For staggered DID: ``'dr'`` (doubly robust), ``'ipw'``, ``'reg'``.
     control_group : str, default 'nevertreated'
         For staggered DID: ``'nevertreated'`` or ``'notyettreated'``.
     base_period : str, default 'universal'
-        For staggered DID: ``'universal'`` (always g−1) or ``'varying'``.
+        For staggered DID: ``'universal'`` or ``'varying'``.
     cluster : str, optional
-        Cluster variable for standard errors (2×2 only).
+        Cluster variable for standard errors.
     robust : bool, default True
-        HC1 robust standard errors (2×2 only).
+        HC1 robust standard errors (2×2 / DDD only).
     alpha : float, default 0.05
         Significance level for confidence intervals.
+    subgroup : str, optional
+        For DDD: binary affected-subgroup indicator.
+    treat_unit : optional
+        For SDID: treated unit(s).
+    treat_time : optional
+        For SDID: treatment time.
+    se_method : str, default 'placebo'
+        For SDID: 'placebo', 'bootstrap', or 'jackknife'.
 
     Returns
     -------
@@ -87,14 +120,27 @@ def did(
     Classic 2×2 DID:
 
     >>> result = did(df, y='wage', treat='treated', time='post')
-    >>> print(result.summary())
+
+    Triple Differences:
+
+    >>> result = did(df, y='emp', treat='nj', time='post',
+    ...             method='ddd', subgroup='low_wage')
 
     Staggered DID (Callaway & Sant'Anna):
 
     >>> result = did(df, y='earnings', treat='first_treat',
     ...             time='year', id='worker_id')
-    >>> result.event_study_plot()
+
+    Synthetic DID:
+
+    >>> result = did(df, y='gdp', treat='first_treat', time='year',
+    ...             id='state', method='sdid',
+    ...             treat_unit='CA', treat_time=2000)
     """
+    # Auto-detect if subgroup is provided → DDD
+    if method == 'auto' and subgroup is not None:
+        method = 'ddd'
+
     # Auto-detect method
     if method == 'auto':
         if id is not None:
@@ -110,9 +156,24 @@ def did(
                     "DID, or set method='2x2' or method='callaway_santanna'."
                 )
 
+    # ── Dispatch ───────────────────────────────────────────────────── #
+
     if method == '2x2':
         return did_2x2(
             data, y=y, treat=treat, time=time,
+            covariates=covariates, cluster=cluster,
+            robust=robust, alpha=alpha,
+        )
+
+    if method == 'ddd':
+        if subgroup is None:
+            raise ValueError(
+                "'subgroup' is required for Triple Differences (DDD). "
+                "Provide the name of a binary column indicating the "
+                "affected subgroup."
+            )
+        return ddd(
+            data, y=y, treat=treat, time=time, subgroup=subgroup,
             covariates=covariates, cluster=cluster,
             robust=robust, alpha=alpha,
         )
@@ -140,20 +201,52 @@ def did(
             alpha=alpha,
         )
 
+    if method == 'sdid':
+        from ..synth.sdid import sdid as _sdid
+        if id is None:
+            raise ValueError("'id' (unit identifier) is required for SDID.")
+        # Infer treat_unit / treat_time from the treat column if not provided
+        _treat_unit = treat_unit
+        _treat_time = treat_time
+        if _treat_unit is None and _treat_time is None:
+            # treat column encodes first treatment period (0 = never treated)
+            treated_mask = data[treat] > 0
+            if treated_mask.any():
+                _treat_unit = data.loc[treated_mask, id].unique().tolist()
+                _treat_time = int(data.loc[treated_mask, treat].min())
+        return _sdid(
+            data, y=y, unit=id, time=time,
+            treat_unit=_treat_unit, treat_time=_treat_time,
+            method='sdid', covariates=covariates,
+            se_method=se_method, alpha=alpha, **kwargs,
+        )
+
     raise ValueError(
         f"Unknown DID method: '{method}'. "
-        "Available: '2x2', 'callaway_santanna' (or 'cs'), "
-        "'sun_abraham' (or 'sa')."
+        "Available: '2x2', 'ddd', 'callaway_santanna' (or 'cs'), "
+        "'sun_abraham' (or 'sa'), 'sdid'."
     )
 
 
 __all__ = [
     'did',
     'did_2x2',
+    'ddd',
     'callaway_santanna',
     'sun_abraham',
     'bacon_decomposition',
     'honest_did',
     'breakdown_m',
     'event_study',
+    'did_analysis',
+    'DIDAnalysis',
+    # Plots
+    'parallel_trends_plot',
+    'bacon_plot',
+    'group_time_plot',
+    'did_plot',
+    'enhanced_event_study_plot',
+    'treatment_rollout_plot',
+    'sensitivity_plot',
+    'cohort_event_study_plot',
 ]

@@ -14,6 +14,6 @@ Brodersen, K.H., Gallusser, F., Koehler, J., Remy, N., and Scott, S.L. (2015).
 *Annals of Applied Statistics*, 9(1), 247-274.
 """
 
-from .impact import causal_impact, CausalImpactEstimator
+from .impact import causal_impact, CausalImpactEstimator, impactplot
 
-__all__ = ['causal_impact', 'CausalImpactEstimator']
+__all__ = ['causal_impact', 'CausalImpactEstimator', 'impactplot']

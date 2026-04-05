@@ -1,28 +1,41 @@
 """
-Synthetic Control & Synthetic DID module for StatsPAI.
+Synthetic Control module for StatsPAI.
 
-Provides:
-- Classic Abadie-Diamond-Hainmueller SCM
-- Penalized (ridge) SCM for better pre-treatment fit
-- Synthetic DID, SC, and DID via the ``synthdid`` framework
-- Placebo, bootstrap, and jackknife inference
-- ``synthdid``-style plots (trajectory, units, RMSE)
-- California Proposition 99 example dataset
+Unified entry point: ``synth(method=...)`` dispatches to all variants.
 
-References
-----------
-Abadie, A., Diamond, A., and Hainmueller, J. (2010).
-"Synthetic Control Methods for Comparative Case Studies."
-*JASA*, 105(490), 493-505.
+Variants
+--------
+- **classic** — Abadie, Diamond & Hainmueller (2010)
+- **penalized / ridge** — Ridge-penalised SCM
+- **demeaned / detrended** — Ferman & Pinto (2021)
+- **unconstrained / elastic_net** — Doudchenko & Imbens (2016)
+- **augmented / ascm** — Ben-Michael, Feller & Rothstein (2021)
+- **sdid** — Arkhangelsky, Athey, Hirshberg, Imbens & Wager (2021)
+- **factor / gsynth** — Xu (2017)
+- **staggered** — Ben-Michael, Feller & Rothstein (2022)
 
-Arkhangelsky, D., Athey, S., Hirshberg, D.A., Imbens, G.W.
-and Wager, S. (2021).
-"Synthetic Difference-in-Differences."
-*American Economic Review*, 111(12), 4088-4118.
+Inference
+---------
+- **placebo** — in-space permutation (default)
+- **conformal** — Chernozhukov, Wüthrich & Zhu (2021)
+- **bootstrap / jackknife** — for SDID
 """
 
+# Unified dispatcher + classic SCM
 from .scm import synth, SyntheticControl
+
+# Unified plotting (replaces old synthplot with full-variant support)
+from .plots import synthplot
+
+# Variant shortcuts
 from .augsynth import augsynth
+from .demeaned import demeaned_synth
+from .robust import robust_synth
+from .gsynth import gsynth
+from .staggered import staggered_synth
+from .conformal import conformal_synth
+
+# SDID framework
 from .sdid import (
     sdid,
     synthdid_estimate,
@@ -36,9 +49,16 @@ from .sdid import (
 )
 
 __all__ = [
-    # SCM
+    # Unified entry point
     'synth',
     'SyntheticControl',
+    # Variant shortcuts
+    'demeaned_synth',
+    'robust_synth',
+    'gsynth',
+    'staggered_synth',
+    'conformal_synth',
+    'augsynth',
     # SDID framework
     'sdid',
     'synthdid_estimate',
@@ -46,11 +66,10 @@ __all__ = [
     'did_estimate',
     'synthdid_placebo',
     # Plots
+    'synthplot',
     'synthdid_plot',
     'synthdid_units_plot',
     'synthdid_rmse_plot',
-    # Augmented SCM
-    'augsynth',
     # Data
     'california_prop99',
 ]

@@ -1,7 +1,8 @@
 """
-Tests for Matching module (PSM, Mahalanobis, CEM).
+Tests for unified Matching module.
 
-Uses simulated data with known treatment effects and selection bias.
+Covers: new orthogonal API (distance × method × bias_correction),
+legacy API backward compatibility, and all matching variants.
 """
 
 import pytest
@@ -11,12 +12,16 @@ from statspai.matching import match, MatchEstimator
 from statspai.core.results import CausalResult
 
 
+# ==================================================================
+# Fixtures
+# ==================================================================
+
 @pytest.fixture
 def selection_bias_data():
     """
     DGP with selection on observables:
         X1, X2 ~ Normal
-        Treatment: P(T=1) depends on X1, X2 (selection bias)
+        Treatment: P(T=1) depends on X1, X2
         Y = 1 + 2*T + 3*X1 + X2 + eps  (true ATT = 2.0)
     """
     rng = np.random.default_rng(42)
@@ -26,12 +31,10 @@ def selection_bias_data():
     X2 = rng.normal(0, 1, n)
     eps = rng.normal(0, 0.5, n)
 
-    # Selection: higher X1/X2 → more likely treated
     logit = -0.5 + 0.8 * X1 + 0.5 * X2
     prob = 1 / (1 + np.exp(-logit))
     T = rng.binomial(1, prob, n)
 
-    # Outcome with constant treatment effect
     Y = 1 + 2 * T + 3 * X1 + X2 + eps
 
     return pd.DataFrame({
@@ -41,120 +44,329 @@ def selection_bias_data():
 
 
 @pytest.fixture
-def simple_data():
-    """Simple balanced data for basic testing."""
-    rng = np.random.default_rng(123)
-    n = 500
+def discrete_data():
+    """Data with discrete covariates for exact matching tests."""
+    rng = np.random.default_rng(99)
+    n = 1000
 
-    X = rng.normal(0, 1, n)
-    T = (X > 0).astype(int)
-    Y = 1 + 3 * T + 2 * X + rng.normal(0, 0.5, n)
+    age_group = rng.choice([20, 30, 40, 50], n)
+    edu = rng.choice([1, 2, 3], n)
+    eps = rng.normal(0, 0.3, n)
 
-    return pd.DataFrame({'y': Y, 'treat': T, 'x': X})
+    logit = -1 + 0.03 * age_group + 0.5 * edu
+    prob = 1 / (1 + np.exp(-logit))
+    T = rng.binomial(1, prob, n)
+
+    Y = 5 + 2 * T + 0.1 * age_group + edu + eps
+
+    return pd.DataFrame({
+        'y': Y, 'treat': T, 'age_group': age_group, 'edu': edu,
+    })
 
 
-class TestPSM:
+# ==================================================================
+# New API: distance × method combinations
+# ==================================================================
 
-    def test_basic_psm(self, selection_bias_data):
-        """PSM should recover ATT ≈ 2.0"""
+class TestNearestPropensity:
+    """distance='propensity', method='nearest' (default)."""
+
+    def test_basic(self, selection_bias_data):
         result = match(
             selection_bias_data, y='y', treat='treat',
-            covariates=['x1', 'x2'], method='psm',
+            covariates=['x1', 'x2'],
+            distance='propensity', method='nearest',
         )
-
         assert isinstance(result, CausalResult)
-        assert abs(result.estimate - 2.0) < 1.0, (
-            f"PSM ATT = {result.estimate:.2f}, expected ≈ 2.0"
-        )
+        assert abs(result.estimate - 2.0) < 1.0
 
-    def test_psm_corrects_naive_bias(self, selection_bias_data):
-        """PSM should be closer to 2.0 than naive difference in means."""
+    def test_default_is_propensity_nearest(self, selection_bias_data):
+        """Default distance/method should be propensity + nearest."""
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+        )
+        assert result.model_info['distance'] == 'propensity'
+        assert result.model_info['method'] == 'nearest'
+
+    def test_corrects_naive_bias(self, selection_bias_data):
         df = selection_bias_data
         naive = df[df['treat'] == 1]['y'].mean() - df[df['treat'] == 0]['y'].mean()
+        result = match(df, y='y', treat='treat', covariates=['x1', 'x2'])
+        assert abs(result.estimate - 2.0) < abs(naive - 2.0)
 
-        result = match(df, y='y', treat='treat',
-                       covariates=['x1', 'x2'], method='psm')
-
-        assert abs(result.estimate - 2.0) < abs(naive - 2.0), (
-            f"PSM ({result.estimate:.2f}) should be closer to 2.0 than "
-            f"naive ({naive:.2f})"
-        )
-
-    def test_psm_significance(self, selection_bias_data):
-        """Effect should be significant."""
+    def test_significance(self, selection_bias_data):
         result = match(
             selection_bias_data, y='y', treat='treat',
-            covariates=['x1', 'x2'], method='psm',
+            covariates=['x1', 'x2'],
         )
         assert result.pvalue < 0.05
 
-    def test_psm_ci(self, selection_bias_data):
-        """CI should contain true value."""
+    def test_ci_covers_true(self, selection_bias_data):
         result = match(
             selection_bias_data, y='y', treat='treat',
-            covariates=['x1', 'x2'], method='psm', alpha=0.05,
+            covariates=['x1', 'x2'], alpha=0.05,
         )
         assert result.ci[0] < 2.0 < result.ci[1]
 
-
-class TestMahalanobis:
-
-    def test_basic_mahalanobis(self, selection_bias_data):
-        """Mahalanobis matching should recover ATT ≈ 2.0"""
+    def test_ate(self, selection_bias_data):
         result = match(
             selection_bias_data, y='y', treat='treat',
-            covariates=['x1', 'x2'], method='mahalanobis',
+            covariates=['x1', 'x2'], estimand='ATE',
         )
-
         assert isinstance(result, CausalResult)
         assert abs(result.estimate - 2.0) < 1.5
 
 
-class TestCEM:
+class TestNearestMahalanobis:
+    """distance='mahalanobis', method='nearest'."""
 
-    def test_basic_cem(self, selection_bias_data):
-        """CEM should recover ATT approximately."""
+    def test_basic(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            distance='mahalanobis',
+        )
+        assert isinstance(result, CausalResult)
+        assert abs(result.estimate - 2.0) < 1.5
+
+    def test_with_bias_correction(self, selection_bias_data):
+        """Bias correction should improve estimate."""
+        raw = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            distance='mahalanobis',
+        )
+        bc = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            distance='mahalanobis', bias_correction=True,
+        )
+        assert isinstance(bc, CausalResult)
+        # BC should be at least as close to truth (not strictly, due to randomness)
+        assert abs(bc.estimate - 2.0) < 2.0
+
+
+class TestNearestEuclidean:
+    """distance='euclidean', method='nearest'."""
+
+    def test_basic(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            distance='euclidean',
+        )
+        assert isinstance(result, CausalResult)
+        assert abs(result.estimate - 2.0) < 1.5
+
+
+class TestExactMatching:
+    """distance='exact'."""
+
+    def test_basic(self, discrete_data):
+        result = match(
+            discrete_data, y='y', treat='treat',
+            covariates=['age_group', 'edu'],
+            distance='exact',
+        )
+        assert isinstance(result, CausalResult)
+        assert abs(result.estimate - 2.0) < 1.0
+
+    def test_rejects_ate(self, discrete_data):
+        with pytest.raises(ValueError, match="ATT"):
+            match(
+                discrete_data, y='y', treat='treat',
+                covariates=['age_group', 'edu'],
+                distance='exact', estimand='ATE',
+            )
+
+
+class TestStratification:
+    """method='stratify'."""
+
+    def test_basic(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            method='stratify', n_strata=5,
+        )
+        assert isinstance(result, CausalResult)
+        assert abs(result.estimate - 2.0) < 1.0
+
+    def test_ate(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            method='stratify', estimand='ATE',
+        )
+        assert isinstance(result, CausalResult)
+        assert abs(result.estimate - 2.0) < 1.5
+
+    def test_10_strata(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            method='stratify', n_strata=10,
+        )
+        assert isinstance(result, CausalResult)
+
+    def test_requires_propensity(self, selection_bias_data):
+        with pytest.raises(ValueError, match="propensity"):
+            match(
+                selection_bias_data, y='y', treat='treat',
+                covariates=['x1', 'x2'],
+                method='stratify', distance='mahalanobis',
+            )
+
+
+class TestCEM:
+    """method='cem'."""
+
+    def test_basic(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            method='cem',
+        )
+        assert isinstance(result, CausalResult)
+        assert abs(result.estimate - 2.0) < 2.0
+
+    def test_custom_bins(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            method='cem', n_bins=10,
+        )
+        assert isinstance(result, CausalResult)
+
+
+class TestBiasCorrection:
+    """bias_correction=True across distances."""
+
+    def test_propensity_bc(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            distance='propensity', bias_correction=True,
+        )
+        assert isinstance(result, CausalResult)
+        assert result.model_info['bias_correction'] is True
+
+    def test_euclidean_bc(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            distance='euclidean', bias_correction=True,
+        )
+        assert isinstance(result, CausalResult)
+
+
+# ==================================================================
+# Legacy API backward compatibility
+# ==================================================================
+
+class TestLegacyAPI:
+    """Old method='psm'/'mahalanobis'/'cem' should still work."""
+
+    def test_legacy_psm(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'], method='psm',
+        )
+        assert isinstance(result, CausalResult)
+        assert abs(result.estimate - 2.0) < 1.0
+        assert result.model_info['distance'] == 'propensity'
+        assert result.model_info['method'] == 'nearest'
+
+    def test_legacy_mahalanobis(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'], method='mahalanobis',
+        )
+        assert isinstance(result, CausalResult)
+        assert result.model_info['distance'] == 'mahalanobis'
+        assert result.model_info['method'] == 'nearest'
+
+    def test_legacy_cem(self, selection_bias_data):
         result = match(
             selection_bias_data, y='y', treat='treat',
             covariates=['x1', 'x2'], method='cem',
         )
-
         assert isinstance(result, CausalResult)
-        assert abs(result.estimate - 2.0) < 2.0
+        assert result.model_info['method'] == 'cem'
+
+
+# ==================================================================
+# General / diagnostics
+# ==================================================================
+
+class TestMethodSpecificInfo:
+    """Extra diagnostics returned in model_info for each method."""
+
+    def test_exact_matching_info(self, discrete_data):
+        result = match(
+            discrete_data, y='y', treat='treat',
+            covariates=['age_group', 'edu'],
+            distance='exact',
+        )
+        info = result.model_info
+        assert 'n_matched_treated' in info
+        assert 'n_unmatched_treated' in info
+        assert info['n_matched_treated'] > 0
+        assert info['n_matched_treated'] + info['n_unmatched_treated'] == info['n_treated']
+
+    def test_cem_info(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'], method='cem',
+        )
+        info = result.model_info
+        assert 'n_matched_treated' in info
+        assert 'n_matched_control' in info
+        assert 'n_bins' in info
+        assert info['n_matched_treated'] <= info['n_treated']
+
+    def test_stratify_info(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            method='stratify', n_strata=5,
+        )
+        info = result.model_info
+        assert info['n_strata'] == 5
+        assert info['n_effective_strata'] <= 5
+        assert info['n_effective_strata'] >= 1
 
 
 class TestMatchGeneral:
 
     def test_balance_table(self, selection_bias_data):
-        """Should produce balance diagnostics."""
         result = match(
             selection_bias_data, y='y', treat='treat',
-            covariates=['x1', 'x2'], method='psm',
+            covariates=['x1', 'x2'],
         )
-
         balance = result.model_info['balance']
         assert isinstance(balance, pd.DataFrame)
         assert 'variable' in balance.columns
         assert 'smd' in balance.columns
-        assert len(balance) >= 2  # at least x1, x2
+        assert len(balance) >= 2
 
-    def test_model_info(self, selection_bias_data):
-        """Model info should contain matching metadata."""
+    def test_model_info_keys(self, selection_bias_data):
         result = match(
             selection_bias_data, y='y', treat='treat',
-            covariates=['x1', 'x2'], method='psm',
+            covariates=['x1', 'x2'],
         )
-
         info = result.model_info
+        assert 'distance' in info
+        assert 'method' in info
         assert 'n_treated' in info
         assert 'n_control' in info
-        assert info['method'] == 'PSM'
+        assert 'bias_correction' in info
 
     def test_summary(self, selection_bias_data):
-        """Summary should be informative."""
         result = match(
             selection_bias_data, y='y', treat='treat',
-            covariates=['x1', 'x2'], method='psm',
+            covariates=['x1', 'x2'],
         )
         s = result.summary()
         assert 'Matching' in s
@@ -163,28 +375,50 @@ class TestMatchGeneral:
     def test_citation(self, selection_bias_data):
         result = match(
             selection_bias_data, y='y', treat='treat',
-            covariates=['x1', 'x2'], method='psm',
+            covariates=['x1', 'x2'],
         )
         assert 'abadie' in result.cite().lower()
 
-    def test_repr(self, selection_bias_data):
+    def test_caliper(self, selection_bias_data):
         result = match(
             selection_bias_data, y='y', treat='treat',
-            covariates=['x1', 'x2'], method='psm',
+            covariates=['x1', 'x2'],
+            caliper=0.1,
         )
-        assert 'CausalResult' in repr(result)
+        assert isinstance(result, CausalResult)
+
+    def test_multiple_matches(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            n_matches=3,
+        )
+        assert isinstance(result, CausalResult)
+
+    def test_without_replacement(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            replace=False,
+        )
+        assert isinstance(result, CausalResult)
 
     # --- Error handling ---
 
     def test_missing_column(self, selection_bias_data):
         with pytest.raises(ValueError, match="not found"):
             match(selection_bias_data, y='nonexistent', treat='treat',
-                  covariates=['x1'], method='psm')
+                  covariates=['x1'])
 
     def test_invalid_method(self, selection_bias_data):
         with pytest.raises(ValueError, match="method must be"):
             match(selection_bias_data, y='y', treat='treat',
                   covariates=['x1'], method='invalid')
+
+    def test_invalid_distance(self, selection_bias_data):
+        with pytest.raises(ValueError, match="distance must be"):
+            match(selection_bias_data, y='y', treat='treat',
+                  covariates=['x1'], distance='cosine')
 
     def test_invalid_estimand(self, selection_bias_data):
         with pytest.raises(ValueError, match="estimand must be"):

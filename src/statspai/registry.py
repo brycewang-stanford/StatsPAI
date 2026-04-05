@@ -114,9 +114,27 @@ def _build_registry():
     ))
 
     register(FunctionSpec(
+        name="iv",
+        category="regression",
+        description="Unified IV estimation: 2SLS, LIML, Fuller, GMM, JIVE. Includes first-stage F, Sargan/Hansen J, and Hausman diagnostics.",
+        params=[
+            ParamSpec("formula", "str", True, description="IV formula: 'y ~ (endog ~ instruments) + exog'"),
+            ParamSpec("data", "DataFrame", True, description="pandas DataFrame"),
+            ParamSpec("method", "str", False, "2sls", "Estimation method", ["2sls", "liml", "fuller", "gmm", "jive"]),
+            ParamSpec("robust", "str", False, "nonrobust", "Standard error type", ["nonrobust", "hc0", "hc1", "hc2", "hc3"]),
+            ParamSpec("cluster", "str", False, description="Column name for cluster-robust SEs"),
+            ParamSpec("fuller_alpha", "float", False, 1.0, "Fuller constant (method='fuller' only)"),
+        ],
+        returns="EconometricResults",
+        example='sp.iv("wage ~ (education ~ parent_edu + distance) + experience", data=df, method="liml")',
+        tags=["iv", "2sls", "liml", "fuller", "gmm", "jive", "instrumental", "endogeneity", "weak-instruments"],
+        reference="Wooldridge (2010); Stock & Yogo (2005); Fuller (1977); Hansen (1982)",
+    ))
+
+    register(FunctionSpec(
         name="ivreg",
         category="regression",
-        description="Two-stage least squares (2SLS) instrumental variable regression.",
+        description="Two-stage least squares (2SLS) IV regression. Alias for sp.iv(method='2sls').",
         params=[
             ParamSpec("formula", "str", True, description="IV formula: 'y ~ (endog ~ instruments) + exog'"),
             ParamSpec("data", "DataFrame", True, description="pandas DataFrame"),
@@ -176,52 +194,107 @@ def _build_registry():
     register(FunctionSpec(
         name="did",
         category="causal",
-        description="Difference-in-Differences. Supports 2x2, staggered (Callaway-Sant'Anna), and Sun-Abraham.",
+        description="Difference-in-Differences. Supports 2x2, DDD, staggered (Callaway-Sant'Anna, Sun-Abraham), and Synthetic DID.",
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome variable"),
+            ParamSpec("treat", "str", True, description="Treatment indicator or first-treatment-period column"),
+            ParamSpec("time", "str", True, description="Time period column"),
+            ParamSpec("id", "str", False, description="Unit identifier (for staggered DID / SDID)"),
+            ParamSpec("method", "str", False, "auto", "Estimator: 'auto', '2x2', 'ddd', 'cs', 'sa', 'sdid'",
+                      ["auto", "2x2", "ddd", "callaway_santanna", "cs", "sun_abraham", "sa", "sdid"]),
+            ParamSpec("subgroup", "str", False, None, "Affected-subgroup column for DDD"),
+        ],
+        returns="CausalResult",
+        example='sp.did(df, y="wage", treat="treated", time="post")',
+        tags=["did", "causal", "treatment", "panel", "staggered", "ddd", "sdid"],
+    ))
+
+    register(FunctionSpec(
+        name="ddd",
+        category="causal",
+        description="Triple Differences (DDD). Extends 2x2 DID with a within-unit subgroup comparison to eliminate additional confounders.",
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome variable"),
+            ParamSpec("treat", "str", True, description="Binary treatment group indicator"),
+            ParamSpec("time", "str", True, description="Binary time period indicator"),
+            ParamSpec("subgroup", "str", True, description="Binary affected-subgroup indicator (1=affected, 0=unaffected)"),
+            ParamSpec("cluster", "str", False, None, "Cluster variable for standard errors"),
+        ],
+        returns="CausalResult",
+        example='sp.ddd(df, y="employment", treat="nj", time="post", subgroup="low_wage")',
+        tags=["ddd", "triple", "did", "causal", "subgroup"],
+        reference="Gruber (1994); Olden & Møen (2022)",
+    ))
+
+    register(FunctionSpec(
+        name="did_analysis",
+        category="causal",
+        description="One-call comprehensive DID workflow: design detection, Bacon decomposition, estimation, event study, and sensitivity analysis.",
         params=[
             ParamSpec("data", "DataFrame", True),
             ParamSpec("y", "str", True, description="Outcome variable"),
             ParamSpec("treat", "str", True, description="Treatment indicator or first-treatment-period column"),
             ParamSpec("time", "str", True, description="Time period column"),
             ParamSpec("id", "str", False, description="Unit identifier (for staggered DID)"),
+            ParamSpec("method", "str", False, "auto", "Estimator: 'auto', '2x2', 'cs', 'sa', 'sdid'"),
+            ParamSpec("run_bacon", "bool", False, True, "Run Bacon decomposition for staggered designs"),
+            ParamSpec("run_event_study", "bool", False, True, "Run event study for dynamic effects"),
+            ParamSpec("run_sensitivity", "bool", False, True, "Run honest_did sensitivity analysis"),
         ],
-        returns="EconometricResults or CausalResult",
-        example='sp.did(df, y="wage", treat="treated", time="post")',
-        tags=["did", "causal", "treatment", "panel", "staggered"],
+        returns="DIDAnalysis",
+        example='report = sp.did_analysis(df, y="earnings", treat="first_treat", time="year", id="worker")\nprint(report.summary())',
+        tags=["did", "workflow", "analysis", "bacon", "event_study", "sensitivity", "diagnostic"],
+        reference="Cunningham (2021, The Mixtape Ch.9)",
     ))
 
     register(FunctionSpec(
         name="rdrobust",
         category="causal",
-        description="Regression discontinuity design with optimal bandwidth selection.",
+        description="RD estimation: sharp, fuzzy, kink, and donut-hole designs with robust inference.",
         params=[
             ParamSpec("y", "str", True, description="Outcome variable"),
             ParamSpec("x", "str", True, description="Running variable"),
             ParamSpec("data", "DataFrame", True),
             ParamSpec("c", "float", False, 0.0, "Cutoff value"),
+            ParamSpec("fuzzy", "str", False, None, "Treatment variable for fuzzy RD"),
+            ParamSpec("deriv", "int", False, 0, "Derivative order (0=RD, 1=RKD)"),
+            ParamSpec("donut", "float", False, 0.0, "Donut-hole radius"),
             ParamSpec("kernel", "str", False, "triangular", "Kernel type", ["triangular", "epanechnikov", "uniform"]),
         ],
-        returns="EconometricResults",
-        example='sp.rdrobust(y="score", x="income", data=df, c=10000)',
-        tags=["rd", "discontinuity", "causal", "bandwidth"],
+        returns="CausalResult",
+        example='sp.rdrobust(df, y="score", x="income", c=10000)',
+        tags=["rd", "discontinuity", "causal", "bandwidth", "kink", "donut", "fuzzy"],
         reference="Calonico, Cattaneo, Titiunik (2014)",
     ))
 
     register(FunctionSpec(
         name="synth",
         category="causal",
-        description="Synthetic control method for comparative case studies.",
+        description=(
+            "Unified synthetic control estimator. method= selects variant: "
+            "'classic', 'demeaned', 'detrended', 'unconstrained', 'elastic_net', "
+            "'augmented', 'sdid', 'gsynth', 'staggered'. "
+            "inference= selects: 'placebo', 'conformal', 'bootstrap', 'jackknife'."
+        ),
         params=[
             ParamSpec("data", "DataFrame", True),
             ParamSpec("outcome", "str", True),
             ParamSpec("unit", "str", True),
             ParamSpec("time", "str", True),
-            ParamSpec("treated_unit", "str", True),
-            ParamSpec("treatment_time", "int", True),
+            ParamSpec("treated_unit", "str", False, description="Treated unit (not needed for staggered)"),
+            ParamSpec("treatment_time", "int", False, description="First treatment period"),
+            ParamSpec("method", "str", False, "classic",
+                      "SCM variant: classic/demeaned/detrended/unconstrained/elastic_net/augmented/sdid/gsynth/staggered"),
+            ParamSpec("inference", "str", False, None,
+                      "Inference method: placebo/conformal/bootstrap/jackknife"),
+            ParamSpec("treatment", "str", False, None, "Binary treatment column (staggered only)"),
         ],
-        returns="SyntheticControl result",
-        example='sp.synth(data=df, outcome="gdp", unit="state", time="year", treated_unit="CA", treatment_time=1989)',
-        tags=["synth", "synthetic", "causal", "comparative"],
-        reference="Abadie, Diamond, Hainmueller (2010)",
+        returns="CausalResult",
+        example='sp.synth(data=df, outcome="gdp", unit="state", time="year", treated_unit="CA", treatment_time=1989, method="demeaned")',
+        tags=["synth", "synthetic", "causal", "comparative", "scm", "factor", "staggered", "conformal"],
+        reference="Abadie et al. (2010); Ferman & Pinto (2021); Doudchenko & Imbens (2016); Xu (2017); Ben-Michael et al. (2022); Chernozhukov et al. (2021)",
     ))
 
     register(FunctionSpec(
@@ -309,35 +382,75 @@ def _build_registry():
     register(FunctionSpec(
         name="panel",
         category="panel",
-        description="Panel regression: fixed effects, random effects, between, first-difference, pooled OLS.",
+        description=(
+            "Unified panel regression: FE, RE, between, FD, pooled OLS, "
+            "two-way FE, Mundlak/Chamberlain CRE, Arellano-Bond, "
+            "Blundell-Bond system GMM. Results include built-in "
+            "diagnostics: .hausman_test(), .bp_lm_test(), "
+            ".f_test_effects(), .pesaran_cd_test(), .compare(method)."
+        ),
         params=[
             ParamSpec("data", "DataFrame", True),
-            ParamSpec("formula", "str", True),
+            ParamSpec("formula", "str", True, description="Regression formula: 'y ~ x1 + x2'"),
             ParamSpec("entity", "str", True, description="Unit identifier column"),
             ParamSpec("time", "str", True, description="Time column"),
-            ParamSpec("method", "str", False, "fe", "Estimation method", ["fe", "re", "be", "fd", "pooled"]),
-            ParamSpec("robust", "str", False, "nonrobust"),
-            ParamSpec("cluster", "str", False, description="Cluster variable"),
+            ParamSpec("method", "str", False, "fe", "Estimation method",
+                      ["fe", "re", "be", "fd", "pooled", "twoway",
+                       "mundlak", "cre", "chamberlain", "ab", "system"]),
+            ParamSpec("robust", "str", False, "nonrobust",
+                      "Standard errors: nonrobust, robust, kernel, driscoll-kraay"),
+            ParamSpec("cluster", "str", False,
+                      description="Cluster variable: entity, time, or twoway"),
+            ParamSpec("lags", "int", False, 1, "AR lags for dynamic panel (ab/system)"),
+            ParamSpec("gmm_lags", "str", False, "(2, 5)", "GMM instrument lag range"),
+            ParamSpec("twostep", "bool", False, False, "Two-step GMM"),
         ],
-        returns="EconometricResults",
-        example='sp.panel(df, "wage ~ experience + tenure", entity="worker", time="year", method="fe")',
-        tags=["panel", "fe", "re", "fixed-effects"],
+        returns="PanelResults",
+        example='sp.panel(df, "wage ~ edu + exp", entity="worker", time="year", method="fe")',
+        tags=["panel", "fe", "re", "fixed-effects", "twoway", "mundlak",
+              "cre", "chamberlain", "arellano-bond", "system-gmm", "dynamic"],
+        reference="Wooldridge (2010); Mundlak (1978); Arellano & Bond (1991)",
     ))
 
     register(FunctionSpec(
-        name="xtabond",
+        name="panel_compare",
         category="panel",
-        description="Arellano-Bond GMM estimator for dynamic panel models.",
+        description=(
+            "Estimate the same model with multiple panel methods and "
+            "return a side-by-side comparison table."
+        ),
         params=[
             ParamSpec("data", "DataFrame", True),
             ParamSpec("formula", "str", True),
             ParamSpec("entity", "str", True),
             ParamSpec("time", "str", True),
+            ParamSpec("methods", "list", False,
+                      description="List of methods to compare, default: pooled/fe/re/twoway/mundlak"),
         ],
-        returns="EconometricResults",
-        example='sp.xtabond(df, "y ~ L.y + x1", entity="firm", time="year")',
+        returns="DataFrame",
+        example='sp.panel_compare(df, "wage ~ edu + exp", entity="id", time="year")',
+        tags=["panel", "comparison", "diagnostics"],
+    ))
+
+    register(FunctionSpec(
+        name="xtabond",
+        category="panel",
+        description="Arellano-Bond / Blundell-Bond GMM for dynamic panels (standalone).",
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Dependent variable"),
+            ParamSpec("x", "list", False, description="Exogenous regressors"),
+            ParamSpec("id", "str", False, "id", "Unit identifier"),
+            ParamSpec("time", "str", False, "time", "Time column"),
+            ParamSpec("lags", "int", False, 1),
+            ParamSpec("method", "str", False, "difference", "difference or system",
+                      ["difference", "system"]),
+            ParamSpec("twostep", "bool", False, False),
+        ],
+        returns="CausalResult",
+        example='sp.xtabond(df, y="output", x=["capital", "labor"], id="firm", time="year")',
         tags=["gmm", "dynamic", "panel", "arellano-bond"],
-        reference="Arellano & Bond (1991)",
+        reference="Arellano & Bond (1991); Blundell & Bond (1998)",
     ))
 
     register(FunctionSpec(
@@ -452,14 +565,36 @@ def _build_registry():
     register(FunctionSpec(
         name="dag",
         category="causal",
-        description="Declare a causal DAG and compute backdoor adjustment sets, d-separation, collider detection.",
+        description=(
+            "Declare a causal DAG and perform identification analysis: "
+            "backdoor/frontdoor adjustment sets, d-separation, path enumeration, "
+            "bad controls detection, variable role classification, do-operator."
+        ),
         params=[
             ParamSpec("spec", "str", True, description='Edge spec: "Z -> X; Z -> Y; X -> Y"'),
         ],
-        returns="DAG object with .adjustment_sets(), .d_separated(), .plot()",
-        example='g = sp.dag("Z -> X; Z -> Y; X -> Y"); g.adjustment_sets("X", "Y")',
-        tags=["dag", "causal", "graph", "adjustment", "backdoor", "collider"],
-        reference="Pearl (2009)",
+        returns=(
+            "DAG object with .adjustment_sets(), .frontdoor_sets(), .backdoor_paths(), "
+            ".bad_controls(), .do(), .summary(), .d_separated(), .plot()"
+        ),
+        example='g = sp.dag("Z -> X; Z -> Y; X -> Y"); print(g.summary("X", "Y"))',
+        tags=["dag", "causal", "graph", "adjustment", "backdoor", "frontdoor", "collider", "bad control"],
+        reference="Pearl (2009); Cunningham (2021)",
+    ))
+    register(FunctionSpec(
+        name="dag_example",
+        category="causal",
+        description=(
+            "Load a classic textbook DAG: confounding, collider, mediation, "
+            "discrimination, movie_star, police, frontdoor, bad_control_earnings, m_bias."
+        ),
+        params=[
+            ParamSpec("name", "str", True, description="Example name, e.g. 'discrimination'"),
+        ],
+        returns="DAG object with pre-built structure",
+        example='g = sp.dag_example("discrimination"); print(g.summary("D", "Y"))',
+        tags=["dag", "causal", "example", "textbook", "mixtape"],
+        reference="Cunningham (2021) ch.3",
     ))
 
     # -- Event Study ------------------------------------------------------ #

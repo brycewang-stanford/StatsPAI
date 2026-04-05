@@ -22,27 +22,35 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 __author__ = "Bryce Wang"
 __email__ = "bryce@copaper.ai"
 
 from .core.results import EconometricResults, CausalResult
 from .regression.ols import regress
-from .regression.iv import ivreg, IVRegression
+from .regression.iv import iv, ivreg, IVRegression
 from .causal.causal_forest import CausalForest, causal_forest
-from .did import did, did_2x2, callaway_santanna, sun_abraham, bacon_decomposition, honest_did, breakdown_m, event_study
-from .rd import rdrobust, rdplot
+from .did import (
+    did, did_2x2, ddd, callaway_santanna, sun_abraham,
+    bacon_decomposition, honest_did, breakdown_m, event_study,
+    did_analysis, DIDAnalysis,
+    parallel_trends_plot, bacon_plot, group_time_plot, did_plot,
+    enhanced_event_study_plot, treatment_rollout_plot,
+    sensitivity_plot, cohort_event_study_plot,
+)
+from .rd import rdrobust, rdplot, rdplotdensity, rdbwsensitivity, rdbalance, rdplacebo, rdsummary
 from .synth import (
-    synth, SyntheticControl, sdid, augsynth,
+    synth, SyntheticControl, synthplot, sdid, augsynth,
+    demeaned_synth, robust_synth, gsynth, staggered_synth, conformal_synth,
     synthdid_estimate, sc_estimate, did_estimate,
     synthdid_placebo, synthdid_plot, synthdid_units_plot, synthdid_rmse_plot,
     california_prop99,
 )
-from .matching import match, MatchEstimator, ebalance
+from .matching import match, MatchEstimator, ebalance, balanceplot, psplot
 from .dml import dml, DoubleML
 from .deepiv import deepiv, DeepIV
-from .panel import panel, PanelRegression
-from .causal_impact import causal_impact, CausalImpactEstimator
+from .panel import panel, panel_compare, PanelResults, PanelCompareResults, PanelRegression
+from .causal_impact import causal_impact, CausalImpactEstimator, impactplot
 from .mediation import mediate, MediationAnalysis
 from .bartik import bartik, BartikIV
 from .output.outreg2 import OutReg2, outreg2
@@ -76,7 +84,7 @@ from .dtr import g_estimation, GEstimation
 from .multi_treatment import multi_treatment, MultiTreatment
 from .robustness import spec_curve, SpecCurveResult, robustness_report, RobustnessResult, subgroup_analysis, SubgroupResult
 from .survey import svydesign, SurveyDesign, svymean, svytotal, svyglm
-from .dag import dag, DAG
+from .dag import dag, DAG, dag_example, dag_examples, dag_example_positions, dag_simulate
 from .registry import list_functions, describe_function, function_schema, search_functions, all_schemas
 
 __all__ = [
@@ -85,23 +93,45 @@ __all__ = [
     "CausalResult",
     # Regression
     "regress",
+    "iv",
     "ivreg",
     "IVRegression",
     # DID
     "did",
     "did_2x2",
+    "ddd",
     "callaway_santanna",
     "sun_abraham",
     "bacon_decomposition",
     "honest_did",
     "breakdown_m",
     "event_study",
+    "did_analysis",
+    "DIDAnalysis",
+    "parallel_trends_plot",
+    "bacon_plot",
+    "group_time_plot",
+    "did_plot",
+    "enhanced_event_study_plot",
+    "treatment_rollout_plot",
+    "sensitivity_plot",
+    "cohort_event_study_plot",
     # RD
     "rdrobust",
     "rdplot",
+    "rdplotdensity",
+    "rdbwsensitivity",
+    "rdbalance",
+    "rdplacebo",
+    "rdsummary",
     # Synthetic Control
     "synth",
     "SyntheticControl",
+    "demeaned_synth",
+    "robust_synth",
+    "gsynth",
+    "staggered_synth",
+    "conformal_synth",
     "sdid",
     "synthdid_estimate",
     "sc_estimate",
@@ -116,6 +146,8 @@ __all__ = [
     "match",
     "MatchEstimator",
     "ebalance",
+    "balanceplot",
+    "psplot",
     # Double ML
     "dml",
     "DoubleML",
@@ -124,6 +156,9 @@ __all__ = [
     "DeepIV",
     # Panel
     "panel",
+    "panel_compare",
+    "PanelResults",
+    "PanelCompareResults",
     "PanelRegression",
     # Causal Impact
     "causal_impact",
@@ -278,6 +313,10 @@ __all__ = [
     # DAG
     "dag",
     "DAG",
+    "dag_example",
+    "dag_examples",
+    "dag_example_positions",
+    "dag_simulate",
     # AI / Agent Registry
     "list_functions",
     "describe_function",

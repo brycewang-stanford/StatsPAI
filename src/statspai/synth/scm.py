@@ -1,15 +1,22 @@
 """
-Synthetic Control Method (Abadie, Diamond, Hainmueller 2010).
+Synthetic Control Method — Unified Entry Point.
 
-Constructs a weighted combination of control units to approximate the
-counterfactual trajectory of a treated unit, then estimates the treatment
-effect as the gap between observed and synthetic outcomes.
+Provides ``synth()`` as a single dispatcher for all SCM variants:
 
-Supports:
-- Classic SCM (constrained optimization: weights >= 0, sum to 1)
-- Penalized/ridge SCM for many donors
-- Placebo inference (in-space and in-time)
-- Gap plots and pathway plots
+* **classic** — Abadie, Diamond & Hainmueller (2010)
+* **penalized / ridge** — Ridge-penalised SCM
+* **demeaned / detrended** — Ferman & Pinto (2021)
+* **unconstrained / elastic_net** — Doudchenko & Imbens (2016)
+* **augmented / ascm** — Ben-Michael, Feller & Rothstein (2021)
+* **sdid** — Arkhangelsky, Athey, Hirshberg, Imbens & Wager (2021)
+* **factor / gsynth** — Xu (2017)
+* **staggered** — Ben-Michael, Feller & Rothstein (2022)
+
+Inference can be switched independently via ``inference=``:
+
+* **placebo** (default) — in-space permutation
+* **conformal** — Chernozhukov, Wüthrich & Zhu (2021)
+* **bootstrap / jackknife** — for SDID
 """
 
 from typing import Optional, List, Dict, Any, Tuple
@@ -25,15 +32,19 @@ def synth(
     outcome: str,
     unit: str,
     time: str,
-    treated_unit: Any,
-    treatment_time: Any,
+    treated_unit: Any = None,
+    treatment_time: Any = None,
+    method: str = "classic",
     covariates: Optional[List[str]] = None,
     penalization: float = 0.0,
     placebo: bool = True,
     alpha: float = 0.05,
+    inference: Optional[str] = None,
+    treatment: Optional[str] = None,
+    **kwargs,
 ) -> CausalResult:
     """
-    Estimate treatment effect using the Synthetic Control Method.
+    Unified Synthetic Control estimator with multiple method variants.
 
     Parameters
     ----------
@@ -45,18 +56,42 @@ def synth(
         Unit identifier column.
     time : str
         Time period column.
-    treated_unit : any
-        Identifier of the treated unit.
-    treatment_time : any
-        First treatment period (inclusive).
+    treated_unit : any, optional
+        Identifier of the treated unit. Required for all methods
+        except ``'staggered'``.
+    treatment_time : any, optional
+        First treatment period (inclusive). Required for all methods
+        except ``'staggered'``.
+    method : str, default 'classic'
+        SCM variant:
+
+        * ``'classic'`` — Standard SCM (Abadie et al. 2010).
+        * ``'penalized'`` / ``'ridge'`` — SCM with ridge penalty.
+        * ``'demeaned'`` — De-meaned SCM (Ferman & Pinto 2021).
+        * ``'detrended'`` — De-trended SCM (Ferman & Pinto 2021).
+        * ``'unconstrained'`` — No sign/sum constraints
+          (Doudchenko & Imbens 2016).
+        * ``'elastic_net'`` — Elastic-net regularised weights.
+        * ``'augmented'`` / ``'ascm'`` — Augmented SCM
+          (Ben-Michael et al. 2021).
+        * ``'sdid'`` — Synthetic DID (Arkhangelsky et al. 2021).
+        * ``'factor'`` / ``'gsynth'`` — Factor model (Xu 2017).
+        * ``'staggered'`` — Staggered adoption (Ben-Michael et al. 2022).
     covariates : list of str, optional
-        Additional covariates to match on (pre-treatment averages).
+        Additional covariates to match on.
     penalization : float, default 0.0
-        Ridge penalty for donor weights (0 = classic SCM).
+        Ridge penalty for donor weights.
     placebo : bool, default True
-        Run placebo (permutation) inference across control units.
+        Run placebo inference.
     alpha : float, default 0.05
         Significance level.
+    inference : str, optional
+        Override default inference: ``'placebo'``, ``'conformal'``,
+        ``'bootstrap'``, ``'jackknife'``.
+    treatment : str, optional
+        Binary treatment column (required for ``method='staggered'``).
+    **kwargs
+        Method-specific arguments passed through to the variant.
 
     Returns
     -------
@@ -64,23 +99,124 @@ def synth(
 
     Examples
     --------
-    >>> result = synth(df, outcome='gdp', unit='state', time='year',
-    ...               treated_unit='California', treatment_time=1989)
-    >>> print(result.summary())
-    >>> result.plot()
+    Classic SCM:
+
+    >>> result = sp.synth(df, outcome='gdp', unit='state', time='year',
+    ...                   treated_unit='California', treatment_time=1989)
+
+    De-meaned:
+
+    >>> result = sp.synth(..., method='demeaned')
+
+    Unconstrained (negative weights):
+
+    >>> result = sp.synth(..., method='unconstrained')
+
+    Factor model:
+
+    >>> result = sp.synth(..., method='gsynth', n_factors=3)
+
+    Conformal inference:
+
+    >>> result = sp.synth(..., inference='conformal')
+
+    Staggered adoption:
+
+    >>> result = sp.synth(df, outcome='gdp', unit='state', time='year',
+    ...                   treatment='treated', method='staggered')
+
+    See Also
+    --------
+    sdid, augsynth, gsynth, demeaned_synth, robust_synth,
+    staggered_synth, conformal_synth
     """
-    model = SyntheticControl(
-        data=data,
-        outcome=outcome,
-        unit=unit,
-        time=time,
-        treated_unit=treated_unit,
-        treatment_time=treatment_time,
-        covariates=covariates,
-        penalization=penalization,
-        alpha=alpha,
+    method = method.lower().strip()
+
+    # --- Conformal inference override ---
+    if inference == "conformal":
+        from .conformal import conformal_synth
+        return conformal_synth(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            scm_method=method if method in ("classic", "ridge") else "classic",
+            penalization=penalization, alpha=alpha, **kwargs,
+        )
+
+    # --- Dispatch ---
+    if method in ("classic", "penalized", "ridge"):
+        if method in ("penalized", "ridge") and penalization == 0.0:
+            penalization = kwargs.pop("l2_penalty", 0.01)
+        model = SyntheticControl(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            covariates=covariates, penalization=penalization, alpha=alpha,
+        )
+        return model.fit(placebo=placebo)
+
+    if method in ("demeaned", "detrended"):
+        from .demeaned import demeaned_synth
+        return demeaned_synth(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            covariates=covariates, variant=method,
+            penalization=penalization, placebo=placebo, alpha=alpha,
+            **kwargs,
+        )
+
+    if method in ("unconstrained", "elastic_net"):
+        from .robust import robust_synth
+        return robust_synth(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            covariates=covariates, variant=method,
+            placebo=placebo, alpha=alpha, **kwargs,
+        )
+
+    if method in ("augmented", "ascm"):
+        from .augsynth import augsynth
+        return augsynth(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            covariates=covariates, alpha=alpha, **kwargs,
+        )
+
+    if method == "sdid":
+        from .sdid import sdid as _sdid
+        se_method = inference or "placebo"
+        return _sdid(
+            data=data, y=outcome, unit=unit, time=time,
+            treat_unit=treated_unit, treat_time=treatment_time,
+            method="sdid", covariates=covariates,
+            se_method=se_method, alpha=alpha, **kwargs,
+        )
+
+    if method in ("factor", "gsynth"):
+        from .gsynth import gsynth as _gsynth
+        return _gsynth(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            covariates=covariates, placebo=placebo, alpha=alpha,
+            **kwargs,
+        )
+
+    if method == "staggered":
+        from .staggered import staggered_synth
+        if treatment is None:
+            raise ValueError(
+                "method='staggered' requires the `treatment` parameter "
+                "(binary treatment indicator column name)"
+            )
+        return staggered_synth(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treatment=treatment, penalization=penalization,
+            placebo=placebo, alpha=alpha, **kwargs,
+        )
+
+    raise ValueError(
+        f"Unknown method {method!r}. Choose from: 'classic', 'penalized', "
+        f"'ridge', 'demeaned', 'detrended', 'unconstrained', 'elastic_net', "
+        f"'augmented', 'ascm', 'sdid', 'factor', 'gsynth', 'staggered'."
     )
-    return model.fit(placebo=placebo)
 
 
 class SyntheticControl:
@@ -389,6 +525,118 @@ class SyntheticControl:
                 continue
 
         return placebo_atts, placebo_pre_mspes
+
+
+# ------------------------------------------------------------------
+# Plotting
+# ------------------------------------------------------------------
+
+def synthplot(
+    result: CausalResult,
+    type: str = 'trajectory',
+    ax=None,
+    figsize: tuple = (10, 7),
+    title: Optional[str] = None,
+):
+    """
+    Standard synthetic control plots.
+
+    Parameters
+    ----------
+    result : CausalResult
+        Result from ``synth()`` or ``sdid()``.
+    type : str, default 'trajectory'
+        Plot type:
+        - 'trajectory': treated vs synthetic over time
+        - 'gap': treatment effect (gap) over time
+        - 'both': two-panel (trajectory + gap)
+    ax : matplotlib Axes, optional
+        Only used for 'trajectory' or 'gap'. Ignored for 'both'.
+    figsize : tuple
+    title : str, optional
+
+    Returns
+    -------
+    (fig, ax) or (fig, axes) for 'both'
+    """
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        raise ImportError("matplotlib required. Install: pip install matplotlib")
+
+    mi = result.model_info
+    gap_df = mi.get('gap_table')
+    if gap_df is None:
+        raise ValueError("No gap_table in model_info. Use synth() result.")
+
+    times = gap_df['time'].values
+    treated = gap_df['treated'].values
+    synthetic = gap_df['synthetic'].values
+    gap = gap_df['gap'].values
+    treatment_time = mi.get('treatment_time')
+    treated_unit = mi.get('treated_unit', 'Treated')
+
+    if type == 'both':
+        fig, axes = plt.subplots(2, 1, figsize=(figsize[0], figsize[1] * 1.3),
+                                 sharex=True)
+        # Top: trajectory
+        _trajectory_panel(axes[0], times, treated, synthetic,
+                          treatment_time, treated_unit)
+        # Bottom: gap
+        _gap_panel(axes[1], times, gap, treatment_time)
+        fig.suptitle(title or f'Synthetic Control: {treated_unit}',
+                     fontsize=14, y=1.01)
+        fig.tight_layout()
+        return fig, axes
+
+    if type == 'gap':
+        if ax is None:
+            fig, ax = plt.subplots(figsize=figsize)
+        else:
+            fig = ax.get_figure()
+        _gap_panel(ax, times, gap, treatment_time)
+        ax.set_title(title or f'Gap Plot: {treated_unit}', fontsize=13)
+        fig.tight_layout()
+        return fig, ax
+
+    # Default: trajectory
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.get_figure()
+    _trajectory_panel(ax, times, treated, synthetic,
+                      treatment_time, treated_unit)
+    ax.set_title(title or f'Synthetic Control: {treated_unit}', fontsize=13)
+    fig.tight_layout()
+    return fig, ax
+
+
+def _trajectory_panel(ax, times, treated, synthetic,
+                      treatment_time, treated_unit):
+    ax.plot(times, treated, color='#2C3E50', linewidth=2,
+            label=str(treated_unit))
+    ax.plot(times, synthetic, color='#E74C3C', linewidth=2,
+            linestyle='--', label='Synthetic')
+    if treatment_time is not None:
+        ax.axvline(x=treatment_time, color='gray', linestyle=':',
+                   linewidth=1, alpha=0.7, label='Treatment')
+    ax.set_ylabel('Outcome', fontsize=11)
+    ax.legend(fontsize=10, frameon=False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+
+def _gap_panel(ax, times, gap, treatment_time):
+    ax.plot(times, gap, color='#2C3E50', linewidth=2)
+    ax.fill_between(times, 0, gap, alpha=0.15, color='#3498DB')
+    ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)
+    if treatment_time is not None:
+        ax.axvline(x=treatment_time, color='gray', linestyle=':',
+                   linewidth=1, alpha=0.7)
+    ax.set_xlabel('Time', fontsize=11)
+    ax.set_ylabel('Gap (Treated − Synthetic)', fontsize=11)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
 
 
 # ------------------------------------------------------------------

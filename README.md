@@ -6,7 +6,7 @@
 [![Tests](https://github.com/brycewang-stanford/statspai/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/brycewang-stanford/statspai/actions)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
 
-StatsPAI is a unified Python package for causal inference and applied econometrics. One `import`, 150+ functions, covering the complete empirical research workflow — from classical econometrics to cutting-edge ML/AI causal methods to publication-ready tables in Word, Excel, and LaTeX.
+StatsPAI is a unified Python package for causal inference and applied econometrics. One `import`, 170+ functions, covering the complete empirical research workflow — from classical econometrics to cutting-edge ML/AI causal methods to publication-ready tables in Word, Excel, and LaTeX.
 
 It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 
@@ -344,7 +344,7 @@ sp.subgroup_analysis(df, formula="wage ~ education + experience",
 ## API at a Glance
 
 ```text
-150+ public functions/classes
+170+ public functions/classes
 
 Regression:     regress, ivreg, panel, heckman, qreg, sqreg, tobit, xtabond
 DID:            did, did_2x2, callaway_santanna, sun_abraham, bacon_decomposition, honest_did
@@ -370,6 +370,67 @@ Robustness:     spec_curve, robustness_report, subgroup_analysis
 Inference:      wild_cluster_bootstrap, ri_test
 Output:         modelsummary, outreg2, sumstats, balance_table, tab, coefplot, binscatter
 ```
+
+---
+
+## Release Notes
+
+### v0.4.0 (2026-04-05) — Module Architecture Overhaul
+
+**Major refactoring and expansion of core modules (+5,800 lines of new code):**
+
+- **DID**: Added Triple Differences (`ddd()`), one-call `did_analysis()` workflow (auto design detection → Bacon decomposition → estimation → event study → sensitivity), and 8 publication-ready plot functions (`parallel_trends_plot`, `bacon_plot`, `group_time_plot`, `enhanced_event_study_plot`, `treatment_rollout_plot`, `sensitivity_plot`, `cohort_event_study_plot`)
+- **Synthetic Control**: Modular rewrite — `demeaned_synth()`, `robust_synth()` (penalized SCM), `gsynth()` (Generalized SCM with interactive fixed effects), `staggered_synth()` (multi-unit staggered adoption), `conformal_synth()` (distribution-free inference), and comprehensive `synth_plot()` / `synth_weight_plot()` / `synth_gap_plot()`
+- **Panel**: Major expansion of `panel()` — Hausman test, Breusch-Pagan LM, Pesaran CD, Wooldridge autocorrelation, panel unit root tests; added `panel_summary_plot()`, `fe_plot()`, `re_comparison_plot()`
+- **RD**: New `rd_diagnostics()` suite — bandwidth sensitivity, placebo cutoffs, donut-hole robustness, covariate balance at cutoff, density test
+- **IV / 2SLS**: Rewritten `ivreg()` with proper first-stage diagnostics (Cragg-Donald, Kleibergen-Paap), weak IV detection, Sargan-Hansen overidentification test, Anderson canonical correlation test, Stock-Yogo critical values
+- **Matching**: Enhanced `match()` — added CEM (Coarsened Exact Matching), optimal matching, genetic matching; improved balance diagnostics with Love plot and standardized mean difference
+- **DAG**: Expanded `dag()` with 15+ built-in example DAGs (`dag_example()`), `dag_simulate()` for data generation from causal graphs, backdoor/frontdoor criterion identification
+- **Causal Impact**: Enhanced Bayesian structural time-series with automatic model selection and improved inference
+- **AI Agent Registry**: Expanded `list_functions()`, `describe_function()`, `function_schema()`, `search_functions()` for LLM/agent tool-use integration
+- **CausalResult**: Added `.to_json()`, `.to_dict()`, enhanced `.summary()` formatting
+
+### v0.3.1 (2025-12-20)
+
+- Fix PyPI badge displaying stale version
+
+### v0.3.0 (2025-12-20) — ML & Advanced Causal Methods
+
+- **Meta-Learners**: S/T/X/R/DR-Learner for CATE estimation with `compare_metalearners()` and CATE diagnostics (`gate_test`, `blp_test`)
+- **Neural Causal Models**: TARNet, CFRNet, DragonNet for deep CATE estimation
+- **Causal Discovery**: `notears()` (continuous DAG optimization), `pc_algorithm()` (constraint-based)
+- **TMLE**: Targeted Maximum Likelihood Estimation with Super Learner
+- **Policy Learning**: `policy_tree()` optimal treatment rules, `policy_value()` evaluation
+- **Conformal Causal**: Distribution-free prediction intervals for ITE
+- **Bayesian Causal Forest**: `bcf()` with separate prognostic/treatment functions
+- **Dose-Response**: Continuous treatment GPS curves
+- **Bounds**: Lee bounds (sample selection), Manski bounds (partial identification)
+- **Interference**: `spillover()` direct + indirect effect decomposition
+- **DTR**: `g_estimation()` multi-stage optimal treatment regimes
+- **Multi-Treatment**: AIPW for multi-valued treatments
+- **Bunching**: Kink/notch bunching estimator with elasticity
+- **Matrix Completion**: `mc_panel()` nuclear-norm panel estimator
+- **Robustness**: `spec_curve()`, `robustness_report()`, `subgroup_analysis()`
+- **New Regression**: DeepIV, Heckman selection, quantile regression, Tobit, Arellano-Bond GMM
+- **New Diagnostics**: E-value, Anderson-Rubin weak IV test, Sensemakr, RD density test
+- **Other**: Entropy balancing, Sun-Abraham event study, Bacon decomposition, HonestDiD
+
+### v0.2.0 (2025-11-15) — Post-Estimation & Output
+
+- **Post-Estimation**: `margins()`, `marginsplot()`, `test()`, `lincom()`
+- **Output Tables**: `modelsummary()`, `outreg2()`, `sumstats()`, `balance_table()`, `tab()`, `coefplot()`, `binscatter()`
+- **Inference**: `wild_cluster_bootstrap()`, `aipw()`, `ri_test()`
+- **New Modules**: DML, Causal Forest, Matching (PSM/Mahalanobis), Synthetic Control (ADH + SDID), Panel (FE/RE/FD), Causal Impact, Mediation, Bartik IV
+- **Diagnostics**: `oster_bounds()`, `mccrary_test()`, `hausman_test()`, `het_test()`, `reset_test()`, `vif()`
+- **Utilities**: Variable labeling, `describe()`, `pwcorr()`, `winsor()`, `read_data()`
+
+### v0.1.0 (2025-10-01) — Initial Release
+
+- Core regression: `regress()` OLS with robust/clustered/HAC standard errors
+- Instrumental variables: `ivreg()` 2SLS
+- Difference-in-Differences: `did()`, `did_2x2()`, `callaway_santanna()`
+- Regression discontinuity: `rdrobust()`
+- Unified `CausalResult` object with `.summary()`, `.plot()`, `.to_latex()`, `.to_docx()`, `.cite()`
 
 ---
 
@@ -405,7 +466,7 @@ pytest
   author={Wang, Bryce},
   year={2025},
   url={https://github.com/brycewang-stanford/statspai},
-  version={0.3.1}
+  version={0.4.0}
 }
 ```
 

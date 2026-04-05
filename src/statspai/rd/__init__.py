@@ -2,19 +2,24 @@
 Regression Discontinuity (RD) module for StatsPAI.
 
 Provides:
-- Sharp and Fuzzy RD estimation with robust bias-corrected inference (CCT 2014)
+- Sharp, Fuzzy, and Kink RD estimation (CCT 2014)
+- Donut-hole RD for handling manipulation near the cutoff
 - MSE-optimal bandwidth selection
 - RD plots with binned scatter and polynomial fits
-
-Planned:
-- McCrary (2008) density manipulation test
-- Cattaneo-Jansson-Ma (2020) manipulation test
-- Kink RD
+- Bandwidth sensitivity analysis
+- Covariate balance tests at the cutoff
+- Placebo cutoff tests
 """
 
-from .rdrobust import rdrobust, rdplot
+from .rdrobust import rdrobust, rdplot, rdplotdensity
+from .diagnostics import rdbwsensitivity, rdbalance, rdplacebo, rdsummary
 
 __all__ = [
     'rdrobust',
     'rdplot',
+    'rdplotdensity',
+    'rdbwsensitivity',
+    'rdbalance',
+    'rdplacebo',
+    'rdsummary',
 ]

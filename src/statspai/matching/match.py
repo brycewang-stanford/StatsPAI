@@ -1,18 +1,37 @@
 """
 Matching estimators for observational causal inference.
 
-Implements propensity score matching (PSM), Mahalanobis distance matching,
-and coarsened exact matching (CEM) with ATT/ATE estimation and balance
-diagnostics.
+Unified interface supporting orthogonal design choices:
+
+- **distance**: how to measure unit similarity
+  - ``'propensity'`` — logit propensity score (Rosenbaum & Rubin 1983)
+  - ``'mahalanobis'`` — Mahalanobis distance (Rubin 1980)
+  - ``'euclidean'`` — normalized Euclidean distance
+  - ``'exact'`` — exact covariate values (no approximation)
+
+- **method**: how to use those distances
+  - ``'nearest'`` — k-nearest-neighbor matching
+  - ``'stratify'`` — subclassification / stratification
+  - ``'cem'`` — coarsened exact matching (Iacus, King & Porro 2012)
+
+- **bias_correction**: Abadie-Imbens (2011) regression adjustment for
+  matching discrepancies in nearest-neighbor matching.
+
+Backward compatible: ``method='psm'``, ``method='mahalanobis'``, and
+``method='cem'`` still work and map to the new parameter space.
 
 References
 ----------
 Rosenbaum, P.R. and Rubin, D.B. (1983). Biometrika, 70(1), 41-55.
-Abadie, A. and Imbens, G. (2006). Econometrica, 74(1), 235-267.
+Abadie, A. and Imbens, G.W. (2006). Econometrica, 74(1), 235-267.
+Abadie, A. and Imbens, G.W. (2011). JBES, 29(1), 1-11.
 Iacus, S.M., King, G., and Porro, G. (2012). Political Analysis, 20(1), 1-24.
+King, G. and Nielsen, R. (2019). Political Analysis, 27(4), 435-454.
 """
 
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List
+import warnings
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -21,16 +40,43 @@ from scipy.spatial.distance import cdist
 from ..core.results import CausalResult
 
 
+# ======================================================================
+# Legacy method aliases → (distance, method) pairs
+# ======================================================================
+_LEGACY_MAP = {
+    'psm': ('propensity', 'nearest'),
+    'mahalanobis': ('mahalanobis', 'nearest'),
+    'cem': (None, 'cem'),
+}
+
+_VALID_DISTANCES = ('propensity', 'mahalanobis', 'euclidean', 'exact')
+_VALID_METHODS = ('nearest', 'stratify', 'cem')
+
+
+# ======================================================================
+# Public API
+# ======================================================================
+
 def match(
     data: pd.DataFrame,
     y: str,
     treat: str,
     covariates: List[str],
-    method: str = 'psm',
+    *,
+    # --- new orthogonal API ---
+    distance: Optional[str] = None,
+    method: str = 'nearest',
+    # --- matching parameters ---
     estimand: str = 'ATT',
     n_matches: int = 1,
     caliper: Optional[float] = None,
     replace: bool = True,
+    bias_correction: bool = False,
+    # --- stratification parameters ---
+    n_strata: int = 5,
+    # --- CEM parameters ---
+    n_bins: Optional[int] = None,
+    # --- inference ---
     alpha: float = 0.05,
 ) -> CausalResult:
     """
@@ -46,16 +92,28 @@ def match(
         Binary treatment variable (0/1).
     covariates : list of str
         Variables to match on.
-    method : str, default 'psm'
-        Matching method: 'psm' (propensity score), 'mahalanobis', or 'cem'.
+    distance : str, optional
+        Distance metric: 'propensity', 'mahalanobis', 'euclidean', 'exact'.
+        Default is 'propensity' for method='nearest'/'stratify'.
+    method : str, default 'nearest'
+        Matching algorithm: 'nearest', 'stratify', 'cem'.
+        Legacy values 'psm', 'mahalanobis' also accepted.
     estimand : str, default 'ATT'
         Target estimand: 'ATT' or 'ATE'.
     n_matches : int, default 1
-        Number of matches per unit (nearest-neighbor).
+        Number of nearest-neighbor matches per unit.
     caliper : float, optional
-        Maximum distance for a valid match (in std devs for PSM).
+        Maximum distance for a valid match.
     replace : bool, default True
-        Match with replacement.
+        Match with replacement (nearest-neighbor only).
+    bias_correction : bool, default False
+        Apply Abadie-Imbens (2011) bias correction via regression
+        adjustment on the matching discrepancy.
+    n_strata : int, default 5
+        Number of strata for method='stratify'.
+    n_bins : int, optional
+        Number of bins per covariate for method='cem'.
+        Default uses Sturges' rule.
     alpha : float, default 0.05
         Significance level.
 
@@ -65,23 +123,50 @@ def match(
 
     Examples
     --------
-    >>> result = match(df, y='wage', treat='training',
-    ...               covariates=['age', 'education', 'experience'],
-    ...               method='psm')
-    >>> print(result.summary())
+    >>> # Propensity score matching (default)
+    >>> result = sp.match(df, y='wage', treat='training',
+    ...                   covariates=['age', 'edu', 'exp'])
+
+    >>> # Mahalanobis distance + bias correction
+    >>> result = sp.match(df, y='wage', treat='training',
+    ...                   covariates=['age', 'edu', 'exp'],
+    ...                   distance='mahalanobis', bias_correction=True)
+
+    >>> # Exact matching
+    >>> result = sp.match(df, y='wage', treat='training',
+    ...                   covariates=['age', 'edu'],
+    ...                   distance='exact')
+
+    >>> # Propensity score stratification (5 strata)
+    >>> result = sp.match(df, y='wage', treat='training',
+    ...                   covariates=['age', 'edu', 'exp'],
+    ...                   method='stratify', n_strata=5)
+
+    >>> # CEM
+    >>> result = sp.match(df, y='wage', treat='training',
+    ...                   covariates=['age', 'edu'],
+    ...                   method='cem')
+
+    >>> # Legacy API still works
+    >>> result = sp.match(df, y='wage', treat='training',
+    ...                   covariates=['age', 'edu'], method='psm')
     """
     estimator = MatchEstimator(
         data=data, y=y, treat=treat, covariates=covariates,
-        method=method, estimand=estimand, n_matches=n_matches,
-        caliper=caliper, replace=replace, alpha=alpha,
+        distance=distance, method=method, estimand=estimand,
+        n_matches=n_matches, caliper=caliper, replace=replace,
+        bias_correction=bias_correction, n_strata=n_strata,
+        n_bins=n_bins, alpha=alpha,
     )
     return estimator.fit()
 
 
+# ======================================================================
+# MatchEstimator
+# ======================================================================
+
 class MatchEstimator:
-    """
-    Matching estimator for causal inference.
-    """
+    """Unified matching estimator supporting multiple distance × method combinations."""
 
     def __init__(
         self,
@@ -89,23 +174,47 @@ class MatchEstimator:
         y: str,
         treat: str,
         covariates: List[str],
-        method: str = 'psm',
+        *,
+        distance: Optional[str] = None,
+        method: str = 'nearest',
         estimand: str = 'ATT',
         n_matches: int = 1,
         caliper: Optional[float] = None,
         replace: bool = True,
+        bias_correction: bool = False,
+        n_strata: int = 5,
+        n_bins: Optional[int] = None,
         alpha: float = 0.05,
     ):
         self.data = data.copy()
         self.y = y
         self.treat = treat
         self.covariates = covariates
-        self.method = method.lower()
         self.estimand = estimand.upper()
         self.n_matches = n_matches
         self.caliper = caliper
         self.replace = replace
+        self.bias_correction = bias_correction
+        self.n_strata = n_strata
+        self.n_bins = n_bins
         self.alpha = alpha
+
+        # Resolve legacy method names
+        method_lower = method.lower()
+        if method_lower in _LEGACY_MAP:
+            resolved_dist, resolved_method = _LEGACY_MAP[method_lower]
+            self.distance = resolved_dist if distance is None else distance.lower()
+            self.method = resolved_method
+        else:
+            self.method = method_lower
+            self.distance = distance.lower() if distance else None
+
+        # Set default distance for methods that need one
+        if self.distance is None:
+            if self.method in ('nearest', 'stratify'):
+                self.distance = 'propensity'
+            elif self.method == 'cem':
+                self.distance = None  # CEM doesn't use distance
 
         self._validate()
 
@@ -114,23 +223,36 @@ class MatchEstimator:
             if col not in self.data.columns:
                 raise ValueError(f"Column '{col}' not found in data")
 
-        if self.method not in ('psm', 'mahalanobis', 'cem'):
+        if self.method not in _VALID_METHODS:
             raise ValueError(
-                f"method must be 'psm', 'mahalanobis', or 'cem', "
-                f"got '{self.method}'"
+                f"method must be one of {_VALID_METHODS} "
+                f"(or legacy: 'psm', 'mahalanobis'), got '{self.method}'"
+            )
+        if self.distance is not None and self.distance not in _VALID_DISTANCES:
+            raise ValueError(
+                f"distance must be one of {_VALID_DISTANCES}, got '{self.distance}'"
             )
         if self.estimand not in ('ATT', 'ATE'):
             raise ValueError(f"estimand must be 'ATT' or 'ATE', got '{self.estimand}'")
 
         treat_vals = self.data[self.treat].dropna().unique()
         if not set(treat_vals).issubset({0, 1, 0.0, 1.0}):
-            raise ValueError(
-                f"Treatment must be binary (0/1), got values: {treat_vals}"
-            )
+            raise ValueError(f"Treatment must be binary (0/1), got values: {treat_vals}")
+
+        # Exact matching only supports ATT
+        if self.distance == 'exact' and self.estimand == 'ATE':
+            raise ValueError("Exact matching only supports estimand='ATT'")
+
+        # Stratification only works with propensity distance
+        if self.method == 'stratify' and self.distance != 'propensity':
+            raise ValueError("method='stratify' requires distance='propensity'")
+
+    # ==================================================================
+    # Main fit
+    # ==================================================================
 
     def fit(self) -> CausalResult:
         """Fit matching estimator and return results."""
-        # Drop missing
         cols = [self.y, self.treat] + self.covariates
         clean = self.data[cols].dropna()
         T = clean[self.treat].values.astype(int)
@@ -143,36 +265,53 @@ class MatchEstimator:
         if len(idx_t) == 0 or len(idx_c) == 0:
             raise ValueError("Need both treated and control observations")
 
-        # Compute distance / matching
-        if self.method == 'psm':
-            att, se, matched_data, balance = self._psm(Y, X, T, idx_t, idx_c)
-        elif self.method == 'mahalanobis':
-            att, se, matched_data, balance = self._mahalanobis(Y, X, T, idx_t, idx_c)
-        else:  # cem
-            att, se, matched_data, balance = self._cem(Y, X, T, idx_t, idx_c, clean)
+        # Dispatch — each returns (att, se, balance, extra_info)
+        extra_info = {}
+        if self.method == 'cem':
+            att, se, balance, extra_info = self._fit_cem(Y, X, T, idx_t, idx_c)
+            method_label = 'Matching (CEM)'
+        elif self.method == 'stratify':
+            att, se, balance, extra_info = self._fit_stratify(Y, X, T, idx_t, idx_c)
+            method_label = 'Matching (PS Stratification)'
+        elif self.distance == 'exact':
+            att, se, balance, extra_info = self._fit_exact(Y, X, T, idx_t, idx_c)
+            method_label = 'Matching (Exact)'
+        else:
+            att, se, balance = self._fit_nearest(Y, X, T, idx_t, idx_c)
+            dist_name = self.distance.capitalize()
+            bc_tag = ', BC' if self.bias_correction else ''
+            method_label = f'Matching ({dist_name}{bc_tag})'
+
+        # PSM warning
+        if self.distance == 'propensity' and self.method == 'nearest':
+            warnings.warn(
+                "PSM can increase imbalance and bias (King & Nielsen 2019). "
+                "Consider distance='mahalanobis' or method='cem'.",
+                UserWarning, stacklevel=3,
+            )
 
         # Inference
-        t_stat = att / se if se > 0 else 0
+        t_stat = att / se if se > 0 else 0.0
         pvalue = float(2 * (1 - stats.norm.cdf(abs(t_stat))))
-        z_crit = stats.norm.ppf(1 - self.alpha / 2)
-        ci = (att - z_crit * se, att + z_crit * se)
-
-        n_treated = len(idx_t)
-        n_control = len(idx_c)
+        z = stats.norm.ppf(1 - self.alpha / 2)
+        ci = (att - z * se, att + z * se)
 
         model_info = {
-            'method': self.method.upper(),
+            'distance': self.distance,
+            'method': self.method,
             'estimand': self.estimand,
-            'n_treated': n_treated,
-            'n_control': n_control,
+            'n_treated': int(len(idx_t)),
+            'n_control': int(len(idx_c)),
             'n_matches': self.n_matches,
             'caliper': self.caliper,
             'replace': self.replace,
+            'bias_correction': self.bias_correction,
             'balance': balance,
+            **extra_info,
         }
 
         return CausalResult(
-            method=f'Matching ({self.method.upper()})',
+            method=method_label,
             estimand=self.estimand,
             estimate=att,
             se=se,
@@ -185,74 +324,267 @@ class MatchEstimator:
             _citation_key='matching',
         )
 
-    # ------------------------------------------------------------------
-    # PSM
-    # ------------------------------------------------------------------
+    # ==================================================================
+    # Nearest-neighbor matching (propensity / mahalanobis / euclidean)
+    # ==================================================================
 
-    def _psm(self, Y, X, T, idx_t, idx_c):
-        """Propensity Score Matching.
+    def _fit_nearest(self, Y, X, T, idx_t, idx_c):
+        """Nearest-neighbor matching with configurable distance metric."""
+        # For propensity distance, estimate PS once with actual treatment
+        pscore = self._logit_propensity(X, T) if self.distance == 'propensity' else None
 
-        References
-        ----------
-        Rosenbaum, P.R. and Rubin, D.B. (1983). Biometrika, 70(1), 41-55.
-
-        .. warning::
-            King, G. and Nielsen, R. (2019). "Why Propensity Scores Should
-            Not Be Used for Matching." *Political Analysis*, 27(4), 435-454.
-            PSM can increase imbalance, model dependence, and bias. Consider
-            using CEM (method='cem'), Mahalanobis matching
-            (method='mahalanobis'), or entropy balancing as alternatives.
-        """
-        import warnings
-        warnings.warn(
-            "PSM can increase imbalance and bias (King & Nielsen 2019, "
-            "Political Analysis). Consider method='cem' or "
-            "method='mahalanobis' as more robust alternatives.",
-            UserWarning,
-            stacklevel=3,
-        )
-        # Estimate propensity score via logistic regression
-        pscore = self._logit_propensity(X, T)
-
-        # Match on propensity score
-        ps_t = pscore[idx_t].reshape(-1, 1)
-        ps_c = pscore[idx_c].reshape(-1, 1)
+        # Build distance matrix
+        dist_mat = self._compute_distance_matrix(X, idx_t, idx_c, pscore)
 
         if self.estimand == 'ATT':
-            matches, weights = self._nn_match(ps_t, ps_c, self.caliper)
-            att = self._compute_att(Y, idx_t, idx_c, matches, weights)
-            se = self._abadie_imbens_se(Y, X, T, idx_t, idx_c, matches, weights)
-        else:  # ATE
-            # Match treated→control and control→treated
-            m_tc, w_tc = self._nn_match(ps_t, ps_c, self.caliper)
-            m_ct, w_ct = self._nn_match(ps_c, ps_t, self.caliper)
-            att_part = self._compute_att(Y, idx_t, idx_c, m_tc, w_tc)
-            atc_part = self._compute_att(Y, idx_c, idx_t, m_ct, w_ct)
+            matches, weights = self._nn_match_from_dist(dist_mat, self.caliper)
+            att = self._compute_effect(Y, idx_t, idx_c, X, matches, weights)
+            se = self._ai_se(Y, X, T, idx_t, idx_c, matches, weights)
+        else:
+            # ATE: match both directions, reuse the same propensity scores
+            dist_ct = self._compute_distance_matrix(X, idx_c, idx_t, pscore)
+            m_tc, w_tc = self._nn_match_from_dist(dist_mat, self.caliper)
+            m_ct, w_ct = self._nn_match_from_dist(dist_ct, self.caliper)
+            att_part = self._compute_effect(Y, idx_t, idx_c, X, m_tc, w_tc)
+            atc_part = self._compute_effect(Y, idx_c, idx_t, X, m_ct, w_ct)
             n_t, n_c = len(idx_t), len(idx_c)
             att = (n_t * att_part + n_c * (-atc_part)) / (n_t + n_c)
-            # Simplified SE for ATE
-            se = self._abadie_imbens_se(Y, X, T, idx_t, idx_c, m_tc, w_tc)
+            se = self._ai_se(Y, X, T, idx_t, idx_c, m_tc, w_tc)
 
-        # Balance
-        balance = self._compute_balance(X, T, pscore)
+        if pscore is None:
+            pscore = self._logit_propensity(X, T)
+        balance = self._balance_table(X, T, pscore)
 
-        return att, se, None, balance
+        return att, se, balance
 
-    def _logit_propensity(self, X, T):
-        """Estimate propensity score via logistic regression (Newton-Raphson)."""
+    def _compute_distance_matrix(self, X, idx_from, idx_to, pscore=None):
+        """Compute distance matrix between two groups."""
+        X_from = X[idx_from]
+        X_to = X[idx_to]
+
+        if self.distance == 'propensity':
+            # Use pre-estimated propensity scores (estimated once with actual T)
+            ps_from = pscore[idx_from].reshape(-1, 1)
+            ps_to = pscore[idx_to].reshape(-1, 1)
+            return cdist(ps_from, ps_to, metric='euclidean')
+
+        elif self.distance == 'mahalanobis':
+            cov = np.cov(X.T)
+            if cov.ndim == 0:
+                cov = np.array([[cov]])
+            try:
+                VI = np.linalg.inv(cov)
+            except np.linalg.LinAlgError:
+                VI = np.linalg.pinv(cov)
+            return cdist(X_from, X_to, metric='mahalanobis', VI=VI)
+
+        else:  # euclidean (normalized)
+            sd = np.std(X, axis=0, ddof=1)
+            sd[sd == 0] = 1.0
+            return cdist(X_from / sd, X_to / sd, metric='euclidean')
+
+    # ==================================================================
+    # Exact matching
+    # ==================================================================
+
+    def _fit_exact(self, Y, X, T, idx_t, idx_c):
+        """Exact matching: only match units with identical covariate values."""
+        # Build string keys for each observation
+        keys_t = self._covariate_keys(X, idx_t)
+        keys_c = self._covariate_keys(X, idx_c)
+
+        # Index control units by key
+        control_map = {}
+        for i, key in enumerate(keys_c):
+            control_map.setdefault(key, []).append(i)
+
+        effects = []
+        n_matched = 0
+        for i, key in enumerate(keys_t):
+            if key not in control_map:
+                continue
+            c_indices = control_map[key]
+            y_t = Y[idx_t[i]]
+            y_c_mean = np.mean(Y[idx_c[c_indices]])
+            effects.append(y_t - y_c_mean)
+            n_matched += 1
+
+        if n_matched == 0:
+            raise ValueError(
+                "Exact matching: no treated units found exact matches. "
+                "Consider distance='mahalanobis' or method='cem'."
+            )
+
+        att = float(np.mean(effects))
+        se = float(np.std(effects, ddof=1) / np.sqrt(n_matched)) if n_matched > 1 else 0.0
+
+        pscore = self._logit_propensity(X, T)
+        balance = self._balance_table(X, T, pscore)
+        extra = {
+            'n_matched_treated': n_matched,
+            'n_unmatched_treated': len(keys_t) - n_matched,
+        }
+        return att, se, balance, extra
+
+    @staticmethod
+    def _covariate_keys(X, indices):
+        """Create hashable keys for exact matching."""
+        return [tuple(X[i]) for i in indices]
+
+    # ==================================================================
+    # Subclassification / propensity score stratification
+    # ==================================================================
+
+    def _fit_stratify(self, Y, X, T, idx_t, idx_c):
+        """
+        Propensity score stratification (Rosenbaum & Rubin 1984).
+
+        Partition the sample into strata by propensity score quantiles,
+        compute within-stratum treatment effects, then weight by the
+        proportion of treated (ATT) or total (ATE) units per stratum.
+        """
+        pscore = self._logit_propensity(X, T)
+
+        # Create strata from propensity score quantiles
+        boundaries = np.quantile(pscore, np.linspace(0, 1, self.n_strata + 1))
+        boundaries[0] -= 1e-6
+        boundaries[-1] += 1e-6
+        strata = np.digitize(pscore, boundaries) - 1
+        strata = np.clip(strata, 0, self.n_strata - 1)
+
+        # Collect per-stratum effects, weights, and variance components
+        strata_results = []  # list of (tau, weight, var_t, var_c)
+
+        for s in range(self.n_strata):
+            in_s = strata == s
+            t_in = in_s & (T == 1)
+            c_in = in_s & (T == 0)
+            n_t_s = t_in.sum()
+            n_c_s = c_in.sum()
+
+            if n_t_s == 0 or n_c_s == 0:
+                continue
+
+            tau_s = Y[t_in].mean() - Y[c_in].mean()
+
+            if self.estimand == 'ATT':
+                w_s = float(n_t_s)
+            else:
+                w_s = float(n_t_s + n_c_s)
+
+            # Within-stratum variance components
+            vt = np.var(Y[t_in], ddof=1) / n_t_s if n_t_s >= 2 else 0.0
+            vc = np.var(Y[c_in], ddof=1) / n_c_s if n_c_s >= 2 else 0.0
+
+            strata_results.append((tau_s, w_s, vt, vc))
+
+        if len(strata_results) == 0:
+            raise ValueError("No strata contain both treated and control units")
+
+        effects = np.array([r[0] for r in strata_results])
+        raw_weights = np.array([r[1] for r in strata_results])
+        weights = raw_weights / raw_weights.sum()
+
+        att = float(effects @ weights)
+
+        # SE: sum of weighted within-stratum sampling variances
+        within_var = 0.0
+        for (_, _, vt, vc), w_s in zip(strata_results, weights):
+            within_var += w_s ** 2 * (vt + vc)
+
+        se = float(np.sqrt(within_var))
+
+        balance = self._balance_table(X, T, pscore)
+        extra = {
+            'n_strata': self.n_strata,
+            'n_effective_strata': len(strata_results),
+        }
+        return att, se, balance, extra
+
+    # ==================================================================
+    # CEM
+    # ==================================================================
+
+    def _fit_cem(self, Y, X, T, idx_t, idx_c):
+        """Coarsened Exact Matching (Iacus, King & Porro 2012)."""
         n, k = X.shape
-        # Add intercept
+
+        # Coarsen each covariate
+        n_bins = self.n_bins
+        if n_bins is None:
+            n_bins = max(int(np.ceil(np.log2(n) + 1)), 3)  # Sturges' rule
+
+        strata = np.zeros(n, dtype=object)
+        for j in range(k):
+            col = X[:, j]
+            bins = np.linspace(col.min() - 1e-10, col.max() + 1e-10, n_bins + 1)
+            digitized = np.digitize(col, bins)
+            if j == 0:
+                strata = digitized.astype(str)
+            else:
+                strata = np.char.add(np.char.add(strata, '_'), digitized.astype(str))
+
+        # Match within strata
+        matched_t = []
+        matched_c = []
+        weights_c = []
+
+        for s in np.unique(strata):
+            in_s = strata == s
+            t_in = np.where(in_s & (T == 1))[0]
+            c_in = np.where(in_s & (T == 0))[0]
+            if len(t_in) > 0 and len(c_in) > 0:
+                matched_t.extend(t_in.tolist())
+                matched_c.extend(c_in.tolist())
+                w = len(t_in) / len(c_in)
+                weights_c.extend([w] * len(c_in))
+
+        if len(matched_t) == 0:
+            raise ValueError("CEM: no strata with both treated and control units")
+
+        Y_t = Y[matched_t]
+        Y_c = Y[matched_c]
+        w_c = np.array(weights_c)
+
+        att = float(np.mean(Y_t) - np.average(Y_c, weights=w_c))
+
+        var_t = np.var(Y_t, ddof=1) / len(Y_t) if len(Y_t) > 1 else 0
+        var_c = (np.average((Y_c - np.average(Y_c, weights=w_c)) ** 2, weights=w_c)
+                 / len(Y_c)) if len(Y_c) > 1 else 0
+        se = float(np.sqrt(var_t + var_c))
+
+        pscore = self._logit_propensity(X, T)
+        balance = self._balance_table(X, T, pscore)
+
+        n_matched_t = len(set(matched_t))
+        extra = {
+            'n_matched_treated': n_matched_t,
+            'n_matched_control': len(set(matched_c)),
+            'n_unmatched_treated': len(idx_t) - n_matched_t,
+            'n_bins': n_bins,
+        }
+        return att, se, balance, extra
+
+    # ==================================================================
+    # Propensity score estimation
+    # ==================================================================
+
+    @staticmethod
+    def _logit_propensity(X, T):
+        """Logistic regression propensity score via Newton-Raphson."""
+        n, k = X.shape
         X_aug = np.column_stack([np.ones(n), X])
         k_aug = X_aug.shape[1]
 
-        # Newton-Raphson for logistic regression
         beta = np.zeros(k_aug)
         for _ in range(25):
-            p = 1 / (1 + np.exp(-X_aug @ beta))
+            linear = np.clip(X_aug @ beta, -500, 500)
+            p = 1 / (1 + np.exp(-linear))
             p = np.clip(p, 1e-10, 1 - 1e-10)
-            W = np.diag(p * (1 - p))
+            # Vectorized IRLS: W is diagonal, so X'WX = (X * w)' X
+            w = p * (1 - p)
             grad = X_aug.T @ (T - p)
-            H = X_aug.T @ W @ X_aug
+            H = (X_aug * w[:, None]).T @ X_aug
             try:
                 delta = np.linalg.solve(H, grad)
             except np.linalg.LinAlgError:
@@ -261,116 +593,18 @@ class MatchEstimator:
             if np.max(np.abs(delta)) < 1e-8:
                 break
 
-        pscore = 1 / (1 + np.exp(-X_aug @ beta))
+        linear = np.clip(X_aug @ beta, -500, 500)
+        pscore = 1 / (1 + np.exp(-linear))
         return np.clip(pscore, 1e-6, 1 - 1e-6)
 
-    # ------------------------------------------------------------------
-    # Mahalanobis
-    # ------------------------------------------------------------------
-
-    def _mahalanobis(self, Y, X, T, idx_t, idx_c):
-        """Mahalanobis distance matching."""
-        X_t = X[idx_t]
-        X_c = X[idx_c]
-
-        # Covariance from pooled sample
-        cov = np.cov(X.T)
-        if cov.ndim == 0:
-            cov = np.array([[cov]])
-
-        try:
-            VI = np.linalg.inv(cov)
-        except np.linalg.LinAlgError:
-            VI = np.linalg.pinv(cov)
-
-        dist = cdist(X_t, X_c, metric='mahalanobis', VI=VI)
-
-        caliper = self.caliper
-        matches, weights = self._nn_match_from_dist(dist, caliper)
-
-        att = self._compute_att(Y, idx_t, idx_c, matches, weights)
-        se = self._abadie_imbens_se(Y, X, T, idx_t, idx_c, matches, weights)
-
-        pscore = self._logit_propensity(X, T)
-        balance = self._compute_balance(X, T, pscore)
-
-        return att, se, None, balance
-
-    # ------------------------------------------------------------------
-    # CEM
-    # ------------------------------------------------------------------
-
-    def _cem(self, Y, X, T, idx_t, idx_c, clean):
-        """Coarsened Exact Matching."""
-        n, k = X.shape
-
-        # Coarsen each covariate into bins
-        strata = np.zeros(n, dtype=object)
-        for j in range(k):
-            col = X[:, j]
-            # Use Sturges' rule for bins
-            n_bins = max(int(np.ceil(np.log2(n) + 1)), 3)
-            bins = np.linspace(col.min() - 1e-10, col.max() + 1e-10, n_bins + 1)
-            digitized = np.digitize(col, bins)
-            if j == 0:
-                strata = digitized.astype(str)
-            else:
-                strata = np.char.add(np.char.add(strata, '_'), digitized.astype(str))
-
-        # Find strata with both treated and control
-        matched_t = []
-        matched_c = []
-        weights_c = []
-
-        for s in np.unique(strata):
-            in_stratum = strata == s
-            t_in = np.where(in_stratum & (T == 1))[0]
-            c_in = np.where(in_stratum & (T == 0))[0]
-
-            if len(t_in) > 0 and len(c_in) > 0:
-                matched_t.extend(t_in.tolist())
-                matched_c.extend(c_in.tolist())
-                # CEM weights: n_t/n_c ratio within stratum
-                w = len(t_in) / len(c_in)
-                weights_c.extend([w] * len(c_in))
-
-        if len(matched_t) == 0:
-            raise ValueError("CEM: no strata with both treated and control units")
-
-        # ATT from matched sample
-        Y_t_matched = Y[matched_t]
-        Y_c_matched = Y[matched_c]
-        w_c = np.array(weights_c)
-
-        att = float(np.mean(Y_t_matched) - np.average(Y_c_matched, weights=w_c))
-
-        # SE via matched sample variance
-        var_t = np.var(Y_t_matched, ddof=1) / len(Y_t_matched) if len(Y_t_matched) > 1 else 0
-        var_c = np.average((Y_c_matched - np.average(Y_c_matched, weights=w_c))**2,
-                           weights=w_c) / len(Y_c_matched) if len(Y_c_matched) > 1 else 0
-        se = float(np.sqrt(var_t + var_c))
-
-        pscore = self._logit_propensity(X, T)
-        balance = self._compute_balance(X, T, pscore)
-
-        return att, se, None, balance
-
-    # ------------------------------------------------------------------
-    # Nearest-neighbor matching helpers
-    # ------------------------------------------------------------------
-
-    def _nn_match(self, X_target, X_pool, caliper=None):
-        """Nearest-neighbor match from target to pool (1D propensity scores)."""
-        dist = cdist(X_target, X_pool, metric='euclidean')
-        return self._nn_match_from_dist(dist, caliper)
+    # ==================================================================
+    # NN matching helpers
+    # ==================================================================
 
     def _nn_match_from_dist(self, dist, caliper=None):
-        """
-        Given distance matrix (n_target x n_pool), find k-NN matches.
-        Returns (matches, weights).
-        """
-        n_target, n_pool = dist.shape
-        matches = []  # list of arrays, one per target unit
+        """k-NN matching from a precomputed distance matrix."""
+        n_target = dist.shape[0]
+        matches = []
         weights = []
 
         for i in range(n_target):
@@ -378,31 +612,31 @@ class MatchEstimator:
             if caliper is not None:
                 d[d > caliper] = np.inf
 
-            if self.replace:
-                # With replacement: find k nearest
-                k = min(self.n_matches, np.sum(np.isfinite(d)))
-                if k == 0:
-                    matches.append(np.array([], dtype=int))
-                    weights.append(np.array([]))
-                    continue
-                idx = np.argpartition(d, k)[:k]
-                matches.append(idx)
-                weights.append(np.ones(k) / k)
-            else:
-                # Without replacement: greedy (simplified)
-                k = min(self.n_matches, np.sum(np.isfinite(d)))
-                if k == 0:
-                    matches.append(np.array([], dtype=int))
-                    weights.append(np.array([]))
-                    continue
-                idx = np.argpartition(d, k)[:k]
-                matches.append(idx)
-                weights.append(np.ones(k) / k)
+            k = min(self.n_matches, int(np.sum(np.isfinite(d))))
+            if k == 0:
+                matches.append(np.array([], dtype=int))
+                weights.append(np.array([]))
+                continue
+
+            idx = np.argpartition(d, k)[:k]
+            matches.append(idx)
+            weights.append(np.ones(k) / k)
 
         return matches, weights
 
-    def _compute_att(self, Y, idx_target, idx_pool, matches, weights):
-        """Compute ATT from matches."""
+    # ==================================================================
+    # Effect computation (with optional bias correction)
+    # ==================================================================
+
+    def _compute_effect(self, Y, idx_target, idx_pool, X, matches, weights):
+        """
+        Compute matching estimate, optionally with Abadie-Imbens (2011)
+        bias correction.
+
+        Bias correction estimates mu_0(x) via OLS on the matched control
+        group, then adjusts each matched pair:
+            tau_i^BC = (Y_i - Y_j) - (mu_hat(X_i) - mu_hat(X_j))
+        """
         effects = []
         for i, (m, w) in enumerate(zip(matches, weights)):
             if len(m) == 0:
@@ -413,12 +647,48 @@ class MatchEstimator:
 
         if len(effects) == 0:
             return 0.0
-        return float(np.mean(effects))
 
-    def _abadie_imbens_se(self, Y, X, T, idx_t, idx_c, matches, weights):
+        raw_att = float(np.mean(effects))
+
+        if not self.bias_correction:
+            return raw_att
+
+        # --- Abadie-Imbens (2011) bias correction ---
+        # Estimate conditional mean function on pool group via OLS
+        X_pool = X[idx_pool]
+        Y_pool = Y[idx_pool]
+        X_pool_aug = np.column_stack([np.ones(len(X_pool)), X_pool])
+
+        try:
+            beta_pool = np.linalg.lstsq(X_pool_aug, Y_pool, rcond=None)[0]
+        except np.linalg.LinAlgError:
+            return raw_att  # fallback to uncorrected
+
+        # Compute bias correction for each matched pair
+        corrections = []
+        for i, (m, w) in enumerate(zip(matches, weights)):
+            if len(m) == 0:
+                continue
+            x_target = np.concatenate([[1], X[idx_target[i]]])
+            x_matched = np.column_stack([np.ones(len(m)), X[idx_pool[m]]])
+            mu_target = x_target @ beta_pool
+            mu_matched = np.average(x_matched @ beta_pool, weights=w)
+            corrections.append(mu_target - mu_matched)
+
+        if len(corrections) == 0:
+            return raw_att
+
+        bias = float(np.mean(corrections))
+        return raw_att - bias
+
+    # ==================================================================
+    # Standard errors
+    # ==================================================================
+
+    def _ai_se(self, Y, X, T, idx_t, idx_c, matches, weights):
         """
         Abadie-Imbens (2006) standard error for matching estimator.
-        Simplified version using matched sample variance.
+        Uses conditional variance estimation from matched pairs.
         """
         effects = []
         for i, (m, w) in enumerate(zip(matches, weights)):
@@ -435,31 +705,25 @@ class MatchEstimator:
         n_eff = len(effects)
         return float(np.std(effects, ddof=1) / np.sqrt(n_eff))
 
-    # ------------------------------------------------------------------
+    # ==================================================================
     # Balance diagnostics
-    # ------------------------------------------------------------------
+    # ==================================================================
 
-    def _compute_balance(
-        self, X, T, pscore=None,
-    ) -> pd.DataFrame:
-        """
-        Compute standardized mean differences (SMD) before matching.
-        """
+    def _balance_table(self, X, T, pscore=None) -> pd.DataFrame:
+        """Standardized mean differences (SMD) before matching."""
         idx_t = T == 1
         idx_c = T == 0
         rows = []
 
-        for j, cov_name in enumerate(self.covariates):
+        for j, name in enumerate(self.covariates):
             x_t = X[idx_t, j]
             x_c = X[idx_c, j]
-
             mean_t = np.mean(x_t)
             mean_c = np.mean(x_c)
-            sd_pooled = np.sqrt((np.var(x_t, ddof=1) + np.var(x_c, ddof=1)) / 2)
-            smd = (mean_t - mean_c) / sd_pooled if sd_pooled > 0 else 0
-
+            sd_pool = np.sqrt((np.var(x_t, ddof=1) + np.var(x_c, ddof=1)) / 2)
+            smd = (mean_t - mean_c) / sd_pool if sd_pool > 0 else 0
             rows.append({
-                'variable': cov_name,
+                'variable': name,
                 'mean_treated': round(mean_t, 4),
                 'mean_control': round(mean_c, 4),
                 'smd': round(smd, 4),
@@ -480,7 +744,187 @@ class MatchEstimator:
         return pd.DataFrame(rows)
 
 
+# ======================================================================
 # Citation
+# ======================================================================
+
+# ------------------------------------------------------------------
+# Plotting
+# ------------------------------------------------------------------
+
+def balanceplot(
+    result: CausalResult,
+    threshold: float = 0.1,
+    ax=None,
+    figsize: tuple = (8, None),
+    title: str = None,
+):
+    """
+    Love plot: covariate balance visualization (SMD dot plot).
+
+    Displays standardized mean differences (SMD) for each covariate.
+    The standard threshold for good balance is |SMD| < 0.1.
+
+    Parameters
+    ----------
+    result : CausalResult
+        Result from ``match()`` or ``ebalance()``.
+    threshold : float, default 0.1
+        SMD threshold lines.
+    ax : matplotlib Axes, optional
+    figsize : tuple
+        Height auto-scales with number of covariates if None.
+    title : str, optional
+
+    Returns
+    -------
+    (fig, ax)
+    """
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        raise ImportError("matplotlib required.")
+
+    balance = result.detail
+    if balance is None or 'smd' not in balance.columns:
+        raise ValueError("No balance table. Use match() result.")
+
+    n_vars = len(balance)
+    if figsize[1] is None:
+        figsize = (figsize[0], max(4, n_vars * 0.4 + 1))
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.get_figure()
+
+    variables = balance['variable'].values
+    smd = balance['smd'].values
+    y_pos = np.arange(n_vars)
+
+    # Color by balance quality
+    colors = ['#27AE60' if abs(s) < threshold else '#E74C3C' for s in smd]
+
+    ax.scatter(smd, y_pos, c=colors, s=60, zorder=5, edgecolors='white',
+               linewidth=0.5)
+    ax.barh(y_pos, smd, height=0.02, color='#BDC3C7', zorder=2)
+
+    # Threshold lines
+    ax.axvline(x=threshold, color='#E74C3C', linestyle='--', linewidth=0.8,
+               alpha=0.5)
+    ax.axvline(x=-threshold, color='#E74C3C', linestyle='--', linewidth=0.8,
+               alpha=0.5)
+    ax.axvline(x=0, color='gray', linestyle='-', linewidth=0.5)
+
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(variables, fontsize=10)
+    ax.set_xlabel('Standardized Mean Difference (SMD)', fontsize=11)
+    ax.set_title(title or 'Covariate Balance (Love Plot)', fontsize=13)
+    ax.invert_yaxis()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    fig.tight_layout()
+
+    return fig, ax
+
+
+def psplot(
+    data: pd.DataFrame,
+    treat: str,
+    covariates: List[str],
+    *,
+    n_bins: int = 40,
+    ax=None,
+    figsize: tuple = (8, 5),
+    title: str = None,
+    labels: tuple = ('Control', 'Treated'),
+    colors: tuple = ('#3498DB', '#E74C3C'),
+    trim: Optional[float] = None,
+):
+    """
+    Propensity score distribution plot (common support diagnostic).
+
+    Overlays histograms of the estimated propensity score for treated
+    and control groups, so the user can visually assess whether the
+    common support (overlap) assumption holds.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+    treat : str
+        Binary treatment column.
+    covariates : list of str
+        Covariates used to estimate the propensity score.
+    n_bins : int, default 40
+        Number of histogram bins.
+    ax : matplotlib Axes, optional
+    figsize : tuple
+    title : str, optional
+    labels : tuple of str
+        Labels for (control, treated).
+    colors : tuple of str
+        Colors for (control, treated).
+    trim : float, optional
+        If set, draw vertical lines at (trim, 1-trim) to show
+        the recommended trimming region.
+
+    Returns
+    -------
+    (fig, ax)
+
+    Examples
+    --------
+    >>> fig, ax = sp.psplot(df, treat='D', covariates=['x1', 'x2'])
+    >>> fig, ax = sp.psplot(df, treat='D', covariates=['x1', 'x2'],
+    ...                      trim=0.1)
+    """
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        raise ImportError("matplotlib required.")
+
+    df = data[[treat] + covariates].dropna()
+    T = df[treat].values.astype(int)
+    X = df[covariates].values.astype(float)
+
+    pscore = MatchEstimator._logit_propensity(X, T)
+    ps_c = pscore[T == 0]
+    ps_t = pscore[T == 1]
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.get_figure()
+
+    bins = np.linspace(0, 1, n_bins + 1)
+
+    # Control: mirrored downward
+    ax.hist(ps_c, bins=bins, alpha=0.6, color=colors[0], label=labels[0],
+            density=True, edgecolor='white', linewidth=0.3)
+    # Treated: upward
+    ax.hist(ps_t, bins=bins, alpha=0.6, color=colors[1], label=labels[1],
+            density=True, edgecolor='white', linewidth=0.3)
+
+    # Trimming region
+    if trim is not None:
+        ax.axvline(x=trim, color='#8E44AD', linestyle='--', linewidth=1,
+                   alpha=0.7, label=f'Trim [{trim:.2f}, {1-trim:.2f}]')
+        ax.axvline(x=1 - trim, color='#8E44AD', linestyle='--', linewidth=1,
+                   alpha=0.7)
+
+    ax.set_xlabel('Propensity Score', fontsize=11)
+    ax.set_ylabel('Density', fontsize=11)
+    ax.set_title(title or 'Propensity Score Distribution (Common Support)',
+                 fontsize=13)
+    ax.set_xlim(-0.02, 1.02)
+    ax.legend(frameon=False, fontsize=10)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    fig.tight_layout()
+
+    return fig, ax
+
+
 CausalResult._CITATIONS['matching'] = (
     "@article{abadie2006large,\n"
     "  title={Large Sample Properties of Matching Estimators for "
