@@ -71,13 +71,14 @@ def dgp_did(
     first_treat = np.full(n_units, np.inf)
 
     if staggered:
-        group = rng.integers(0, n_groups, size=n_units)
-        # Spread adoption across the last 60 % of periods
+        # Group 0 = never-treated (~20% of units); groups 1..n_groups = treated
+        group = rng.integers(0, n_groups + 1, size=n_units)
         treat_times = np.linspace(
             int(n_periods * 0.4), n_periods - 1, n_groups, dtype=int
         )
         for g in range(n_groups):
-            first_treat[group == g] = treat_times[g]
+            first_treat[group == g + 1] = treat_times[g]
+        # group 0 stays never-treated (first_treat = inf)
     else:
         # Classic 2x2: half treated at mid-point
         treated_mask = rng.choice(n_units, size=n_units // 2, replace=False)

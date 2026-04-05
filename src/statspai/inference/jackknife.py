@@ -492,7 +492,9 @@ def _parse_formula(
 
     # Fallback: use result parameter names
     param_names = list(result.params.index)
-    y_var = result.model_info.get('depvar', result.data_info.get('y_var', 'y'))
+    y_var = result.data_info.get('dependent_var',
+                result.model_info.get('depvar',
+                    result.data_info.get('y_var', 'y')))
     x_vars = [p for p in param_names
               if p.lower() not in ('intercept', '_const', 'const', '(intercept)')]
     return y_var, x_vars

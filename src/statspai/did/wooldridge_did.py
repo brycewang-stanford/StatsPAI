@@ -363,6 +363,7 @@ def drdid(
     alpha: float = 0.05,
     n_boot: int = 500,
     random_state: Optional[int] = None,
+    seed: Optional[int] = None,
 ) -> CausalResult:
     """
     Doubly Robust Difference-in-Differences (Sant'Anna & Zhao 2020).
@@ -416,7 +417,7 @@ def drdid(
     True
     """
     df = data.copy()
-    rng = np.random.default_rng(random_state)
+    rng = np.random.default_rng(random_state if random_state is not None else seed)
 
     # ── Validate 2×2 design ─────────────────────────────────────────
     g_vals = sorted(df[group].dropna().unique())
