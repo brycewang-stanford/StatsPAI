@@ -6,7 +6,7 @@
 [![Tests](https://github.com/brycewang-stanford/statspai/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/brycewang-stanford/statspai/actions)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
 
-StatsPAI is the **agent-native** Python package for causal inference and applied econometrics. One `import`, 280+ functions, covering the complete empirical research workflow — from classical econometrics to cutting-edge ML/AI causal methods to publication-ready tables in Word, Excel, and LaTeX.
+StatsPAI is the **agent-native** Python package for causal inference and applied econometrics. One `import`, 390+ functions, covering the complete empirical research workflow — from classical econometrics to cutting-edge ML/AI causal methods to publication-ready tables in Word, Excel, and LaTeX.
 
 **Designed for AI agents**: every function returns structured result objects with self-describing schemas (`list_functions()`, `describe_function()`, `function_schema()`), making StatsPAI the first econometrics toolkit purpose-built for LLM-driven research workflows — while remaining fully ergonomic for human researchers.
 
@@ -45,6 +45,95 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 | `qreg()`, `sqreg()` | Quantile regression | `qreg` / `sqreg` | `quantreg::rq()` |
 | `tobit()` | Censored regression (Tobit) | `tobit` | `censReg::censReg()` |
 | `xtabond()` | Arellano-Bond dynamic panel GMM | `xtabond` | `plm::pgmm()` |
+| `glm()` | Generalized Linear Model (6 families × 8 links) | `glm` | `stats::glm()` |
+| `logit()`, `probit()` | Binary choice with marginal effects | `logit` / `probit` | `stats::glm(family=binomial)` |
+| `mlogit()` | Multinomial logit | `mlogit` | `nnet::multinom()` |
+| `ologit()`, `oprobit()` | Ordered logit / probit | `ologit` / `oprobit` | `MASS::polr()` |
+| `clogit()` | Conditional logit (McFadden) | `clogit` | `survival::clogit()` |
+| `poisson()`, `nbreg()` | Count data (Poisson, Negative Binomial) | `poisson` / `nbreg` | `MASS::glm.nb()` |
+| `ppmlhdfe()` | Pseudo-Poisson MLE for gravity models | `ppmlhdfe` | `fixest::fepois()` |
+| `zip_model()`, `zinb()` | Zero-inflated Poisson / NegBin | `zip` / `zinb` | `pscl::zeroinfl()` |
+| `hurdle()` | Hurdle (two-part) model | — | `pscl::hurdle()` |
+| `truncreg()` | Truncated regression (MLE) | `truncreg` | `truncreg::truncreg()` |
+| `fracreg()` | Fractional response (Papke-Wooldridge) | `fracreg` | — |
+| `betareg()` | Beta regression | — | `betareg::betareg()` |
+| `liml()` | LIML (robust to weak IV) | `ivregress liml` | `AER::ivreg()` |
+| `jive()` | Jackknife IV (many instruments) | — | — |
+| `lasso_iv()` | LASSO-selected instruments | — | — |
+| `sureg()` | Seemingly Unrelated Regression | `sureg` | `systemfit::systemfit("SUR")` |
+| `three_sls()` | Three-Stage Least Squares | `reg3` | `systemfit::systemfit("3SLS")` |
+| `biprobit()` | Bivariate probit | `biprobit` | — |
+| `etregress()` | Endogenous treatment effects | `etregress` | — |
+| `gmm()` | General GMM (arbitrary moments) | `gmm` | `gmm::gmm()` |
+| `frontier()` | Stochastic frontier analysis | `frontier` | `sfa::sfa()` |
+
+### Panel Data (Extended)
+
+| Function | Description | Stata equivalent |
+| --- | --- | --- |
+| `panel_logit()`, `panel_probit()` | Panel binary (FE conditional / RE / CRE Mundlak) | `xtlogit` / `xtprobit` |
+| `panel_fgls()` | FGLS with heteroskedasticity and AR(1) | `xtgls` |
+| `interactive_fe()` | Interactive fixed effects (Bai 2009) | — |
+| `panel_unitroot()` | Panel unit root (IPS / LLC / Fisher / Hadri) | `xtunitroot` |
+| `mixed()` | Multilevel / mixed effects (HLM) | `mixed` |
+
+### Survival / Duration Analysis
+
+| Function | Description | Stata equivalent |
+| --- | --- | --- |
+| `cox()` | Cox Proportional Hazards | `stcox` |
+| `kaplan_meier()` | Kaplan-Meier survival curves | `sts graph` |
+| `survreg()` | Parametric AFT (Weibull / exponential / log-normal) | `streg` |
+| `logrank_test()` | Log-rank test for group comparison | `sts test` |
+
+### Time Series & Cointegration
+
+| Function | Description | Stata equivalent |
+| --- | --- | --- |
+| `var()` | Vector Autoregression | `var` |
+| `granger_causality()` | Granger causality test | `vargranger` |
+| `irf()` | Impulse response functions | `irf graph` |
+| `structural_break()` | Bai-Perron structural break test | `estat sbsingle` |
+| `cusum_test()` | CUSUM parameter stability test | — |
+| `engle_granger()` | Engle-Granger cointegration test | — |
+| `johansen()` | Johansen cointegration (trace / max-eigenvalue) | `vecrank` |
+
+### Nonparametric Methods
+
+| Function | Description | Stata equivalent |
+| --- | --- | --- |
+| `lpoly()` | Local polynomial regression | `lpoly` |
+| `kdensity()` | Kernel density estimation | `kdensity` |
+
+### Experimental Design & RCT Tools
+
+| Function | Description |
+| --- | --- |
+| `randomize()` | Stratified / cluster / block randomization |
+| `balance_check()` | Covariate balance with normalized differences |
+| `attrition_test()` | Differential attrition analysis |
+| `attrition_bounds()` | Lee / Manski bounds under attrition |
+| `optimal_design()` | Optimal sample size / cluster design |
+
+### Missing Data
+
+| Function | Description | Stata equivalent |
+| --- | --- | --- |
+| `mice()` | Multiple Imputation by Chained Equations | `mi impute chained` |
+| `mi_estimate()` | Combine estimates via Rubin's rules | `mi estimate` |
+
+### Mendelian Randomization
+
+| Function | Description |
+| --- | --- |
+| `mendelian_randomization()` | IVW + MR-Egger + Weighted Median MR |
+| `mr_plot()` | Scatter plot with MR regression lines |
+
+### Structural Estimation
+
+| Function | Description | Reference |
+| --- | --- | --- |
+| `blp()` | BLP random-coefficients demand estimation | Berry, Levinsohn & Pakes (1995) |
 
 ### Difference-in-Differences
 
@@ -56,6 +145,10 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 | `sun_abraham()` | Interaction-weighted event study | Sun & Abraham (2021) |
 | `bacon_decomposition()` | TWFE decomposition diagnostic | Goodman-Bacon (2021) |
 | `honest_did()` | Sensitivity to parallel trends violations | Rambachan & Roth (2023) |
+| `continuous_did()` | Continuous treatment DID (dose-response) | Callaway, Goodman-Bacon & Sant'Anna (2024) |
+| `did_multiplegt()` | DID with treatment switching | de Chaisemartin & D'Haultfoeuille (2020) |
+| `did_imputation()` | Imputation DID estimator | Borusyak, Jaravel & Spiess (2024) |
+| `distributional_te()` | Distributional treatment effects | Chernozhukov, Fernandez-Val & Melly (2013) |
 
 ### Regression Discontinuity
 
@@ -64,6 +157,9 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 | `rdrobust()` | Sharp/Fuzzy RD with robust bias-corrected inference | Calonico, Cattaneo & Titiunik (2014) |
 | `rdplot()` | RD visualization with binned scatter | — |
 | `rddensity()` | McCrary density manipulation test | McCrary (2008) |
+| `rdmc()` | Multi-cutoff RD | Cattaneo et al. (2024) |
+| `rdms()` | Geographic / multi-score RD | Keele & Titiunik (2015) |
+| `rkd()` | Regression Kink Design | Card et al. (2015) |
 
 ### Matching & Reweighting
 
@@ -189,6 +285,17 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 | `reset_test()` | Ramsey RESET specification test | — |
 | `vif()` | Variance Inflation Factor | — |
 | `diagnose()` | General model diagnostics | — |
+
+### Smart Workflow Engine *(unique to StatsPAI — no other package has these)*
+
+| Function | Description |
+| --- | --- |
+| `recommend()` | Given data + research question → recommends estimators with reasoning, generates workflow, provides `.run()` |
+| `compare_estimators()` | Runs multiple methods (OLS, matching, IPW, DML, ...) on same data, reports agreement diagnostics |
+| `assumption_audit()` | One-call test of ALL assumptions for any method, with pass/fail/remedy for each |
+| `sensitivity_dashboard()` | Multi-dimensional sensitivity analysis (sample, outliers, unobservables) with stability grade |
+| `pub_ready()` | Journal-specific publication readiness checklist (Top 5 Econ, AEJ, RCT) |
+| `replicate()` | Built-in famous datasets (Card 1995, LaLonde 1986, Lee 2008) with replication guides |
 
 ### Robustness Analysis *(unique to StatsPAI)*
 
@@ -346,36 +453,76 @@ sp.subgroup_analysis(df, formula="wage ~ education + experience",
 ## API at a Glance
 
 ```text
-170+ public functions/classes
+390+ public functions/classes
 
-Regression:     regress, ivreg, panel, heckman, qreg, sqreg, tobit, xtabond
-DID:            did, did_2x2, callaway_santanna, sun_abraham, bacon_decomposition, honest_did
-RD:             rdrobust, rdplot, rddensity
-Matching:       match, ebalance
-Synth:          synth, sdid
-ML Causal:      dml, causal_forest, deepiv, metalearner, tmle, aipw
+Regression:     regress, ivreg, glm, logit, probit, mlogit, ologit, poisson, nbreg, ppmlhdfe,
+                tobit, heckman, qreg, truncreg, fracreg, betareg, sureg, three_sls, gmm
+IV Advanced:    liml, jive, lasso_iv
+Panel:          panel, panel_logit, panel_probit, panel_fgls, interactive_fe, xtabond, mixed
+DID:            did, callaway_santanna, sun_abraham, bacon_decomposition, honest_did,
+                continuous_did, did_multiplegt, did_imputation, stacked_did
+RD:             rdrobust, rdplot, rddensity, rdmc, rdms, rkd
+Matching:       match, ebalance, ipw, aipw
+Synth:          synth, sdid, gsynth, augsynth, staggered_synth, conformal_synth
+ML Causal:      dml, causal_forest, deepiv, metalearner, tmle
 Neural:         tarnet, cfrnet, dragonnet
 Discovery:      notears, pc_algorithm
 Policy:         policy_tree, policy_value
-Conformal/Bayes:conformal_cate, bcf
-Dose-Response:  dose_response
-Multi-Treat:    multi_treatment
-Bounds:         lee_bounds, manski_bounds
-Interference:   spillover
-DTR:            g_estimation
-Bunching:       bunching
-Panel MC:       mc_panel
-Other:          causal_impact, mediate, bartik
-Post-est:       margins, marginsplot, test, lincom
-Diagnostics:    oster_bounds, sensemakr, evalue, mccrary_test, hausman_test, het_test, reset_test, vif
-Robustness:     spec_curve, robustness_report, subgroup_analysis
-Inference:      wild_cluster_bootstrap, ri_test
+Survival:       cox, kaplan_meier, survreg, logrank_test
+Time Series:    var, granger_causality, irf, structural_break, johansen, engle_granger
+Nonparametric:  lpoly, kdensity
+Experimental:   randomize, balance_check, attrition_test, optimal_design
+Imputation:     mice, mi_estimate
+Frontier:       frontier (stochastic frontier analysis)
+Structural:     blp (BLP demand estimation)
+MR:             mendelian_randomization, mr_ivw, mr_egger, mr_median
+Smart Workflow: recommend, compare_estimators, assumption_audit,
+                sensitivity_dashboard, pub_ready, replicate
 Output:         modelsummary, outreg2, sumstats, balance_table, tab, coefplot, binscatter
 ```
 
 ---
 
 ## Release Notes
+
+### v0.6.0 (2026-04-05) — Complete Econometrics Toolkit + Smart Workflow Engine
+
+**30 new modules, 390+ public API, 860+ tests passing, 83K+ lines of code.**
+
+New Regression & GLM:
+
+- `glm()` (6 families × 8 links), `logit()`, `probit()`, `cloglog()`, `mlogit()`, `ologit()`, `oprobit()`, `clogit()`
+- `poisson()`, `nbreg()`, `ppmlhdfe()` (gravity model), `zip_model()`, `zinb()`, `hurdle()`
+- `truncreg()`, `fracreg()`, `betareg()`, `biprobit()`, `etregress()`
+- `liml()`, `jive()`, `lasso_iv()` (advanced IV), `sureg()`, `three_sls()`, `gmm()` (general GMM)
+
+New Panel & Multilevel:
+
+- `panel_logit()`, `panel_probit()` (FE/RE/CRE), `panel_fgls()`, `interactive_fe()` (Bai 2009)
+- `panel_unitroot()` (IPS/LLC/Fisher/Hadri), `mixed()` (multilevel/HLM)
+
+New Survival: `cox()`, `kaplan_meier()`, `survreg()`, `logrank_test()`
+
+New Time Series: `var()`, `granger_causality()`, `irf()`, `structural_break()`, `cusum_test()`, `engle_granger()`, `johansen()`
+
+New Causal: `continuous_did()`, `rdmc()`, `rdms()` (geographic RD), `distributional_te()`, `mendelian_randomization()`
+
+New Design & Data: `randomize()`, `balance_check()`, `attrition_test()`, `optimal_design()`, `mice()`, `mi_estimate()`
+
+New Structural: `blp()` (BLP demand estimation), `frontier()` (stochastic frontier)
+
+Smart Workflow Engine (unique to StatsPAI):
+
+- `recommend()` — data + question → estimator recommendation + workflow
+- `compare_estimators()` — multi-method comparison with agreement diagnostics
+- `assumption_audit()` — one-call assumption testing with remedies
+- `sensitivity_dashboard()` — multi-dimensional sensitivity analysis
+- `pub_ready()` — journal-specific publication readiness checklist
+- `replicate()` — built-in famous datasets with replication guides
+
+Plot Editor: Font presets redesigned to show actual font names; separate font and size presets for independent per-element control.
+
+### v0.5.1 (2026-04-04) — Interactive Plot Editor & Agent Enhancements
 
 ### v0.4.0 (2026-04-05) — Module Architecture Overhaul
 
@@ -468,7 +615,7 @@ pytest
   author={Wang, Bryce},
   year={2025},
   url={https://github.com/brycewang-stanford/statspai},
-  version={0.4.0}
+  version={0.6.0}
 }
 ```
 
