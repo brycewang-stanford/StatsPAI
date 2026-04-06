@@ -150,6 +150,16 @@ from .qte import distributional_te, DTEResult
 # Structural Estimation (BLP)
 from .structural import blp, BLPResult
 
+# === Smart Workflow Engine (unique to StatsPAI) ===
+from .smart import (
+    recommend, RecommendationResult,
+    compare_estimators, ComparisonResult,
+    assumption_audit, AssumptionResult,
+    sensitivity_dashboard, SensitivityDashboard,
+    pub_ready, PubReadyResult,
+    replicate, list_replications,
+)
+
 # === NEW v0.6 Round 3 ===
 # Truncated Regression
 from .regression.truncreg import truncreg
@@ -548,6 +558,13 @@ __all__ = [
     "distributional_te", "DTEResult",
     # Structural Estimation
     "blp", "BLPResult",
+    # === Smart Workflow Engine (unique to StatsPAI) ===
+    "recommend", "RecommendationResult",
+    "compare_estimators", "ComparisonResult",
+    "assumption_audit", "AssumptionResult",
+    "sensitivity_dashboard", "SensitivityDashboard",
+    "pub_ready", "PubReadyResult",
+    "replicate", "list_replications",
     # === v0.6 Round 3 ===
     "truncreg",
     "sureg", "SURResult", "three_sls",
