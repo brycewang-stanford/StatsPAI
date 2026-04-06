@@ -101,7 +101,7 @@ def _get_chinese_sans() -> List[str]:
 
 
 FONT_PRESETS = {
-    # --- Serif fonts (journals) ---
+    # --- Serif fonts ---
     'Times New Roman': {
         'family': 'serif',
         'fonts': ['Times New Roman', 'DejaVu Serif'],
@@ -145,13 +145,6 @@ FONT_PRESETS = {
         'title_size': 11, 'label_size': 10, 'tick_size': 9,
         'venue': 'Office / PowerPoint',
     },
-    # --- Slides / Presentation ---
-    'Helvetica (Slides)': {
-        'family': 'sans-serif',
-        'fonts': ['Helvetica', 'Arial', 'DejaVu Sans'],
-        'title_size': 16, 'label_size': 14, 'tick_size': 12,
-        'venue': 'Beamer / Keynote / Slides',
-    },
     # --- Chinese fonts (auto-detect) ---
     'SimSun / 宋体': {
         'family': 'serif',
@@ -162,8 +155,37 @@ FONT_PRESETS = {
     'SimHei / 黑体': {
         'family': 'sans-serif',
         'fonts': None,  # filled at runtime by _get_chinese_sans()
-        'title_size': 16, 'label_size': 13, 'tick_size': 11,
+        'title_size': 12, 'label_size': 10.5, 'tick_size': 9,
         'venue': '中文 PPT / 幻灯片',
+    },
+}
+
+# Size presets — independent of font choice.
+# Users pick a font, then pick a size context.
+SIZE_PRESETS = {
+    'Journal (compact)': {
+        'title_size': 9, 'label_size': 8, 'tick_size': 7,
+        'desc': 'Nature / Science / small figures',
+    },
+    'Journal (standard)': {
+        'title_size': 11, 'label_size': 10, 'tick_size': 9,
+        'desc': 'AER / Econometrica / most journals',
+    },
+    'Journal (large)': {
+        'title_size': 12, 'label_size': 12, 'tick_size': 11,
+        'desc': 'APA / full-page figures',
+    },
+    'Thesis': {
+        'title_size': 12, 'label_size': 10.5, 'tick_size': 9,
+        'desc': '学位论文 / Dissertation',
+    },
+    'Slides': {
+        'title_size': 16, 'label_size': 14, 'tick_size': 12,
+        'desc': 'Beamer / Keynote / PowerPoint',
+    },
+    'Poster': {
+        'title_size': 20, 'label_size': 16, 'tick_size': 14,
+        'desc': 'Conference poster',
     },
 }
 
@@ -802,7 +824,7 @@ class FigureEditor:
             label.set_fontfamily(family)
             label.set_fontname(primary_font)
 
-        # Apply sizes
+        # Apply sizes from the preset as well (font + size in one go)
         self.set_fontsize('title', preset['title_size'], ax_index)
         self.set_fontsize('xlabel', preset['label_size'], ax_index)
         self.set_fontsize('ylabel', preset['label_size'], ax_index)
@@ -816,6 +838,34 @@ class FigureEditor:
         )
         self.edits.append(EditRecord(
             f'{prefix}.font_preset', 'preset', None, preset_name, code))
+        self._refresh()
+
+    def apply_size_preset(self, preset_name: str, ax_index: int = 0):
+        """
+        Apply a size-only preset (does NOT change font family/name).
+
+        This lets users pick font and size independently:
+        ``editor.set_font('serif', 'Palatino')`` then
+        ``editor.apply_size_preset('Slides')``.
+
+        Parameters
+        ----------
+        preset_name : str
+            One of the keys from SIZE_PRESETS.
+        ax_index : int
+            Which axis to apply to.
+        """
+        if preset_name not in SIZE_PRESETS:
+            available = ', '.join(SIZE_PRESETS.keys())
+            raise ValueError(
+                f"Unknown size preset '{preset_name}'. "
+                f"Available: {available}")
+
+        sp = SIZE_PRESETS[preset_name]
+        self.set_fontsize('title', sp['title_size'], ax_index)
+        self.set_fontsize('xlabel', sp['label_size'], ax_index)
+        self.set_fontsize('ylabel', sp['label_size'], ax_index)
+        self.set_fontsize('ticks', sp['tick_size'], ax_index)
         self._refresh()
 
     def set_color(self, target: str, color: str, ax_index: int = 0):
@@ -1643,6 +1693,16 @@ class FigureEditor:
                 }
                 for name, preset in FONT_PRESETS.items()
             ],
+            'size_presets': [
+                {
+                    'name': name,
+                    'desc': sp.get('desc', ''),
+                    'title_size': sp['title_size'],
+                    'label_size': sp['label_size'],
+                    'tick_size': sp['tick_size'],
+                }
+                for name, sp in SIZE_PRESETS.items()
+            ],
             'themes': list_themes(),
             'protect_data': self.protect_data,
         }
@@ -1698,6 +1758,8 @@ class FigureEditor:
             'set_spine_visible': lambda a: self.set_spine_visible(
                 a['spine'], a['visible'], ax_index=a.get('ax_index', 0)),
             'apply_font_preset': lambda a: self.apply_font_preset(
+                a['preset'], ax_index=a.get('ax_index', 0)),
+            'apply_size_preset': lambda a: self.apply_size_preset(
                 a['preset'], ax_index=a.get('ax_index', 0)),
             'apply_theme': lambda a: self.apply_theme(a['theme']),
             'set_legend_visible': lambda a: self.set_legend_visible(

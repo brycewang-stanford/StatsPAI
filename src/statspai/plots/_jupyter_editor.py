@@ -314,19 +314,19 @@ def create_jupyter_panel(editor: FigureEditor):
     tick_size.observe(_on_tick_size, names='value')
 
     # ---- Font controls ----
-    from .interactive import FONT_PRESETS, _resolve_preset_fonts, get_font_choices
+    from .interactive import FONT_PRESETS, SIZE_PRESETS, _resolve_preset_fonts, get_font_choices
 
-    # Font preset dropdown — show actual font names
-    preset_options = [('-- Custom --', '')]
+    # --- Font preset dropdown (font family/name only) ---
+    font_preset_options = [('-- Choose font --', '')]
     for name, preset in FONT_PRESETS.items():
         fonts = _resolve_preset_fonts(preset)
         primary = fonts[0] if fonts else '?'
         venue = preset.get('venue', '')
         label = f"{primary}  ({venue})" if venue else primary
-        preset_options.append((label, name))
+        font_preset_options.append((label, name))
     font_preset = widgets.Dropdown(
-        options=preset_options, value='',
-        description='Preset:',
+        options=font_preset_options, value='',
+        description='Font:',
         layout=widgets.Layout(width='95%'),
     )
     font_preset_info = widgets.HTML('')
@@ -340,15 +340,11 @@ def create_jupyter_panel(editor: FigureEditor):
             preset = FONT_PRESETS[name]
             fonts = _resolve_preset_fonts(preset)
             primary = fonts[0] if fonts else '?'
-            venue = preset.get('venue', '')
             font_preset_info.value = (
                 f'<span style="color:#2ECC71; font-size:11px">'
-                f'Applied: {primary}, '
-                f'title {preset["title_size"]}pt, '
-                f'label {preset["label_size"]}pt'
-                f'{" — " + venue if venue else ""}</span>'
+                f'Applied: {primary}</span>'
             )
-            # Sync size sliders
+            # Sync size sliders from font preset defaults
             title_size.value = preset['title_size']
             xlabel_size.value = preset['label_size']
             ylabel_size.value = preset['label_size']
@@ -360,6 +356,34 @@ def create_jupyter_panel(editor: FigureEditor):
             )
 
     font_preset.observe(_on_font_preset, names='value')
+
+    # --- Size preset dropdown (sizes only, independent of font) ---
+    size_preset_options = [('-- Choose size --', '')]
+    for name, sp_info in SIZE_PRESETS.items():
+        desc = sp_info.get('desc', '')
+        label = f"{name}  (title {sp_info['title_size']}, label {sp_info['label_size']}, tick {sp_info['tick_size']})"
+        size_preset_options.append((label, name))
+    size_preset = widgets.Dropdown(
+        options=size_preset_options, value='',
+        description='Sizes:',
+        layout=widgets.Layout(width='95%'),
+    )
+
+    def _on_size_preset(change):
+        name = change['new']
+        if not name:
+            return
+        try:
+            editor.apply_size_preset(name, ax_index=_get_ax_idx())
+            sp_info = SIZE_PRESETS[name]
+            title_size.value = sp_info['title_size']
+            xlabel_size.value = sp_info['label_size']
+            ylabel_size.value = sp_info['label_size']
+            tick_size.value = sp_info['tick_size']
+        except Exception:
+            pass
+
+    size_preset.observe(_on_size_preset, names='value')
 
     # Font family dropdown
     font_family = widgets.Dropdown(
@@ -413,15 +437,15 @@ def create_jupyter_panel(editor: FigureEditor):
         tick_size,
         widgets.HTML('<hr style="margin:4px 0">'),
         widgets.HTML('<b>Font</b>'),
-        widgets.HTML(
-            '<span style="font-size:11px; color:#666">'
-            'Quick preset (journal/thesis standard):</span>'
-        ),
         font_preset,
         font_preset_info,
+        widgets.HTML('<hr style="margin:2px 0">'),
+        widgets.HTML('<b>Size Preset</b>'),
+        size_preset,
+        widgets.HTML('<hr style="margin:4px 0">'),
         widgets.HTML(
             '<span style="font-size:11px; color:#666">'
-            'Or choose manually:</span>'
+            'Or choose font manually:</span>'
         ),
         font_family,
         font_name,
