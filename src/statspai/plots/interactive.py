@@ -101,59 +101,84 @@ def _get_chinese_sans() -> List[str]:
 
 
 FONT_PRESETS = {
-    # --- English journals ---
-    'AER / Econometrica': {
+    # --- Serif fonts (journals) ---
+    'Times New Roman': {
         'family': 'serif',
         'fonts': ['Times New Roman', 'DejaVu Serif'],
         'title_size': 11, 'label_size': 10, 'tick_size': 9,
+        'venue': 'AER / Econometrica / APA / IEEE',
     },
-    'APA (7th ed.)': {
+    'Palatino': {
         'family': 'serif',
-        'fonts': ['Times New Roman', 'DejaVu Serif'],
-        'title_size': 12, 'label_size': 12, 'tick_size': 11,
+        'fonts': ['Palatino', 'Palatino Linotype', 'DejaVu Serif'],
+        'title_size': 11, 'label_size': 10, 'tick_size': 9,
+        'venue': 'Econometrica / Book typesetting',
     },
-    'Nature / Science': {
+    'Charter': {
+        'family': 'serif',
+        'fonts': ['Charter', 'XCharter', 'DejaVu Serif'],
+        'title_size': 11, 'label_size': 10, 'tick_size': 9,
+        'venue': 'R default / Academic papers',
+    },
+    'Computer Modern': {
+        'family': 'serif',
+        'fonts': ['CMU Serif', 'Computer Modern', 'Latin Modern Roman', 'DejaVu Serif'],
+        'title_size': 11, 'label_size': 10, 'tick_size': 9,
+        'venue': 'LaTeX / Beamer default',
+    },
+    # --- Sans-serif fonts ---
+    'Helvetica': {
         'family': 'sans-serif',
         'fonts': ['Helvetica', 'Arial', 'DejaVu Sans'],
-        'title_size': 9, 'label_size': 8, 'tick_size': 7,
-    },
-    'IEEE': {
-        'family': 'serif',
-        'fonts': ['Times New Roman', 'DejaVu Serif'],
         'title_size': 10, 'label_size': 9, 'tick_size': 8,
+        'venue': 'Nature / Science / Elsevier / Springer',
     },
-    'Elsevier': {
+    'Arial': {
         'family': 'sans-serif',
-        'fonts': ['Helvetica', 'Arial', 'DejaVu Sans'],
+        'fonts': ['Arial', 'Helvetica', 'DejaVu Sans'],
         'title_size': 10, 'label_size': 9, 'tick_size': 8,
+        'venue': 'General / Office documents',
     },
-    'Springer': {
+    'Calibri': {
         'family': 'sans-serif',
-        'fonts': ['Helvetica', 'Arial', 'DejaVu Sans'],
-        'title_size': 10, 'label_size': 9, 'tick_size': 8,
+        'fonts': ['Calibri', 'Arial', 'DejaVu Sans'],
+        'title_size': 11, 'label_size': 10, 'tick_size': 9,
+        'venue': 'Office / PowerPoint',
     },
-    # --- Chinese academic (auto-detect best available font) ---
-    'CJK Thesis': {
-        'family': 'serif',
-        'fonts': None,  # filled at runtime by _get_chinese_serif()
-        'title_size': 12, 'label_size': 10.5, 'tick_size': 9,
-    },
-    'CJK Journal': {
-        'family': 'serif',
-        'fonts': None,  # filled at runtime
-        'title_size': 12, 'label_size': 10.5, 'tick_size': 9,
-    },
-    'CJK Slide': {
-        'family': 'sans-serif',
-        'fonts': None,  # filled at runtime by _get_chinese_sans()
-        'title_size': 16, 'label_size': 13, 'tick_size': 11,
-    },
-    # --- Presentation ---
-    'Beamer / Slides': {
+    # --- Slides / Presentation ---
+    'Helvetica (Slides)': {
         'family': 'sans-serif',
         'fonts': ['Helvetica', 'Arial', 'DejaVu Sans'],
         'title_size': 16, 'label_size': 14, 'tick_size': 12,
+        'venue': 'Beamer / Keynote / Slides',
     },
+    # --- Chinese fonts (auto-detect) ---
+    'SimSun / 宋体': {
+        'family': 'serif',
+        'fonts': None,  # filled at runtime by _get_chinese_serif()
+        'title_size': 12, 'label_size': 10.5, 'tick_size': 9,
+        'venue': '中文论文 / 学位论文',
+    },
+    'SimHei / 黑体': {
+        'family': 'sans-serif',
+        'fonts': None,  # filled at runtime by _get_chinese_sans()
+        'title_size': 16, 'label_size': 13, 'tick_size': 11,
+        'venue': '中文 PPT / 幻灯片',
+    },
+}
+
+# Backward compatibility aliases (old keys → new keys)
+_PRESET_ALIASES = {
+    'AER / Econometrica': 'Times New Roman',
+    'APA (7th ed.)': 'Times New Roman',
+    'Nature / Science': 'Helvetica',
+    'IEEE': 'Times New Roman',
+    'Elsevier': 'Helvetica',
+    'Springer': 'Helvetica',
+    'CJK Thesis': 'SimSun / 宋体',
+    'CJK Journal': 'SimSun / 宋体',
+    'CJK Slide': 'SimHei / 黑体',
+    'Beamer / Slides': 'Helvetica (Slides)',
 }
 
 
@@ -739,6 +764,10 @@ class FigureEditor:
         ax_index : int
             Which axis to apply to.
         """
+        # Support backward-compatible aliases
+        if preset_name not in FONT_PRESETS and preset_name in _PRESET_ALIASES:
+            preset_name = _PRESET_ALIASES[preset_name]
+
         if preset_name not in FONT_PRESETS:
             available = ', '.join(FONT_PRESETS.keys())
             raise ValueError(
@@ -1212,8 +1241,9 @@ class FigureEditor:
                 set_theme(val)
             # --- Font preset ---
             elif 'font_preset' in td and prop == 'preset':
-                if val in FONT_PRESETS:
-                    self.apply_font_preset(val, ax_idx)
+                resolved = _PRESET_ALIASES.get(val, val)
+                if resolved in FONT_PRESETS:
+                    self.apply_font_preset(resolved, ax_idx)
             elif 'font' in td and prop == 'family':
                 import matplotlib as mpl
                 mpl.rcParams['font.family'] = val
@@ -1601,7 +1631,18 @@ class FigureEditor:
                 'dpi': int(self.fig.dpi),
                 'facecolor': self.fig.get_facecolor(),
             },
-            'font_presets': list(FONT_PRESETS.keys()),
+            'font_presets': [
+                {
+                    'name': name,
+                    'font': _resolve_preset_fonts(preset)[0],
+                    'family': preset['family'],
+                    'venue': preset.get('venue', ''),
+                    'title_size': preset['title_size'],
+                    'label_size': preset['label_size'],
+                    'tick_size': preset['tick_size'],
+                }
+                for name, preset in FONT_PRESETS.items()
+            ],
             'themes': list_themes(),
             'protect_data': self.protect_data,
         }

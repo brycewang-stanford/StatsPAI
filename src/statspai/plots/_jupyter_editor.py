@@ -314,12 +314,16 @@ def create_jupyter_panel(editor: FigureEditor):
     tick_size.observe(_on_tick_size, names='value')
 
     # ---- Font controls ----
-    from .interactive import FONT_PRESETS, get_font_choices
+    from .interactive import FONT_PRESETS, _resolve_preset_fonts, get_font_choices
 
-    # Font preset dropdown (journal/thesis standards)
-    preset_options = [('-- Custom --', '')] + [
-        (name, name) for name in FONT_PRESETS.keys()
-    ]
+    # Font preset dropdown — show actual font names
+    preset_options = [('-- Custom --', '')]
+    for name, preset in FONT_PRESETS.items():
+        fonts = _resolve_preset_fonts(preset)
+        primary = fonts[0] if fonts else '?'
+        venue = preset.get('venue', '')
+        label = f"{primary}  ({venue})" if venue else primary
+        preset_options.append((label, name))
     font_preset = widgets.Dropdown(
         options=preset_options, value='',
         description='Preset:',
@@ -334,11 +338,15 @@ def create_jupyter_panel(editor: FigureEditor):
         try:
             editor.apply_font_preset(name, ax_index=_get_ax_idx())
             preset = FONT_PRESETS[name]
+            fonts = _resolve_preset_fonts(preset)
+            primary = fonts[0] if fonts else '?'
+            venue = preset.get('venue', '')
             font_preset_info.value = (
                 f'<span style="color:#2ECC71; font-size:11px">'
-                f'{name}: {preset["fonts"][0]}, '
+                f'Applied: {primary}, '
                 f'title {preset["title_size"]}pt, '
-                f'label {preset["label_size"]}pt</span>'
+                f'label {preset["label_size"]}pt'
+                f'{" — " + venue if venue else ""}</span>'
             )
             # Sync size sliders
             title_size.value = preset['title_size']
