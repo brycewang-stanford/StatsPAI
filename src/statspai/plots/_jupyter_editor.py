@@ -291,7 +291,7 @@ def create_jupyter_panel(editor: FigureEditor):
         ylim_range.step = yr / 50
         ylim_range.value = [yl[0], yl[1]]
         # Rebuild style tab content (only if already loaded)
-        if _tab_loaded.get(1, False):
+        if _tab_loaded.get(2, False):
             _rebuild_style_widgets()
 
     ax_selector.observe(_on_ax_change, names='value')
@@ -1296,7 +1296,7 @@ def create_jupyter_panel(editor: FigureEditor):
             children[idx] = _real_tabs[idx]
             tabs.children = children
             # Build style widgets on first visit
-            if idx == 1:
+            if idx == 2:
                 _rebuild_style_widgets()
 
     tabs.observe(_on_tab_switch, names='selected_index')
