@@ -1270,25 +1270,24 @@ def create_jupyter_panel(editor: FigureEditor):
             '<div style="padding:20px; color:#999; text-align:center">'
             'Loading...</div>')]),
     }
-    _tab_loaded = {0: True, 1: False, 2: False, 3: False, 4: False}
+    _tab_loaded = {0: True, 1: True, 2: False, 3: False, 4: False}
     _real_tabs = {
-        1: style_container,
-        2: layout_tab,
-        3: theme_tab,
+        2: style_container,
+        3: layout_tab,
         4: code_tab,
     }
 
     tabs = widgets.Tab(children=[
+        theme_tab,
         text_tab,
-        _lazy_placeholders[1],
         _lazy_placeholders[2],
         _lazy_placeholders[3],
         _lazy_placeholders[4],
     ])
-    tabs.set_title(0, 'Text')
-    tabs.set_title(1, 'Style')
-    tabs.set_title(2, 'Layout')
-    tabs.set_title(3, 'Theme')
+    tabs.set_title(0, 'Theme')
+    tabs.set_title(1, 'Text')
+    tabs.set_title(2, 'Style')
+    tabs.set_title(3, 'Layout')
     tabs.set_title(4, 'Export')
 
     def _on_tab_switch(change):
