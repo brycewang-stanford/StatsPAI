@@ -31,6 +31,22 @@ _MARKERS = [
 ]
 
 
+def _code_to_html(code: str) -> str:
+    """Render code as a selectable <pre> block that supports native copy."""
+    import html as _html
+    escaped = _html.escape(code)
+    return (
+        '<pre style="'
+        'background:#f8f8f8; border:1px solid #ddd; border-radius:4px; '
+        'padding:10px; font-family:Menlo,Monaco,Consolas,monospace; '
+        'font-size:12px; line-height:1.5; white-space:pre-wrap; '
+        'word-wrap:break-word; overflow-x:auto; max-height:300px; '
+        'overflow-y:auto; user-select:text; cursor:text; '
+        'margin:0;'
+        f'">{escaped}</pre>'
+    )
+
+
 def create_jupyter_panel(editor: FigureEditor):
     """
     Build and display an ipywidgets control panel for the editor.
@@ -1105,15 +1121,9 @@ def create_jupyter_panel(editor: FigureEditor):
     # ==================================================================
     # Tab 5: Export & Code
     # ==================================================================
-    code_output = widgets.Textarea(
-        value='# Make edits, then click "Generate Code"',
-        layout=widgets.Layout(width='95%', height='250px'),
-        disabled=True,
-    )
-    generate_btn = widgets.Button(
-        description='Generate Code',
-        button_style='primary',
-        icon='code',
+    code_output = widgets.HTML(
+        value=_code_to_html('# No edits made'),
+        layout=widgets.Layout(width='95%'),
     )
     undo_btn = widgets.Button(
         description='Undo',
@@ -1148,14 +1158,6 @@ def create_jupyter_panel(editor: FigureEditor):
 
     edit_summary = widgets.HTML('')
 
-    def _on_generate(btn):
-        code = editor.generate_code()
-        code_output.value = code
-        edit_summary.value = (
-            f'<span style="color:#2ECC71">'
-            f'{len(editor.edits)} edit(s) recorded</span>'
-        )
-
     def _on_undo(btn):
         editor.undo()
         _live_refresh(fig)  # force preview update
@@ -1170,6 +1172,7 @@ def create_jupyter_panel(editor: FigureEditor):
         edit_summary.value = (
             '<span style="color:#E74C3C">Reset to original</span>'
         )
+        code_output.value = _code_to_html('# No edits made')
         # Refresh widget values
         ax = _get_ax()
         title_text.value = ax.get_title()
@@ -1185,40 +1188,9 @@ def create_jupyter_panel(editor: FigureEditor):
             f'Saved to {fname} ({dpi} DPI)</span>'
         )
 
-    generate_btn.on_click(_on_generate)
     undo_btn.on_click(_on_undo)
     reset_btn.on_click(_on_reset)
     save_btn.on_click(_on_save)
-
-    # Copy to clipboard button (uses JavaScript in Jupyter)
-    copy_btn = widgets.Button(
-        description='Copy Code',
-        button_style='info',
-        icon='clipboard',
-    )
-    copy_status = widgets.HTML('')
-
-    def _on_copy(btn):
-        code = editor.generate_code()
-        # Use IPython/JS to copy to clipboard
-        try:
-            from IPython.display import Javascript, display as _disp
-            escaped = code.replace('\\', '\\\\').replace('`', '\\`')
-            _disp(Javascript(
-                f'navigator.clipboard.writeText(`{escaped}`)'
-                f'.then(() => {{}});'
-            ))
-            copy_status.value = (
-                '<span style="color:#2ECC71; font-size:11px">'
-                'Copied to clipboard!</span>'
-            )
-        except Exception:
-            copy_status.value = (
-                '<span style="color:#F39C12; font-size:11px">'
-                'Copy not available — use Generate Code above</span>'
-            )
-
-    copy_btn.on_click(_on_copy)
 
     code_tab = widgets.VBox([
         widgets.HTML('<b>Export & Code</b>'),
@@ -1226,22 +1198,22 @@ def create_jupyter_panel(editor: FigureEditor):
         save_dpi, save_dpi_hint,
         widgets.HTML('<hr style="margin:4px 0">'),
         widgets.HTML('<b>Reproducible Code</b>'),
-        widgets.HBox([generate_btn, undo_btn, reset_btn]),
-        widgets.HBox([copy_btn, copy_status]),
+        widgets.HTML(
+            '<span style="font-size:11px; color:#888">'
+            'Code updates automatically as you edit. '
+            'Select text below to copy.</span>'
+        ),
         edit_summary,
         code_output,
-        widgets.HTML(
-            '<span style="font-size:11px; color:#666">'
-            'Paste this code after your plot command to reproduce '
-            'all edits.</span>'
-        ),
+        widgets.HBox([undo_btn, reset_btn]),
     ])
 
     # ---- Live code auto-update ----
     def _live_code_update(figure):
-        """Auto-update the code textarea on every edit."""
+        """Auto-update the code display on every edit."""
         try:
-            code_output.value = editor.generate_code()
+            code = editor.generate_code()
+            code_output.value = _code_to_html(code)
             edit_summary.value = (
                 f'<span style="color:#2ECC71">'
                 f'{len(editor.edits)} edit(s) — code updated</span>'
