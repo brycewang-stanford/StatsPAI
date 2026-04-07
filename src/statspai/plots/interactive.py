@@ -1176,10 +1176,86 @@ class FigureEditor:
         self._refresh()
 
     def apply_theme(self, theme_name: str):
-        """Apply a theme (StatsPAI, matplotlib, or seaborn) and record it."""
+        """Apply a theme (StatsPAI, matplotlib, or seaborn) to the live figure.
+
+        Unlike ``set_theme()`` alone (which only sets global rcParams for
+        *future* plots), this method walks through existing figure artists
+        and retroactively applies the new theme settings so the current
+        figure visually updates immediately.
+        """
+        import matplotlib as mpl
         from .themes import set_theme
-        set_theme(theme_name)  # handles all three sources
-        self.fig.canvas.draw_idle()
+
+        set_theme(theme_name)  # update global rcParams
+        rc = mpl.rcParams
+
+        # --- Apply rcParams to existing figure artists ---
+        fig = self.fig
+
+        # Figure-level
+        fig.set_facecolor(rc['figure.facecolor'])
+
+        for ax in fig.get_axes():
+            # Axes background
+            ax.set_facecolor(rc['axes.facecolor'])
+
+            # Spines
+            for spine_name, spine in ax.spines.items():
+                visible_key = f'axes.spines.{spine_name}'
+                if visible_key in rc:
+                    spine.set_visible(rc[visible_key])
+                spine.set_linewidth(rc.get('axes.linewidth', 0.8))
+                if 'axes.edgecolor' in rc:
+                    spine.set_edgecolor(rc['axes.edgecolor'])
+
+            # Grid
+            ax.grid(rc.get('axes.grid', False),
+                    color=rc.get('grid.color', '#b0b0b0'),
+                    linewidth=rc.get('grid.linewidth', 0.8),
+                    alpha=rc.get('grid.alpha', 1.0))
+
+            # Title and labels — update font properties
+            ax.title.set_fontsize(rc.get('axes.titlesize', 12))
+            ax.xaxis.label.set_fontsize(rc.get('axes.labelsize', 11))
+            ax.yaxis.label.set_fontsize(rc.get('axes.labelsize', 11))
+
+            for lbl in ax.get_xticklabels():
+                lbl.set_fontsize(rc.get('xtick.labelsize', 10))
+            for lbl in ax.get_yticklabels():
+                lbl.set_fontsize(rc.get('ytick.labelsize', 10))
+
+            # Tick direction
+            ax.tick_params(axis='x',
+                           direction=rc.get('xtick.direction', 'out'))
+            ax.tick_params(axis='y',
+                           direction=rc.get('ytick.direction', 'out'))
+
+            # Legend
+            leg = ax.get_legend()
+            if leg:
+                leg.set_frame_on(rc.get('legend.frameon', True))
+                for txt in leg.get_texts():
+                    txt.set_fontsize(rc.get('legend.fontsize', 9))
+
+            # Lines — update width
+            for line in ax.get_lines():
+                line.set_linewidth(rc.get('lines.linewidth', 1.5))
+
+            # Color cycle for existing line/collection colors
+            prop_cycle = rc.get('axes.prop_cycle')
+            if prop_cycle is not None:
+                colors = [p.get('color', None) for p in prop_cycle]
+                colors = [c for c in colors if c is not None]
+                if colors:
+                    for i, line in enumerate(ax.get_lines()):
+                        line.set_color(colors[i % len(colors)])
+
+            # Font family
+            font_family = rc.get('font.family', 'sans-serif')
+            for txt_obj in [ax.title, ax.xaxis.label, ax.yaxis.label]:
+                txt_obj.set_fontfamily(font_family)
+
+        self._refresh()
         self.edits.append(EditRecord(
             'theme', 'name', None, theme_name,
             f"sp.set_theme({theme_name!r})"))

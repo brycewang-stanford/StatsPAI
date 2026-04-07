@@ -165,5 +165,6 @@ Thumbs.db
 Start Superpower for R.md
 
 test-notebooks/
+!test-notebooks/demo_causal_inference.ipynb
 StatsPAI/statspai-推文-agent时代的统计包生态.md
 社媒文档/
