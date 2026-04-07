@@ -485,15 +485,19 @@ def create_jupyter_panel(editor: FigureEditor):
         title_color = widgets.ColorPicker(
             value=_to_hex(ax.title.get_color()),
             description='Title color:',
-            layout=widgets.Layout(width='95%'),
+            layout=widgets.Layout(width='55%'),
         )
+        title_color_status = widgets.HTML('')
 
         def _on_tc(change):
             editor.set_color('title', change['new'],
                              ax_index=ax_idx)
+            title_color_status.value = (
+                '<span style="color:#2ECC71; font-size:11px">'
+                '\u2714 Applied</span>')
 
         title_color.observe(_on_tc, names='value')
-        children.append(title_color)
+        children.append(widgets.HBox([title_color, title_color_status]))
 
         # Line controls
         lines = ax.get_lines()
@@ -512,17 +516,21 @@ def create_jupyter_panel(editor: FigureEditor):
             cp = widgets.ColorPicker(
                 value=_to_hex(line.get_color()),
                 description='Color:',
-                layout=widgets.Layout(width='95%'),
+                layout=widgets.Layout(width='55%'),
             )
+            cp_status = widgets.HTML('')
 
-            def _make_color_cb(idx):
+            def _make_color_cb(idx, status_widget):
                 def _cb(change):
                     editor.set_color(f'line{idx}', change['new'],
                                      ax_index=ax_idx)
+                    status_widget.value = (
+                        '<span style="color:#2ECC71; font-size:11px">'
+                        '\u2714 Applied</span>')
                 return _cb
 
-            cp.observe(_make_color_cb(i), names='value')
-            children.append(cp)
+            cp.observe(_make_color_cb(i, cp_status), names='value')
+            children.append(widgets.HBox([cp, cp_status]))
 
             # Linewidth
             lw = widgets.FloatSlider(
@@ -624,17 +632,21 @@ def create_jupyter_panel(editor: FigureEditor):
                 hex_color = _to_hex(fc[0] if len(fc) > 0 else 'black')
                 sc_cp = widgets.ColorPicker(
                     value=hex_color, description='Color:',
-                    layout=widgets.Layout(width='95%'),
+                    layout=widgets.Layout(width='55%'),
                 )
+                sc_cp_status = widgets.HTML('')
 
-                def _make_sc_cb(idx):
+                def _make_sc_cb(idx, status_widget):
                     def _cb(change):
                         editor.set_scatter_color(
                             idx, change['new'], ax_index=ax_idx)
+                        status_widget.value = (
+                            '<span style="color:#2ECC71; font-size:11px">'
+                            '\u2714 Applied</span>')
                     return _cb
 
-                sc_cp.observe(_make_sc_cb(i), names='value')
-                children.append(sc_cp)
+                sc_cp.observe(_make_sc_cb(i, sc_cp_status), names='value')
+                children.append(widgets.HBox([sc_cp, sc_cp_status]))
 
             # Alpha for CI/fills
             coll_alpha = coll.get_alpha()
@@ -688,8 +700,9 @@ def create_jupyter_panel(editor: FigureEditor):
     )
     grid_color = widgets.ColorPicker(
         value='#cccccc', description='Grid color:',
-        layout=widgets.Layout(width='95%'),
+        layout=widgets.Layout(width='55%'),
     )
+    grid_color_status = widgets.HTML('')
     grid_alpha = widgets.FloatSlider(
         value=0.7, min=0, max=1, step=0.05,
         description='Grid alpha:',
@@ -706,7 +719,8 @@ def create_jupyter_panel(editor: FigureEditor):
     )
     # Hide grid style controls initially
     grid_style_box = widgets.VBox(
-        [grid_color, grid_alpha, grid_linestyle],
+        [widgets.HBox([grid_color, grid_color_status]),
+         grid_alpha, grid_linestyle],
         layout=widgets.Layout(display='none'),
     )
 
@@ -798,13 +812,15 @@ def create_jupyter_panel(editor: FigureEditor):
     fig_bg_color = widgets.ColorPicker(
         value=_to_hex(fig.get_facecolor()),
         description='Fig bg:',
-        layout=widgets.Layout(width='95%'),
+        layout=widgets.Layout(width='55%'),
     )
+    fig_bg_status = widgets.HTML('')
     ax_bg_color = widgets.ColorPicker(
         value=_to_hex(axes[0].get_facecolor()),
         description='Axes bg:',
-        layout=widgets.Layout(width='95%'),
+        layout=widgets.Layout(width='55%'),
     )
+    ax_bg_status = widgets.HTML('')
 
     # ---- Tight layout & annotation ----
     tight_btn = widgets.Button(
@@ -895,6 +911,9 @@ def create_jupyter_panel(editor: FigureEditor):
         if grid_toggle.value:
             editor.set_grid_style(color=change['new'],
                                   ax_index=_get_ax_idx())
+            grid_color_status.value = (
+                '<span style="color:#2ECC71; font-size:11px">'
+                '\u2714 Applied</span>')
 
     def _on_grid_alpha(change):
         if grid_toggle.value:
@@ -969,10 +988,16 @@ def create_jupyter_panel(editor: FigureEditor):
 
     def _on_fig_bg(change):
         editor.set_background_color(change['new'], target='figure')
+        fig_bg_status.value = (
+            '<span style="color:#2ECC71; font-size:11px">'
+            '\u2714 Applied</span>')
 
     def _on_ax_bg(change):
         editor.set_background_color(change['new'], target='axes',
                                     ax_index=_get_ax_idx())
+        ax_bg_status.value = (
+            '<span style="color:#2ECC71; font-size:11px">'
+            '\u2714 Applied</span>')
 
     fig_bg_color.observe(_on_fig_bg, names='value')
     ax_bg_color.observe(_on_ax_bg, names='value')
@@ -1039,7 +1064,8 @@ def create_jupyter_panel(editor: FigureEditor):
         fig_dpi, dpi_hint,
         widgets.HTML('<hr style="margin:4px 0">'),
         widgets.HTML('<b>Background</b>'),
-        fig_bg_color, ax_bg_color,
+        widgets.HBox([fig_bg_color, fig_bg_status]),
+        widgets.HBox([ax_bg_color, ax_bg_status]),
         widgets.HTML('<hr style="margin:4px 0">'),
         widgets.HTML('<b>Legend</b>'),
         legend_visible, legend_loc, legend_fontsize,
