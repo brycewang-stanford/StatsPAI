@@ -195,6 +195,7 @@ def create_jupyter_panel(editor: FigureEditor):
         layout=widgets.Layout(
             justify_content='flex-end',
             width='100%',
+            flex='0 0 auto',
         ),
     )
 
@@ -1530,8 +1531,9 @@ def create_jupyter_panel(editor: FigureEditor):
     panel_scrollable = widgets.VBox([
         tabs,
     ], layout=widgets.Layout(
-        flex='1 1 auto',
+        flex='1 1 0px',
         overflow_y='auto',
+        min_height='0px',
     ))
 
     panel = widgets.VBox([
@@ -1546,12 +1548,15 @@ def create_jupyter_panel(editor: FigureEditor):
         panel_scrollable,
         apply_bar,
     ], layout=widgets.Layout(
+        display='flex',
+        flex_flow='column',
         width='400px',
         min_width='360px',
         padding='8px',
         border='1px solid #ddd',
         border_radius='4px',
         max_height='650px',
+        overflow='hidden',
     ))
 
     # ====== Layout: [Live Preview | Controls] ======
