@@ -584,43 +584,56 @@ def causal_next_steps(result) -> List[Step]:
 # ====================================================================== #
 
 def _detect_family(method: str) -> str:
-    """Classify a method string into a family."""
+    """Classify a method string into a family.
+
+    Order matters: more specific patterns are checked before broader ones
+    (e.g. ``sdid`` → synth before ``did`` → did).
+    """
     m = method.lower()
 
+    # --- Synthetic control (check before DID: "sdid" contains "did") ---
+    if any(k in m for k in ("synth", "scm", "sdid", "augsynth",
+                             "causal impact", "structural time")):
+        return "synth"
+
+    # --- DID ---
     if any(k in m for k in ("did", "diff", "callaway", "sun_abraham",
                              "stagger", "imputation", "wooldridge",
                              "chaisemartin", "changes-in-changes",
                              "cic", "stacked")):
         return "did"
 
+    # --- RD ---
     if any(k in m for k in ("rd", "discontinuity", "rdrobust", "kink",
                              "rdit")):
         return "rd"
 
-    if any(k in m for k in ("iv ", "2sls", "instrumental", "bartik",
+    # --- IV (match bare "iv" and "iv ..." via word boundary) ---
+    if any(k in m for k in ("2sls", "instrumental", "bartik",
                              "deepiv", "shift-share")):
         return "iv"
+    import re
+    if re.search(r'\biv\b', m):
+        return "iv"
 
+    # --- Matching / IPW ---
     if any(k in m for k in ("match", "psm", "cem", "mahalanobis",
                              "ipw", "entropy", "aipw", "tmle")):
         return "matching"
 
-    if any(k in m for k in ("synth", "scm", "sdid", "augsynth")):
-        return "synth"
-
+    # --- DML ---
     if any(k in m for k in ("dml", "double", "debiased")):
         return "dml"
 
+    # --- HTE / Meta-learners ---
     if any(k in m for k in ("metalearner", "slearner", "tlearner",
                              "xlearner", "rlearner", "drlearner",
                              "causal forest", "bcf", "cate",
                              "tarnet", "cfrnet", "dragonnet")):
         return "hte"
 
+    # --- Mediation ---
     if any(k in m for k in ("mediat",)):
         return "mediation"
-
-    if any(k in m for k in ("causal impact", "structural time")):
-        return "synth"
 
     return "generic"

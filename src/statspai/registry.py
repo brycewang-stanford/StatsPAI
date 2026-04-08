@@ -55,8 +55,12 @@ class FunctionSpec:
                 "str": "string", "int": "integer", "float": "number",
                 "bool": "boolean", "DataFrame": "string",
                 "ndarray": "string", "list": "array",
+                "EconometricResults": "string",
             }
             prop["type"] = type_map.get(p.type, "string")
+            # JSON schema requires "items" for array types
+            if prop["type"] == "array":
+                prop["items"] = {"type": "string"}
             if p.enum:
                 prop["enum"] = p.enum
             if p.default is not None:
@@ -127,7 +131,7 @@ def _build_registry():
         ],
         returns="EconometricResults",
         example='sp.iv("wage ~ (education ~ parent_edu + distance) + experience", data=df, method="liml")',
-        tags=["iv", "2sls", "liml", "fuller", "gmm", "jive", "instrumental", "endogeneity", "weak-instruments"],
+        tags=["iv", "2sls", "liml", "fuller", "gmm", "jive", "instrumental", "variable", "endogeneity", "weak-instruments"],
         reference="Wooldridge (2010); Stock & Yogo (2005); Fuller (1977); Hansen (1982)",
     ))
 
@@ -142,7 +146,7 @@ def _build_registry():
         ],
         returns="EconometricResults",
         example='sp.ivreg("wage ~ (education ~ parent_edu + distance) + experience", data=df)',
-        tags=["iv", "2sls", "instrumental", "endogeneity"],
+        tags=["iv", "2sls", "instrumental", "variable", "endogeneity"],
     ))
 
     register(FunctionSpec(
@@ -762,23 +766,37 @@ def search_functions(query: str) -> List[Dict[str, str]]:
     """
     Keyword search across function names, descriptions, and tags.
 
-    Returns a list of ``{'name': ..., 'description': ..., 'category': ...}``.
+    All query words must appear (AND logic), but not necessarily as a
+    contiguous substring. This matches "panel data" against a function
+    whose description contains "panel" and "data" separately.
+
+    Returns a list of ``{'name': ..., 'description': ..., 'category': ...}``,
+    sorted by relevance (number of word hits).
 
     >>> sp.search_functions('treatment effect')
     [{'name': 'did', ...}, {'name': 'dml', ...}, ...]
     """
     _build_registry()
-    query_lower = query.lower()
-    results = []
+    words = query.lower().split()
+    if not words:
+        return []
+
+    scored = []
     for spec in _REGISTRY.values():
         text = f"{spec.name} {spec.description} {' '.join(spec.tags)}".lower()
-        if query_lower in text:
-            results.append({
+        # All words must appear
+        if all(w in text for w in words):
+            # Score: count total word occurrences for ranking
+            score = sum(text.count(w) for w in words)
+            scored.append((score, {
                 "name": spec.name,
                 "description": spec.description,
                 "category": spec.category,
-            })
-    return results
+            }))
+
+    # Sort by score descending (most relevant first)
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [item for _, item in scored]
 
 
 def all_schemas() -> List[Dict[str, Any]]:

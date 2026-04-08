@@ -111,7 +111,7 @@ def create_script_editor(editor: FigureEditor):
                 old = target.get_text()
                 target.set_text(text)
                 from .interactive import EditRecord
-                editor.edits.append(EditRecord(
+                editor._record_edit(EditRecord(
                     f'{prefix}.text', 'text', old, text,
                     f"# annotation text changed to {text!r}",
                 ))
@@ -123,8 +123,8 @@ def create_script_editor(editor: FigureEditor):
     textbox.on_submit(_on_submit)
 
     # Generate Code button
-    ax_codebtn = fig.add_axes([0.65, 0.04, 0.15, 0.05])
-    btn_code = Button(ax_codebtn, 'Get Code')
+    ax_codebtn = fig.add_axes([0.62, 0.04, 0.12, 0.05])
+    btn_code = Button(ax_codebtn, 'Code')
 
     def _on_code(event):
         print("\n" + "=" * 50)
@@ -134,14 +134,26 @@ def create_script_editor(editor: FigureEditor):
     btn_code.on_clicked(_on_code)
 
     # Undo button
-    ax_undobtn = fig.add_axes([0.82, 0.04, 0.1, 0.05])
+    ax_undobtn = fig.add_axes([0.75, 0.04, 0.1, 0.05])
     btn_undo = Button(ax_undobtn, 'Undo')
 
     def _on_undo(event):
         editor.undo()
-        print("[StatsPAI] Undone last edit")
+        print(f"[StatsPAI] Undone last edit "
+              f"({len(editor._redo_stack)} redo available)")
 
     btn_undo.on_clicked(_on_undo)
+
+    # Redo button
+    ax_redobtn = fig.add_axes([0.86, 0.04, 0.1, 0.05])
+    btn_redo = Button(ax_redobtn, 'Redo')
+
+    def _on_redo(event):
+        editor.redo()
+        print(f"[StatsPAI] Redone edit "
+              f"({len(editor._redo_stack)} redo remaining)")
+
+    btn_redo.on_clicked(_on_redo)
 
     # Grid toggle button
     ax_gridbtn = fig.add_axes([0.65, 0.10, 0.12, 0.04])
@@ -155,7 +167,7 @@ def create_script_editor(editor: FigureEditor):
     btn_grid.on_clicked(_on_grid)
 
     # Spine toggle
-    ax_spinebtn = fig.add_axes([0.78, 0.10, 0.14, 0.04])
+    ax_spinebtn = fig.add_axes([0.78, 0.10, 0.18, 0.04])
     btn_spine = Button(ax_spinebtn, 'Spines')
     _spine_state = {'minimal': False}
 
@@ -193,6 +205,7 @@ def create_script_editor(editor: FigureEditor):
         'textbox': textbox,
         'btn_code': btn_code,
         'btn_undo': btn_undo,
+        'btn_redo': btn_redo,
         'btn_grid': btn_grid,
         'btn_spine': btn_spine,
     }

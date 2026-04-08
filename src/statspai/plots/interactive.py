@@ -25,10 +25,13 @@ GUI with editing controls.
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from enum import Enum, auto
+
+logger = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------------
@@ -56,7 +59,7 @@ def _detect_chinese_fonts() -> Dict[str, List[str]]:
         # Windows
         'SimSun', 'NSimSun',
         # Linux
-        'Noto Serif CJK SC', 'WenQuanYi Micro Hei',
+        'WenQuanYi Micro Hei',
         # Cross-platform
         'STSong', 'AR PL UMing CN',
     ]
@@ -200,7 +203,7 @@ _PRESET_ALIASES = {
     'CJK Thesis': 'SimSun / 宋体',
     'CJK Journal': 'SimSun / 宋体',
     'CJK Slide': 'SimHei / 黑体',
-    'Beamer / Slides': 'Helvetica (Slides)',
+    'Beamer / Slides': 'Helvetica',
 }
 
 
@@ -276,8 +279,8 @@ def get_font_choices() -> Dict[str, List[str]]:
     return _font_choices_cache
 
 
-# Backward compatibility alias
-FONT_CHOICES = property(lambda self: get_font_choices())  # type: ignore
+# Backward compatibility alias — call get_font_choices() directly
+FONT_CHOICES = get_font_choices
 
 
 class ArtistRole(Enum):
@@ -369,6 +372,7 @@ class FigureEditor:
     artist_roles: Dict[int, ArtistRole] = field(default_factory=dict)
     _original_state: Dict[str, Any] = field(default_factory=dict)
     _on_refresh_callbacks: List = field(default_factory=list)
+    _redo_stack: List[EditRecord] = field(default_factory=list)
 
     def __post_init__(self):
         self._classify_artists()
@@ -462,7 +466,8 @@ class FigureEditor:
         if ls in ('--', ':', '-.'):
             import numpy as np
             y_arr = np.asarray(ydata, dtype=float)
-            if np.ptp(y_arr[np.isfinite(y_arr)]) < 1e-10:
+            finite = y_arr[np.isfinite(y_arr)]
+            if len(finite) > 0 and np.ptp(finite) < 1e-10:
                 return ArtistRole.REFERENCE
 
         # 5. Default: treat as DATA (safe — locks it)
@@ -505,12 +510,24 @@ class FigureEditor:
             state[f'{prefix}.title.text'] = ax.get_title()
             state[f'{prefix}.title.fontsize'] = ax.title.get_fontsize()
             state[f'{prefix}.title.color'] = ax.title.get_color()
+            state[f'{prefix}.title.fontweight'] = ax.title.get_fontweight()
             state[f'{prefix}.xlabel.text'] = ax.get_xlabel()
             state[f'{prefix}.xlabel.fontsize'] = ax.xaxis.label.get_fontsize()
+            state[f'{prefix}.xlabel.color'] = ax.xaxis.label.get_color()
             state[f'{prefix}.ylabel.text'] = ax.get_ylabel()
             state[f'{prefix}.ylabel.fontsize'] = ax.yaxis.label.get_fontsize()
+            state[f'{prefix}.ylabel.color'] = ax.yaxis.label.get_color()
             state[f'{prefix}.xlim'] = ax.get_xlim()
             state[f'{prefix}.ylim'] = ax.get_ylim()
+            state[f'{prefix}.facecolor'] = ax.get_facecolor()
+
+            # Tick rotation
+            x_labels = ax.get_xticklabels()
+            state[f'{prefix}.xtick_rotation'] = (
+                x_labels[0].get_rotation() if x_labels else 0)
+            y_labels = ax.get_yticklabels()
+            state[f'{prefix}.ytick_rotation'] = (
+                y_labels[0].get_rotation() if y_labels else 0)
 
             for spine_name, spine in ax.spines.items():
                 state[f'{prefix}.spines.{spine_name}.visible'] = (
@@ -538,7 +555,11 @@ class FigureEditor:
                 try:
                     state[f'{cp}.facecolors'] = coll.get_facecolors().copy()
                 except Exception:
-                    pass
+                    logger.debug("Could not snapshot facecolors for %s", cp,
+                                 exc_info=True)
+
+            # Snapshot annotation count (for undo of add_annotation)
+            state[f'{prefix}.n_texts'] = len(ax.texts)
 
         state['fig.figsize'] = tuple(self.fig.get_size_inches())
         state['fig.dpi'] = self.fig.dpi
@@ -550,6 +571,15 @@ class FigureEditor:
             )
 
         self._original_state = state
+
+    # ------------------------------------------------------------------
+    # Edit recording (clears redo stack on new edits)
+    # ------------------------------------------------------------------
+
+    def _record_edit(self, edit: EditRecord):
+        """Append an edit and clear the redo stack (new edit invalidates redo)."""
+        self._redo_stack.clear()
+        self.edits.append(edit)
 
     # ------------------------------------------------------------------
     # Edit operations (all record history)
@@ -567,7 +597,7 @@ class FigureEditor:
                 f'{k}={v!r}' for k, v in kwargs.items()
             )
         code += ')'
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.title', 'text', old, text, code))
         self._refresh()
 
@@ -583,7 +613,7 @@ class FigureEditor:
                 f'{k}={v!r}' for k, v in kwargs.items()
             )
         code += ')'
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.xlabel', 'text', old, text, code))
         self._refresh()
 
@@ -599,7 +629,7 @@ class FigureEditor:
                 f'{k}={v!r}' for k, v in kwargs.items()
             )
         code += ')'
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.ylabel', 'text', old, text, code))
         self._refresh()
 
@@ -631,7 +661,7 @@ class FigureEditor:
         # Clean float formatting for generated code
         l_str = f'{float(left):.6g}'
         r_str = f'{float(right):.6g}'
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.xlim', 'range', old, (left, right),
             f"{prefix}.set_xlim({l_str}, {r_str})"))
         self._refresh()
@@ -662,7 +692,7 @@ class FigureEditor:
         ax.set_ylim(bottom, top)
         b_str = f'{float(bottom):.6g}'
         t_str = f'{float(top):.6g}'
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.ylim', 'range', old, (bottom, top),
             f"{prefix}.set_ylim({b_str}, {t_str})"))
         self._refresh()
@@ -692,7 +722,7 @@ class FigureEditor:
         else:
             raise ValueError(f"Unknown target: {target}")
 
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.{target}', 'fontsize', old, size, code))
         self._refresh()
 
@@ -768,7 +798,7 @@ class FigureEditor:
 
         code = '\n'.join(code_parts)
         display_name = font_name or font_family
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.font', 'family', str(old_family), display_name,
             code))
         self._refresh()
@@ -824,19 +854,23 @@ class FigureEditor:
             label.set_fontfamily(family)
             label.set_fontname(primary_font)
 
-        # Apply sizes from the preset as well (font + size in one go)
-        self.set_fontsize('title', preset['title_size'], ax_index)
-        self.set_fontsize('xlabel', preset['label_size'], ax_index)
-        self.set_fontsize('ylabel', preset['label_size'], ax_index)
-        self.set_fontsize('ticks', preset['tick_size'], ax_index)
+        # Apply sizes directly (no per-size edit/refresh churn)
+        ax.title.set_fontsize(preset['title_size'])
+        ax.xaxis.label.set_fontsize(preset['label_size'])
+        ax.yaxis.label.set_fontsize(preset['label_size'])
+        ax.tick_params(labelsize=preset['tick_size'])
 
-        # Record as single edit (sizes already recorded individually)
+        # Record as single edit
         code = (
             f"import matplotlib as mpl\n"
             f"mpl.rcParams['font.family'] = {family!r}\n"
-            f"mpl.rcParams['font.{family}'] = {fonts!r}"
+            f"mpl.rcParams['font.{family}'] = {fonts!r}\n"
+            f"{prefix}.title.set_fontsize({preset['title_size']})\n"
+            f"{prefix}.xaxis.label.set_fontsize({preset['label_size']})\n"
+            f"{prefix}.yaxis.label.set_fontsize({preset['label_size']})\n"
+            f"{prefix}.tick_params(labelsize={preset['tick_size']})"
         )
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.font_preset', 'preset', None, preset_name, code))
         self._refresh()
 
@@ -866,7 +900,6 @@ class FigureEditor:
         self.set_fontsize('xlabel', sp['label_size'], ax_index)
         self.set_fontsize('ylabel', sp['label_size'], ax_index)
         self.set_fontsize('ticks', sp['tick_size'], ax_index)
-        self._refresh()
 
     def set_color(self, target: str, color: str, ax_index: int = 0):
         """Set color for a named target."""
@@ -894,7 +927,7 @@ class FigureEditor:
         else:
             raise ValueError(f"Unknown target: {target}")
 
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.{target}', 'color', old, color, code))
         self._refresh()
 
@@ -905,7 +938,7 @@ class FigureEditor:
         prefix = f'ax{ax_index}' if ax_index > 0 else 'ax'
         old = ax.spines[spine_name].get_visible()
         ax.spines[spine_name].set_visible(visible)
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.spines.{spine_name}', 'visible', old, visible,
             f"{prefix}.spines[{spine_name!r}].set_visible({visible})"))
         self._refresh()
@@ -921,7 +954,7 @@ class FigureEditor:
                 f'{k}={v!r}' for k, v in kwargs.items()
             )
         code += ')'
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.grid', 'visible', not visible, visible, code))
         self._refresh()
 
@@ -931,7 +964,7 @@ class FigureEditor:
         self.fig.set_size_inches(width, height)
         w_str = f'{float(width):.6g}'
         h_str = f'{float(height):.6g}'
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             'fig', 'figsize', old, (width, height),
             f"fig.set_size_inches({w_str}, {h_str})"))
         self._refresh()
@@ -954,7 +987,7 @@ class FigureEditor:
 
         code = f"{prefix}.legend(" + ', '.join(
             f'{k}={v!r}' for k, v in kwargs.items()) + ')'
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.legend', 'properties', None, kwargs, code))
         self._refresh()
 
@@ -967,7 +1000,7 @@ class FigureEditor:
         old = line.get_linewidth()
         line.set_linewidth(width)
         code = f"{prefix}.get_lines()[{line_index}].set_linewidth({width})"
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.line{line_index}', 'linewidth', old, width, code))
         self._refresh()
 
@@ -981,7 +1014,7 @@ class FigureEditor:
         line.set_linestyle(style)
         code = (f"{prefix}.get_lines()[{line_index}]"
                 f".set_linestyle({style!r})")
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.line{line_index}', 'linestyle', old, style, code))
         self._refresh()
 
@@ -1014,7 +1047,7 @@ class FigureEditor:
         else:
             raise ValueError(f"Unknown target: {target}")
 
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.{target}', 'alpha', old, alpha, code))
         self._refresh()
 
@@ -1028,7 +1061,7 @@ class FigureEditor:
         coll.set_facecolors(color)
         code = (f"{prefix}.collections[{scatter_index}]"
                 f".set_facecolors({color!r})")
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.scatter{scatter_index}', 'color',
             str(old), color, code))
         self._refresh()
@@ -1043,7 +1076,7 @@ class FigureEditor:
         line.set_marker(marker)
         code = (f"{prefix}.get_lines()[{line_index}]"
                 f".set_marker({marker!r})")
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.line{line_index}', 'marker', old, marker, code))
         self._refresh()
 
@@ -1051,7 +1084,7 @@ class FigureEditor:
         """Set figure DPI with tracking."""
         old = self.fig.dpi
         self.fig.set_dpi(dpi)
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             'fig', 'dpi', old, dpi,
             f"fig.set_dpi({dpi})"))
         self._refresh()
@@ -1071,7 +1104,7 @@ class FigureEditor:
             ax.set_facecolor(color)
             code = f"{prefix}.set_facecolor({color!r})"
             desc = f'{prefix}.facecolor'
-        self.edits.append(EditRecord(desc, 'color', str(old), color, code))
+        self._record_edit(EditRecord(desc, 'color', str(old), color, code))
         self._refresh()
 
     def set_tick_rotation(self, axis: str, angle: float,
@@ -1089,7 +1122,7 @@ class FigureEditor:
             old = old_labels[0].get_rotation() if old_labels else 0
             ax.tick_params(axis='y', rotation=angle)
             code = f"{prefix}.tick_params(axis='y', rotation={angle})"
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.{axis}ticks', 'rotation', old, angle, code))
         self._refresh()
 
@@ -1100,7 +1133,7 @@ class FigureEditor:
         old = ax.title.get_fontweight()
         ax.title.set_fontweight(weight)
         code = f"{prefix}.title.set_fontweight({weight!r})"
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.title', 'fontweight', old, weight, code))
         self._refresh()
 
@@ -1118,7 +1151,7 @@ class FigureEditor:
         else:
             legend.set_visible(visible)
             code = (f"{prefix}.get_legend().set_visible({visible})")
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.legend', 'visible', not visible, visible, code))
         self._refresh()
 
@@ -1139,49 +1172,91 @@ class FigureEditor:
         ax.grid(True, **kwargs)
         parts = ', '.join(f'{k}={v!r}' for k, v in kwargs.items())
         code = f"{prefix}.grid(True, {parts})"
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             f'{prefix}.grid', 'style', None, kwargs, code))
         self._refresh()
 
     def tight_layout(self):
         """Apply tight_layout to fix overlapping labels."""
         self.fig.tight_layout()
-        self.edits.append(EditRecord(
+        self._record_edit(EditRecord(
             'fig', 'tight_layout', None, True,
             "fig.tight_layout()"))
         self._refresh()
 
-    def save(self, filename: str, dpi: int = 300, **kwargs):
-        """Save the figure to a file with tracking."""
-        self.fig.savefig(filename, dpi=dpi, bbox_inches='tight', **kwargs)
-        code = (f"fig.savefig({filename!r}, dpi={dpi}, "
-                f"bbox_inches='tight')")
-        self.edits.append(EditRecord(
+    def save(self, filename: str, dpi: int = 300,
+             fmt: Optional[str] = None, **kwargs):
+        """Save the figure to a file with tracking.
+
+        Parameters
+        ----------
+        filename : str
+            Output file path (e.g. 'figure.png', 'figure.svg').
+        dpi : int, default 300
+            Resolution for raster formats (PNG). Ignored for vector formats.
+        fmt : str, optional
+            Explicit format ('png', 'svg', 'pdf'). If None, inferred
+            from the file extension.
+        **kwargs
+            Additional arguments passed to ``fig.savefig()``.
+        """
+        save_kwargs = dict(dpi=dpi, bbox_inches='tight',
+                           facecolor=self.fig.get_facecolor())
+        if fmt is not None:
+            save_kwargs['format'] = fmt
+        save_kwargs.update(kwargs)
+        self.fig.savefig(filename, **save_kwargs)
+        # Generate code that reflects the actual save call
+        code_parts = [f"fig.savefig({filename!r}, dpi={dpi}"]
+        if fmt is not None:
+            code_parts.append(f"format={fmt!r}")
+        code_parts.append("bbox_inches='tight'")
+        code = ', '.join(code_parts) + ')'
+        self._record_edit(EditRecord(
             'fig', 'save', None, filename, code))
 
     def add_annotation(self, text: str, xy: Tuple[float, float],
-                       ax_index: int = 0, **kwargs):
-        """Add a text annotation (non-data element)."""
+                       ax_index: int = 0, draggable: bool = False,
+                       **kwargs):
+        """Add a text annotation (non-data element).
+
+        Parameters
+        ----------
+        text : str
+            Annotation text.
+        xy : tuple of float
+            Position in data coordinates.
+        ax_index : int
+            Which axis to annotate.
+        draggable : bool, default False
+            If True, the annotation can be dragged interactively
+            in matplotlib GUI windows (not in Jupyter static preview).
+        **kwargs
+            Additional arguments passed to ``ax.annotate()``.
+        """
         ax = self.fig.get_axes()[ax_index]
         prefix = f'ax{ax_index}' if ax_index > 0 else 'ax'
-        ax.annotate(text, xy=xy, **kwargs)
+        ann = ax.annotate(text, xy=xy, **kwargs)
+        if draggable:
+            ann.draggable()
+        # Classify as ANNOTATION
+        self.artist_roles[id(ann)] = ArtistRole.ANNOTATION
         code = f"{prefix}.annotate({text!r}, xy={xy}"
         if kwargs:
             code += ', ' + ', '.join(
                 f'{k}={v!r}' for k, v in kwargs.items()
             )
         code += ')'
-        self.edits.append(EditRecord(
-            f'{prefix}.annotation', 'add', None, text, code))
+        self._record_edit(EditRecord(
+            f'{prefix}.annotation', 'add', None,
+            {'text': text, 'xy': xy, 'kwargs': kwargs}, code))
         self._refresh()
 
-    def apply_theme(self, theme_name: str):
-        """Apply a theme (StatsPAI, matplotlib, or seaborn) to the live figure.
+    def _apply_theme_to_artists(self, theme_name: str):
+        """Apply rcParams from a theme to existing figure artists.
 
-        Unlike ``set_theme()`` alone (which only sets global rcParams for
-        *future* plots), this method walks through existing figure artists
-        and retroactively applies the new theme settings so the current
-        figure visually updates immediately.
+        Called by both ``apply_theme()`` (public, records edit) and
+        ``_replay_edit()`` (internal, no edit recording).
         """
         import matplotlib as mpl
         from .themes import set_theme
@@ -1189,17 +1264,12 @@ class FigureEditor:
         set_theme(theme_name)  # update global rcParams
         rc = mpl.rcParams
 
-        # --- Apply rcParams to existing figure artists ---
         fig = self.fig
-
-        # Figure-level
         fig.set_facecolor(rc['figure.facecolor'])
 
         for ax in fig.get_axes():
-            # Axes background
             ax.set_facecolor(rc['axes.facecolor'])
 
-            # Spines
             for spine_name, spine in ax.spines.items():
                 visible_key = f'axes.spines.{spine_name}'
                 if visible_key in rc:
@@ -1208,13 +1278,15 @@ class FigureEditor:
                 if 'axes.edgecolor' in rc:
                     spine.set_edgecolor(rc['axes.edgecolor'])
 
-            # Grid
-            ax.grid(rc.get('axes.grid', False),
-                    color=rc.get('grid.color', '#b0b0b0'),
-                    linewidth=rc.get('grid.linewidth', 0.8),
-                    alpha=rc.get('grid.alpha', 1.0))
+            grid_on = rc.get('axes.grid', False)
+            if grid_on:
+                ax.grid(True,
+                        color=rc.get('grid.color', '#b0b0b0'),
+                        linewidth=rc.get('grid.linewidth', 0.8),
+                        alpha=rc.get('grid.alpha', 1.0))
+            else:
+                ax.grid(False)
 
-            # Title and labels — update font properties
             ax.title.set_fontsize(rc.get('axes.titlesize', 12))
             ax.xaxis.label.set_fontsize(rc.get('axes.labelsize', 11))
             ax.yaxis.label.set_fontsize(rc.get('axes.labelsize', 11))
@@ -1224,24 +1296,20 @@ class FigureEditor:
             for lbl in ax.get_yticklabels():
                 lbl.set_fontsize(rc.get('ytick.labelsize', 10))
 
-            # Tick direction
             ax.tick_params(axis='x',
                            direction=rc.get('xtick.direction', 'out'))
             ax.tick_params(axis='y',
                            direction=rc.get('ytick.direction', 'out'))
 
-            # Legend
             leg = ax.get_legend()
             if leg:
                 leg.set_frame_on(rc.get('legend.frameon', True))
                 for txt in leg.get_texts():
                     txt.set_fontsize(rc.get('legend.fontsize', 9))
 
-            # Lines — update width
             for line in ax.get_lines():
                 line.set_linewidth(rc.get('lines.linewidth', 1.5))
 
-            # Color cycle for existing line/collection colors
             prop_cycle = rc.get('axes.prop_cycle')
             if prop_cycle is not None:
                 colors = [p.get('color', None) for p in prop_cycle]
@@ -1250,21 +1318,30 @@ class FigureEditor:
                     for i, line in enumerate(ax.get_lines()):
                         line.set_color(colors[i % len(colors)])
 
-            # Font family
             font_family = rc.get('font.family', 'sans-serif')
             for txt_obj in [ax.title, ax.xaxis.label, ax.yaxis.label]:
                 txt_obj.set_fontfamily(font_family)
 
-        self._refresh()
-        self.edits.append(EditRecord(
+    def apply_theme(self, theme_name: str):
+        """Apply a theme (StatsPAI, matplotlib, or seaborn) to the live figure.
+
+        Unlike ``set_theme()`` alone (which only sets global rcParams for
+        *future* plots), this method walks through existing figure artists
+        and retroactively applies the new theme settings so the current
+        figure visually updates immediately.
+        """
+        self._apply_theme_to_artists(theme_name)
+        self._record_edit(EditRecord(
             'theme', 'name', None, theme_name,
             f"sp.set_theme({theme_name!r})"))
+        self._refresh()
 
     def undo(self):
         """Undo the last edit by restoring original state and replaying."""
         if not self.edits:
             return
-        self.edits.pop()
+        undone = self.edits.pop()
+        self._redo_stack.append(undone)
         self._restore_original()
         edits_to_replay = self.edits.copy()
         self.edits.clear()
@@ -1273,9 +1350,19 @@ class FigureEditor:
             self.edits.append(e)
         self._refresh()
 
+    def redo(self):
+        """Redo the last undone edit."""
+        if not self._redo_stack:
+            return
+        edit = self._redo_stack.pop()
+        self._replay_edit(edit)
+        self.edits.append(edit)
+        self._refresh()
+
     def reset(self):
         """Reset all edits back to original state."""
         self.edits.clear()
+        self._redo_stack.clear()
         self._restore_original()
         self._refresh()
 
@@ -1326,7 +1413,10 @@ class FigureEditor:
             elif 'spines' in td and prop == 'visible':
                 spine_name = td.split('.')[-1]
                 ax.spines[spine_name].set_visible(val)
-            elif 'grid' in td:
+            elif 'grid' in td and prop == 'style':
+                if isinstance(val, dict):
+                    ax.grid(True, **val)
+            elif 'grid' in td and prop == 'visible':
                 ax.grid(val)
             elif td == 'fig' and prop == 'figsize':
                 self.fig.set_size_inches(val)
@@ -1363,13 +1453,28 @@ class FigureEditor:
                 ax.collections[idx].set_alpha(val)
             # --- Theme ---
             elif td == 'theme':
-                from .themes import set_theme
-                set_theme(val)
+                self._apply_theme_to_artists(val)
             # --- Font preset ---
             elif 'font_preset' in td and prop == 'preset':
+                import matplotlib as mpl
                 resolved = _PRESET_ALIASES.get(val, val)
                 if resolved in FONT_PRESETS:
-                    self.apply_font_preset(resolved, ax_idx)
+                    preset = FONT_PRESETS[resolved]
+                    family = preset['family']
+                    fonts = _resolve_preset_fonts(preset)
+                    mpl.rcParams['font.family'] = family
+                    mpl.rcParams[f'font.{family}'] = fonts
+                    primary = fonts[0]
+                    for a in [ax.title, ax.xaxis.label, ax.yaxis.label]:
+                        a.set_fontfamily(family)
+                        a.set_fontname(primary)
+                    for lbl in ax.get_xticklabels() + ax.get_yticklabels():
+                        lbl.set_fontfamily(family)
+                        lbl.set_fontname(primary)
+                    ax.title.set_fontsize(preset['title_size'])
+                    ax.xaxis.label.set_fontsize(preset['label_size'])
+                    ax.yaxis.label.set_fontsize(preset['label_size'])
+                    ax.tick_params(labelsize=preset['tick_size'])
             elif 'font' in td and prop == 'family':
                 import matplotlib as mpl
                 mpl.rcParams['font.family'] = val
@@ -1401,15 +1506,20 @@ class FigureEditor:
             # --- Title weight ---
             elif 'title' in td and prop == 'fontweight':
                 ax.title.set_fontweight(val)
-            # --- Grid style ---
-            elif 'grid' in td and prop == 'style':
+            # --- Annotation ---
+            elif 'annotation' in td and prop == 'add':
                 if isinstance(val, dict):
-                    ax.grid(True, **val)
+                    kw = val.get('kwargs', {})
+                    ax.annotate(val['text'], xy=val['xy'], **kw)
+                else:
+                    # Legacy: val is just the text string
+                    ax.annotate(str(val), xy=(0, 0))
             # --- Tight layout ---
             elif td == 'fig' and prop == 'tight_layout':
                 self.fig.tight_layout()
         except (IndexError, KeyError, ValueError):
-            pass  # Skip edits that reference out-of-range elements
+            logger.debug("Skipped replay of edit %s.%s (element missing)",
+                         td, prop, exc_info=True)
 
     # ------------------------------------------------------------------
     # Data protection helpers
@@ -1453,24 +1563,43 @@ class FigureEditor:
                 ax.title.set_fontsize(s[f'{prefix}.title.fontsize'])
             if f'{prefix}.title.color' in s:
                 ax.title.set_color(s[f'{prefix}.title.color'])
+            if f'{prefix}.title.fontweight' in s:
+                ax.title.set_fontweight(s[f'{prefix}.title.fontweight'])
             if f'{prefix}.xlabel.text' in s:
                 ax.set_xlabel(s[f'{prefix}.xlabel.text'])
                 ax.xaxis.label.set_fontsize(
                     s[f'{prefix}.xlabel.fontsize'])
+            if f'{prefix}.xlabel.color' in s:
+                ax.xaxis.label.set_color(s[f'{prefix}.xlabel.color'])
             if f'{prefix}.ylabel.text' in s:
                 ax.set_ylabel(s[f'{prefix}.ylabel.text'])
                 ax.yaxis.label.set_fontsize(
                     s[f'{prefix}.ylabel.fontsize'])
+            if f'{prefix}.ylabel.color' in s:
+                ax.yaxis.label.set_color(s[f'{prefix}.ylabel.color'])
             if f'{prefix}.xlim' in s:
                 ax.set_xlim(s[f'{prefix}.xlim'])
             if f'{prefix}.ylim' in s:
                 ax.set_ylim(s[f'{prefix}.ylim'])
+            if f'{prefix}.facecolor' in s:
+                ax.set_facecolor(s[f'{prefix}.facecolor'])
             if f'{prefix}.grid' in s:
                 ax.grid(s[f'{prefix}.grid'])
+            # Tick rotation
+            if f'{prefix}.xtick_rotation' in s:
+                ax.tick_params(axis='x',
+                               rotation=s[f'{prefix}.xtick_rotation'])
+            if f'{prefix}.ytick_rotation' in s:
+                ax.tick_params(axis='y',
+                               rotation=s[f'{prefix}.ytick_rotation'])
             for spine_name in ('top', 'right', 'bottom', 'left'):
                 key = f'{prefix}.spines.{spine_name}.visible'
                 if key in s:
                     ax.spines[spine_name].set_visible(s[key])
+            # Remove annotations added after the snapshot
+            n_orig = s.get(f'{prefix}.n_texts', 0)
+            while len(ax.texts) > n_orig:
+                ax.texts[-1].remove()
 
             # Restore line styles
             for j, line in enumerate(ax.get_lines()):
@@ -1495,7 +1624,8 @@ class FigureEditor:
                     try:
                         coll.set_facecolors(s[f'{cp}.facecolors'])
                     except Exception:
-                        pass
+                        logger.debug("Could not restore facecolors for %s",
+                                     cp, exc_info=True)
 
         if 'fig.figsize' in s:
             self.fig.set_size_inches(s['fig.figsize'])
@@ -1516,13 +1646,14 @@ class FigureEditor:
             try:
                 self.fig.canvas.draw_idle()
             except Exception:
-                pass
+                logger.debug("Canvas draw failed", exc_info=True)
         # Notify registered callbacks (e.g. Jupyter live preview)
         for cb in self._on_refresh_callbacks:
             try:
                 cb(self.fig)
             except Exception:
-                pass
+                logger.debug("Refresh callback %r failed", cb,
+                             exc_info=True)
 
     # ------------------------------------------------------------------
     # Code generation
@@ -1565,7 +1696,10 @@ class FigureEditor:
             lines.append(edit.code_line)
 
         if include_comment:
-            lines.append("fig.tight_layout()")
+            # Add tight_layout() only if not already in the edits
+            has_tight = ('fig', 'tight_layout') in seen
+            if not has_tight:
+                lines.append("fig.tight_layout()")
             lines.append("# --- end StatsPAI edits ---")
 
         return '\n'.join(lines)

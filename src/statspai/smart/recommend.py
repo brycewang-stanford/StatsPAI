@@ -161,15 +161,15 @@ def _profile_data(data, y, treatment, id_col, time_col):
     }
 
     # Outcome type
-    y_data = data[y]
+    y_data = data[y].dropna()
     if y_data.nunique() == 2:
         profile['y_type'] = 'binary'
-    elif y_data.dtype in ['int64', 'int32'] and y_data.min() >= 0:
-        if y_data.max() <= 50 and (y_data == y_data.astype(int)).all():
+    elif pd.api.types.is_integer_dtype(y_data) and y_data.min() >= 0:
+        if y_data.max() <= 50:
             profile['y_type'] = 'count'
         else:
             profile['y_type'] = 'continuous'
-    elif y_data.min() >= 0 and y_data.max() <= 1:
+    elif len(y_data) > 0 and y_data.min() >= 0 and y_data.max() <= 1:
         profile['y_type'] = 'fractional'
     else:
         profile['y_type'] = 'continuous'
@@ -217,7 +217,7 @@ def _detect_design(data, y, treatment, id_col, time_col, running_var,
             return 'panel'
     if id_col and time_col:
         return 'panel'
-    if treatment and profile['treat_type'] == 'binary':
+    if treatment:
         return 'observational'
     return 'cross-section'
 
@@ -288,7 +288,7 @@ def recommend(
     if covariates is None:
         covariates = [c for c in data.columns
                       if c not in [y, treatment, id, time, running_var, instrument]
-                      and data[c].dtype in ['int64', 'float64', 'int32', 'float32']]
+                      and pd.api.types.is_numeric_dtype(data[c])]
 
     profile = _profile_data(data, y, treatment, id, time)
 
@@ -310,8 +310,8 @@ def recommend(
                 if bad:
                     warnings_list.append(
                         f"DAG flags bad controls (do NOT include): {bad}")
-        except Exception:
-            pass
+        except Exception as e:
+            warnings_list.append(f"DAG analysis failed: {e}")
 
     controls = dag_adjustment if dag_adjustment else covariates
     ctrl_str = ", ".join(f"'{c}'" for c in controls[:5])
@@ -468,13 +468,18 @@ def recommend(
 
     else:
         # Cross-section
+        if treatment:
+            formula = f'{y} ~ {treatment}'
+        elif controls:
+            formula = f'{y} ~ {controls[0]}'
+        else:
+            formula = f'{y} ~ 1'
         recommendations.append({
             'method': 'OLS with robust SE',
             'function': 'regress',
             'reason': 'Cross-sectional data with continuous outcome.',
-            'code': f"sp.regress('{y} ~ {ctrl_str}', data=df, robust='hc1')",
-            'params': {'formula': f'{y} ~ {treatment}' if treatment else f'{y} ~ {controls[0]}',
-                       'data': data, 'robust': 'hc1'},
+            'code': f"sp.regress('{y} ~ {ctrl_str or '...'}', data=df, robust='hc1')",
+            'params': {'formula': formula, 'data': data, 'robust': 'hc1'},
         })
 
     # Outcome-type-specific additions

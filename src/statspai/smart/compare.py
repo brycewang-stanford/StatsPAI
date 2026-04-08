@@ -101,7 +101,7 @@ class ComparisonResult:
 
         ax.set_xlabel('Treatment Effect Estimate')
         ax.set_title('Multi-Estimator Comparison')
-        plt.tight_layout()
+        ax.get_figure().tight_layout()
         return ax
 
 
@@ -162,7 +162,7 @@ def compare_estimators(
     if covariates is None:
         covariates = [c for c in data.columns
                       if c not in [y, treatment, id, time, instrument]
-                      and data[c].dtype in ['int64', 'float64', 'int32', 'float32']]
+                      and pd.api.types.is_numeric_dtype(data[c])]
 
     if methods is None:
         methods = ['ols', 'matching', 'ipw']
