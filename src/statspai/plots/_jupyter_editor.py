@@ -109,9 +109,23 @@ def create_jupyter_panel(editor: FigureEditor):
     )
 
     # ---- Render mode: Auto vs Manual ----
-    _render_state = {'pending': 0}
-
     _render_state = {'pending': 0, 'auto': True}
+
+    def _safe(fn):
+        """Wrap widget callbacks to surface exceptions in status_bar."""
+        import functools
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            try:
+                return fn(*args, **kwargs)
+            except Exception as exc:
+                logger.debug("Widget callback %s failed", fn.__name__,
+                             exc_info=True)
+                status_bar.value = (
+                    f'<span style="font-size:11px; color:#E74C3C">'
+                    f'Error in {fn.__name__}: {exc}</span>'
+                )
+        return wrapper
 
     render_mode = widgets.Button(
         description='Auto',
@@ -164,11 +178,13 @@ def create_jupyter_panel(editor: FigureEditor):
                 f'Render error: {exc}</span>'
             )
 
+    @_safe
     def _on_apply(btn):
         _do_render(editor.fig)
 
     apply_btn.on_click(_on_apply)
 
+    @_safe
     def _on_toggle_mode(btn):
         _render_state['auto'] = not _render_state['auto']
         if _render_state['auto']:
@@ -1217,6 +1233,7 @@ def create_jupyter_panel(editor: FigureEditor):
 
     theme_preview = widgets.HTML('')
 
+    @_safe
     def _on_theme(change):
         name = change['new']
         try:
@@ -1225,7 +1242,7 @@ def create_jupyter_panel(editor: FigureEditor):
                 f'<span style="color:#2ECC71; font-size:11px">'
                 f'Applied: {name}</span>'
             )
-        except ValueError as e:
+        except Exception as e:
             theme_preview.value = (
                 f'<span style="color:#E74C3C; font-size:11px">'
                 f'Error: {e}</span>'

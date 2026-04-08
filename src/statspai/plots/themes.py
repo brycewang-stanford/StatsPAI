@@ -317,6 +317,10 @@ def set_theme(
         mpl.rcParams.update(_original_rcparams)
         return
 
+    # Reset to defaults before applying any theme so stale values
+    # from a previous theme (e.g. ggplot gray background) don't leak.
+    mpl.rcParams.update(_original_rcparams)
+
     # --- 1. StatsPAI custom themes ---
     if name in _THEMES:
         theme = _THEMES[name].copy()
