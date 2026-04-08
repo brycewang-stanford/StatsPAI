@@ -184,11 +184,17 @@ def create_jupyter_panel(editor: FigureEditor):
     editor.on_refresh(_live_refresh)
 
     render_bar = widgets.HBox(
-        [render_mode, apply_btn],
+        [render_mode],
         layout=widgets.Layout(
             justify_content='flex-start',
             align_items='center',
-            gap='8px',
+        ),
+    )
+    apply_bar = widgets.HBox(
+        [apply_btn],
+        layout=widgets.Layout(
+            justify_content='flex-end',
+            width='100%',
         ),
     )
 
@@ -1538,6 +1544,7 @@ def create_jupyter_panel(editor: FigureEditor):
             '</span>'
         ),
         panel_scrollable,
+        apply_bar,
     ], layout=widgets.Layout(
         width='400px',
         min_width='360px',
