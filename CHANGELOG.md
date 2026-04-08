@@ -2,6 +2,27 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.6.1] - 2026-04-07
+
+### Fixed
+
+- **Interactive Editor — Theme switching**: Themes now fully reset before applying, so switching between themes (e.g. ggplot → academic) correctly updates all visual properties instead of leaking stale settings
+- **Interactive Editor — Apply button**: Fixed Apply button being clipped/hidden on the Layout tab due to panel overflow
+- **Interactive Editor — Panel layout**: Fixed panel content disappearing when using flex layout for bottom-pinned Apply button
+- **Interactive Editor — Style tab**: Fixed Style tab stuck on "Loading" after Theme tab was reordered to first position
+- **Interactive Editor — Error visibility**: Widget callback errors now surface in the status bar instead of being silently swallowed
+
+### Improved
+
+- **Interactive Editor — Auto mode**: Clicking Auto now always refreshes the preview, giving immediate visual feedback
+- **Interactive Editor — Auto/Manual toggle**: Compact toggle button moved to panel header with sticky positioning
+- **Interactive Editor — Apply button**: Separated from Auto toggle and placed at panel bottom-right for better UX
+- **Interactive Editor — Theme tab**: Moved to first position for better discoverability
+- **Interactive Editor — Color pickers**: Added visual confirmation feedback on all color changes
+- **Interactive Editor — Code generation**: Auto-generate reproducible code with text selection support in the editor
+- **Smart recommendations**: Enhanced compare and recommend logic
+- **Registry**: Expanded module support in the registry
+
 ## [0.1.0] - 2024-07-26
 
 ### Added
