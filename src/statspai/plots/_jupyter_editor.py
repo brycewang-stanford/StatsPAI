@@ -157,8 +157,12 @@ def create_jupyter_panel(editor: FigureEditor):
                     f'{n} edit(s) — {p} pending re-render '
                     f'(click Apply)</span>'
                 )
-        except Exception:
+        except Exception as exc:
             logger.debug("Live refresh failed", exc_info=True)
+            status_bar.value = (
+                f'<span style="font-size:11px; color:#E74C3C">'
+                f'Render error: {exc}</span>'
+            )
 
     def _on_apply(btn):
         _do_render(editor.fig)
@@ -171,8 +175,8 @@ def create_jupyter_panel(editor: FigureEditor):
             render_mode.description = 'Auto'
             render_mode.button_style = 'success'
             apply_btn.layout.display = 'none'
-            if _render_state['pending'] > 0:
-                _do_render(editor.fig)
+            # Always refresh when switching back to Auto
+            _do_render(editor.fig)
         else:
             render_mode.description = 'Manual'
             render_mode.button_style = ''
