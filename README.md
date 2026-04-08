@@ -14,6 +14,8 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 
 **NEW in v0.6**: `sp.interactive(fig)` — a Stata Graph Editor-style WYSIWYG plot editor for Jupyter, with 29 academic themes, real-time preview, and auto-generated reproducible code.
 
+![alt text](image-1.png)
+
 > Built by the team behind [CoPaper.AI](https://copaper.ai) · Stanford REAP Program
 
 ---
