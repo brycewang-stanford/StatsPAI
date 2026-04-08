@@ -12,6 +12,8 @@ StatsPAI is the **agent-native** Python package for causal inference and applied
 
 It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 
+**NEW in v0.6**: `sp.interactive(fig)` — a Stata Graph Editor-style WYSIWYG plot editor for Jupyter, with 29 academic themes, real-time preview, and auto-generated reproducible code.
+
 > Built by the team behind [CoPaper.AI](https://copaper.ai) · Stanford REAP Program
 
 ---
@@ -29,6 +31,7 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 | Causal discovery | None | `pcalg` (complex API) | **`notears()`, `pc_algorithm()`** |
 | Policy learning | None | `policytree` (standalone) | **`policy_tree()` + `policy_value()`** |
 | Result objects | Inconsistent across commands | Inconsistent across packages | **Unified `CausalResult` with `.summary()`, `.plot()`, `.to_latex()`, `.cite()`** |
+| Interactive plot editing | Graph Editor (no code export) | None | **`sp.interactive()` — GUI editing with auto-generated code** |
 
 ---
 
@@ -334,6 +337,7 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 | `coefplot()` | Coefficient forest plot across models | matplotlib Figure |
 | `binscatter()` | Binned scatter with residualization | matplotlib Figure |
 | `set_theme()` | Publication themes (`'academic'`, `'aea'`, `'minimal'`, `'cn_journal'`) | — |
+| `interactive()` | WYSIWYG plot editor with 29 themes & auto code generation | Jupyter ipywidgets |
 
 Every result object has:
 
@@ -344,6 +348,33 @@ result.to_latex()     # LaTeX table
 result.to_docx()      # Word document
 result.cite()         # BibTeX citation for the method
 ```
+
+### Interactive Plot Editor — Python's Answer to Stata Graph Editor
+
+Stata users know the Graph Editor: double-click a figure to enter a WYSIWYG editing interface — drag fonts, change colors, adjust layout. This has been a Stata-exclusive experience. In Python, matplotlib produces static images — changing a title font size means editing code and re-running.
+
+**`sp.interactive(fig)`** turns any matplotlib figure into a live editing panel — figure preview on the left, property controls on the right, just like Stata's Graph Editor. But it does two things Stata can't:
+
+1. **29 academic themes, one-click switching.** From AER journal style to ggplot, FiveThirtyEight, dark presentation mode — select and see the result instantly. Stata's `scheme` requires regenerating the plot; here it's real-time.
+
+2. **Every edit auto-generates reproducible Python code.** Adjust title size, change colors, add annotations in the GUI — the editor records each operation as standard matplotlib code (`ax.set_title(...)`, `ax.spines[...].set_visible(...)`). Copy with one click, paste into your script, and it reproduces exactly. Stata's Graph Editor cannot export edits to do-file commands.
+
+Five tabs cover all editing needs: **Theme** (29 themes) · **Text** (titles, labels, fonts) · **Style** (line colors, widths, markers) · **Layout** (spines, grid, figure size, legend, axis limits) · **Export** (save, undo/redo, reset).
+
+Auto/Manual rendering modes: Auto refreshes the preview on every change; Manual batches edits for a single Apply — useful for large figures or slow machines.
+
+```python
+import statspai as sp
+
+result = sp.did(df, y='wage', treat='policy', time='year')
+fig, ax = result.plot()
+editor = sp.interactive(fig)   # opens the editor
+
+# After editing in the GUI:
+editor.copy_code()             # prints reproducible Python code
+```
+
+<!-- screenshots will be added here -->
 
 ### Utilities
 
@@ -427,6 +458,7 @@ sp.subgroup_analysis(df, formula="wage ~ education + experience",
 | **Free & open source** | MIT license, \$0. Stata costs \$695–\$1,595/year. |
 | **Python ecosystem** | Integrates naturally with pandas, scikit-learn, PyTorch, Jupyter, cloud pipelines. |
 | **Auto-citations** | Every causal method has `.cite()` returning the correct BibTeX. Neither Stata nor R does this. |
+| **Interactive Plot Editor** | `sp.interactive()` — Stata Graph Editor-style GUI in Jupyter with 29 themes and auto-generated reproducible code. Stata's Graph Editor can't export edits to do-file; R has no equivalent. |
 
 ### Where Stata still wins
 
@@ -479,6 +511,7 @@ MR:             mendelian_randomization, mr_ivw, mr_egger, mr_median
 Smart Workflow: recommend, compare_estimators, assumption_audit,
                 sensitivity_dashboard, pub_ready, replicate
 Output:         modelsummary, outreg2, sumstats, balance_table, tab, coefplot, binscatter
+Plot Editor:    interactive (WYSIWYG editor), set_theme (29 academic themes)
 ```
 
 ---
@@ -520,7 +553,16 @@ Smart Workflow Engine (unique to StatsPAI):
 - `pub_ready()` — journal-specific publication readiness checklist
 - `replicate()` — built-in famous datasets with replication guides
 
-Plot Editor: Font presets redesigned to show actual font names; separate font and size presets for independent per-element control.
+Interactive Plot Editor: Font presets redesigned to show actual font names; separate font and size presets for independent per-element control.
+
+### v0.6.1 (2026-04-07) — Interactive Editor Fixes & Improvements
+
+- **Theme switching fix**: Themes now fully reset rcParams before applying, so switching between themes (e.g. ggplot → academic) correctly updates all visual properties
+- **Apply button fix**: Fixed being clipped on the Layout tab; now pinned to panel bottom
+- **Error visibility**: Widget callback errors now surface in the status bar instead of being silently swallowed
+- **Auto mode**: Always refreshes preview when toggled for immediate feedback
+- **Theme tab**: Moved to first position; color pickers show confirmation feedback
+- **Code generation**: Auto-generate reproducible code with text selection support
 
 ### v0.5.1 (2026-04-04) — Interactive Plot Editor & Agent Enhancements
 
