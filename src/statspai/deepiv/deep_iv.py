@@ -10,14 +10,64 @@ The approach allows arbitrary non-linear treatment effects and handles
 continuous endogenous regressors without parametric assumptions on the
 first stage.
 
+Implementation notes
+--------------------
+This implementation follows the same defaults as Microsoft's EconML
+``DeepIVEstimator``: the Stage-2 gradient is computed from a single set
+of MC samples (``n_gradient_samples=0``). Per Hartford et al. Section
+3.2, the resulting gradient is a biased estimator of the true loss
+gradient, because the treatment sample appears in both the residual and
+the gradient path. As discussed in the EconML docs, the single-sample
+version *"is not guaranteed to lead to consistent estimates, but has the
+advantage of requiring only a single set of samples from the
+distribution, and can be interpreted as regularizing the loss with a
+variance penalty"*.
+
+To enable the **unbiased paired-sample gradient** described in the
+paper, set ``n_gradient_samples > 0``. This draws two independent sets
+of MC samples per gradient step and uses the identity
+``E[(y - h(p, x))(y - h(p', x))] = (y - E[h(p, x)])^2`` for ``p ⊥ p'``.
+
+When to use DeepIV
+------------------
+- Low-to-moderate dimensional X, continuous treatment, reasonably
+  strong instruments.
+- When you want a flexible non-parametric first stage but don't need
+  theoretical convergence guarantees.
+
+When NOT to use DeepIV
+----------------------
+- Weak instruments: the two-stage procedure compounds instability.
+- High-dimensional X with complex h(T, X): consider DeepGMM
+  (Bennett et al. 2019), DFIV (Xu et al. 2021) or DualIV (Muandet et
+  al. 2020), which are generally more stable in these settings.
+- When you need rigorous model selection / convergence guarantees.
+  See RegDeepIV (Dikkala et al. 2024) for a theoretically grounded
+  variant.
+
 Requires PyTorch (optional dependency):
     pip install statspai[deepiv]
 
 References
 ----------
 Hartford, J., Lewis, G., Leyton-Brown, K., & Taddy, M. (2017).
-"Deep IV: A Flexible Approach for Counterfactual Prediction."
-Proceedings of the 34th International Conference on Machine Learning.
+    "Deep IV: A Flexible Approach for Counterfactual Prediction."
+    Proceedings of the 34th International Conference on Machine Learning.
+
+Microsoft EconML. ``DeepIVEstimator`` — reference implementation whose
+    ``n_gradient_samples`` default of 0 this package follows.
+    https://github.com/py-why/EconML
+
+Bennett, A., Kallus, N., & Schnabel, T. (2019).
+    "Deep Generalized Method of Moments for Instrumental Variable
+    Analysis." NeurIPS 2019.
+
+Xu, L., Chen, Y., Srinivasan, S., de Freitas, N., Doucet, A., & Gretton,
+    A. (2021). "Learning Deep Features in Instrumental Variable
+    Regression." ICLR 2021.
+
+Muandet, K., Mehrjou, A., Lee, S. K., & Raj, A. (2020).
+    "Dual Instrumental Variable Regression." NeurIPS 2020.
 """
 
 from typing import Optional, List, Dict, Any, Tuple
@@ -44,6 +94,7 @@ def deepiv(
     first_stage_epochs: int = 100,
     second_stage_epochs: int = 100,
     n_samples: int = 1,
+    n_gradient_samples: int = 0,
     batch_size: int = 256,
     learning_rate: float = 1e-3,
     alpha: float = 0.05,
@@ -74,7 +125,19 @@ def deepiv(
     second_stage_epochs : int, default 100
         Training epochs for the response model.
     n_samples : int, default 1
-        Number of MC samples per observation in stage 2 loss.
+        Number of MC samples per observation used to form the Stage-2
+        residual ``(y - h(t, x))``.
+    n_gradient_samples : int, default 0
+        Number of **independent** additional samples used for the
+        gradient path. When ``0`` (default), a single set of samples is
+        used, matching Microsoft EconML's default behaviour and
+        producing a biased but variance-regularized gradient estimator.
+        When ``> 0``, two independent sample sets are drawn and the
+        unbiased paired-sample estimator
+        ``mean((y - h(p, x)) * (y - h(p', x)))`` from Hartford et al.
+        Section 3.2 is used instead. Set to ``1`` or higher if you
+        specifically need unbiased gradients (e.g. for asymptotic
+        consistency arguments).
     batch_size : int, default 256
         Mini-batch size.
     learning_rate : float, default 1e-3
@@ -90,6 +153,20 @@ def deepiv(
     -------
     CausalResult
 
+    Notes
+    -----
+    Use the **single-sample default** (``n_gradient_samples=0``) for
+    most applications — it matches EconML, trains roughly 2x faster, and
+    the implicit variance regularization often helps in small samples.
+
+    Use ``n_gradient_samples >= 1`` when you need the unbiased gradient
+    (e.g. for theoretical guarantees or when training with very large
+    batches where the bias dominates).
+
+    For high-dimensional covariates or weak instruments, consider
+    DeepGMM / DFIV / DualIV instead — see the module docstring for
+    references.
+
     Examples
     --------
     >>> result = sp.deepiv(
@@ -99,7 +176,7 @@ def deepiv(
     ... )
     >>> print(result.summary())
 
-    >>> # Custom architecture
+    >>> # Custom architecture with unbiased gradient
     >>> result = sp.deepiv(
     ...     df, y='sales', treat='price',
     ...     instruments=['cost_shifter'],
@@ -107,6 +184,7 @@ def deepiv(
     ...     n_components=20,
     ...     hidden_layers=(256, 128, 64),
     ...     first_stage_epochs=200,
+    ...     n_gradient_samples=1,   # paired-sample unbiased gradient
     ... )
     """
     estimator = DeepIV(
@@ -115,7 +193,9 @@ def deepiv(
         n_components=n_components, hidden_layers=hidden_layers,
         first_stage_epochs=first_stage_epochs,
         second_stage_epochs=second_stage_epochs,
-        n_samples=n_samples, batch_size=batch_size,
+        n_samples=n_samples,
+        n_gradient_samples=n_gradient_samples,
+        batch_size=batch_size,
         learning_rate=learning_rate, alpha=alpha,
         random_state=random_state, verbose=verbose,
     )
@@ -129,6 +209,10 @@ def deepiv(
 class DeepIV:
     """
     Deep Instrumental Variables estimator (Hartford et al. 2017).
+
+    Follows the same defaults as Microsoft EconML's ``DeepIVEstimator``.
+    See the module docstring for a discussion of the biased vs unbiased
+    gradient trade-off and when to prefer modern alternatives.
 
     Parameters
     ----------
@@ -150,7 +234,12 @@ class DeepIV:
     second_stage_epochs : int
         Stage 2 training epochs.
     n_samples : int
-        MC samples per observation for counterfactual loss.
+        MC samples per observation used to form the Stage-2 residual.
+    n_gradient_samples : int, default 0
+        Independent additional samples for the gradient path. ``0``
+        reproduces EconML's default (biased but variance-regularized);
+        ``>= 1`` activates Hartford et al.'s paired-sample unbiased
+        gradient estimator.
     batch_size : int
     learning_rate : float
     alpha : float
@@ -171,6 +260,7 @@ class DeepIV:
         first_stage_epochs: int = 100,
         second_stage_epochs: int = 100,
         n_samples: int = 1,
+        n_gradient_samples: int = 0,
         batch_size: int = 256,
         learning_rate: float = 1e-3,
         alpha: float = 0.05,
@@ -187,6 +277,7 @@ class DeepIV:
         self.first_stage_epochs = first_stage_epochs
         self.second_stage_epochs = second_stage_epochs
         self.n_samples = n_samples
+        self.n_gradient_samples = n_gradient_samples
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.alpha = alpha
@@ -202,6 +293,10 @@ class DeepIV:
             raise ValueError(f"Columns not found in data: {missing}")
         if len(self.instruments) == 0:
             raise ValueError("At least one instrument is required")
+        if self.n_samples < 1:
+            raise ValueError("n_samples must be >= 1")
+        if self.n_gradient_samples < 0:
+            raise ValueError("n_gradient_samples must be >= 0")
 
     def fit(self) -> CausalResult:
         """
@@ -294,24 +389,63 @@ class DeepIV:
 
         opt2 = optim.Adam(response_net.parameters(), lr=self.learning_rate)
 
+        # Whether to use the unbiased paired-sample gradient from
+        # Hartford et al. (2017) Section 3.2. When False, we fall back
+        # to the single-sample biased (but variance-regularized) loss
+        # that matches EconML's default (``n_gradient_samples=0``).
+        use_unbiased_grad = self.n_gradient_samples > 0
+        n_pairs = max(self.n_samples, self.n_gradient_samples)
+
         for epoch in range(self.second_stage_epochs):
             epoch_loss = 0.0
             response_net.train()
             for zx_batch, x_batch, y_batch in loader2:
                 opt2.zero_grad()
-                # Sample treatment from Stage-1 MDN
+
                 with torch.no_grad():
                     pi, mu, sigma = mdn(zx_batch)
-                    t_samples = _sample_mdn(pi, mu, sigma, self.n_samples)
 
-                # Counterfactual loss: E_{T~P(T|Z,X)}[(Y - h(T,X))^2]
-                loss = torch.tensor(0.0, device=device)
-                for s in range(self.n_samples):
-                    t_s = t_samples[:, s].unsqueeze(1)
-                    tx = torch.cat([t_s, x_batch], dim=1)
-                    y_pred = response_net(tx).squeeze()
-                    loss = loss + torch.mean((y_batch - y_pred) ** 2)
-                loss = loss / self.n_samples
+                if use_unbiased_grad:
+                    # Two INDEPENDENT sample sets from P(T | Z, X). The
+                    # paired identity
+                    #     E_{p,p'~F}[(y - h(p,x)) * (y - h(p',x))]
+                    #   = (y - E_{p~F}[h(p,x)])^2
+                    # gives an unbiased estimator of both the loss AND
+                    # its gradient w.r.t. the network parameters.
+                    with torch.no_grad():
+                        t_samples_a = _sample_mdn(pi, mu, sigma, n_pairs)
+                        t_samples_b = _sample_mdn(pi, mu, sigma, n_pairs)
+
+                    loss = torch.tensor(0.0, device=device)
+                    for s in range(n_pairs):
+                        t_a = t_samples_a[:, s].unsqueeze(1)
+                        t_b = t_samples_b[:, s].unsqueeze(1)
+                        tx_a = torch.cat([t_a, x_batch], dim=1)
+                        tx_b = torch.cat([t_b, x_batch], dim=1)
+                        h_a = response_net(tx_a).squeeze()
+                        h_b = response_net(tx_b).squeeze()
+                        loss = loss + torch.mean(
+                            (y_batch - h_a) * (y_batch - h_b)
+                        )
+                    loss = loss / n_pairs
+                else:
+                    # Single-sample biased estimator (EconML default).
+                    # Same treatment sample is used in both the residual
+                    # and the gradient path; this introduces a bias but
+                    # trains ~2x faster and acts as implicit variance
+                    # regularization.
+                    with torch.no_grad():
+                        t_samples = _sample_mdn(
+                            pi, mu, sigma, self.n_samples
+                        )
+
+                    loss = torch.tensor(0.0, device=device)
+                    for s in range(self.n_samples):
+                        t_s = t_samples[:, s].unsqueeze(1)
+                        tx = torch.cat([t_s, x_batch], dim=1)
+                        y_pred = response_net(tx).squeeze()
+                        loss = loss + torch.mean((y_batch - y_pred) ** 2)
+                    loss = loss / self.n_samples
 
                 loss.backward()
                 opt2.step()
@@ -389,6 +523,11 @@ class DeepIV:
             'n_instruments': len(self.instruments),
             'n_covariates': len(self.covariates),
             'n_mc_samples': self.n_samples,
+            'n_gradient_samples': self.n_gradient_samples,
+            'gradient_estimator': (
+                'unbiased (paired)' if self.n_gradient_samples > 0
+                else 'single-sample (EconML default)'
+            ),
             'treatment_baseline': round(float(t0_raw), 4),
             'treatment_shift': round(float(self._t_std), 4),
         }
