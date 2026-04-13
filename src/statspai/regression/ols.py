@@ -398,13 +398,22 @@ def regress(
         raise ValueError("DataFrame is empty — no observations to regress.")
     # Check formula variables exist in data
     if '~' in formula:
-        raw_vars = formula.replace('~', '+').replace('*', '+').replace(
-            ':', '+').replace('(', ' ').replace(')', ' ').replace('-', '+')
-        tokens = [v.strip() for v in raw_vars.split('+')]
-        tokens = [v for v in tokens if v and v not in (
-            '1', '0', 'C', 'np', 'I')]
-        missing = [v for v in tokens if v not in data.columns
-                   and not v[0].isdigit()]
+        import re
+        lhs, rhs = formula.split('~', 1)
+        # Strip function calls: C(...), I(...), np.log(...), bs(...), etc.
+        rhs_stripped = re.sub(r'[A-Za-z_][\w.]*\s*\([^)]*\)', '', rhs)
+        # Split on operators
+        rhs_stripped = re.sub(r'[+*:\-]', ' ', rhs_stripped)
+        tokens = rhs_stripped.split()
+        # Keep only bare column identifiers (no digits, no '1'/'0')
+        bare_vars = [v for v in tokens
+                     if re.match(r'^[A-Za-z_]\w*$', v)
+                     and v not in ('1', '0')]
+        # Include LHS dep var
+        dep_check = lhs.strip()
+        all_vars = ([dep_check] if re.match(r'^[A-Za-z_]\w*$', dep_check)
+                    else []) + bare_vars
+        missing = [v for v in all_vars if v not in data.columns]
         if missing:
             available = ', '.join(sorted(data.columns)[:10])
             raise ValueError(

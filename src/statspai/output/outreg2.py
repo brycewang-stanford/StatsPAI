@@ -739,9 +739,12 @@ def outreg2(
         Number of decimal places
     variable_labels : dict, optional
         Custom variable labels
-    format : str, default "excel"
-        Output format ("excel" or "latex")
-        
+    format : str, default "auto"
+        Output format. ``"auto"`` (default) detects from the filename
+        extension: ``.xlsx`` → Excel, ``.docx`` → Word, ``.tex`` →
+        LaTeX. Unknown extensions default to Excel. Override with
+        ``"excel"``, ``"word"``, or ``"latex"`` explicitly.
+
     Returns
     -------
     str or None

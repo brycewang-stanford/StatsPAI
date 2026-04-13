@@ -159,15 +159,29 @@ class EconometricResults:
                 "Pass data= for out-of-sample prediction."
             )
 
-        # Out-of-sample: X @ params
+        # Out-of-sample: X @ params (works for simple linear models only)
         if self.params is not None and isinstance(self.params, pd.Series):
             var_names = list(self.params.index)
             has_intercept = 'Intercept' in var_names
 
-            # Build design matrix matching the original variable names
+            # Identify derived terms (interactions, categoricals, transforms)
             X_cols = [v for v in var_names if v != 'Intercept']
             missing = [c for c in X_cols if c not in data.columns]
             if missing:
+                # Check if these are formula-derived terms
+                import re
+                derived = [c for c in missing
+                           if ':' in c or '[' in c
+                           or re.search(r'[()]', c)]
+                if derived:
+                    raise ValueError(
+                        f"Out-of-sample prediction is not supported for "
+                        f"models with formula transforms (found: "
+                        f"{derived[:3]}{'...' if len(derived) > 3 else ''}). "
+                        f"Re-fit using statsmodels directly, or use "
+                        f"in-sample prediction with result.predict() "
+                        f"(no arguments)."
+                    )
                 raise ValueError(
                     f"Prediction data missing column(s): {missing}"
                 )

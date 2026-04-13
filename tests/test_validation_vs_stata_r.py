@@ -146,8 +146,10 @@ class TestOLSValidation:
 
     def test_ols_pvalues_significant(self):
         """All true coefficients should be significant at 1%."""
-        for i, tv in enumerate(self.r.tvalues):
-            assert abs(tv) > 2.576  # z > 2.576 → p < 0.01
+        for var_name, tv in self.r.tvalues.items():
+            assert abs(tv) > 2.576, (
+                f"{var_name}: t={tv:.3f} not significant at 1%"
+            )
 
 
 # =====================================================================
@@ -308,29 +310,25 @@ class TestMatchValidation:
 class TestDMLValidation:
     """Validate sp.dml() recovers known ATE."""
 
-    def test_dml_ate_recovery(self):
-        """DML must recover ATE ≈ 2.0 from known DGP."""
+    @pytest.fixture(autouse=True)
+    def setup(self):
         np.random.seed(5)
         n = 2000
         x1 = np.random.randn(n)
         x2 = np.random.randn(n)
         treat = (np.random.randn(n) + 0.3 * x1 > 0).astype(int)
         y = 2.0 * treat + 1.0 * x1 + 0.5 * x2 + np.random.randn(n) * 0.5
-        df = pd.DataFrame({'y': y, 'treat': treat, 'x1': x1, 'x2': x2})
-        r = sp.dml(df, y='y', treat='treat', covariates=['x1', 'x2'])
-        assert r.estimate == pytest.approx(2.0, abs=0.3)
+        self.df = pd.DataFrame({'y': y, 'treat': treat, 'x1': x1, 'x2': x2})
+        self.r = sp.dml(self.df, y='y', treat='treat',
+                        covariates=['x1', 'x2'])
+
+    def test_dml_ate_recovery(self):
+        """DML must recover ATE ≈ 2.0 from known DGP."""
+        assert self.r.estimate == pytest.approx(2.0, abs=0.3)
 
     def test_dml_ci_covers_true(self):
         """95% CI should contain the true ATE = 2.0."""
-        np.random.seed(5)
-        n = 2000
-        x1 = np.random.randn(n)
-        x2 = np.random.randn(n)
-        treat = (np.random.randn(n) + 0.3 * x1 > 0).astype(int)
-        y = 2.0 * treat + 1.0 * x1 + 0.5 * x2 + np.random.randn(n) * 0.5
-        df = pd.DataFrame({'y': y, 'treat': treat, 'x1': x1, 'x2': x2})
-        r = sp.dml(df, y='y', treat='treat', covariates=['x1', 'x2'])
-        assert r.ci[0] < 2.0 < r.ci[1]
+        assert self.r.ci[0] < 2.0 < self.r.ci[1]
 
 
 # =====================================================================
@@ -358,4 +356,4 @@ class TestCrossEstimatorConsistency:
         interaction_key = [k for k in r_ols.params.index
                           if 'treat' in k and 'post' in k][0]
         assert r_did.estimate == pytest.approx(
-            r_ols.params[interaction_key], abs=0.3)
+            r_ols.params[interaction_key], rel=1e-2)

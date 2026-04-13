@@ -173,6 +173,8 @@ def did(
         required['id'] = id
     if subgroup is not None:
         required['subgroup'] = subgroup
+    if weights is not None:
+        required['weights'] = weights
     if covariates:
         for c in covariates:
             required[f'covariate ({c})'] = c
