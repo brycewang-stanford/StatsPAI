@@ -34,6 +34,12 @@ Empirical researchers face a fragmented software landscape for causal inference.
 
 `StatsPAI` addresses this gap for applied researchers who need to move fluidly between classical and modern methods, and for AI coding agents that discover and invoke statistical functions through self-describing schemas.
 
+# State of the Field
+
+Several Python packages address parts of the causal inference pipeline. `DoWhy` [@sharma2020dowhy] provides a graph-based framework for specifying and refuting causal assumptions but does not implement econometric estimators such as DID, RD, or IV. `EconML` [@econml] offers ML-based heterogeneous treatment effect estimators (DML, causal forests, DR-Learner) yet omits classical regression, panel methods, and publication output. `CausalML` [@chen2020causalml] targets uplift modeling for marketing applications and lacks econometric identification strategies. On the R side, packages like `did` [@callaway2021difference], `rdrobust` [@calonico2014robust], `Synth` [@abadie2010synthetic], and `grf` [@wager2018estimation] each excel in one method family but require users to learn separate APIs, data structures, and output conventions. Stata remains the most integrated platform for applied economists, yet it is proprietary, lacks native ML causal methods, and offers no programmatic schema for AI agent integration.
+
+No existing package unifies classical econometric models, modern ML-based causal estimators, sensitivity analysis, and publication-ready output within a single API---nor exposes machine-readable function schemas for LLM-driven workflows. `StatsPAI` fills this gap.
+
 # Software Design
 
 `StatsPAI` is organized into modular subpackages. All functions return structured result objects inheriting from `CausalResult` or `EconometricResults`, providing a consistent interface: `.summary()`, `.plot()`, `.to_latex()`, `.to_docx()`, and `.cite()`.
@@ -57,6 +63,10 @@ We validate `StatsPAI` through replication of published results using real datas
 **Cross-validation.** Running `StatsPAI` and `EconML`'s DML on the same Card (1995) data yields estimates of 0.0741 and 0.0749 respectively---a difference of 0.0008, confirming cross-package consistency.
 
 Monte Carlo simulations (200 replications) on built-in DGPs show negligible mean bias ($< 0.01$) and empirical 95\% CI coverage of 96.5--100\% for DID, RD, and IV estimators.
+
+# Research Impact Statement
+
+`StatsPAI` lowers the barrier to rigorous causal inference by consolidating methods that previously required proficiency across multiple languages and packages. Graduate students and applied researchers can now move from OLS through DML to causal forests without switching toolkits, reducing both onboarding time and the risk of implementation errors. The agent-native API enables a new class of AI-assisted empirical workflows: LLM agents can discover, invoke, and interpret statistical methods through structured schemas, accelerating literature replication and robustness analysis. Early adoption in Stanford REAP research projects has demonstrated its utility for rapid policy evaluation prototyping. By unifying classical and modern methods under one roof, `StatsPAI` facilitates direct comparison of estimators on the same data---encouraging the methodological transparency increasingly demanded by journals and funding agencies.
 
 # AI Usage Disclosure
 
