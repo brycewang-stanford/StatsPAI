@@ -558,6 +558,16 @@ Smart Workflow Engine (unique to StatsPAI):
 
 Interactive Plot Editor: Font presets redesigned to show actual font names; separate font and size presets for independent per-element control.
 
+### v0.6.2 (2026-04-12) — Weights, Prediction & Validation
+
+- **OLS `predict()`**: Out-of-sample prediction via `result.predict(newdata=)`
+- **`balance_panel()`**: Keep only units observed in every period
+- **DID/DDD/Event Study weights**: `weights=` parameter for population-weighted estimation
+- **Matching `ps_poly=`**: Polynomial propensity score models (Cunningham 2021, Ch. 5)
+- **Synth RMSPE plot**: `synthplot(result, type='rmspe')` histogram (Abadie et al. 2010)
+- **Graddy (2006) replication**: Fulton Fish Market IV example in `sp.replicate()`
+- **Numerical validation**: Cross-validated against Stata/R reference values
+
 ### v0.6.1 (2026-04-07) — Interactive Editor Fixes & Improvements
 
 - **Theme switching fix**: Themes now fully reset rcParams before applying, so switching between themes (e.g. ggplot → academic) correctly updates all visual properties

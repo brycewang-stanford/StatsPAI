@@ -411,24 +411,22 @@ class SyntheticControl:
         pre_mspe = float(np.mean(gap_pre**2))
 
         # --- Placebo inference ---
-        placebo_atts = []
-        placebo_pre_mspes = []
+        post_mspe = float(np.mean(gap_post**2))
+        ratio_treated = (np.sqrt(post_mspe) / np.sqrt(pre_mspe)
+                         if pre_mspe > 1e-10 else np.inf)
+
+        placebo_result: Dict[str, Any] = {}
         if placebo and len(self.donor_units) >= 2:
-            placebo_atts, placebo_pre_mspes = self._run_placebos()
+            placebo_result = self._run_placebos()
+
+        placebo_atts = placebo_result.get('atts', [])
 
         # P-value from placebo distribution
         if len(placebo_atts) > 0:
-            # Ratio-based: MSPE_post / MSPE_pre
-            post_mspe = float(np.mean(gap_post**2))
-            ratio_treated = post_mspe / pre_mspe if pre_mspe > 1e-10 else np.inf
-
-            placebo_ratios = []
-            for pa, pm in zip(placebo_atts, placebo_pre_mspes):
-                pr = pa**2 / pm if pm > 1e-10 else 0
-                placebo_ratios.append(pr)
+            placebo_ratios = np.array(placebo_result['ratios'])
 
             # One-sided p-value: fraction of placebos with ratio >= treated
-            pvalue = float(np.mean(np.array(placebo_ratios) >= ratio_treated))
+            pvalue = float(np.mean(placebo_ratios >= ratio_treated))
             # Ensure at least 1/(J+1) if treated is most extreme
             pvalue = max(pvalue, 1 / (len(placebo_ratios) + 1))
 
@@ -475,6 +473,11 @@ class SyntheticControl:
 
         if len(placebo_atts) > 0:
             model_info['placebo_atts'] = placebo_atts
+            model_info['placebo_pre_mspes'] = placebo_result['pre_mspes']
+            model_info['placebo_ratios'] = placebo_result['ratios']
+            model_info['placebo_gaps'] = placebo_result['gaps']
+            model_info['placebo_units'] = placebo_result['units']
+            model_info['treated_ratio'] = ratio_treated
             model_info['n_placebos'] = len(placebo_atts)
 
         return CausalResult(
@@ -491,15 +494,30 @@ class SyntheticControl:
             _citation_key='synth',
         )
 
-    def _run_placebos(self) -> Tuple[List[float], List[float]]:
-        """Run placebo SCM for each donor unit (in-space placebo)."""
-        placebo_atts = []
-        placebo_pre_mspes = []
+    def _run_placebos(self) -> Dict[str, Any]:
+        """
+        Run placebo SCM for each donor unit (in-space placebo).
+
+        Returns
+        -------
+        dict with keys:
+            atts : list[float]          — placebo ATTs
+            pre_mspes : list[float]     — pre-treatment MSPEs
+            post_mspes : list[float]    — post-treatment MSPEs
+            ratios : list[float]        — post_RMSPE / pre_RMSPE
+            gaps : np.ndarray           — (T, n_placebos) full gap trajectories
+            units : list                — placebo unit names
+        """
+        atts: List[float] = []
+        pre_mspes: List[float] = []
+        post_mspes: List[float] = []
+        ratios: List[float] = []
+        gap_trajectories: List[np.ndarray] = []
+        units: List[Any] = []
 
         all_units_data = np.column_stack([
             self.Y_treated[:, np.newaxis], self.Y_donors
         ])
-        all_unit_names = [self.treated_unit] + list(self.donor_units)
 
         for i, placebo_unit in enumerate(self.donor_units):
             # Treat this donor as "treated", rest as donors
@@ -517,14 +535,31 @@ class SyntheticControl:
                 gap_p = Y_placebo - synth_p
 
                 pre_mspe_p = float(np.mean(gap_p[self.pre_mask]**2))
+                post_mspe_p = float(np.mean(gap_p[self.post_mask]**2))
                 att_p = float(np.mean(gap_p[self.post_mask]))
+                ratio_p = (np.sqrt(post_mspe_p) / np.sqrt(pre_mspe_p)
+                           if pre_mspe_p > 1e-10 else 0.0)
 
-                placebo_atts.append(att_p)
-                placebo_pre_mspes.append(pre_mspe_p)
+                atts.append(att_p)
+                pre_mspes.append(pre_mspe_p)
+                post_mspes.append(post_mspe_p)
+                ratios.append(ratio_p)
+                gap_trajectories.append(gap_p)
+                units.append(placebo_unit)
             except Exception:
                 continue
 
-        return placebo_atts, placebo_pre_mspes
+        gaps = (np.column_stack(gap_trajectories)
+                if gap_trajectories else np.empty((len(self.times), 0)))
+
+        return {
+            'atts': atts,
+            'pre_mspes': pre_mspes,
+            'post_mspes': post_mspes,
+            'ratios': ratios,
+            'gaps': gaps,
+            'units': units,
+        }
 
 
 # ------------------------------------------------------------------

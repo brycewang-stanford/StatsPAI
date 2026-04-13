@@ -2,6 +2,31 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.6.2] - 2026-04-12
+
+### Added
+
+- **OLS `predict()`**: `result.predict(newdata=)` for out-of-sample prediction on OLS results
+- **`balance_panel()`**: Utility to keep only units observed in every time period (`sp.balance_panel()`)
+- **Panel `balance=True`**: Convenience flag in `sp.panel()` to auto-balance before estimation
+- **Analytical weights for DID**: `weights=` parameter added to `did()`, `ddd()`, and `event_study()` for population-weighted estimation (Stata `[aweight=...]` equivalent)
+- **Matching `ps_poly=`**: Polynomial propensity score specification (`ps_poly=2` adds interactions/squares, following Cunningham 2021 Ch. 5)
+- **Synth `rmspe` plot**: Post/pre RMSPE ratio histogram (`synthplot(result, type='rmspe')`) per Abadie et al. (2010)
+- **Synth placebo gap plot**: Full spaghetti placebo gap paths with `rmspe_threshold` filter (Abadie et al. 2010, Figure 4)
+- **Graddy (2006) replication**: Fulton Fish Market IV example added to `sp.replicate()` (Mixtape Ch. 7)
+- **Numerical validation tests**: Cross-validated against Stata/R reference values with humanized error messages
+
+### Fixed
+
+- **`outreg2` format auto-detection**: Correctly infers `.xlsx`/`.csv`/`.tex` from filename extension
+- **Synth placebo p-value**: Now uses RMSPE *ratio* (√post/√pre) instead of squared ratio, matching Abadie et al. (2010) convention
+
+### Improved
+
+- **DID/DDD/Event Study**: Weights propagation through WLS with proper normalization and validation
+- **Synth placebos**: Store full placebo gap trajectories, per-unit RMSPE ratios, and unit labels for richer post-estimation analysis
+- **Matching tests**: Added comprehensive test suite for PSM, Mahalanobis, CEM, and stratification methods
+
 ## [0.6.1] - 2026-04-07
 
 ### Fixed

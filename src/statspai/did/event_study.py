@@ -48,6 +48,7 @@ def event_study(
     covariates: Optional[List[str]] = None,
     cluster: Optional[str] = None,
     alpha: float = 0.05,
+    weights: Optional[str] = None,
 ) -> CausalResult:
     """
     Traditional OLS event study with entity and time fixed effects.
@@ -81,6 +82,9 @@ def event_study(
         Cluster variable for standard errors (default: ``unit``).
     alpha : float, default 0.05
         Significance level.
+    weights : str, optional
+        Column name for analytical weights (e.g. population weights).
+        Equivalent to Stata's ``[aweight=...]``.
 
     Returns
     -------
@@ -147,27 +151,50 @@ def event_study(
 
     # Demean by entity and time (Frisch-Waugh for TWFE)
     all_y_x_cols = [y] + dummy_cols + cov_cols
-    df_clean = df.dropna(subset=all_y_x_cols + ["__unit__", "__time_num__"]).copy()
+    dropna_cols = all_y_x_cols + ["__unit__", "__time_num__"]
+    if weights is not None:
+        dropna_cols.append(weights)
+    df_clean = df.dropna(subset=dropna_cols).copy()
+
+    # Prepare weights array (before demeaning)
+    if weights is not None:
+        w_raw = df_clean[weights].values.astype(float)
+        if np.any(w_raw < 0):
+            raise ValueError(f"Weights column '{weights}' contains negative values.")
+        n_clean = len(df_clean)
+        w_arr = w_raw * (n_clean / w_raw.sum())
+    else:
+        w_arr = None
 
     Y, X_mat, col_names = _demean_twfe(
         df_clean, y, dummy_cols + cov_cols, "__unit__", "__time_num__",
+        w=w_arr,
     )
 
     n, k = X_mat.shape
 
-    # --- OLS ---
-    try:
-        XtX_inv = np.linalg.inv(X_mat.T @ X_mat)
-    except np.linalg.LinAlgError:
-        XtX_inv = np.linalg.pinv(X_mat.T @ X_mat)
+    # --- OLS (possibly weighted) ---
+    if w_arr is not None:
+        sqrt_w = np.sqrt(w_arr)
+        Xw = X_mat * sqrt_w[:, np.newaxis]
+        Yw = Y * sqrt_w
+    else:
+        Xw = X_mat
+        Yw = Y
 
-    beta = XtX_inv @ X_mat.T @ Y
-    resid = Y - X_mat @ beta
+    try:
+        XtX_inv = np.linalg.inv(Xw.T @ Xw)
+    except np.linalg.LinAlgError:
+        XtX_inv = np.linalg.pinv(Xw.T @ Xw)
+
+    beta = XtX_inv @ Xw.T @ Yw
+    resid = Y - X_mat @ beta  # residuals in original scale
 
     # --- Standard errors (clustered by default) ---
     cluster_var = cluster or unit
     cluster_ids = df_clean[cluster_var].values
-    se = _cluster_se(X_mat, resid, XtX_inv, cluster_ids)
+    se = _cluster_se(Xw, resid, XtX_inv, cluster_ids,
+                     w=w_arr)
 
     # --- Build event study table ---
     es_rows = []
@@ -197,7 +224,8 @@ def event_study(
 
     # --- Pre-trend test (joint F-test on pre-treatment coefficients) ---
     pre_indices = [i for i, k_val in enumerate(rel_periods) if k_val < 0]
-    pretrend_result = _joint_f_test(beta, XtX_inv, pre_indices, resid, n, k)
+    pretrend_result = _joint_f_test(beta, XtX_inv, pre_indices, resid, n, k,
+                                     w=w_arr)
 
     # --- Overall ATT (average of post-treatment coefficients) ---
     post = event_study_df[event_study_df["relative_time"] >= 0]
@@ -227,6 +255,7 @@ def event_study(
             "window": window,
             "n_clusters": n_clusters,
             "cluster_var": cluster_var,
+            "weights": weights,
         },
     )
 
@@ -241,8 +270,12 @@ def _demean_twfe(
     x_cols: List[str],
     unit_col: str,
     time_col: str,
+    w: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, np.ndarray, List[str]]:
-    """Demean Y and X by entity and time means (within transformation)."""
+    """Demean Y and X by entity and time means (within transformation).
+
+    If *w* is provided, uses weighted means for demeaning (WLS-FE).
+    """
     cols = [y_col] + x_cols
     data_mat = df[cols].values.astype(np.float64)
 
@@ -251,14 +284,32 @@ def _demean_twfe(
     unique_units = np.unique(unit_ids)
     for u in unique_units:
         mask = unit_ids == u
-        data_mat[mask] -= data_mat[mask].mean(axis=0)
+        if w is not None:
+            wm = w[mask]
+            ws = wm.sum()
+            if ws > 0:
+                wmean = (wm[:, np.newaxis] * data_mat[mask]).sum(axis=0) / ws
+            else:
+                wmean = data_mat[mask].mean(axis=0)
+            data_mat[mask] -= wmean
+        else:
+            data_mat[mask] -= data_mat[mask].mean(axis=0)
 
     # Time means (on already entity-demeaned data)
     time_ids = df[time_col].values
     unique_times = np.unique(time_ids)
     for t in unique_times:
         mask = time_ids == t
-        data_mat[mask] -= data_mat[mask].mean(axis=0)
+        if w is not None:
+            wm = w[mask]
+            ws = wm.sum()
+            if ws > 0:
+                wmean = (wm[:, np.newaxis] * data_mat[mask]).sum(axis=0) / ws
+            else:
+                wmean = data_mat[mask].mean(axis=0)
+            data_mat[mask] -= wmean
+        else:
+            data_mat[mask] -= data_mat[mask].mean(axis=0)
 
     Y = data_mat[:, 0]
     X = data_mat[:, 1:]
@@ -270,8 +321,13 @@ def _cluster_se(
     resid: np.ndarray,
     XtX_inv: np.ndarray,
     cluster_ids: np.ndarray,
+    w: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """Cluster-robust standard errors."""
+    """Cluster-robust standard errors.
+
+    *X* should already be the weighted design matrix (Xw) if weights are used.
+    *resid* should be unweighted residuals; weighting is applied here via *w*.
+    """
     n, k = X.shape
     unique_clusters = np.unique(cluster_ids)
     G = len(unique_clusters)
@@ -279,7 +335,10 @@ def _cluster_se(
     meat = np.zeros((k, k))
     for c in unique_clusters:
         mask = cluster_ids == c
-        score_c = (X[mask] * resid[mask, None]).sum(axis=0)
+        if w is not None:
+            score_c = (X[mask] * (np.sqrt(w[mask]) * resid[mask])[:, None]).sum(axis=0)
+        else:
+            score_c = (X[mask] * resid[mask, None]).sum(axis=0)
         meat += np.outer(score_c, score_c)
 
     correction = (G / (G - 1)) * ((n - 1) / (n - k))
@@ -294,6 +353,7 @@ def _joint_f_test(
     resid: np.ndarray,
     n: int,
     k: int,
+    w: Optional[np.ndarray] = None,
 ) -> dict:
     """Joint F-test for subset of coefficients being zero."""
     if not indices:
@@ -305,7 +365,10 @@ def _joint_f_test(
     # Submatrix of variance
     idx = np.array(indices)
     V_sub = XtX_inv[np.ix_(idx, idx)]
-    sigma2 = np.sum(resid ** 2) / (n - k)
+    if w is not None:
+        sigma2 = np.sum(w * resid ** 2) / (n - k)
+    else:
+        sigma2 = np.sum(resid ** 2) / (n - k)
 
     try:
         V_inv = np.linalg.inv(sigma2 * V_sub)

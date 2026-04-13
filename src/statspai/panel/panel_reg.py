@@ -333,6 +333,45 @@ _GMM_METHODS = {'ab', 'system'}
 _CRE_METHODS = {'mundlak', 'chamberlain'}
 
 
+# ======================================================================
+# balance_panel — keep only units observed in all time periods
+# ======================================================================
+
+def balance_panel(
+    data: pd.DataFrame,
+    entity: str,
+    time: str,
+) -> pd.DataFrame:
+    """
+    Balance a panel by keeping only units observed in every time period.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        Panel data in long format.
+    entity : str
+        Entity (unit) identifier column.
+    time : str
+        Time period column.
+
+    Returns
+    -------
+    pd.DataFrame
+        Balanced panel (same column order, sorted by entity then time).
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> balanced = sp.balance_panel(df, entity='id', time='year')
+    >>> balanced.groupby('id')['year'].count().nunique()  # all same count
+    1
+    """
+    all_periods = data[time].nunique()
+    counts = data.groupby(entity)[time].transform('nunique')
+    balanced = data.loc[counts == all_periods].sort_values([entity, time])
+    return balanced.reset_index(drop=True)
+
+
 def panel(
     data: pd.DataFrame,
     formula: str,
@@ -343,6 +382,7 @@ def panel(
     cluster: Optional[str] = None,
     weights: Optional[str] = None,
     alpha: float = 0.05,
+    balance: bool = False,
     # Dynamic panel (AB/System GMM) options
     lags: int = 1,
     gmm_lags: Tuple[int, int] = (2, 5),
@@ -393,6 +433,9 @@ def panel(
         Weight variable name.
     alpha : float, default 0.05
         Significance level.
+    balance : bool, default False
+        If True, drop units not observed in every time period before
+        estimation (equivalent to R's ``make.pbalanced()``).
     lags : int, default 1
         Number of AR lags (for dynamic panel methods ``'ab'``/``'system'``).
     gmm_lags : tuple, default (2, 5)
@@ -464,6 +507,18 @@ def panel(
     for col in all_cols:
         if col not in data.columns:
             raise ValueError(f"Column '{col}' not found in data")
+
+    # --- Balance panel if requested ---
+    if balance:
+        n_units = data[entity].nunique()
+        n_periods = data[time].nunique()
+        data = balance_panel(data, entity=entity, time=time)
+        if len(data) == 0:
+            raise ValueError(
+                f"balance=True dropped all units: none of the {n_units} "
+                f"entities appear in all {n_periods} time periods. "
+                "Check data or set balance=False."
+            )
 
     # --- Route to estimator ---
     if canonical in _GMM_METHODS:

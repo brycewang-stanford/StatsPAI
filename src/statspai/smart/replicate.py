@@ -106,6 +106,41 @@ _REPLICATIONS = {
             "sp.rdbwsensitivity(rd)",
         ],
     },
+    'graddy_2006': {
+        'title': 'Graddy (2006) — Fulton Fish Market demand elasticity via IV',
+        'paper': 'Graddy, K. (2006). Markets: The Fulton Fish Market.',
+        'journal': 'Journal of Economic Perspectives, 20(2), 207–220',
+        'method': 'IV / 2SLS',
+        'n_obs': 111,
+        'description': 'Classic IV example from Causal Inference: The Mixtape (Ch. 7). '
+                       'Estimates demand elasticity for fish using weather as instruments. '
+                       'Wave height is a strong instrument; wind speed is weak, '
+                       'illustrating how weak instruments inflate estimates.',
+        'code': [
+            "# OLS (biased — supply/demand simultaneity)",
+            "ols = sp.regress('log_quantity ~ log_price + mon + tue + wed + thu',",
+            "                 data=df, robust='hc1')",
+            "",
+            "# IV with strong instrument (wave height)",
+            "iv_strong = sp.iv('log_quantity ~ (log_price ~ wave_height)'",
+            "                  ' + mon + tue + wed + thu',",
+            "                  data=df, robust='hc1')",
+            "",
+            "# IV with weak instrument (wind speed) — compare bias",
+            "iv_weak = sp.iv('log_quantity ~ (log_price ~ wind_speed)'",
+            "                ' + mon + tue + wed + thu',",
+            "                data=df, robust='hc1')",
+            "",
+            "# Compare OLS vs strong IV vs weak IV",
+            "sp.regtable([ols, iv_strong, iv_weak],",
+            "            column_labels=['OLS', 'IV (wave)', 'IV (wind)'])",
+            "",
+            "# Weak instrument diagnostics",
+            "ar = sp.anderson_rubin_test(data=df, y='log_quantity',",
+            "     endog='log_price', instruments=['wave_height'],",
+            "     exog=['mon', 'tue', 'wed', 'thu'])",
+        ],
+    },
     'abadie_2010': {
         'title': 'Abadie, Diamond & Hainmueller (2010) — California Prop 99',
         'paper': 'Abadie, A., Diamond, A. & Hainmueller, J. (2010). '
@@ -195,6 +230,34 @@ def _generate_data(key):
             'black': black, 'hispanic': hispanic, 'married': married,
             'nodegree': nodegree, 're74': re74, 're75': re75, 're78': re78,
         })
+
+    elif key == 'graddy_2006':
+        n = 111
+        day_of_week = rng.choice(5, n)
+        mon = (day_of_week == 0).astype(int)
+        tue = (day_of_week == 1).astype(int)
+        wed = (day_of_week == 2).astype(int)
+        thu = (day_of_week == 3).astype(int)
+        # Weather instruments (corr with supply, not demand)
+        wave_height = rng.exponential(2.0, n)        # strong instrument
+        wind_speed = rng.exponential(5.0, n)          # weak instrument
+        # Supply shock from weather
+        supply_shock = -0.3 * wave_height - 0.05 * wind_speed + rng.normal(0, 0.5, n)
+        # Demand shock (unobserved)
+        demand_shock = rng.normal(0, 0.5, n)
+        # Equilibrium: log price driven by supply & demand shocks
+        log_price = 1.0 - 0.4 * supply_shock + 0.4 * demand_shock + rng.normal(0, 0.2, n)
+        # Demand curve: log_quantity = α + β·log_price + day FE + ε
+        log_quantity = (8.5 - 0.95 * log_price
+                        - 0.1 * mon + 0.05 * tue - 0.02 * wed + 0.08 * thu
+                        + 0.3 * demand_shock + rng.normal(0, 0.3, n))
+        df = pd.DataFrame({
+            'log_quantity': log_quantity, 'log_price': log_price,
+            'wave_height': wave_height, 'wind_speed': wind_speed,
+            'mon': mon, 'tue': tue, 'wed': wed, 'thu': thu,
+        })
+        df.attrs['true_elasticity'] = -0.95
+        return df
 
     elif key == 'lee_2008':
         n = 6558

@@ -30,6 +30,7 @@ Pesaran, M.H. (2004). "General Diagnostic Tests for Cross Section Dependence."
 from .panel_reg import (
     panel,
     panel_compare,
+    balance_panel,
     PanelResults,
     PanelCompareResults,
     PanelRegression,
@@ -40,6 +41,7 @@ from .panel_plots import plot_within_between
 __all__ = [
     'panel',
     'panel_compare',
+    'balance_panel',
     'PanelResults',
     'PanelCompareResults',
     'PanelRegression',

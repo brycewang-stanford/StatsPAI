@@ -17,6 +17,7 @@ Abadie, A. and Imbens, G.W. (2006). Econometrica, 74(1), 235-267.
 Abadie, A. and Imbens, G.W. (2011). JBES, 29(1), 1-11.
 Iacus, S.M., King, G., and Porro, G. (2012). Political Analysis, 20(1), 1-24.
 Hainmueller, J. (2012). Political Analysis, 20(1), 25-46.
+Cunningham, S. (2021). *Causal Inference: The Mixtape*. Yale University Press.
 """
 
 from .match import match, MatchEstimator, balanceplot, psplot

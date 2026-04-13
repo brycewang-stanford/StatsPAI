@@ -27,6 +27,8 @@ Abadie, A. and Imbens, G.W. (2006). Econometrica, 74(1), 235-267.
 Abadie, A. and Imbens, G.W. (2011). JBES, 29(1), 1-11.
 Iacus, S.M., King, G., and Porro, G. (2012). Political Analysis, 20(1), 1-24.
 King, G. and Nielsen, R. (2019). Political Analysis, 27(4), 435-454.
+Cunningham, S. (2021). *Causal Inference: The Mixtape*. Yale University Press.
+    Ch. 5: Matching and Subclassification. https://mixtape.scunning.com/
 """
 
 from typing import Optional, List
@@ -72,6 +74,8 @@ def match(
     caliper: Optional[float] = None,
     replace: bool = True,
     bias_correction: bool = False,
+    # --- propensity score specification ---
+    ps_poly: int = 1,
     # --- stratification parameters ---
     n_strata: int = 5,
     # --- CEM parameters ---
@@ -109,6 +113,14 @@ def match(
     bias_correction : bool, default False
         Apply Abadie-Imbens (2011) bias correction via regression
         adjustment on the matching discrepancy.
+    ps_poly : int, default 1
+        Polynomial degree for the propensity score logit model.
+        ``ps_poly=1`` uses linear terms only.
+        ``ps_poly=2`` adds all squared terms and pairwise interactions.
+        ``ps_poly=3`` adds cubic terms as well.
+        Higher-order specifications are standard practice; see
+        Cunningham (2021, Ch. 5) for worked examples with
+        ``age + age^2 + age^3 + educ + educ^2 + educ*re74``.
     n_strata : int, default 5
         Number of strata for method='stratify'.
     n_bins : int, optional
@@ -147,6 +159,16 @@ def match(
     ...                   covariates=['age', 'edu'],
     ...                   method='cem')
 
+    >>> # Quadratic PS model (Cunningham 2021, Ch. 5 style)
+    >>> result = sp.match(df, y='wage', treat='training',
+    ...                   covariates=['age', 'edu', 'exp'],
+    ...                   ps_poly=2)
+
+    >>> # Without-replacement matching
+    >>> result = sp.match(df, y='wage', treat='training',
+    ...                   covariates=['age', 'edu'],
+    ...                   replace=False)
+
     >>> # Legacy API still works
     >>> result = sp.match(df, y='wage', treat='training',
     ...                   covariates=['age', 'edu'], method='psm')
@@ -155,8 +177,8 @@ def match(
         data=data, y=y, treat=treat, covariates=covariates,
         distance=distance, method=method, estimand=estimand,
         n_matches=n_matches, caliper=caliper, replace=replace,
-        bias_correction=bias_correction, n_strata=n_strata,
-        n_bins=n_bins, alpha=alpha,
+        bias_correction=bias_correction, ps_poly=ps_poly,
+        n_strata=n_strata, n_bins=n_bins, alpha=alpha,
     )
     return estimator.fit()
 
@@ -182,6 +204,7 @@ class MatchEstimator:
         caliper: Optional[float] = None,
         replace: bool = True,
         bias_correction: bool = False,
+        ps_poly: int = 1,
         n_strata: int = 5,
         n_bins: Optional[int] = None,
         alpha: float = 0.05,
@@ -195,6 +218,7 @@ class MatchEstimator:
         self.caliper = caliper
         self.replace = replace
         self.bias_correction = bias_correction
+        self.ps_poly = ps_poly
         self.n_strata = n_strata
         self.n_bins = n_bins
         self.alpha = alpha
@@ -306,6 +330,7 @@ class MatchEstimator:
             'caliper': self.caliper,
             'replace': self.replace,
             'bias_correction': self.bias_correction,
+            'ps_poly': self.ps_poly,
             'balance': balance,
             **extra_info,
         }
@@ -331,7 +356,7 @@ class MatchEstimator:
     def _fit_nearest(self, Y, X, T, idx_t, idx_c):
         """Nearest-neighbor matching with configurable distance metric."""
         # For propensity distance, estimate PS once with actual treatment
-        pscore = self._logit_propensity(X, T) if self.distance == 'propensity' else None
+        pscore = self._logit_propensity(X, T, poly=self.ps_poly) if self.distance == 'propensity' else None
 
         # Build distance matrix
         dist_mat = self._compute_distance_matrix(X, idx_t, idx_c, pscore)
@@ -352,7 +377,7 @@ class MatchEstimator:
             se = self._ai_se(Y, X, T, idx_t, idx_c, m_tc, w_tc)
 
         if pscore is None:
-            pscore = self._logit_propensity(X, T)
+            pscore = self._logit_propensity(X, T, poly=self.ps_poly)
         balance = self._balance_table(X, T, pscore)
 
         return att, se, balance
@@ -418,7 +443,7 @@ class MatchEstimator:
         att = float(np.mean(effects))
         se = float(np.std(effects, ddof=1) / np.sqrt(n_matched)) if n_matched > 1 else 0.0
 
-        pscore = self._logit_propensity(X, T)
+        pscore = self._logit_propensity(X, T, poly=self.ps_poly)
         balance = self._balance_table(X, T, pscore)
         extra = {
             'n_matched_treated': n_matched,
@@ -443,7 +468,7 @@ class MatchEstimator:
         compute within-stratum treatment effects, then weight by the
         proportion of treated (ATT) or total (ATE) units per stratum.
         """
-        pscore = self._logit_propensity(X, T)
+        pscore = self._logit_propensity(X, T, poly=self.ps_poly)
 
         # Create strata from propensity score quantiles
         boundaries = np.quantile(pscore, np.linspace(0, 1, self.n_strata + 1))
@@ -553,7 +578,7 @@ class MatchEstimator:
                  / len(Y_c)) if len(Y_c) > 1 else 0
         se = float(np.sqrt(var_t + var_c))
 
-        pscore = self._logit_propensity(X, T)
+        pscore = self._logit_propensity(X, T, poly=self.ps_poly)
         balance = self._balance_table(X, T, pscore)
 
         n_matched_t = len(set(matched_t))
@@ -570,10 +595,52 @@ class MatchEstimator:
     # ==================================================================
 
     @staticmethod
-    def _logit_propensity(X, T):
-        """Logistic regression propensity score via Newton-Raphson."""
+    def _expand_poly(X, degree):
+        """
+        Expand covariate matrix with polynomial and interaction terms.
+
+        - degree=1: linear terms only (identity).
+        - degree=2: add X^2 and all pairwise X_i * X_j interactions.
+        - degree=3: add X^3 as well.
+
+        This follows the common practice in propensity score estimation
+        of including higher-order terms (Cunningham 2021, Ch. 5;
+        Dehejia & Wahba 1999).
+        """
+        if degree <= 1:
+            return X
+        cols = [X]
         n, k = X.shape
-        X_aug = np.column_stack([np.ones(n), X])
+        # Squared terms
+        cols.append(X ** 2)
+        # Pairwise interactions
+        if k > 1:
+            for i in range(k):
+                for j in range(i + 1, k):
+                    cols.append((X[:, i] * X[:, j]).reshape(-1, 1))
+        # Cubic terms
+        if degree >= 3:
+            cols.append(X ** 3)
+        return np.column_stack(cols)
+
+    @staticmethod
+    def _logit_propensity(X, T, poly=1):
+        """
+        Logistic regression propensity score via Newton-Raphson (IRLS).
+
+        Parameters
+        ----------
+        X : ndarray, shape (n, k)
+        T : ndarray, shape (n,)
+        poly : int, default 1
+            Polynomial expansion degree for the design matrix.
+            ``poly=2`` adds squared terms and pairwise interactions,
+            following the standard specification in Cunningham (2021, Ch. 5)
+            and Dehejia & Wahba (1999).
+        """
+        X_poly = MatchEstimator._expand_poly(X, poly)
+        n = X_poly.shape[0]
+        X_aug = np.column_stack([np.ones(n), X_poly])
         k_aug = X_aug.shape[1]
 
         beta = np.zeros(k_aug)
@@ -602,11 +669,51 @@ class MatchEstimator:
     # ==================================================================
 
     def _nn_match_from_dist(self, dist, caliper=None):
-        """k-NN matching from a precomputed distance matrix."""
-        n_target = dist.shape[0]
-        matches = []
-        weights = []
+        """
+        k-NN matching from a precomputed distance matrix.
 
+        When ``self.replace=False``, each control unit can be used at most
+        once across all treated units.  Treated units are processed in
+        order of their minimum distance (best match first) so the greedy
+        assignment favours the closest pairs.
+
+        References: Cunningham (2021, Ch. 5) discusses with- vs.
+        without-replacement matching and the bias–variance trade-off.
+        """
+        n_target = dist.shape[0]
+        matches = [None] * n_target
+        weights = [None] * n_target
+
+        # Without replacement: process treated units greedily by best
+        # minimum distance so each control is used at most once.
+        if not self.replace:
+            used = set()
+            # Sort treated units by their minimum distance to any control
+            min_dists = np.min(dist, axis=1)
+            order = np.argsort(min_dists)
+
+            for i in order:
+                d = dist[i].copy()
+                if caliper is not None:
+                    d[d > caliper] = np.inf
+                # Mask out already-used controls
+                for u in used:
+                    d[u] = np.inf
+
+                k = min(self.n_matches, int(np.sum(np.isfinite(d))))
+                if k == 0:
+                    matches[i] = np.array([], dtype=int)
+                    weights[i] = np.array([])
+                    continue
+
+                idx = np.argpartition(d, k)[:k]
+                matches[i] = idx
+                weights[i] = np.ones(k) / k
+                used.update(idx.tolist())
+
+            return matches, weights
+
+        # With replacement (default): simple k-NN per target
         for i in range(n_target):
             d = dist[i].copy()
             if caliper is not None:
@@ -614,13 +721,13 @@ class MatchEstimator:
 
             k = min(self.n_matches, int(np.sum(np.isfinite(d))))
             if k == 0:
-                matches.append(np.array([], dtype=int))
-                weights.append(np.array([]))
+                matches[i] = np.array([], dtype=int)
+                weights[i] = np.array([])
                 continue
 
             idx = np.argpartition(d, k)[:k]
-            matches.append(idx)
-            weights.append(np.ones(k) / k)
+            matches[i] = idx
+            weights[i] = np.ones(k) / k
 
         return matches, weights
 

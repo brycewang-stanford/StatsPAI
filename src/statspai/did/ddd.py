@@ -46,6 +46,7 @@ def ddd(
     cluster: Optional[str] = None,
     robust: bool = True,
     alpha: float = 0.05,
+    weights: Optional[str] = None,
 ) -> CausalResult:
     """
     Triple Differences (DDD) estimator.
@@ -77,6 +78,9 @@ def ddd(
         Use HC1 heteroskedasticity-robust standard errors.
     alpha : float, default 0.05
         Significance level for confidence intervals.
+    weights : str, optional
+        Column name for analytical weights (e.g. population weights).
+        Equivalent to Stata's ``[aweight=...]``.
 
     Returns
     -------
@@ -127,11 +131,14 @@ def ddd(
     # Triple interaction = DDD coefficient
     dtg = d * t * g
 
-    # Drop rows with NaN
+    # Drop rows with NaN (and invalid weights if provided)
     valid = np.isfinite(y_arr)
     if covariates:
         for cov in covariates:
             valid &= np.isfinite(df[cov].values.astype(float))
+    if weights is not None:
+        valid &= np.isfinite(df[weights].values.astype(float))
+        valid &= df[weights].values.astype(float) > 0
 
     d, t, g = d[valid], t[valid], g[valid]
     dt, dg, tg, dtg = dt[valid], dg[valid], tg[valid], dtg[valid]
@@ -155,13 +162,27 @@ def ddd(
     X = np.column_stack(X_parts)
     n, k = X.shape
 
-    # OLS
-    try:
-        XtX_inv = np.linalg.inv(X.T @ X)
-    except np.linalg.LinAlgError:
-        XtX_inv = np.linalg.pinv(X.T @ X)
+    # --- Analytical weights (WLS) ---
+    if weights is not None:
+        w_raw = df.loc[valid, weights].values.astype(float) if isinstance(valid, np.ndarray) else df[weights].values.astype(float)
+        if np.any(w_raw < 0):
+            raise ValueError(f"Weights column '{weights}' contains negative values.")
+        w = w_raw * (n / w_raw.sum())
+        sqrt_w = np.sqrt(w)
+        Xw = X * sqrt_w[:, np.newaxis]
+        yw = y_arr * sqrt_w
+    else:
+        w = None
+        Xw = X
+        yw = y_arr
 
-    beta = XtX_inv @ X.T @ y_arr
+    # OLS on (possibly weighted) data
+    try:
+        XtX_inv = np.linalg.inv(Xw.T @ Xw)
+    except np.linalg.LinAlgError:
+        XtX_inv = np.linalg.pinv(Xw.T @ Xw)
+
+    beta = XtX_inv @ Xw.T @ yw
     resid = y_arr - X @ beta
 
     # Variance-covariance
@@ -172,16 +193,25 @@ def ddd(
         meat = np.zeros((k, k))
         for c_val in unique_cl:
             idx = cl == c_val
-            score = (X[idx] * resid[idx, np.newaxis]).sum(axis=0)
+            if w is not None:
+                score = (Xw[idx] * (sqrt_w[idx] * resid[idx])[:, np.newaxis]).sum(axis=0)
+            else:
+                score = (X[idx] * resid[idx, np.newaxis]).sum(axis=0)
             meat += np.outer(score, score)
         correction = (n_cl / (n_cl - 1)) * ((n - 1) / (n - k))
         vcov = correction * XtX_inv @ meat @ XtX_inv
     elif robust:
-        weights = (n / (n - k)) * resid ** 2
-        meat = X.T @ np.diag(weights) @ X
+        if w is not None:
+            hc1_weights = (n / (n - k)) * (w * resid ** 2)
+        else:
+            hc1_weights = (n / (n - k)) * resid ** 2
+        meat = X.T @ np.diag(hc1_weights) @ X
         vcov = XtX_inv @ meat @ XtX_inv
     else:
-        sigma2 = np.sum(resid ** 2) / (n - k)
+        if w is not None:
+            sigma2 = np.sum(w * resid ** 2) / (n - k)
+        else:
+            sigma2 = np.sum(resid ** 2) / (n - k)
         vcov = sigma2 * XtX_inv
 
     se = np.sqrt(np.diag(vcov))
@@ -211,10 +241,15 @@ def ddd(
         'pvalue': pvals_all,
     })
 
-    # R-squared
-    tss = np.sum((y_arr - np.mean(y_arr)) ** 2)
-    rss = np.sum(resid ** 2)
-    r_squared = 1 - rss / tss
+    # R-squared (weighted if applicable)
+    if w is not None:
+        y_wmean = np.sum(w * y_arr) / np.sum(w)
+        tss = np.sum(w * (y_arr - y_wmean) ** 2)
+        rss = np.sum(w * resid ** 2)
+    else:
+        tss = np.sum((y_arr - np.mean(y_arr)) ** 2)
+        rss = np.sum(resid ** 2)
+    r_squared = 1 - rss / tss if tss > 0 else 0.0
 
     model_info = {
         'r_squared': round(r_squared, 6),
@@ -226,6 +261,7 @@ def ddd(
         'did_estimate': round(did_estimate, 6),
         'robust_se': robust,
         'cluster': cluster,
+        'weights': weights,
     }
 
     return CausalResult(

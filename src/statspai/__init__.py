@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.6.1"
+__version__ = "0.6.2"
 __author__ = "Bryce Wang"
 __email__ = "bryce@copaper.ai"
 
@@ -55,7 +55,7 @@ from .matching import (
 )
 from .dml import dml, DoubleML
 from .deepiv import deepiv, DeepIV
-from .panel import panel, panel_compare, PanelResults, PanelCompareResults, PanelRegression
+from .panel import panel, panel_compare, balance_panel, PanelResults, PanelCompareResults, PanelRegression
 from .causal_impact import causal_impact, CausalImpactEstimator, impactplot
 from .mediation import mediate, MediationAnalysis
 from .bartik import bartik, BartikIV, ssaggregate, shift_share_se
@@ -271,6 +271,7 @@ __all__ = [
     # Panel
     "panel",
     "panel_compare",
+    "balance_panel",
     "PanelResults",
     "PanelCompareResults",
     "PanelRegression",

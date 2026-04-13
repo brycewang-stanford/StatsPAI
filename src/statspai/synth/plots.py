@@ -11,6 +11,7 @@ Plot types
 * **both** — two-panel: trajectory on top, gap on bottom
 * **weights** — horizontal bar chart of donor weights
 * **placebo** — placebo distribution + treated rank
+* **rmspe** — post/pre RMSPE ratio histogram (Abadie et al. 2010)
 * **conformal** — period-level effects with conformal CI bands
 * **staggered** — cohort-specific ATT comparison
 * **factors** — latent factor loadings (gsynth only)
@@ -80,7 +81,8 @@ def synthplot(
         * ``'both'`` — two-panel: trajectory + gap.
         * ``'weights'`` — donor weight bar chart.
         * ``'placebo'`` — placebo ATT distribution.
-        * ``'placebo_gap'`` — placebo gap spaghetti plot.
+        * ``'placebo_gap'`` — placebo gap spaghetti plot (Abadie et al. 2010).
+        * ``'rmspe'`` — post/pre RMSPE ratio histogram (Abadie et al. 2010).
         * ``'conformal'`` — period-level effects + conformal CIs.
         * ``'staggered'`` — cohort-level ATT comparison.
         * ``'factors'`` — latent factor loadings (gsynth only).
@@ -164,6 +166,10 @@ def synthplot(
         return _plot_staggered(result, ax=ax,
                                figsize=figsize or (9, 6),
                                title=title, **kwargs)
+    if type_ in ("rmspe", "rmspe_ratio"):
+        return _plot_rmspe(result, ax=ax,
+                           figsize=figsize or (9, 6),
+                           title=title, **kwargs)
     if type_ in ("factors", "loadings"):
         return _plot_factors(result, ax=ax,
                              figsize=figsize or (10, 5),
@@ -171,7 +177,7 @@ def synthplot(
 
     raise ValueError(
         f"Unknown plot type {type_!r}. Choose from: 'trajectory', 'gap', "
-        f"'both', 'weights', 'placebo', 'placebo_gap', 'conformal', "
+        f"'both', 'weights', 'placebo', 'placebo_gap', 'rmspe', 'conformal', "
         f"'staggered', 'factors', 'compare'."
     )
 
@@ -470,12 +476,20 @@ def _plot_placebo(result, ax=None, figsize=(9, 6), title=None, **kw):
     return fig, ax
 
 
-def _plot_placebo_gap(result, ax=None, figsize=(10, 6), title=None, **kw):
+def _plot_placebo_gap(result, ax=None, figsize=(10, 6), title=None,
+                      rmspe_threshold=None, **kw):
     """
-    Spaghetti plot: placebo gap paths overlaid with treated gap.
+    Spaghetti plot: all placebo gap paths overlaid with treated gap.
 
-    Requires the full placebo SCM to have been stored — otherwise
-    we fall back to the treated gap only.
+    This is the standard visualisation from Abadie, Diamond & Hainmueller
+    (2010, Figure 4). Each grey line is one placebo unit's gap path;
+    the treated unit is highlighted in bold.
+
+    Parameters
+    ----------
+    rmspe_threshold : float, optional
+        Exclude placebos whose pre-treatment RMSPE exceeds this multiple
+        of the treated unit's pre-RMSPE. Abadie (2010) recommends 2.
     """
     import matplotlib.pyplot as plt
 
@@ -488,24 +502,42 @@ def _plot_placebo_gap(result, ax=None, figsize=(10, 6), title=None, **kw):
     else:
         fig = ax.get_figure()
 
-    # We don't typically store full placebo trajectories, so we show
-    # the treated gap prominently with a note about the placebo distribution
+    # Full placebo gap trajectories (if stored)
+    placebo_gaps = mi.get("placebo_gaps")
+    if placebo_gaps is not None and placebo_gaps.shape[1] > 0:
+        # Optional: filter by pre-RMSPE ratio
+        keep = np.ones(placebo_gaps.shape[1], dtype=bool)
+        if rmspe_threshold is not None:
+            treated_pre_mspe = mi.get("pre_treatment_mspe", 0)
+            treated_pre_rmspe = np.sqrt(treated_pre_mspe) if treated_pre_mspe > 0 else 0
+            placebo_pre_mspes = mi.get("placebo_pre_mspes", [])
+            if placebo_pre_mspes and treated_pre_rmspe > 0:
+                for j, pm in enumerate(placebo_pre_mspes):
+                    if np.sqrt(pm) > rmspe_threshold * treated_pre_rmspe:
+                        keep[j] = False
+
+        n_shown = int(keep.sum())
+        for j in range(placebo_gaps.shape[1]):
+            if not keep[j]:
+                continue
+            ax.plot(times, placebo_gaps[:, j], color=_PALETTE["placebo"],
+                    linewidth=0.7, alpha=0.4, zorder=1)
+
+        # Label for legend
+        ax.plot([], [], color=_PALETTE["placebo"], linewidth=0.7, alpha=0.4,
+                label=f"Placebos (n={n_shown})")
+    else:
+        # Fallback: show quantile bands from scalar ATTs
+        placebos = mi.get("placebo_atts") or mi.get("placebo_distribution")
+        if placebos is not None:
+            placebos = np.asarray(placebos)
+            q25, q75 = np.quantile(placebos, 0.25), np.quantile(placebos, 0.75)
+            ax.axhspan(q25, q75, alpha=0.08, color=_PALETTE["placebo"],
+                       label="Placebo IQR", zorder=1)
+
+    # Treated gap on top
     ax.plot(times, gap, color=_PALETTE["treated"], linewidth=2.5,
             label=str(label), zorder=3)
-
-    # If we have placebo ATTs, draw horizontal reference lines
-    placebos = mi.get("placebo_atts") or mi.get("placebo_distribution")
-    if placebos is not None:
-        placebos = np.asarray(placebos)
-        # Draw quantile bands
-        for q, alpha_ in [(0.05, 0.06), (0.25, 0.06), (0.75, 0.06), (0.95, 0.06)]:
-            val = np.quantile(placebos, q)
-            ax.axhline(y=val, color=_PALETTE["placebo"], linewidth=0.8,
-                       alpha=0.5 + alpha_, zorder=1)
-        # Shade interquartile range of placebos
-        q25, q75 = np.quantile(placebos, 0.25), np.quantile(placebos, 0.75)
-        ax.axhspan(q25, q75, alpha=0.08, color=_PALETTE["placebo"],
-                   label="Placebo IQR", zorder=1)
 
     ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8, zorder=1)
     if t_time is not None:
@@ -513,10 +545,70 @@ def _plot_placebo_gap(result, ax=None, figsize=(10, 6), title=None, **kw):
                    linestyle=":", linewidth=1.2, alpha=0.8, zorder=1)
 
     method_short = _method_short_label(result)
-    ax.set_title(title or f"Gap + Placebo Range ({method_short})",
+    suffix = ""
+    if rmspe_threshold is not None:
+        suffix = f" (pre-RMSPE ≤ {rmspe_threshold}×)"
+    ax.set_title(title or f"Placebo Gaps ({method_short}){suffix}",
                  fontsize=13)
     ax.set_xlabel("Time", fontsize=11)
-    ax.set_ylabel("Gap", fontsize=11)
+    ax.set_ylabel("Gap (Treated − Synthetic)", fontsize=11)
+    ax.legend(fontsize=9.5, frameon=False)
+    _clean_spines(ax)
+    fig.tight_layout()
+    return fig, ax
+
+
+def _plot_rmspe(result, ax=None, figsize=(9, 6), title=None, **kw):
+    """
+    RMSPE ratio histogram: post-RMSPE / pre-RMSPE distribution.
+
+    Standard inference visualisation from Abadie, Diamond & Hainmueller
+    (2010). Shows the treated unit's rank in the placebo distribution.
+    """
+    import matplotlib.pyplot as plt
+
+    mi = result.model_info
+    placebo_ratios = mi.get("placebo_ratios")
+    treated_ratio = mi.get("treated_ratio")
+
+    if placebo_ratios is None or treated_ratio is None:
+        raise ValueError(
+            "No RMSPE ratio data. Run with placebo=True to generate."
+        )
+
+    placebo_ratios = np.asarray(placebo_ratios)
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.get_figure()
+
+    n_bins = min(max(len(placebo_ratios) // 2, 8), 30)
+
+    ax.hist(placebo_ratios, bins=n_bins, color=_PALETTE["placebo"],
+            edgecolor="white", alpha=0.7, label="Placebos", zorder=2)
+    ax.axvline(x=treated_ratio, color=_PALETTE["synthetic"], linewidth=2.5,
+               linestyle="--",
+               label=f"Treated: {treated_ratio:.2f}", zorder=3)
+
+    # Rank annotation
+    rank = int(np.sum(placebo_ratios >= treated_ratio)) + 1
+    total = len(placebo_ratios) + 1
+    ax.annotate(
+        f"Rank: {rank}/{total}\np = {result.pvalue:.3f}",
+        xy=(treated_ratio, ax.get_ylim()[1] * 0.85),
+        fontsize=10, fontweight="bold",
+        ha="left" if treated_ratio > np.median(placebo_ratios) else "right",
+        color=_PALETTE["synthetic"],
+    )
+
+    method_short = _method_short_label(result)
+    ax.set_title(
+        title or f"RMSPE Ratio Distribution ({method_short})",
+        fontsize=13,
+    )
+    ax.set_xlabel("Post-RMSPE / Pre-RMSPE", fontsize=11)
+    ax.set_ylabel("Count", fontsize=11)
     ax.legend(fontsize=9.5, frameon=False)
     _clean_spines(ax)
     fig.tight_layout()

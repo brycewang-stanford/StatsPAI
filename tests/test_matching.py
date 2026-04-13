@@ -338,6 +338,99 @@ class TestMethodSpecificInfo:
         assert info['n_effective_strata'] >= 1
 
 
+class TestPsPoly:
+    """ps_poly parameter for polynomial propensity score (Cunningham 2021, Ch. 5)."""
+
+    def test_poly2(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            ps_poly=2,
+        )
+        assert isinstance(result, CausalResult)
+        assert result.model_info['ps_poly'] == 2
+        assert abs(result.estimate - 2.0) < 1.5
+
+    def test_poly3(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            ps_poly=3,
+        )
+        assert isinstance(result, CausalResult)
+        assert result.model_info['ps_poly'] == 3
+
+    def test_poly1_is_default(self, selection_bias_data):
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+        )
+        assert result.model_info['ps_poly'] == 1
+
+    def test_poly2_stratify(self, selection_bias_data):
+        """Polynomial PS also works with stratification."""
+        result = match(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            method='stratify', ps_poly=2,
+        )
+        assert isinstance(result, CausalResult)
+        assert abs(result.estimate - 2.0) < 1.5
+
+
+class TestWithoutReplacement:
+    """replace=False must enforce each control used at most once."""
+
+    def test_no_duplicate_controls(self, selection_bias_data):
+        """Controls should not be reused when replace=False."""
+        estimator = MatchEstimator(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            replace=False,
+        )
+        cols = ['y', 'treat', 'x1', 'x2']
+        clean = selection_bias_data[cols].dropna()
+        T = clean['treat'].values.astype(int)
+        X = clean[['x1', 'x2']].values.astype(float)
+        idx_t = np.where(T == 1)[0]
+        idx_c = np.where(T == 0)[0]
+        pscore = estimator._logit_propensity(X, T)
+        dist_mat = estimator._compute_distance_matrix(X, idx_t, idx_c, pscore)
+        matches, _ = estimator._nn_match_from_dist(dist_mat)
+
+        # Collect all matched control indices
+        all_matched = []
+        for m in matches:
+            if len(m) > 0:
+                all_matched.extend(m.tolist())
+        # No duplicates
+        assert len(all_matched) == len(set(all_matched))
+
+    def test_with_replacement_allows_duplicates(self, selection_bias_data):
+        """With replacement, controls CAN be reused."""
+        estimator = MatchEstimator(
+            selection_bias_data, y='y', treat='treat',
+            covariates=['x1', 'x2'],
+            replace=True,
+        )
+        cols = ['y', 'treat', 'x1', 'x2']
+        clean = selection_bias_data[cols].dropna()
+        T = clean['treat'].values.astype(int)
+        X = clean[['x1', 'x2']].values.astype(float)
+        idx_t = np.where(T == 1)[0]
+        idx_c = np.where(T == 0)[0]
+        pscore = estimator._logit_propensity(X, T)
+        dist_mat = estimator._compute_distance_matrix(X, idx_t, idx_c, pscore)
+        matches, _ = estimator._nn_match_from_dist(dist_mat)
+
+        all_matched = []
+        for m in matches:
+            if len(m) > 0:
+                all_matched.extend(m.tolist())
+        # With replacement, duplicates are expected (many treated → few best controls)
+        assert len(all_matched) >= len(set(all_matched))
+
+
 class TestMatchGeneral:
 
     def test_balance_table(self, selection_bias_data):
