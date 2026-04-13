@@ -385,8 +385,40 @@ def regress(
     >>> results = regress("wage ~ education + experience", data=df)
     >>> print(results.summary())
     
-    >>> results = regress("wage ~ education + experience", data=df, 
+    >>> results = regress("wage ~ education + experience", data=df,
     ...                   robust='hc1', cluster='firm_id')
     """
+    # --- Input validation (Stata-quality error messages) ---
+    if not isinstance(data, pd.DataFrame):
+        raise TypeError(
+            f"'data' must be a pandas DataFrame, got {type(data).__name__}. "
+            f"Example: sp.regress('y ~ x', data=df)"
+        )
+    if data.empty:
+        raise ValueError("DataFrame is empty — no observations to regress.")
+    # Check formula variables exist in data
+    if '~' in formula:
+        raw_vars = formula.replace('~', '+').replace('*', '+').replace(
+            ':', '+').replace('(', ' ').replace(')', ' ').replace('-', '+')
+        tokens = [v.strip() for v in raw_vars.split('+')]
+        tokens = [v for v in tokens if v and v not in (
+            '1', '0', 'C', 'np', 'I')]
+        missing = [v for v in tokens if v not in data.columns
+                   and not v[0].isdigit()]
+        if missing:
+            available = ', '.join(sorted(data.columns)[:10])
+            raise ValueError(
+                f"Variable(s) not found in data: {missing}. "
+                f"Available columns: {available}"
+                + (" ..." if len(data.columns) > 10 else "")
+            )
+    # Check for all-NaN outcome
+    dep_var = formula.split('~')[0].strip()
+    if dep_var in data.columns and data[dep_var].isna().all():
+        raise ValueError(
+            f"Outcome variable '{dep_var}' is entirely NaN — "
+            f"cannot estimate regression."
+        )
+
     model = OLSRegression(formula=formula, data=data)
     return model.fit(robust=robust, cluster=cluster, **kwargs)

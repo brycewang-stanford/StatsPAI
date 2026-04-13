@@ -70,6 +70,7 @@ def did(
     cluster: Optional[str] = None,
     robust: bool = True,
     alpha: float = 0.05,
+    weights: Optional[str] = None,
     # DDD-specific
     subgroup: Optional[str] = None,
     # SDID-specific
@@ -119,6 +120,10 @@ def did(
         HC1 robust standard errors (2×2 / DDD only).
     alpha : float, default 0.05
         Significance level for confidence intervals.
+    weights : str, optional
+        Column name for analytical weights (e.g. population weights).
+        Supported for ``'2x2'``, ``'ddd'``, and event study methods.
+        Equivalent to Stata's ``[aweight=...]``.
     subgroup : str, optional
         For DDD: binary affected-subgroup indicator.
     treat_unit : optional
@@ -156,6 +161,32 @@ def did(
     ...             id='state', method='sdid',
     ...             treat_unit='CA', treat_time=2000)
     """
+    # --- Input validation (Stata-quality error messages) ---
+    if not isinstance(data, pd.DataFrame):
+        raise TypeError(
+            f"'data' must be a pandas DataFrame, got {type(data).__name__}."
+        )
+    if data.empty:
+        raise ValueError("DataFrame is empty — no observations for DID.")
+    required = {'y': y, 'treat': treat, 'time': time}
+    if id is not None:
+        required['id'] = id
+    if subgroup is not None:
+        required['subgroup'] = subgroup
+    if covariates:
+        for c in covariates:
+            required[f'covariate ({c})'] = c
+    missing = {label: col for label, col in required.items()
+               if col not in data.columns}
+    if missing:
+        details = ', '.join(f'{l}={c!r}' for l, c in missing.items())
+        available = ', '.join(sorted(data.columns)[:10])
+        raise ValueError(
+            f"Column(s) not found in data: {details}. "
+            f"Available: {available}"
+            + (" ..." if len(data.columns) > 10 else "")
+        )
+
     # Auto-detect if subgroup is provided → DDD
     if method == 'auto' and subgroup is not None:
         method = 'ddd'
@@ -196,7 +227,7 @@ def did(
         return did_2x2(
             data, y=y, treat=treat, time=time,
             covariates=covariates, cluster=cluster,
-            robust=robust, alpha=alpha,
+            robust=robust, alpha=alpha, weights=weights,
         )
 
     if method == 'ddd':
@@ -209,7 +240,7 @@ def did(
         return ddd(
             data, y=y, treat=treat, time=time, subgroup=subgroup,
             covariates=covariates, cluster=cluster,
-            robust=robust, alpha=alpha,
+            robust=robust, alpha=alpha, weights=weights,
         )
 
     if method in ('callaway_santanna', 'cs'):
