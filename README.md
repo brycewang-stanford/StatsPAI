@@ -1,3 +1,5 @@
+[English](README.md) | [中文](README_CN.md)
+
 # StatsPAI: The Agent-Native Causal Inference & Econometrics Toolkit for Python
 
 [![PyPI version](https://img.shields.io/pypi/v/StatsPAI.svg)](https://pypi.org/project/StatsPAI/)
