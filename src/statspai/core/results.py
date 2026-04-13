@@ -136,19 +136,54 @@ class EconometricResults:
     
     def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
         """
-        Generate predictions (to be implemented by specific models)
-        
+        Generate predictions from the fitted model.
+
         Parameters
         ----------
         data : pd.DataFrame, optional
-            Data for prediction
-            
+            New data for out-of-sample prediction. If None, returns
+            in-sample fitted values.
+
         Returns
         -------
         np.ndarray
-            Predicted values
+            Predicted values.
         """
-        raise NotImplementedError("Prediction method not implemented for this model")
+        # In-sample: return fitted values if available
+        if data is None:
+            fv = self.data_info.get('fitted_values')
+            if fv is not None:
+                return fv
+            raise NotImplementedError(
+                "In-sample fitted values not stored. "
+                "Pass data= for out-of-sample prediction."
+            )
+
+        # Out-of-sample: X @ params
+        if self.params is not None and isinstance(self.params, pd.Series):
+            var_names = list(self.params.index)
+            has_intercept = 'Intercept' in var_names
+
+            # Build design matrix matching the original variable names
+            X_cols = [v for v in var_names if v != 'Intercept']
+            missing = [c for c in X_cols if c not in data.columns]
+            if missing:
+                raise ValueError(
+                    f"Prediction data missing column(s): {missing}"
+                )
+            X = data[X_cols].values.astype(float)
+            if has_intercept:
+                ones = np.ones((X.shape[0], 1))
+                X = np.column_stack([ones, X])
+                ordered = ['Intercept'] + X_cols
+            else:
+                ordered = X_cols
+            beta = np.array([self.params[v] for v in ordered])
+            return X @ beta
+
+        raise NotImplementedError(
+            "Prediction not available for this model type."
+        )
     
     def residuals(self) -> Optional[np.ndarray]:
         """

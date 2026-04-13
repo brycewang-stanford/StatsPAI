@@ -710,17 +710,19 @@ def outreg2(
     show_tstat: bool = False,
     decimal_places: int = 3,
     variable_labels: Optional[Dict[str, str]] = None,
-    format: str = "excel"
+    format: str = "auto"
 ) -> Optional[str]:
     """
-    Convenient function to export multiple regression results
-    
+    Convenient function to export multiple regression results.
+
     Parameters
     ----------
     *results : EconometricResults
-        Multiple regression results to include
+        Multiple regression results to include.
     filename : str
-        Output filename
+        Output filename. The format is auto-detected from the
+        extension: ``.xlsx`` → Excel, ``.docx`` → Word, ``.tex`` →
+        LaTeX.  Override with ``format=``.
     model_names : list of str, optional
         Names for each model
     title : str, default "Regression Results"
