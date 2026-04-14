@@ -44,6 +44,7 @@ def callaway_santanna(
     estimator: str = 'dr',
     control_group: str = 'nevertreated',
     base_period: str = 'universal',
+    anticipation: int = 0,
     alpha: float = 0.05,
 ) -> CausalResult:
     """
@@ -69,6 +70,12 @@ def callaway_santanna(
         Comparison group: 'nevertreated' or 'notyettreated'.
     base_period : str, default 'universal'
         Base period: 'universal' (always g-1) or 'varying'.
+    anticipation : int, default 0
+        Number of pre-treatment periods over which units may anticipate
+        the treatment.  Shifts the base period back by ``anticipation``
+        periods and drops the (g, t) pairs with ``t > g - anticipation - 1``
+        but ``t < g`` from the post-treatment set.  See Callaway &
+        Sant'Anna (2021), Section 3.2.
     alpha : float, default 0.05
         Significance level.
 
@@ -102,6 +109,8 @@ def callaway_santanna(
             f"control_group must be 'nevertreated' or 'notyettreated', "
             f"got '{control_group}'"
         )
+    if anticipation < 0:
+        raise ValueError(f"anticipation must be >= 0, got {anticipation}")
 
     # 1. Prepare panel data
     y_wide, unit_info, time_periods, cohorts, n_units = _prepare_panel(
@@ -112,7 +121,7 @@ def callaway_santanna(
         raise ValueError("No treatment cohorts found. Check group variable encoding.")
 
     # 2. Determine (g, t, base) estimation triples
-    gt_pairs = _get_gt_pairs(cohorts, time_periods, base_period)
+    gt_pairs = _get_gt_pairs(cohorts, time_periods, base_period, anticipation)
     if not gt_pairs:
         raise ValueError("No valid (group, time) pairs to estimate.")
 
@@ -170,6 +179,7 @@ def callaway_santanna(
         'estimator': estimator.upper(),
         'control_group': control_group,
         'base_period': base_period,
+        'anticipation': anticipation,
         'n_units': n_units,
         'n_periods': len(time_periods),
         'n_cohorts': len(cohorts),
@@ -253,11 +263,19 @@ def _get_gt_pairs(
     cohorts: list,
     time_periods: list,
     base_period: str,
+    anticipation: int = 0,
 ) -> List[Tuple[int, int, int]]:
-    """Determine all (g, t, base) triples to estimate."""
+    """Determine all (g, t, base) triples to estimate.
+
+    With ``anticipation = δ > 0`` the base period for cohort g is shifted
+    from g − 1 to g − 1 − δ (CS2021, Section 3.2). For the 'varying' base
+    scheme the per-t base is similarly shifted to ``t − 1 − δ`` when t
+    falls in the pre-treatment region.
+    """
     pairs = []
     for g_val in cohorts:
-        available_pre = [tp for tp in time_periods if tp < g_val]
+        pre_cutoff = g_val - 1 - anticipation
+        available_pre = [tp for tp in time_periods if tp <= pre_cutoff]
         if not available_pre:
             continue
         universal_base = max(available_pre)
@@ -267,7 +285,7 @@ def _get_gt_pairs(
                 continue  # skip the base period itself
 
             if base_period == 'varying' and t_val < g_val:
-                pre_of_t = [tp for tp in time_periods if tp < t_val]
+                pre_of_t = [tp for tp in time_periods if tp <= t_val - 1 - anticipation]
                 if not pre_of_t:
                     continue
                 this_base = max(pre_of_t)

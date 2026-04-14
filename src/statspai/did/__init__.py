@@ -26,6 +26,7 @@ from ..core.results import CausalResult
 from .did_2x2 import did_2x2
 from .ddd import ddd
 from .callaway_santanna import callaway_santanna
+from .aggte import aggte
 from .sun_abraham import sun_abraham
 from .bacon import bacon_decomposition
 from .honest_did import honest_did, breakdown_m
@@ -300,6 +301,7 @@ __all__ = [
     'did_2x2',
     'ddd',
     'callaway_santanna',
+    'aggte',
     'sun_abraham',
     'bacon_decomposition',
     'honest_did',
