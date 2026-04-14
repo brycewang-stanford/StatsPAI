@@ -39,6 +39,7 @@ from .did import (
     parallel_trends_plot, bacon_plot, group_time_plot, did_plot,
     enhanced_event_study_plot, treatment_rollout_plot,
     sensitivity_plot, cohort_event_study_plot,
+    aggte, cs_report, CSReport, ggdid,
 )
 from .rd import rdrobust, rdplot, rdplotdensity, rdbwsensitivity, rdbalance, rdplacebo, rdsummary, rkd, rd_honest, rdit
 from .synth import (

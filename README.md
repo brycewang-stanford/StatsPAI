@@ -157,6 +157,30 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 | `did_multiplegt()` | DID with treatment switching | de Chaisemartin & D'Haultfoeuille (2020) |
 | `did_imputation()` | Imputation DID estimator | Borusyak, Jaravel & Spiess (2024) |
 | `distributional_te()` | Distributional treatment effects | Chernozhukov, Fernandez-Val & Melly (2013) |
+| `sp.aggte()` | Unified aggregation for staggered DID (simple/dynamic/group/calendar) with Mammen multiplier-bootstrap uniform bands | Callaway & Sant'Anna (2021) §4; Mammen (1993) |
+| `sp.cs_report()` | One-call Callaway–Sant'Anna report: estimation + four aggregations + pre-trend test + Rambachan–Roth breakdown M\* | CS2021 + RR2023 |
+| `sp.ggdid()` | `aggte()` visualiser with uniform-band overlay | mirrors R `did::ggdid` |
+
+#### DiD parity with `csdid` / `differences` / R `did` + `HonestDiD`
+
+All algorithms below are reimplemented from the original papers — no
+wrappers, no runtime dependencies on upstream DID packages.
+
+| Feature | StatsPAI | `csdid` (Py) | `differences` (Py) | R `did` |
+| --- | :---: | :---: | :---: | :---: |
+| Callaway–Sant'Anna ATT(g,t) with DR / IPW / REG | ✅ | ✅ | ✅ | ✅ |
+| Never-treated / not-yet-treated control group | ✅ | ✅ | ✅ | ✅ |
+| Anticipation (`anticipation=δ`) | ✅ | ✅ | — | ✅ |
+| `aggte`: simple / dynamic / group / calendar | ✅ | ✅ | ✅ | ✅ |
+| Mammen multiplier bootstrap, uniform sup-t bands | ✅ | ✅ | — | ✅ |
+| `balance_e` / `min_e` / `max_e` | ✅ | ✅ | partial | ✅ |
+| Sun–Abraham IW with Liang–Zeger cluster SE | ✅ | — | ✅ | via `fixest::sunab` |
+| Borusyak–Jaravel–Spiess imputation + pre-trend Wald | ✅ | — | — | via `didimputation` |
+| de Chaisemartin–D'Haultfoeuille switch-on-off | ✅ | — | — | via `DIDmultiplegtDYN` |
+| dCDH joint placebo Wald + avg. cumulative effect | ✅ | — | — | ✅ (v2) |
+| Rambachan–Roth sensitivity + breakdown M\* | ✅ | — | — | via `HonestDiD` |
+| `cs ⇄ aggte ⇄ honest_did` pipeline (single object) | ✅ | partial | partial | partial |
+| One-call report card (`cs_report`) | ✅ | — | — | via `summary()` |
 
 ### Regression Discontinuity
 

@@ -2,6 +2,66 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.7.0] - 2026-04-14
+
+Focused release reaching feature parity with the R `did` / `HonestDiD`
+packages and the Python `csdid` / `differences` packages for staggered
+Difference-in-Differences.  All core algorithms are reimplemented from
+the original papers — **no wrappers, no runtime dependencies on upstream
+DID packages**.  DiD test count: 47 → 114.
+
+### Added
+
+- **`sp.did.aggte(result, type=...)`** — unified aggregation layer for
+  `callaway_santanna()` results.  Four aggregation schemes (`simple`,
+  `dynamic`, `group`, `calendar`) backed by a single weighted-influence-
+  function engine.  Callaway & Sant'Anna (2021) Section 4.
+- **Mammen (1993) multiplier bootstrap** — IQR-rescaled pointwise
+  standard errors *and* simultaneous (uniform / sup-t) confidence bands
+  over the aggregation dimension.  Matches the uniform-band behaviour
+  of the R `did::aggte` function.
+- **`balance_e` / `min_e` / `max_e`** — event-study cohort balancing
+  and window truncation (CS2021 eq. 3.8).
+- **`anticipation=δ`** parameter on `callaway_santanna()` — shifts the
+  base period back by δ periods per CS2021 §3.2.
+- **`sp.did.cs_report(data, ...)`** — one-call report card.  Runs the
+  full pipeline (ATT(g,t) → four aggregations with uniform bands →
+  pre-trend Wald → Rambachan-Roth breakdown M\* for every post event
+  time) under a single bootstrap seed and pretty-prints the result.
+  Returns a structured `CSReport` dataclass.
+- **`sp.did.ggdid(result)`** — plot routine for `aggte()` output,
+  mirroring R `did::ggdid`.  Auto-dispatches on aggregation type;
+  uniform band overlaid on pointwise CI.
+- **dCDH joint inference** (`did_multiplegt`) — `joint_placebo_test`
+  (Wald χ² across placebo lags with bootstrap covariance, dCDH 2024
+  §3.3) and `avg_cumulative_effect` (mean of dynamic[0..L] with
+  SE preserving cross-horizon covariance, dCDH 2024 §3.4).
+
+### Changed
+
+- **`sun_abraham()` inference layer rewritten** — replaces the former
+  ad-hoc `√(σ²/(total·T))` approximation with a Liang-Zeger cluster-
+  robust sandwich `(X'X)⁻¹ Σ_c X_c' u_c u_c' X_c (X'X)⁻¹` (small-sample
+  adjusted), delta-method IW aggregation SEs `w' V_β w`, iterative
+  two-way within transformation (correct on unbalanced panels), and
+  optional `control_group='lastcohort'` per SA 2021 §6.
+- **`sp.did.honest_did()` / `breakdown_m()` made polymorphic** — now
+  accept both the legacy `callaway_santanna()` / `sun_abraham()` result
+  format (event study in `model_info`) and the new `aggte(type='dynamic')`
+  format (event study in `detail` with Mammen uniform bands).  The
+  idiomatic pipeline `cs → aggte → honest_did → breakdown_m` now runs
+  end-to-end with no manual plumbing.
+
+### References
+
+- Callaway, B. and Sant'Anna, P.H.C. (2021). *J. of Econometrics* 225(2).
+- Sun, L. and Abraham, S. (2021). *J. of Econometrics* 225(2).
+- Mammen, E. (1993). *Ann. Statist.* 21(1).
+- Liang, K.-Y. and Zeger, S.L. (1986). *Biometrika* 73(1).
+- de Chaisemartin, C. and D'Haultfoeuille, X. (2020). *AER* 110(9).
+- de Chaisemartin, C. and D'Haultfoeuille, X. (2024). *RESt*, forthcoming.
+- Rambachan, A. and Roth, J. (2023). *Rev. Econ. Studies* 90(5).
+
 ## [0.6.2] - 2026-04-12
 
 ### Added
