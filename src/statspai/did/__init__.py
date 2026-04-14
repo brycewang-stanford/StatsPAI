@@ -27,6 +27,7 @@ from .did_2x2 import did_2x2
 from .ddd import ddd
 from .callaway_santanna import callaway_santanna
 from .aggte import aggte
+from .report import cs_report, CSReport
 from .sun_abraham import sun_abraham
 from .bacon import bacon_decomposition
 from .honest_did import honest_did, breakdown_m
@@ -303,6 +304,8 @@ __all__ = [
     'ddd',
     'callaway_santanna',
     'aggte',
+    'cs_report',
+    'CSReport',
     'sun_abraham',
     'bacon_decomposition',
     'honest_did',
