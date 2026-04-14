@@ -9,6 +9,10 @@ Provides Stata-style data manipulation tools:
 
 from .labels import label_var, label_vars, get_label, get_labels, describe
 from .data_tools import pwcorr, winsor
+from .egen import (
+    rowmean, rowtotal, rowmax, rowmin, rowsd, rowcount, rank,
+    outlier_indicator,
+)
 from .io import read_data
 from .dgp import (
     dgp_did,
@@ -31,6 +35,14 @@ __all__ = [
     'describe',
     'pwcorr',
     'winsor',
+    'rowmean',
+    'rowtotal',
+    'rowmax',
+    'rowmin',
+    'rowsd',
+    'rowcount',
+    'rank',
+    'outlier_indicator',
     'read_data',
     # Data Generating Processes
     'dgp_did',

@@ -72,6 +72,7 @@ from .spatial import sar, sem, sdm, SpatialModel
 from .plots import binscatter, set_theme, list_themes, use_chinese, interactive, get_code
 from .utils import (
     label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data,
+    rowmean, rowtotal, rowmax, rowmin, rowsd, rowcount, rank, outlier_indicator,
     dgp_did, dgp_rd, dgp_iv, dgp_rct, dgp_panel, dgp_observational,
     dgp_cluster_rct, dgp_bunching, dgp_synth, dgp_bartik,
 )
@@ -311,6 +312,14 @@ __all__ = [
     "describe",
     "pwcorr",
     "winsor",
+    "rowmean",
+    "rowtotal",
+    "rowmax",
+    "rowmin",
+    "rowsd",
+    "rowcount",
+    "rank",
+    "outlier_indicator",
     "read_data",
     # Dynamic Panel GMM
     "xtabond",
