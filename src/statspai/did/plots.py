@@ -1210,3 +1210,162 @@ def cohort_event_study_plot(
     ax.legend(fontsize=9, frameon=False, ncol=min(3, len(cohorts) + 1))
     fig.tight_layout()
     return fig, ax
+
+
+# ======================================================================
+# 9. ggdid — aggte() result visualiser with uniform bands
+# ======================================================================
+
+def ggdid(
+    result,
+    ax=None,
+    figsize=(10, 6),
+    title: Optional[str] = None,
+    point_color: str = '#2E86AB',
+    band_color: str = '#F18F01',
+    show_pointwise: bool = True,
+    show_uniform: bool = True,
+):
+    """Plot an ``aggte()`` result, mirroring R :func:`did::ggdid`.
+
+    Automatically dispatches on ``result.model_info['aggregation']``:
+
+    - ``simple``   : a single point with pointwise CI
+    - ``dynamic``  : event-study line with pointwise CI **and** uniform band
+    - ``group``    : horizontal bars of θ̂(g) per cohort
+    - ``calendar`` : time-series of θ̂(t) per calendar period
+
+    Uniform bands (sup-t simultaneous confidence bands) are drawn from the
+    ``cband_lower`` / ``cband_upper`` columns created by :func:`aggte`.
+
+    Parameters
+    ----------
+    result : CausalResult
+        Output of :func:`aggte`.
+    ax : matplotlib Axes, optional
+    figsize : tuple, default (10, 6)
+    title : str, optional
+    point_color, band_color : str
+        Colours for the pointwise estimate and the uniform band.
+    show_pointwise : bool, default True
+        Draw pointwise CI lines.
+    show_uniform : bool, default True
+        Draw uniform band (shaded region).
+
+    Returns
+    -------
+    (fig, ax)
+    """
+    plt, _ = _ensure_mpl()
+
+    info = result.model_info or {}
+    agg = info.get('aggregation', 'dynamic')
+    df = result.detail
+    if df is None or len(df) == 0:
+        raise ValueError("result has empty detail table.")
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.figure
+
+    has_cband = 'cband_lower' in df.columns and 'cband_upper' in df.columns
+
+    if agg == 'simple':
+        est = df['att'].iloc[0]
+        lo, hi = df['ci_lower'].iloc[0], df['ci_upper'].iloc[0]
+        ax.errorbar(
+            [0], [est], yerr=[[est - lo], [hi - est]],
+            fmt='o', color=point_color, capsize=6, markersize=8,
+            linewidth=2, label=f'Overall ATT = {est:.3f}',
+        )
+        ax.axhline(0, color='gray', linestyle='--', linewidth=0.8)
+        ax.set_xticks([])
+        ax.set_ylabel('ATT')
+        ax.set_title(title or "Callaway-Sant'Anna — simple aggregation")
+        ax.legend(frameon=False)
+
+    elif agg == 'dynamic':
+        x = df['relative_time'].values
+        est = df['att'].values
+        # Uniform band first (behind lines).
+        if show_uniform and has_cband:
+            ax.fill_between(
+                x, df['cband_lower'], df['cband_upper'],
+                color=band_color, alpha=0.25,
+                label=f"Uniform {int(100*(1-result.alpha))}% band",
+            )
+        if show_pointwise:
+            ax.fill_between(
+                x, df['ci_lower'], df['ci_upper'],
+                color=point_color, alpha=0.18,
+                label=f"Pointwise {int(100*(1-result.alpha))}% CI",
+            )
+        post = x >= 0
+        pre = x < 0
+        ax.plot(x[pre], est[pre], 'o-', color='#7F8C8D',
+                markersize=6, linewidth=1.5, label='Pre-treatment')
+        ax.plot(x[post], est[post], 'o-', color=point_color,
+                markersize=7, linewidth=2, label='Post-treatment')
+        ax.axhline(0, color='gray', linestyle='--', linewidth=0.8)
+        ax.axvline(-0.5, color='#7F8C8D', linestyle=':', linewidth=1, alpha=0.5)
+        ax.set_xlabel('Event time e = t − g')
+        ax.set_ylabel('ATT(e)')
+        ax.set_title(title or "Callaway-Sant'Anna — dynamic (event study)")
+        ax.legend(frameon=False, fontsize=9)
+
+    elif agg == 'group':
+        groups = df['group'].values
+        est = df['att'].values
+        yvals = np.arange(len(groups))
+        ax.errorbar(
+            est, yvals,
+            xerr=[est - df['ci_lower'], df['ci_upper'] - est],
+            fmt='o', color=point_color, capsize=5, markersize=7,
+            label=f"Pointwise {int(100*(1-result.alpha))}% CI",
+        )
+        if show_uniform and has_cband:
+            ax.errorbar(
+                est, yvals,
+                xerr=[est - df['cband_lower'], df['cband_upper'] - est],
+                fmt='none', color=band_color, capsize=10, linewidth=2,
+                alpha=0.6,
+                label=f"Uniform {int(100*(1-result.alpha))}% band",
+            )
+        ax.axvline(0, color='gray', linestyle='--', linewidth=0.8)
+        ax.set_yticks(yvals)
+        ax.set_yticklabels([f'g = {g}' for g in groups])
+        ax.set_xlabel('ATT(g)')
+        ax.set_title(title or "Callaway-Sant'Anna — group aggregation")
+        ax.legend(frameon=False, fontsize=9)
+
+    elif agg == 'calendar':
+        x = df['time'].values
+        est = df['att'].values
+        if show_uniform and has_cband:
+            ax.fill_between(
+                x, df['cband_lower'], df['cband_upper'],
+                color=band_color, alpha=0.25,
+                label=f"Uniform {int(100*(1-result.alpha))}% band",
+            )
+        if show_pointwise:
+            ax.fill_between(
+                x, df['ci_lower'], df['ci_upper'],
+                color=point_color, alpha=0.18,
+                label=f"Pointwise {int(100*(1-result.alpha))}% CI",
+            )
+        ax.plot(x, est, 'o-', color=point_color, linewidth=2, markersize=7)
+        ax.axhline(0, color='gray', linestyle='--', linewidth=0.8)
+        ax.set_xlabel('Calendar time t')
+        ax.set_ylabel('ATT(t)')
+        ax.set_title(title or "Callaway-Sant'Anna — calendar aggregation")
+        ax.legend(frameon=False, fontsize=9)
+
+    else:
+        raise ValueError(
+            f"Unsupported aggregation type in result.model_info: {agg!r}"
+        )
+
+    _style_ax(ax)
+    fig.tight_layout()
+    return fig, ax

@@ -167,3 +167,22 @@ def test_anticipation_shifts_base_period():
     # Numbers actually differ (not identical).
     assert cs0.detail.shape == cs1.detail.shape or True  # shape can match
     assert not np.allclose(cs0.detail['att'].values, cs1.detail['att'].values)
+
+
+# --------------------------------------------------------------------------- #
+# ggdid visualiser                                                            #
+# --------------------------------------------------------------------------- #
+
+def test_ggdid_all_aggregation_types(cs_result):
+    matplotlib = pytest.importorskip('matplotlib')
+    matplotlib.use('Agg')
+    from statspai.did import ggdid
+
+    for typ in ['simple', 'dynamic', 'group', 'calendar']:
+        r = aggte(cs_result, type=typ, random_state=0, n_boot=200)
+        fig, ax = ggdid(r)
+        assert ax.get_title()  # non-empty title
+        # uniform band artists appear for non-simple aggregations
+        if typ != 'simple':
+            labels = [t.get_text() for t in ax.get_legend().get_texts()]
+            assert any('Uniform' in lab for lab in labels)

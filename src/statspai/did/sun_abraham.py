@@ -1,20 +1,32 @@
 """
-Sun & Abraham (2021) interaction-weighted estimator for staggered DID.
+Sun & Abraham (2021) interaction-weighted event-study estimator.
 
-Estimates dynamic treatment effects via cohort-specific event study
-coefficients that are free of contamination from heterogeneous effects
-across cohorts. The estimator re-weights the OLS event study
-coefficients using cohort shares.
+Fits a *saturated* regression that interacts every cohort dummy with
+every relative-time dummy, then aggregates the interaction coefficients
+across cohorts using empirical cohort shares to deliver the IW
+estimator δ̂^IW_ℓ that is robust to heterogeneous treatment effects
+(Sun & Abraham 2021, Theorem 1 / Corollary 1).
+
+Standard errors are computed from the classical OLS sandwich:
+
+    Var(β̂) = (X'X)⁻¹  ( Σ_c  X_c' u_c u_c' X_c )  (X'X)⁻¹
+
+clustered at the unit (or a user-supplied) level.  The IW estimator is
+a linear combination of β̂, so Var(δ̂^IW_ℓ) = w_ℓ' Var(β̂) w_ℓ by the
+delta method (shares treated as estimated but converging at parametric
+rate, following SA 2021 eq. (18)).
 
 References
 ----------
 Sun, L. and Abraham, S. (2021).
-"Estimating Dynamic Treatment Effects in Event Studies with
-Heterogeneous Treatment Effects."
-*Journal of Econometrics*, 225(2), 175-199.
+    "Estimating Dynamic Treatment Effects in Event Studies with
+     Heterogeneous Treatment Effects."
+    *Journal of Econometrics*, 225(2), 175-199.
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from __future__ import annotations
+
+from typing import Optional, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -22,6 +34,10 @@ from scipy import stats
 
 from ..core.results import CausalResult
 
+
+# ======================================================================
+# Public API
+# ======================================================================
 
 def sun_abraham(
     data: pd.DataFrame,
@@ -36,16 +52,12 @@ def sun_abraham(
     alpha: float = 0.05,
 ) -> CausalResult:
     """
-    Sun & Abraham (2021) interaction-weighted event study estimator.
-
-    Estimates cohort-specific treatment effects and aggregates them
-    using cohort-share weights to obtain heterogeneity-robust dynamic
-    treatment effect estimates.
+    Sun & Abraham (2021) interaction-weighted event-study estimator.
 
     Parameters
     ----------
     data : pd.DataFrame
-        Balanced panel data (long format).
+        Long-format panel data.
     y : str
         Outcome variable.
     g : str
@@ -55,12 +67,14 @@ def sun_abraham(
     i : str
         Unit identifier.
     event_window : tuple of (int, int), optional
-        (min_relative_time, max_relative_time) for event study.
-        Default: all available relative times.
+        (min_relative_time, max_relative_time).
+        Default: observed range in the data.
     control_group : str, default 'nevertreated'
-        ``'nevertreated'`` or ``'lastcohort'`` (last treated cohort).
+        ``'nevertreated'`` or ``'lastcohort'``.  When ``'lastcohort'``,
+        the latest treated cohort is used as the reference and dropped
+        from the IW aggregation.
     covariates : list of str, optional
-        Additional control variables.
+        Additional controls (time-varying; added linearly).
     cluster : str, optional
         Cluster variable for SEs. Default: clusters on ``i``.
     alpha : float, default 0.05
@@ -69,165 +83,202 @@ def sun_abraham(
     Returns
     -------
     CausalResult
-        With event study coefficients in ``model_info['event_study']``.
-
-    Examples
-    --------
-    >>> result = sun_abraham(df, y='earnings', g='first_treat',
-    ...                      t='year', i='worker', event_window=(-5, 5))
-    >>> result.event_study_plot()
-
-    Notes
-    -----
-    The Sun-Abraham estimator proceeds in two steps:
-
-    1. **Saturated regression**: Interact relative-time dummies with
-       cohort dummies (all possible ``1(e=ℓ) × 1(G=g)`` interactions),
-       using never-treated (or last-cohort) as the reference.
-
-    2. **Aggregation**: For each relative time ℓ, compute the
-       interaction-weighted (IW) estimator as a weighted average of
-       cohort-specific effects using cohort shares as weights:
-       ``δ̂_ℓ = Σ_g ŝ_g × δ̂_{ℓ,g}``
-       where ``ŝ_g = P(G=g | G is treated and observed at e=ℓ)``.
-
-    This avoids the contamination bias of standard OLS event study
-    regressions documented in Sun & Abraham (2021, *JEcon*), Theorem 1.
+        ``.detail`` is the event-study table (IW ATT by relative time
+        with cluster-robust SE and 1−α CI).  ``.estimate`` / ``.se``
+        are the simple post-treatment average and its delta-method SE.
     """
     df = data.copy()
 
-    # Parse
     for col in [y, g, t, i]:
         if col not in df.columns:
             raise ValueError(f"Column '{col}' not found")
+    if covariates:
+        for c in covariates:
+            if c not in df.columns:
+                raise ValueError(f"Covariate '{c}' not found")
+    if control_group not in ('nevertreated', 'lastcohort'):
+        raise ValueError(
+            f"control_group must be 'nevertreated' or 'lastcohort', "
+            f"got {control_group!r}"
+        )
 
-    df[g] = df[g].fillna(0).replace([np.inf], 0)
+    df[g] = df[g].fillna(0).replace([np.inf, -np.inf], 0).astype(int)
     time_periods = sorted(df[t].unique())
-    cohorts = sorted([v for v in df[g].unique() if v > 0 and v <= max(time_periods)])
-    never_mask = df[g] == 0
+    t_max = max(time_periods)
+    cohorts_all = sorted([v for v in df[g].unique() if v > 0 and v <= t_max])
 
-    if cluster is None:
-        cluster = i
+    if not cohorts_all:
+        raise ValueError("No treated cohorts found in the data.")
 
-    # Relative time for each obs
+    # Reference cohort: never-treated (g=0) OR last cohort.
+    if control_group == 'lastcohort':
+        ref_cohort = max(cohorts_all)
+        cohorts = [c for c in cohorts_all if c != ref_cohort]
+        ref_mask = (df[g] == ref_cohort)
+    else:
+        cohorts = cohorts_all
+        ref_mask = (df[g] == 0)
+
+    if not cohorts:
+        raise ValueError("No non-reference cohorts available for estimation.")
+    has_ref = bool(ref_mask.any())
+    if not has_ref:
+        raise ValueError(
+            f"Reference group is empty (control_group={control_group!r})."
+        )
+
+    cluster_col = cluster or i
+
+    # Relative time (NaN for reference observations)
     df['_rel_time'] = np.where(df[g] > 0, df[t] - df[g], np.nan)
 
-    # Event window
-    valid_rel = df.loc[df[g] > 0, '_rel_time'].dropna()
     if event_window is None:
-        e_min = int(valid_rel.min())
-        e_max = int(valid_rel.max())
+        rel_obs = df.loc[df[g] > 0, '_rel_time'].dropna()
+        e_min = int(rel_obs.min())
+        e_max = int(rel_obs.max())
     else:
-        e_min, e_max = event_window
+        e_min, e_max = int(event_window[0]), int(event_window[1])
 
-    rel_times = list(range(e_min, e_max + 1))
-    rel_times = [e for e in rel_times if e != -1]  # -1 is reference
+    # Reference relative time = -1 (CS-SA standard).
+    rel_times = [e for e in range(e_min, e_max + 1) if e != -1]
 
-    # --- Step 1: Cohort × relative-time saturated regression ---
-    # Build interaction dummies: 1(G=g) × 1(e=ℓ) for all (g, ℓ)
-    interactions = {}
+    # ----- Saturated design matrix: 1(G=g) × 1(e=ℓ) -----
+    interact_meta: List[Tuple[int, int]] = []  # (g, e) per column
+    X_cols: List[np.ndarray] = []
     for g_val in cohorts:
+        in_cohort = (df[g] == g_val).values
         for e in rel_times:
-            col_name = f'_coh{g_val}_e{e}'
-            interactions[col_name] = (
-                (df[g] == g_val) & (df['_rel_time'] == e)
-            ).astype(float)
-            interactions[col_name + '_meta'] = (g_val, e)
+            X_cols.append(
+                (in_cohort & (df['_rel_time'].values == e)).astype(float)
+            )
+            interact_meta.append((g_val, e))
 
-    if not interactions:
-        raise ValueError("No valid cohort × event-time interactions found.")
+    X_int = np.column_stack(X_cols)
 
-    # Build design matrix
-    interact_cols = [c for c in interactions if not c.endswith('_meta')]
-    for col_name in interact_cols:
-        df[col_name] = interactions[col_name]
+    # Unit + time FE via two-way within transformation ("within" projection).
+    # Build the panel of y and X, demean, then flatten.
+    unit_idx = pd.Categorical(df[i])
+    time_idx = pd.Categorical(df[t])
+    y_dm = _two_way_demean(df[y].values.astype(float), unit_idx, time_idx)
+    X_dm = np.column_stack([
+        _two_way_demean(X_int[:, k], unit_idx, time_idx)
+        for k in range(X_int.shape[1])
+    ])
 
-    # Unit and time FE via demeaning
-    Y_panel = df.pivot_table(index=i, columns=t, values=y, aggfunc='first')
-    y_dm = _double_demean(Y_panel.values)
+    if covariates:
+        for c in covariates:
+            X_dm = np.column_stack([
+                X_dm,
+                _two_way_demean(df[c].values.astype(float), unit_idx, time_idx),
+            ])
 
-    x_panels = {}
-    for col_name in interact_cols:
-        x_p = df.pivot_table(index=i, columns=t, values=col_name, aggfunc='first').fillna(0)
-        x_panels[col_name] = _double_demean(x_p.values)
+    valid = np.isfinite(y_dm) & np.all(np.isfinite(X_dm), axis=1)
+    y_v = y_dm[valid]
+    X_v = X_dm[valid]
+    cluster_v = df.loc[valid, cluster_col].values
+    k_int = len(interact_meta)
 
-    y_flat = y_dm.ravel()
-    X_flat = np.column_stack([x_panels[c].ravel() for c in interact_cols])
-    valid = np.isfinite(y_flat) & np.all(np.isfinite(X_flat), axis=1)
-    y_v = y_flat[valid]
-    X_v = X_flat[valid]
-
-    # OLS
+    # ----- OLS with ridge safety -----
+    XtX = X_v.T @ X_v
     try:
-        beta = np.linalg.lstsq(X_v, y_v, rcond=None)[0]
+        XtX_inv = np.linalg.inv(XtX + 1e-10 * np.eye(X_v.shape[1]))
     except np.linalg.LinAlgError:
-        beta = np.zeros(len(interact_cols))
+        XtX_inv = np.linalg.pinv(XtX)
+    beta = XtX_inv @ (X_v.T @ y_v)
 
-    # Map back to (g, e) → coefficient
-    cohort_effects = {}
-    for idx, col_name in enumerate(interact_cols):
-        g_val, e = interactions[col_name + '_meta']
-        cohort_effects[(g_val, e)] = beta[idx]
+    # ----- Cluster-robust sandwich SE (Liang-Zeger) -----
+    u = y_v - X_v @ beta
+    Xu = X_v * u[:, None]
+    clusters = pd.Series(cluster_v)
+    Xu_sum = np.zeros_like(XtX)
+    for _, idx in clusters.groupby(clusters).indices.items():
+        s = Xu[idx].sum(axis=0)
+        Xu_sum += np.outer(s, s)
+    n_clust = clusters.nunique()
+    n, k = X_v.shape
+    df_adj = (n_clust / max(n_clust - 1, 1)) * ((n - 1) / max(n - k, 1))
+    V_beta = df_adj * XtX_inv @ Xu_sum @ XtX_inv
 
-    # --- Step 2: IW aggregation ---
-    # For each relative time e, weight cohort-specific effects by cohort share
+    # Slice to interaction block (drop covariate rows/cols for IW weights).
+    V_int = V_beta[:k_int, :k_int]
+    beta_int = beta[:k_int]
+
+    # ----- IW aggregation at each relative time -----
     unit_cohorts = df.groupby(i)[g].first()
     cohort_counts = unit_cohorts[unit_cohorts > 0].value_counts()
-
     z_crit = stats.norm.ppf(1 - alpha / 2)
+
     es_rows = []
-
     for e in sorted(set(rel_times)):
-        # Which cohorts are observed at this relative time?
-        eligible = [g_val for g_val in cohorts
-                    if (g_val, e) in cohort_effects
-                    and g_val + e in time_periods]
-
+        eligible = [
+            g_val for g_val in cohorts
+            if (g_val, e) in {m for m in interact_meta}
+            and (g_val + e) in time_periods
+        ]
         if not eligible:
             continue
 
-        # Cohort shares
         shares = np.array([cohort_counts.get(g_val, 0) for g_val in eligible],
                           dtype=float)
-        total = shares.sum()
-        if total == 0:
+        if shares.sum() <= 0:
             continue
-        shares = shares / total
+        shares = shares / shares.sum()
 
-        # IW estimate
-        effects = np.array([cohort_effects[(g_val, e)] for g_val in eligible])
-        iw_est = float(np.average(effects, weights=shares))
+        # Selection vector w of length k_int picking out (g, e) positions.
+        w = np.zeros(k_int)
+        for share, g_val in zip(shares, eligible):
+            idx = interact_meta.index((g_val, e))
+            w[idx] = share
 
-        # SE (conservative: pooled across cohorts)
-        resid_all = y_v - X_v @ beta
-        n_eff = len(resid_all)
-        sigma2 = np.sum(resid_all ** 2) / max(n_eff - len(beta), 1)
-        # Approximation: SE from regression divided by effective sample
-        se_approx = float(np.sqrt(sigma2 / max(total * len(time_periods), 1)))
-
-        pval = float(2 * (1 - stats.norm.cdf(abs(iw_est / se_approx)))) if se_approx > 0 else 1.0
+        est_e = float(w @ beta_int)
+        se_e = float(np.sqrt(max(w @ V_int @ w, 0.0)))
+        pval = (float(2 * (1 - stats.norm.cdf(abs(est_e / se_e))))
+                if se_e > 0 else 1.0)
 
         es_rows.append({
             'relative_time': e,
-            'att': iw_est,
-            'se': se_approx,
-            'ci_lower': iw_est - z_crit * se_approx,
-            'ci_upper': iw_est + z_crit * se_approx,
+            'att': est_e,
+            'se': se_e,
+            'ci_lower': est_e - z_crit * se_e,
+            'ci_upper': est_e + z_crit * se_e,
             'pvalue': pval,
             'n_cohorts': len(eligible),
         })
 
     event_study = pd.DataFrame(es_rows)
 
-    # Overall ATT: average of post-treatment event-study coefficients
+    # ----- Overall post-treatment ATT via a single linear combination -----
     post = event_study[event_study['relative_time'] >= 0]
     if len(post) > 0:
-        att = float(post['att'].mean())
-        se_att = float(np.sqrt(np.mean(post['se'] ** 2)))
+        # Build block weight across post-event cells.
+        W = np.zeros(k_int)
+        w_total = 0.0
+        for e in post['relative_time']:
+            eligible = [
+                g_val for g_val in cohorts
+                if (g_val, e) in set(interact_meta)
+                and (g_val + e) in time_periods
+            ]
+            if not eligible:
+                continue
+            shares = np.array(
+                [cohort_counts.get(g_val, 0) for g_val in eligible],
+                dtype=float,
+            )
+            if shares.sum() <= 0:
+                continue
+            shares = shares / shares.sum()
+            for share, g_val in zip(shares, eligible):
+                W[interact_meta.index((g_val, e))] += share
+            w_total += 1.0
+        if w_total > 0:
+            W = W / w_total
+        att = float(W @ beta_int)
+        se_att = float(np.sqrt(max(W @ V_int @ W, 0.0)))
     else:
         att, se_att = 0.0, np.inf
 
-    z = att / se_att if se_att > 0 else 0
+    z = att / se_att if se_att > 0 else 0.0
     pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
     ci = (att - z_crit * se_att, att + z_crit * se_att)
 
@@ -238,6 +289,9 @@ def sun_abraham(
         'n_cohorts': len(cohorts),
         'cohorts': cohorts,
         'event_study': event_study,
+        'se_type': f'cluster-robust on {cluster_col}',
+        'n_clusters': int(n_clust),
+        'n_coeffs': int(k_int),
     }
 
     return CausalResult(
@@ -255,15 +309,47 @@ def sun_abraham(
     )
 
 
-def _double_demean(M: np.ndarray) -> np.ndarray:
-    """Remove unit and time means (within transformation)."""
-    row_mean = np.nanmean(M, axis=1, keepdims=True)
-    col_mean = np.nanmean(M, axis=0, keepdims=True)
-    grand_mean = np.nanmean(M)
-    return M - row_mean - col_mean + grand_mean
+# ======================================================================
+# Helpers
+# ======================================================================
+
+def _two_way_demean(
+    x: np.ndarray,
+    unit_idx: pd.Categorical,
+    time_idx: pd.Categorical,
+    max_iter: int = 50,
+    tol: float = 1e-10,
+) -> np.ndarray:
+    """Iterative within-transformation for unbalanced two-way FE.
+
+    Falls back to the identity transformation on a single-unit / single-period
+    sample.  Converges in a handful of passes on well-behaved panels.
+    """
+    x = x.astype(float).copy()
+    n_units = len(unit_idx.categories)
+    n_times = len(time_idx.categories)
+    if n_units <= 1 or n_times <= 1:
+        return x - np.nanmean(x)
+
+    u_codes = unit_idx.codes
+    t_codes = time_idx.codes
+
+    for _ in range(max_iter):
+        u_mean = np.bincount(u_codes, weights=x, minlength=n_units) / \
+                 np.bincount(u_codes, minlength=n_units).clip(min=1)
+        x = x - u_mean[u_codes]
+        t_mean = np.bincount(t_codes, weights=x, minlength=n_times) / \
+                 np.bincount(t_codes, minlength=n_times).clip(min=1)
+        x = x - t_mean[t_codes]
+        if (np.nanmax(np.abs(u_mean)) < tol and
+                np.nanmax(np.abs(t_mean)) < tol):
+            break
+    return x
 
 
-# Citation (already exists in CausalResult but ensure it's there)
+# ----------------------------------------------------------------------
+# Citation (redundant-safe registration)
+# ----------------------------------------------------------------------
 CausalResult._CITATIONS['sun_abraham'] = (
     "@article{sun2021estimating,\n"
     "  title={Estimating Dynamic Treatment Effects in Event Studies "
