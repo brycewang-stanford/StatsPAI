@@ -101,14 +101,7 @@ def honest_did(
 
     See Rambachan & Roth (2023, *ReStud*), Section 2.
     """
-    # Extract event study from the DID result
-    if 'event_study' not in result.model_info:
-        raise ValueError(
-            "Result must contain event study estimates. "
-            "Use Callaway-Sant'Anna or Sun-Abraham first."
-        )
-
-    es = result.model_info['event_study'].copy()
+    es = _extract_event_study(result)
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
     # Find the target period
@@ -223,9 +216,7 @@ def breakdown_m(
 
     See Rambachan & Roth (2023, *ReStud*), Definition 2.
     """
-    es = result.model_info.get('event_study')
-    if es is None:
-        raise ValueError("Result must contain event study estimates.")
+    es = _extract_event_study(result)
 
     target = es[es['relative_time'] == e]
     if len(target) == 0:
@@ -240,6 +231,52 @@ def breakdown_m(
     # M* such that |θ̂| - M* × n_drift - z × SE = 0
     m_star = (abs(theta) - z_crit * se) / n_drift
     return max(m_star, 0.0)
+
+
+# ======================================================================
+# Polymorphic event-study extractor
+# ======================================================================
+
+def _extract_event_study(result: CausalResult) -> pd.DataFrame:
+    """Locate the event-study table inside a CausalResult.
+
+    Accepts three flavours, all of which now surface the same shape:
+
+    1. ``callaway_santanna()`` / ``sun_abraham()`` → event study lives in
+       ``result.model_info['event_study']`` (legacy).
+    2. ``aggte(cs, type='dynamic')`` → event study **is** the ``detail``
+       frame (has ``relative_time`` + ``att`` + ``se``).
+    3. ``did_multiplegt()`` → event study in ``model_info['event_study']``
+       but placebos carry negative ``relative_time`` and dynamics
+       non-negative ``relative_time`` — already compatible.
+
+    Raises
+    ------
+    ValueError
+        If no event study can be found.
+    """
+    info = result.model_info or {}
+    es = info.get('event_study')
+    if es is None and getattr(result, 'detail', None) is not None:
+        det = result.detail
+        if {'relative_time', 'att', 'se'}.issubset(det.columns):
+            es = det
+    if es is None:
+        raise ValueError(
+            "Result does not expose an event-study table.  Supported "
+            "inputs: callaway_santanna(), sun_abraham(), did_multiplegt(), "
+            "or aggte(result, type='dynamic')."
+        )
+    # Defensive copy — callers mutate / filter it.
+    es = es.copy()
+    # If aggte produced uniform-band columns but no explicit 'type', ignore.
+    required = {'relative_time', 'att', 'se'}
+    missing = required - set(es.columns)
+    if missing:
+        raise ValueError(
+            f"Event-study table is missing required columns: {missing}"
+        )
+    return es
 
 
 # Citation
