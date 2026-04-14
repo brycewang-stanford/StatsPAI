@@ -145,9 +145,12 @@ def outlier_indicator(
             raise ValueError(f"Column '{v}' not found")
         col = df[v].astype(float)
         valid = col.notna()
-        lo = np.nanpercentile(col[valid], lo_pct)
-        hi = np.nanpercentile(col[valid], hi_pct)
-        flag = ((col < lo) | (col > hi)).astype(int)
+        if valid.any():
+            lo = np.nanpercentile(col[valid], lo_pct)
+            hi = np.nanpercentile(col[valid], hi_pct)
+            flag = ((col < lo) | (col > hi)).astype(int)
+        else:
+            flag = pd.Series(0, index=col.index, dtype=int)
         flag[~valid] = 0
         name = f'{v}_outlier'
         df[name] = flag
