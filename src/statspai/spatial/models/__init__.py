@@ -1,8 +1,10 @@
 """Spatial regression models."""
 
-# Re-export legacy ML implementations (pre-refactor) so existing imports
-# `from statspai.spatial.models import sar, sem, sdm, SpatialModel` keep
-# working while new submodules (_logdet, _base, ...) are added alongside.
-from ._legacy import sar, sem, sdm, SpatialModel  # noqa: F401
+# New sparse-backed implementations (Tasks 12-14). Drop-in replacement for
+# the legacy dense estimators in `_legacy`; accept ndarray, scipy.sparse, or
+# a `statspai.spatial.weights.W` object. Keep the legacy `SpatialModel`
+# facade re-exported for the small number of callers that use it directly.
+from .ml import sar, sem, sdm                       # noqa: F401
+from ._legacy import SpatialModel                   # noqa: F401
 
 __all__ = ["sar", "sem", "sdm", "SpatialModel"]
