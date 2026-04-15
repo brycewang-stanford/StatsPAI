@@ -33,6 +33,7 @@ Examples
 """
 from .models import sar, sem, sdm, SpatialModel
 from .models.ml import slx, sac
+from .models.gmm import sar_gmm, sem_gmm, sarar_gmm
 from .models.diagnostics import lm_tests, moran_residuals
 from .models.impacts import impacts
 from .weights import (
@@ -55,6 +56,7 @@ __all__ = [
     "moran_plot", "lisa_cluster_map",
     # models
     "sar", "sem", "sdm", "slx", "sac",
+    "sar_gmm", "sem_gmm", "sarar_gmm",
     "SpatialModel",
     # diagnostics / effects
     "lm_tests", "moran_residuals", "impacts",

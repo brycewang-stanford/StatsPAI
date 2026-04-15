@@ -73,6 +73,7 @@ from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_t
 from .inference import wild_cluster_bootstrap, aipw, ri_test, ipw, bootstrap, BootstrapResult, twoway_cluster, conley, pate, PATEEstimator, fisher_exact, FisherResult, jackknife_se, cr2_se, wild_cluster_boot
 from .spatial import (
     sar, sem, sdm, slx, sac, SpatialModel,
+    sar_gmm, sem_gmm, sarar_gmm,
     W, queen_weights, rook_weights, knn_weights,
     distance_band, kernel_weights, block_weights,
     moran, moran_local, geary, getis_ord_g, getis_ord_local, join_counts,
