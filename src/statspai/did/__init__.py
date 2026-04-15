@@ -80,6 +80,12 @@ def did(
     treat_unit=None,
     treat_time=None,
     se_method: str = 'placebo',
+    # CS aggte-dispatch (v0.7.1+)
+    aggregation: Optional[str] = None,
+    n_boot: int = 1000,
+    random_state: Optional[int] = None,
+    panel: bool = True,
+    anticipation: int = 0,
     **kwargs,
 ) -> CausalResult:
     """
@@ -135,6 +141,22 @@ def did(
         For SDID: treatment time.
     se_method : str, default 'placebo'
         For SDID: 'placebo', 'bootstrap', or 'jackknife'.
+    aggregation : str, optional
+        When set and ``method`` is Callaway–Sant'Anna, the raw ATT(g,t)
+        result is passed through :func:`aggte` with ``type=aggregation``
+        (``'simple'``, ``'dynamic'``, ``'group'``, or ``'calendar'``),
+        delivering the aggregated ATT with Mammen multiplier-bootstrap
+        uniform confidence bands in a single call.
+    n_boot : int, default 1000
+        Bootstrap replications for the multiplier bootstrap when
+        ``aggregation`` is set.
+    random_state : int, optional
+        Seed for the multiplier bootstrap.
+    panel : bool, default True
+        Forwarded to :func:`callaway_santanna`; set ``panel=False`` for
+        repeated cross-sections.
+    anticipation : int, default 0
+        Forwarded to :func:`callaway_santanna`.
 
     Returns
     -------
@@ -253,12 +275,25 @@ def did(
             raise ValueError(
                 "'id' (unit identifier) is required for staggered DID."
             )
-        return callaway_santanna(
+        cs_result = callaway_santanna(
             data, y=y, g=treat, t=time, i=id,
             x=covariates, estimator=estimator,
             control_group=control_group,
             base_period=base_period, alpha=alpha,
+            anticipation=anticipation, panel=panel,
         )
+        if aggregation is not None:
+            if aggregation not in ('simple', 'dynamic', 'group', 'calendar'):
+                raise ValueError(
+                    f"aggregation must be one of "
+                    f"'simple'/'dynamic'/'group'/'calendar', "
+                    f"got {aggregation!r}"
+                )
+            return aggte(
+                cs_result, type=aggregation, alpha=alpha,
+                n_boot=n_boot, random_state=random_state,
+            )
+        return cs_result
 
     if method in ('sun_abraham', 'sa', 'sunab'):
         if id is None:
