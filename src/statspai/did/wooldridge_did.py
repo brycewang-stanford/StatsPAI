@@ -349,6 +349,102 @@ def wooldridge_did(
     )
 
 
+def etwfe(
+    data: pd.DataFrame,
+    y: str,
+    group: str,
+    time: str,
+    first_treat: str,
+    controls: Optional[List[str]] = None,
+    cluster: Optional[str] = None,
+    alpha: float = 0.05,
+) -> CausalResult:
+    """
+    Extended Two-Way Fixed Effects (ETWFE) — Wooldridge (2021).
+
+    Explicit API matching the R package ``etwfe`` (McDermott, 2023).
+    This is an alias for :func:`wooldridge_did`; both estimate the same
+    saturated TWFE regression with cohort × post interactions that
+    recovers valid ATT under heterogeneous treatment effects.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        Panel dataset (long format).
+    y : str
+        Outcome variable.
+    group : str
+        Unit identifier.
+    time : str
+        Time period variable.
+    first_treat : str
+        Column with first-treatment period; NaN or 0 for never-treated.
+    controls : list of str, optional
+        Time-varying covariates.
+    cluster : str, optional
+        Cluster variable for SE (defaults to ``group``).
+    alpha : float, default 0.05
+        Significance level.
+
+    Returns
+    -------
+    CausalResult
+        Cohort-size-weighted ATT with cohort-level detail and event-study
+        coefficients in ``model_info['event_study']``.
+
+    Notes
+    -----
+    Naming map to the R ``etwfe`` package:
+
+    ============================  ========================================
+    R ``etwfe`` argument          ``sp.etwfe`` argument
+    ============================  ========================================
+    ``fml = y ~ 1``               ``y='y'``
+    ``tvar = time``               ``time='time'``
+    ``gvar = first_treat``        ``first_treat='first_treat'``
+    ``ivar = unit``               ``group='unit'``
+    ``xvar`` (covariate het.)     *not yet supported — use* ``controls``
+    ``vcov = ~cluster``           ``cluster='cluster'``
+    ============================  ========================================
+
+    For aggregated marginal effects (R ``emfx`` equivalents), combine with
+    :func:`statspai.did.aggte` on a Callaway–Sant'Anna object, or inspect
+    ``result.model_info['event_study']`` directly.
+
+    References
+    ----------
+    Wooldridge, J.M. (2021). "Two-Way Fixed Effects, the Two-Way Mundlak
+    Regression, and Difference-in-Differences Estimators."
+
+    McDermott, G. (2023). ``etwfe``: Extended Two-Way Fixed Effects.
+    https://grantmcdermott.com/etwfe/
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> df = sp.dgp_did(n_units=200, n_periods=10, staggered=True)
+    >>> res = sp.etwfe(df, y='y', group='unit',
+    ...                time='period', first_treat='first_treat')
+    >>> res.summary()
+
+    See Also
+    --------
+    wooldridge_did : Identical estimator; this is a naming alias.
+    callaway_santanna : CS (2021) group-time ATT estimator.
+    aggte : Aggregation of group-time ATTs (event/group/calendar/simple).
+    """
+    return wooldridge_did(
+        data=data,
+        y=y,
+        group=group,
+        time=time,
+        first_treat=first_treat,
+        controls=controls,
+        cluster=cluster,
+        alpha=alpha,
+    )
+
+
 # ═══════════════════════════════════════════════════════════════════════
 #  2. Doubly Robust DID — Sant'Anna & Zhao (2020)
 # ═══════════════════════════════════════════════════════════════════════

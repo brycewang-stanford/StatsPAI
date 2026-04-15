@@ -34,7 +34,7 @@ from .did import (
     did, did_2x2, ddd, callaway_santanna, sun_abraham,
     bacon_decomposition, honest_did, breakdown_m, event_study,
     did_analysis, DIDAnalysis, did_multiplegt, did_imputation, stacked_did, cic,
-    wooldridge_did, drdid, twfe_decomposition,
+    wooldridge_did, etwfe, drdid, twfe_decomposition,
     pretrends_test, pretrends_power, sensitivity_rr, SensitivityResult, pretrends_summary,
     parallel_trends_plot, bacon_plot, group_time_plot, did_plot,
     enhanced_event_study_plot, treatment_rollout_plot,
@@ -221,6 +221,7 @@ __all__ = [
     "cohort_event_study_plot",
     # Wooldridge / DR-DID / TWFE Decomposition
     "wooldridge_did",
+    "etwfe",
     "drdid",
     "twfe_decomposition",
     # RD
