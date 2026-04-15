@@ -46,6 +46,7 @@ def callaway_santanna(
     base_period: str = 'universal',
     anticipation: int = 0,
     alpha: float = 0.05,
+    panel: bool = True,
 ) -> CausalResult:
     """
     Callaway & Sant'Anna (2021) estimator for staggered DID.
@@ -78,6 +79,15 @@ def callaway_santanna(
         Sant'Anna (2021), Section 3.2.
     alpha : float, default 0.05
         Significance level.
+    panel : bool, default True
+        If ``True`` (default), treat the data as a balanced panel and
+        estimate ATT(g, t) via within-unit first differences.
+        If ``False``, treat the data as *repeated cross-sections* —
+        observations are not matched across time.  In RCS mode the
+        estimator is the unconditional 2×2 cell-mean DID per (g, t)
+        pair (CS2021 §3.2, eqn 2.4, RCS version).  The covariate-free
+        ``estimator='reg'`` path is the only one currently supported
+        for RCS; IPW / DR can be added later.
 
     Returns
     -------
@@ -111,6 +121,31 @@ def callaway_santanna(
         )
     if anticipation < 0:
         raise ValueError(f"anticipation must be >= 0, got {anticipation}")
+
+    # ---- Repeated cross-sections branch --------------------------------
+    if not panel:
+        if x:
+            raise NotImplementedError(
+                "panel=False (repeated cross-sections) does not yet support "
+                "covariates.  Pass x=None or run panel=True if your data are "
+                "balanced across units."
+            )
+        if estimator != 'reg':
+            raise NotImplementedError(
+                "panel=False currently only supports estimator='reg' "
+                "(unconditional 2×2 cell-mean DID).  IPW / DR for RCS are "
+                "planned for a future release."
+            )
+        if control_group != 'nevertreated':
+            raise NotImplementedError(
+                "panel=False currently requires "
+                "control_group='nevertreated'."
+            )
+        return _callaway_santanna_rcs(
+            data=data, y=y, g=g, t=t,
+            base_period=base_period, anticipation=anticipation,
+            alpha=alpha,
+        )
 
     # 1. Prepare panel data
     y_wide, unit_info, time_periods, cohorts, n_units = _prepare_panel(
@@ -652,3 +687,176 @@ def _pretrend_test(
     pvalue = float(1 - stats.chi2.cdf(W, k))
 
     return {'statistic': W, 'df': k, 'pvalue': pvalue}
+
+
+# ======================================================================
+# Repeated cross-sections (panel=False) branch
+# ======================================================================
+
+def _callaway_santanna_rcs(
+    data: pd.DataFrame,
+    y: str,
+    g: str,
+    t: str,
+    base_period: str,
+    anticipation: int,
+    alpha: float,
+) -> CausalResult:
+    """Unconditional 2×2 cell-mean DID for repeated cross-sections.
+
+    For each (g, t) pair with base period b:
+
+        ATT(g, t) = (Ȳ_{g,t} - Ȳ_{g,b}) - (Ȳ_{c,t} - Ȳ_{c,b})
+
+    where c = never-treated cohort.  Observation-level influence
+    functions are assembled as
+
+        ψ_i =  1{G_i=g, T_i=t}  (Y_i - Ȳ_{g,t}) / p_{g,t}
+            -  1{G_i=g, T_i=b}  (Y_i - Ȳ_{g,b}) / p_{g,b}
+            -  1{G_i=c, T_i=t}  (Y_i - Ȳ_{c,t}) / p_{c,t}
+            +  1{G_i=c, T_i=b}  (Y_i - Ȳ_{c,b}) / p_{c,b}
+
+    with ``p_{g,t} = #{i: G_i=g, T_i=t} / n``.  SE(ATT) is the sample
+    variance of ψ divided by ``n``, matching CS2021 eqn (2.4) for RCS.
+    """
+    df = data.copy()
+    for col in (y, g, t):
+        if col not in df.columns:
+            raise ValueError(f"Column '{col}' not found in data")
+
+    df[g] = df[g].fillna(0).replace([np.inf, -np.inf], 0).astype(int)
+    df = df.dropna(subset=[y, t]).reset_index(drop=True)
+    n_obs = len(df)
+    if n_obs == 0:
+        raise ValueError("No observations after dropping NaNs.")
+
+    time_periods = sorted(df[t].unique())
+    t_max = max(time_periods)
+    cohorts = sorted([v for v in df[g].unique() if v > 0 and v <= t_max])
+    if not cohorts:
+        raise ValueError("No treatment cohorts found.")
+
+    gt_pairs = _get_gt_pairs(cohorts, time_periods, base_period, anticipation)
+    if not gt_pairs:
+        raise ValueError("No valid (group, time) pairs to estimate.")
+
+    y_arr = df[y].values.astype(float)
+    g_arr = df[g].values
+    t_arr = df[t].values
+
+    gt_results: List[Dict[str, Any]] = []
+    inf_funcs_list: List[np.ndarray] = []
+    z_crit = stats.norm.ppf(1 - alpha / 2)
+
+    for g_val, t_val, base_val in gt_pairs:
+        att, se, inf_func = _estimate_single_att_rcs(
+            y_arr, g_arr, t_arr,
+            g_val=g_val, t_val=t_val, base_val=base_val,
+            n_obs=n_obs,
+        )
+        pval = (float(2 * (1 - stats.norm.cdf(abs(att / se))))
+                if se > 0 else 1.0)
+        gt_results.append({
+            'group': g_val,
+            'time': t_val,
+            'att': att,
+            'se': se,
+            'ci_lower': att - z_crit * se,
+            'ci_upper': att + z_crit * se,
+            'pvalue': pval,
+            'relative_time': t_val - g_val,
+        })
+        inf_funcs_list.append(inf_func)
+
+    detail = pd.DataFrame(gt_results)
+    inf_matrix = np.column_stack(inf_funcs_list) if inf_funcs_list else None
+
+    # Cohort sizes for aggregation weights — use observation counts.
+    cohort_sizes = pd.Series(
+        {g_val: int((g_arr == g_val).sum()) for g_val in cohorts}
+    )
+
+    post_mask = detail['relative_time'] >= 0
+    agg_est, agg_se, agg_pval, agg_ci = _aggregate_simple(
+        detail[post_mask],
+        inf_matrix[:, post_mask.values] if inf_matrix is not None else None,
+        cohort_sizes, n_obs, alpha,
+    )
+    event_study = _aggregate_event_study(
+        detail, inf_matrix, cohort_sizes, n_obs, alpha,
+    )
+    pretrend = _pretrend_test(detail, inf_matrix, n_obs)
+
+    model_info: Dict[str, Any] = {
+        'estimator': 'REG (RCS)',
+        'control_group': 'nevertreated',
+        'base_period': base_period,
+        'anticipation': anticipation,
+        'panel': False,
+        'n_units': n_obs,              # treated as "n" for aggte bootstrap
+        'n_obs': n_obs,
+        'n_periods': len(time_periods),
+        'n_cohorts': len(cohorts),
+        'cohorts': cohorts,
+        'event_study': event_study,
+        'pretrend_test': pretrend,
+        'cohort_sizes': cohort_sizes,
+    }
+
+    return CausalResult(
+        method="Callaway and Sant'Anna (2021) — repeated cross-sections",
+        estimand='ATT',
+        estimate=agg_est,
+        se=agg_se,
+        pvalue=agg_pval,
+        ci=agg_ci,
+        alpha=alpha,
+        n_obs=n_obs,
+        detail=detail,
+        model_info=model_info,
+        _influence_funcs=inf_matrix,
+        _citation_key='callaway_santanna',
+    )
+
+
+def _estimate_single_att_rcs(
+    y_arr: np.ndarray,
+    g_arr: np.ndarray,
+    t_arr: np.ndarray,
+    g_val: int,
+    t_val: int,
+    base_val: int,
+    n_obs: int,
+) -> Tuple[float, float, np.ndarray]:
+    """Observation-level 2×2 cell-mean DID + influence function."""
+    m_gt = (g_arr == g_val) & (t_arr == t_val)
+    m_gb = (g_arr == g_val) & (t_arr == base_val)
+    m_ct = (g_arr == 0) & (t_arr == t_val)
+    m_cb = (g_arr == 0) & (t_arr == base_val)
+
+    # Any empty cell kills the estimator for this (g, t).
+    for m in (m_gt, m_gb, m_ct, m_cb):
+        if m.sum() < 2:
+            return 0.0, np.inf, np.zeros(n_obs)
+
+    mu_gt = y_arr[m_gt].mean()
+    mu_gb = y_arr[m_gb].mean()
+    mu_ct = y_arr[m_ct].mean()
+    mu_cb = y_arr[m_cb].mean()
+
+    att = float((mu_gt - mu_gb) - (mu_ct - mu_cb))
+
+    p_gt = m_gt.sum() / n_obs
+    p_gb = m_gb.sum() / n_obs
+    p_ct = m_ct.sum() / n_obs
+    p_cb = m_cb.sum() / n_obs
+
+    inf = np.zeros(n_obs)
+    inf[m_gt] += (y_arr[m_gt] - mu_gt) / p_gt
+    inf[m_gb] += -(y_arr[m_gb] - mu_gb) / p_gb
+    inf[m_ct] += -(y_arr[m_ct] - mu_ct) / p_ct
+    inf[m_cb] += (y_arr[m_cb] - mu_cb) / p_cb
+
+    # SE from sample variance of the influence function.
+    se = float(np.sqrt(np.mean(inf ** 2) / n_obs))
+    return att, se, inf
