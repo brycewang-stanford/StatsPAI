@@ -2,6 +2,98 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.7.1] - 2026-04-15
+
+DID-focused polish release. Brings the Wooldridge (2021) ETWFE
+implementation to full feature parity with the R `etwfe` package,
+adds a one-call method-robustness workflow, and closes 12 issues
+uncovered by an internal code review round. All 27 new / updated
+DID tests pass (`pytest tests/test_did_summary.py`).
+
+### Added — ETWFE full parity with R `etwfe`
+
+- **`sp.etwfe()` explicit API** aligned with R `etwfe` (McDermott 2023)
+  naming. Thin alias over `wooldridge_did()` with a full argument-
+  mapping table in the docstring.
+- **`xvar=` covariate heterogeneity** (single string or list of names).
+  Adds per-cohort × post × `(x_j − mean(x_j))` interactions; `detail`
+  gains `slope_<x>` / `slope_<x>_se` / `slope_<x>_pvalue` columns.
+  Baseline ATT is reported at the sample means of every covariate.
+- **`panel=False` repeated cross-section mode** — replaces unit FE
+  with cohort + time dummies (R `etwfe(ivar=NULL)` equivalent).
+- **`cgroup='nevertreated'`** — per-cohort regressions restricted to
+  (cohort g) ∪ (never-treated); cohort-size-weighted aggregation
+  (R `etwfe(cgroup='never')` equivalent). Default `'notyet'` preserves
+  prior ETWFE behaviour.
+- **`sp.etwfe_emfx(result, type=…)`** — R `etwfe::emfx`-equivalent
+  four aggregations: `'simple'`, `'group'`, `'event'`, `'calendar'`.
+  `include_leads=True` returns full event-time output including pre-
+  treatment leads for pre-trend inspection (`rel_time = -1` is the
+  reference category).
+
+### Added — one-call DID method-robustness workflow
+
+- **`sp.did_summary()`** — fits five modern staggered-DID estimators
+  (CS, SA, BJS, ETWFE, Stacked) to the same data and returns a tidy
+  comparison table with per-method (estimate, SE, p, 95 % CI). Mean
+  across methods + cross-method SD flag method-sensitivity of results.
+- **`include_sensitivity=True`** — attaches the Rambachan-Roth (2023)
+  breakdown `M*` to the CS row, giving a three-way robustness readout
+  in a single call.
+- **`sp.did_summary_plot()`** — forest plot of per-method estimates
+  with cross-method mean line; `sort_by='estimate'` supported.
+- **`sp.did_summary_to_markdown()` / `_to_latex()`** — publication-
+  ready exports (GFM tables / booktabs LaTeX with auto-escaped
+  ampersands).
+- **`sp.did_report(save_to=dir)`** — one-call bundle that writes
+  `did_summary.txt` / `.md` / `.tex` / `.png` / `.json` to a folder.
+
+### Fixed — 12 issues from the internal code review
+
+Blockers (C-severity):
+
+- `etwfe(xvar=…)` now raises a clear `ValueError` when the covariate
+  is all-NaN or (near-)constant. Previously returned `n_obs = 0,
+  estimate = 0` silently.
+- `etwfe(panel=False, cgroup='nevertreated')` now raises a crisp
+  `NotImplementedError` instead of silently falling back to
+  `'notyet'`.
+- `did_summary` now validates column names up front (raises
+  `KeyError` listing missing columns) and only catches narrow
+  estimator-side exceptions inside the fit loop; user typos in
+  `controls=` / `cluster=` surface as proper errors.
+- `did_summary` results round-trip cleanly through stdlib
+  serialisation (`DIDSummaryResult(CausalResult)` subclass with a
+  real `.summary()` method, replacing the prior closure-bound
+  instance attribute).
+
+High-severity:
+
+- `etwfe_emfx(type='event'/'calendar')` now computes SEs via the
+  delta method on the stored event-study vcov instead of the
+  independent-coefficient approximation. `model_info['se_method']`
+  advertises which path was used.
+- `etwfe_emfx(type='group')` headline `se` / `pvalue` / `ci` are now
+  populated (match the underlying fit's overall ATT exactly).
+- Validation for `did_summary_plot` / `_to_markdown` / `_to_latex`
+  aligned on a single sentinel `model_info['_did_summary_marker']`.
+- `_etwfe_never_only` no longer leaves a `_ft_cache` helper column
+  on the caller's DataFrame.
+- Slope indexing in `_etwfe_with_xvar` is now name-keyed
+  (`coef_index` dict); regression test verifies swapping
+  `xvar=['x1','x2']` vs `['x2','x1']` produces identical slopes per
+  name.
+- `etwfe(panel=False)` with rank-deficient designs emits a
+  `RuntimeWarning` pointing at concrete remedies (previously fell
+  through to `pinv` silently).
+
+### Tests
+
+- New test module `tests/test_did_summary.py` — 27 cases covering
+  consistency with direct estimator calls, export formats, forest
+  plot rendering, `etwfe_emfx` round-trips, xvar / panel / cgroup
+  options, the 12 review fixes, and the `include_leads` mode.
+
 ## [0.7.0] - 2026-04-14
 
 Focused release reaching feature parity with the R `did` / `HonestDiD`

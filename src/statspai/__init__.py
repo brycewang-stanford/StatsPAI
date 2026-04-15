@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 __author__ = "Bryce Wang"
 __email__ = "bryce@copaper.ai"
 
@@ -74,6 +74,7 @@ from .inference import wild_cluster_bootstrap, aipw, ri_test, ipw, bootstrap, Bo
 from .spatial import (
     sar, sem, sdm, slx, sac, SpatialModel,
     sar_gmm, sem_gmm, sarar_gmm,
+    gwr, mgwr, gwr_bandwidth,
     W, queen_weights, rook_weights, knn_weights,
     distance_band, kernel_weights, block_weights,
     moran, moran_local, geary, getis_ord_g, getis_ord_local, join_counts,
@@ -81,6 +82,7 @@ from .spatial import (
     lm_tests, moran_residuals, impacts,
 )
 from . import spatial
+from . import iv
 from .plots import binscatter, set_theme, list_themes, use_chinese, interactive, get_code
 from .utils import (
     label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data,
