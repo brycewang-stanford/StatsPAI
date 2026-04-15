@@ -277,6 +277,7 @@ def test_save_to_expands_tilde(tmp_path, monkeypatch):
     """`save_to='~/foo/bar'` should expand the home directory."""
     df = _staggered_panel(seed=31)
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))  # ntpath.expanduser uses USERPROFILE on Windows
     cs_report(df, y='y', g='g', t='t', i='i',
               n_boot=50, random_state=0, verbose=False,
               save_to='~/cs_study/rpt')
