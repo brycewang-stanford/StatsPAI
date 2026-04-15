@@ -26,7 +26,7 @@ from scipy import stats as sp_stats
 from scipy.optimize import minimize_scalar
 from scipy import sparse
 
-from ..core.results import EconometricResults
+from ...core.results import EconometricResults
 
 
 # ====================================================================== #
