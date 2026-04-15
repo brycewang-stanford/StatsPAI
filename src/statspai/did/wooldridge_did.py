@@ -183,15 +183,19 @@ def wooldridge_did(
         interaction_cols.append(col)
 
     # ── Also build cohort × relative-time dummies for event study ───
+    # H7 fix: build event dummies for BOTH leads and lags. Omit
+    # rel = -1 as the reference category so the design is identified.
+    # Post-only consumers can still filter via etwfe_emfx(include_leads=False).
     event_cols: List[str] = []
     rel_times = set()
     for g in cohorts:
         mask_g = df["_ft"] == g
         for t_val in periods:
             rel = int(t_val - g)
-            if rel < 0:
-                continue  # only post-treatment for basic spec
-            col = f"_coh{int(g)}_rel{rel}"
+            if rel == -1:
+                continue  # reference / omitted period
+            col = (f"_coh{int(g)}_rel{rel}" if rel >= 0
+                   else f"_coh{int(g)}_rel_neg{abs(rel)}")
             df[col] = ((mask_g) & (df[time] == t_val)).astype(float)
             event_cols.append(col)
             rel_times.add(rel)
@@ -308,9 +312,15 @@ def wooldridge_did(
 
             ev_rows = []
             for j, col in enumerate(event_cols):
-                parts = col.replace("_coh", "").replace("_rel", " ").split()
-                coh_val = int(parts[0])
-                rel_val = int(parts[1])
+                # Parse name: _coh{g}_rel{k}  or  _coh{g}_rel_neg{k}
+                stripped = col.replace("_coh", "")
+                if "_rel_neg" in stripped:
+                    coh_part, rel_part = stripped.split("_rel_neg")
+                    rel_val = -int(rel_part)
+                else:
+                    coh_part, rel_part = stripped.split("_rel")
+                    rel_val = int(rel_part)
+                coh_val = int(coh_part)
                 idx_j = j + 1
                 ev_rows.append({
                     "cohort": coh_val,
@@ -564,6 +574,13 @@ def _etwfe_with_xvar(
     all_slope = [c for v in slope_cols_by_cohort.values() for c in v]
     all_inter = base_cols + all_slope
 
+    # H4 fix: explicit name-to-index map so slope lookups never rely on
+    # implicit ordering. Column 0 is the constant; columns [1:] are
+    # X_cols = [f"{c}_dm" for c in all_inter] + ctrl_dm_cols in order.
+    coef_index: Dict[str, int] = {"_const": 0}
+    for i, col in enumerate(all_inter, start=1):
+        coef_index[col] = i
+
     # Demean interactions via FE projection
     for col in all_inter:
         u_m = df.groupby(group)[col].transform("mean")
@@ -597,11 +614,14 @@ def _etwfe_with_xvar(
     df_resid = max(n_obs - X.shape[1], 1)
 
     k = len(cohorts)
-    p_x = len(xvar)
+    p_x = len(xvar)  # retained for the single-xvar backward-compat block
 
     cohort_results = []
-    for i, g in enumerate(cohorts):
-        b_idx = 1 + i
+    for g in cohorts:
+        # H4 fix: look up baseline and slope indices by coefficient name
+        # rather than by arithmetic position, so future column-order
+        # changes cannot silently mis-attribute.
+        b_idx = coef_index[f"_coh{int(g)}_post"]
         att = float(beta[b_idx])
         att_se = float(se[b_idx])
         p = float(2 * (1 - stats.t.cdf(abs(att / att_se) if att_se > 0 else 0,
@@ -610,9 +630,8 @@ def _etwfe_with_xvar(
             "cohort": int(g),
             "att_at_xmean": att, "att_se": att_se, "att_pvalue": p,
         }
-        # Per-xvar slopes
-        for j, x in enumerate(xvar):
-            s_idx = 1 + k + i * p_x + j
+        for x in xvar:
+            s_idx = coef_index[f"_coh{int(g)}_post_x_{x}"]
             slope = float(beta[s_idx])
             slope_se = float(se[s_idx])
             p_s = float(2 * (1 - stats.t.cdf(
@@ -633,7 +652,9 @@ def _etwfe_with_xvar(
     sizes = detail["n_obs"].values.astype(float)
     weights_vec = sizes / sizes.sum() if sizes.sum() > 0 else np.ones(k) / k
     att_overall = float(weights_vec @ detail["att_at_xmean"].values)
-    base_vcov = vcov[1:1 + k, 1:1 + k]
+    # H4 fix: extract baseline-coefficient vcov by explicit index lookup
+    base_idx = np.array([coef_index[f"_coh{int(g)}_post"] for g in cohorts])
+    base_vcov = vcov[np.ix_(base_idx, base_idx)]
     att_se_overall = float(np.sqrt(weights_vec @ base_vcov @ weights_vec))
     t_stat = att_overall / att_se_overall if att_se_overall > 0 else np.nan
     p_overall = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid)))
@@ -751,6 +772,23 @@ def _etwfe_repeated_cs(
     y_vec = dfv["_y"].values
     X = np.column_stack([np.ones(len(y_vec))] + [dfv[c].values for c in design_cols])
     cl_arr = dfv[cluster].values if cluster else None
+
+    # H6 fix: repeated-CS design is more collinearity-prone than the
+    # within-demeaned panel path. Warn the user loudly when the design
+    # matrix is rank-deficient; results are still produced via pinv.
+    rank = int(np.linalg.matrix_rank(X))
+    if rank < X.shape[1]:
+        import warnings as _warnings
+        deficit = X.shape[1] - rank
+        _warnings.warn(
+            f"etwfe(panel=False): design matrix is rank-deficient by "
+            f"{deficit} column(s) (rank={rank}, ncol={X.shape[1]}). "
+            "Falling back to pseudoinverse; some coefficients are "
+            "arbitrary linear combinations. Consider dropping collinear "
+            "controls, shortening the event window, or using panel=True.",
+            RuntimeWarning, stacklevel=3,
+        )
+
     beta, se, vcov = _ols_fit(X, y_vec, cluster=cl_arr)
     n_obs = len(y_vec)
     df_resid = max(n_obs - X.shape[1], 1)
@@ -816,15 +854,25 @@ def _etwfe_never_only(
     Runs a separate ETWFE regression per cohort, each using only
     (units in cohort g) ∪ (never-treated units). Combines cohort ATTs
     with cohort-size weighting. Matches R ``etwfe(cgroup='never')``.
+
+    Notes
+    -----
+    Per-cohort regressions each run on a different subset (cohort g +
+    never-treated), so the cluster small-sample correction
+    ``(n_cl/(n_cl-1))`` is evaluated cohort-by-cohort. Cohort SEs may
+    therefore be slightly larger than a single full-sample regression
+    would produce. The aggregated SE assumes cross-cohort independence,
+    which is exact under this per-cohort design.
     """
+    # H3 fix: compute the first-treat series locally rather than
+    # writing a helper column back to the outer frame. Prevents
+    # accidental column leakage when callers re-use `data`.
     df = data.copy()
-    ft = df[first_treat].replace(0, np.nan)
-    df["_ft_cache"] = ft
-    cohorts = sorted(df.loc[df["_ft_cache"].notna(), "_ft_cache"].unique())
+    ft_local = df[first_treat].replace(0, np.nan)
+    cohorts = sorted(ft_local.dropna().unique())
     if len(cohorts) == 0:
         raise ValueError("No treated cohorts found. Check 'first_treat' column.")
-    never_mask = df["_ft_cache"].isna()
-    never_ids = df.loc[never_mask, group].unique()
+    never_ids = df.loc[ft_local.isna(), group].unique()
     if len(never_ids) == 0:
         raise ValueError(
             "cgroup='nevertreated' requires at least one never-treated "
@@ -834,8 +882,7 @@ def _etwfe_never_only(
     rows: List[Dict[str, Any]] = []
     ses: List[float] = []
     for g in cohorts:
-        # Keep cohort g + never-treated
-        coh_ids = df.loc[df["_ft_cache"] == g, group].unique()
+        coh_ids = df.loc[ft_local == g, group].unique()
         keep = np.concatenate([coh_ids, never_ids])
         sub = df.loc[df[group].isin(keep)].copy()
         if xvar:
@@ -1404,6 +1451,7 @@ def etwfe_emfx(
     result: CausalResult,
     type: str = "simple",
     alpha: float = 0.05,
+    include_leads: bool = False,
 ) -> CausalResult:
     """
     R ``etwfe::emfx``-style aggregated marginal effects for an ETWFE fit.
@@ -1429,6 +1477,15 @@ def etwfe_emfx(
         Aggregation type.
     alpha : float, default 0.05
         Significance level for confidence intervals.
+    include_leads : bool, default False
+        For ``type='event'`` and ``type='calendar'``, whether to include
+        pre-treatment relative times (``rel_time < 0``) in the output.
+        These coefficients identify pre-trends and are informative for
+        parallel-trends inspection. Default ``False`` for backward
+        compatibility with earlier versions; set ``True`` for full
+        event-study output matching the R ``etwfe::emfx(type='event')``
+        default. ``rel_time = -1`` is always the reference category
+        and is excluded.
 
     Returns
     -------
@@ -1553,6 +1610,12 @@ def etwfe_emfx(
 
     df_resid = max(result.n_obs - len(cohorts), 1)
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
+
+    # H7 fix: default still post-only to preserve prior behaviour, but
+    # pre-treatment leads are available via include_leads=True for
+    # pre-trend inspection (standard event-study practice).
+    if not include_leads:
+        es = es.loc[es["rel_time"] >= 0].copy()
 
     if type == "event":
         key_col = "rel_time"; label_col = "event_time"

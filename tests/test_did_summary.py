@@ -321,3 +321,64 @@ def test_did_summary_plot_rejects_non_did_summary_result():
     )
     with pytest.raises(ValueError, match="_did_summary_marker"):
         sp.did_summary_plot(bad)
+
+
+# ───────────────────────────────────────────────────────────────────────
+# 9. Follow-up fixes (H3 / H4 / H6 / H7)
+# ───────────────────────────────────────────────────────────────────────
+
+def test_etwfe_never_only_does_not_leak_columns(staggered_df):
+    df_before = staggered_df.copy()
+    cols_before = list(df_before.columns)
+    sp.etwfe(df_before, y="y", time="time", first_treat="first_treat",
+             group="unit", cgroup="nevertreated")
+    # No helper column should leak back into the caller's frame
+    assert list(df_before.columns) == cols_before
+
+
+def test_etwfe_xvar_order_invariant_and_distinct(staggered_df):
+    rng = np.random.default_rng(0)
+    df = staggered_df.copy()
+    df["x_a"] = rng.standard_normal(len(df))
+    df["x_b"] = rng.standard_normal(len(df)) * 2 + 5
+    r = sp.etwfe(df, y="y", time="time", first_treat="first_treat",
+                 group="unit", xvar=["x_a", "x_b"])
+    r_swap = sp.etwfe(df, y="y", time="time", first_treat="first_treat",
+                      group="unit", xvar=["x_b", "x_a"])
+    # Name-keyed indexing: swapping xvar order does not change slopes
+    assert np.allclose(r.detail["slope_x_a"].values,
+                       r_swap.detail["slope_x_a"].values)
+    assert np.allclose(r.detail["slope_x_b"].values,
+                       r_swap.detail["slope_x_b"].values)
+    # And slopes for different xvars must actually differ
+    for _, row in r.detail.iterrows():
+        assert abs(row["slope_x_a"] - row["slope_x_b"]) > 1e-8
+
+
+def test_etwfe_panel_false_rank_deficient_warns(staggered_df):
+    import warnings as _w
+    df = staggered_df.copy()
+    df["const_col"] = 1.0  # perfectly collinear with intercept
+    with _w.catch_warnings(record=True) as caught:
+        _w.simplefilter("always")
+        sp.etwfe(df, y="y", time="time", first_treat="first_treat",
+                 group="unit", panel=False, controls=["const_col"])
+        rank_warnings = [w for w in caught
+                         if issubclass(w.category, RuntimeWarning)
+                         and "rank-deficient" in str(w.message)]
+        assert len(rank_warnings) >= 1
+
+
+def test_etwfe_emfx_event_include_leads(staggered_df):
+    fit = sp.etwfe(staggered_df, y="y", time="time",
+                   first_treat="first_treat", group="unit")
+    # Default: post-only (backward compatibility)
+    ev_post = sp.etwfe_emfx(fit, type="event")
+    assert ev_post.detail["event_time"].min() == 0
+    # Explicit leads
+    ev_full = sp.etwfe_emfx(fit, type="event", include_leads=True)
+    assert ev_full.detail["event_time"].min() < 0
+    # rel_time = -1 is the reference category and must not appear
+    assert -1 not in ev_full.detail["event_time"].values
+    # Leads use the proper vcov-based SE, not the independence fallback
+    assert ev_full.model_info["se_method"].startswith("vcov-based")
