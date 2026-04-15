@@ -35,7 +35,7 @@ from .did import (
     bacon_decomposition, honest_did, breakdown_m, event_study,
     did_analysis, DIDAnalysis, did_multiplegt, did_imputation, stacked_did, cic,
     wooldridge_did, etwfe, drdid, twfe_decomposition,
-    did_summary, did_summary_to_markdown, did_summary_to_latex,
+    did_summary, did_summary_to_markdown, did_summary_to_latex, did_report,
     pretrends_test, pretrends_power, sensitivity_rr, SensitivityResult, pretrends_summary,
     parallel_trends_plot, bacon_plot, group_time_plot, did_plot,
     enhanced_event_study_plot, treatment_rollout_plot,
@@ -231,6 +231,7 @@ __all__ = [
     "did_summary",
     "did_summary_to_markdown",
     "did_summary_to_latex",
+    "did_report",
     "drdid",
     "twfe_decomposition",
     # RD

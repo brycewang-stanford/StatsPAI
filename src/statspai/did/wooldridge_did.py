@@ -358,6 +358,7 @@ def etwfe(
     controls: Optional[List[str]] = None,
     cluster: Optional[str] = None,
     alpha: float = 0.05,
+    xvar: Optional[str] = None,
 ) -> CausalResult:
     """
     Extended Two-Way Fixed Effects (ETWFE) — Wooldridge (2021).
@@ -403,7 +404,7 @@ def etwfe(
     ``tvar = time``               ``time='time'``
     ``gvar = first_treat``        ``first_treat='first_treat'``
     ``ivar = unit``               ``group='unit'``
-    ``xvar`` (covariate het.)     *not yet supported — use* ``controls``
+    ``xvar`` (covariate het.)     ``xvar='x1'`` (single covariate)
     ``vcov = ~cluster``           ``cluster='cluster'``
     ============================  ========================================
 
@@ -433,15 +434,161 @@ def etwfe(
     callaway_santanna : CS (2021) group-time ATT estimator.
     aggte : Aggregation of group-time ATTs (event/group/calendar/simple).
     """
-    return wooldridge_did(
-        data=data,
-        y=y,
-        group=group,
-        time=time,
-        first_treat=first_treat,
-        controls=controls,
-        cluster=cluster,
+    if xvar is None:
+        return wooldridge_did(
+            data=data, y=y, group=group, time=time, first_treat=first_treat,
+            controls=controls, cluster=cluster, alpha=alpha,
+        )
+    return _etwfe_with_xvar(
+        data=data, y=y, group=group, time=time, first_treat=first_treat,
+        xvar=xvar, controls=controls, cluster=cluster, alpha=alpha,
+    )
+
+
+def _etwfe_with_xvar(
+    data: pd.DataFrame,
+    y: str,
+    group: str,
+    time: str,
+    first_treat: str,
+    xvar: str,
+    controls: Optional[List[str]] = None,
+    cluster: Optional[str] = None,
+    alpha: float = 0.05,
+) -> CausalResult:
+    """ETWFE with covariate-moderated heterogeneity (R etwfe's ``xvar``).
+
+    For each cohort ``g``, adds an interaction between the
+    cohort × post dummy and ``(xvar - mean(xvar))``, so the slope
+    coefficient measures how ATT(g) shifts per unit of ``xvar``. The
+    main cohort coefficient is then interpretable as ATT(g) evaluated
+    at the sample mean of ``xvar``.
+    """
+    df = data.copy()
+    ft = df[first_treat].replace(0, np.nan)
+    df["_ft"] = ft
+
+    periods = sorted(df[time].unique())
+    cohorts = sorted(df.loc[df["_ft"].notna(), "_ft"].unique())
+    if len(cohorts) == 0:
+        raise ValueError("No treated cohorts found. Check 'first_treat' column.")
+
+    # Demean outcome
+    df["_y"] = df[y].astype(float)
+    unit_mean = df.groupby(group)["_y"].transform("mean")
+    time_mean = df.groupby(time)["_y"].transform("mean")
+    grand_mean = df["_y"].mean()
+    df["_y_dm"] = df["_y"] - unit_mean - time_mean + grand_mean
+
+    # Center xvar by grand mean so the baseline ATT is evaluated at x=mean
+    df["_x"] = df[xvar].astype(float)
+    x_center = df["_x"].mean()
+    df["_xc"] = df["_x"] - x_center
+
+    # Build cohort × post dummies AND cohort × post × xc interactions
+    base_cols: List[str] = []
+    slope_cols: List[str] = []
+    for g in cohorts:
+        mask_post = (df["_ft"] == g) & (df[time] >= g)
+        b = f"_coh{int(g)}_post"
+        s = f"_coh{int(g)}_post_x"
+        df[b] = mask_post.astype(float)
+        df[s] = df[b] * df["_xc"]
+        base_cols.append(b)
+        slope_cols.append(s)
+
+    all_inter = base_cols + slope_cols
+    # Demean interactions via FE projection
+    for col in all_inter:
+        u_m = df.groupby(group)[col].transform("mean")
+        t_m = df.groupby(time)[col].transform("mean")
+        g_m = df[col].mean()
+        df[f"{col}_dm"] = df[col] - u_m - t_m + g_m
+
+    # Demean controls
+    ctrl_dm_cols: List[str] = []
+    if controls:
+        for c in controls:
+            df[f"_ctrl_{c}"] = df[c].astype(float)
+            u_m = df.groupby(group)[f"_ctrl_{c}"].transform("mean")
+            t_m = df.groupby(time)[f"_ctrl_{c}"].transform("mean")
+            g_m = df[f"_ctrl_{c}"].mean()
+            df[f"_ctrl_{c}_dm"] = df[f"_ctrl_{c}"] - u_m - t_m + g_m
+            ctrl_dm_cols.append(f"_ctrl_{c}_dm")
+
+    keep = ["_y_dm"] + [f"{c}_dm" for c in all_inter] + ctrl_dm_cols
+    valid = df[keep].notna().all(axis=1)
+    dfv = df.loc[valid].reset_index(drop=True)
+
+    y_vec = dfv["_y_dm"].values
+    X_cols = [f"{c}_dm" for c in all_inter] + ctrl_dm_cols
+    X = dfv[X_cols].values
+    X = np.column_stack([np.ones(len(y_vec)), X])
+
+    cl_arr = dfv[cluster].values if cluster else dfv[group].values
+    beta, se, vcov = _ols_fit(X, y_vec, cluster=cl_arr)
+    n_obs = len(y_vec)
+    df_resid = n_obs - X.shape[1]
+
+    k = len(cohorts)
+    # Baseline ATT(g) at x=mean: coefficients 1..k
+    # Slope(g): coefficients k+1..2k
+    cohort_results = []
+    for i, g in enumerate(cohorts):
+        b_idx = 1 + i
+        s_idx = 1 + k + i
+        att = float(beta[b_idx])
+        att_se = float(se[b_idx])
+        slope = float(beta[s_idx])
+        slope_se = float(se[s_idx])
+        p = float(2 * (1 - stats.t.cdf(abs(att / att_se) if att_se > 0 else 0,
+                                       max(df_resid, 1))))
+        p_slope = float(2 * (1 - stats.t.cdf(abs(slope / slope_se) if slope_se > 0 else 0,
+                                             max(df_resid, 1))))
+        n_g = int((dfv["_ft"] == g).sum())
+        cohort_results.append({
+            "cohort": int(g),
+            "att_at_xmean": att, "att_se": att_se, "att_pvalue": p,
+            "slope_wrt_x": slope, "slope_se": slope_se, "slope_pvalue": p_slope,
+            "n_obs": n_g,
+        })
+
+    detail = pd.DataFrame(cohort_results)
+    sizes = detail["n_obs"].values.astype(float)
+    weights_vec = sizes / sizes.sum() if sizes.sum() > 0 else np.ones(k) / k
+    att_overall = float(weights_vec @ detail["att_at_xmean"].values)
+    # SE via delta method using vcov of baseline coefficients
+    base_vcov = vcov[1:1 + k, 1:1 + k]
+    att_se_overall = float(np.sqrt(weights_vec @ base_vcov @ weights_vec))
+    t_stat = att_overall / att_se_overall if att_se_overall > 0 else np.nan
+    p_overall = float(2 * (1 - stats.t.cdf(abs(t_stat), max(df_resid, 1))))
+    t_crit = stats.t.ppf(1 - alpha / 2, max(df_resid, 1))
+    ci = (att_overall - t_crit * att_se_overall, att_overall + t_crit * att_se_overall)
+
+    model_info = {
+        "n_cohorts": k,
+        "cohorts": [int(g) for g in cohorts],
+        "n_periods": len(periods),
+        "n_units": df[group].nunique(),
+        "controls": controls or [],
+        "cluster_var": cluster or group,
+        "xvar": xvar,
+        "xvar_mean": float(x_center),
+        "heterogeneity": "ATT(g) = baseline(g) + slope(g) * (xvar - mean(xvar))",
+    }
+
+    return CausalResult(
+        method="Wooldridge (2021) ETWFE with covariate heterogeneity",
+        estimand=f"ATT at {xvar} = {x_center:.4g} (sample mean)",
+        estimate=att_overall,
+        se=att_se_overall,
+        pvalue=p_overall,
+        ci=ci,
         alpha=alpha,
+        n_obs=n_obs,
+        detail=detail,
+        model_info=model_info,
+        _citation_key="wooldridge_twfe",
     )
 
 

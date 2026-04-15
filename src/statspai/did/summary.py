@@ -303,7 +303,7 @@ def did_summary(
     else:
         avg_est, disp = np.nan, np.nan
 
-    return CausalResult(
+    result = CausalResult(
         method="DID Method-Robustness Summary",
         estimand="Overall ATT (mean across methods)",
         estimate=avg_est,
@@ -322,6 +322,28 @@ def did_summary(
         },
         _citation_key="did_summary",
     )
+
+    # Custom .summary() — prints the comparison table as a Markdown block
+    # instead of the base CausalResult's single-estimate format.
+    def _custom_summary(alpha=None):  # noqa: ARG001
+        header = "=" * 78 + "\n"
+        header += "  DID Method-Robustness Summary\n"
+        header += "=" * 78 + "\n\n"
+        if fit:
+            header += f"  Fitted methods: {', '.join(fit)}\n"
+        if failed:
+            header += f"  Failed:         {', '.join(failed.keys())}\n"
+        if not np.isnan(avg_est):
+            header += f"  Mean ATT:       {avg_est:+.4f}\n"
+            header += f"  Cross-method SD: {disp:+.4f}\n"
+        if breakdown_m_value is not None:
+            header += f"  Breakdown M*:   {breakdown_m_value:.4f} (CS row)\n"
+        header += "\n"
+        body = did_summary_to_markdown(result)
+        return header + body
+
+    result.summary = _custom_summary
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -521,3 +543,117 @@ def did_summary_to_latex(
         )
     lines.append("\\end{table}")
     return "\n".join(lines)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  One-call DID bundle report — txt + md + tex + png in a single directory
+# ═══════════════════════════════════════════════════════════════════════
+
+def did_report(
+    data: pd.DataFrame,
+    y: str,
+    time: str,
+    first_treat: str,
+    group: str,
+    save_to: str,
+    methods: Union[str, List[str]] = "auto",
+    controls: Optional[List[str]] = None,
+    cluster: Optional[str] = None,
+    alpha: float = 0.05,
+    include_sensitivity: bool = True,
+    plot_sort_by: Optional[str] = "estimate",
+    verbose: bool = False,
+) -> CausalResult:
+    """
+    One-call comprehensive DID report: fits all methods + exports every format.
+
+    Writes the following files to ``save_to``:
+
+    - ``did_summary.txt`` : text dump of ``result.summary()``.
+    - ``did_summary.md``  : GitHub-Flavoured Markdown table.
+    - ``did_summary.tex`` : publication-ready LaTeX ``booktabs`` fragment.
+    - ``did_summary.png`` : forest plot (requires matplotlib).
+    - ``did_summary.json`` : detail table + model_info in JSON.
+
+    Parameters
+    ----------
+    data, y, time, first_treat, group, methods, controls, cluster, alpha
+        Same as :func:`did_summary`.
+    save_to : str
+        Directory path. Created if it does not exist.
+    include_sensitivity : bool, default True
+        Whether to run Rambachan-Roth breakdown M*. Defaults to ``True``
+        in ``did_report`` (vs ``False`` in ``did_summary``) because a
+        report is expected to be comprehensive.
+    plot_sort_by : {'estimate', None}, default 'estimate'
+        Sort the forest plot by estimate ascending.
+    verbose : bool, default False
+        Print progress lines.
+
+    Returns
+    -------
+    CausalResult
+        The underlying :func:`did_summary` output. All side-effect files
+        are written to ``save_to`` as a bundle.
+    """
+    import json
+    from pathlib import Path
+
+    out_dir = Path(save_to)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    if verbose:
+        print(f"[did_report] fitting methods into {out_dir} ...", flush=True)
+
+    result = did_summary(
+        data, y=y, time=time, first_treat=first_treat, group=group,
+        methods=methods, controls=controls, cluster=cluster, alpha=alpha,
+        include_sensitivity=include_sensitivity, verbose=verbose,
+    )
+
+    # TXT
+    (out_dir / "did_summary.txt").write_text(result.summary(), encoding="utf-8")
+
+    # Markdown
+    (out_dir / "did_summary.md").write_text(
+        did_summary_to_markdown(result), encoding="utf-8",
+    )
+
+    # LaTeX
+    (out_dir / "did_summary.tex").write_text(
+        did_summary_to_latex(result), encoding="utf-8",
+    )
+
+    # PNG (best-effort — skip if matplotlib unavailable)
+    try:
+        from .plots import did_summary_plot
+        fig, _ = did_summary_plot(result, sort_by=plot_sort_by)
+        fig.savefig(out_dir / "did_summary.png", dpi=150, bbox_inches="tight")
+        try:
+            import matplotlib.pyplot as plt
+            plt.close(fig)
+        except Exception:
+            pass
+    except ImportError:
+        if verbose:
+            print("[did_report] matplotlib missing — skipping PNG", flush=True)
+
+    # JSON (detail + model_info)
+    payload = {
+        "method": result.method,
+        "estimate": None if pd.isna(result.estimate) else float(result.estimate),
+        "cross_method_sd": None if pd.isna(result.se) else float(result.se),
+        "detail": result.detail.replace({np.nan: None}).to_dict(orient="records"),
+        "model_info": {
+            k: (list(v) if isinstance(v, (set, tuple)) else v)
+            for k, v in result.model_info.items()
+        },
+    }
+    (out_dir / "did_summary.json").write_text(
+        json.dumps(payload, indent=2, default=str), encoding="utf-8",
+    )
+
+    if verbose:
+        print(f"[did_report] wrote bundle to {out_dir}", flush=True)
+
+    return result
