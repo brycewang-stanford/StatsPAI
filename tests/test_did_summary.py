@@ -92,9 +92,9 @@ def test_etwfe_xvar_close_to_baseline_under_random_xvar(staggered_df):
     # ATT at x=mean should be within a few SDs of baseline when xvar
     # is uncorrelated with outcome.
     assert abs(het.estimate - base.estimate) < 5 * base.se
-    # Heterogeneity model_info populated
-    assert het.model_info["xvar"] == "x_irrelevant"
-    assert "slope_wrt_x" in het.detail.columns
+    # Heterogeneity model_info populated (list since we now allow multi-xvar)
+    assert het.model_info["xvar"] == ["x_irrelevant"]
+    assert "slope_wrt_x" in het.detail.columns  # single-xvar backward-compat alias
 
 
 # ───────────────────────────────────────────────────────────────────────
@@ -188,3 +188,58 @@ def test_etwfe_emfx_rejects_bad_type(staggered_df):
                    first_treat="first_treat", group="unit")
     with pytest.raises(ValueError):
         sp.etwfe_emfx(fit, type="invalid")
+
+
+# ───────────────────────────────────────────────────────────────────────
+# 7. etwfe — multi-xvar, repeated-cross-section, cgroup='nevertreated'
+# ───────────────────────────────────────────────────────────────────────
+
+def test_etwfe_multiple_xvars(staggered_df):
+    rng = np.random.default_rng(7)
+    df = staggered_df.copy()
+    df["x1"] = rng.standard_normal(len(df))
+    df["x2"] = rng.standard_normal(len(df))
+    r = sp.etwfe(df, y="y", time="time", first_treat="first_treat",
+                 group="unit", xvar=["x1", "x2"])
+    # Per-xvar slope columns exist
+    assert "slope_x1" in r.detail.columns
+    assert "slope_x2" in r.detail.columns
+    assert "slope_x1_se" in r.detail.columns
+    assert "slope_x2_pvalue" in r.detail.columns
+    # model_info tracks both xvars and their centres
+    assert r.model_info["xvar"] == ["x1", "x2"]
+    assert set(r.model_info["xvar_means"].keys()) == {"x1", "x2"}
+
+
+def test_etwfe_repeated_cross_section(staggered_df):
+    r_panel = sp.etwfe(staggered_df, y="y", time="time",
+                       first_treat="first_treat", group="unit")
+    r_cs = sp.etwfe(staggered_df, y="y", time="time",
+                    first_treat="first_treat", group="unit", panel=False)
+    # Both produce a finite estimate; CS mode labelled in method and model_info
+    assert pd.notna(r_cs.estimate)
+    assert "repeated cross-section" in r_cs.method
+    assert r_cs.model_info["panel"] is False
+    # CS SE is typically larger than panel SE (no within-unit variation)
+    # — soft check: they differ materially.
+    assert abs(r_cs.se - r_panel.se) > 1e-4
+
+
+def test_etwfe_cgroup_nevertreated(staggered_df):
+    r_notyet = sp.etwfe(staggered_df, y="y", time="time",
+                        first_treat="first_treat", group="unit")
+    r_never = sp.etwfe(staggered_df, y="y", time="time",
+                       first_treat="first_treat", group="unit",
+                       cgroup="nevertreated")
+    assert r_never.model_info["cgroup"] == "nevertreated"
+    # Same set of cohorts
+    assert set(r_never.model_info["cohorts"]) == set(r_notyet.model_info["cohorts"])
+    # Per-cohort detail has expected columns
+    assert {"cohort", "att", "se", "pvalue"}.issubset(r_never.detail.columns)
+
+
+def test_etwfe_cgroup_invalid():
+    df = sp.dgp_did(n_units=80, n_periods=6, staggered=True, seed=3)
+    with pytest.raises(ValueError):
+        sp.etwfe(df, y="y", time="time", first_treat="first_treat",
+                 group="unit", cgroup="wrong_value")

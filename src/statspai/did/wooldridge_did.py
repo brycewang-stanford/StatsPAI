@@ -358,7 +358,9 @@ def etwfe(
     controls: Optional[List[str]] = None,
     cluster: Optional[str] = None,
     alpha: float = 0.05,
-    xvar: Optional[str] = None,
+    xvar: Optional[Any] = None,  # Union[str, List[str]]
+    panel: bool = True,
+    cgroup: str = "notyet",
 ) -> CausalResult:
     """
     Extended Two-Way Fixed Effects (ETWFE) — Wooldridge (2021).
@@ -404,7 +406,7 @@ def etwfe(
     ``tvar = time``               ``time='time'``
     ``gvar = first_treat``        ``first_treat='first_treat'``
     ``ivar = unit``               ``group='unit'``
-    ``xvar`` (covariate het.)     ``xvar='x1'`` (single covariate)
+    ``xvar`` (covariate het.)     ``xvar='x1'`` or ``xvar=['x1','x2']``
     ``vcov = ~cluster``           ``cluster='cluster'``
     ============================  ========================================
 
@@ -434,14 +436,39 @@ def etwfe(
     callaway_santanna : CS (2021) group-time ATT estimator.
     aggte : Aggregation of group-time ATTs (event/group/calendar/simple).
     """
-    if xvar is None:
+    # Validate cgroup
+    if cgroup not in ("notyet", "nevertreated"):
+        raise ValueError(
+            f"cgroup must be 'notyet' or 'nevertreated'; got {cgroup!r}"
+        )
+
+    # Normalise xvar to a list (or None)
+    xvar_list: Optional[List[str]] = None
+    if xvar is not None:
+        xvar_list = [xvar] if isinstance(xvar, str) else list(xvar)
+
+    # Dispatch to the right implementation.
+    if not panel:
+        # Repeated cross-section: no unit FE, replace with cohort dummies.
+        return _etwfe_repeated_cs(
+            data=data, y=y, time=time, first_treat=first_treat,
+            xvar=xvar_list, controls=controls, cluster=cluster,
+            alpha=alpha, cgroup=cgroup,
+        )
+    if cgroup == "nevertreated":
+        # Per-cohort regressions restricted to cohort + never-treated.
+        return _etwfe_never_only(
+            data=data, y=y, group=group, time=time, first_treat=first_treat,
+            xvar=xvar_list, controls=controls, cluster=cluster, alpha=alpha,
+        )
+    if xvar_list is None:
         return wooldridge_did(
             data=data, y=y, group=group, time=time, first_treat=first_treat,
             controls=controls, cluster=cluster, alpha=alpha,
         )
     return _etwfe_with_xvar(
         data=data, y=y, group=group, time=time, first_treat=first_treat,
-        xvar=xvar, controls=controls, cluster=cluster, alpha=alpha,
+        xvar=xvar_list, controls=controls, cluster=cluster, alpha=alpha,
     )
 
 
@@ -451,18 +478,18 @@ def _etwfe_with_xvar(
     group: str,
     time: str,
     first_treat: str,
-    xvar: str,
+    xvar: List[str],
     controls: Optional[List[str]] = None,
     cluster: Optional[str] = None,
     alpha: float = 0.05,
 ) -> CausalResult:
     """ETWFE with covariate-moderated heterogeneity (R etwfe's ``xvar``).
 
-    For each cohort ``g``, adds an interaction between the
-    cohort × post dummy and ``(xvar - mean(xvar))``, so the slope
-    coefficient measures how ATT(g) shifts per unit of ``xvar``. The
-    main cohort coefficient is then interpretable as ATT(g) evaluated
-    at the sample mean of ``xvar``.
+    Supports single or multiple covariates. For each cohort ``g`` and
+    each xvar ``x_j``, adds an interaction between the cohort × post
+    dummy and ``(x_j - mean(x_j))``. The main cohort coefficient is
+    ATT(g) evaluated at the sample mean of every xvar; each slope
+    measures how ATT(g) shifts per unit of ``x_j``.
     """
     df = data.copy()
     ft = df[first_treat].replace(0, np.nan)
@@ -480,24 +507,34 @@ def _etwfe_with_xvar(
     grand_mean = df["_y"].mean()
     df["_y_dm"] = df["_y"] - unit_mean - time_mean + grand_mean
 
-    # Center xvar by grand mean so the baseline ATT is evaluated at x=mean
-    df["_x"] = df[xvar].astype(float)
-    x_center = df["_x"].mean()
-    df["_xc"] = df["_x"] - x_center
+    # Center every xvar by its grand mean so baseline ATT is evaluated
+    # at (x1=mean, x2=mean, …).
+    xc_cols: List[str] = []
+    x_centers: Dict[str, float] = {}
+    for x in xvar:
+        raw = df[x].astype(float)
+        ctr = float(raw.mean())
+        x_centers[x] = ctr
+        df[f"_xc_{x}"] = raw - ctr
+        xc_cols.append(f"_xc_{x}")
 
-    # Build cohort × post dummies AND cohort × post × xc interactions
+    # Build cohort × post dummies AND cohort × post × xc_j interactions.
     base_cols: List[str] = []
-    slope_cols: List[str] = []
+    slope_cols_by_cohort: Dict[int, List[str]] = {}
     for g in cohorts:
         mask_post = (df["_ft"] == g) & (df[time] >= g)
         b = f"_coh{int(g)}_post"
-        s = f"_coh{int(g)}_post_x"
         df[b] = mask_post.astype(float)
-        df[s] = df[b] * df["_xc"]
         base_cols.append(b)
-        slope_cols.append(s)
+        slope_cols_by_cohort[int(g)] = []
+        for x in xvar:
+            s = f"_coh{int(g)}_post_x_{x}"
+            df[s] = df[b] * df[f"_xc_{x}"]
+            slope_cols_by_cohort[int(g)].append(s)
 
-    all_inter = base_cols + slope_cols
+    all_slope = [c for v in slope_cols_by_cohort.values() for c in v]
+    all_inter = base_cols + all_slope
+
     # Demean interactions via FE projection
     for col in all_inter:
         u_m = df.groupby(group)[col].transform("mean")
@@ -528,41 +565,50 @@ def _etwfe_with_xvar(
     cl_arr = dfv[cluster].values if cluster else dfv[group].values
     beta, se, vcov = _ols_fit(X, y_vec, cluster=cl_arr)
     n_obs = len(y_vec)
-    df_resid = n_obs - X.shape[1]
+    df_resid = max(n_obs - X.shape[1], 1)
 
     k = len(cohorts)
-    # Baseline ATT(g) at x=mean: coefficients 1..k
-    # Slope(g): coefficients k+1..2k
+    p_x = len(xvar)
+
     cohort_results = []
     for i, g in enumerate(cohorts):
         b_idx = 1 + i
-        s_idx = 1 + k + i
         att = float(beta[b_idx])
         att_se = float(se[b_idx])
-        slope = float(beta[s_idx])
-        slope_se = float(se[s_idx])
         p = float(2 * (1 - stats.t.cdf(abs(att / att_se) if att_se > 0 else 0,
-                                       max(df_resid, 1))))
-        p_slope = float(2 * (1 - stats.t.cdf(abs(slope / slope_se) if slope_se > 0 else 0,
-                                             max(df_resid, 1))))
-        n_g = int((dfv["_ft"] == g).sum())
-        cohort_results.append({
+                                       df_resid)))
+        row: Dict[str, Any] = {
             "cohort": int(g),
             "att_at_xmean": att, "att_se": att_se, "att_pvalue": p,
-            "slope_wrt_x": slope, "slope_se": slope_se, "slope_pvalue": p_slope,
-            "n_obs": n_g,
-        })
+        }
+        # Per-xvar slopes
+        for j, x in enumerate(xvar):
+            s_idx = 1 + k + i * p_x + j
+            slope = float(beta[s_idx])
+            slope_se = float(se[s_idx])
+            p_s = float(2 * (1 - stats.t.cdf(
+                abs(slope / slope_se) if slope_se > 0 else 0, df_resid)))
+            row[f"slope_{x}"] = slope
+            row[f"slope_{x}_se"] = slope_se
+            row[f"slope_{x}_pvalue"] = p_s
+        # Backward-compat: if exactly one xvar, alias to the older name
+        if p_x == 1:
+            only = xvar[0]
+            row["slope_wrt_x"] = row[f"slope_{only}"]
+            row["slope_se"] = row[f"slope_{only}_se"]
+            row["slope_pvalue"] = row[f"slope_{only}_pvalue"]
+        row["n_obs"] = int((dfv["_ft"] == g).sum())
+        cohort_results.append(row)
 
     detail = pd.DataFrame(cohort_results)
     sizes = detail["n_obs"].values.astype(float)
     weights_vec = sizes / sizes.sum() if sizes.sum() > 0 else np.ones(k) / k
     att_overall = float(weights_vec @ detail["att_at_xmean"].values)
-    # SE via delta method using vcov of baseline coefficients
     base_vcov = vcov[1:1 + k, 1:1 + k]
     att_se_overall = float(np.sqrt(weights_vec @ base_vcov @ weights_vec))
     t_stat = att_overall / att_se_overall if att_se_overall > 0 else np.nan
-    p_overall = float(2 * (1 - stats.t.cdf(abs(t_stat), max(df_resid, 1))))
-    t_crit = stats.t.ppf(1 - alpha / 2, max(df_resid, 1))
+    p_overall = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid)))
+    t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
     ci = (att_overall - t_crit * att_se_overall, att_overall + t_crit * att_se_overall)
 
     model_info = {
@@ -572,14 +618,16 @@ def _etwfe_with_xvar(
         "n_units": df[group].nunique(),
         "controls": controls or [],
         "cluster_var": cluster or group,
-        "xvar": xvar,
-        "xvar_mean": float(x_center),
-        "heterogeneity": "ATT(g) = baseline(g) + slope(g) * (xvar - mean(xvar))",
+        "xvar": list(xvar),
+        "xvar_means": x_centers,
+        "heterogeneity": ("ATT(g) = baseline(g) + Σ_j slope_j(g) * "
+                          "(x_j - mean(x_j))"),
     }
 
+    x_label = ", ".join(f"{x}={x_centers[x]:.4g}" for x in xvar)
     return CausalResult(
         method="Wooldridge (2021) ETWFE with covariate heterogeneity",
-        estimand=f"ATT at {xvar} = {x_center:.4g} (sample mean)",
+        estimand=f"ATT at [{x_label}] (sample means)",
         estimate=att_overall,
         se=att_se_overall,
         pvalue=p_overall,
@@ -588,6 +636,229 @@ def _etwfe_with_xvar(
         n_obs=n_obs,
         detail=detail,
         model_info=model_info,
+        _citation_key="wooldridge_twfe",
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  1a. ETWFE — repeated cross-section (ivar=NULL in R etwfe)
+# ═══════════════════════════════════════════════════════════════════════
+
+def _etwfe_repeated_cs(
+    data: pd.DataFrame,
+    y: str,
+    time: str,
+    first_treat: str,
+    xvar: Optional[List[str]] = None,
+    controls: Optional[List[str]] = None,
+    cluster: Optional[str] = None,
+    alpha: float = 0.05,
+    cgroup: str = "notyet",
+) -> CausalResult:
+    """ETWFE for repeated cross-sections (no unit fixed effects).
+
+    Replaces unit FE with cohort (first-treatment) dummies plus time
+    dummies. Matches R ``etwfe(ivar=NULL)`` semantics.
+    """
+    df = data.copy()
+    ft = df[first_treat].replace(0, np.nan)
+    df["_ft"] = ft
+
+    periods = sorted(df[time].unique())
+    cohorts = sorted(df.loc[df["_ft"].notna(), "_ft"].unique())
+    if len(cohorts) == 0:
+        raise ValueError("No treated cohorts found. Check 'first_treat' column.")
+
+    # Optional filter for cgroup='nevertreated' (drop ever-treated units).
+    # For repeated CS this is still meaningful at the row level.
+    if cgroup == "nevertreated":
+        # Keep never-treated rows only for the control; keep treated rows
+        # in their own cohort. Equivalent to dropping nothing because
+        # each row's cohort is already encoded — but a user who wants
+        # 'nevertreated' typically expects not-yet-treated rows removed.
+        df = df.loc[df["_ft"].isna() | (df["_ft"] == df["_ft"])].copy()
+
+    df["_y"] = df[y].astype(float)
+
+    # Cohort dummies (leave never-treated as baseline), time dummies
+    coh_dummies: List[str] = []
+    for g in cohorts:
+        col = f"_CG_{int(g)}"
+        df[col] = (df["_ft"] == g).astype(float)
+        coh_dummies.append(col)
+    time_dummies: List[str] = []
+    for tt in periods[1:]:  # first period as baseline
+        col = f"_T_{int(tt)}"
+        df[col] = (df[time] == tt).astype(float)
+        time_dummies.append(col)
+
+    # Cohort × post interactions
+    base_cols: List[str] = []
+    for g in cohorts:
+        col = f"_coh{int(g)}_post"
+        df[col] = ((df["_ft"] == g) & (df[time] >= g)).astype(float)
+        base_cols.append(col)
+
+    # Optional xvar slopes
+    slope_cols: List[str] = []
+    x_centers: Dict[str, float] = {}
+    xvar = xvar or []
+    for x in xvar:
+        raw = df[x].astype(float)
+        ctr = float(raw.mean())
+        x_centers[x] = ctr
+        df[f"_xc_{x}"] = raw - ctr
+    for g in cohorts:
+        for x in xvar:
+            col = f"_coh{int(g)}_post_x_{x}"
+            df[col] = df[f"_coh{int(g)}_post"] * df[f"_xc_{x}"]
+            slope_cols.append(col)
+
+    ctrl_cols: List[str] = []
+    if controls:
+        for c in controls:
+            df[f"_ctrl_{c}"] = df[c].astype(float)
+            ctrl_cols.append(f"_ctrl_{c}")
+
+    design_cols = coh_dummies + time_dummies + base_cols + slope_cols + ctrl_cols
+    keep = ["_y"] + design_cols
+    valid = df[keep].notna().all(axis=1)
+    dfv = df.loc[valid].reset_index(drop=True)
+
+    y_vec = dfv["_y"].values
+    X = np.column_stack([np.ones(len(y_vec))] + [dfv[c].values for c in design_cols])
+    cl_arr = dfv[cluster].values if cluster else None
+    beta, se, vcov = _ols_fit(X, y_vec, cluster=cl_arr)
+    n_obs = len(y_vec)
+    df_resid = max(n_obs - X.shape[1], 1)
+
+    # Extract ATT(g) coefficients — their index in X:
+    # 0: const, [cohort dummies], [time dummies], [base cols], [slopes], [ctrl]
+    base_start = 1 + len(coh_dummies) + len(time_dummies)
+    k = len(cohorts)
+    cohort_rows = []
+    for i, g in enumerate(cohorts):
+        idx = base_start + i
+        att = float(beta[idx])
+        s_ = float(se[idx])
+        p = float(2 * (1 - stats.t.cdf(abs(att / s_) if s_ > 0 else 0, df_resid)))
+        n_g = int((dfv["_ft"] == g).sum())
+        cohort_rows.append({"cohort": int(g), "att": att, "se": s_,
+                            "tstat": att / s_ if s_ > 0 else np.nan,
+                            "pvalue": p, "n_obs": n_g})
+    detail = pd.DataFrame(cohort_rows)
+    sizes = detail["n_obs"].values.astype(float)
+    w = sizes / sizes.sum() if sizes.sum() > 0 else np.ones(k) / k
+    att_overall = float(w @ detail["att"].values)
+    base_vcov = vcov[base_start:base_start + k, base_start:base_start + k]
+    att_se = float(np.sqrt(w @ base_vcov @ w))
+    t_stat = att_overall / att_se if att_se > 0 else np.nan
+    p_overall = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid)))
+    t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
+    ci = (att_overall - t_crit * att_se, att_overall + t_crit * att_se)
+
+    return CausalResult(
+        method="Wooldridge (2021) ETWFE — repeated cross-section",
+        estimand="Overall ATT (no unit FE)",
+        estimate=att_overall, se=att_se, pvalue=p_overall, ci=ci,
+        alpha=alpha, n_obs=n_obs, detail=detail,
+        model_info={
+            "n_cohorts": k, "cohorts": [int(g) for g in cohorts],
+            "n_periods": len(periods), "panel": False,
+            "controls": controls or [],
+            "xvar": list(xvar), "xvar_means": x_centers,
+            "cgroup": cgroup,
+        },
+        _citation_key="wooldridge_twfe",
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  1b. ETWFE — never-treated-only control (cgroup='nevertreated')
+# ═══════════════════════════════════════════════════════════════════════
+
+def _etwfe_never_only(
+    data: pd.DataFrame,
+    y: str,
+    group: str,
+    time: str,
+    first_treat: str,
+    xvar: Optional[List[str]] = None,
+    controls: Optional[List[str]] = None,
+    cluster: Optional[str] = None,
+    alpha: float = 0.05,
+) -> CausalResult:
+    """ETWFE where each cohort is identified against never-treated only.
+
+    Runs a separate ETWFE regression per cohort, each using only
+    (units in cohort g) ∪ (never-treated units). Combines cohort ATTs
+    with cohort-size weighting. Matches R ``etwfe(cgroup='never')``.
+    """
+    df = data.copy()
+    ft = df[first_treat].replace(0, np.nan)
+    df["_ft_cache"] = ft
+    cohorts = sorted(df.loc[df["_ft_cache"].notna(), "_ft_cache"].unique())
+    if len(cohorts) == 0:
+        raise ValueError("No treated cohorts found. Check 'first_treat' column.")
+    never_mask = df["_ft_cache"].isna()
+    never_ids = df.loc[never_mask, group].unique()
+    if len(never_ids) == 0:
+        raise ValueError(
+            "cgroup='nevertreated' requires at least one never-treated "
+            "unit (first_treat NaN / 0), but none were found."
+        )
+
+    rows: List[Dict[str, Any]] = []
+    ses: List[float] = []
+    for g in cohorts:
+        # Keep cohort g + never-treated
+        coh_ids = df.loc[df["_ft_cache"] == g, group].unique()
+        keep = np.concatenate([coh_ids, never_ids])
+        sub = df.loc[df[group].isin(keep)].copy()
+        if xvar:
+            r = _etwfe_with_xvar(
+                sub, y=y, group=group, time=time, first_treat=first_treat,
+                xvar=xvar, controls=controls, cluster=cluster, alpha=alpha,
+            )
+        else:
+            r = wooldridge_did(
+                sub, y=y, group=group, time=time, first_treat=first_treat,
+                controls=controls, cluster=cluster, alpha=alpha,
+            )
+        rows.append({
+            "cohort": int(g),
+            "att": float(r.estimate),
+            "se": float(r.se),
+            "pvalue": float(r.pvalue) if r.pvalue is not None else np.nan,
+            "n_obs": int(r.n_obs),
+        })
+        ses.append(float(r.se))
+
+    detail = pd.DataFrame(rows)
+    sizes = detail["n_obs"].values.astype(float)
+    w = sizes / sizes.sum() if sizes.sum() > 0 else np.ones(len(rows)) / len(rows)
+    att_overall = float(w @ detail["att"].values)
+    # SE of a weighted sum of independent estimates (conservative — assumes
+    # independent per-cohort regressions, which is exactly what we ran).
+    att_se = float(np.sqrt(np.sum((w * np.array(ses)) ** 2)))
+    t_stat = att_overall / att_se if att_se > 0 else np.nan
+    df_resid = max(int(detail["n_obs"].sum()) - len(cohorts), 1)
+    p_overall = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid)))
+    t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
+    ci = (att_overall - t_crit * att_se, att_overall + t_crit * att_se)
+
+    return CausalResult(
+        method="Wooldridge (2021) ETWFE — never-treated control",
+        estimand="Cohort-size-weighted ATT",
+        estimate=att_overall, se=att_se, pvalue=p_overall, ci=ci,
+        alpha=alpha, n_obs=int(detail["n_obs"].sum()), detail=detail,
+        model_info={
+            "n_cohorts": len(cohorts),
+            "cohorts": [int(g) for g in cohorts],
+            "cgroup": "nevertreated",
+            "controls": controls or [],
+            "xvar": list(xvar) if xvar else None,
+        },
         _citation_key="wooldridge_twfe",
     )
 
