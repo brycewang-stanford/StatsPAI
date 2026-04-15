@@ -40,6 +40,19 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 
 ---
 
+## What StatsPAI is — and is not
+
+StatsPAI is **not** a wrapper for R. We independently re-implement every algorithm from the original papers (with citations exposed via `.cite()`), and for a few mature engines (pyfixest, rdrobust) we use explicit, transparent bindings. What makes StatsPAI different is **the unifying layer on top**:
+
+- **One result object, one API surface.** Every estimator — from `regress()` to `callaway_santanna()` to `causal_forest()` to `notears()` — returns a `CausalResult` with the same `.summary()` / `.plot()` / `.to_latex()` / `.cite()` interface. R users juggle 20+ incompatible S3 classes; StatsPAI users juggle one.
+- **Scope no single R or Python package matches.** DID + RD + Synth + Matching + DML + Meta-learners + TMLE + Neural Causal + Causal Discovery + Policy Learning + Conformal + Bunching + Spillover + Matrix Completion — all consistent, all under `sp.*`.
+- **Agent-native by design.** Self-describing schemas (`list_functions()`, `describe_function()`, `function_schema()`) make StatsPAI the first econometrics toolkit built for LLM-driven research workflows. No other package — in any language — offers this.
+- **Publication pipeline out of the box.** Word + Excel + LaTeX + HTML + Markdown export from every estimator, not a separate `modelsummary`-style dance.
+
+If a method exists in R, we aim to match or exceed its feature set in Python — and then add what Python can uniquely offer (sklearn integration, JAX/PyTorch backends, agent-native schemas).
+
+---
+
 ## Complete Feature List
 
 ### Regression Models
@@ -68,6 +81,10 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 | `liml()` | LIML (robust to weak IV) | `ivregress liml` | `AER::ivreg()` |
 | `jive()` | Jackknife IV (many instruments) | — | — |
 | `lasso_iv()` | LASSO-selected instruments | — | — |
+| `feols()` | OLS / IV with high-dim fixed effects (pyfixest backend) | `reghdfe` | `fixest::feols()` |
+| `fepois()` | Poisson with high-dim fixed effects | `ppmlhdfe` | `fixest::fepois()` |
+| `feglm()` | GLM with high-dim fixed effects | — | `fixest::feglm()` |
+| `etable()` | Publication-quality regression tables (LaTeX/Markdown/HTML) | `esttab` | `fixest::etable()` |
 | `sureg()` | Seemingly Unrelated Regression | `sureg` | `systemfit::systemfit("SUR")` |
 | `three_sls()` | Three-Stage Least Squares | `reg3` | `systemfit::systemfit("3SLS")` |
 | `biprobit()` | Bivariate probit | `biprobit` | — |
@@ -156,6 +173,12 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 | `continuous_did()` | Continuous treatment DID (dose-response) | Callaway, Goodman-Bacon & Sant'Anna (2024) |
 | `did_multiplegt()` | DID with treatment switching | de Chaisemartin & D'Haultfoeuille (2020) |
 | `did_imputation()` | Imputation DID estimator | Borusyak, Jaravel & Spiess (2024) |
+| `wooldridge_did()` / `etwfe()` | Extended TWFE with cohort×post saturation | Wooldridge (2021) |
+| `drdid()` | Doubly robust 2×2 DID (OR + IPW) | Sant'Anna & Zhao (2020) |
+| `stacked_did()` | Stacked event-study DID | Cengiz et al. (2019); Baker, Larcker & Wang (2022) |
+| `ddd()` | Triple-differences (DDD) | Gruber (1994); Olden & Møen (2022) |
+| `cic()` | Changes-in-changes (quantile DID) | Athey & Imbens (2006) |
+| `twfe_decomposition()` | Bacon + de Chaisemartin–D'Haultfoeuille weights | Goodman-Bacon (2021); dCDH (2020) |
 | `distributional_te()` | Distributional treatment effects | Chernozhukov, Fernandez-Val & Melly (2013) |
 | `sp.aggte()` | Unified aggregation for staggered DID (simple/dynamic/group/calendar) with Mammen multiplier-bootstrap uniform bands | Callaway & Sant'Anna (2021) §4; Mammen (1993) |
 | `sp.cs_report()` | One-call Callaway–Sant'Anna report: estimation + four aggregations + pre-trend test + Rambachan–Roth breakdown M\* | CS2021 + RR2023 |
