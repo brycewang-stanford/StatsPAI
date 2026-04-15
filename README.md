@@ -166,6 +166,7 @@ If a method exists in R, we aim to match or exceed its feature set in Python —
 | --- | --- | --- |
 | `did()` | Auto-dispatching DID (2×2 or staggered) | — |
 | `did_summary()` | One-call robustness comparison across CS/SA/BJS/ETWFE/Stacked | — |
+| `did_summary_plot()` | Forest plot of method-robustness summary | — |
 | `did_2x2()` | Classic two-group, two-period DID | — |
 | `callaway_santanna()` | Staggered DID with heterogeneous effects | Callaway & Sant'Anna (2021) |
 | `sun_abraham()` | Interaction-weighted event study | Sun & Abraham (2021) |

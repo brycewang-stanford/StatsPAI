@@ -38,7 +38,7 @@ from .did import (
     pretrends_test, pretrends_power, sensitivity_rr, SensitivityResult, pretrends_summary,
     parallel_trends_plot, bacon_plot, group_time_plot, did_plot,
     enhanced_event_study_plot, treatment_rollout_plot,
-    sensitivity_plot, cohort_event_study_plot,
+    sensitivity_plot, cohort_event_study_plot, did_summary_plot,
     aggte, cs_report, CSReport, ggdid,
     bjs_pretrend_joint,
 )
@@ -223,6 +223,7 @@ __all__ = [
     "treatment_rollout_plot",
     "sensitivity_plot",
     "cohort_event_study_plot",
+    "did_summary_plot",
     # Wooldridge / DR-DID / TWFE Decomposition
     "wooldridge_did",
     "etwfe",

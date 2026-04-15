@@ -1369,3 +1369,123 @@ def ggdid(
     _style_ax(ax)
     fig.tight_layout()
     return fig, ax
+
+
+# ======================================================================
+# N. Forest Plot for did_summary()
+# ======================================================================
+
+def did_summary_plot(
+    result,
+    ax=None,
+    figsize: tuple = (9, 5),
+    color: str = "#2C3E50",
+    highlight_color: str = "#C0392B",
+    reference: Optional[float] = None,
+    title: Optional[str] = None,
+    sort_by: Optional[str] = None,
+):
+    """
+    Forest plot of DID method-robustness summary.
+
+    Plots each method's point estimate with its confidence interval as a
+    horizontal errorbar. Designed to consume the ``CausalResult`` returned
+    by :func:`statspai.did.did_summary`.
+
+    Parameters
+    ----------
+    result : CausalResult
+        Output of :func:`did_summary`. Must have a ``detail`` DataFrame
+        with columns ``estimate``, ``ci_low``, ``ci_high``, and either
+        ``method`` or ``estimator``.
+    ax : matplotlib Axes, optional
+        Existing axes to draw on. If ``None`` a new figure is created.
+    figsize : tuple, default ``(9, 5)``
+        Figure size when creating a new figure.
+    color : str, default ``"#2C3E50"``
+        Color for point estimates and CIs.
+    highlight_color : str, default ``"#C0392B"``
+        Color for the cross-method mean line.
+    reference : float, optional
+        Horizontal reference value (e.g. 0 for 'no effect'). Defaults
+        to ``0``.
+    title : str, optional
+        Plot title. Defaults to ``"DID Method-Robustness Summary"``.
+    sort_by : {'estimate', None}, optional
+        If ``'estimate'``, sort methods by point estimate ascending.
+        Otherwise keep the order in ``result.detail``.
+
+    Returns
+    -------
+    (fig, ax) : matplotlib figure and axes.
+
+    Examples
+    --------
+    >>> out = sp.did_summary(df, y='y', time='time',
+    ...                      first_treat='first_treat', group='unit')
+    >>> fig, ax = sp.did_summary_plot(out)
+    """
+    plt, _mpl = _ensure_mpl()
+
+    detail = getattr(result, "detail", None)
+    if not isinstance(detail, pd.DataFrame) or "estimate" not in detail.columns:
+        raise ValueError(
+            "result must come from sp.did_summary() — its .detail "
+            "DataFrame needs an 'estimate' column."
+        )
+
+    df = detail.copy()
+    df = df.loc[df["estimate"].notna()].reset_index(drop=True)
+    if df.empty:
+        raise ValueError("No successfully-fit methods to plot.")
+
+    if sort_by == "estimate":
+        df = df.sort_values("estimate").reset_index(drop=True)
+
+    labels = df["estimator"] if "estimator" in df.columns else df["method"]
+    ests = df["estimate"].values
+    lo = df["ci_low"].values
+    hi = df["ci_high"].values
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.figure
+
+    y_pos = np.arange(len(df))
+    # CI error bars
+    lo_err = ests - lo
+    hi_err = hi - ests
+    ax.errorbar(
+        ests, y_pos,
+        xerr=[lo_err, hi_err],
+        fmt="o", color=color, ecolor=color, markersize=7,
+        capsize=4, linewidth=1.8, elinewidth=1.2, zorder=3,
+    )
+
+    # Reference line (usually at 0)
+    ref = 0.0 if reference is None else reference
+    ax.axvline(ref, color="grey", linestyle=":", linewidth=1, zorder=1)
+
+    # Cross-method mean (if >1 method)
+    if len(df) > 1 and getattr(result, "estimate", None) is not None:
+        try:
+            mean_est = float(result.estimate)
+            ax.axvline(
+                mean_est, color=highlight_color, linestyle="--",
+                linewidth=1.2, zorder=2,
+                label=f"Mean across methods = {mean_est:.3f}",
+            )
+            ax.legend(loc="best", frameon=False, fontsize=9)
+        except (TypeError, ValueError):
+            pass
+
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(labels)
+    ax.invert_yaxis()  # first method at top
+    ax.set_xlabel("Overall ATT estimate (95% CI)")
+    ax.set_title(title or "DID Method-Robustness Summary")
+
+    _style_ax(ax)
+    fig.tight_layout()
+    return fig, ax

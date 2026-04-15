@@ -58,6 +58,7 @@ from .plots import (
     sensitivity_plot,
     cohort_event_study_plot,
     ggdid,
+    did_summary_plot,
 )
 
 
@@ -405,4 +406,5 @@ __all__ = [
     'sensitivity_plot',
     'cohort_event_study_plot',
     'ggdid',
+    'did_summary_plot',
 ]
