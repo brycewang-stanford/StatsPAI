@@ -105,6 +105,9 @@ report = sp.cs_report(data, y="y", time="t", first_treat="g", group="id",
 | `ivmodel::LIML(...)`                           | `sp.liml(...)`                                        |
 | `ivmodel::JIVE(...)`                           | `sp.jive(...)`                                        |
 | `hdm::rlassoIV(...)`                           | `sp.lasso_iv(...)`                                    |
+| `ivmodel::AR.test(...)` / Stata `weakiv`       | `sp.anderson_rubin_test(...)`                         |
+| Stata `weakivtest` (Olea-Pflueger F)           | `sp.effective_f_test(..., vcov='HC1')`                |
+| Lee et al. (2022) tF                            | `sp.tF_critical_value(F)` + 2SLS t-ratio              |
 | `fixest::feols(y ~ 1 \| fe \| x ~ z)`          | `sp.feols("y ~ 1 \| fe \| x ~ z", data=df)`           |
 | `MendelianRandomization::mr_ivw(...)`          | `sp.mr_ivw(...)`                                      |
 | `MendelianRandomization::mr_egger(...)`        | `sp.mr_egger(...)`                                    |

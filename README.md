@@ -342,7 +342,9 @@ wrappers, no runtime dependencies on upstream DID packages.
 | `sensemakr()` | Sensitivity to omitted variables | Cinelli & Hazlett (2020) |
 | `mccrary_test()` | Density discontinuity test | McCrary (2008) |
 | `hausman_test()` | FE vs RE specification test | Hausman (1978) |
-| `anderson_rubin_test()` | Weak instrument robust inference | Anderson & Rubin (1949) |
+| `anderson_rubin_test()` | Weak instrument robust inference + AR confidence set | Anderson & Rubin (1949) |
+| `effective_f_test()` | Heteroskedasticity-robust effective F (HC1) | Olea & Pflueger (2013) |
+| `tF_critical_value()` | Adjusted t-ratio critical value (valid under weak IV) | Lee, McCrary, Moreira & Porter (2022, AER) |
 | `evalue()` | E-value sensitivity to unmeasured confounding | VanderWeele & Ding (2017) |
 | `het_test()` | Breusch-Pagan / White heteroskedasticity | — |
 | `reset_test()` | Ramsey RESET specification test | — |

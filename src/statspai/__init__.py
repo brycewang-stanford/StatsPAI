@@ -68,7 +68,7 @@ from .output.tab import tab
 from .output.estimates import eststo, estclear, esttab
 from .output.regression_table import regtable, RegtableResult, mean_comparison, MeanComparisonResult
 from .postestimation import margins, marginsplot, margins_at, margins_at_plot, contrast, pwcompare, test, lincom
-from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, evalue, evalue_from_result, diagnose_result, estat, kitagawa_test, KitagawaResult
+from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, effective_f_test, tF_critical_value, evalue, evalue_from_result, diagnose_result, estat, kitagawa_test, KitagawaResult
 from .inference import wild_cluster_bootstrap, aipw, ri_test, ipw, bootstrap, BootstrapResult, twoway_cluster, conley, pate, PATEEstimator, fisher_exact, FisherResult, jackknife_se, cr2_se, wild_cluster_boot
 from .spatial import sar, sem, sdm, SpatialModel
 from .plots import binscatter, set_theme, list_themes, use_chinese, interactive, get_code
@@ -371,6 +371,8 @@ __all__ = [
     "rddensity",
     "hausman_test",
     "anderson_rubin_test",
+    "effective_f_test",
+    "tF_critical_value",
     "evalue",
     "evalue_from_result",
     "diagnose_result",

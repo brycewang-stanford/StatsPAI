@@ -11,7 +11,7 @@ from .tests import diagnose, het_test, reset_test, vif
 from .sensemakr import sensemakr
 from .rddensity import rddensity
 from .hausman import hausman_test
-from .weak_iv import anderson_rubin_test
+from .weak_iv import anderson_rubin_test, effective_f_test, tF_critical_value
 from .evalue import evalue, evalue_from_result
 from .battery import diagnose_result
 from .estat import estat
@@ -28,6 +28,8 @@ __all__ = [
     'rddensity',
     'hausman_test',
     'anderson_rubin_test',
+    'effective_f_test',
+    'tF_critical_value',
     'evalue',
     'evalue_from_result',
     'diagnose_result',
