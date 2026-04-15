@@ -2,6 +2,54 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.7.1] - 2026-04-14
+
+Follow-up release to 0.7.0: export surface, visualisations, and the
+last remaining capability gap vs `csdid` / `differences` — repeated
+cross-sections.  Full DiD test suite: 114 → 142 (+28).
+
+### Added
+
+- **Repeated cross-sections** support for `callaway_santanna()` via
+  the new `panel=False` argument.  Uses the unconditional 2×2
+  cell-mean DID with observation-level influence functions
+  (CS2021 eq. 2.4, RCS version), so `aggte` / `cs_report` / `ggdid`
+  / `honest_did` all work on RCS results with no code changes —
+  Mammen uniform bands, four aggregations, and Rambachan–Roth
+  breakdown M\* all compose downstream.  Scope of the initial
+  implementation: `estimator='reg'`, `control_group='nevertreated'`,
+  no covariates (other paths raise `NotImplementedError` with an
+  actionable message).
+- **`CSReport.plot()`** — one-call 2×2 summary figure: event study
+  with uniform band (top-left), θ(g) per-cohort (top-right), θ(t)
+  per-calendar-time (bottom-left), Rambachan–Roth breakdown M\* bars
+  (bottom-right).  Re-uses `ggdid()` via a minimal adapter so no
+  bootstrap draws are recomputed.
+- **`CSReport.to_markdown()`** — GitHub-Flavoured Markdown export
+  with proper integer-column rendering and a configurable
+  `float_format`.  Ready to paste into PRs, blog posts, or Jupyter
+  Markdown cells.
+- **`CSReport.to_latex()`** — publication-ready booktabs fragment
+  wrapped in a `table` float.  Zero jinja2 dependency (hand-rolled
+  booktabs renderer), auto-escapes LaTeX special characters,
+  right-aligns numerics and left-aligns strings, typesets the
+  pre-trend Wald in math mode.
+- **`CSReport.to_excel()`** — six-sheet workbook: `Summary`,
+  `Dynamic`, `Group`, `Calendar`, `Breakdown`, `Meta`.  Engine
+  autoselect (openpyxl → xlsxwriter) with a clear ImportError when
+  neither is installed.
+- **`cs_report(..., save_to='prefix')`** — one-call dump of the
+  full export matrix: writes `<prefix>.{txt,md,tex,xlsx,png}` in
+  a single invocation, auto-creating missing parent directories.
+  Optional dependencies (openpyxl, matplotlib) are skipped silently
+  so a minimal install still produces text + md + tex.
+
+### Changed
+
+- **README**: the DiD parity matrix now reflects full RCS support
+  and adds new rows for `.to_markdown()` / `.to_latex()` /
+  `.to_excel()` / `save_to=` / `.plot()`.
+
 ## [0.7.0] - 2026-04-14
 
 Focused release reaching feature parity with the R `did` / `HonestDiD`

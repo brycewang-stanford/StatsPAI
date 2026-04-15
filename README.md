@@ -160,6 +160,10 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 | `sp.aggte()` | Unified aggregation for staggered DID (simple/dynamic/group/calendar) with Mammen multiplier-bootstrap uniform bands | Callaway & Sant'Anna (2021) §4; Mammen (1993) |
 | `sp.cs_report()` | One-call Callaway–Sant'Anna report: estimation + four aggregations + pre-trend test + Rambachan–Roth breakdown M\* | CS2021 + RR2023 |
 | `sp.ggdid()` | `aggte()` visualiser with uniform-band overlay | mirrors R `did::ggdid` |
+| `CSReport.plot()` | 2×2 summary figure (event study / θ(g) / θ(t) / RR breakdown) | — |
+| `CSReport.to_markdown()` | GitHub-Flavoured Markdown export of the full report | — |
+| `CSReport.to_latex()` | Booktabs LaTeX fragment, jinja2-free | — |
+| `CSReport.to_excel()` | Six-sheet Excel workbook | — |
 
 #### DiD parity with `csdid` / `differences` / R `did` + `HonestDiD`
 
@@ -171,6 +175,7 @@ wrappers, no runtime dependencies on upstream DID packages.
 | Callaway–Sant'Anna ATT(g,t) with DR / IPW / REG | ✅ | ✅ | ✅ | ✅ |
 | Never-treated / not-yet-treated control group | ✅ | ✅ | ✅ | ✅ |
 | Anticipation (`anticipation=δ`) | ✅ | ✅ | — | ✅ |
+| **Repeated cross-sections (`panel=False`)** | ✅ | ✅ | partial | ✅ |
 | `aggte`: simple / dynamic / group / calendar | ✅ | ✅ | ✅ | ✅ |
 | Mammen multiplier bootstrap, uniform sup-t bands | ✅ | ✅ | — | ✅ |
 | `balance_e` / `min_e` / `max_e` | ✅ | ✅ | partial | ✅ |
@@ -181,6 +186,9 @@ wrappers, no runtime dependencies on upstream DID packages.
 | Rambachan–Roth sensitivity + breakdown M\* | ✅ | — | — | via `HonestDiD` |
 | `cs ⇄ aggte ⇄ honest_did` pipeline (single object) | ✅ | partial | partial | partial |
 | One-call report card (`cs_report`) | ✅ | — | — | via `summary()` |
+| Markdown / LaTeX / Excel report export | ✅ | — | — | partial |
+| `save_to=` one-call bundle (txt + md + tex + xlsx + png) | ✅ | — | — | — |
+| `CSReport.plot()` 2×2 summary figure | ✅ | — | — | — |
 
 ### Regression Discontinuity
 
