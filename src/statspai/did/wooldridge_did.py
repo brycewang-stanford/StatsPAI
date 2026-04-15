@@ -1100,3 +1100,198 @@ def twfe_decomposition(
         model_info=model_info,
         _citation_key="twfe_decomposition",
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  4. etwfe_emfx — R etwfe-style marginal-effects aggregations
+# ═══════════════════════════════════════════════════════════════════════
+
+def etwfe_emfx(
+    result: CausalResult,
+    type: str = "simple",
+    alpha: float = 0.05,
+) -> CausalResult:
+    """
+    R ``etwfe::emfx``-style aggregated marginal effects for an ETWFE fit.
+
+    Takes the result of :func:`etwfe` / :func:`wooldridge_did` and returns
+    one of four aggregations used in applied work:
+
+    ================  ========================================================
+    ``type``          Aggregation
+    ================  ========================================================
+    ``'simple'``      Overall cohort-size-weighted ATT (same as ``result.estimate``).
+    ``'group'``       ATT per treatment cohort ``g``.
+    ``'event'``       ATT per event time ``e = t - g``, averaged across cohorts.
+    ``'calendar'``    ATT per calendar time ``t``, averaged across cohorts for
+                      which ``t >= g``.
+    ================  ========================================================
+
+    Parameters
+    ----------
+    result : CausalResult
+        Output of :func:`etwfe` or :func:`wooldridge_did`.
+    type : {'simple', 'group', 'event', 'calendar'}, default 'simple'
+        Aggregation type.
+    alpha : float, default 0.05
+        Significance level for confidence intervals.
+
+    Returns
+    -------
+    CausalResult
+        ``estimate`` is the overall ATT (for ``type='simple'``) or the
+        mean of the sub-aggregation (for the other types). ``detail``
+        contains one row per group/event-time/calendar-time with
+        (estimate, se, pvalue, ci_low, ci_high).
+
+    Notes
+    -----
+    For ``'event'`` and ``'calendar'``, the reported SE treats the
+    per-cohort coefficients as independent — a standard approximation
+    that matches R etwfe's default under classical vcov. Cluster-robust
+    or fully-general SEs require the full regression vcov, which can
+    be requested via ``sp.wooldridge_did`` + the ``model_info`` matrix
+    in a future release.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> df = sp.dgp_did(n_units=200, n_periods=10, staggered=True)
+    >>> fit = sp.etwfe(df, y='y', time='time',
+    ...                first_treat='first_treat', group='unit')
+    >>> evt = sp.etwfe_emfx(fit, type='event')
+    >>> print(evt.detail)   # ATT by event time
+    >>> grp = sp.etwfe_emfx(fit, type='group')
+    >>> cal = sp.etwfe_emfx(fit, type='calendar')
+    """
+    valid = {"simple", "group", "event", "calendar"}
+    if type not in valid:
+        raise ValueError(f"type must be one of {sorted(valid)}; got {type!r}")
+
+    if not isinstance(result.model_info, dict) or "cohorts" not in result.model_info:
+        raise ValueError(
+            "etwfe_emfx requires a result produced by sp.etwfe / "
+            "sp.wooldridge_did — missing 'cohorts' in model_info."
+        )
+
+    mi = result.model_info
+    cohorts = mi["cohorts"]
+    cohort_weights = mi.get("cohort_weights", {})
+    event_study = mi.get("event_study")
+
+    # ── simple ──
+    if type == "simple":
+        # Just return a tidy one-row result
+        df_resid = max(result.n_obs - len(cohorts), 1)
+        t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
+        est = float(result.estimate)
+        se = float(result.se)
+        ci = (est - t_crit * se, est + t_crit * se)
+        detail = pd.DataFrame([{
+            "aggregation": "simple",
+            "estimate": est, "se": se,
+            "pvalue": float(result.pvalue) if result.pvalue is not None else np.nan,
+            "ci_low": ci[0], "ci_high": ci[1],
+            "n_cohorts": len(cohorts),
+        }])
+        return CausalResult(
+            method="ETWFE — simple aggregation (overall ATT)",
+            estimand="Overall ATT",
+            estimate=est, se=se,
+            pvalue=float(result.pvalue) if result.pvalue is not None else np.nan,
+            ci=ci, alpha=alpha, n_obs=int(result.n_obs),
+            detail=detail,
+            model_info={"type": "simple", "source_method": result.method},
+            _citation_key="wooldridge_twfe",
+        )
+
+    # ── group ──
+    if type == "group":
+        # Already in result.detail — normalise columns and add CI/pvalue
+        det = result.detail.copy()
+        df_resid = max(result.n_obs - len(cohorts), 1)
+        t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
+        # Handle both plain etwfe (columns att, se) and xvar etwfe
+        if "att_at_xmean" in det.columns:
+            est_col = "att_at_xmean"; se_col = "att_se"; p_col = "att_pvalue"
+        else:
+            est_col = "att"; se_col = "se"; p_col = "pvalue"
+        rows = []
+        for _, r in det.iterrows():
+            est = float(r[est_col]); se = float(r[se_col])
+            rows.append({
+                "cohort": int(r["cohort"]),
+                "estimate": est, "se": se,
+                "pvalue": float(r[p_col]) if p_col in r.index else np.nan,
+                "ci_low": est - t_crit * se,
+                "ci_high": est + t_crit * se,
+                "n_obs": int(r["n_obs"]),
+            })
+        out_det = pd.DataFrame(rows)
+        mean_est = float(np.average(out_det["estimate"],
+                                    weights=out_det["n_obs"]))
+        return CausalResult(
+            method="ETWFE — group aggregation (ATT per cohort)",
+            estimand="ATT(g) per cohort",
+            estimate=mean_est, se=np.nan,
+            pvalue=np.nan, ci=(np.nan, np.nan), alpha=alpha,
+            n_obs=int(result.n_obs), detail=out_det,
+            model_info={"type": "group", "source_method": result.method},
+            _citation_key="wooldridge_twfe",
+        )
+
+    # ── event / calendar ──
+    if event_study is None or len(event_study) == 0:
+        raise ValueError(
+            "type='event'/'calendar' requires event_study coefficients "
+            "in result.model_info['event_study']."
+        )
+    es = event_study.copy()
+    # cohort weights for averaging (use n_obs per cohort from result.detail)
+    det = result.detail
+    weight_by_cohort = {}
+    if "n_obs" in det.columns:
+        weight_by_cohort = dict(zip(det["cohort"].astype(int),
+                                    det["n_obs"].astype(float)))
+
+    df_resid = max(result.n_obs - len(cohorts), 1)
+    t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
+
+    if type == "event":
+        key_col = "rel_time"
+        label_col = "event_time"
+    else:  # calendar
+        es["calendar_time"] = es["cohort"].astype(int) + es["rel_time"].astype(int)
+        key_col = "calendar_time"
+        label_col = "calendar_time"
+
+    rows = []
+    for k, sub in es.groupby(key_col):
+        # cohort-weighted average estimate; SE assumes independence
+        w = np.array([weight_by_cohort.get(int(c), 1.0)
+                      for c in sub["cohort"].values])
+        w = w / w.sum() if w.sum() > 0 else np.ones(len(w)) / len(w)
+        est = float(np.sum(w * sub["estimate"].values))
+        se = float(np.sqrt(np.sum((w * sub["se"].values) ** 2)))
+        t_stat = est / se if se > 0 else np.nan
+        p = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid))) if not np.isnan(t_stat) else np.nan
+        rows.append({
+            label_col: int(k),
+            "estimate": est, "se": se, "pvalue": p,
+            "ci_low": est - t_crit * se,
+            "ci_high": est + t_crit * se,
+            "n_cohorts_used": int(len(sub)),
+        })
+    out_det = pd.DataFrame(rows).sort_values(label_col).reset_index(drop=True)
+    mean_est = float(out_det["estimate"].mean())
+
+    return CausalResult(
+        method=f"ETWFE — {type} aggregation",
+        estimand=f"ATT by {label_col.replace('_', ' ')}",
+        estimate=mean_est, se=np.nan,
+        pvalue=np.nan, ci=(np.nan, np.nan), alpha=alpha,
+        n_obs=int(result.n_obs), detail=out_det,
+        model_info={"type": type, "source_method": result.method,
+                    "se_assumption": "independent per-cohort coefficients"},
+        _citation_key="wooldridge_twfe",
+    )

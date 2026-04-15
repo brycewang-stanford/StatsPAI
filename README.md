@@ -177,7 +177,8 @@ If a method exists in R, we aim to match or exceed its feature set in Python —
 | `continuous_did()` | Continuous treatment DID (dose-response) | Callaway, Goodman-Bacon & Sant'Anna (2024) |
 | `did_multiplegt()` | DID with treatment switching | de Chaisemartin & D'Haultfoeuille (2020) |
 | `did_imputation()` | Imputation DID estimator | Borusyak, Jaravel & Spiess (2024) |
-| `wooldridge_did()` / `etwfe()` | Extended TWFE with cohort×post saturation | Wooldridge (2021) |
+| `wooldridge_did()` / `etwfe()` | Extended TWFE with cohort×post saturation; supports `xvar=` | Wooldridge (2021) |
+| `etwfe_emfx()` | R ``etwfe::emfx`` equivalent — simple/group/event/calendar aggregations | McDermott (2023) |
 | `drdid()` | Doubly robust 2×2 DID (OR + IPW) | Sant'Anna & Zhao (2020) |
 | `stacked_did()` | Stacked event-study DID | Cengiz et al. (2019); Baker, Larcker & Wang (2022) |
 | `ddd()` | Triple-differences (DDD) | Gruber (1994); Olden & Møen (2022) |

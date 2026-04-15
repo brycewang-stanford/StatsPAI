@@ -45,7 +45,7 @@ from .pretrends import (
     SensitivityResult,
     pretrends_summary,
 )
-from .wooldridge_did import wooldridge_did, etwfe, drdid, twfe_decomposition
+from .wooldridge_did import wooldridge_did, etwfe, etwfe_emfx, drdid, twfe_decomposition
 from .summary import did_summary, did_summary_to_markdown, did_summary_to_latex, did_report
 from .continuous_did import continuous_did
 from .plots import (
@@ -387,6 +387,7 @@ __all__ = [
     # Wooldridge / DR-DID / TWFE decomposition
     'wooldridge_did',
     'etwfe',
+    'etwfe_emfx',
     'did_summary',
     'did_summary_to_markdown',
     'did_summary_to_latex',

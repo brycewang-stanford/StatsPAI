@@ -147,3 +147,44 @@ def test_did_summary_plot_renders(staggered_df, tmp_path):
     p = tmp_path / "forest.png"
     fig.savefig(p, dpi=100)
     assert p.stat().st_size > 5000
+
+
+# ───────────────────────────────────────────────────────────────────────
+# 6. etwfe_emfx — R etwfe-style four aggregations
+# ───────────────────────────────────────────────────────────────────────
+
+def test_etwfe_emfx_simple_matches_fit(staggered_df):
+    fit = sp.etwfe(staggered_df, y="y", time="time",
+                   first_treat="first_treat", group="unit")
+    simple = sp.etwfe_emfx(fit, type="simple")
+    assert abs(float(simple.estimate) - float(fit.estimate)) < 1e-10
+    assert abs(float(simple.se) - float(fit.se)) < 1e-10
+
+
+def test_etwfe_emfx_group_one_row_per_cohort(staggered_df):
+    fit = sp.etwfe(staggered_df, y="y", time="time",
+                   first_treat="first_treat", group="unit")
+    g = sp.etwfe_emfx(fit, type="group")
+    assert len(g.detail) == len(fit.model_info["cohorts"])
+    assert set(g.detail["cohort"]) == set(fit.model_info["cohorts"])
+    assert {"estimate", "se", "ci_low", "ci_high"}.issubset(g.detail.columns)
+
+
+def test_etwfe_emfx_event_and_calendar_shapes(staggered_df):
+    fit = sp.etwfe(staggered_df, y="y", time="time",
+                   first_treat="first_treat", group="unit")
+    ev = sp.etwfe_emfx(fit, type="event")
+    cal = sp.etwfe_emfx(fit, type="calendar")
+    assert len(ev.detail) >= 1
+    assert len(cal.detail) >= 1
+    assert "event_time" in ev.detail.columns
+    assert "calendar_time" in cal.detail.columns
+    # Event times start at 0 (post-treatment only)
+    assert ev.detail["event_time"].min() == 0
+
+
+def test_etwfe_emfx_rejects_bad_type(staggered_df):
+    fit = sp.etwfe(staggered_df, y="y", time="time",
+                   first_treat="first_treat", group="unit")
+    with pytest.raises(ValueError):
+        sp.etwfe_emfx(fit, type="invalid")
