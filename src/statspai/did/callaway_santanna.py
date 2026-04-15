@@ -124,17 +124,11 @@ def callaway_santanna(
 
     # ---- Repeated cross-sections branch --------------------------------
     if not panel:
-        if x:
-            raise NotImplementedError(
-                "panel=False (repeated cross-sections) does not yet support "
-                "covariates.  Pass x=None or run panel=True if your data are "
-                "balanced across units."
-            )
         if estimator != 'reg':
             raise NotImplementedError(
                 "panel=False currently only supports estimator='reg' "
-                "(unconditional 2×2 cell-mean DID).  IPW / DR for RCS are "
-                "planned for a future release."
+                "(unconditional / covariate-adjusted 2×2 cell-mean DID).  "
+                "IPW / DR for RCS are planned for a future release."
             )
         if control_group != 'nevertreated':
             raise NotImplementedError(
@@ -142,7 +136,7 @@ def callaway_santanna(
                 "control_group='nevertreated'."
             )
         return _callaway_santanna_rcs(
-            data=data, y=y, g=g, t=t,
+            data=data, y=y, g=g, t=t, x=x,
             base_period=base_period, anticipation=anticipation,
             alpha=alpha,
         )
@@ -701,8 +695,9 @@ def _callaway_santanna_rcs(
     base_period: str,
     anticipation: int,
     alpha: float,
+    x: Optional[List[str]] = None,
 ) -> CausalResult:
-    """Unconditional 2×2 cell-mean DID for repeated cross-sections.
+    """Unconditional (or regression-adjusted) 2×2 cell-mean DID for RCS.
 
     For each (g, t) pair with base period b:
 
@@ -723,12 +718,29 @@ def _callaway_santanna_rcs(
     for col in (y, g, t):
         if col not in df.columns:
             raise ValueError(f"Column '{col}' not found in data")
+    if x:
+        for col in x:
+            if col not in df.columns:
+                raise ValueError(f"Covariate '{col}' not found in data")
 
     df[g] = df[g].fillna(0).replace([np.inf, -np.inf], 0).astype(int)
-    df = df.dropna(subset=[y, t]).reset_index(drop=True)
+    drop_cols = [y, t] + (list(x) if x else [])
+    df = df.dropna(subset=drop_cols).reset_index(drop=True)
     n_obs = len(df)
     if n_obs == 0:
         raise ValueError("No observations after dropping NaNs.")
+
+    # Covariate adjustment: residualise Y on X using the never-treated
+    # pool with period fixed effects. Plug-in influence functions treat
+    # β̂ as known (asymptotically valid; see Sant'Anna & Zhao 2020).
+    y_series = df[y].astype(float).to_numpy().copy()
+    covariate_info: Optional[Dict[str, Any]] = None
+    if x:
+        y_series = _rcs_residualise_on_controls(y_series, df, g, t, x)
+        covariate_info = {
+            'covariates': list(x),
+            'approach': 'residualisation on never-treated with period FEs',
+        }
 
     time_periods = sorted(df[t].unique())
     t_max = max(time_periods)
@@ -740,7 +752,7 @@ def _callaway_santanna_rcs(
     if not gt_pairs:
         raise ValueError("No valid (group, time) pairs to estimate.")
 
-    y_arr = df[y].values.astype(float)
+    y_arr = y_series  # possibly residualised
     g_arr = df[g].values
     t_arr = df[t].values
 
@@ -788,7 +800,7 @@ def _callaway_santanna_rcs(
     pretrend = _pretrend_test(detail, inf_matrix, n_obs)
 
     model_info: Dict[str, Any] = {
-        'estimator': 'REG (RCS)',
+        'estimator': 'REG (RCS)' + (' + covariates' if x else ''),
         'control_group': 'nevertreated',
         'base_period': base_period,
         'anticipation': anticipation,
@@ -802,6 +814,8 @@ def _callaway_santanna_rcs(
         'pretrend_test': pretrend,
         'cohort_sizes': cohort_sizes,
     }
+    if covariate_info is not None:
+        model_info.update(covariate_info)
 
     return CausalResult(
         method="Callaway and Sant'Anna (2021) — repeated cross-sections",
@@ -860,3 +874,56 @@ def _estimate_single_att_rcs(
     # SE from sample variance of the influence function.
     se = float(np.sqrt(np.mean(inf ** 2) / n_obs))
     return att, se, inf
+
+
+def _rcs_residualise_on_controls(
+    y_arr: np.ndarray,
+    df: pd.DataFrame,
+    g_col: str,
+    t_col: str,
+    x_cols: List[str],
+) -> np.ndarray:
+    """Fit Y = Xβ + period-FE on never-treated observations; return
+    Y − X'β̂ for every observation (treated + control).
+
+    The period FEs absorb the unconditional time pattern in the control
+    group, so after residualisation the remaining cross-period mean
+    movement in the control cells is zero and the RCS DID reduces to a
+    covariate-adjusted comparison, matching the "outcome regression"
+    flavour of Sant'Anna & Zhao (2020) adapted to repeated cross-sections.
+    Influence functions downstream treat β̂ as known; asymptotically
+    negligible at √n.
+    """
+    y_arr = np.asarray(y_arr, dtype=float)
+    g_arr = df[g_col].values
+    t_arr = df[t_col].values
+    x_mat = df[x_cols].to_numpy(dtype=float)
+
+    # Keep only observations with finite covariates; the Y slot is
+    # already clean from the upstream dropna.
+    control = (g_arr == 0)
+    if control.sum() < x_mat.shape[1] + 2:
+        # Not enough controls to fit; return untouched Y.
+        return y_arr
+
+    # Build the control design: covariates + period dummies.
+    periods = sorted(np.unique(t_arr[control]))
+    X_ctrl = x_mat[control]
+    t_ctrl = t_arr[control]
+    period_dummies_ctrl = np.column_stack([
+        (t_ctrl == p).astype(float) for p in periods
+    ])
+    design_ctrl = np.column_stack([X_ctrl, period_dummies_ctrl])
+
+    y_ctrl = y_arr[control]
+    try:
+        beta, *_ = np.linalg.lstsq(design_ctrl, y_ctrl, rcond=None)
+    except np.linalg.LinAlgError:
+        return y_arr
+
+    beta_x = beta[:x_mat.shape[1]]
+    # For residualisation of every observation (including treated), we
+    # only subtract the X contribution.  The period FE absorbs only the
+    # control group's period mean, which is exactly what we want to
+    # leave inside Y for the treated cell.
+    return y_arr - x_mat @ beta_x
