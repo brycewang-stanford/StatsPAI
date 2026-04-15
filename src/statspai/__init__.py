@@ -75,6 +75,7 @@ from .spatial import (
     sar, sem, sdm, slx, sac, SpatialModel,
     sar_gmm, sem_gmm, sarar_gmm,
     gwr, mgwr, gwr_bandwidth,
+    spatial_panel,
     W, queen_weights, rook_weights, knn_weights,
     distance_band, kernel_weights, block_weights,
     moran, moran_local, geary, getis_ord_g, getis_ord_local, join_counts,
@@ -82,7 +83,11 @@ from .spatial import (
     lm_tests, moran_residuals, impacts,
 )
 from . import spatial
-from . import iv
+# NOTE: `from . import iv` would be shadowed by the `iv` function imported
+# on line 31 from `.regression.iv`, so we load the subpackage explicitly.
+import importlib as _importlib
+iv = _importlib.import_module(".iv", __name__)
+del _importlib
 from .plots import binscatter, set_theme, list_themes, use_chinese, interactive, get_code
 from .utils import (
     label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data,

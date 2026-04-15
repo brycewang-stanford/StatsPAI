@@ -37,6 +37,7 @@ from .models.gmm import sar_gmm, sem_gmm, sarar_gmm
 from .models.diagnostics import lm_tests, moran_residuals
 from .models.impacts import impacts
 from .gwr import gwr, mgwr, gwr_bandwidth, GWRResult, MGWRResult
+from .panel import spatial_panel, SpatialPanelResult
 from .weights import (
     W, queen_weights, rook_weights, knn_weights,
     distance_band, kernel_weights, block_weights,
@@ -63,4 +64,6 @@ __all__ = [
     "lm_tests", "moran_residuals", "impacts",
     # GWR
     "gwr", "mgwr", "gwr_bandwidth", "GWRResult", "MGWRResult",
+    # panel
+    "spatial_panel", "SpatialPanelResult",
 ]
