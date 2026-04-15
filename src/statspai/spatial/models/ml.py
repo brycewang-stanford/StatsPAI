@@ -133,6 +133,7 @@ def _make_results(
     dep_var: str,
     log_lik: float,
     extra_diag: Optional[Dict[str, Any]] = None,
+    _w_sparse: Optional[sparse.csr_matrix] = None,
 ) -> EconometricResults:
     model_pretty = {
         "sar": "SAR (Spatial Lag)",
@@ -147,6 +148,16 @@ def _make_results(
     }
     if extra_diag:
         diagnostics.update(extra_diag)
+    data_info = {
+        "nobs": n,
+        "df_model": len(var_names) - 1,
+        "df_resid": n - len(var_names),
+        "dependent_var": dep_var,
+        "fitted_values": fitted,
+        "residuals": resid,
+    }
+    if _w_sparse is not None:
+        data_info["W_sparse"] = _w_sparse
     return EconometricResults(
         params=pd.Series(params_vec, index=var_names),
         std_errors=pd.Series(se_vec, index=var_names),
@@ -156,14 +167,7 @@ def _make_results(
             "spatial_param": spatial_param_name,
             "spatial_param_value": float(spatial_param_value),
         },
-        data_info={
-            "nobs": n,
-            "df_model": len(var_names) - 1,
-            "df_resid": n - len(var_names),
-            "dependent_var": dep_var,
-            "fitted_values": fitted,
-            "residuals": resid,
-        },
+        data_info=data_info,
         diagnostics=diagnostics,
     )
 
@@ -288,7 +292,7 @@ def sar(W: ArrayOrW, data: pd.DataFrame, formula: str,
         spatial_param_value=rho_hat,
         var_names=var_names, params_vec=params_vec, se_vec=se_vec,
         sigma2=sigma2, resid=e, fitted=fitted, n=n, dep_var=dep_var,
-        log_lik=log_lik,
+        log_lik=log_lik, _w_sparse=M,
     )
 
 
@@ -347,7 +351,7 @@ def sem(W: ArrayOrW, data: pd.DataFrame, formula: str,
         spatial_param_value=lam_hat,
         var_names=var_names, params_vec=params_vec, se_vec=se_vec,
         sigma2=sigma2, resid=e, fitted=fitted, n=n, dep_var=dep_var,
-        log_lik=log_lik,
+        log_lik=log_lik, _w_sparse=M,
     )
 
 
@@ -429,6 +433,7 @@ def sdm(W: ArrayOrW, data: pd.DataFrame, formula: str,
         var_names=var_names, params_vec=params_vec, se_vec=se_vec,
         sigma2=sigma2, resid=e, fitted=fitted, n=n, dep_var=dep_var,
         log_lik=log_lik, extra_diag=extra,
+        _w_sparse=M,
     )
 
 
@@ -470,6 +475,7 @@ def slx(W: ArrayOrW, data: pd.DataFrame, formula: str,
         var_names=var_names, params_vec=beta_aug, se_vec=se_beta,
         sigma2=sigma2, resid=e, fitted=fitted, n=n, dep_var=dep_var,
         log_lik=log_lik, extra_diag={},
+        _w_sparse=M,
     )
 
 
@@ -563,6 +569,7 @@ def sac(W: ArrayOrW, data: pd.DataFrame, formula: str,
         sigma2=sigma2, resid=e, fitted=fitted, n=n, dep_var=dep_var,
         log_lik=log_lik,
         extra_diag={"lambda_hat": round(lam_hat, 6)},
+        _w_sparse=M,
     )
 
 
