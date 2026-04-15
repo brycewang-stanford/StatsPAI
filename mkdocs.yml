@@ -1,0 +1,61 @@
+site_name: StatsPAI
+site_description: Python causal inference toolkit — econometrics, DiD, SDID, RD, IV, ML causal inference
+site_author: Bryce Wang
+repo_url: https://github.com/brycewang-stanford/StatsPAI
+repo_name: brycewang-stanford/StatsPAI
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
+  - tables
+  - toc:
+      permalink: true
+
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Home: index.md
+  - Guides:
+      - "Staggered DiD (Callaway–Sant'Anna)": guides/callaway_santanna.md
+      - "Report card: cs_report()": guides/cs_report.md
+      - "Repeated cross-sections": guides/repeated_cross_sections.md
+      - "Sensitivity analysis (Rambachan–Roth)": guides/honest_did.md
+  - Reference:
+      - "DiD module": reference/did.md
+  - Changelog: changelog.md
