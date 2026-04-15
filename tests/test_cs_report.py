@@ -167,3 +167,40 @@ def test_report_plot_returns_2x2_panel(report):
     assert all(t for t in titles)
     # Breakdown quadrant has a "Rambachan" in its title.
     assert any("Rambachan" in t for t in titles)
+
+
+# --------------------------------------------------------------------------- #
+# Export: to_excel                                                            #
+# --------------------------------------------------------------------------- #
+
+def test_to_excel_roundtrip(report, tmp_path):
+    pytest.importorskip("openpyxl")
+    out = tmp_path / "cs_report.xlsx"
+    returned = report.to_excel(out)
+    assert str(returned) == str(out)
+    assert out.exists() and out.stat().st_size > 0
+
+    sheets = pd.ExcelFile(out).sheet_names
+    assert set(sheets) >= {
+        "Summary", "Dynamic", "Group", "Calendar", "Breakdown", "Meta"
+    }
+
+    # Dynamic sheet row count matches the in-memory frame.
+    dyn_xl = pd.read_excel(out, "Dynamic")
+    assert len(dyn_xl) == len(report.dynamic)
+
+    # Summary sheet carries the key header numbers.
+    summary_xl = pd.read_excel(out, "Summary")
+    keys = set(summary_xl["key"].astype(str))
+    assert {"overall_att", "overall_se", "overall_ci_lower",
+            "overall_ci_upper", "overall_pvalue"} <= keys
+
+
+def test_to_excel_breakdown_matches_inmemory(report, tmp_path):
+    pytest.importorskip("openpyxl")
+    out = tmp_path / "cs_report.xlsx"
+    report.to_excel(out)
+    bd_xl = pd.read_excel(out, "Breakdown")
+    assert len(bd_xl) == len(report.breakdown)
+    # relative_time values survive the round-trip.
+    assert list(bd_xl["relative_time"]) == list(report.breakdown["relative_time"])

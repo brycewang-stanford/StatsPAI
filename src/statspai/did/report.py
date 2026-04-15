@@ -223,6 +223,100 @@ class CSReport:
         return "\n".join(lines)
 
     # ------------------------------------------------------------------
+    # Export: Excel workbook (multi-sheet)
+    # ------------------------------------------------------------------
+    def to_excel(
+        self,
+        path,
+        float_format: Optional[str] = "%.6f",
+        engine: Optional[str] = None,
+    ) -> str:
+        """Dump the full report to a multi-sheet Excel workbook.
+
+        Creates one sheet per block — ``Summary``, ``Dynamic``,
+        ``Group``, ``Calendar``, ``Breakdown``, ``Meta`` — so
+        downstream Excel consumers (policy briefs, regulatory reports)
+        can link to or copy from the individual tables directly.
+
+        Parameters
+        ----------
+        path : str | Path
+            Destination ``.xlsx`` path.
+        float_format : str, optional
+            Passed through to :meth:`pandas.DataFrame.to_excel`.
+            Pass ``None`` to preserve full precision.
+        engine : str, optional
+            Excel writer engine (``'openpyxl'`` or ``'xlsxwriter'``).
+            If ``None`` pandas picks an installed one; raises a clear
+            ImportError here if none is available.
+
+        Returns
+        -------
+        str
+            The path written.
+        """
+        try:
+            import openpyxl  # noqa: F401 — most common default engine
+        except ImportError:
+            try:
+                import xlsxwriter  # noqa: F401
+            except ImportError as exc:  # pragma: no cover - env check
+                raise ImportError(
+                    "CSReport.to_excel requires either 'openpyxl' or "
+                    "'xlsxwriter'. Install one: pip install openpyxl"
+                ) from exc
+
+        path = str(path)
+
+        # Header block as a two-column Summary sheet.
+        m = self.meta
+        o = self.overall
+        summary_rows = [
+            ("n_units", m.get("n_units")),
+            ("n_periods", m.get("n_periods")),
+            ("n_cohorts", m.get("n_cohorts")),
+            ("estimator", m.get("estimator")),
+            ("control_group", m.get("control_group")),
+            ("anticipation", m.get("anticipation", 0)),
+            ("alpha", m.get("alpha", 0.05)),
+            ("n_boot", m.get("n_boot")),
+            ("random_state", m.get("random_state")),
+            ("overall_att", o["estimate"]),
+            ("overall_se", o["se"]),
+            ("overall_ci_lower", o["ci_lower"]),
+            ("overall_ci_upper", o["ci_upper"]),
+            ("overall_pvalue", o["pvalue"]),
+        ]
+        pt = self.pretrend or {}
+        if pt:
+            summary_rows.extend([
+                ("pretrend_chi2", pt.get("statistic")),
+                ("pretrend_df", pt.get("df")),
+                ("pretrend_pvalue", pt.get("pvalue")),
+            ])
+        summary = pd.DataFrame(summary_rows, columns=["key", "value"])
+
+        meta_df = pd.DataFrame(
+            list(m.items()), columns=["key", "value"],
+        )
+
+        writer_kwargs = {"engine": engine} if engine else {}
+        with pd.ExcelWriter(path, **writer_kwargs) as w:
+            summary.to_excel(w, sheet_name="Summary",
+                             index=False, float_format=float_format)
+            self.dynamic.to_excel(w, sheet_name="Dynamic",
+                                  index=False, float_format=float_format)
+            self.group.to_excel(w, sheet_name="Group",
+                                index=False, float_format=float_format)
+            self.calendar.to_excel(w, sheet_name="Calendar",
+                                   index=False, float_format=float_format)
+            self.breakdown.to_excel(w, sheet_name="Breakdown",
+                                    index=False, float_format=float_format)
+            meta_df.to_excel(w, sheet_name="Meta",
+                             index=False, float_format=float_format)
+        return path
+
+    # ------------------------------------------------------------------
     # Export: LaTeX (booktabs)
     # ------------------------------------------------------------------
     def to_latex(self, float_format: str = "%.4f",
