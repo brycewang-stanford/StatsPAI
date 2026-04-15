@@ -680,6 +680,45 @@ def cs_report(
     """
     if isinstance(data_or_result, CausalResult):
         cs = data_or_result
+        # Warn if the caller also supplied estimation-time arguments that
+        # would normally run a fresh fit — they are silently ignored when
+        # a pre-fitted result is passed, which is easy to misread as
+        # "the report re-estimated under my new settings".
+        import warnings as _warnings
+        _shadowed = []
+        if y is not None: _shadowed.append(f'y={y!r}')
+        if g is not None: _shadowed.append(f'g={g!r}')
+        if t is not None: _shadowed.append(f't={t!r}')
+        if i is not None: _shadowed.append(f'i={i!r}')
+        if x is not None: _shadowed.append(f'x={x!r}')
+        if estimator != 'dr': _shadowed.append(f'estimator={estimator!r}')
+        if control_group != 'nevertreated':
+            _shadowed.append(f'control_group={control_group!r}')
+        if anticipation != 0: _shadowed.append(f'anticipation={anticipation}')
+        if _shadowed:
+            _warnings.warn(
+                "cs_report() received a pre-fitted CausalResult together "
+                "with estimation-time arguments ("
+                + ", ".join(_shadowed)
+                + ") — those arguments are ignored and the pre-fitted "
+                "result is used as-is.  Pass raw data instead if you "
+                "want to re-estimate under the new settings.",
+                stacklevel=2,
+            )
+        # aggte requires (group, time) in detail — that is the CS schema.
+        # SA / BJS / dCDH use a different layout (relative_time only), so
+        # passing one of those here would later fail deep inside aggte with
+        # a cryptic KeyError.  Fail fast with an actionable message.
+        required = {'group', 'time', 'att', 'se', 'relative_time'}
+        have = set(cs.detail.columns) if cs.detail is not None else set()
+        if not required.issubset(have):
+            raise ValueError(
+                "cs_report() requires a Callaway–Sant'Anna result (with "
+                "'group' and 'time' columns in its detail frame).  "
+                f"Got a result of method {cs.method!r} with columns "
+                f"{sorted(have)}.  For Sun–Abraham or BJS results use "
+                "honest_did() directly on the event study."
+            )
     else:
         if not all([y, g, t, i]):
             raise ValueError(

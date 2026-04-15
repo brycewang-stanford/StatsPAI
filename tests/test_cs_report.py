@@ -283,3 +283,45 @@ def test_save_to_expands_tilde(tmp_path, monkeypatch):
     # If ~ was not expanded, we'd see a literal "~" subdirectory under CWD.
     assert (tmp_path / "cs_study" / "rpt.md").exists()
     assert (tmp_path / "cs_study" / "rpt.txt").exists()
+
+
+# --------------------------------------------------------------------------- #
+# Round-2 audit regressions                                                   #
+# --------------------------------------------------------------------------- #
+
+def test_cs_report_rejects_non_cs_result():
+    """Passing a Sun-Abraham / BJS result must raise a clear ValueError,
+    not a cryptic KeyError deep inside aggte."""
+    import statspai as sp
+    df = _staggered_panel(seed=19)
+    sa = sp.sun_abraham(df, y='y', g='g', t='t', i='i')
+    with pytest.raises(ValueError, match="Callaway"):
+        cs_report(sa, n_boot=50, random_state=0, verbose=False)
+
+
+def test_cs_report_warns_on_shadowed_args():
+    """Passing a pre-fitted result + estimation-time args must warn.
+
+    Otherwise users would silently see the pre-fit's settings rather
+    than the ones they explicitly passed."""
+    import warnings
+    df = _staggered_panel(seed=21)
+    cs = callaway_santanna(df, y='y', g='g', t='t', i='i', estimator='dr')
+    with warnings.catch_warnings(record=True) as w_list:
+        warnings.simplefilter("always")
+        cs_report(cs, estimator='reg',
+                  n_boot=30, random_state=0, verbose=False)
+    assert any("estimator='reg'" in str(wi.message) for wi in w_list)
+
+
+def test_cs_report_pre_fitted_without_shadowed_args_is_silent():
+    """No warning when user correctly passes only bootstrap/report args."""
+    import warnings
+    df = _staggered_panel(seed=23)
+    cs = callaway_santanna(df, y='y', g='g', t='t', i='i')
+    with warnings.catch_warnings(record=True) as w_list:
+        warnings.simplefilter("always")
+        cs_report(cs, n_boot=30, random_state=0, verbose=False)
+    # The only warning we tolerate here would be unrelated (none expected).
+    msgs = [str(wi.message) for wi in w_list]
+    assert not any("estimation-time" in m for m in msgs), msgs

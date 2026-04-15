@@ -186,3 +186,23 @@ def test_ggdid_all_aggregation_types(cs_result):
         if typ != 'simple':
             labels = [t.get_text() for t in ax.get_legend().get_texts()]
             assert any('Uniform' in lab for lab in labels)
+
+
+def test_dynamic_overall_averages_post_event_only(cs_result):
+    """`aggte(type='dynamic').estimate` must be the mean of e≥0 cells only.
+
+    Previously the overall averaged *all* reported cells — including
+    pre-treatment event times — which polluted the headline number
+    with placebo signal.  Matches R `did::aggte` convention.
+    """
+    import numpy as np
+    es = aggte(cs_result, type='dynamic', n_boot=100, random_state=0)
+    post_mean = es.detail.loc[
+        es.detail['relative_time'] >= 0, 'att'
+    ].mean()
+    all_mean = es.detail['att'].mean()
+    # Overall must equal post-event mean, NOT all-cells mean.
+    assert es.estimate == pytest.approx(post_mean, abs=1e-10)
+    # Sanity: on this DGP the two differ enough that a silent regression
+    # would be caught.
+    assert not np.isclose(post_mean, all_mean, atol=1e-3)

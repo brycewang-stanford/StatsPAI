@@ -95,9 +95,16 @@ def aggte(
     Returns
     -------
     CausalResult
-        ``.estimate`` / ``.se`` hold the overall aggregated ATT (for
-        ``simple``: the single number; for the others: the un-weighted
-        average over the reported cells, matching R's ``did::aggte``).
+        ``.estimate`` / ``.se`` hold the overall aggregated ATT,
+        matching R's ``did::aggte`` print convention:
+
+        - ``'simple'``   — the single cohort-share-weighted overall ATT
+        - ``'dynamic'``  — simple average of *post-treatment* event times
+          (e ≥ 0); pre-treatment cells are placebos and excluded
+        - ``'group'``    — simple average of the per-cohort θ(g) estimates
+        - ``'calendar'`` — simple average of the per-calendar-time θ(t)
+          estimates
+
         ``.detail`` is a tidy frame with one row per aggregation cell and
         both pointwise and (if requested) uniform bands.
 
@@ -195,18 +202,39 @@ def aggte(
         out['cband_upper'] = est_cells + crit_unif * se_cells
         out['crit_val_uniform'] = crit_unif
 
-    # "Overall" summary: simple mean of cells (matches R's aggte print).
+    # "Overall" summary — matches R's did::aggte print() convention:
+    #   simple   : the single cohort-share-weighted overall ATT
+    #   dynamic  : simple average of POST-treatment event times only
+    #              (pre-treatment cells are placebos, not part of the
+    #              overall causal summary)
+    #   group    : simple average across cohorts (all post-treatment by
+    #              construction of the θ(g) weights)
+    #   calendar : simple average across calendar times (all post-treatment
+    #              by construction)
     if type == 'simple':
         overall_est = float(est_cells[0])
         overall_se = float(se_cells[0])
     else:
-        w_overall = np.full(W.shape[0], 1.0 / W.shape[0])
+        if type == 'dynamic':
+            post_mask_agg = np.asarray(labels, dtype=float) >= 0
+            if not post_mask_agg.any():
+                # No post-treatment cells survived the min_e / max_e filter
+                # — fall back to the legacy "mean of all reported cells"
+                # behaviour so the caller still gets a number.
+                post_mask_agg = np.ones(W.shape[0], dtype=bool)
+            idx = np.where(post_mask_agg)[0]
+            w_overall = np.zeros(W.shape[0])
+            w_overall[idx] = 1.0 / idx.size
+        else:
+            w_overall = np.full(W.shape[0], 1.0 / W.shape[0])
         overall_est = float(w_overall @ est_cells)
         if bstrap and inf_matrix is not None:
             agg_inf = (w_overall @ W) @ inf_matrix.T
             overall_se = float(np.sqrt(np.mean(agg_inf ** 2) / n_units))
         else:
-            overall_se = float(np.sqrt(np.mean(se_cells ** 2)))
+            overall_se = float(
+                np.sqrt(np.sum((w_overall ** 2) * se_cells ** 2))
+            )
 
     overall_z = overall_est / overall_se if overall_se > 0 else 0.0
     overall_pval = float(2 * (1 - stats.norm.cdf(abs(overall_z))))
