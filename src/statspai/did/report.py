@@ -64,6 +64,181 @@ class CSReport:
         return self._format()
 
     # ------------------------------------------------------------------
+    # Export: Markdown
+    # ------------------------------------------------------------------
+    def to_markdown(self, float_format: str = "%.4f") -> str:
+        """Render the report as GitHub-Flavoured Markdown.
+
+        Suitable for pasting directly into a pull request, blog post,
+        or Jupyter notebook Markdown cell.
+        """
+        m = self.meta
+        o = self.overall
+        alpha = m.get("alpha", 0.05)
+        ci_pct = int(100 * (1 - alpha))
+
+        lines: List[str] = []
+        lines.append("## Callaway–Sant'Anna Staggered-DID Report")
+        lines.append("")
+        lines.append(
+            f"- **Units / Periods / Cohorts**: "
+            f"{m.get('n_units', '?')} / {m.get('n_periods', '?')} / "
+            f"{m.get('n_cohorts', '?')}"
+        )
+        lines.append(
+            f"- **Estimator**: {m.get('estimator', '?')} · "
+            f"**Control group**: {m.get('control_group', '?')} · "
+            f"**Anticipation**: {m.get('anticipation', 0)}"
+        )
+        lines.append(
+            f"- **Multiplier bootstrap**: B = {m.get('n_boot', '?')}, "
+            f"seed = {m.get('random_state', '—')}"
+        )
+        lines.append(
+            f"- **Overall ATT** = {o['estimate']:.4f} "
+            f"(SE = {o['se']:.4f}) · "
+            f"{ci_pct}% CI [{o['ci_lower']:.4f}, {o['ci_upper']:.4f}] · "
+            f"p = {o['pvalue']:.4g}"
+        )
+        pt = self.pretrend or {}
+        if pt:
+            lines.append(
+                f"- **Pre-trend Wald**: χ²({pt.get('df', 0)}) = "
+                f"{pt.get('statistic', float('nan')):.3f}, "
+                f"p = {pt.get('pvalue', float('nan')):.4g}"
+            )
+        lines.append("")
+
+        def _md(df: pd.DataFrame, cols: List[str]) -> str:
+            present = [c for c in cols if c in df.columns]
+            sub = _format_numeric_columns(df[present], float_format)
+            try:
+                return sub.to_markdown(index=False)
+            except ImportError:  # tabulate missing — fall back to plain
+                return sub.to_string(index=False)
+
+        lines.append("### Event study (dynamic aggregation)")
+        lines.append("")
+        lines.append(_md(self.dynamic, [
+            "relative_time", "att", "se",
+            "ci_lower", "ci_upper",
+            "cband_lower", "cband_upper", "pvalue",
+        ]))
+        lines.append("")
+        lines.append("### θ(g) — per-cohort aggregation")
+        lines.append("")
+        lines.append(_md(self.group, [
+            "group", "att", "se",
+            "ci_lower", "ci_upper",
+            "cband_lower", "cband_upper", "pvalue",
+        ]))
+        lines.append("")
+        lines.append("### θ(t) — per-calendar-time aggregation")
+        lines.append("")
+        lines.append(_md(self.calendar, [
+            "time", "att", "se",
+            "ci_lower", "ci_upper",
+            "cband_lower", "cband_upper", "pvalue",
+        ]))
+        lines.append("")
+        lines.append("### Rambachan–Roth breakdown M\\*")
+        lines.append("")
+        if len(self.breakdown):
+            lines.append(_md(self.breakdown, [
+                "relative_time", "att", "se",
+                "breakdown_M_star", "robust_at_1_SE",
+            ]))
+        else:
+            lines.append("_No post-treatment event times._")
+        lines.append("")
+        return "\n".join(lines)
+
+    # ------------------------------------------------------------------
+    # Export: LaTeX (booktabs)
+    # ------------------------------------------------------------------
+    def to_latex(self, float_format: str = "%.4f",
+                 caption: Optional[str] = None,
+                 label: Optional[str] = None) -> str:
+        """Render the report as a publication-ready LaTeX fragment.
+
+        Uses the ``booktabs`` package for each sub-table and wraps the
+        result in a single ``table`` float.  Requires ``\\usepackage{booktabs}``
+        in the preamble of the consuming document.
+        """
+        m = self.meta
+        o = self.overall
+        alpha = m.get("alpha", 0.05)
+        ci_pct = int(100 * (1 - alpha))
+        caption = caption or "Callaway--Sant'Anna staggered-DID report."
+        label = label or "tab:cs_report"
+
+        def _latex(df: pd.DataFrame, cols: List[str]) -> str:
+            present = [c for c in cols if c in df.columns]
+            return _df_to_booktabs(df[present], float_format)
+
+        header = (
+            f"Units / Periods / Cohorts: "
+            f"{m.get('n_units', '?')} / {m.get('n_periods', '?')} / "
+            f"{m.get('n_cohorts', '?')}. "
+            f"Estimator: {m.get('estimator', '?')}; "
+            f"Control group: {m.get('control_group', '?')}; "
+            f"Anticipation: {m.get('anticipation', 0)}. "
+            f"Multiplier bootstrap: $B = {m.get('n_boot', '?')}$, "
+            f"seed $= {m.get('random_state', '—')}$. "
+            f"Overall ATT $= {o['estimate']:.4f}$ "
+            f"(SE $= {o['se']:.4f}$); "
+            f"{ci_pct}\\% CI $[{o['ci_lower']:.4f}, {o['ci_upper']:.4f}]$; "
+            f"$p = {o['pvalue']:.4g}$."
+        )
+        pt = self.pretrend or {}
+        if pt:
+            header += (
+                f" Pre-trend Wald: $\\chi^2({pt.get('df', 0)}) = "
+                f"{pt.get('statistic', float('nan')):.3f}$, "
+                f"$p = {pt.get('pvalue', float('nan')):.4g}$."
+            )
+
+        parts: List[str] = []
+        parts.append("\\begin{table}[htbp]\\centering")
+        parts.append(f"\\caption{{{caption}}}")
+        parts.append(f"\\label{{{label}}}")
+        parts.append("\\footnotesize")
+        parts.append("\\par\\noindent" + header + "\\par\\medskip")
+
+        parts.append("\\textbf{Event study (dynamic aggregation)}\\par")
+        parts.append(_latex(self.dynamic, [
+            "relative_time", "att", "se",
+            "ci_lower", "ci_upper",
+            "cband_lower", "cband_upper", "pvalue",
+        ]))
+
+        parts.append("\\textbf{$\\theta(g)$ --- per-cohort}\\par")
+        parts.append(_latex(self.group, [
+            "group", "att", "se",
+            "ci_lower", "ci_upper",
+            "cband_lower", "cband_upper", "pvalue",
+        ]))
+
+        parts.append("\\textbf{$\\theta(t)$ --- per-calendar-time}\\par")
+        parts.append(_latex(self.calendar, [
+            "time", "att", "se",
+            "ci_lower", "ci_upper",
+            "cband_lower", "cband_upper", "pvalue",
+        ]))
+
+        parts.append("\\textbf{Rambachan--Roth breakdown $M^{*}$}\\par")
+        if len(self.breakdown):
+            parts.append(_latex(self.breakdown, [
+                "relative_time", "att", "se",
+                "breakdown_M_star", "robust_at_1_SE",
+            ]))
+        else:
+            parts.append("\\emph{No post-treatment event times.}")
+
+        parts.append("\\end{table}")
+        return "\n".join(parts)
+
+    # ------------------------------------------------------------------
     def _format(self) -> str:
         w = 78
         lines: List[str] = []
@@ -143,6 +318,81 @@ class CSReport:
                 "cband_lower", "cband_upper", "pvalue"]
         present = [c for c in cols if c in df.columns]
         return df[present].to_string(index=False, float_format="%.4f")
+
+
+# ======================================================================
+# Formatting helpers (Markdown / LaTeX)
+# ======================================================================
+
+def _format_numeric_columns(
+    df: pd.DataFrame,
+    float_format: str = "%.4f",
+) -> pd.DataFrame:
+    """Return a copy of ``df`` with every numeric column formatted as a string.
+
+    Integer-typed columns (e.g. relative_time, group, time) are preserved as
+    plain integers so they don't render as ``3.0000``.  Boolean columns are
+    rendered as ``True`` / ``False`` verbatim.
+    """
+    out = df.copy()
+    for col in out.columns:
+        s = out[col]
+        if pd.api.types.is_integer_dtype(s) or pd.api.types.is_bool_dtype(s):
+            continue
+        if pd.api.types.is_float_dtype(s):
+            # relative_time / group / time come through as float when mixed
+            # with NaN; keep them integer-looking if they truly are ints.
+            if s.dropna().apply(lambda x: float(x).is_integer()).all() and \
+                    col in {"relative_time", "group", "time"}:
+                out[col] = s.astype("Int64")
+                continue
+            out[col] = s.apply(
+                lambda v: "" if pd.isna(v) else (float_format % float(v))
+            )
+    return out
+
+
+def _df_to_booktabs(df: pd.DataFrame, float_format: str = "%.4f") -> str:
+    """Jinja2-free LaTeX booktabs rendering of ``df``.
+
+    Produces a minimal ``tabular`` block suitable for inclusion in a
+    ``table`` float — left-aligns string columns, right-aligns numerics.
+    """
+    formatted = _format_numeric_columns(df, float_format)
+    aligns = []
+    for col in formatted.columns:
+        s = df[col]
+        if pd.api.types.is_numeric_dtype(s) or pd.api.types.is_bool_dtype(s):
+            aligns.append("r")
+        else:
+            aligns.append("l")
+    col_spec = "".join(aligns)
+
+    def _escape(v: object) -> str:
+        text = "" if (isinstance(v, float) and pd.isna(v)) else str(v)
+        for old, new in (("\\", r"\textbackslash{}"), ("&", r"\&"),
+                         ("%", r"\%"), ("$", r"\$"), ("#", r"\#"),
+                         ("_", r"\_"), ("{", r"\{"), ("}", r"\}"),
+                         ("~", r"\textasciitilde{}"),
+                         ("^", r"\textasciicircum{}")):
+            text = text.replace(old, new)
+        return text
+
+    header = " & ".join(_escape(c) for c in formatted.columns) + " \\\\"
+    body_rows = [
+        " & ".join(_escape(v) for v in row) + " \\\\"
+        for row in formatted.itertuples(index=False, name=None)
+    ]
+    lines = [
+        f"\\begin{{tabular}}{{{col_spec}}}",
+        "\\toprule",
+        header,
+        "\\midrule",
+        *body_rows,
+        "\\bottomrule",
+        "\\end{tabular}",
+    ]
+    return "\n".join(lines)
 
 
 # ======================================================================

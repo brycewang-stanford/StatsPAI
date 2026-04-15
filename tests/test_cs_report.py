@@ -96,3 +96,58 @@ def test_reproducibility_with_fixed_seed():
                   n_boot=200, random_state=42, verbose=False)
     pd.testing.assert_frame_equal(a.dynamic, b.dynamic)
     pd.testing.assert_frame_equal(a.breakdown, b.breakdown)
+
+
+# --------------------------------------------------------------------------- #
+# Export: to_markdown / to_latex                                              #
+# --------------------------------------------------------------------------- #
+
+def test_to_markdown_structure(report):
+    md = report.to_markdown()
+    assert isinstance(md, str)
+    assert md.startswith("## Callaway")
+    for section in [
+        "Event study",
+        "θ(g)",
+        "θ(t)",
+        "Rambachan",
+    ]:
+        assert section in md
+    # Integer columns should not show .0000 artefacts.
+    assert "relative_time" in md
+    assert "0.0000" not in md.split("Event study")[1][:500]
+
+
+def test_to_markdown_float_format(report):
+    md3 = report.to_markdown(float_format="%.2f")
+    assert "0.07" in md3 or "0.09" in md3
+    assert "0.0669" not in md3  # would only appear under %.4f default
+
+
+def test_to_latex_structure(report):
+    tex = report.to_latex(caption='Demo', label='tab:demo')
+    assert tex.startswith("\\begin{table}")
+    assert "\\caption{Demo}" in tex
+    assert "\\label{tab:demo}" in tex
+    assert "\\begin{tabular}" in tex
+    assert "\\toprule" in tex and "\\midrule" in tex and "\\bottomrule" in tex
+    assert tex.rstrip().endswith("\\end{table}")
+
+
+def test_to_latex_escapes_special_chars(report):
+    tex = report.to_latex()
+    # Underscores in column names must be escaped.
+    assert "ci\\_lower" in tex
+    assert "\\chi^2" in tex  # pretrend rendering
+
+
+def test_to_latex_no_jinja2_required(report):
+    """Our booktabs formatter should not depend on jinja2."""
+    import sys
+    saved = sys.modules.pop('jinja2', None)
+    try:
+        tex = report.to_latex()
+        assert "\\begin{tabular}" in tex
+    finally:
+        if saved is not None:
+            sys.modules['jinja2'] = saved
