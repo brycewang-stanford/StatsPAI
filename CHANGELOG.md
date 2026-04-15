@@ -2,40 +2,67 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [0.7.1] - 2026-04-14
+## [0.7.0] - 2026-04-14
 
-Follow-up release to 0.7.0: export surface, visualisations, and the
-last remaining capability gap vs `csdid` / `differences` — repeated
-cross-sections.  Full DiD test suite: 114 → 142 (+28).
+Focused release reaching feature parity with the R `did` / `HonestDiD`
+packages and the Python `csdid` / `differences` packages for staggered
+Difference-in-Differences.  All core algorithms are reimplemented from
+the original papers — **no wrappers, no runtime dependencies on upstream
+DID packages**.  Full DiD test suite: 47 → 170+ (including three rounds
+of post-implementation audit that surfaced and fixed 9 bugs before
+release).
 
-### Added
+### Added — Core estimation
 
-- **Repeated cross-sections** support for `callaway_santanna()` via
-  the new `panel=False` argument.  Uses the unconditional 2×2
-  cell-mean DID with observation-level influence functions
-  (CS2021 eq. 2.4, RCS version), so `aggte` / `cs_report` / `ggdid`
-  / `honest_did` all work on RCS results with no code changes —
-  Mammen uniform bands, four aggregations, and Rambachan–Roth
-  breakdown M\* all compose downstream.  Scope of the initial
-  implementation: `estimator='reg'`, `control_group='nevertreated'`,
-  no covariates (other paths raise `NotImplementedError` with an
-  actionable message).
+- **`sp.aggte(result, type=...)`** — unified aggregation layer for
+  `callaway_santanna()` results.  Four aggregation schemes (`simple`,
+  `dynamic`, `group`, `calendar`) backed by a single weighted-
+  influence-function engine.  Callaway & Sant'Anna (2021) Section 4.
+- **Mammen (1993) multiplier bootstrap** — IQR-rescaled pointwise
+  standard errors *and* simultaneous (uniform / sup-t) confidence
+  bands over the aggregation dimension.  Matches the uniform-band
+  behaviour of the R `did::aggte` function.
+- **`balance_e` / `min_e` / `max_e`** — event-study cohort balancing
+  and window truncation (CS2021 eq. 3.8).
+- **`anticipation=δ`** parameter on `callaway_santanna()` — shifts
+  the base period back by δ periods per CS2021 §3.2.
+- **Repeated cross-sections** support via `callaway_santanna(panel=False)`
+  — unconditional 2×2 cell-mean DID with observation-level influence
+  functions (CS2021 eq. 2.4, RCS version).  Optional covariate
+  residualisation with `x=[...]` for regression adjustment.  All
+  downstream modules (`aggte`, `cs_report`, `ggdid`, `honest_did`)
+  work on RCS results with no code changes.
+- **dCDH joint inference** (`did_multiplegt`) — `joint_placebo_test`
+  (Wald χ² across placebo lags with bootstrap covariance, dCDH 2024
+  §3.3) and `avg_cumulative_effect` (mean of dynamic[0..L] with
+  SE preserving cross-horizon covariance, dCDH 2024 §3.4).
+- **`sp.bjs_pretrend_joint()`** — cluster-bootstrap joint Wald pre-
+  trend test for BJS imputation results.  Upgrades the default
+  sum-of-z² test (which assumes pre-period independence) to a full
+  covariance-aware statistic.
+
+### Added — Reporting & visualisation
+
+- **`sp.cs_report(data, ...)`** — one-call report card.  Runs the
+  full pipeline (ATT(g,t) → four aggregations with uniform bands →
+  pre-trend Wald → Rambachan–Roth breakdown M\* for every post event
+  time) under a single bootstrap seed and pretty-prints the result.
+  Returns a structured `CSReport` dataclass.
+- **`sp.ggdid(result)`** — plot routine for `aggte()` output,
+  mirroring R `did::ggdid`.  Auto-dispatches on aggregation type;
+  uniform band overlaid on pointwise CI.
 - **`CSReport.plot()`** — one-call 2×2 summary figure: event study
   with uniform band (top-left), θ(g) per-cohort (top-right), θ(t)
-  per-calendar-time (bottom-left), Rambachan–Roth breakdown M\* bars
-  (bottom-right).  Re-uses `ggdid()` via a minimal adapter so no
-  bootstrap draws are recomputed.
-- **`CSReport.to_markdown()`** — GitHub-Flavoured Markdown export
+  per-calendar-time (bottom-left), Rambachan–Roth breakdown M\*
+  bars (bottom-right).
+- **`CSReport.to_markdown()`** — GitHub-flavoured Markdown export
   with proper integer-column rendering and a configurable
-  `float_format`.  Ready to paste into PRs, blog posts, or Jupyter
-  Markdown cells.
+  `float_format`.
 - **`CSReport.to_latex()`** — publication-ready booktabs fragment
-  wrapped in a `table` float.  Zero jinja2 dependency (hand-rolled
-  booktabs renderer), auto-escapes LaTeX special characters,
-  right-aligns numerics and left-aligns strings, typesets the
-  pre-trend Wald in math mode.
-- **`CSReport.to_excel()`** — six-sheet workbook: `Summary`,
-  `Dynamic`, `Group`, `Calendar`, `Breakdown`, `Meta`.  Engine
+  wrapped in a `table` float.  Zero `jinja2` dependency (hand-rolled
+  booktabs renderer); auto-escapes LaTeX special characters.
+- **`CSReport.to_excel()`** — six-sheet workbook (`Summary`,
+  `Dynamic`, `Group`, `Calendar`, `Breakdown`, `Meta`).  Engine
   autoselect (openpyxl → xlsxwriter) with a clear ImportError when
   neither is installed.
 - **`cs_report(..., save_to='prefix')`** — one-call dump of the
@@ -43,62 +70,55 @@ cross-sections.  Full DiD test suite: 114 → 142 (+28).
   a single invocation, auto-creating missing parent directories.
   Optional dependencies (openpyxl, matplotlib) are skipped silently
   so a minimal install still produces text + md + tex.
+- **`sp.did(..., aggregation='dynamic', n_boot=..., random_state=...)`**
+  — the top-level dispatcher now forwards CS-style arguments
+  (`aggregation`, `panel`, `anticipation`) and can pipe a CS result
+  straight through `aggte()` in a single call.
 
 ### Changed
 
-- **README**: the DiD parity matrix now reflects full RCS support
-  and adds new rows for `.to_markdown()` / `.to_latex()` /
-  `.to_excel()` / `save_to=` / `.plot()`.
-
-## [0.7.0] - 2026-04-14
-
-Focused release reaching feature parity with the R `did` / `HonestDiD`
-packages and the Python `csdid` / `differences` packages for staggered
-Difference-in-Differences.  All core algorithms are reimplemented from
-the original papers — **no wrappers, no runtime dependencies on upstream
-DID packages**.  DiD test count: 47 → 114.
-
-### Added
-
-- **`sp.did.aggte(result, type=...)`** — unified aggregation layer for
-  `callaway_santanna()` results.  Four aggregation schemes (`simple`,
-  `dynamic`, `group`, `calendar`) backed by a single weighted-influence-
-  function engine.  Callaway & Sant'Anna (2021) Section 4.
-- **Mammen (1993) multiplier bootstrap** — IQR-rescaled pointwise
-  standard errors *and* simultaneous (uniform / sup-t) confidence bands
-  over the aggregation dimension.  Matches the uniform-band behaviour
-  of the R `did::aggte` function.
-- **`balance_e` / `min_e` / `max_e`** — event-study cohort balancing
-  and window truncation (CS2021 eq. 3.8).
-- **`anticipation=δ`** parameter on `callaway_santanna()` — shifts the
-  base period back by δ periods per CS2021 §3.2.
-- **`sp.did.cs_report(data, ...)`** — one-call report card.  Runs the
-  full pipeline (ATT(g,t) → four aggregations with uniform bands →
-  pre-trend Wald → Rambachan-Roth breakdown M\* for every post event
-  time) under a single bootstrap seed and pretty-prints the result.
-  Returns a structured `CSReport` dataclass.
-- **`sp.did.ggdid(result)`** — plot routine for `aggte()` output,
-  mirroring R `did::ggdid`.  Auto-dispatches on aggregation type;
-  uniform band overlaid on pointwise CI.
-- **dCDH joint inference** (`did_multiplegt`) — `joint_placebo_test`
-  (Wald χ² across placebo lags with bootstrap covariance, dCDH 2024
-  §3.3) and `avg_cumulative_effect` (mean of dynamic[0..L] with
-  SE preserving cross-horizon covariance, dCDH 2024 §3.4).
-
-### Changed
-
-- **`sun_abraham()` inference layer rewritten** — replaces the former
-  ad-hoc `√(σ²/(total·T))` approximation with a Liang-Zeger cluster-
-  robust sandwich `(X'X)⁻¹ Σ_c X_c' u_c u_c' X_c (X'X)⁻¹` (small-sample
-  adjusted), delta-method IW aggregation SEs `w' V_β w`, iterative
-  two-way within transformation (correct on unbalanced panels), and
-  optional `control_group='lastcohort'` per SA 2021 §6.
-- **`sp.did.honest_did()` / `breakdown_m()` made polymorphic** — now
-  accept both the legacy `callaway_santanna()` / `sun_abraham()` result
-  format (event study in `model_info`) and the new `aggte(type='dynamic')`
+- **`sun_abraham()` inference layer rewritten** — replaces the
+  former ad-hoc `√(σ²/(total·T))` approximation with a Liang–Zeger
+  cluster-robust sandwich `(X'X)⁻¹ Σ_c X_c' u_c u_c' X_c (X'X)⁻¹`
+  (small-sample adjusted), delta-method IW aggregation SEs
+  `w' V_β w`, iterative two-way within transformation (correct on
+  unbalanced panels), and optional `control_group='lastcohort'` per
+  SA 2021 §6.
+- **`sp.honest_did()` / `sp.breakdown_m()` made polymorphic** — now
+  accept the legacy `callaway_santanna()` / `sun_abraham()` format
+  (event study in `model_info`) *and* the new `aggte(type='dynamic')`
   format (event study in `detail` with Mammen uniform bands).  The
-  idiomatic pipeline `cs → aggte → honest_did → breakdown_m` now runs
-  end-to-end with no manual plumbing.
+  idiomatic pipeline `cs → aggte → honest_did → breakdown_m` now
+  runs end-to-end with no manual plumbing.
+- **README DiD parity matrix** added, comparing StatsPAI against
+  `csdid`, `differences`, and R `did` + `HonestDiD` across 15
+  capabilities.
+
+### Fixed (from pre-release audit rounds)
+
+- **Critical — `aggte(type='dynamic').estimate`** previously averaged
+  pre- *and* post-treatment event times into the overall ATT,
+  polluting the headline number with placebo signal.  Now averages
+  only e ≥ 0, matching R `did::aggte`'s print convention.  On a
+  typical DGP the bug shifted the reported overall by nearly a
+  factor of 2.
+- **LaTeX escape non-idempotence** in `CSReport.to_latex()`:
+  `\` → `\textbackslash{}` followed by `{` → `\{` mangled the
+  just-inserted braces.  Fixed with a single-pass `re.sub`.
+- **`cs_report(save_to='~/study/…')`** did not expand `~`; fixed
+  via `os.path.expanduser`.
+- **`cs_report(sa_result)` / `aggte(sa_result)`** raised cryptic
+  `KeyError: 'group'`; both entry points now detect non-CS input
+  up-front and raise a clear `ValueError`.
+- **`cs_report(pre_fitted_cs, estimator=…)`** silently ignored the
+  override; now emits a `UserWarning` listing every shadowed arg.
+- **`sp.did(method='2x2', aggregation='dynamic')`** silently ignored
+  CS-only arguments; now raises an informative `ValueError`.
+- **`bjs_pretrend_joint`** swallowed all exceptions as "bootstrap
+  failed"; now narrows to expected failure modes and re-raises
+  unexpected errors with context.
+- **`matplotlib.use('Agg')`** in `_save_report_bundle` no longer
+  switches the backend unconditionally (respects Jupyter sessions).
 
 ### References
 
@@ -109,6 +129,7 @@ DID packages**.  DiD test count: 47 → 114.
 - de Chaisemartin, C. and D'Haultfoeuille, X. (2020). *AER* 110(9).
 - de Chaisemartin, C. and D'Haultfoeuille, X. (2024). *RESt*, forthcoming.
 - Rambachan, A. and Roth, J. (2023). *Rev. Econ. Studies* 90(5).
+- Borusyak, K., Jaravel, X. and Spiess, J. (2024). *ReStud* 91(6).
 
 ## [0.6.2] - 2026-04-12
 
