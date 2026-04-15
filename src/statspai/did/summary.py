@@ -128,6 +128,7 @@ def did_summary(
     controls: Optional[List[str]] = None,
     cluster: Optional[str] = None,
     alpha: float = 0.05,
+    include_sensitivity: bool = False,
     verbose: bool = False,
 ) -> CausalResult:
     """
@@ -159,6 +160,13 @@ def did_summary(
         Cluster variable for SE (defaults to ``group`` in each sub-method).
     alpha : float, default 0.05
         Significance level for confidence intervals.
+    include_sensitivity : bool, default False
+        If ``True`` and ``'cs'`` is among the methods fit, compute the
+        Rambachan–Roth (2023) *breakdown M\\** — the largest relative
+        violation of parallel trends under which the treatment effect
+        is still significantly different from zero. The value is added
+        to ``model_info['breakdown_m']`` and to the ``breakdown_m``
+        column of ``detail`` (CS row only; other methods leave ``NaN``).
     verbose : bool, default False
         Print progress for each method.
 
@@ -213,17 +221,29 @@ def did_summary(
     rows: List[dict] = []
     failed: dict = {}
     fit: List[str] = []
+    cs_raw = None  # raw CS result for sensitivity analysis
 
     for name in methods_list:
         label = _METHOD_LABELS[name]
         if verbose:
             print(f"  running {name} ({label})...", flush=True)
         try:
-            res = _DISPATCH[name](
-                data, y=y, group=group, time=time,
-                first_treat=first_treat, controls=controls,
-                cluster=cluster, alpha=alpha,
-            )
+            if name == "cs" and include_sensitivity:
+                # Run CS + aggte inline so we can hold on to the raw
+                # CS result for the subsequent breakdown_m call.
+                from .callaway_santanna import callaway_santanna
+                from .aggte import aggte as _aggte
+                cs_raw = callaway_santanna(
+                    data, y=y, g=first_treat, t=time, i=group,
+                    x=controls, alpha=alpha,
+                )
+                res = _aggte(cs_raw, type="simple", alpha=alpha, bstrap=False)
+            else:
+                res = _DISPATCH[name](
+                    data, y=y, group=group, time=time,
+                    first_treat=first_treat, controls=controls,
+                    cluster=cluster, alpha=alpha,
+                )
             vals = _extract(res)
             rows.append(dict(method=name, estimator=label, note="", **vals))
             fit.append(name)
@@ -236,9 +256,31 @@ def did_summary(
                 note=f"FAILED: {type(exc).__name__}",
             ))
 
+    # Optional Rambachan–Roth breakdown M*
+    breakdown_m_value: Optional[float] = None
+    breakdown_m_col: List[float] = [np.nan] * len(rows)
+    if include_sensitivity and cs_raw is not None:
+        try:
+            from .honest_did import breakdown_m
+            breakdown_m_value = float(breakdown_m(cs_raw, e=0, alpha=alpha))
+            # Fill the CS row
+            for i, r in enumerate(rows):
+                if r["method"] == "cs":
+                    breakdown_m_col[i] = breakdown_m_value
+                    if r["note"] == "":
+                        r["note"] = f"breakdown M* = {breakdown_m_value:.3f}"
+                    break
+        except Exception as exc:
+            failed["__sensitivity__"] = (
+                f"breakdown_m failed: {type(exc).__name__}: {str(exc)[:120]}"
+            )
+
+    for i, r in enumerate(rows):
+        r["breakdown_m"] = breakdown_m_col[i]
+
     detail = pd.DataFrame(rows, columns=[
         "method", "estimator", "estimate", "se", "pvalue",
-        "ci_low", "ci_high", "n_obs", "note",
+        "ci_low", "ci_high", "n_obs", "breakdown_m", "note",
     ])
 
     ests = detail.loc[detail["estimate"].notna(), "estimate"].values
@@ -263,6 +305,7 @@ def did_summary(
             "methods_fit": fit,
             "methods_failed": failed,
             "dispersion": disp,
+            "breakdown_m": breakdown_m_value,
         },
         _citation_key="did_summary",
     )
