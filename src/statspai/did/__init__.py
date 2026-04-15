@@ -28,6 +28,7 @@ from .ddd import ddd
 from .callaway_santanna import callaway_santanna
 from .aggte import aggte
 from .report import cs_report, CSReport
+from .bjs_inference import bjs_pretrend_joint
 from .sun_abraham import sun_abraham
 from .bacon import bacon_decomposition
 from .honest_did import honest_did, breakdown_m
@@ -341,6 +342,7 @@ __all__ = [
     'aggte',
     'cs_report',
     'CSReport',
+    'bjs_pretrend_joint',
     'sun_abraham',
     'bacon_decomposition',
     'honest_did',

@@ -40,6 +40,7 @@ from .did import (
     enhanced_event_study_plot, treatment_rollout_plot,
     sensitivity_plot, cohort_event_study_plot,
     aggte, cs_report, CSReport, ggdid,
+    bjs_pretrend_joint,
 )
 from .rd import rdrobust, rdplot, rdplotdensity, rdbwsensitivity, rdbalance, rdplacebo, rdsummary, rkd, rd_honest, rdit
 from .synth import (
