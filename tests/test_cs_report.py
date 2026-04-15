@@ -253,3 +253,33 @@ def test_save_to_files_contain_expected_content(tmp_path):
     assert "\\begin{table}" in tex and "\\bottomrule" in tex
     txt = (tmp_path / "cs.txt").read_text()
     assert "Overall ATT" in txt
+
+
+# --------------------------------------------------------------------------- #
+# Audit-round bug regressions                                                 #
+# --------------------------------------------------------------------------- #
+
+def test_to_latex_backslash_is_single_escaped(report):
+    """Bug: \\ → \\textbackslash{} followed by { → \\{ mangled the brace.
+
+    A single backslash in a cell should render as \\textbackslash{}
+    verbatim, not \\textbackslash\\{\\}."""
+    import importlib
+    mod = importlib.import_module('statspai.did.report')
+    df = pd.DataFrame({'label': ['a\\b', 'x^y'], 'val': [1, 2]})
+    tex = mod._df_to_booktabs(df)
+    assert r'\textbackslash{}' in tex
+    assert r'\textbackslash\{\}' not in tex
+    assert r'\textasciicircum{}' in tex
+
+
+def test_save_to_expands_tilde(tmp_path, monkeypatch):
+    """`save_to='~/foo/bar'` should expand the home directory."""
+    df = _staggered_panel(seed=31)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    cs_report(df, y='y', g='g', t='t', i='i',
+              n_boot=50, random_state=0, verbose=False,
+              save_to='~/cs_study/rpt')
+    # If ~ was not expanded, we'd see a literal "~" subdirectory under CWD.
+    assert (tmp_path / "cs_study" / "rpt.md").exists()
+    assert (tmp_path / "cs_study" / "rpt.txt").exists()

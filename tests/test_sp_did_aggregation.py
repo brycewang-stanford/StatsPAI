@@ -65,3 +65,28 @@ def test_rcs_path_through_top_level():
                estimator='reg', panel=False)
     assert r.model_info['panel'] is False
     assert 'RCS' in r.model_info['estimator']
+
+
+def test_aggregation_with_incompatible_method_raises():
+    """Silent-ignore bug: `aggregation=` must be rejected for 2x2 / DDD."""
+    rng = np.random.default_rng(0)
+    df = pd.DataFrame({
+        'y': rng.normal(size=200),
+        'treat': rng.integers(0, 2, size=200),
+        'time': rng.integers(0, 2, size=200),
+    })
+    with pytest.raises(ValueError, match='Callaway'):
+        sp.did(df, y='y', treat='treat', time='time',
+               method='2x2', aggregation='dynamic')
+
+
+def test_anticipation_rejected_for_non_cs_method():
+    rng = np.random.default_rng(0)
+    df = pd.DataFrame({
+        'y': rng.normal(size=200),
+        'treat': rng.integers(0, 2, size=200),
+        'time': rng.integers(0, 2, size=200),
+    })
+    with pytest.raises(ValueError, match='anticipation'):
+        sp.did(df, y='y', treat='treat', time='time',
+               method='2x2', anticipation=1)

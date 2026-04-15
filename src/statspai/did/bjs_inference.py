@@ -114,6 +114,10 @@ def bjs_pretrend_joint(
     rng = np.random.default_rng(seed)
 
     boot_mat = np.full((n_boot, K), np.nan)
+    # Remember the most recent unexpected error so that if many / all
+    # bootstrap replications fail we can surface it to the user rather
+    # than silently claim "not enough reps succeeded".
+    last_unexpected: Optional[Exception] = None
     for b in range(n_boot):
         picks = rng.choice(clusters, size=G, replace=True)
         frames = []
@@ -129,22 +133,36 @@ def bjs_pretrend_joint(
                 first_treat=first_treat, controls=controls,
                 horizon=horizon, cluster=cluster_col,
             )
-            es_b = r_b.model_info.get('event_study')
-            if es_b is None or len(es_b) == 0:
-                continue
-            sub = es_b[es_b['relative_time'].isin(pre_k)].sort_values(
-                'relative_time',
-            )
-            if len(sub) == K:
-                boot_mat[b] = sub['att'].to_numpy()
-        except Exception:
+        except (ValueError, RuntimeError, np.linalg.LinAlgError):
+            # Expected failures on pathological resamples (e.g. a draw
+            # that happens to drop all eventually-treated units).  Skip.
             continue
+        except Exception as exc:
+            # Anything else is likely a genuine bug in BJS — keep the
+            # last one around so we can report it below if the run fails.
+            last_unexpected = exc
+            continue
+
+        es_b = r_b.model_info.get('event_study')
+        if es_b is None or len(es_b) == 0:
+            continue
+        sub = es_b[es_b['relative_time'].isin(pre_k)].sort_values(
+            'relative_time',
+        )
+        if len(sub) == K:
+            boot_mat[b] = sub['att'].to_numpy()
 
     valid = ~np.any(np.isnan(boot_mat), axis=1)
     if valid.sum() < K + 1:
+        extra = (
+            f"  Last unexpected error: {type(last_unexpected).__name__}: "
+            f"{last_unexpected}"
+            if last_unexpected is not None else ""
+        )
         raise RuntimeError(
             f"Only {int(valid.sum())} / {n_boot} bootstrap replications "
             f"succeeded — not enough to estimate the {K}×{K} covariance."
+            + extra
         )
     boot_valid = boot_mat[valid]
     # Centre around the bootstrap mean so the cov estimator is unbiased

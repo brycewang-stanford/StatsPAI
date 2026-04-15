@@ -215,6 +215,34 @@ def did(
             + (" ..." if len(data.columns) > 10 else "")
         )
 
+    # If CS-specific arguments are passed, force the method to CS rather
+    # than silently ignoring them.  This is the "do what I mean" path
+    # when a user writes
+    #   sp.did(..., aggregation='dynamic')
+    # and expects CS to run under the hood.
+    if aggregation is not None and method == 'auto' and id is not None:
+        method = 'callaway_santanna'
+
+    # Validate that CS-only arguments were not paired with a non-CS
+    # method — fail loudly rather than swallow the argument.
+    _cs_methods = {'callaway_santanna', 'cs', 'auto'}
+    if aggregation is not None and method not in _cs_methods:
+        raise ValueError(
+            f"`aggregation={aggregation!r}` is only supported with the "
+            f"Callaway-Sant'Anna estimator (method='cs'); got "
+            f"method={method!r}."
+        )
+    if (not panel) and method not in _cs_methods:
+        raise ValueError(
+            f"`panel=False` is only supported with Callaway-Sant'Anna; "
+            f"got method={method!r}."
+        )
+    if anticipation != 0 and method not in _cs_methods:
+        raise ValueError(
+            f"`anticipation={anticipation}` is only supported with "
+            f"Callaway-Sant'Anna; got method={method!r}."
+        )
+
     # Auto-detect if subgroup is provided → DDD
     if method == 'auto' and subgroup is not None:
         method = 'ddd'

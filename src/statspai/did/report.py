@@ -560,15 +560,30 @@ def _df_to_booktabs(df: pd.DataFrame, float_format: str = "%.4f") -> str:
             aligns.append("l")
     col_spec = "".join(aligns)
 
+    # Single-pass LaTeX escape.  Sequential replace() calls are unsafe
+    # because `\` → `\textbackslash{}` inserts `{` and `}` that later
+    # passes would re-escape, producing broken output like
+    # `\textbackslash\{\}` instead of `\textbackslash{}`.  Using re.sub
+    # with a lookup table guarantees each input character is escaped
+    # exactly once.
+    import re as _re
+    _LATEX_ESCAPES = {
+        '\\': r'\textbackslash{}',
+        '~':  r'\textasciitilde{}',
+        '^':  r'\textasciicircum{}',
+        '&':  r'\&',
+        '%':  r'\%',
+        '$':  r'\$',
+        '#':  r'\#',
+        '_':  r'\_',
+        '{':  r'\{',
+        '}':  r'\}',
+    }
+    _LATEX_RE = _re.compile(r'[\\~^&%$#_{}]')
+
     def _escape(v: object) -> str:
         text = "" if (isinstance(v, float) and pd.isna(v)) else str(v)
-        for old, new in (("\\", r"\textbackslash{}"), ("&", r"\&"),
-                         ("%", r"\%"), ("$", r"\$"), ("#", r"\#"),
-                         ("_", r"\_"), ("{", r"\{"), ("}", r"\}"),
-                         ("~", r"\textasciitilde{}"),
-                         ("^", r"\textasciicircum{}")):
-            text = text.replace(old, new)
-        return text
+        return _LATEX_RE.sub(lambda m: _LATEX_ESCAPES[m.group(0)], text)
 
     header = " & ".join(_escape(c) for c in formatted.columns) + " \\\\"
     body_rows = [
@@ -759,8 +774,14 @@ def _save_report_bundle(
     skipping any format whose optional dependency is missing.
     """
     import os
+    import sys
 
-    prefix = str(prefix)
+    def _sys_modules():
+        return sys.modules
+
+    # Expand a leading "~" / "~user" so `save_to='~/study/cs_v1'` works,
+    # otherwise os.makedirs would create a literal "./~/study" directory.
+    prefix = os.path.expanduser(str(prefix))
     parent = os.path.dirname(prefix)
     if parent:
         os.makedirs(parent, exist_ok=True)
@@ -791,7 +812,15 @@ def _save_report_bundle(
 
     try:
         import matplotlib
-        matplotlib.use("Agg")
+        # Only switch to a non-interactive backend if nothing has been
+        # set yet — calling matplotlib.use() after pyplot has been
+        # imported is a warning-only no-op in modern matplotlib but
+        # can surprise users running inside Jupyter.
+        if "matplotlib.pyplot" not in _sys_modules():
+            try:
+                matplotlib.use("Agg")
+            except Exception:
+                pass  # already set — honour caller's choice
         fig, _ = report.plot()
         png_path = f"{prefix}.png"
         fig.savefig(png_path, dpi=110, bbox_inches="tight")
