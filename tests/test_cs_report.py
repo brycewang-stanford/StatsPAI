@@ -151,3 +151,19 @@ def test_to_latex_no_jinja2_required(report):
     finally:
         if saved is not None:
             sys.modules['jinja2'] = saved
+
+
+# --------------------------------------------------------------------------- #
+# Plot: 2×2 summary panel                                                     #
+# --------------------------------------------------------------------------- #
+
+def test_report_plot_returns_2x2_panel(report):
+    matplotlib = pytest.importorskip('matplotlib')
+    matplotlib.use('Agg')
+    fig, axes = report.plot(suptitle="demo")
+    assert axes.shape == (2, 2)
+    # The four quadrants should each carry a non-empty title.
+    titles = [ax.get_title() for ax in axes.ravel()]
+    assert all(t for t in titles)
+    # Breakdown quadrant has a "Rambachan" in its title.
+    assert any("Rambachan" in t for t in titles)

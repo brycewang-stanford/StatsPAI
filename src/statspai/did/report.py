@@ -64,6 +64,75 @@ class CSReport:
         return self._format()
 
     # ------------------------------------------------------------------
+    # Plot: 2×2 summary panel
+    # ------------------------------------------------------------------
+    def plot(self, figsize=(14, 10), suptitle: Optional[str] = None):
+        """Render a 2×2 summary figure of the report.
+
+        The four quadrants show:
+
+        - **Top-left**: event study (dynamic) with uniform confidence band
+        - **Top-right**: θ(g) per-cohort aggregation with uniform band
+        - **Bottom-left**: θ(t) per-calendar-time aggregation
+        - **Bottom-right**: Rambachan–Roth breakdown M* across post event times
+
+        Requires matplotlib.  Returns ``(fig, axes)``.
+        """
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError as exc:  # pragma: no cover - env check
+            raise ImportError(
+                "matplotlib is required for CSReport.plot(). "
+                "Install: pip install matplotlib"
+            ) from exc
+
+        # Local import to avoid a circular statspai.did.__init__ dependency.
+        from .plots import ggdid
+        from .aggte import aggte
+
+        cs_like = _CSReportLike(self.dynamic, {'aggregation': 'dynamic'},
+                                self.overall.get('estimate', 0.0),
+                                self.overall.get('se', 0.0), self.meta)
+        cs_like_group = _CSReportLike(self.group, {'aggregation': 'group'},
+                                      0.0, 0.0, self.meta)
+        cs_like_cal = _CSReportLike(self.calendar, {'aggregation': 'calendar'},
+                                    0.0, 0.0, self.meta)
+
+        fig, axes = plt.subplots(2, 2, figsize=figsize)
+        ggdid(cs_like, ax=axes[0, 0])
+        ggdid(cs_like_group, ax=axes[0, 1])
+        ggdid(cs_like_cal, ax=axes[1, 0])
+        self._plot_breakdown(axes[1, 1])
+
+        if suptitle is not None:
+            fig.suptitle(suptitle, fontsize=14, y=1.00)
+        fig.tight_layout()
+        return fig, axes
+
+    def _plot_breakdown(self, ax) -> None:
+        """Render the R-R breakdown M* panel (horizontal bars)."""
+        import matplotlib.pyplot as plt  # noqa: F401 — caller loaded it
+        df = self.breakdown
+        if len(df) == 0:
+            ax.text(0.5, 0.5, "No post-treatment event times",
+                    ha='center', va='center', transform=ax.transAxes)
+            ax.set_title("Rambachan–Roth breakdown M*")
+            return
+        y = np.arange(len(df))
+        ax.barh(y, df['breakdown_M_star'].values, color='#2E86AB',
+                alpha=0.85)
+        # Reference: one pointwise SE (robust at 1σ threshold).
+        ses = df['se'].values
+        ax.plot(ses, y, 'o', color='#E74C3C',
+                label='1 × SE', markersize=7, zorder=5)
+        ax.set_yticks(y)
+        ax.set_yticklabels([f"e = {int(e)}" for e in df['relative_time']])
+        ax.set_xlabel("Breakdown M* (smoothness bound)")
+        ax.set_title("Rambachan–Roth breakdown M*")
+        ax.axvline(0, color='gray', linestyle='--', linewidth=0.8)
+        ax.legend(frameon=False, fontsize=9)
+
+    # ------------------------------------------------------------------
     # Export: Markdown
     # ------------------------------------------------------------------
     def to_markdown(self, float_format: str = "%.4f") -> str:
@@ -318,6 +387,35 @@ class CSReport:
                 "cband_lower", "cband_upper", "pvalue"]
         present = [c for c in cols if c in df.columns]
         return df[present].to_string(index=False, float_format="%.4f")
+
+
+# ======================================================================
+# Minimal ggdid-compatible shim
+# ======================================================================
+
+class _CSReportLike:
+    """Adapter that lets ``ggdid`` draw directly from a CSReport slice.
+
+    ``ggdid`` dispatches on ``result.model_info['aggregation']`` and reads
+    ``result.detail``, ``result.alpha``; this shim exposes exactly those
+    attributes without recomputing bootstrap draws.
+    """
+
+    __slots__ = ('detail', 'model_info', 'estimate', 'se', 'alpha')
+
+    def __init__(
+        self,
+        detail: pd.DataFrame,
+        model_info: Dict[str, Any],
+        estimate: float,
+        se: float,
+        meta: Dict[str, Any],
+    ) -> None:
+        self.detail = detail
+        self.model_info = {**meta, **model_info}
+        self.estimate = float(estimate)
+        self.se = float(se)
+        self.alpha = float(meta.get('alpha', 0.05))
 
 
 # ======================================================================
