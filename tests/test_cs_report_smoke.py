@@ -71,11 +71,11 @@ def run_demo(outdir: str = "/tmp", n_boot: int = 500, seed: int = 0):
                     n_boot=n_boot, random_state=seed, verbose=False)
 
     (outdir_p / "cs_report_demo.md").write_text(
-        rpt.to_markdown(float_format="%.3f"))
+        rpt.to_markdown(float_format="%.3f"), encoding="utf-8")
     (outdir_p / "cs_report_demo.tex").write_text(
         rpt.to_latex(float_format="%.3f",
                      caption="CS report on the simulated DGP.",
-                     label="tab:cs_demo"))
+                     label="tab:cs_demo"), encoding="utf-8")
 
     try:
         import matplotlib
