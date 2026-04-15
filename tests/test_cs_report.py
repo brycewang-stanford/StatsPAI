@@ -204,3 +204,52 @@ def test_to_excel_breakdown_matches_inmemory(report, tmp_path):
     assert len(bd_xl) == len(report.breakdown)
     # relative_time values survive the round-trip.
     assert list(bd_xl["relative_time"]) == list(report.breakdown["relative_time"])
+
+
+# --------------------------------------------------------------------------- #
+# save_to — one-call bundle export                                            #
+# --------------------------------------------------------------------------- #
+
+def test_save_to_produces_all_artifacts(tmp_path):
+    df = _staggered_panel(seed=13)
+    prefix = str(tmp_path / "bundle" / "cs")
+    cs_report(df, y='y', g='g', t='t', i='i',
+              n_boot=80, random_state=0, verbose=False,
+              save_to=prefix)
+    assert (tmp_path / "bundle" / "cs.txt").exists()
+    assert (tmp_path / "bundle" / "cs.md").exists()
+    assert (tmp_path / "bundle" / "cs.tex").exists()
+    # Excel + PNG depend on optional deps — tolerate either way.
+    try:
+        import openpyxl  # noqa: F401
+        assert (tmp_path / "bundle" / "cs.xlsx").exists()
+    except ImportError:
+        pass
+    try:
+        import matplotlib  # noqa: F401
+        assert (tmp_path / "bundle" / "cs.png").exists()
+    except ImportError:
+        pass
+
+
+def test_save_to_creates_missing_parent_dirs(tmp_path):
+    df = _staggered_panel(seed=14)
+    prefix = str(tmp_path / "a" / "b" / "c" / "report")
+    cs_report(df, y='y', g='g', t='t', i='i',
+              n_boot=50, random_state=0, verbose=False,
+              save_to=prefix)
+    assert (tmp_path / "a" / "b" / "c" / "report.md").exists()
+
+
+def test_save_to_files_contain_expected_content(tmp_path):
+    df = _staggered_panel(seed=15)
+    prefix = str(tmp_path / "cs")
+    cs_report(df, y='y', g='g', t='t', i='i',
+              n_boot=50, random_state=0, verbose=False,
+              save_to=prefix)
+    md = (tmp_path / "cs.md").read_text()
+    assert "Callaway" in md and "Event study" in md
+    tex = (tmp_path / "cs.tex").read_text()
+    assert "\\begin{table}" in tex and "\\bottomrule" in tex
+    txt = (tmp_path / "cs.txt").read_text()
+    assert "Overall ATT" in txt

@@ -608,6 +608,7 @@ def cs_report(
     max_e: float = np.inf,
     rr_method: str = 'smoothness',
     verbose: bool = True,
+    save_to: Optional[str] = None,
 ) -> CSReport:
     """One-call staggered-DID workflow: estimate → aggregate → sensitivity.
 
@@ -636,6 +637,18 @@ def cs_report(
         Sensitivity restriction handed to :func:`breakdown_m`.
     verbose : bool, default True
         If ``True``, print the report before returning.
+    save_to : str, optional
+        When set, treats the value as a *path prefix* and writes the
+        report in every supported format in one call:
+
+        - ``<prefix>.txt``   — fixed-width plain-text report
+        - ``<prefix>.md``    — GitHub-flavoured Markdown
+        - ``<prefix>.tex``   — booktabs LaTeX fragment
+        - ``<prefix>.xlsx``  — multi-sheet workbook
+        - ``<prefix>.png``   — 2×2 summary figure (only if matplotlib
+          is installed; silently skipped otherwise)
+
+        Missing parent directories are created on the fly.
 
     Returns
     -------
@@ -728,4 +741,70 @@ def cs_report(
 
     if verbose:
         print(report.to_text())
+
+    if save_to is not None:
+        _save_report_bundle(report, save_to, verbose=verbose)
+
     return report
+
+
+def _save_report_bundle(
+    report: CSReport,
+    prefix: str,
+    verbose: bool = False,
+) -> Dict[str, str]:
+    """Write ``report`` to every supported format under the given prefix.
+
+    Returns a ``{format: path}`` dictionary of the files actually written,
+    skipping any format whose optional dependency is missing.
+    """
+    import os
+
+    prefix = str(prefix)
+    parent = os.path.dirname(prefix)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
+    written: Dict[str, str] = {}
+
+    txt_path = f"{prefix}.txt"
+    with open(txt_path, "w", encoding="utf-8") as fh:
+        fh.write(report.to_text())
+    written["txt"] = txt_path
+
+    md_path = f"{prefix}.md"
+    with open(md_path, "w", encoding="utf-8") as fh:
+        fh.write(report.to_markdown())
+    written["md"] = md_path
+
+    tex_path = f"{prefix}.tex"
+    with open(tex_path, "w", encoding="utf-8") as fh:
+        fh.write(report.to_latex())
+    written["tex"] = tex_path
+
+    try:
+        xlsx_path = f"{prefix}.xlsx"
+        report.to_excel(xlsx_path)
+        written["xlsx"] = xlsx_path
+    except ImportError:
+        pass  # openpyxl / xlsxwriter missing — skip silently
+
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        fig, _ = report.plot()
+        png_path = f"{prefix}.png"
+        fig.savefig(png_path, dpi=110, bbox_inches="tight")
+        # Free the figure so callers in a long loop don't accumulate memory.
+        import matplotlib.pyplot as plt
+        plt.close(fig)
+        written["png"] = png_path
+    except ImportError:
+        pass
+
+    if verbose:
+        print("\nSaved report bundle:")
+        for kind, path in written.items():
+            print(f"  [{kind}] {path}")
+
+    return written
