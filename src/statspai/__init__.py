@@ -120,6 +120,10 @@ from .regression.count import poisson, nbreg, ppmlhdfe
 from .regression.zeroinflated import zip_model, zinb, hurdle
 # Advanced IV
 from .regression.advanced_iv import liml, jive, lasso_iv
+# High-dimensional fixed effects (pyfixest backend)
+# These are thin wrappers; actual import of pyfixest is deferred to call time
+# via fixest.wrapper._check_pyfixest, so top-level import never fails.
+from .fixest import feols, fepois, feglm, etable
 # Survival / Duration
 from .survival import cox, kaplan_meier, survreg, CoxResult, KMResult, logrank_test
 # Nonparametric
@@ -543,6 +547,8 @@ __all__ = [
     "zip_model", "zinb", "hurdle",
     # Advanced IV
     "liml", "jive", "lasso_iv",
+    # High-dimensional FE (pyfixest backend, optional)
+    "feols", "fepois", "feglm", "etable",
     # Survival
     "cox", "kaplan_meier", "survreg", "CoxResult", "KMResult", "logrank_test",
     # Nonparametric
