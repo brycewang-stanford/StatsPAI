@@ -46,6 +46,7 @@ from .pretrends import (
     pretrends_summary,
 )
 from .wooldridge_did import wooldridge_did, etwfe, drdid, twfe_decomposition
+from .summary import did_summary
 from .continuous_did import continuous_did
 from .plots import (
     parallel_trends_plot,
@@ -385,6 +386,7 @@ __all__ = [
     # Wooldridge / DR-DID / TWFE decomposition
     'wooldridge_did',
     'etwfe',
+    'did_summary',
     'drdid',
     'twfe_decomposition',
     # Pre-trends
