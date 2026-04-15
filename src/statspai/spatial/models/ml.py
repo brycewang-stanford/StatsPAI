@@ -138,6 +138,8 @@ def _make_results(
         "sar": "SAR (Spatial Lag)",
         "sem": "SEM (Spatial Error)",
         "sdm": "SDM (Spatial Durbin)",
+        "slx": "SLX (Spatial Lag of X)",
+        "sac": "SAC / SARAR (Spatial Lag + Error)",
     }.get(model_type, model_type)
     diagnostics: Dict[str, Any] = {
         "sigma2": round(float(sigma2), 6),
@@ -430,4 +432,138 @@ def sdm(W: ArrayOrW, data: pd.DataFrame, formula: str,
     )
 
 
-__all__ = ["sar", "sem", "sdm"]
+# --------------------------------------------------------------------- #
+#  SLX:  Y = X β + W X θ + ε   — OLS on augmented design
+# --------------------------------------------------------------------- #
+
+def slx(W: ArrayOrW, data: pd.DataFrame, formula: str,
+        row_normalize: bool = True, alpha: float = 0.05) -> EconometricResults:
+    """Spatial Lag of X (SLX) model: ``Y = Xβ + WXθ + ε``.
+
+    No autoregressive term. Estimated by ordinary least squares on the
+    design matrix augmented with spatially-lagged covariates (skip the
+    constant).
+    """
+    y, X, dep_var, indep = _parse_formula(formula, data)
+    n, k = X.shape
+    M = _coerce_W(W, n_expected=n, row_normalize=row_normalize)
+
+    WX = M @ X[:, 1:]
+    X_aug = np.column_stack([X, WX])
+    XtX_inv = np.linalg.inv(X_aug.T @ X_aug)
+    beta_aug = XtX_inv @ (X_aug.T @ y)
+    e = y - X_aug @ beta_aug
+    sigma2 = float(e @ e) / (n - X_aug.shape[1])
+
+    se_beta = np.sqrt(np.diag(sigma2 * XtX_inv))
+    lag_names = [f"W_{v}" for v in indep]
+    var_names = ["const"] + list(indep) + lag_names
+    fitted = y - e
+    log_lik = (
+        -n / 2 * np.log(2 * np.pi)
+        - n / 2 * np.log(sigma2)
+        - (e @ e) / (2 * sigma2)
+    )
+
+    return _make_results(
+        model_type="slx", spatial_param_name="", spatial_param_value=0.0,
+        var_names=var_names, params_vec=beta_aug, se_vec=se_beta,
+        sigma2=sigma2, resid=e, fitted=fitted, n=n, dep_var=dep_var,
+        log_lik=log_lik, extra_diag={},
+    )
+
+
+# --------------------------------------------------------------------- #
+#  SAC / SARAR:  Y = ρ W Y + X β + u,   u = λ W u + ε
+# --------------------------------------------------------------------- #
+
+def sac(W: ArrayOrW, data: pd.DataFrame, formula: str,
+        row_normalize: bool = True, alpha: float = 0.05) -> EconometricResults:
+    """SAC / SARAR: combined spatial lag + spatial error model.
+
+    Jointly estimates the autoregressive coefficient ρ (on the dependent
+    variable) and the spatial-error coefficient λ by concentrated
+    maximum likelihood, profiling out (β, σ²) at each (ρ, λ) candidate.
+    """
+    y, X, dep_var, indep = _parse_formula(formula, data)
+    n, k = X.shape
+    M = _coerce_W(W, n_expected=n, row_normalize=row_normalize)
+    Wy = M @ y
+    eigvals = _eigvals_for_bounds(M)
+    lo, hi = _rho_bounds(eigvals)
+    I_n = np.eye(n)
+    W_dense = M.toarray()
+
+    def neg_conc_ll(theta: np.ndarray) -> float:
+        rho, lam = float(theta[0]), float(theta[1])
+        if not (lo < rho < hi and lo < lam < hi):
+            return 1e20
+        A_lam = I_n - lam * W_dense
+        y_tilde = A_lam @ (y - rho * Wy)
+        X_tilde = A_lam @ X
+        try:
+            XtX_inv = np.linalg.inv(X_tilde.T @ X_tilde)
+        except np.linalg.LinAlgError:
+            return 1e20
+        beta = XtX_inv @ (X_tilde.T @ y_tilde)
+        e = y_tilde - X_tilde @ beta
+        sigma2 = float(e @ e) / n
+        if sigma2 <= 0:
+            return 1e20
+        ll = -n / 2.0 * np.log(sigma2)
+        ll += _logdet(M, rho, eigvals) + _logdet(M, lam, eigvals)
+        return -ll
+
+    from scipy.optimize import minimize, differential_evolution
+    # Multi-start: coarse global search via differential evolution, then
+    # local polish with Nelder-Mead. Single-start Nelder-Mead gets stuck
+    # when ρ and λ are close to zero because the neighbourhood is very flat.
+    bounds = [(lo, hi), (lo, hi)]
+    de_opt = differential_evolution(
+        neg_conc_ll, bounds=bounds, tol=1e-5, maxiter=60,
+        seed=0, polish=False, popsize=12,
+    )
+    opt = minimize(neg_conc_ll, x0=de_opt.x, method="Nelder-Mead",
+                   options={"xatol": 1e-6, "fatol": 1e-8, "maxiter": 500})
+    rho_hat, lam_hat = float(opt.x[0]), float(opt.x[1])
+
+    A_lam = I_n - lam_hat * W_dense
+    X_tilde = A_lam @ X
+    y_tilde = A_lam @ (y - rho_hat * Wy)
+    XtX_inv = np.linalg.inv(X_tilde.T @ X_tilde)
+    beta = XtX_inv @ (X_tilde.T @ y_tilde)
+    e = y_tilde - X_tilde @ beta
+    sigma2 = float(e @ e) / n
+
+    se_beta = np.sqrt(np.diag(sigma2 * XtX_inv))
+    # Numerical Hessian for the two spatial params (2x2 block, diagonal used)
+    h = 1e-4
+    def _num_d2(f, x, i, j):
+        e_i = np.zeros_like(x); e_j = np.zeros_like(x)
+        e_i[i] = h; e_j[j] = h
+        return (f(x + e_i + e_j) - f(x + e_i - e_j)
+                - f(x - e_i + e_j) + f(x - e_i - e_j)) / (4 * h * h)
+    try:
+        drr = _num_d2(neg_conc_ll, np.array([rho_hat, lam_hat]), 0, 0)
+        dll = _num_d2(neg_conc_ll, np.array([rho_hat, lam_hat]), 1, 1)
+        se_rho = float(1.0 / np.sqrt(max(drr, 1e-10)))
+        se_lam = float(1.0 / np.sqrt(max(dll, 1e-10)))
+    except Exception:
+        se_rho = se_lam = float("nan")
+
+    var_names = ["const"] + list(indep) + ["rho", "lambda"]
+    params_vec = np.concatenate([beta, [rho_hat, lam_hat]])
+    se_vec = np.concatenate([se_beta, [se_rho, se_lam]])
+    fitted = y - e
+    log_lik = -float(opt.fun) - n / 2 * np.log(2 * np.pi) - n / 2
+    return _make_results(
+        model_type="sac", spatial_param_name="rho,lambda",
+        spatial_param_value=rho_hat,
+        var_names=var_names, params_vec=params_vec, se_vec=se_vec,
+        sigma2=sigma2, resid=e, fitted=fitted, n=n, dep_var=dep_var,
+        log_lik=log_lik,
+        extra_diag={"lambda_hat": round(lam_hat, 6)},
+    )
+
+
+__all__ = ["sar", "sem", "sdm", "slx", "sac"]
