@@ -38,6 +38,19 @@ import pandas as pd
 from ..core.results import CausalResult
 
 
+def _stars(p: float) -> str:
+    """Significance stars for a p-value."""
+    if pd.isna(p):
+        return ""
+    if p < 0.01:
+        return "***"
+    if p < 0.05:
+        return "**"
+    if p < 0.1:
+        return "*"
+    return ""
+
+
 _DEFAULT_METHODS: List[str] = ["cs", "sa", "bjs", "etwfe", "stacked"]
 
 _METHOD_LABELS = {
@@ -309,3 +322,202 @@ def did_summary(
         },
         _citation_key="did_summary",
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Export helpers: publication-ready Markdown / LaTeX from a did_summary
+# ═══════════════════════════════════════════════════════════════════════
+
+def _ensure_did_summary(result: CausalResult) -> pd.DataFrame:
+    """Validate that result came from did_summary() and return its detail."""
+    det = getattr(result, "detail", None)
+    if not isinstance(det, pd.DataFrame) or "estimator" not in det.columns:
+        raise ValueError(
+            "did_summary_to_markdown / _to_latex require a CausalResult "
+            "produced by sp.did_summary()."
+        )
+    return det
+
+
+def did_summary_to_markdown(
+    result: CausalResult,
+    digits: int = 4,
+    include_ci: bool = True,
+    include_breakdown: bool = True,
+) -> str:
+    """
+    Render a :func:`did_summary` result as a GitHub-Flavoured Markdown table.
+
+    Columns shown (in order):
+    ``Method``, ``Estimate``, ``SE``, ``95 % CI``, ``p-value``, and
+    optionally ``Breakdown M*`` (when sensitivity was requested).
+
+    Parameters
+    ----------
+    result : CausalResult
+        Output of :func:`did_summary`.
+    digits : int, default 4
+        Decimal precision for numeric columns.
+    include_ci : bool, default True
+        Include the 95 % CI column.
+    include_breakdown : bool, default True
+        Include the Rambachan-Roth breakdown M* column (CS row only,
+        blank for others). Ignored if sensitivity was not requested.
+
+    Returns
+    -------
+    str
+        Multi-line Markdown table, ready to paste into notebooks or PRs.
+    """
+    det = _ensure_did_summary(result)
+
+    has_bd = include_breakdown and det["breakdown_m"].notna().any()
+    lines = []
+    header_cells = ["Method", "Estimate", "SE"]
+    if include_ci:
+        header_cells.append("95% CI")
+    header_cells += ["p"]
+    if has_bd:
+        header_cells.append("Breakdown M*")
+    header_cells.append("Notes")
+    lines.append("| " + " | ".join(header_cells) + " |")
+    lines.append("|" + "|".join([":---"] + ["---:"] * (len(header_cells) - 2) + [":---"]) + "|")
+
+    fmt = f"{{:.{digits}f}}"
+    for _, row in det.iterrows():
+        cells = [row["estimator"]]
+        if pd.isna(row["estimate"]):
+            cells.append("—")
+            cells.append("—")
+            if include_ci:
+                cells.append("—")
+            cells.append("—")
+            if has_bd:
+                cells.append("—")
+        else:
+            est_str = fmt.format(row["estimate"]) + _stars(row["pvalue"])
+            cells.append(est_str)
+            cells.append(fmt.format(row["se"]))
+            if include_ci:
+                cells.append(
+                    f"[{fmt.format(row['ci_low'])}, {fmt.format(row['ci_high'])}]"
+                )
+            cells.append(fmt.format(row["pvalue"]))
+            if has_bd:
+                bd = row.get("breakdown_m", np.nan)
+                cells.append(fmt.format(bd) if pd.notna(bd) else "—")
+        cells.append(str(row.get("note", "") or ""))
+        lines.append("| " + " | ".join(cells) + " |")
+
+    # Footer
+    lines.append("")
+    if getattr(result, "estimate", None) is not None and not pd.isna(result.estimate):
+        lines.append(
+            f"*Mean across methods = {fmt.format(result.estimate)}, "
+            f"SD across methods = {fmt.format(result.se)}.*  "
+            "\\* p<0.1, \\*\\* p<0.05, \\*\\*\\* p<0.01."
+        )
+    return "\n".join(lines)
+
+
+def did_summary_to_latex(
+    result: CausalResult,
+    digits: int = 4,
+    include_ci: bool = True,
+    include_breakdown: bool = True,
+    label: str = "tab:did_summary",
+    caption: str = "DID method-robustness summary.",
+) -> str:
+    """
+    Render a :func:`did_summary` result as a publication-ready LaTeX
+    ``booktabs`` table.
+
+    Parameters
+    ----------
+    result : CausalResult
+        Output of :func:`did_summary`.
+    digits : int, default 4
+        Decimal precision.
+    include_ci : bool, default True
+        Include the 95 % CI column.
+    include_breakdown : bool, default True
+        Include the Rambachan-Roth breakdown M* column when sensitivity
+        was requested.
+    label : str, default ``'tab:did_summary'``
+        LaTeX label for the table.
+    caption : str, default ``'DID method-robustness summary.'``
+        LaTeX caption.
+
+    Returns
+    -------
+    str
+        Full ``\\begin{table} ... \\end{table}`` block using the
+        ``booktabs`` package (``\\toprule``, ``\\midrule``, ``\\bottomrule``).
+
+    Notes
+    -----
+    Requires ``\\usepackage{booktabs}`` in the LaTeX preamble.
+    """
+    det = _ensure_did_summary(result)
+    has_bd = include_breakdown and det["breakdown_m"].notna().any()
+
+    cols = ["l", "c", "c"]
+    header = ["Method", "Estimate", "SE"]
+    if include_ci:
+        cols.append("c")
+        header.append("95\\% CI")
+    cols.append("c")
+    header.append("$p$")
+    if has_bd:
+        cols.append("c")
+        header.append("Breakdown $M^*$")
+
+    fmt = f"{{:.{digits}f}}"
+    lines = [
+        "\\begin{table}[htbp]",
+        "\\centering",
+        f"\\caption{{{caption}}}",
+        f"\\label{{{label}}}",
+        "\\begin{tabular}{" + "".join(cols) + "}",
+        "\\toprule",
+        " & ".join(header) + " \\\\",
+        "\\midrule",
+    ]
+
+    for _, row in det.iterrows():
+        cells = [str(row["estimator"]).replace("&", "\\&")]
+        if pd.isna(row["estimate"]):
+            cells += ["---"] * (len(header) - 1)
+        else:
+            est_str = fmt.format(row["estimate"]) + _stars(row["pvalue"])
+            cells.append(est_str)
+            cells.append(fmt.format(row["se"]))
+            if include_ci:
+                cells.append(
+                    f"[{fmt.format(row['ci_low'])}, {fmt.format(row['ci_high'])}]"
+                )
+            cells.append(fmt.format(row["pvalue"]))
+            if has_bd:
+                bd = row.get("breakdown_m", np.nan)
+                cells.append(fmt.format(bd) if pd.notna(bd) else "---")
+        lines.append(" & ".join(cells) + " \\\\")
+
+    lines += [
+        "\\bottomrule",
+        "\\end{tabular}",
+    ]
+
+    # Footnote row
+    note_parts = []
+    if getattr(result, "estimate", None) is not None and not pd.isna(result.estimate):
+        note_parts.append(
+            f"Mean across methods = {fmt.format(result.estimate)}, "
+            f"SD across methods = {fmt.format(result.se)}."
+        )
+    note_parts.append("$^*p<0.1,\\,^{**}p<0.05,\\,^{***}p<0.01$.")
+    if note_parts:
+        lines.append(
+            "\\vspace{0.5ex}\\footnotesize " + " ".join(note_parts)
+        )
+    lines.append("\\end{table}")
+    return "\n".join(lines)
