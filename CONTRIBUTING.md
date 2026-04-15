@@ -16,8 +16,8 @@ We welcome contributions to StatsPAI! This document provides guidelines for cont
 
 1. **Fork the Repository**
    ```bash
-   git clone https://github.com/brycewang-stanford/pyEconometrics.git
-   cd pyEconometrics
+   git clone https://github.com/brycewang-stanford/StatsPAI.git
+   cd StatsPAI
    ```
 
 2. **Set Up Development Environment**

@@ -206,3 +206,23 @@ def test_dynamic_overall_averages_post_event_only(cs_result):
     # Sanity: on this DGP the two differ enough that a silent regression
     # would be caught.
     assert not np.isclose(post_mean, all_mean, atol=1e-3)
+
+
+def test_aggte_rejects_non_cs_result():
+    """Passing SA / BJS output must raise a clear error instead of KeyError."""
+    import numpy as np
+    import statspai as sp
+
+    rng = np.random.default_rng(0)
+    rows = []
+    for u in range(60):
+        g_val = [3, 5, 7, 0][u // 15]
+        ui = rng.normal(scale=0.3)
+        for t_ in range(1, 9):
+            te = max(0, t_ - g_val + 1) * 0.5 if g_val > 0 else 0
+            rows.append({'i': u, 't': t_, 'g': g_val,
+                         'y': ui + 0.2 * t_ + te + rng.normal()})
+    df = pd.DataFrame(rows)
+    sa = sp.sun_abraham(df, y='y', g='g', t='t', i='i')
+    with pytest.raises(ValueError, match='Callaway'):
+        aggte(sa, type='dynamic', n_boot=50, random_state=0)

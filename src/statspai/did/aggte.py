@@ -138,6 +138,17 @@ def aggte(
             "result has no ATT(g,t) detail to aggregate — was this produced "
             "by callaway_santanna()?"
         )
+    # aggte needs the CS (g, t) grid; SA / BJS / dCDH event studies don't
+    # carry it and would otherwise crash deep inside the weight builders.
+    _required_cols = {'group', 'time', 'att', 'se', 'relative_time'}
+    _have = set(detail.columns)
+    if not _required_cols.issubset(_have):
+        raise ValueError(
+            "aggte() requires a Callaway–Sant'Anna result (detail frame "
+            f"with columns {sorted(_required_cols)}).  Got a result of "
+            f"method {result.method!r} with columns {sorted(_have)}.  For "
+            "Sun–Abraham or BJS event studies use honest_did() directly."
+        )
     if inf_matrix is None:
         # Analytic fallback still works but only gives pointwise intervals.
         bstrap = False
