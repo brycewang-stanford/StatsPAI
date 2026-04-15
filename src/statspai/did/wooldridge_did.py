@@ -294,6 +294,7 @@ def wooldridge_did(
     # ── Event study (relative-time) coefficients ────────────────────
     # Run a separate regression with event-time dummies
     event_study_df = None
+    event_vcov = None  # H1 fix: preserve full vcov for proper aggregation SE
     if len(event_cols) > 0:
         ev_X_cols = [f"{c}_dm" for c in event_cols] + ctrl_dm_cols
         ev_valid_cols = ["_y_dm"] + ev_X_cols
@@ -303,11 +304,10 @@ def wooldridge_did(
             ev_X = df_valid.loc[ev_mask, ev_X_cols].values
             ev_X = np.column_stack([np.ones(len(ev_y)), ev_X])
             ev_cl = cl_arr[ev_mask.values] if cl_arr is not None else None
-            ev_beta, ev_se, _ = _ols_fit(ev_X, ev_y, cluster=ev_cl)
+            ev_beta, ev_se, ev_vcov_full = _ols_fit(ev_X, ev_y, cluster=ev_cl)
 
             ev_rows = []
             for j, col in enumerate(event_cols):
-                # Parse cohort and rel_time from column name
                 parts = col.replace("_coh", "").replace("_rel", " ").split()
                 coh_val = int(parts[0])
                 rel_val = int(parts[1])
@@ -317,8 +317,12 @@ def wooldridge_did(
                     "rel_time": rel_val,
                     "estimate": float(ev_beta[idx_j]),
                     "se": float(ev_se[idx_j]),
+                    "_vcov_idx": idx_j,
                 })
             event_study_df = pd.DataFrame(ev_rows)
+            # Keep only the event-study coefficient submatrix of vcov
+            n_event = len(event_cols)
+            event_vcov = ev_vcov_full[1:1 + n_event, 1:1 + n_event]
 
     # ── Model info ──────────────────────────────────────────────────
     model_info: Dict[str, Any] = {
@@ -333,6 +337,7 @@ def wooldridge_did(
     }
     if event_study_df is not None:
         model_info["event_study"] = event_study_df
+        model_info["event_vcov"] = event_vcov  # H1: proper aggregation SE
 
     return CausalResult(
         method="Wooldridge (2021) Extended TWFE",
@@ -446,6 +451,30 @@ def etwfe(
     xvar_list: Optional[List[str]] = None
     if xvar is not None:
         xvar_list = [xvar] if isinstance(xvar, str) else list(xvar)
+        # C1/C2: fail fast on missing or constant xvars
+        for xv in xvar_list:
+            if xv not in data.columns:
+                raise KeyError(f"xvar {xv!r} not found in data.columns")
+            col = pd.to_numeric(data[xv], errors="coerce")
+            finite = col.dropna()
+            if len(finite) < 2:
+                raise ValueError(
+                    f"xvar {xv!r} has fewer than 2 non-NaN rows "
+                    f"(found {len(finite)}); cannot estimate heterogeneity."
+                )
+            if float(finite.std()) < 1e-12:
+                raise ValueError(
+                    f"xvar {xv!r} is (near-)constant — no heterogeneity "
+                    "slope can be identified. Drop it or choose another column."
+                )
+
+    # C3: explicit guard for the unimplemented combination
+    if not panel and cgroup == "nevertreated":
+        raise NotImplementedError(
+            "cgroup='nevertreated' with panel=False is not yet supported. "
+            "Use either panel=True + cgroup='nevertreated', or "
+            "panel=False + cgroup='notyet'."
+        )
 
     # Dispatch to the right implementation.
     if not panel:
@@ -669,14 +698,8 @@ def _etwfe_repeated_cs(
     if len(cohorts) == 0:
         raise ValueError("No treated cohorts found. Check 'first_treat' column.")
 
-    # Optional filter for cgroup='nevertreated' (drop ever-treated units).
-    # For repeated CS this is still meaningful at the row level.
-    if cgroup == "nevertreated":
-        # Keep never-treated rows only for the control; keep treated rows
-        # in their own cohort. Equivalent to dropping nothing because
-        # each row's cohort is already encoded — but a user who wants
-        # 'nevertreated' typically expects not-yet-treated rows removed.
-        df = df.loc[df["_ft"].isna() | (df["_ft"] == df["_ft"])].copy()
+    # cgroup='nevertreated' is guarded at the dispatcher level —
+    # combining it with panel=False is currently a NotImplementedError.
 
     df["_y"] = df[y].astype(float)
 
@@ -1478,11 +1501,9 @@ def etwfe_emfx(
 
     # ── group ──
     if type == "group":
-        # Already in result.detail — normalise columns and add CI/pvalue
         det = result.detail.copy()
         df_resid = max(result.n_obs - len(cohorts), 1)
         t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
-        # Handle both plain etwfe (columns att, se) and xvar etwfe
         if "att_at_xmean" in det.columns:
             est_col = "att_at_xmean"; se_col = "att_se"; p_col = "att_pvalue"
         else:
@@ -1499,13 +1520,19 @@ def etwfe_emfx(
                 "n_obs": int(r["n_obs"]),
             })
         out_det = pd.DataFrame(rows)
-        mean_est = float(np.average(out_det["estimate"],
-                                    weights=out_det["n_obs"]))
+        # H2 fix: the group aggregation's headline == simple overall ATT.
+        headline_est = float(result.estimate)
+        headline_se = float(result.se)
+        t_head = headline_est / headline_se if headline_se > 0 else np.nan
+        p_head = float(2 * (1 - stats.t.cdf(abs(t_head), df_resid))) \
+            if not np.isnan(t_head) else np.nan
+        ci_head = (headline_est - t_crit * headline_se,
+                   headline_est + t_crit * headline_se)
         return CausalResult(
             method="ETWFE — group aggregation (ATT per cohort)",
             estimand="ATT(g) per cohort",
-            estimate=mean_est, se=np.nan,
-            pvalue=np.nan, ci=(np.nan, np.nan), alpha=alpha,
+            estimate=headline_est, se=headline_se,
+            pvalue=p_head, ci=ci_head, alpha=alpha,
             n_obs=int(result.n_obs), detail=out_det,
             model_info={"type": "group", "source_method": result.method},
             _citation_key="wooldridge_twfe",
@@ -1518,9 +1545,8 @@ def etwfe_emfx(
             "in result.model_info['event_study']."
         )
     es = event_study.copy()
-    # cohort weights for averaging (use n_obs per cohort from result.detail)
     det = result.detail
-    weight_by_cohort = {}
+    weight_by_cohort: Dict[int, float] = {}
     if "n_obs" in det.columns:
         weight_by_cohort = dict(zip(det["cohort"].astype(int),
                                     det["n_obs"].astype(float)))
@@ -1529,23 +1555,35 @@ def etwfe_emfx(
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
 
     if type == "event":
-        key_col = "rel_time"
-        label_col = "event_time"
-    else:  # calendar
+        key_col = "rel_time"; label_col = "event_time"
+    else:
         es["calendar_time"] = es["cohort"].astype(int) + es["rel_time"].astype(int)
-        key_col = "calendar_time"
-        label_col = "calendar_time"
+        key_col = "calendar_time"; label_col = "calendar_time"
+
+    # H1 fix: use the stored event-study vcov when available so SE is correct
+    event_vcov = mi.get("event_vcov")
+    has_vcov = (event_vcov is not None and "_vcov_idx" in es.columns)
+    se_method = "vcov-based (delta method)" if has_vcov else \
+        "independent-coefficient approximation (fallback — vcov unavailable)"
 
     rows = []
     for k, sub in es.groupby(key_col):
-        # cohort-weighted average estimate; SE assumes independence
-        w = np.array([weight_by_cohort.get(int(c), 1.0)
-                      for c in sub["cohort"].values])
-        w = w / w.sum() if w.sum() > 0 else np.ones(len(w)) / len(w)
+        w_raw = np.array([weight_by_cohort.get(int(c), 1.0)
+                          for c in sub["cohort"].values], dtype=float)
+        w = w_raw / w_raw.sum() if w_raw.sum() > 0 else \
+            np.ones(len(w_raw)) / len(w_raw)
         est = float(np.sum(w * sub["estimate"].values))
-        se = float(np.sqrt(np.sum((w * sub["se"].values) ** 2)))
+        if has_vcov:
+            # Build a weight vector over the full event-coefficient space
+            # and compute sqrt(w' V w) using the right submatrix.
+            idx = sub["_vcov_idx"].astype(int).values - 1  # 0-indexed in event_vcov
+            V_sub = event_vcov[np.ix_(idx, idx)]
+            se = float(np.sqrt(max(w @ V_sub @ w, 0.0)))
+        else:
+            se = float(np.sqrt(np.sum((w * sub["se"].values) ** 2)))
         t_stat = est / se if se > 0 else np.nan
-        p = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid))) if not np.isnan(t_stat) else np.nan
+        p = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid))) \
+            if not np.isnan(t_stat) else np.nan
         rows.append({
             label_col: int(k),
             "estimate": est, "se": se, "pvalue": p,
@@ -1563,6 +1601,6 @@ def etwfe_emfx(
         pvalue=np.nan, ci=(np.nan, np.nan), alpha=alpha,
         n_obs=int(result.n_obs), detail=out_det,
         model_info={"type": type, "source_method": result.method,
-                    "se_assumption": "independent per-cohort coefficients"},
+                    "se_method": se_method},
         _citation_key="wooldridge_twfe",
     )

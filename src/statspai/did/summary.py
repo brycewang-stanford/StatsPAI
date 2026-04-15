@@ -51,6 +51,50 @@ def _stars(p: float) -> str:
     return ""
 
 
+class DIDSummaryResult(CausalResult):
+    """
+    CausalResult subclass returned by :func:`did_summary`.
+
+    Defines ``.summary()`` as a real method (rather than a closure-bound
+    instance attribute) so the result object serialises cleanly for
+    caching (joblib / multiprocessing).
+
+    Notes
+    -----
+    The ``se`` attribute stores the **cross-method dispersion** (SD of
+    estimates across successfully-fit methods), *not* a sampling SE.
+    Read :attr:`model_info` ``['dispersion']`` for the same value.
+    """
+
+    _DID_SUMMARY_MARKER: bool = True
+
+    def summary(self, alpha: Optional[float] = None) -> str:  # noqa: ARG002
+        mi = self.model_info or {}
+        fit = mi.get("methods_fit", [])
+        failed = mi.get("methods_failed", {})
+        disp = mi.get("dispersion")
+        bd = mi.get("breakdown_m")
+
+        lines = ["=" * 78,
+                 "  DID Method-Robustness Summary",
+                 "=" * 78, ""]
+        if fit:
+            lines.append(f"  Fitted methods: {', '.join(fit)}")
+        if failed:
+            lines.append(f"  Failed:         {', '.join(failed.keys())}")
+        if len(fit) >= 2 and not np.isnan(self.estimate):
+            lines.append(f"  Mean ATT:       {self.estimate:+.4f}")
+            if disp is not None and not np.isnan(disp):
+                lines.append(f"  Cross-method SD: {disp:+.4f}")
+        elif len(fit) == 1 and not np.isnan(self.estimate):
+            lines.append(f"  ATT:            {self.estimate:+.4f}")
+        if bd is not None:
+            lines.append(f"  Breakdown M*:   {bd:.4f} (CS row)")
+        lines.append("")
+        lines.append(did_summary_to_markdown(self))
+        return "\n".join(lines)
+
+
 _DEFAULT_METHODS: List[str] = ["cs", "sa", "bjs", "etwfe", "stacked"]
 
 _METHOD_LABELS = {
@@ -231,10 +275,33 @@ def did_summary(
             f"Valid keys: {sorted(_DISPATCH)} (or 'auto' / 'all')."
         )
 
+    # C4: validate column names up front so user typos surface as
+    # crisp KeyErrors rather than 5 "method FAILED" rows.
+    required = [y, time, first_treat, group]
+    optional = list(controls or [])
+    if cluster:
+        optional.append(cluster)
+    missing = [c for c in required + optional if c not in data.columns]
+    if missing:
+        raise KeyError(
+            f"columns not found in data: {missing}. "
+            f"Available columns: {list(data.columns)[:15]}"
+            + (" ..." if len(data.columns) > 15 else "")
+        )
+
     rows: List[dict] = []
     failed: dict = {}
     fit: List[str] = []
     cs_raw = None  # raw CS result for sensitivity analysis
+
+    # Narrow exceptions that represent "the estimator couldn't fit this
+    # data" rather than a bug in user input. Other exceptions propagate.
+    _expected_exc = (
+        np.linalg.LinAlgError,
+        ValueError,
+        RuntimeError,
+        ZeroDivisionError,
+    )
 
     for name in methods_list:
         label = _METHOD_LABELS[name]
@@ -242,8 +309,6 @@ def did_summary(
             print(f"  running {name} ({label})...", flush=True)
         try:
             if name == "cs" and include_sensitivity:
-                # Run CS + aggte inline so we can hold on to the raw
-                # CS result for the subsequent breakdown_m call.
                 from .callaway_santanna import callaway_santanna
                 from .aggte import aggte as _aggte
                 cs_raw = callaway_santanna(
@@ -260,7 +325,7 @@ def did_summary(
             vals = _extract(res)
             rows.append(dict(method=name, estimator=label, note="", **vals))
             fit.append(name)
-        except Exception as exc:
+        except _expected_exc as exc:
             failed[name] = type(exc).__name__ + ": " + str(exc)[:160]
             rows.append(dict(
                 method=name, estimator=label,
@@ -303,7 +368,7 @@ def did_summary(
     else:
         avg_est, disp = np.nan, np.nan
 
-    result = CausalResult(
+    result = DIDSummaryResult(
         method="DID Method-Robustness Summary",
         estimand="Overall ATT (mean across methods)",
         estimate=avg_est,
@@ -319,30 +384,11 @@ def did_summary(
             "methods_failed": failed,
             "dispersion": disp,
             "breakdown_m": breakdown_m_value,
+            # H5: stable sentinel — export helpers and plots match on this
+            "_did_summary_marker": True,
         },
         _citation_key="did_summary",
     )
-
-    # Custom .summary() — prints the comparison table as a Markdown block
-    # instead of the base CausalResult's single-estimate format.
-    def _custom_summary(alpha=None):  # noqa: ARG001
-        header = "=" * 78 + "\n"
-        header += "  DID Method-Robustness Summary\n"
-        header += "=" * 78 + "\n\n"
-        if fit:
-            header += f"  Fitted methods: {', '.join(fit)}\n"
-        if failed:
-            header += f"  Failed:         {', '.join(failed.keys())}\n"
-        if not np.isnan(avg_est):
-            header += f"  Mean ATT:       {avg_est:+.4f}\n"
-            header += f"  Cross-method SD: {disp:+.4f}\n"
-        if breakdown_m_value is not None:
-            header += f"  Breakdown M*:   {breakdown_m_value:.4f} (CS row)\n"
-        header += "\n"
-        body = did_summary_to_markdown(result)
-        return header + body
-
-    result.summary = _custom_summary
     return result
 
 
@@ -352,11 +398,18 @@ def did_summary(
 
 def _ensure_did_summary(result: CausalResult) -> pd.DataFrame:
     """Validate that result came from did_summary() and return its detail."""
+    mi = getattr(result, "model_info", None) or {}
+    if not mi.get("_did_summary_marker", False):
+        raise ValueError(
+            "did_summary_to_markdown / _to_latex require a CausalResult "
+            "produced by sp.did_summary() (missing '_did_summary_marker' "
+            "in model_info)."
+        )
     det = getattr(result, "detail", None)
     if not isinstance(det, pd.DataFrame) or "estimator" not in det.columns:
         raise ValueError(
-            "did_summary_to_markdown / _to_latex require a CausalResult "
-            "produced by sp.did_summary()."
+            "did_summary result has malformed detail; expected an "
+            "'estimator' column."
         )
     return det
 

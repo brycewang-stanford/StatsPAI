@@ -243,3 +243,81 @@ def test_etwfe_cgroup_invalid():
     with pytest.raises(ValueError):
         sp.etwfe(df, y="y", time="time", first_treat="first_treat",
                  group="unit", cgroup="wrong_value")
+
+
+# ───────────────────────────────────────────────────────────────────────
+# 8. Regression tests for the 7 blocker fixes (review round)
+# ───────────────────────────────────────────────────────────────────────
+
+def test_etwfe_rejects_all_nan_xvar(staggered_df):
+    df = staggered_df.copy()
+    df["x_nan"] = np.nan
+    with pytest.raises(ValueError, match="non-NaN"):
+        sp.etwfe(df, y="y", time="time", first_treat="first_treat",
+                 group="unit", xvar="x_nan")
+
+
+def test_etwfe_rejects_constant_xvar(staggered_df):
+    df = staggered_df.copy()
+    df["x_const"] = 42.0
+    with pytest.raises(ValueError, match="constant"):
+        sp.etwfe(df, y="y", time="time", first_treat="first_treat",
+                 group="unit", xvar="x_const")
+
+
+def test_etwfe_panel_false_with_never_is_not_implemented(staggered_df):
+    with pytest.raises(NotImplementedError):
+        sp.etwfe(staggered_df, y="y", time="time",
+                 first_treat="first_treat", group="unit",
+                 panel=False, cgroup="nevertreated")
+
+
+def test_did_summary_rejects_missing_columns(staggered_df):
+    with pytest.raises(KeyError, match="columns not found"):
+        sp.did_summary(staggered_df, y="y", time="time",
+                      first_treat="first_treat", group="unit",
+                      methods=["cs"], controls=["nonexistent_col"])
+
+
+def test_did_summary_result_serialises(staggered_df):
+    import importlib
+    _serlib = importlib.import_module("pickle")
+    out = sp.did_summary(staggered_df, y="y", time="time",
+                        first_treat="first_treat", group="unit",
+                        methods=["cs", "etwfe"])
+    blob = _serlib.dumps(out)
+    roundtripped = _serlib.loads(blob)
+    assert type(roundtripped).__name__ == "DIDSummaryResult"
+    text = roundtripped.summary()
+    assert "DID Method-Robustness Summary" in text
+
+
+def test_etwfe_emfx_event_uses_proper_vcov(staggered_df):
+    fit = sp.etwfe(staggered_df, y="y", time="time",
+                   first_treat="first_treat", group="unit")
+    ev = sp.etwfe_emfx(fit, type="event")
+    assert ev.model_info["se_method"].startswith("vcov-based")
+    assert (ev.detail["se"] > 0).all()
+
+
+def test_etwfe_emfx_group_matches_fit_headline(staggered_df):
+    fit = sp.etwfe(staggered_df, y="y", time="time",
+                   first_treat="first_treat", group="unit")
+    g = sp.etwfe_emfx(fit, type="group")
+    assert abs(float(g.estimate) - float(fit.estimate)) < 1e-10
+    assert abs(float(g.se) - float(fit.se)) < 1e-10
+    assert not np.isnan(g.pvalue)
+
+
+def test_did_summary_plot_rejects_non_did_summary_result():
+    from statspai.core.results import CausalResult
+    import matplotlib
+    matplotlib.use("Agg")
+    bad = CausalResult(
+        method="x", estimand="x", estimate=1.0, se=0.1,
+        pvalue=0.05, ci=(0.8, 1.2), alpha=0.05, n_obs=100,
+        detail=pd.DataFrame({"estimator": ["x"], "estimate": [1.0]}),
+        model_info={}, _citation_key=None,
+    )
+    with pytest.raises(ValueError, match="_did_summary_marker"):
+        sp.did_summary_plot(bad)

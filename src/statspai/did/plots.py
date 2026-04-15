@@ -1427,11 +1427,18 @@ def did_summary_plot(
     """
     plt, _mpl = _ensure_mpl()
 
+    # H5: rely on the sentinel marker, not string-column matching
+    mi = getattr(result, "model_info", None) or {}
+    if not mi.get("_did_summary_marker", False):
+        raise ValueError(
+            "did_summary_plot requires a CausalResult produced by "
+            "sp.did_summary() (missing '_did_summary_marker' in model_info)."
+        )
     detail = getattr(result, "detail", None)
     if not isinstance(detail, pd.DataFrame) or "estimate" not in detail.columns:
         raise ValueError(
-            "result must come from sp.did_summary() — its .detail "
-            "DataFrame needs an 'estimate' column."
+            "did_summary result has malformed detail; expected an "
+            "'estimate' column."
         )
 
     df = detail.copy()
