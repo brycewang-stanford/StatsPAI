@@ -55,6 +55,8 @@ from .matching import (
     match, MatchEstimator, ebalance, balanceplot, psplot,
     propensity_score, overlap_plot, trimming, love_plot,
     ps_balance, PSBalanceResult,
+    optimal_match, cardinality_match,
+    OptimalMatchResult, CardinalityMatchResult,
 )
 from .dml import dml, DoubleML
 from .deepiv import deepiv, DeepIV

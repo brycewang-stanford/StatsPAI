@@ -26,9 +26,15 @@ from .ps_diagnostics import (
     propensity_score, overlap_plot, trimming, love_plot,
     ps_balance, PSBalanceResult,
 )
+from .optimal import (
+    optimal_match, cardinality_match,
+    OptimalMatchResult, CardinalityMatchResult,
+)
 
 __all__ = [
     'match', 'MatchEstimator', 'ebalance', 'balanceplot', 'psplot',
     'propensity_score', 'overlap_plot', 'trimming', 'love_plot',
     'ps_balance', 'PSBalanceResult',
+    'optimal_match', 'cardinality_match',
+    'OptimalMatchResult', 'CardinalityMatchResult',
 ]
