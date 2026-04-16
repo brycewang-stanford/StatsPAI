@@ -300,6 +300,39 @@ class MediationDecompResult:
         print(text)
         return text
 
+    def plot(self, **kwargs):
+        from .plots import detailed_waterfall
+        df = pd.DataFrame({
+            "component": ["NDE", "NIE"],
+            "effect": [self.nde, self.nie],
+        })
+        return detailed_waterfall(df, value_col="effect",
+                                  label_col="component",
+                                  title="Mediation Decomposition", **kwargs)
+
+    def to_latex(self) -> str:
+        lines = [
+            r"\begin{table}[htbp]", r"\centering",
+            r"\caption{Mediation Decomposition (VanderWeele)}",
+            r"\begin{tabular}{lc}", r"\toprule",
+            r"Component & Estimate \\", r"\midrule",
+            f"Total effect & {self.total:.4f} \\\\",
+            f"NDE (direct) & {self.nde:.4f} \\\\",
+            f"NIE (indirect) & {self.nie:.4f} \\\\",
+            f"Proportion mediated & {self.propn_mediated:.1%} \\\\",
+            r"\bottomrule", r"\end{tabular}", r"\end{table}",
+        ]
+        return "\n".join(lines)
+
+    def _repr_html_(self) -> str:
+        return (
+            "<div style='font-family:monospace;'>"
+            "<h3>Mediation Decomposition</h3>"
+            f"<p>Total = {self.total:.4f}, NDE = {self.nde:.4f}, "
+            f"NIE = {self.nie:.4f}, % mediated = "
+            f"{self.propn_mediated:.1%}</p></div>"
+        )
+
     def __repr__(self) -> str:
         return (f"MediationDecompResult(total={self.total:.4f}, "
                 f"nde={self.nde:.4f}, nie={self.nie:.4f})")
@@ -433,6 +466,41 @@ class DisparityDecompResult:
         text = "\n".join(lines)
         print(text)
         return text
+
+    def plot(self, **kwargs):
+        from .plots import detailed_waterfall
+        df = pd.DataFrame({
+            "component": ["Initial disparity", "Mediator-attributable"],
+            "effect": [self.initial_disparity, self.mediator_attributable],
+        })
+        return detailed_waterfall(df, value_col="effect",
+                                  label_col="component",
+                                  title="Jackson-VanderWeele Disparity Decomposition",
+                                  **kwargs)
+
+    def to_latex(self) -> str:
+        lines = [
+            r"\begin{table}[htbp]", r"\centering",
+            r"\caption{Jackson-VanderWeele Causal Disparity Decomposition}",
+            r"\begin{tabular}{lc}", r"\toprule",
+            r"Component & Estimate \\", r"\midrule",
+            f"Total disparity & {self.total_disparity:.4f} \\\\",
+            f"Initial disparity & {self.initial_disparity:.4f} \\\\",
+            f"Mediator-attributable & {self.mediator_attributable:.4f} \\\\",
+            f"Proportion via mediator & {self.propn_mediator:.1%} \\\\",
+            r"\bottomrule", r"\end{tabular}", r"\end{table}",
+        ]
+        return "\n".join(lines)
+
+    def _repr_html_(self) -> str:
+        return (
+            "<div style='font-family:monospace;'>"
+            "<h3>Jackson-VanderWeele Disparity Decomposition</h3>"
+            f"<p>Total = {self.total_disparity:.4f}, "
+            f"Initial = {self.initial_disparity:.4f}, "
+            f"Mediator-attributable = {self.mediator_attributable:.4f} "
+            f"({self.propn_mediator:.1%} via mediator)</p></div>"
+        )
 
     def __repr__(self) -> str:
         return (f"DisparityDecompResult(total={self.total_disparity:.4f}, "

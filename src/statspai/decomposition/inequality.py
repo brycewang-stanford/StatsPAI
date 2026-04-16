@@ -283,12 +283,53 @@ def subgroup_decompose(
     )
 
 
+def _weighted_pairwise_mad(
+    y_h: np.ndarray, w_h: np.ndarray,
+    y_k: np.ndarray, w_k: np.ndarray,
+) -> float:
+    """
+    Weighted mean absolute difference E_{w_h, w_k}[|Y_h − Y_k|].
+
+    O((n_h + n_k) log(n_h + n_k)) via sorted-ECDF identity:
+
+        E|X − Y| = 2 [ E_X[X · F_Y(X)] − E_X[X] · E_Y[Y · F_X(Y)/F_X(Y)] ... ]
+
+    Closed form: sort by y; for each Y value compute fraction of the
+    other sample strictly below (weighted), then use
+      E|X−Y| = E_X[X (2 F_Y(X) − 1)] + E_Y[Y (1 − 2 F_X(Y))].
+    This is O(n log n) in total.
+    """
+    if len(y_h) == 0 or len(y_k) == 0:
+        return 0.0
+    W_h = w_h.sum()
+    W_k = w_k.sum()
+    # Sort y_k for ECDF lookups; build weighted ECDF
+    order_k = np.argsort(y_k)
+    y_k_s = y_k[order_k]
+    w_k_s = w_k[order_k]
+    F_k = np.cumsum(w_k_s) / W_k   # weighted ECDF at each y_k_s
+    # For each y_h[i], find F_Y(y_h[i]) = weighted share of y_k ≤ y_h[i]
+    idx_h = np.searchsorted(y_k_s, y_h, side="right") - 1
+    F_k_at_h = np.where(idx_h < 0, 0.0, F_k[np.clip(idx_h, 0, len(F_k) - 1)])
+    # Symmetrically, F_X at each y_k
+    order_h = np.argsort(y_h)
+    y_h_s = y_h[order_h]
+    w_h_s = w_h[order_h]
+    F_h = np.cumsum(w_h_s) / W_h
+    idx_k = np.searchsorted(y_h_s, y_k, side="right") - 1
+    F_h_at_k = np.where(idx_k < 0, 0.0, F_h[np.clip(idx_k, 0, len(F_h) - 1)])
+    # E_w|X - Y| identity:
+    #   = E_h[y_h (2 F_k(y_h) − 1)] + E_k[y_k (1 − 2 F_h(y_k))]
+    term_h = np.sum(w_h * y_h * (2.0 * F_k_at_h - 1.0)) / W_h
+    term_k = np.sum(w_k * y_k * (1.0 - 2.0 * F_h_at_k)) / W_k
+    return float(term_h + term_k)
+
+
 def _gini_subgroup(
     y: np.ndarray, w: np.ndarray, groups: np.ndarray, total: float
 ) -> SubgroupDecompResult:
-    """Dagum (1997) Gini subgroup decomposition."""
+    """Dagum (1997) Gini subgroup decomposition with O(n log n) pairs."""
     unique_g = np.unique(groups)
-    n = len(y)
     W = w.sum()
     mu = float(np.average(y, weights=w))
 
@@ -304,36 +345,43 @@ def _gini_subgroup(
         per_rows.append({
             "group": gi, "n": int(mask.sum()), "weight": W_g,
             "mean": mu_g, "gini_group": G_g,
-            "contribution": W_g / W * (W_g / W) * (mu_g / mu) * G_g if mu > 0 else 0.0,
+            "contribution": (
+                (W_g / W) * (W_g * mu_g / (W * mu)) * G_g if mu > 0 else 0.0
+            ),
         })
     per_group = pd.DataFrame(per_rows)
 
-    # Dagum's Gini_W = Σ (W_g/W)(W_g μ_g / (W μ)) G_g
+    # Dagum's Gini_W = Σ_h (W_h/W)(W_h μ_h / (W μ)) G_h
     within = 0.0
     for _, row in per_group.iterrows():
-        within += (row["weight"] / W) * (row["weight"] * row["mean"] / (W * mu)) \
-                   * row["gini_group"] if mu > 0 else 0.0
+        if mu > 0:
+            within += (row["weight"] / W) \
+                      * (row["weight"] * row["mean"] / (W * mu)) \
+                      * row["gini_group"]
 
-    # Dagum's Gross between (all pairs)
+    # Dagum's Gross between:
+    #   G_B = Σ_{h≠k} (W_h/W)(W_k/W) D_hk / (μ_h + μ_k)
+    # where D_hk = E[|y_h − y_k|] is the weighted pairwise MAD.
+    # Iterating unordered pairs once gives the correct total.
     between_gross = 0.0
-    # Ordered pairs (h, k) with mu_h ≥ mu_k
-    for h in unique_g:
-        for k in unique_g:
-            if h == k:
+    g_list = list(unique_g)
+    for i_h, h in enumerate(g_list):
+        for k in g_list[i_h + 1:]:
+            mask_h = groups == h
+            mask_k = groups == k
+            y_h_arr, w_h_arr = y[mask_h], w[mask_h]
+            y_k_arr, w_k_arr = y[mask_k], w[mask_k]
+            mu_h = float(np.average(y_h_arr, weights=w_h_arr))
+            mu_k = float(np.average(y_k_arr, weights=w_k_arr))
+            if mu_h + mu_k <= 0:
                 continue
-            mh = float(np.mean(y[groups == h]))
-            mk = float(np.mean(y[groups == k]))
-            Wh = w[groups == h].sum() / W
-            Wk = w[groups == k].sum() / W
-            yh = y[groups == h]
-            yk = y[groups == k]
-            # G_hk = E|y_h - y_k| / (μ_h + μ_k)
-            if mh + mk <= 0:
-                continue
-            diff = np.mean(np.abs(yh[:, None] - yk[None, :]))
-            G_hk = diff / (mh + mk)
-            between_gross += Wh * Wk * G_hk
-    between_gross = between_gross / 2.0  # avoid double count
+            W_h = w_h_arr.sum() / W
+            W_k = w_k_arr.sum() / W
+            D_hk = _weighted_pairwise_mad(y_h_arr, w_h_arr, y_k_arr, w_k_arr)
+            # Dagum uses 2 W_h W_k to count both orderings in the gross Gini
+            between_gross += 2.0 * W_h * W_k * D_hk / (mu_h + mu_k)
+    # Standard Gini is on [0, 1); Dagum defines total = within + between_gross
+    # + transvariation (overlap). overlap = total − within − between_gross.
     overlap = total - within - between_gross
 
     return SubgroupDecompResult(
@@ -364,6 +412,41 @@ class SourceDecompResult:
         text = "\n".join(lines)
         print(text)
         return text
+
+    def plot(self, **kwargs):
+        from .plots import detailed_waterfall
+        return detailed_waterfall(
+            self.sources, value_col="contribution",
+            label_col="source",
+            title="Gini Source Decomposition", **kwargs,
+        )
+
+    def to_latex(self) -> str:
+        lines = [
+            r"\begin{table}[htbp]", r"\centering",
+            r"\caption{Gini Source Decomposition (Lerman-Yitzhaki 1985)}",
+            r"\begin{tabular}{lcccc}", r"\toprule",
+            r"Source & Share & $G_k$ & Gini corr. & Contribution \\",
+            r"\midrule",
+        ]
+        for _, row in self.sources.iterrows():
+            lines.append(
+                f"{row['source']} & {row['share']:.4f} & "
+                f"{row['gini_k']:.4f} & {row['gini_corr']:.4f} & "
+                f"{row['contribution']:.4f} \\\\"
+            )
+        lines.extend([r"\midrule",
+                      f"Total & 1.0000 & & & {self.total_gini:.4f} \\\\",
+                      r"\bottomrule", r"\end{tabular}", r"\end{table}"])
+        return "\n".join(lines)
+
+    def _repr_html_(self) -> str:
+        return (
+            "<div style='font-family:monospace;'>"
+            "<h3>Gini Source Decomposition</h3>"
+            f"<p>Total Gini = {self.total_gini:.4f}</p>"
+            + self.sources.round(4).to_html(index=False) + "</div>"
+        )
 
     def __repr__(self) -> str:
         return f"SourceDecompResult(gini={self.total_gini:.4f}, "\
@@ -453,6 +536,31 @@ class ShapleyInequalityResult:
         from .plots import detailed_waterfall
         return detailed_waterfall(self.shapley, value_col="contribution",
                                   label_col="variable", **kwargs)
+
+    def to_latex(self) -> str:
+        lines = [
+            r"\begin{table}[htbp]", r"\centering",
+            f"\\caption{{Shapley Inequality Decomposition — {self.index}}}",
+            r"\begin{tabular}{lcc}", r"\toprule",
+            r"Variable & Contribution & \% of total \\", r"\midrule",
+        ]
+        for _, row in self.shapley.iterrows():
+            lines.append(
+                f"{row['variable']} & {row['contribution']:.4f} & "
+                f"{row['pct_of_total']:.1f}\\% \\\\"
+            )
+        lines.extend([r"\midrule",
+                      f"Total ({self.index}) & {self.total:.4f} & 100.0\\% \\\\",
+                      r"\bottomrule", r"\end{tabular}", r"\end{table}"])
+        return "\n".join(lines)
+
+    def _repr_html_(self) -> str:
+        return (
+            "<div style='font-family:monospace;'>"
+            f"<h3>Shapley Inequality — {self.index}</h3>"
+            f"<p>Total = {self.total:.4f}</p>"
+            + self.shapley.round(4).to_html(index=False) + "</div>"
+        )
 
     def __repr__(self) -> str:
         return f"ShapleyInequalityResult(index={self.index}, "\

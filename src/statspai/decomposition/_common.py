@@ -104,6 +104,7 @@ def logit_fit(
     w: Optional[np.ndarray] = None,
     max_iter: int = 100,
     tol: float = 1e-8,
+    warn_on_nonconvergence: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Logit MLE via Newton-Raphson / IRLS.
@@ -113,17 +114,29 @@ def logit_fit(
     y : (n,) binary {0, 1}
     X : (n, k) design matrix (with constant)
     w : (n,) weights or None
+    max_iter : int
+    tol : float
+    warn_on_nonconvergence : bool
+        Emit a RuntimeWarning if the NR loop exits without convergence.
 
     Returns
     -------
     beta : (k,) estimates
     vcov : (k, k) model-based covariance
+
+    Notes
+    -----
+    On near-separated data NR can diverge to large β with collapsing
+    probabilities. The clip at ±30 keeps η finite; if convergence is
+    not achieved within max_iter the caller gets warned and should
+    consider ridge-penalised logit or entropy balancing instead.
     """
     n, k = X.shape
     if w is None:
         w = np.ones(n)
     w = np.asarray(w, dtype=float)
     beta = np.zeros(k)
+    converged = False
     for _ in range(max_iter):
         eta = X @ beta
         eta = np.clip(eta, -30, 30)
@@ -138,8 +151,17 @@ def logit_fit(
         beta_new = beta - step
         if np.max(np.abs(beta_new - beta)) < tol:
             beta = beta_new
+            converged = True
             break
         beta = beta_new
+    if not converged and warn_on_nonconvergence:
+        warnings.warn(
+            f"logit_fit did not converge within {max_iter} iterations "
+            "(possible separation or near-separation). Results may be "
+            "unreliable; consider reducing dimensionality or trimming "
+            "extreme propensity scores.",
+            RuntimeWarning, stacklevel=2,
+        )
     # Covariance
     eta = np.clip(X @ beta, -30, 30)
     p = 1.0 / (1.0 + np.exp(-eta))
@@ -190,6 +212,7 @@ def bootstrap_stat(
     if rng is None:
         rng = np.random.default_rng(12345)
     results: list[Union[float, np.ndarray]] = []
+    n_failed = 0
     for _ in range(n_boot):
         if clusters is not None:
             g_arr = np.asarray(clusters)
@@ -209,10 +232,19 @@ def bootstrap_stat(
         try:
             results.append(stat_fn(idx))
         except Exception:  # noqa: BLE001
-            # Skip failed replications
+            n_failed += 1
             continue
     if not results:
         raise RuntimeError("All bootstrap replications failed.")
+    # Warn if more than 5% of replications failed silently
+    if n_failed > 0.05 * n_boot:
+        warnings.warn(
+            f"{n_failed}/{n_boot} bootstrap replications failed "
+            f"({100 * n_failed / n_boot:.1f}%). "
+            "SE estimates are based on the successful subset. Check "
+            "for degenerate resamples or numerical issues in stat_fn.",
+            RuntimeWarning, stacklevel=2,
+        )
     arr = np.asarray(results, dtype=float)
     if arr.ndim == 1:
         arr = arr[:, None]

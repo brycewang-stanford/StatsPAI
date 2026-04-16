@@ -269,8 +269,22 @@ def dfl_decompose(
     stat : {'mean', 'variance', 'std', 'quantile', 'iqr', 'gini', 'log_var'}
     tau : float — quantile level (when stat='quantile')
     reference : {0, 1}
-        - 0: reweight Group B to look like A's X (default)
-        - 1: reweight Group A to look like B's X
+        - 0: reweight Group B to look like A's X (default). The
+          counterfactual is F_{Y<1|0>} — A's X distribution with B's
+          outcome structure.
+        - 1: reweight Group A to look like B's X. The counterfactual
+          is F_{Y<0|1>} — B's X distribution with A's outcome structure.
+
+        .. warning::
+           ``reference`` has different economic semantics across method
+           families. In DFL, ``reference=0`` yields cf = *A's X, B's β*
+           (reweighting approach). In ``machado_mata`` / ``melly`` /
+           ``cfm``, ``reference=0`` yields cf = *A's β, B's X*
+           (coefficient-substitution approach). These are **opposite**
+           counterfactual constructions. Within each method labels are
+           internally consistent (DFL structure = A − cf; MM
+           composition = A − cf). When comparing estimates across
+           methods, read the per-method docstrings carefully.
     weights : str, array or None — sample weights
     trim : float — clip propensity scores to [trim, 1-trim]
     inference : {'none', 'bootstrap', 'analytical'}

@@ -188,7 +188,15 @@ def machado_mata(
     tau_grid : Sequence[float] or None
         τ grid for reporting (default: deciles 0.1..0.9)
     reference : {0, 1}
-        0: use Group A's coefficients with Group B's X (counterfactual for A)
+        0: use Group A's coefficients with Group B's X. The
+           counterfactual is F_{Y<0|1>} — A's β on B's X.
+        1: use Group B's coefficients with Group A's X.
+
+        .. warning::
+           Opposite convention to ``dfl_decompose``. In DFL,
+           ``reference=0`` means *A's X, B's β* (reweighting). Here,
+           ``reference=0`` means *A's β, B's X* (coefficient swap).
+           See ``dfl_decompose`` docstring for the full convention map.
     n_sim : int — number of (τ, obs) draws per counterfactual
     n_tau_qr : int — τ grid resolution for quantile regression estimation
     inference : {'none', 'bootstrap'}

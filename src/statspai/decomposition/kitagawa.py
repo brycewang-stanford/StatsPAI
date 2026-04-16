@@ -241,6 +241,33 @@ class DasGuptaResult:
         return detailed_waterfall(self.factor_effects, value_col="effect",
                                   label_col="factor", **kwargs)
 
+    def to_latex(self) -> str:
+        lines = [
+            r"\begin{table}[htbp]", r"\centering",
+            r"\caption{Das Gupta Multi-Factor Decomposition}",
+            r"\begin{tabular}{lcc}", r"\toprule",
+            r"Factor & Effect & \% of gap \\", r"\midrule",
+        ]
+        for _, row in self.factor_effects.iterrows():
+            lines.append(
+                f"{row['factor']} & {row['effect']:.4f} & "
+                f"{row['pct_of_gap']:.1f}\\% \\\\"
+            )
+        lines.extend([r"\midrule",
+                      f"Total gap & {self.gap:.4f} & 100.0\\% \\\\",
+                      r"\bottomrule", r"\end{tabular}", r"\end{table}"])
+        return "\n".join(lines)
+
+    def _repr_html_(self) -> str:
+        return (
+            "<div style='font-family:monospace;'>"
+            f"<h3>Das Gupta Multi-Factor Decomposition</h3>"
+            f"<p>Aggregate A = {self.rate_a:.4f}, B = {self.rate_b:.4f}, "
+            f"gap = {self.gap:.4f}</p>"
+            + self.factor_effects.round(4).to_html(index=False)
+            + "</div>"
+        )
+
     def __repr__(self) -> str:
         return f"DasGuptaResult(gap={self.gap:.4f}, n_factors={len(self.factor_effects)})"
 

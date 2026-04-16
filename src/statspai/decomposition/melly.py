@@ -120,6 +120,9 @@ def melly_decompose(
     y, group, x : column names
     tau_grid : Sequence[float] or None — reporting τ grid
     reference : {0, 1}
+        Same convention as ``machado_mata``: ``reference=0`` uses A's β
+        on B's X (coefficient-swap counterfactual F_{Y<0|1>}), opposite
+        to ``dfl_decompose`` whose ``reference=0`` uses A's X with B's β.
     n_tau_qr : int — QR estimation grid resolution
 
     Returns

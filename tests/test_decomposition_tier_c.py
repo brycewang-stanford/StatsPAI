@@ -156,6 +156,46 @@ def test_ffl_variance(cps):
     assert abs(total_parts - r.gap) < 1e-3
 
 
+def test_ffl_gini(cps):
+    # Critical: FFL Gini had been using an unweighted influence function;
+    # verify that the identity E_w[RIF] = Gini_w(y) now holds.
+    wage = np.exp(cps["log_wage"]).values
+    df = cps.assign(wage=wage)
+    r = sp.ffl_decompose(data=df, y="wage", group="female",
+                         x=["education", "experience", "tenure"],
+                         stat="gini")
+    total_parts = r.composition + r.structure + r.spec_error + r.reweight_error
+    assert abs(total_parts - r.gap) < 1e-3
+
+
+def test_ffl_theil_closed_form(cps):
+    # Theil_t / Theil_l / Atkinson use closed-form IFs (no O(n²) loop).
+    wage = np.exp(cps["log_wage"]).values
+    df = cps.assign(wage=wage)
+    for stat in ["theil_t", "theil_l", "atkinson"]:
+        r = sp.ffl_decompose(data=df, y="wage", group="female",
+                             x=["education", "experience"],
+                             stat=stat)
+        total_parts = (r.composition + r.structure
+                       + r.spec_error + r.reweight_error)
+        assert abs(total_parts - r.gap) < 1e-2, (
+            f"FFL identity broken for {stat}: sum={total_parts:.6f} "
+            f"vs gap={r.gap:.6f}"
+        )
+
+
+def test_ffl_detailed_composition_includes_cons(cps):
+    r = sp.ffl_decompose(data=cps, y="log_wage", group="female",
+                         x=["education", "experience"], stat="mean")
+    # Both detail tables should now sum to the overall component.
+    assert "_cons" in r.detailed_composition["variable"].values
+    assert "_cons" in r.detailed_structure["variable"].values
+    assert abs(r.detailed_composition["composition"].sum()
+               - r.composition) < 1e-6
+    assert abs(r.detailed_structure["structure"].sum()
+               - r.structure) < 1e-6
+
+
 # ════════════════════════════════════════════════════════════════════════
 # Machado-Mata
 # ════════════════════════════════════════════════════════════════════════
@@ -462,11 +502,58 @@ def test_result_summary_methods(cps):
         assert isinstance(text, str) and len(text) > 0
 
 
-def test_to_latex_methods(cps):
-    r = sp.dfl_decompose(data=cps, y="log_wage", group="female",
-                         x=["education", "experience"], stat="mean")
-    latex = r.to_latex()
-    assert r"\begin{tabular}" in latex or r"\begin{table}" in latex
+def test_to_latex_methods(cps, disparity):
+    # Every result class with a .to_latex() promise — audit them all.
+    wage = np.exp(cps["log_wage"]).values
+    df_wage = cps.assign(wage=wage)
+    sources_df = pd.DataFrame({
+        "wage": wage,
+        "transfer": np.maximum(0, wage * 0.1 + np.random.default_rng(0).normal(0, 1, len(wage))),
+    })
+    results = [
+        sp.dfl_decompose(data=cps, y="log_wage", group="female",
+                         x=["education"], stat="mean"),
+        sp.ffl_decompose(data=cps, y="log_wage", group="female",
+                         x=["education"], stat="mean"),
+        sp.machado_mata(data=cps, y="log_wage", group="female",
+                        x=["education"], tau_grid=[0.5], n_sim=50, n_tau_qr=9),
+        sp.melly_decompose(data=cps, y="log_wage", group="female",
+                           x=["education"], tau_grid=[0.5], n_tau_qr=9),
+        sp.cfm_decompose(data=cps, y="log_wage", group="female",
+                         x=["education"], tau_grid=[0.5], n_thresh=10),
+        sp.fairlie(data=cps, y="union", group="female",
+                   x=["education"], n_sim=20),
+        sp.bauer_sinning(data=cps, y="union", group="female",
+                         x=["education"]),
+        sp.subgroup_decompose(data=df_wage, y="wage", by="female",
+                              index="theil_t"),
+        sp.shapley_inequality(data=df_wage, y="wage",
+                              x=["education"], index="theil_t"),
+        sp.source_decompose(data=sources_df,
+                            sources=["wage", "transfer"]),
+        sp.kitagawa_decompose(
+            data=cps.assign(e=(cps.education > 12).astype(int)),
+            rate="union", group="female", by="e"),
+        sp.das_gupta(
+            pd.DataFrame({"a": [1.0], "b": [2.0]}),
+            pd.DataFrame({"a": [1.5], "b": [1.8]}),
+            factor_names=["a", "b"]),
+        sp.gap_closing(data=cps, y="log_wage", group="female",
+                       x=["education"], method="regression"),
+        sp.mediation_decompose(data=disparity, y="income",
+                               treatment="group", mediator="education",
+                               covariates=["parent_income"]),
+        sp.disparity_decompose(data=disparity, y="income", group="group",
+                               mediator="education",
+                               covariates=["parent_income"]),
+    ]
+    for r in results:
+        latex = r.to_latex()
+        assert isinstance(latex, str) and len(latex) > 0, \
+            f"{type(r).__name__}.to_latex() returned empty"
+        html = r._repr_html_()
+        assert "<" in html and ">" in html, \
+            f"{type(r).__name__}._repr_html_() not HTML"
 
 
 def test_repr_html_methods(cps):
@@ -474,3 +561,73 @@ def test_repr_html_methods(cps):
                          x=["education", "experience"], stat="mean")
     html = r._repr_html_()
     assert "<" in html and ">" in html
+
+
+# ════════════════════════════════════════════════════════════════════════
+# Cross-method consistency
+# ════════════════════════════════════════════════════════════════════════
+
+def test_dfl_ffl_mean_agree(cps):
+    """DFL and FFL should give almost identical mean decompositions
+    because at the mean statistic, the RIF linearisation is exact."""
+    x = ["education", "experience", "tenure", "union", "married"]
+    r_dfl = sp.dfl_decompose(data=cps, y="log_wage", group="female",
+                             x=x, stat="mean")
+    r_ffl = sp.ffl_decompose(data=cps, y="log_wage", group="female",
+                             x=x, stat="mean")
+    # FFL's four parts should sum to gap; composition+structure should be
+    # close to DFL's (spec + rw errors absorb reweighting imperfection).
+    assert abs(r_dfl.gap - r_ffl.gap) < 1e-8
+    # FFL structure = DFL structure at the mean (both driven by β)
+    assert abs(r_dfl.structure - r_ffl.structure) < 0.05
+
+
+def test_mm_melly_cfm_aligned_reference(cps):
+    """Machado-Mata, Melly, CFM all use the *same* `reference` convention
+    (A's β on B's X). Composition at the median should have the same
+    sign across all three and be within a reasonable tolerance given the
+    different estimation techniques."""
+    x = ["education", "experience", "tenure"]
+    r_mm = sp.machado_mata(data=cps, y="log_wage", group="female",
+                           x=x, tau_grid=[0.5], n_sim=400, n_tau_qr=19)
+    r_melly = sp.melly_decompose(data=cps, y="log_wage", group="female",
+                                 x=x, tau_grid=[0.5], n_tau_qr=19)
+    r_cfm = sp.cfm_decompose(data=cps, y="log_wage", group="female",
+                             x=x, tau_grid=[0.5], n_thresh=30)
+    comp_mm = r_mm.quantile_grid["composition"].iloc[0]
+    comp_melly = r_melly.quantile_grid["composition"].iloc[0]
+    comp_cfm = r_cfm.quantile_grid["composition"].iloc[0]
+    # All three should have the same sign (not opposite).
+    signs = {np.sign(comp_mm), np.sign(comp_melly), np.sign(comp_cfm)}
+    signs.discard(0.0)
+    assert len(signs) <= 1, (
+        f"MM/Melly/CFM composition signs disagree: "
+        f"MM={comp_mm:.4f}, Melly={comp_melly:.4f}, CFM={comp_cfm:.4f}"
+    )
+
+
+def test_dfl_mm_reference_convention_opposite(cps):
+    """Document the known convention split: DFL(ref=0) composition
+    should roughly equal MM(ref=1) composition, because they build
+    the same economic counterfactual under opposite ref labels."""
+    x = ["education", "experience", "tenure"]
+    r_dfl_0 = sp.dfl_decompose(data=cps, y="log_wage", group="female",
+                               x=x, stat="quantile", tau=0.5, reference=0)
+    r_mm_1 = sp.machado_mata(data=cps, y="log_wage", group="female",
+                             x=x, tau_grid=[0.5], reference=1,
+                             n_sim=400, n_tau_qr=19)
+    comp_dfl = r_dfl_0.composition
+    comp_mm = r_mm_1.quantile_grid["composition"].iloc[0]
+    # Rough agreement within simulation noise; both should have the same sign
+    if comp_dfl != 0:
+        ratio = comp_mm / comp_dfl
+        assert np.sign(comp_dfl) == np.sign(comp_mm), (
+            f"DFL(ref=0) and MM(ref=1) composition disagree in sign: "
+            f"DFL={comp_dfl:.4f}, MM={comp_mm:.4f}"
+        )
+        # And roughly same magnitude (within factor 4, accounting for
+        # simulation noise and different estimation approaches)
+        assert 0.25 < abs(ratio) < 4.0, (
+            f"DFL(ref=0)={comp_dfl:.4f} vs MM(ref=1)={comp_mm:.4f} — "
+            "magnitudes too different"
+        )

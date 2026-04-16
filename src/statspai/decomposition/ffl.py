@@ -185,17 +185,69 @@ def _rif_for_sample(
         rif25 = _rif_for_sample(y, w, "quantile", 0.25)
         return rif75 - rif25
     if stat == "gini":
-        # Use the unweighted influence-function form
-        return rif_values(y, statistic="gini")
-    if stat in ("theil_t", "theil_l", "atkinson"):
-        # Approximate by numerical influence function
-        return _numerical_rif(y, w, stat)
+        # Weighted Gini influence function, derived from the functional
+        # G = (2/μ) · E[y · F(y)] − 1. At observation y_i:
+        #   RIF(y_i) = 1 + (2/μ)[y_i·F(y_i) − GL(F(y_i))] − ((G+1)/μ)·y_i
+        # where F is the weighted fractional rank and GL the weighted
+        # generalized Lorenz curve. E_w[RIF] = G up to O(1/n) discrete
+        # ECDF correction.
+        order = np.argsort(y)
+        y_s = y[order]
+        w_s = w[order]
+        W = w_s.sum()
+        mu = float(np.average(y_s, weights=w_s))
+        if mu <= 0:
+            return np.full_like(y, np.nan)
+        F = (np.cumsum(w_s) - 0.5 * w_s) / W   # weighted fractional rank
+        GL = np.cumsum(w_s * y_s) / W          # weighted cumulative sum
+        G = 2.0 * float(np.cov(y_s, F, aweights=w_s)[0, 1]) / mu
+        rif_sorted = 1.0 + (2.0 / mu) * (y_s * F - GL) - ((G + 1.0) / mu) * y_s
+        rif_orig = np.empty_like(rif_sorted)
+        rif_orig[order] = rif_sorted
+        return rif_orig
+    if stat == "theil_t":
+        # Closed-form IF: T = E[(y/μ) log(y/μ)]
+        # IF_i = (y_i/μ) log(y_i/μ) − T − (y_i/μ − 1)(T + 1)
+        # so that T + IF averages back to T under the DGP (FFL 2018).
+        yp = np.clip(y, 1e-12, None)
+        mu = float(np.average(yp, weights=w))
+        if mu <= 0:
+            return np.full_like(y, np.nan)
+        s = yp / mu
+        T = float(np.average(s * np.log(s), weights=w))
+        return s * np.log(s) - (s - 1.0) * (T + 1.0)
+    if stat == "theil_l":
+        # L = log(μ) − E[log y]; IF_i = (y_i/μ − 1) − (log y_i − log μ) − L
+        yp = np.clip(y, 1e-12, None)
+        mu = float(np.average(yp, weights=w))
+        if mu <= 0:
+            return np.full_like(y, np.nan)
+        L = float(np.log(mu) - np.average(np.log(yp), weights=w))
+        return (yp / mu - 1.0) - (np.log(yp) - np.log(mu))
+    if stat == "atkinson":
+        # A(1) = 1 − exp(E log y) / μ
+        # d A(1) / dF at y_i:  IF_i such that E_w[A + IF] = A.
+        yp = np.clip(y, 1e-12, None)
+        mu = float(np.average(yp, weights=w))
+        if mu <= 0:
+            return np.full_like(y, np.nan)
+        mean_log = float(np.average(np.log(yp), weights=w))
+        geo_mean = np.exp(mean_log)
+        A1 = 1.0 - geo_mean / mu
+        # ∂A1 = (geo_mean/μ) [(y_i − μ)/μ − (log y_i − mean_log)]
+        return A1 + (geo_mean / mu) * (
+            (yp - mu) / mu - (np.log(yp) - mean_log)
+        )
     raise ValueError(f"unknown statistic {stat!r}")
 
 
 def _numerical_rif(y: np.ndarray, w: np.ndarray, stat: str,
                    eps: float = 1e-4) -> np.ndarray:
-    """Numerical influence function: (ν(F + ε δ_{y_i}) − ν(F))/ε + ν(F)."""
+    """Numerical influence function (fallback for stats without closed-form IF).
+
+    Computationally O(n²) per call — avoid for production; closed-form
+    IFs exist for theil_t, theil_l, atkinson (see `_rif_for_sample`).
+    """
     n = len(y)
     v0 = _statistic_value_generic(y, w, stat)
     rif = np.empty(n)
@@ -360,22 +412,16 @@ def ffl_decompose(
 
     var_names = ["_cons"] + list(x)
 
-    # Build detailed tables (skip constant)
+    # Build detailed tables — include _cons row on both sides so the
+    # column totals audit to the overall composition / structure values.
     det_comp = pd.DataFrame({
-        "variable": var_names[1:],
-        "composition": composition_vec[1:],
+        "variable": list(x) + ["_cons"],
+        "composition": list(composition_vec[1:]) + [composition_vec[0]],
     })
     det_struct = pd.DataFrame({
-        "variable": var_names[1:],
-        "structure": structure_vec[1:],
+        "variable": list(x) + ["_cons"],
+        "structure": list(structure_vec[1:]) + [structure_vec[0]],
     })
-    # Constants aggregated (intercept contribution)
-    det_comp_cons = composition_vec[0]
-    det_struct_cons = structure_vec[0]
-    det_struct = pd.concat([
-        det_struct,
-        pd.DataFrame({"variable": ["_cons"], "structure": [det_struct_cons]}),
-    ], ignore_index=True)
 
     # Bootstrap
     se: Optional[Dict[str, float]] = None
@@ -387,13 +433,15 @@ def ffl_decompose(
 
         def stat_fn(idx: np.ndarray) -> np.ndarray:
             try:
-                sub = df.iloc[idx]
+                sub = df.iloc[idx].reset_index(drop=True)
                 g_i = g[idx]
                 if (g_i == 0).sum() < 10 or (g_i == 1).sum() < 10:
                     return np.array([np.nan] * 4)
+                # Propagate per-row weights into the recursive call so
+                # weighted inference survives resampling.
                 tmp_res = ffl_decompose(
                     sub, y=y, group=group, x=x, stat=stat, tau=tau,
-                    reference=reference, weights=None, trim=trim,
+                    reference=reference, weights=w[idx], trim=trim,
                     inference="none", seed=None,
                 )
                 return np.array([tmp_res.gap, tmp_res.composition,

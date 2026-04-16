@@ -68,17 +68,25 @@ def rif_values(y: np.ndarray, statistic: StatisticKind = "quantile",
         mu = y.mean()
         return (y - mu) ** 2
     if statistic == "gini":
-        # Gini influence function (Firpo et al. 2009 Appendix A)
-        mu = y.mean()
+        # Correct Gini RIF derived from the functional
+        #   G = (2/μ) · E[y · F(y)] − 1
+        # giving  RIF(y_i) = 1 + (2/μ)[y_i F(y_i) − GL(F(y_i))] − ((G+1)/μ) y_i
+        # which satisfies E[RIF] = G up to the O(1/n) discrete ECDF
+        # correction from the midpoint rank convention.
+        mu = float(y.mean())
+        if mu <= 0:
+            return np.full_like(y, np.nan)
         n_obs = len(y)
-        ranks = sp_stats.rankdata(y, method="average") / n_obs
-        G = float(2 * np.cov(y, ranks)[0, 1] / mu)    # Gini coefficient
-        rif = (
-            -G
-            + (2 / mu) * (ranks * y - np.cumsum(np.sort(y)) / n_obs)
-            - (2 * y / mu) * (ranks - (G + 1) / 2)
-        )
-        return G + rif
+        order = np.argsort(y)
+        y_s = y[order]
+        F_s = (np.arange(1, n_obs + 1) - 0.5) / n_obs
+        GL_s = np.cumsum(y_s) / n_obs
+        ranks = np.empty(n_obs)
+        ranks[order] = F_s
+        GL_at_y = np.empty(n_obs)
+        GL_at_y[order] = GL_s
+        G = 2.0 * float(np.cov(y, ranks)[0, 1]) / mu
+        return 1.0 + (2.0 / mu) * (y * ranks - GL_at_y) - ((G + 1.0) / mu) * y
     raise ValueError(f"unknown statistic {statistic!r}")
 
 

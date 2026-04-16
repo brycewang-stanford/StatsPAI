@@ -69,7 +69,10 @@ def _fit_dr(
             betas[i, 0] = np.log(p / (1 - p))
         else:
             try:
-                b, _ = logit_fit(ind, X)
+                # Distribution regression deliberately tolerates
+                # near-separation at extreme thresholds; we fall back
+                # to the empirical proportion below.
+                b, _ = logit_fit(ind, X, warn_on_nonconvergence=False)
                 betas[i] = b
             except Exception:  # noqa: BLE001
                 betas[i] = 0.0
@@ -198,6 +201,10 @@ def cfm_decompose(
     y, group, x : column names
     tau_grid : Sequence[float] or None
     reference : {0, 1}
+        Same convention as ``machado_mata`` / ``melly_decompose``:
+        ``reference=0`` builds the counterfactual from A's distribution
+        regression coefficients applied to B's X (F_{Y<0|1>}), opposite
+        to the reweighting convention in ``dfl_decompose``.
     n_thresh : int — number of thresholds for distribution regression
     ks_test : bool — whether to compute Kolmogorov-Smirnov gap test
 

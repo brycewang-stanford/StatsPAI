@@ -92,10 +92,19 @@ def decompose(method: str, /, **kwargs) -> Any:
     ...                  stat='quantile', tau=0.5)
     >>> r.summary()
 
+    >>> # NOTE: ``method='aipw'`` below is passed through to
+    >>> # ``gap_closing``'s own ``method`` parameter; the dispatcher's
+    >>> # own method arg is positional-only so there is no collision.
     >>> r = sp.decompose('gap_closing', data=df, y='log_wage',
     ...                  group='female',
     ...                  x=['education', 'experience', 'tenure'],
     ...                  method='aipw')
+
+    Convention warning for ``dfl`` vs ``machado_mata`` / ``melly`` /
+    ``cfm``: ``reference=0`` has different semantics across method
+    families (reweighting vs coefficient-swap). See the per-method
+    docstrings before comparing composition/structure estimates across
+    methods.
     """
     if method not in _REGISTRY:
         raise ValueError(
