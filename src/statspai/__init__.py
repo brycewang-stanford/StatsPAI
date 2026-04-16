@@ -43,7 +43,7 @@ from .did import (
     aggte, cs_report, CSReport, ggdid,
     bjs_pretrend_joint,
 )
-from .rd import rdrobust, rdplot, rdplotdensity, rdbwsensitivity, rdbalance, rdplacebo, rdsummary, rkd, rd_honest, rdit
+from .rd import rdrobust, rdplot, rdplotdensity, rdbwsensitivity, rdbalance, rdplacebo, rdsummary, rkd, rd_honest, rdit, rdpower, rdsampsi
 from .synth import (
     synth, SyntheticControl, synthplot, sdid, augsynth,
     demeaned_synth, robust_synth, gsynth, staggered_synth, conformal_synth,

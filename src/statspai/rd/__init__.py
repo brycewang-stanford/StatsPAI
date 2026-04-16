@@ -17,6 +17,7 @@ from .rkd import rkd
 from .honest_ci import rd_honest
 from .rdit import rdit
 from .rdmulti import rdmc, rdms, RDMultiResult
+from .rdpower import rdpower, rdsampsi, RDPowerResult, RDSampSiResult
 
 __all__ = [
     'rdrobust',
@@ -32,4 +33,8 @@ __all__ = [
     'rdmc',
     'rdms',
     'RDMultiResult',
+    'rdpower',
+    'rdsampsi',
+    'RDPowerResult',
+    'RDSampSiResult',
 ]
