@@ -27,8 +27,13 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from ._common import influence_function as _influence_function
 
-StatisticKind = Literal["quantile", "variance", "gini"]
+
+StatisticKind = Literal[
+    "quantile", "mean", "variance", "std", "log_var",
+    "iqr", "gini", "theil_t", "theil_l", "atkinson",
+]
 
 
 # --------------------------------------------------------------------- #
@@ -36,7 +41,8 @@ StatisticKind = Literal["quantile", "variance", "gini"]
 # --------------------------------------------------------------------- #
 
 def _kernel_density_at(y: np.ndarray, point: float, bw: str = "silverman") -> float:
-    """Kernel density estimate at a single point."""
+    """Kernel density estimate at a single point (kept for backward
+    compatibility; prefer ``_common.influence_function`` for new code)."""
     try:
         kde = sp_stats.gaussian_kde(y, bw_method=bw)
         return float(kde(point))
@@ -50,44 +56,23 @@ def rif_values(y: np.ndarray, statistic: StatisticKind = "quantile",
                tau: float = 0.5) -> np.ndarray:
     """Compute the RIF of each observation.
 
+    Delegates to :func:`statspai.decomposition._common.influence_function`,
+    which is the canonical implementation shared with the FFL two-step
+    decomposition. Supported statistics (expanded in this release):
+
+        ``quantile`` (with ``tau``), ``mean``, ``variance``, ``std``,
+        ``log_var``, ``iqr``, ``gini``, ``theil_t``, ``theil_l``,
+        ``atkinson`` (ε = 1).
+
     Parameters
     ----------
     y : (n,) array
-    statistic : {"quantile", "variance", "gini"}
+    statistic : str
     tau : float
         Quantile level (only used when ``statistic="quantile"``).
     """
     y = np.asarray(y, dtype=float).ravel()
-    n = y.size
-    if statistic == "quantile":
-        q = float(np.quantile(y, tau))
-        f_q = _kernel_density_at(y, q)
-        f_q = max(f_q, 1e-12)
-        return q + (tau - (y <= q).astype(float)) / f_q
-    if statistic == "variance":
-        mu = y.mean()
-        return (y - mu) ** 2
-    if statistic == "gini":
-        # Correct Gini RIF derived from the functional
-        #   G = (2/μ) · E[y · F(y)] − 1
-        # giving  RIF(y_i) = 1 + (2/μ)[y_i F(y_i) − GL(F(y_i))] − ((G+1)/μ) y_i
-        # which satisfies E[RIF] = G up to the O(1/n) discrete ECDF
-        # correction from the midpoint rank convention.
-        mu = float(y.mean())
-        if mu <= 0:
-            return np.full_like(y, np.nan)
-        n_obs = len(y)
-        order = np.argsort(y)
-        y_s = y[order]
-        F_s = (np.arange(1, n_obs + 1) - 0.5) / n_obs
-        GL_s = np.cumsum(y_s) / n_obs
-        ranks = np.empty(n_obs)
-        ranks[order] = F_s
-        GL_at_y = np.empty(n_obs)
-        GL_at_y[order] = GL_s
-        G = 2.0 * float(np.cov(y, ranks)[0, 1]) / mu
-        return 1.0 + (2.0 / mu) * (y * ranks - GL_at_y) - ((G + 1.0) / mu) * y
-    raise ValueError(f"unknown statistic {statistic!r}")
+    return _influence_function(y, statistic, tau=tau, w=None)
 
 
 # --------------------------------------------------------------------- #

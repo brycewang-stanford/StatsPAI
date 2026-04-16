@@ -438,6 +438,116 @@ def sig_stars(pval: float) -> str:
 
 
 # ════════════════════════════════════════════════════════════════════════
+# Influence functions (RIF kernel)
+# ════════════════════════════════════════════════════════════════════════
+
+def influence_function(
+    y: np.ndarray,
+    stat: str,
+    tau: float = 0.5,
+    w: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    """
+    Per-observation influence function (RIF kernel) of a distributional
+    statistic evaluated at the (optionally weighted) empirical distribution
+    of ``y``.
+
+    Canonical implementation used by the FFL two-step decomposition
+    (``ffl._rif_for_sample``) and — for the overlapping statistics
+    ``variance`` and ``gini`` — by ``rif.rif_values``. Supported stats:
+
+        ``quantile`` (with ``tau``), ``mean``, ``variance``, ``std``,
+        ``log_var``, ``iqr``, ``gini``, ``theil_t``, ``theil_l``,
+        ``atkinson`` (ε = 1).
+
+    When ``w`` is ``None`` the function uses unit weights and thus
+    coincides with the classical (unweighted) influence-function formulas.
+
+    Notes
+    -----
+    For the quantile statistic the density at the quantile is estimated
+    via a manual Silverman-of-thumb Gaussian kernel
+    (``h = 1.06 · σ · n_eff^{-0.2}``). This matches FFL (2018) and is
+    numerically close to — but not identical with —
+    ``scipy.stats.gaussian_kde(bw_method='silverman')``; the relative
+    bandwidth difference is about 0.5%.
+    """
+    y = np.asarray(y, dtype=float)
+    if w is None:
+        w = np.ones_like(y)
+    w = np.asarray(w, dtype=float)
+
+    if stat == "quantile":
+        q = float(weighted_quantile(y, tau, w=w))
+        n_eff = (w.sum() ** 2) / (w ** 2).sum()
+        sigma = np.sqrt(max(float(np.cov(y, aweights=w)), 1e-12))
+        h = max(1.06 * sigma * n_eff ** (-0.2), 1e-6)
+        kern = np.exp(-0.5 * ((y - q) / h) ** 2) / (h * np.sqrt(2 * np.pi))
+        f_q = max(float(np.average(kern, weights=w)), 1e-12)
+        return q + (tau - (y <= q).astype(float)) / f_q
+    if stat == "mean":
+        return y.copy()
+    if stat == "variance":
+        mu = float(np.average(y, weights=w))
+        return (y - mu) ** 2
+    if stat == "std":
+        mu = float(np.average(y, weights=w))
+        s2 = float(np.average((y - mu) ** 2, weights=w))
+        s = np.sqrt(max(s2, 1e-12))
+        return s + ((y - mu) ** 2 - s2) / (2 * s)
+    if stat == "log_var":
+        ly = np.log(np.clip(y, 1e-12, None))
+        mu = float(np.average(ly, weights=w))
+        return (ly - mu) ** 2
+    if stat == "iqr":
+        return (
+            influence_function(y, "quantile", tau=0.75, w=w)
+            - influence_function(y, "quantile", tau=0.25, w=w)
+        )
+    if stat == "gini":
+        order = np.argsort(y)
+        y_s = y[order]
+        w_s = w[order]
+        W = w_s.sum()
+        mu = float(np.average(y_s, weights=w_s))
+        if mu <= 0:
+            return np.full_like(y, np.nan)
+        F = (np.cumsum(w_s) - 0.5 * w_s) / W
+        GL = np.cumsum(w_s * y_s) / W
+        G = 2.0 * float(np.cov(y_s, F, aweights=w_s)[0, 1]) / mu
+        rif_sorted = 1.0 + (2.0 / mu) * (y_s * F - GL) - ((G + 1.0) / mu) * y_s
+        rif_orig = np.empty_like(rif_sorted)
+        rif_orig[order] = rif_sorted
+        return rif_orig
+    if stat == "theil_t":
+        yp = np.clip(y, 1e-12, None)
+        mu = float(np.average(yp, weights=w))
+        if mu <= 0:
+            return np.full_like(y, np.nan)
+        s = yp / mu
+        T = float(np.average(s * np.log(s), weights=w))
+        return s * np.log(s) - (s - 1.0) * (T + 1.0)
+    if stat == "theil_l":
+        yp = np.clip(y, 1e-12, None)
+        mu = float(np.average(yp, weights=w))
+        if mu <= 0:
+            return np.full_like(y, np.nan)
+        return (yp / mu - 1.0) - (np.log(yp) - np.log(mu))
+    if stat == "atkinson":
+        yp = np.clip(y, 1e-12, None)
+        mu = float(np.average(yp, weights=w))
+        if mu <= 0:
+            return np.full_like(y, np.nan)
+        mean_log = float(np.average(np.log(yp), weights=w))
+        geo_mean = np.exp(mean_log)
+        A1 = 1.0 - geo_mean / mu
+        return A1 + (geo_mean / mu) * (
+            (yp - mu) / mu - (np.log(yp) - mean_log)
+        )
+    raise ValueError(f"unknown statistic {stat!r}")
+
+
+# ════════════════════════════════════════════════════════════════════════
 # DataFrame / formula parsing
 # ════════════════════════════════════════════════════════════════════════
 

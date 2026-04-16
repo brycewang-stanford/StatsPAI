@@ -38,6 +38,7 @@ from ._common import (
     add_constant,
     bootstrap_ci,
     bootstrap_stat,
+    influence_function,
     logit_fit,
     logit_predict,
     prepare_frame,
@@ -149,96 +150,9 @@ def _rif_for_sample(
     y: np.ndarray, w: np.ndarray, stat: str, tau: float,
 ) -> np.ndarray:
     """
-    Compute RIF values of y at the *weighted* distribution's statistic.
-    Most RIF formulas are unweighted; we approximate weighted RIF by
-    using the weighted statistic as the "true" value and the weighted
-    density estimator.
+    Weighted RIF values — thin delegate to ``_common.influence_function``.
     """
-    if stat == "quantile":
-        q = float(weighted_quantile(y, tau, w=w))
-        # Weighted kernel density at q
-        n_eff = (w.sum() ** 2) / (w ** 2).sum()
-        sigma = np.sqrt(max(np.cov(y, aweights=w), 1e-12))
-        h = 1.06 * sigma * n_eff ** (-0.2)
-        h = max(h, 1e-6)
-        kern = np.exp(-0.5 * ((y - q) / h) ** 2) / (h * np.sqrt(2 * np.pi))
-        f_q = float(np.average(kern, weights=w))
-        f_q = max(f_q, 1e-12)
-        return q + (tau - (y <= q).astype(float)) / f_q
-    if stat == "mean":
-        return y.copy()
-    if stat == "variance":
-        mu = float(np.average(y, weights=w))
-        return (y - mu) ** 2
-    if stat == "std":
-        mu = float(np.average(y, weights=w))
-        s2 = float(np.average((y - mu) ** 2, weights=w))
-        s = np.sqrt(max(s2, 1e-12))
-        return s + ((y - mu) ** 2 - s2) / (2 * s)
-    if stat == "log_var":
-        ly = np.log(np.clip(y, 1e-12, None))
-        mu = float(np.average(ly, weights=w))
-        return (ly - mu) ** 2
-    if stat == "iqr":
-        # RIF for IQR: Q75 − Q25 with two additive RIF pieces
-        rif75 = _rif_for_sample(y, w, "quantile", 0.75)
-        rif25 = _rif_for_sample(y, w, "quantile", 0.25)
-        return rif75 - rif25
-    if stat == "gini":
-        # Weighted Gini influence function, derived from the functional
-        # G = (2/μ) · E[y · F(y)] − 1. At observation y_i:
-        #   RIF(y_i) = 1 + (2/μ)[y_i·F(y_i) − GL(F(y_i))] − ((G+1)/μ)·y_i
-        # where F is the weighted fractional rank and GL the weighted
-        # generalized Lorenz curve. E_w[RIF] = G up to O(1/n) discrete
-        # ECDF correction.
-        order = np.argsort(y)
-        y_s = y[order]
-        w_s = w[order]
-        W = w_s.sum()
-        mu = float(np.average(y_s, weights=w_s))
-        if mu <= 0:
-            return np.full_like(y, np.nan)
-        F = (np.cumsum(w_s) - 0.5 * w_s) / W   # weighted fractional rank
-        GL = np.cumsum(w_s * y_s) / W          # weighted cumulative sum
-        G = 2.0 * float(np.cov(y_s, F, aweights=w_s)[0, 1]) / mu
-        rif_sorted = 1.0 + (2.0 / mu) * (y_s * F - GL) - ((G + 1.0) / mu) * y_s
-        rif_orig = np.empty_like(rif_sorted)
-        rif_orig[order] = rif_sorted
-        return rif_orig
-    if stat == "theil_t":
-        # Closed-form IF: T = E[(y/μ) log(y/μ)]
-        # IF_i = (y_i/μ) log(y_i/μ) − T − (y_i/μ − 1)(T + 1)
-        # so that T + IF averages back to T under the DGP (FFL 2018).
-        yp = np.clip(y, 1e-12, None)
-        mu = float(np.average(yp, weights=w))
-        if mu <= 0:
-            return np.full_like(y, np.nan)
-        s = yp / mu
-        T = float(np.average(s * np.log(s), weights=w))
-        return s * np.log(s) - (s - 1.0) * (T + 1.0)
-    if stat == "theil_l":
-        # L = log(μ) − E[log y]; IF_i = (y_i/μ − 1) − (log y_i − log μ) − L
-        yp = np.clip(y, 1e-12, None)
-        mu = float(np.average(yp, weights=w))
-        if mu <= 0:
-            return np.full_like(y, np.nan)
-        L = float(np.log(mu) - np.average(np.log(yp), weights=w))
-        return (yp / mu - 1.0) - (np.log(yp) - np.log(mu))
-    if stat == "atkinson":
-        # A(1) = 1 − exp(E log y) / μ
-        # d A(1) / dF at y_i:  IF_i such that E_w[A + IF] = A.
-        yp = np.clip(y, 1e-12, None)
-        mu = float(np.average(yp, weights=w))
-        if mu <= 0:
-            return np.full_like(y, np.nan)
-        mean_log = float(np.average(np.log(yp), weights=w))
-        geo_mean = np.exp(mean_log)
-        A1 = 1.0 - geo_mean / mu
-        # ∂A1 = (geo_mean/μ) [(y_i − μ)/μ − (log y_i − mean_log)]
-        return A1 + (geo_mean / mu) * (
-            (yp - mu) / mu - (np.log(yp) - mean_log)
-        )
-    raise ValueError(f"unknown statistic {stat!r}")
+    return influence_function(y, stat, tau=tau, w=w)
 
 
 def _numerical_rif(y: np.ndarray, w: np.ndarray, stat: str,

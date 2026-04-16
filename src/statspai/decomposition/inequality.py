@@ -41,6 +41,8 @@ from ._common import (
     add_constant,
     bootstrap_ci,
     prepare_frame,
+    statistic_value,
+    weighted_gini,
     weighted_quantile,
     wls,
 )
@@ -48,22 +50,25 @@ from ._common import (
 
 # ════════════════════════════════════════════════════════════════════════
 # Inequality indices
+#
+# The basic GE-family atoms (Theil T, Theil L, Atkinson(ε=1), Gini) are
+# delegated to ``_common`` — which already hosts canonical implementations.
+# We keep local wrappers for the cases ``_common`` does not cover:
+# general GE(α), general Atkinson(ε≠1), and the half-squared CV (GE(2)).
 # ════════════════════════════════════════════════════════════════════════
 
 def _theil_t(y: np.ndarray, w: Optional[np.ndarray] = None) -> float:
-    y = np.clip(y, 1e-12, None)
+    y = np.asarray(y, dtype=float)
     if w is None:
         w = np.ones_like(y)
-    mu = float(np.average(y, weights=w))
-    return float(np.average((y / mu) * np.log(y / mu), weights=w))
+    return statistic_value(y, np.asarray(w, dtype=float), "theil_t")
 
 
 def _theil_l(y: np.ndarray, w: Optional[np.ndarray] = None) -> float:
-    y = np.clip(y, 1e-12, None)
+    y = np.asarray(y, dtype=float)
     if w is None:
         w = np.ones_like(y)
-    mu = float(np.average(y, weights=w))
-    return float(np.log(mu) - np.average(np.log(y), weights=w))
+    return statistic_value(y, np.asarray(w, dtype=float), "theil_l")
 
 
 def _ge_index(y: np.ndarray, alpha: float,
@@ -84,35 +89,27 @@ def _ge_index(y: np.ndarray, alpha: float,
 def _atkinson(y: np.ndarray, eps: float = 1.0,
               w: Optional[np.ndarray] = None) -> float:
     """Atkinson index for inequality aversion ε."""
-    y = np.clip(y, 1e-12, None)
+    y = np.asarray(y, dtype=float)
     if w is None:
         w = np.ones_like(y)
-    mu = float(np.average(y, weights=w))
+    w = np.asarray(w, dtype=float)
     if abs(eps - 1.0) < 1e-12:
-        # A(1) = 1 - exp(E log y)/μ
-        return float(1.0 - np.exp(np.average(np.log(y), weights=w)) / mu)
-    # A(eps) = 1 - (E y^(1-eps))^(1/(1-eps)) / μ
+        # A(1) delegates to _common.statistic_value
+        return statistic_value(y, w, "atkinson")
+    # A(eps≠1) is not in _common; keep local closed form
+    y = np.clip(y, 1e-12, None)
+    mu = float(np.average(y, weights=w))
     p = 1.0 - eps
     val = float(np.average(y ** p, weights=w))
     return float(1.0 - (val ** (1.0 / p)) / mu)
 
 
 def _gini(y: np.ndarray, w: Optional[np.ndarray] = None) -> float:
-    """Weighted Gini coefficient."""
+    """Weighted Gini coefficient (delegates to _common.weighted_gini)."""
     y = np.asarray(y, dtype=float)
     if w is None:
         w = np.ones_like(y)
-    w = np.asarray(w, dtype=float)
-    order = np.argsort(y)
-    ys = y[order]
-    ws = w[order]
-    W = ws.sum()
-    mu = np.average(ys, weights=ws)
-    if mu <= 0:
-        return float("nan")
-    cum_w = np.cumsum(ws)
-    F = (cum_w - 0.5 * ws) / W
-    return float(2.0 * np.cov(ys, F, aweights=ws)[0, 1] / mu)
+    return weighted_gini(y, np.asarray(w, dtype=float))
 
 
 def _cv_squared_half(y: np.ndarray,
