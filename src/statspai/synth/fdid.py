@@ -228,9 +228,11 @@ def _forward_select_cv(
                 train_synth = Y0_pre[np.ix_(candidate, np.arange(split))].mean(axis=0)
                 train_y = Y1_pre[:split]
                 bias = train_y.mean() - train_synth.mean()
-                pred = Y0_pre[np.ix_(candidate, np.array([split]))].mean(axis=0) + bias
-                actual = Y1_pre[split]
-                cv_errors.append(float((actual - pred) ** 2))
+                pred = float(
+                    Y0_pre[np.ix_(candidate, np.array([split]))].mean() + bias
+                )
+                actual = float(Y1_pre[split])
+                cv_errors.append((actual - pred) ** 2)
             cv_rmse = float(np.sqrt(np.mean(cv_errors)))
             if cv_rmse < best_candidate_cv:
                 best_candidate_cv = cv_rmse

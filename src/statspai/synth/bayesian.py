@@ -548,12 +548,23 @@ def _mcmc_sampler(
             w_prop, sigma_prop, Y1_pre, Y0_pre, dirichlet_alpha
         )
 
-        # Proposal ratio (Dirichlet is asymmetric; log-normal is symmetric
-        # in log-space so its Jacobian ratio cancels)
+        # Proposal ratio:
+        # - Dirichlet is asymmetric: need explicit q ratio.
+        # - Log-normal random walk on sigma: proposal is symmetric in
+        #   log-space but target is on sigma, so Jacobian gives
+        #   log q(sigma_prop|sigma) - log q(sigma|sigma_prop)
+        #     = -log sigma_prop - (-log sigma) = log(sigma / sigma_prop),
+        #   and the reverse-minus-forward contribution is
+        #   log(sigma_prop / sigma).
         log_q_forward = _log_dirichlet_proposal_density(w_prop, w, w_step)
         log_q_reverse = _log_dirichlet_proposal_density(w, w_prop, w_step)
+        log_jac_sigma = np.log(sigma_prop) - np.log(sigma)
 
-        log_alpha_mh = prop_lp - current_lp + log_q_reverse - log_q_forward
+        log_alpha_mh = (
+            prop_lp - current_lp
+            + log_q_reverse - log_q_forward
+            + log_jac_sigma
+        )
 
         if np.log(rng.uniform()) < log_alpha_mh:
             w = w_prop
