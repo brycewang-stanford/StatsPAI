@@ -69,17 +69,25 @@ CausalResult._CITATIONS['rd_multi_extrapolate'] = (
 
 def _ols_fit(X: np.ndarray, y: np.ndarray):
     """
-    OLS regression via QR decomposition.
+    OLS regression via QR decomposition with fallback to lstsq.
 
     Returns (coefficients, residuals, variance-covariance matrix of beta).
     """
-    Q, R = np.linalg.qr(X, mode='reduced')
-    beta = np.linalg.solve(R, Q.T @ y)
-    resid = y - X @ beta
     n, k = X.shape
-    sigma2 = np.sum(resid ** 2) / max(n - k, 1)
-    R_inv = np.linalg.inv(R)
-    vcov = sigma2 * (R_inv @ R_inv.T)
+    try:
+        Q, R = np.linalg.qr(X, mode='reduced')
+        beta = np.linalg.solve(R, Q.T @ y)
+        resid = y - X @ beta
+        sigma2 = np.sum(resid ** 2) / max(n - k, 1)
+        R_inv = np.linalg.inv(R)
+        vcov = sigma2 * (R_inv @ R_inv.T)
+    except np.linalg.LinAlgError:
+        # Fallback for singular/near-singular design matrices
+        beta, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
+        resid = y - X @ beta
+        sigma2 = np.sum(resid ** 2) / max(n - k, 1)
+        XtX_inv = np.linalg.pinv(X.T @ X)
+        vcov = sigma2 * XtX_inv
     return beta, resid, vcov
 
 
