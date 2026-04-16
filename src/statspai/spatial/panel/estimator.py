@@ -54,11 +54,16 @@ def _balanced_panel_matrix(
 
 
 def _within_transform(arr: np.ndarray, effects: EffectKind) -> np.ndarray:
-    """Demean an (N, T) array within entities (and within time if twoways)."""
-    out = arr - arr.mean(axis=1, keepdims=True)          # entity demean
+    """Demean an (N, T) array within entities (and within time if twoways).
+
+    Two-way: y_tilde = y_it - y_bar_i - y_bar_t + y_bar  (all from original arr).
+    """
     if effects == "twoways":
-        out = out - arr.mean(axis=0, keepdims=True) + arr.mean()
-    return out
+        return (arr
+                - arr.mean(axis=1, keepdims=True)
+                - arr.mean(axis=0, keepdims=True)
+                + arr.mean())
+    return arr - arr.mean(axis=1, keepdims=True)
 
 
 # --------------------------------------------------------------------- #

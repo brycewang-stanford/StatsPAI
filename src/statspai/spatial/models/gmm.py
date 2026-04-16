@@ -95,7 +95,7 @@ def sem_gmm(W, data: pd.DataFrame, formula: str,
 
     if robust == "het":
         # Sandwich: (X'X)^-1 X' diag(e^2) X (X'X)^-1  (HC0 on transformed design)
-        meat = Xa.T @ (np.diag(e ** 2) @ Xa)
+        meat = (Xa * e[:, None]).T @ (Xa * e[:, None])
         V = XatXa_inv @ meat @ XatXa_inv
     else:
         sigma2 = float(e @ e) / n
@@ -174,7 +174,8 @@ def sar_gmm(W, data: pd.DataFrame, formula: str,
     rho = float(theta[-1])
 
     if robust == "het":
-        meat = D.T @ P_Z @ np.diag(e ** 2) @ P_Z @ D
+        PZD_e = (P_Z @ D) * e[:, None]
+        meat = PZD_e.T @ PZD_e
         V = DtPzD_inv @ meat @ DtPzD_inv
     else:
         sigma2 = float(e @ e) / (n - D.shape[1])

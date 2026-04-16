@@ -561,7 +561,9 @@ def sac(W: ArrayOrW, data: pd.DataFrame, formula: str,
     params_vec = np.concatenate([beta, [rho_hat, lam_hat]])
     se_vec = np.concatenate([se_beta, [se_rho, se_lam]])
     fitted = y - e
-    log_lik = -float(opt.fun) - n / 2 * np.log(2 * np.pi) - n / 2
+    ldet_rho = _logdet(M, rho_hat, eigvals)
+    ldet_lam = _logdet(M, lam_hat, eigvals)
+    log_lik = _full_loglik(n, sigma2, ldet_rho + ldet_lam)
     return _make_results(
         model_type="sac", spatial_param_name="rho,lambda",
         spatial_param_value=rho_hat,

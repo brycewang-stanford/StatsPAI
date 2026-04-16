@@ -49,9 +49,8 @@ def lm_tests(formula: str, data: pd.DataFrame, W,
     Wy = M @ y
     Wy_centered = Wy - X @ (XtX_inv @ (X.T @ Wy))
 
-    # T = tr((W' + W) W)   for row-normalised W  →  tr(W' W + W W)
-    Wd = M.toarray()
-    T = float(np.trace(Wd.T @ Wd + Wd @ Wd))
+    # T = tr(W' W + W W) — computed sparsely to avoid O(n²) dense allocation
+    T = float((M.T.multiply(M)).sum() + (M.multiply(M @ M.T)).sum())
 
     # Raw LM statistics (Anselin 1988, Anselin & Bera 1998)
     LM_err = ((e @ We) / s2) ** 2 / T
