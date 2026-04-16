@@ -123,7 +123,7 @@ from .robustness import spec_curve, SpecCurveResult, robustness_report, Robustne
 from .survey import svydesign, SurveyDesign, svymean, svytotal, svyglm
 from .dag import dag, DAG, dag_example, dag_examples, dag_example_positions, dag_simulate
 from .power import power, PowerResult, power_rct, power_did, power_rd, power_iv, power_cluster_rct, power_ols, mde
-from .decomposition import oaxaca, gelbach, OaxacaResult, GelbachResult
+from .decomposition import oaxaca, gelbach, OaxacaResult, GelbachResult, rifreg, rif_decomposition
 from .selection import stepwise, lasso_select, SelectionResult
 from .qte import qdid, qte, QTEResult
 from .mht import romano_wolf, RomanoWolfResult, adjust_pvalues, bonferroni, holm, benjamini_hochberg

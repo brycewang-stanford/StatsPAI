@@ -26,5 +26,10 @@ Much?" *Journal of Labor Economics*, 34(2), 509-543.
 """
 
 from .oaxaca import oaxaca, gelbach, OaxacaResult, GelbachResult
+from .rif import rifreg, rif_decomposition, rif_values, RIFResult, RIFDecompositionResult
 
-__all__ = ['oaxaca', 'gelbach', 'OaxacaResult', 'GelbachResult']
+__all__ = [
+    'oaxaca', 'gelbach', 'OaxacaResult', 'GelbachResult',
+    'rifreg', 'rif_decomposition', 'rif_values',
+    'RIFResult', 'RIFDecompositionResult',
+]
