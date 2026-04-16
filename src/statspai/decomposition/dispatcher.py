@@ -62,7 +62,7 @@ def available_methods() -> list[str]:
     return sorted(_REGISTRY.keys())
 
 
-def decompose(method: str, **kwargs) -> Any:
+def decompose(method: str, /, **kwargs) -> Any:
     """
     Unified entry point for all decomposition methods.
 
