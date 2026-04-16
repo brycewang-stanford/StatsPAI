@@ -20,5 +20,6 @@ Baron, R.M. and Kenny, D.A. (1986).
 """
 
 from .mediate import mediate, MediationAnalysis
+from .sensitivity import mediate_sensitivity, MediateSensitivityResult
 
-__all__ = ['mediate', 'MediationAnalysis']
+__all__ = ['mediate', 'MediationAnalysis', 'mediate_sensitivity', 'MediateSensitivityResult']

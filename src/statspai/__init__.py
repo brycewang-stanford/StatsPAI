@@ -62,7 +62,7 @@ from .dml import dml, DoubleML
 from .deepiv import deepiv, DeepIV
 from .panel import panel, panel_compare, balance_panel, PanelResults, PanelCompareResults, PanelRegression
 from .causal_impact import causal_impact, CausalImpactEstimator, impactplot
-from .mediation import mediate, MediationAnalysis
+from .mediation import mediate, MediationAnalysis, mediate_sensitivity
 from .bartik import bartik, BartikIV, ssaggregate, shift_share_se
 from .output.outreg2 import OutReg2, outreg2
 from .output.modelsummary import modelsummary, coefplot
