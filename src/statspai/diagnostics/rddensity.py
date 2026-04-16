@@ -108,8 +108,11 @@ def rddensity(
         h_l = h_r = h
 
     # Density estimation via local polynomial on the empirical CDF
-    f_left, se_left = _local_poly_density(x_left, 0, h_l, p, side='left')
-    f_right, se_right = _local_poly_density(x_right, 0, h_r, p, side='right')
+    # Pass n (full sample size) so density is on the correct scale
+    f_left, se_left = _local_poly_density(x_left, 0, h_l, p, side='left',
+                                          n_full=n)
+    f_right, se_right = _local_poly_density(x_right, 0, h_r, p, side='right',
+                                            n_full=n)
 
     # Test statistic
     diff = f_right - f_left
@@ -156,17 +159,35 @@ def _cjm_bandwidth(x, p):
     return max(h, 0.01 * sd)
 
 
-def _local_poly_density(x, target, h, p, side='right'):
+def _local_poly_density(x, target, h, p, side='right', n_full=None):
     """
     Estimate density at 'target' using local polynomial on the ECDF.
 
-    The key insight from CJM: instead of histogram + smooth,
-    directly smooth the empirical CDF using local polynomial regression,
-    then differentiate to get the density.
-    """
-    n = len(x)
+    The key insight from CJM (2020): smooth the empirical CDF using
+    local polynomial regression, then differentiate to get the density.
 
-    # Keep observations within bandwidth
+    Parameters
+    ----------
+    x : array
+        Side-specific running variable values (e.g., x_left or x_right).
+    target : float
+        Point at which to estimate density (the cutoff, usually 0).
+    h : float
+        Bandwidth.
+    p : int
+        Polynomial order.
+    side : str
+        'left' or 'right'.
+    n_full : int, optional
+        Full sample size (both sides). If None, uses len(x).
+        This is needed to convert the side-specific density to the
+        unconditional density: f(c) = (n_side / n_full) * f_side(c).
+    """
+    n_side = len(x)
+    if n_full is None:
+        n_full = n_side
+
+    # Keep observations within bandwidth on the correct side
     if side == 'left':
         in_bw = (x >= target - h) & (x < target)
     else:
@@ -177,38 +198,48 @@ def _local_poly_density(x, target, h, p, side='right'):
 
     if n_bw < p + 2:
         # Fallback: simple histogram density
-        f_hat = n_bw / (h * n) if h > 0 else 0
+        f_hat = n_bw / (h * n_full) if h > 0 else 0
         se = f_hat / np.sqrt(max(n_bw, 1))
         return max(f_hat, 1e-10), max(se, 1e-10)
 
-    # Empirical CDF values at these points
-    x_sorted = np.sort(x)
-    # F(x_bw[i]) = rank of x_bw[i] in full sample / n
-    ecdf_vals = np.searchsorted(x_sorted, x_bw) / n
+    # CJM (2020) approach: fit local polynomial to the ECDF of the
+    # FULL one-sided sample, evaluated at points within the bandwidth.
+    # The ECDF is F_side(x) = (rank of x among all side observations) / n_full.
+    # Using n_full (not n_side) so that f = dF/dx gives the unconditional density.
+    x_all_sorted = np.sort(x)  # all side observations sorted
+    # ECDF values at bandwidth observations, scaled by n_full
+    ecdf_vals = np.searchsorted(x_all_sorted, x_bw, side='right') / n_full
 
-    # Local polynomial regression: F(x) = β₀ + β₁(x-c) + ... + βₚ(x-c)^p
-    u = (x_bw - target) / h
-    w = np.maximum(1 - np.abs(u), 0)  # triangular kernel
+    # Local polynomial regression of ECDF on (x - target)
+    # F(x) ≈ β₀ + β₁(x-c) + β₂(x-c)² + ...
+    # Density = dF/dx|_{x=c} = β₁
+    dx = x_bw - target
+    w = np.maximum(1 - np.abs(dx / h), 0)  # triangular kernel
 
-    X_poly = np.column_stack([u ** j for j in range(p + 1)])
+    X_poly = np.column_stack([dx ** j for j in range(p + 1)])
     sqw = np.sqrt(w)
     Xw = X_poly * sqw[:, np.newaxis]
     yw = ecdf_vals * sqw
 
     try:
         beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
-        # Density at target = derivative of CDF = β₁ / h
-        f_hat = beta[1] / h if p >= 1 else n_bw / (h * n)
-        f_hat = abs(f_hat)  # density must be positive
+        # f(c) = β₁ (the slope coefficient, in units of dx not u)
+        f_hat = abs(beta[1]) if p >= 1 else n_bw / (h * n_full)
 
-        # SE from residuals
-        resid = ecdf_vals - X_poly @ beta
-        sigma2 = np.average(resid ** 2, weights=w)
+        # SE: the ECDF at point x has variance F(x)(1-F(x))/n_full.
+        # For the local polynomial fit, we use a heteroskedastic sandwich:
+        # V(β) = (X'WX)^{-1} X'W Σ WX (X'WX)^{-1}
+        # where Σ_ii = Var(F(x_i)) = F(x_i)(1-F(x_i)) / n_full
+        ecdf_var = ecdf_vals * (1 - ecdf_vals) / n_full
+        ecdf_var = np.maximum(ecdf_var, 1e-20)
         XwX_inv = np.linalg.pinv(Xw.T @ Xw)
-        se_beta1 = np.sqrt(sigma2 * XwX_inv[1, 1]) if XwX_inv.shape[0] > 1 else 0
-        se = abs(se_beta1 / h)
+        # Sandwich: meat = X'W * diag(ecdf_var) * WX
+        meat = (Xw * ecdf_var[:, None]).T @ Xw
+        vcov = XwX_inv @ meat @ XwX_inv
+        se_beta1 = np.sqrt(max(vcov[1, 1], 0)) if vcov.shape[0] > 1 else 0
+        se = abs(se_beta1)
     except Exception:
-        f_hat = n_bw / (h * n)
+        f_hat = n_bw / (h * n_full)
         se = f_hat / np.sqrt(max(n_bw, 1))
 
     return max(f_hat, 1e-10), max(se, 1e-10)

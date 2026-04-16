@@ -170,6 +170,253 @@ def dgp_rd(
     return df
 
 
+def dgp_rd_kink(
+    n: int = 2000,
+    kink: float = 0.8,
+    cutoff: float = 0.0,
+    seed: int | None = None,
+) -> pd.DataFrame:
+    """Generate Regression Kink Design data (Card et al. 2015).
+
+    The treatment function has a kink (change in slope) at the cutoff.
+    The true kink effect on the outcome equals ``kink``.
+
+    DGP: T = X + kink_T * max(X, 0), Y = 0.4*T + noise
+    True RKD = 0.4 * kink_T / kink_T = kink (simplified)
+
+    Parameters
+    ----------
+    n : int
+        Sample size.
+    kink : float
+        True kink in slope at cutoff.
+    cutoff : float
+        Kink point location.
+    seed : int or None
+        Random seed.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: ``y``, ``x``, ``treatment``.
+
+    Examples
+    --------
+    >>> df = dgp_rd_kink(n=2000, kink=0.8, seed=42)
+    >>> df.attrs['true_kink']
+    0.8
+    """
+    rng = np.random.default_rng(seed)
+    x = rng.uniform(-2, 2, n)
+    x_c = x - cutoff
+    # Slope changes by `kink` at cutoff
+    y = 0.5 * x_c + kink * np.maximum(x_c, 0) + rng.normal(0, 0.5, n)
+    treatment = np.maximum(x_c, 0)  # treatment intensity
+
+    df = pd.DataFrame({"y": y, "x": x, "treatment": treatment})
+    df.attrs["true_kink"] = kink
+    return df
+
+
+def dgp_rd_multi(
+    n: int = 3000,
+    cutoffs: list | None = None,
+    effects: list | None = None,
+    seed: int | None = None,
+) -> pd.DataFrame:
+    """Generate multi-cutoff RD data.
+
+    Parameters
+    ----------
+    n : int
+        Sample size.
+    cutoffs : list of float
+        Cutoff values. Default [0.0, 1.0].
+    effects : list of float
+        Treatment effects at each cutoff. Default [2.0, 3.0].
+    seed : int or None
+        Random seed.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: ``y``, ``x``, ``z`` (covariate).
+
+    Examples
+    --------
+    >>> df = dgp_rd_multi(n=3000, seed=42)
+    >>> df.attrs['true_effects']
+    {0.0: 2.0, 1.0: 3.0}
+    """
+    if cutoffs is None:
+        cutoffs = [0.0, 1.0]
+    if effects is None:
+        effects = [2.0, 3.0]
+
+    rng = np.random.default_rng(seed)
+    x = rng.uniform(cutoffs[0] - 2, cutoffs[-1] + 2, n)
+    z = rng.normal(0, 1, n)
+
+    y = 0.5 * x + 0.2 * z + rng.normal(0, 0.5, n)
+    for c, tau in zip(cutoffs, effects):
+        y += tau * (x >= c)
+
+    df = pd.DataFrame({"y": y, "x": x, "z": z})
+    df.attrs["true_effects"] = dict(zip(cutoffs, effects))
+    df.attrs["cutoffs"] = cutoffs
+    return df
+
+
+def dgp_rd_hte(
+    n: int = 3000,
+    ate: float = 2.0,
+    hte_coef: float = 1.5,
+    cutoff: float = 0.0,
+    seed: int | None = None,
+) -> pd.DataFrame:
+    """Generate RD data with heterogeneous treatment effects.
+
+    CATE(z) = ate + hte_coef * z, where z ~ N(0,1).
+    So ATE = ate and the slope of heterogeneity = hte_coef.
+
+    Parameters
+    ----------
+    n : int
+        Sample size.
+    ate : float
+        Average treatment effect at cutoff.
+    hte_coef : float
+        Slope of heterogeneity w.r.t. covariate z.
+    cutoff : float
+        RD cutoff.
+    seed : int or None
+        Random seed.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: ``y``, ``x``, ``z``.
+
+    Examples
+    --------
+    >>> df = dgp_rd_hte(n=3000, ate=2.0, hte_coef=1.5, seed=42)
+    >>> df.attrs['true_ate']
+    2.0
+    >>> df.attrs['true_hte_coef']
+    1.5
+    """
+    rng = np.random.default_rng(seed)
+    x = rng.uniform(-1, 1, n)
+    z = rng.normal(0, 1, n)
+    tau = ate + hte_coef * z
+    d = (x >= cutoff).astype(float)
+    y = 0.5 * x + tau * d + rng.normal(0, 0.5, n)
+
+    df = pd.DataFrame({"y": y, "x": x, "z": z})
+    df.attrs["true_ate"] = ate
+    df.attrs["true_hte_coef"] = hte_coef
+    df.attrs["true_cate_fn"] = lambda z_val: ate + hte_coef * z_val
+    return df
+
+
+def dgp_rd_2d(
+    n: int = 2000,
+    effect: float = 2.0,
+    seed: int | None = None,
+) -> pd.DataFrame:
+    """Generate 2D boundary RD data.
+
+    Treatment is assigned when x1 >= 0 (vertical boundary).
+    True effect = ``effect``.
+
+    Parameters
+    ----------
+    n : int
+        Sample size.
+    effect : float
+        Treatment effect at boundary.
+    seed : int or None
+        Random seed.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: ``y``, ``x1``, ``x2``, ``d`` (treatment).
+
+    Examples
+    --------
+    >>> df = dgp_rd_2d(n=2000, effect=2.0, seed=42)
+    >>> df.attrs['true_effect']
+    2.0
+    """
+    rng = np.random.default_rng(seed)
+    x1 = rng.uniform(-1, 1, n)
+    x2 = rng.uniform(-1, 1, n)
+    d = (x1 >= 0).astype(float)
+    y = 0.3 * x1 + 0.2 * x2 + effect * d + rng.normal(0, 0.5, n)
+
+    df = pd.DataFrame({"y": y, "x1": x1, "x2": x2, "d": d})
+    df.attrs["true_effect"] = effect
+    return df
+
+
+def dgp_rdit(
+    n_periods: int = 200,
+    effect: float = 2.0,
+    cutoff_period: int = 100,
+    seasonality: bool = True,
+    seed: int | None = None,
+) -> pd.DataFrame:
+    """Generate Regression Discontinuity in Time data (Hausman-Rapson 2018).
+
+    Parameters
+    ----------
+    n_periods : int
+        Number of time periods.
+    effect : float
+        Treatment effect at the policy change date.
+    cutoff_period : int
+        Period of the policy change.
+    seasonality : bool
+        Include monthly seasonality.
+    seed : int or None
+        Random seed.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: ``y``, ``time``, ``date``.
+
+    Examples
+    --------
+    >>> df = dgp_rdit(n_periods=200, effect=2.0, seed=42)
+    >>> df.attrs['true_effect']
+    2.0
+    """
+    rng = np.random.default_rng(seed)
+
+    t = np.arange(n_periods)
+    dates = pd.date_range("2010-01-01", periods=n_periods, freq="MS")
+
+    # Trend + treatment + noise
+    y = 0.01 * t + effect * (t >= cutoff_period) + rng.normal(0, 0.5, n_periods)
+
+    # Seasonality
+    if seasonality:
+        month = dates.month
+        y += 0.5 * np.sin(2 * np.pi * month / 12)
+
+    # Autocorrelation (AR(1))
+    for i in range(1, n_periods):
+        y[i] += 0.3 * (y[i - 1] - 0.01 * (i - 1))
+
+    df = pd.DataFrame({"y": y, "time": t, "date": dates})
+    df.attrs["true_effect"] = effect
+    df.attrs["cutoff_period"] = cutoff_period
+    df.attrs["cutoff_date"] = str(dates[cutoff_period])
+    return df
+
+
 # ---------------------------------------------------------------------------
 # Instrumental Variables
 # ---------------------------------------------------------------------------

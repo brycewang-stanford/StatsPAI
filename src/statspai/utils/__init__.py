@@ -17,6 +17,11 @@ from .io import read_data
 from .dgp import (
     dgp_did,
     dgp_rd,
+    dgp_rd_kink,
+    dgp_rd_multi,
+    dgp_rd_hte,
+    dgp_rd_2d,
+    dgp_rdit,
     dgp_iv,
     dgp_rct,
     dgp_panel,
@@ -47,6 +52,11 @@ __all__ = [
     # Data Generating Processes
     'dgp_did',
     'dgp_rd',
+    'dgp_rd_kink',
+    'dgp_rd_multi',
+    'dgp_rd_hte',
+    'dgp_rd_2d',
+    'dgp_rdit',
     'dgp_iv',
     'dgp_rct',
     'dgp_panel',

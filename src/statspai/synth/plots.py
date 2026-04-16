@@ -15,6 +15,10 @@ Plot types
 * **conformal** — period-level effects with conformal CI bands
 * **staggered** — cohort-specific ATT comparison
 * **factors** — latent factor loadings (gsynth only)
+* **distributional** — quantile treatment effects (DiSCo only)
+* **multi_outcome** — per-outcome ATT comparison
+* **prediction_interval** / **pi** — effects with prediction intervals
+* **sensitivity** / **loo** — multi-panel sensitivity diagnostics
 * **compare** — overlay multiple ``CausalResult`` objects
 """
 
@@ -174,11 +178,28 @@ def synthplot(
         return _plot_factors(result, ax=ax,
                              figsize=figsize or (10, 5),
                              title=title, **kwargs)
+    if type_ in ("distributional", "quantile_effect"):
+        return _plot_distributional(result, ax=ax,
+                                    figsize=figsize or (10, 6),
+                                    title=title, **kwargs)
+    if type_ == "multi_outcome":
+        return _plot_multi_outcome(result, ax=ax,
+                                   figsize=figsize or (10, 6),
+                                   title=title, **kwargs)
+    if type_ in ("prediction_interval", "pi"):
+        return _plot_prediction_interval(result, ax=ax,
+                                         figsize=figsize or (10, 6),
+                                         title=title, **kwargs)
+    if type_ in ("sensitivity", "loo"):
+        return _plot_sensitivity(result, ax=ax,
+                                 figsize=figsize or (10, 8),
+                                 title=title, **kwargs)
 
     raise ValueError(
         f"Unknown plot type {type_!r}. Choose from: 'trajectory', 'gap', "
         f"'both', 'weights', 'placebo', 'placebo_gap', 'rmspe', 'conformal', "
-        f"'staggered', 'factors', 'compare'."
+        f"'staggered', 'factors', 'compare', 'distributional', "
+        f"'multi_outcome', 'prediction_interval', 'sensitivity'."
     )
 
 
@@ -876,7 +897,222 @@ def _method_short_label(result: CausalResult) -> str:
         return "Conformal SCM"
     if "SDID" in m or "Synthetic Difference" in m:
         return "SDID"
+    if "Matrix Completion" in m:
+        return "MC-SCM"
+    if "Distributional" in m:
+        return "DiSCo"
+    if "Multiple Outcomes" in m or "Multi-Outcome" in m:
+        return "Multi-Outcome SCM"
+    if "Prediction Interval" in m:
+        return "SCPI"
     return "SCM"
+
+
+def _plot_distributional(result, ax=None, figsize=(10, 6), title=None, **kw):
+    """Distributional treatment effects across quantiles."""
+    import matplotlib.pyplot as plt
+
+    mi = result.model_info
+    qe = mi.get("quantile_effects")
+    if qe is None:
+        raise ValueError("No quantile_effects. Use discos() result.")
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.get_figure()
+
+    taus = qe["quantile"].values
+    effects = qe["effect"].values
+
+    ax.plot(taus, effects, color=_PALETTE["treated"], linewidth=2.2, zorder=3)
+
+    if "ci_lower" in qe.columns and "ci_upper" in qe.columns:
+        ax.fill_between(
+            taus, qe["ci_lower"].values, qe["ci_upper"].values,
+            alpha=0.15, color=_PALETTE["ci_band"],
+            label=f"{int((1 - result.alpha) * 100)}% CI", zorder=2,
+        )
+
+    ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8, zorder=1)
+    ax.set_xlabel("Quantile (τ)", fontsize=11)
+    ax.set_ylabel("Distributional Treatment Effect", fontsize=11)
+    ax.set_title(
+        title or f"Distributional Effects (avg = {result.estimate:.3f})",
+        fontsize=13,
+    )
+    if "ci_lower" in qe.columns:
+        ax.legend(fontsize=9.5, frameon=False)
+    _clean_spines(ax)
+    fig.tight_layout()
+    return fig, ax
+
+
+def _plot_multi_outcome(result, ax=None, figsize=(10, 6), title=None, **kw):
+    """Per-outcome ATT comparison for multi-outcome SCM."""
+    import matplotlib.pyplot as plt
+
+    mi = result.model_info
+    oe = mi.get("per_outcome_effects")
+    if oe is None:
+        raise ValueError("No per_outcome_effects. Use multi_outcome_synth() result.")
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.get_figure()
+
+    colors = _PALETTE["cohort_colors"]
+    outcomes = oe["outcome"].values
+    atts = oe["att"].values
+    ses = oe.get("se", pd.Series(np.zeros(len(atts)))).values
+
+    y_pos = np.arange(len(outcomes))
+    bar_colors = [colors[i % len(colors)] for i in range(len(outcomes))]
+
+    ax.barh(y_pos, atts, xerr=1.96 * ses, color=bar_colors,
+            edgecolor="white", linewidth=0.5, capsize=4, zorder=3)
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(outcomes, fontsize=10)
+    ax.axvline(x=0, color="gray", linestyle="--", linewidth=0.8, zorder=1)
+    ax.axvline(x=result.estimate, color=_PALETTE["treated"],
+               linestyle="--", linewidth=1.5, alpha=0.7, zorder=2,
+               label=f"Overall: {result.estimate:.3f}")
+    ax.set_xlabel("ATT", fontsize=11)
+    ax.set_title(title or "Multi-Outcome SCM: Per-Outcome Effects", fontsize=13)
+    ax.legend(fontsize=9.5, frameon=False)
+    _clean_spines(ax)
+    fig.tight_layout()
+    return fig, ax
+
+
+def _plot_prediction_interval(result, ax=None, figsize=(10, 6),
+                               title=None, **kw):
+    """Period-level effects with prediction intervals."""
+    import matplotlib.pyplot as plt
+
+    mi = result.model_info
+    pr = mi.get("period_results")
+    if pr is None:
+        # Fallback to gap_table
+        pr = mi.get("gap_table")
+        if pr is None:
+            raise ValueError("No period_results or gap_table.")
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.get_figure()
+
+    times = pr["time"].values
+    effects = pr.get("effect", pr.get("gap")).values
+
+    ax.plot(times, effects, color=_PALETTE["treated"], linewidth=2.2,
+            marker="o", markersize=4, zorder=3)
+
+    # Prediction interval bands
+    if "pi_lower" in pr.columns and "pi_upper" in pr.columns:
+        ax.fill_between(
+            times, pr["pi_lower"].values, pr["pi_upper"].values,
+            alpha=0.12, color=_PALETTE["ci_band"],
+            label=f"{int((1 - result.alpha) * 100)}% PI", zorder=2,
+        )
+        ax.legend(fontsize=9.5, frameon=False)
+
+    ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8, zorder=1)
+
+    t_time = mi.get("treatment_time")
+    if t_time is not None:
+        ax.axvline(x=t_time, color=_PALETTE["treatment_line"],
+                   linestyle=":", linewidth=1.2, alpha=0.8, zorder=1)
+
+    method_short = _method_short_label(result)
+    ax.set_title(
+        title or f"{method_short}: ATT = {result.estimate:.3f}",
+        fontsize=13,
+    )
+    ax.set_xlabel("Time", fontsize=11)
+    ax.set_ylabel("Treatment Effect", fontsize=11)
+    _clean_spines(ax)
+    fig.tight_layout()
+    return fig, ax
+
+
+def _plot_sensitivity(result, ax=None, figsize=(10, 8), title=None, **kw):
+    """Multi-panel sensitivity analysis plot."""
+    import matplotlib.pyplot as plt
+
+    # result here is a dict from synth_sensitivity(), not a CausalResult
+    if isinstance(result, dict):
+        sens = result
+    elif hasattr(result, "model_info"):
+        sens = result.model_info.get("sensitivity")
+        if sens is None:
+            raise ValueError("No sensitivity data. Use synth_sensitivity() result.")
+    else:
+        raise ValueError("Expected dict from synth_sensitivity()")
+
+    fig, axes = plt.subplots(2, 2, figsize=figsize)
+
+    # Panel 1: LOO ATT distribution
+    loo = sens.get("loo")
+    if loo is not None and len(loo) > 0:
+        loo_atts = loo["att"].values if isinstance(loo, pd.DataFrame) else np.array(loo)
+        axes[0, 0].hist(loo_atts, bins=min(len(loo_atts), 20),
+                        color=_PALETTE["bar"], edgecolor="white", alpha=0.7)
+        if "original_att" in sens:
+            axes[0, 0].axvline(x=sens["original_att"], color=_PALETTE["synthetic"],
+                               linewidth=2, linestyle="--", label="Original ATT")
+            axes[0, 0].legend(fontsize=8, frameon=False)
+        axes[0, 0].set_title("Leave-One-Out ATTs", fontsize=11)
+        axes[0, 0].set_xlabel("ATT", fontsize=9)
+    _clean_spines(axes[0, 0])
+
+    # Panel 2: Time placebos
+    tp = sens.get("time_placebos") or sens.get("time_placebo")
+    if tp is not None and len(tp) > 0:
+        if isinstance(tp, pd.DataFrame):
+            axes[0, 1].bar(tp["placebo_time"].astype(str), tp["att"],
+                           color=_PALETTE["placebo"], edgecolor="white")
+        axes[0, 1].axhline(y=0, color="gray", linestyle="--", linewidth=0.8)
+        axes[0, 1].set_title("Time Placebo ATTs", fontsize=11)
+        axes[0, 1].set_xlabel("Placebo Treatment Time", fontsize=9)
+        axes[0, 1].tick_params(axis="x", rotation=45, labelsize=7)
+    _clean_spines(axes[0, 1])
+
+    # Panel 3: Donor pool ATT distribution
+    dp = sens.get("donor_pool") or sens.get("donor_sensitivity")
+    if dp is not None and len(dp) > 0:
+        dp_atts = dp["att"].values if isinstance(dp, pd.DataFrame) else np.array(dp)
+        axes[1, 0].hist(dp_atts, bins=min(len(dp_atts), 25),
+                        color=_PALETTE["gap_fill"], edgecolor="white", alpha=0.7)
+        if "original_att" in sens:
+            axes[1, 0].axvline(x=sens["original_att"], color=_PALETTE["synthetic"],
+                               linewidth=2, linestyle="--")
+        axes[1, 0].set_title("Donor Pool Sensitivity", fontsize=11)
+        axes[1, 0].set_xlabel("ATT", fontsize=9)
+    _clean_spines(axes[1, 0])
+
+    # Panel 4: RMSPE-filtered p-values
+    rp = sens.get("rmspe_filter")
+    if rp is not None and len(rp) > 0:
+        if isinstance(rp, pd.DataFrame):
+            axes[1, 1].plot(rp["threshold"], rp["pvalue"],
+                            color=_PALETTE["treated"], linewidth=2, marker="o",
+                            markersize=5)
+            axes[1, 1].axhline(y=0.05, color="gray", linestyle="--",
+                               linewidth=0.8, label="p = 0.05")
+            axes[1, 1].axhline(y=0.10, color="gray", linestyle=":",
+                               linewidth=0.8, label="p = 0.10")
+            axes[1, 1].legend(fontsize=8, frameon=False)
+        axes[1, 1].set_title("RMSPE-Filtered P-values", fontsize=11)
+        axes[1, 1].set_xlabel("Pre-RMSPE Threshold (×treated)", fontsize=9)
+        axes[1, 1].set_ylabel("P-value", fontsize=9)
+    _clean_spines(axes[1, 1])
+
+    fig.suptitle(title or "Synthetic Control Sensitivity Analysis", fontsize=14)
+    fig.tight_layout()
+    return fig, axes
 
 
 def _clean_spines(ax):

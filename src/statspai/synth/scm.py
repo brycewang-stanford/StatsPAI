@@ -77,6 +77,14 @@ def synth(
         * ``'sdid'`` — Synthetic DID (Arkhangelsky et al. 2021).
         * ``'factor'`` / ``'gsynth'`` — Factor model (Xu 2017).
         * ``'staggered'`` — Staggered adoption (Ben-Michael et al. 2022).
+        * ``'mc'`` / ``'matrix_completion'`` — Matrix completion
+          (Athey et al. 2021).
+        * ``'discos'`` / ``'distributional'`` — Distributional SCM
+          (Gunsilius 2023).
+        * ``'multi_outcome'`` / ``'multi'`` — Multiple outcomes SCM
+          (Sun 2023). Requires ``outcomes`` kwarg.
+        * ``'scpi'`` / ``'prediction_interval'`` — SCM with prediction
+          intervals (Cattaneo et al. 2021).
     covariates : list of str, optional
         Additional covariates to match on.
     penalization : float, default 0.0
@@ -124,6 +132,25 @@ def synth(
 
     >>> result = sp.synth(df, outcome='gdp', unit='state', time='year',
     ...                   treatment='treated', method='staggered')
+
+    Matrix completion:
+
+    >>> result = sp.synth(..., method='mc')
+
+    Distributional synthetic controls:
+
+    >>> result = sp.synth(..., method='discos')
+
+    Multiple outcomes:
+
+    >>> result = sp.synth(df, outcome='gdp', unit='state', time='year',
+    ...                   treated_unit='California', treatment_time=1989,
+    ...                   method='multi_outcome',
+    ...                   outcomes=['gdp', 'employment', 'investment'])
+
+    Prediction intervals:
+
+    >>> result = sp.synth(..., method='scpi')
 
     See Also
     --------
@@ -212,10 +239,47 @@ def synth(
             placebo=placebo, alpha=alpha, **kwargs,
         )
 
+    if method in ("mc", "matrix_completion"):
+        from .mc import mc_synth
+        return mc_synth(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            alpha=alpha, placebo=placebo, **kwargs,
+        )
+
+    if method in ("discos", "distributional"):
+        from .discos import discos
+        return discos(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            alpha=alpha, placebo=placebo, **kwargs,
+        )
+
+    if method in ("multi_outcome", "multi"):
+        from .multi_outcome import multi_outcome_synth
+        outcomes = kwargs.pop("outcomes", None)
+        if outcomes is None:
+            outcomes = [outcome]
+        return multi_outcome_synth(
+            data=data, outcomes=outcomes, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            penalization=penalization, alpha=alpha, placebo=placebo,
+            **kwargs,
+        )
+
+    if method in ("scpi", "prediction_interval"):
+        from .scpi import scpi
+        return scpi(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            alpha=alpha, **kwargs,
+        )
+
     raise ValueError(
         f"Unknown method {method!r}. Choose from: 'classic', 'penalized', "
         f"'ridge', 'demeaned', 'detrended', 'unconstrained', 'elastic_net', "
-        f"'augmented', 'ascm', 'sdid', 'factor', 'gsynth', 'staggered'."
+        f"'augmented', 'ascm', 'sdid', 'factor', 'gsynth', 'staggered', "
+        f"'mc', 'discos', 'multi_outcome', 'scpi'."
     )
 
 

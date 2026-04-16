@@ -54,7 +54,12 @@ from .rd import (
 )
 from .synth import (
     synth, SyntheticControl, synthplot, sdid, augsynth,
-    demeaned_synth, robust_synth, gsynth, staggered_synth, conformal_synth,
+    demeaned_synth, robust_synth, gsynth, staggered_synth, conformal_synth, mc_synth,
+    multi_outcome_synth,
+    scpi, scest, scdata,
+    discos, qqsynth, discos_test, discos_plot, stochastic_dominance,
+    synth_loo, synth_time_placebo, synth_donor_sensitivity,
+    synth_rmspe_filter, synth_sensitivity, synth_sensitivity_plot,
     synthdid_estimate, sc_estimate, did_estimate,
     synthdid_placebo, synthdid_plot, synthdid_units_plot, synthdid_rmse_plot,
     california_prop99,
@@ -102,7 +107,8 @@ from .plots import binscatter, set_theme, list_themes, use_chinese, interactive,
 from .utils import (
     label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data,
     rowmean, rowtotal, rowmax, rowmin, rowsd, rowcount, rank, outlier_indicator,
-    dgp_did, dgp_rd, dgp_iv, dgp_rct, dgp_panel, dgp_observational,
+    dgp_did, dgp_rd, dgp_rd_kink, dgp_rd_multi, dgp_rd_hte, dgp_rd_2d, dgp_rdit,
+    dgp_iv, dgp_rct, dgp_panel, dgp_observational,
     dgp_cluster_rct, dgp_bunching, dgp_synth, dgp_bartik,
 )
 from .gmm import xtabond
@@ -314,6 +320,7 @@ __all__ = [
     "synthdid_rmse_plot",
     "california_prop99",
     "augsynth",
+    "mc_synth",
     # Matching
     "match",
     "MatchEstimator",
