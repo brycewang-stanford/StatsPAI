@@ -15,6 +15,7 @@ design-corrected standard errors for means, totals, and regression.
 
 from .design import SurveyDesign, svydesign
 from .estimators import svymean, svytotal, svyglm
+from .calibration import rake, linear_calibration, CalibrationResult
 
 __all__ = [
     "SurveyDesign",
@@ -22,4 +23,7 @@ __all__ = [
     "svymean",
     "svytotal",
     "svyglm",
+    "rake",
+    "linear_calibration",
+    "CalibrationResult",
 ]

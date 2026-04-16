@@ -120,7 +120,7 @@ from .interference import spillover, SpilloverEstimator
 from .dtr import g_estimation, GEstimation
 from .multi_treatment import multi_treatment, MultiTreatment
 from .robustness import spec_curve, SpecCurveResult, robustness_report, RobustnessResult, subgroup_analysis, SubgroupResult
-from .survey import svydesign, SurveyDesign, svymean, svytotal, svyglm
+from .survey import svydesign, SurveyDesign, svymean, svytotal, svyglm, rake, linear_calibration
 from .dag import dag, DAG, dag_example, dag_examples, dag_example_positions, dag_simulate
 from .power import power, PowerResult, power_rct, power_did, power_rd, power_iv, power_cluster_rct, power_ols, mde
 from .decomposition import oaxaca, gelbach, OaxacaResult, GelbachResult, rifreg, rif_decomposition
