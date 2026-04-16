@@ -709,58 +709,13 @@ def _local_poly_rd_1d(
     return tau, se, n_l, n_r
 
 
-def _wls_local_poly(
-    y: np.ndarray,
-    x: np.ndarray,
-    h: float,
-    p: int,
-    kernel: str,
-) -> Tuple[np.ndarray, np.ndarray, int]:
-    """
-    WLS local polynomial regression evaluated at x = 0.
-
-    Returns (beta, vcov, n_effective).
-    """
-    u = x / h
-    w = _kernel_fn(u, kernel)
-    in_bw = np.abs(u) <= 1
-    n_eff = int(in_bw.sum())
-
-    k = p + 1
-    if n_eff < k + 1:
-        return np.zeros(k), np.eye(k) * 1e10, 0
-
-    y_bw = y[in_bw]
-    x_bw = x[in_bw]
-    w_bw = w[in_bw]
-
-    # Design matrix [1, x, x^2, ..., x^p]
-    X_mat = np.column_stack([x_bw ** j for j in range(k)])
-
-    sqw = np.sqrt(w_bw)
-    Xw = X_mat * sqw[:, np.newaxis]
-    yw = y_bw * sqw
-
-    try:
-        XtWX = Xw.T @ Xw
-        beta = np.linalg.solve(XtWX, Xw.T @ yw)
-    except np.linalg.LinAlgError:
-        beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
-        XtWX = Xw.T @ Xw
-
-    resid = y_bw - X_mat @ beta
-
-    # HC1 sandwich variance
-    try:
-        bread = np.linalg.inv(XtWX)
-    except np.linalg.LinAlgError:
-        bread = np.linalg.pinv(XtWX)
-
-    corr = n_eff / (n_eff - k) if n_eff > k else 1.0
-    meat = Xw.T @ np.diag(resid ** 2 * corr) @ Xw
-    vcov = bread @ meat @ bread
-
-    return beta, vcov, n_eff
+# _wls_local_poly is an alias for the canonical WLS local polynomial
+# fitter in _core. rd2d historically called it without cluster/covs;
+# the unified version is behaviorally identical in that mode (the
+# minimum-obs threshold tightens from k+1 to k+2, which only matters
+# in pathological small-bandwidth cases and trades a single observation
+# for numerical stability in the HC1 degrees-of-freedom correction).
+from ._core import _local_poly_wls as _wls_local_poly, _sandwich_variance  # noqa: E402
 
 
 # ======================================================================
@@ -863,15 +818,7 @@ def _bivariate_wls(
 
     resid = y_bw - cols @ beta
 
-    # HC1 sandwich variance
-    try:
-        bread = np.linalg.inv(XtWX)
-    except np.linalg.LinAlgError:
-        bread = np.linalg.pinv(XtWX)
-
-    corr = n_eff / (n_eff - k) if n_eff > k else 1.0
-    meat = Xw.T @ np.diag(resid ** 2 * corr) @ Xw
-    vcov = bread @ meat @ bread
+    vcov = _sandwich_variance(Xw, yw, beta, resid, n_eff, k, None)
 
     return beta, vcov, n_eff
 
@@ -1169,22 +1116,7 @@ def _second_deriv_1d(
 
 
 # ======================================================================
-# Kernel functions
+# Kernel functions (canonical definitions live in ._core)
 # ======================================================================
 
-def _kernel_fn(u: np.ndarray, kernel: str) -> np.ndarray:
-    """Kernel K(u), supported on |u| <= 1."""
-    u = np.asarray(u, dtype=float)
-    if kernel == 'triangular':
-        return np.maximum(1 - np.abs(u), 0)
-    elif kernel == 'uniform':
-        return 0.5 * (np.abs(u) <= 1).astype(float)
-    elif kernel == 'epanechnikov':
-        return 0.75 * np.maximum(1 - u ** 2, 0)
-    raise ValueError(f"Unknown kernel: {kernel}")
-
-
-def _kernel_mse_constant(kernel: str) -> float:
-    """C_{1,1}: MSE-optimal bandwidth constant for local linear."""
-    return {'triangular': 3.4375, 'uniform': 2.7,
-            'epanechnikov': 3.0}.get(kernel, 3.4375)
+from ._core import _kernel_fn, _kernel_mse_constant  # noqa: F401, E402

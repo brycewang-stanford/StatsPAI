@@ -31,6 +31,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ._core import _kernel_fn
 
 # ======================================================================
 # Citations
@@ -156,9 +157,7 @@ def _restrict_to_bandwidth(
 
 def _triangular_weights(x_vals: np.ndarray, c: float, h: float) -> np.ndarray:
     """Triangular kernel weights for observations within bandwidth."""
-    u = np.abs(x_vals - c) / h
-    w = np.maximum(1 - u, 0.0)
-    return w
+    return _kernel_fn((x_vals - c) / h, 'triangular')
 
 
 def _validate_covariates(
@@ -662,13 +661,9 @@ def rd_lasso(
     Z = sub[covs].values.astype(float)
     X_run = sub[x].values - c  # centred running variable
 
-    # Kernel weights
-    w = _triangular_weights(sub[x].values, c, h_used)
-    if kernel == 'uniform':
-        w = np.ones(n)
-    elif kernel == 'epanechnikov':
-        u = np.abs(sub[x].values - c) / h_used
-        w = np.maximum(0.75 * (1 - u**2), 0.0)
+    # Kernel weights (canonical definition in ._core; data was already
+    # restricted to |u| <= 1 by _restrict_to_bandwidth above)
+    w = _kernel_fn((sub[x].values - c) / h_used, kernel)
     sqrt_w = np.sqrt(w)
 
     # Standardise covariates (weighted)

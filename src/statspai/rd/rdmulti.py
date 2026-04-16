@@ -28,6 +28,7 @@ from scipy import stats
 import warnings
 
 from ..core.results import CausalResult
+from ._core import _kernel_fn
 
 
 class RDMultiResult:
@@ -103,16 +104,8 @@ def _local_linear_rd(y, x, c, h, kernel='triangular'):
     """Local linear RD estimate at cutoff c with bandwidth h."""
     x_centered = x - c
 
-    # Kernel weights
-    u = x_centered / h
-    if kernel == 'triangular':
-        w = np.where(np.abs(u) <= 1, 1 - np.abs(u), 0.0)
-    elif kernel == 'uniform':
-        w = np.where(np.abs(u) <= 1, 0.5, 0.0)
-    elif kernel == 'epanechnikov':
-        w = np.where(np.abs(u) <= 1, 0.75 * (1 - u**2), 0.0)
-    else:
-        w = np.where(np.abs(u) <= 1, 1 - np.abs(u), 0.0)
+    # Kernel weights (canonical definition in ._core)
+    w = _kernel_fn(x_centered / h, kernel)
 
     mask = w > 0
     if mask.sum() < 4:

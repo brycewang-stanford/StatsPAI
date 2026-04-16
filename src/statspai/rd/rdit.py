@@ -20,18 +20,16 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
+from ._core import _kernel_fn
 
 
 # ======================================================================
 # Kernel helpers
 # ======================================================================
 
-_KERNELS = {
-    'triangular': lambda u: np.where(np.abs(u) <= 1, 1 - np.abs(u), 0.0),
-    'epanechnikov': lambda u: np.where(np.abs(u) <= 1, 0.75 * (1 - u ** 2), 0.0),
-    'uniform': lambda u: np.where(np.abs(u) <= 1, 0.5, 0.0),
-    'gaussian': lambda u: sp_stats.norm.pdf(u),
-}
+# Kernels supported by RDiT. Canonical definitions live in ._core.
+# Validation is done against this tuple; evaluation dispatches to _kernel_fn.
+_SUPPORTED_KERNELS = ('triangular', 'epanechnikov', 'uniform', 'gaussian')
 
 
 def _newey_west_se(X: np.ndarray, residuals: np.ndarray,
@@ -213,9 +211,9 @@ def rdit(
         raise ValueError(f"Column '{y}' not found in data.")
     if time not in data.columns:
         raise ValueError(f"Column '{time}' not found in data.")
-    if kernel not in _KERNELS:
+    if kernel not in _SUPPORTED_KERNELS:
         raise ValueError(f"Unknown kernel '{kernel}'. "
-                         f"Choose from {list(_KERNELS.keys())}.")
+                         f"Choose from {list(_SUPPORTED_KERNELS)}.")
 
     df = data[[time, y]].dropna().copy()
     if cluster is not None:
@@ -282,9 +280,8 @@ def rdit(
         raise ValueError(f"Only {n_eff} observations within bandwidth "
                          f"h={h:.2f}. Need at least {2*(p+1)}.")
 
-    # Kernel weights
-    kfn = _KERNELS[kernel]
-    w = kfn(x_bw / h)
+    # Kernel weights (canonical definition in ._core)
+    w = _kernel_fn(x_bw / h, kernel)
 
     # ------------------------------------------------------------------
     # 7. Local polynomial regression

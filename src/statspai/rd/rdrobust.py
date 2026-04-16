@@ -881,97 +881,6 @@ def _rd_estimate(
     return tau, se, n_l, n_r
 
 
-def _local_poly_wls(
-    y: np.ndarray,
-    x: np.ndarray,
-    h: float,
-    p: int,
-    kernel: str,
-    cluster: Optional[np.ndarray] = None,
-    covs: Optional[np.ndarray] = None,
-) -> Tuple[np.ndarray, np.ndarray, int]:
-    """
-    WLS local polynomial regression evaluated at x = 0.
-
-    When covs is provided, the design matrix is augmented:
-    [1, x, x², ..., x^p, z1, z2, ..., zk]
-    The treatment effect is still beta[0] (intercept) for deriv=0
-    or beta[1] (slope) for deriv=1, etc. Covariates enter additively.
-
-    Returns (beta, vcov, n_effective).
-    The returned beta and vcov correspond to the polynomial part only
-    (first p+1 elements), with covariate effects absorbed.
-    """
-    u = x / h
-    w = _kernel_fn(u, kernel)
-    in_bw = np.abs(u) <= 1
-    n_eff = int(in_bw.sum())
-
-    k_poly = p + 1
-
-    if n_eff < k_poly + 2:
-        return np.zeros(k_poly), np.eye(k_poly) * 1e10, 0
-
-    y_bw = y[in_bw]
-    x_bw = x[in_bw]
-    w_bw = w[in_bw]
-
-    # Design matrix [1, x, x², ..., x^p]
-    X_poly = np.column_stack([x_bw ** j for j in range(k_poly)])
-
-    # Augment with covariates if provided
-    if covs is not None:
-        Z_bw = covs[in_bw]
-        X = np.column_stack([X_poly, Z_bw])
-    else:
-        X = X_poly
-
-    k_total = X.shape[1]
-
-    # WLS via square-root weights
-    sqw = np.sqrt(w_bw)
-    Xw = X * sqw[:, np.newaxis]
-    yw = y_bw * sqw
-
-    try:
-        XtWX = Xw.T @ Xw
-        beta_full = np.linalg.solve(XtWX, Xw.T @ yw)
-    except np.linalg.LinAlgError:
-        beta_full = np.linalg.lstsq(Xw, yw, rcond=None)[0]
-        XtWX = Xw.T @ Xw
-
-    resid = y_bw - X @ beta_full
-
-    # Variance: HC1 or cluster-robust
-    try:
-        bread = np.linalg.inv(XtWX)
-    except np.linalg.LinAlgError:
-        bread = np.linalg.pinv(XtWX)
-
-    if cluster is not None:
-        cl = cluster[in_bw]
-        unique_cl = np.unique(cl)
-        n_cl = len(unique_cl)
-        meat = np.zeros((k_total, k_total))
-        for c_val in unique_cl:
-            idx = cl == c_val
-            score = (Xw[idx].T @ (yw[idx] - Xw[idx] @ beta_full)).ravel()
-            meat += np.outer(score, score)
-        corr = n_cl / (n_cl - 1) if n_cl > 1 else 1.0
-        vcov_full = corr * bread @ meat @ bread
-    else:
-        # HC1
-        corr = n_eff / (n_eff - k_total) if n_eff > k_total else 1.0
-        meat = Xw.T @ np.diag(resid ** 2 * corr) @ Xw
-        vcov_full = bread @ meat @ bread
-
-    # Return only the polynomial part (first k_poly elements)
-    beta = beta_full[:k_poly]
-    vcov = vcov_full[:k_poly, :k_poly]
-
-    return beta, vcov, n_eff
-
-
 # ======================================================================
 # Bandwidth selection
 # ======================================================================
@@ -1159,22 +1068,7 @@ def _estimate_second_deriv(
 
 
 # ======================================================================
-# Kernel functions
+# Shared primitives (canonical definitions live in ._core)
 # ======================================================================
 
-def _kernel_fn(u: np.ndarray, kernel: str) -> np.ndarray:
-    """Kernel K(u), supported on |u| ≤ 1."""
-    u = np.asarray(u, dtype=float)
-    if kernel == 'triangular':
-        return np.maximum(1 - np.abs(u), 0)
-    elif kernel == 'uniform':
-        return 0.5 * (np.abs(u) <= 1).astype(float)
-    elif kernel == 'epanechnikov':
-        return 0.75 * np.maximum(1 - u ** 2, 0)
-    raise ValueError(f"Unknown kernel: {kernel}")
-
-
-def _kernel_mse_constant(kernel: str) -> float:
-    """C_{1,1}: MSE-optimal bandwidth constant for local linear."""
-    return {'triangular': 3.4375, 'uniform': 2.7,
-            'epanechnikov': 3.0}.get(kernel, 3.4375)
+from ._core import _kernel_fn, _kernel_mse_constant, _local_poly_wls  # noqa: F401, E402

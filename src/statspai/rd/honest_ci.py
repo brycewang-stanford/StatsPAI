@@ -22,17 +22,12 @@ import pandas as pd
 from scipy import stats, optimize
 
 from ..core.results import CausalResult
+from ._core import _kernel_fn
 
 
 # --------------------------------------------------------------------------- #
 # Kernel helpers
 # --------------------------------------------------------------------------- #
-
-_KERNELS = {
-    "triangular": lambda u: np.maximum(1.0 - np.abs(u), 0.0),
-    "epanechnikov": lambda u: 0.75 * np.maximum(1.0 - u ** 2, 0.0),
-    "uniform": lambda u: np.where(np.abs(u) <= 1.0, 0.5, 0.0),
-}
 
 # Kernel-specific bias constant C_kernel for local linear estimator:
 #   |bias| <= h^2 * M * C_kernel
@@ -47,9 +42,7 @@ _KERNEL_BIAS_CONSTANTS = {
 
 def _kernel_weights(x: np.ndarray, c: float, h: float, kernel: str) -> np.ndarray:
     """Return kernel weights for observations *x* within bandwidth *h* of *c*."""
-    u = (x - c) / h
-    kfn = _KERNELS[kernel]
-    return kfn(u)
+    return _kernel_fn((x - c) / h, kernel)
 
 
 # --------------------------------------------------------------------------- #
@@ -344,8 +337,10 @@ def rd_honest(
         - ``bandwidth`` : float – bandwidth used
     """
     kernel = kernel.lower()
-    if kernel not in _KERNELS:
-        raise ValueError(f"Unknown kernel '{kernel}'. Choose from {list(_KERNELS)}")
+    if kernel not in _KERNEL_BIAS_CONSTANTS:
+        raise ValueError(
+            f"Unknown kernel '{kernel}'. Choose from {list(_KERNEL_BIAS_CONSTANTS)}"
+        )
     if opt_criterion not in ("mse", "flci"):
         raise ValueError("opt_criterion must be 'mse' or 'flci'")
 

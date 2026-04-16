@@ -42,35 +42,10 @@ from scipy import stats
 
 
 # ======================================================================
-# Kernel helpers
+# Kernel helpers (canonical definitions live in ._core)
 # ======================================================================
 
-def _kernel_fn(u: np.ndarray, kernel: str) -> np.ndarray:
-    """Kernel K(u) supported on |u| <= 1."""
-    u = np.asarray(u, dtype=float)
-    if kernel == 'triangular':
-        return np.maximum(1 - np.abs(u), 0)
-    elif kernel == 'uniform':
-        return 0.5 * (np.abs(u) <= 1).astype(float)
-    elif kernel == 'epanechnikov':
-        return 0.75 * np.maximum(1 - u ** 2, 0)
-    raise ValueError(f"Unknown kernel: {kernel}")
-
-
-def _kernel_constants(kernel: str) -> dict:
-    """
-    Return kernel-specific constants for bandwidth selection.
-
-    C_K  : MSE-optimal bandwidth constant for local linear (p=1).
-    mu_2 : second moment of the kernel, int u^2 K(u) du.
-    nu_0 : int K(u)^2 du (roughness).
-    """
-    table = {
-        'triangular':   {'C_K': 3.4375, 'mu_2': 1 / 6, 'nu_0': 2 / 3},
-        'epanechnikov': {'C_K': 3.0,    'mu_2': 1 / 5, 'nu_0': 3 / 5},
-        'uniform':      {'C_K': 2.7,    'mu_2': 1 / 3, 'nu_0': 1 / 2},
-    }
-    return table[kernel]
+from ._core import _kernel_fn, _kernel_constants, _sandwich_variance  # noqa: F401
 
 
 # ======================================================================
@@ -165,22 +140,13 @@ def _local_residual_var_cluster(
     except Exception:
         return float(np.var(y_bw))
 
-    # Cluster-robust variance of the intercept (treatment effect proxy)
-    try:
-        XtWX_inv = np.linalg.inv(Xw.T @ Xw)
-    except np.linalg.LinAlgError:
-        XtWX_inv = np.linalg.pinv(Xw.T @ Xw)
-
-    unique_cl = np.unique(cl_bw)
-    n_cl = len(unique_cl)
-    meat = np.zeros((2, 2))
-    for c_val in unique_cl:
-        idx = cl_bw == c_val
-        score = Xw[idx].T @ (resid[idx] * sqw[idx])
-        meat += np.outer(score, score)
-
-    corr = n_cl / (n_cl - 1) if n_cl > 1 else 1.0
-    vcov = corr * XtWX_inv @ meat @ XtWX_inv
+    # Cluster-robust variance of the intercept (treatment effect proxy).
+    # _sandwich_variance accepts (Xw, yw, beta, resid_raw, n_eff, k, cluster)
+    # and constructs scores Xw[g]' @ (yw[g] - Xw[g]@beta) = Xw[g]' @ (sqw*resid)[g],
+    # which matches the legacy inline computation.
+    vcov = _sandwich_variance(
+        Xw, yw, beta, resid, int(in_bw.sum()), 2, cl_bw,
+    )
     # Return variance estimate (intercept variance scaled by n * f_c)
     return float(vcov[0, 0] * in_bw.sum())
 

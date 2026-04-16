@@ -23,7 +23,8 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
-from .rdrobust import _kernel_fn, _select_bandwidth
+from ._core import _kernel_fn, _kernel_mse_constant, _sandwich_variance
+from .rdrobust import _select_bandwidth
 
 
 # ======================================================================
@@ -444,7 +445,7 @@ def rdbwhte(
     f_c = max(n_near / (2 * h_dens * n), 1e-10) if h_dens > 0 and n > 0 else 1.0
 
     # MSE-optimal: h = (C_K * (sigma2_L + sigma2_R) / (f_c * bias_sq * n))^{1/(2p+3)}
-    C_K = _kernel_mse_constant_hte(kernel)
+    C_K = _kernel_mse_constant(kernel)
     bias_sq = ((m2_R - m2_L) / 2) ** 2
 
     x_range = np.ptp(X_c)
@@ -654,29 +655,8 @@ def _interacted_wls(
 
     resid = y_bw - Xmat @ beta
 
-    # Bread
-    try:
-        bread = np.linalg.inv(XtWX)
-    except np.linalg.LinAlgError:
-        bread = np.linalg.pinv(XtWX)
-
-    # Meat: HC1 or cluster-robust
-    if cluster is not None:
-        cl_bw = cluster[in_bw]
-        unique_cl = np.unique(cl_bw)
-        n_cl = len(unique_cl)
-        meat = np.zeros((k, k))
-        for c_val in unique_cl:
-            idx = cl_bw == c_val
-            score = (Xw[idx].T @ (yw[idx] - Xw[idx] @ beta)).ravel()
-            meat += np.outer(score, score)
-        corr = n_cl / (n_cl - 1) if n_cl > 1 else 1.0
-        vcov = corr * bread @ meat @ bread
-    else:
-        # HC1
-        corr = n_eff / (n_eff - k) if n_eff > k else 1.0
-        meat = Xw.T @ np.diag(resid ** 2 * corr) @ Xw
-        vcov = bread @ meat @ bread
+    cl_bw = cluster[in_bw] if cluster is not None else None
+    vcov = _sandwich_variance(Xw, yw, beta, resid, n_eff, k, cl_bw)
 
     return beta, vcov, n_eff
 
@@ -789,14 +769,6 @@ def _interacted_second_deriv(
         return float(2 * beta[2])  # m''(0) = 2*beta_2
     except Exception:
         return 0.0
-
-
-def _kernel_mse_constant_hte(kernel: str) -> float:
-    """MSE-optimal bandwidth constant for the interacted model."""
-    # Same kernel constants as standard local linear; the inflation
-    # from additional parameters is handled by the variance terms.
-    return {'triangular': 3.4375, 'uniform': 2.7,
-            'epanechnikov': 3.0}.get(kernel, 3.4375)
 
 
 # ======================================================================

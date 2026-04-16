@@ -24,6 +24,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ._core import _kernel_fn
 
 
 # ======================================================================
@@ -296,13 +297,15 @@ def rkd(
 # ======================================================================
 
 def _kernel_weights(u: np.ndarray, kernel: str) -> np.ndarray:
-    """Compute kernel weights for scaled distances u = (X - c) / h."""
-    if kernel == "triangular":
-        return np.maximum(1 - np.abs(u), 0)
-    elif kernel == "epanechnikov":
-        return np.maximum(0.75 * (1 - u**2), 0)
-    else:  # uniform
-        return (np.abs(u) <= 1).astype(float)
+    """Compute kernel weights for scaled distances u = (X - c) / h.
+
+    Delegates to ._core._kernel_fn. Note that the uniform kernel there
+    uses the standard 0.5 * 1{|u|<=1} normalization (vs. the historical
+    1{|u|<=1} used in an earlier RKD implementation); WLS fits and
+    sandwich variance are invariant to this constant rescaling of the
+    weights, so estimated coefficients and standard errors are unchanged.
+    """
+    return _kernel_fn(u, kernel)
 
 
 def _local_poly_fit(
