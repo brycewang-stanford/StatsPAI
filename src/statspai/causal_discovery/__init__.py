@@ -23,10 +23,13 @@ Causation, Prediction, and Search (2nd ed.). MIT Press.
 
 from .notears import notears, NOTEARS
 from .pc import pc_algorithm, PCAlgorithm
+from .lingam import lingam, LiNGAMResult
 
 __all__ = [
     'notears',
     'NOTEARS',
     'pc_algorithm',
     'PCAlgorithm',
+    'lingam',
+    'LiNGAMResult',
 ]

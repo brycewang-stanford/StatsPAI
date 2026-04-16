@@ -105,7 +105,7 @@ from .regression.logit_probit import logit, probit, cloglog
 from .regression.glm import glm, GLMRegression, GLMEstimator
 from .regression.count import poisson, nbreg, ppmlhdfe
 from .neural_causal import tarnet, cfrnet, dragonnet, TARNet, CFRNet, DragonNet
-from .causal_discovery import notears, NOTEARS, pc_algorithm, PCAlgorithm
+from .causal_discovery import notears, NOTEARS, pc_algorithm, PCAlgorithm, lingam, LiNGAMResult
 from .tmle import tmle, TMLE, super_learner, SuperLearner
 from .policy_learning import policy_tree, PolicyTree, policy_value
 from .conformal_causal import conformal_cate, ConformalCATE
