@@ -18,9 +18,13 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ._common import add_constant as _add_constant
+from ._common import sig_stars as _significance_stars
+from ._common import wls as _ols_wls
+
 
 # ════════════════════════════════════════════════════════════════════════
-# Internal OLS helper
+# Internal OLS helper (delegates to _common.wls for HC1 + QR stability)
 # ════════════════════════════════════════════════════════════════════════
 
 def _ols(
@@ -28,50 +32,10 @@ def _ols(
     X: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    OLS via the normal equations with HC1 robust variance.
-
-    Parameters
-    ----------
-    y : (n,) array
-    X : (n, k) array — must include constant if desired.
-
-    Returns
-    -------
-    beta : (k,) coefficient vector
-    vcov : (k, k) HC1 (White) robust variance-covariance matrix
-    resid : (n,) residuals
+    OLS with HC1 robust variance. Thin wrapper around
+    ``_common.wls`` for this module's historical call signature.
     """
-    n, k = X.shape
-    # QR decomposition for numerical stability
-    Q, R = np.linalg.qr(X, mode='reduced')
-    beta = np.linalg.solve(R, Q.T @ y)
-    resid = y - X @ beta
-
-    # HC1 robust variance: (X'X)^{-1} X' diag(e^2) X (X'X)^{-1} * n/(n-k)
-    XtX_inv = np.linalg.inv(R.T @ R)
-    e2 = resid ** 2
-    meat = (X * e2[:, None]).T @ X  # X' diag(e^2) X
-    vcov = XtX_inv @ meat @ XtX_inv * (n / (n - k))
-
-    return beta, vcov, resid
-
-
-def _add_constant(X: np.ndarray) -> np.ndarray:
-    """Prepend a column of ones."""
-    n = X.shape[0]
-    return np.column_stack([np.ones(n), X])
-
-
-def _significance_stars(pval: float) -> str:
-    if pval < 0.001:
-        return "***"
-    if pval < 0.01:
-        return "**"
-    if pval < 0.05:
-        return "*"
-    if pval < 0.1:
-        return "+"
-    return ""
+    return _ols_wls(y, X, w=None, robust=True)
 
 
 # ════════════════════════════════════════════════════════════════════════
