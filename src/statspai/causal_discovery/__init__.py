@@ -24,6 +24,7 @@ Causation, Prediction, and Search (2nd ed.). MIT Press.
 from .notears import notears, NOTEARS
 from .pc import pc_algorithm, PCAlgorithm
 from .lingam import lingam, LiNGAMResult
+from .ges import ges, GESResult
 
 __all__ = [
     'notears',
@@ -32,4 +33,6 @@ __all__ = [
     'PCAlgorithm',
     'lingam',
     'LiNGAMResult',
+    'ges',
+    'GESResult',
 ]
