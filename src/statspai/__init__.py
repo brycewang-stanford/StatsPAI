@@ -152,6 +152,7 @@ from .timeseries import (
     var, VARResult, granger_causality, irf,
     structural_break, StructuralBreakResult, cusum_test,
     local_projections, LocalProjectionsResult,
+    garch, GARCHResult,
 )
 # Experimental Design
 from .experimental import randomize, RandomizationResult, balance_check, BalanceResult, attrition_test, attrition_bounds, AttritionResult, optimal_design, OptimalDesignResult
