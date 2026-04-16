@@ -1,9 +1,9 @@
 """
 Synthetic Control Method — Unified Entry Point.
 
-Provides ``synth()`` as a single dispatcher for all SCM variants:
+Provides ``synth()`` as a single dispatcher for 20 SCM variants:
 
-* **classic** — Abadie, Diamond & Hainmueller (2010)
+* **classic** �� Abadie, Diamond & Hainmueller (2010)
 * **penalized / ridge** — Ridge-penalised SCM
 * **demeaned / detrended** — Ferman & Pinto (2021)
 * **unconstrained / elastic_net** — Doudchenko & Imbens (2016)
@@ -11,12 +11,26 @@ Provides ``synth()`` as a single dispatcher for all SCM variants:
 * **sdid** — Arkhangelsky, Athey, Hirshberg, Imbens & Wager (2021)
 * **factor / gsynth** — Xu (2017)
 * **staggered** — Ben-Michael, Feller & Rothstein (2022)
+* **mc / matrix_completion** — Athey, Bayati et al. (2021)
+* **discos / distributional** — Gunsilius (2023)
+* **multi_outcome** — Sun (2023)
+* **scpi / prediction_interval** — Cattaneo, Feng & Titiunik (2021)
+* **bayesian** — Bayesian SCM with MCMC posterior (Vives & Martinez 2024)
+* **bsts / causal_impact** — Bayesian Structural Time Series (Brodersen et al. 2015)
+* **penscm / abadie_lhour** — Penalized SCM (Abadie & L'Hour 2021)
+* **fdid / forward_did** — Forward DID (Li 2024)
+* **cluster** — Cluster SCM (Rho 2024)
+* **sparse / lasso** — Sparse SCM (Amjad, Shah & Shen 2018)
+* **kernel** — Kernel-based nonlinear SCM
+* **kernel_ridge** — Kernel ridge regression SCM
 
 Inference can be switched independently via ``inference=``:
 
-* **placebo** (default) — in-space permutation
+* **placebo** (default) ��� in-space permutation
 * **conformal** — Chernozhukov, Wüthrich & Zhu (2021)
 * **bootstrap / jackknife** — for SDID
+* **bayesian posterior** — MCMC credible intervals
+* **bsts posterior** — Kalman-based uncertainty
 """
 
 from typing import Optional, List, Dict, Any, Tuple
@@ -85,6 +99,19 @@ def synth(
           (Sun 2023). Requires ``outcomes`` kwarg.
         * ``'scpi'`` / ``'prediction_interval'`` — SCM with prediction
           intervals (Cattaneo et al. 2021).
+        * ``'bayesian'`` — Bayesian SCM with MCMC posterior
+          (Vives & Martinez 2024).
+        * ``'bsts'`` / ``'causal_impact'`` — Bayesian Structural
+          Time Series (Brodersen et al. 2015).
+        * ``'penscm'`` / ``'abadie_lhour'`` — Penalized SCM with
+          pairwise discrepancy (Abadie & L'Hour 2021).
+        * ``'fdid'`` / ``'forward_did'`` — Forward DID
+          (Li 2024).
+        * ``'cluster'`` — Cluster SCM (Rho 2024).
+        * ``'sparse'`` / ``'lasso'`` — Sparse SCM
+          (Amjad, Shah & Shen 2018).
+        * ``'kernel'`` — Kernel-based nonlinear SCM.
+        * ``'kernel_ridge'`` — Kernel ridge regression SCM.
     covariates : list of str, optional
         Additional covariates to match on.
     penalization : float, default 0.0
@@ -275,11 +302,84 @@ def synth(
             alpha=alpha, **kwargs,
         )
 
+    # --- New methods (v0.9) ---
+
+    if method == "bayesian":
+        from .bayesian import bayesian_synth
+        return bayesian_synth(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            covariates=covariates, alpha=alpha, **kwargs,
+        )
+
+    if method in ("bsts", "causal_impact"):
+        from .bsts import bsts_synth
+        return bsts_synth(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            covariates=covariates, alpha=alpha, **kwargs,
+        )
+
+    if method in ("penscm", "abadie_lhour", "pairwise"):
+        from .penscm import penalized_synth
+        return penalized_synth(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            covariates=covariates, placebo=placebo, alpha=alpha,
+            **kwargs,
+        )
+
+    if method in ("fdid", "forward_did"):
+        from .fdid import fdid as _fdid
+        return _fdid(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            placebo=placebo, alpha=alpha, **kwargs,
+        )
+
+    if method == "cluster":
+        from .cluster import cluster_synth
+        return cluster_synth(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            covariates=covariates, placebo=placebo, alpha=alpha,
+            **kwargs,
+        )
+
+    if method in ("sparse", "lasso"):
+        from .sparse import sparse_synth
+        return sparse_synth(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            covariates=covariates, placebo=placebo, alpha=alpha,
+            **kwargs,
+        )
+
+    if method == "kernel":
+        from .kernel import kernel_synth
+        return kernel_synth(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            covariates=covariates, placebo=placebo, alpha=alpha,
+            **kwargs,
+        )
+
+    if method == "kernel_ridge":
+        from .kernel import kernel_ridge_synth
+        return kernel_ridge_synth(
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
+            covariates=covariates, alpha=alpha, **kwargs,
+        )
+
     raise ValueError(
         f"Unknown method {method!r}. Choose from: 'classic', 'penalized', "
         f"'ridge', 'demeaned', 'detrended', 'unconstrained', 'elastic_net', "
         f"'augmented', 'ascm', 'sdid', 'factor', 'gsynth', 'staggered', "
-        f"'mc', 'discos', 'multi_outcome', 'scpi'."
+        f"'mc', 'discos', 'multi_outcome', 'scpi', "
+        f"'bayesian', 'bsts', 'causal_impact', 'penscm', 'abadie_lhour', "
+        f"'fdid', 'forward_did', 'cluster', 'sparse', 'lasso', "
+        f"'kernel', 'kernel_ridge'."
     )
 
 
