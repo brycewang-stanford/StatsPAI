@@ -42,10 +42,10 @@ from ._common import (
     logit_predict,
     prepare_frame,
     sig_stars,
+    statistic_value as _statistic_value,
     weighted_quantile,
     wls,
 )
-from .dfl import _statistic_value
 from .rif import rif_values
 
 
@@ -249,36 +249,19 @@ def _numerical_rif(y: np.ndarray, w: np.ndarray, stat: str,
     IFs exist for theil_t, theil_l, atkinson (see `_rif_for_sample`).
     """
     n = len(y)
-    v0 = _statistic_value_generic(y, w, stat)
+    v0 = _statistic_value(y, w, stat)
     rif = np.empty(n)
     for i in range(n):
         wi = w.copy()
         wi[i] = wi[i] + eps * w.sum()
-        v1 = _statistic_value_generic(y, wi, stat)
+        v1 = _statistic_value(y, wi, stat)
         rif[i] = v0 + (v1 - v0) / eps
     return rif
 
 
-def _statistic_value_generic(y: np.ndarray, w: np.ndarray, stat: str) -> float:
-    """Generic weighted statistic (includes Theil/Atkinson)."""
-    if stat == "theil_t":
-        # T = E[(y/μ) log(y/μ)]
-        yp = np.clip(y, 1e-12, None)
-        mu = float(np.average(yp, weights=w))
-        if mu <= 0:
-            return float("nan")
-        return float(np.average((yp / mu) * np.log(yp / mu), weights=w))
-    if stat == "theil_l":
-        # L = E[log(μ/y)] = log(μ) − E[log y]
-        yp = np.clip(y, 1e-12, None)
-        mu = float(np.average(yp, weights=w))
-        return float(np.log(mu) - np.average(np.log(yp), weights=w))
-    if stat == "atkinson":
-        # Atkinson(ε=1) = 1 − exp(mean(log y)) / μ
-        yp = np.clip(y, 1e-12, None)
-        mu = float(np.average(yp, weights=w))
-        return float(1.0 - np.exp(np.average(np.log(yp), weights=w)) / mu)
-    return _statistic_value(y, w, stat)
+# Backwards compatibility alias (internal callers may still reference
+# the previous name).
+_statistic_value_generic = _statistic_value
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -361,15 +344,9 @@ def ffl_decompose(
         y_cf = y_a
 
     # Observed stats
-    stat_a = _statistic_value_generic(y_a, w_a, stat) if stat in (
-        "theil_t", "theil_l", "atkinson"
-    ) else _statistic_value(y_a, w_a, stat, tau)
-    stat_b = _statistic_value_generic(y_b, w_b, stat) if stat in (
-        "theil_t", "theil_l", "atkinson"
-    ) else _statistic_value(y_b, w_b, stat, tau)
-    stat_cf = _statistic_value_generic(y_cf, w_cf, stat) if stat in (
-        "theil_t", "theil_l", "atkinson"
-    ) else _statistic_value(y_cf, w_cf, stat, tau)
+    stat_a = _statistic_value(y_a, w_a, stat, tau)
+    stat_b = _statistic_value(y_b, w_b, stat, tau)
+    stat_cf = _statistic_value(y_cf, w_cf, stat, tau)
 
     gap = stat_a - stat_b
 

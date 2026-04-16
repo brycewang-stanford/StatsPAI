@@ -358,6 +358,73 @@ def kde_at(y: np.ndarray, point: float, w: Optional[np.ndarray] = None) -> float
 # Significance formatting
 # ════════════════════════════════════════════════════════════════════════
 
+def weighted_gini(y: np.ndarray, w: np.ndarray) -> float:
+    """Weighted Gini coefficient (Lerman-Yitzhaki 1989)."""
+    order = np.argsort(y)
+    y_s = y[order]
+    w_s = w[order]
+    W = w_s.sum()
+    if W <= 0:
+        return float("nan")
+    cum_w = np.cumsum(w_s)
+    F = (cum_w - 0.5 * w_s) / W
+    mu = float(np.average(y_s, weights=w_s))
+    if mu <= 0:
+        return float("nan")
+    return float(2.0 * np.cov(y_s, F, aweights=w_s)[0, 1] / mu)
+
+
+def statistic_value(
+    y: np.ndarray,
+    w: np.ndarray,
+    stat: str,
+    tau: float = 0.5,
+) -> float:
+    """
+    Evaluate a weighted distributional statistic.
+
+    Supported: ``mean``, ``variance``, ``std``, ``quantile`` (with tau),
+    ``iqr``, ``gini``, ``log_var``, ``theil_t``, ``theil_l``, ``atkinson``.
+    """
+    y = np.asarray(y, dtype=float)
+    w = np.asarray(w, dtype=float)
+    if stat == "mean":
+        return float(np.average(y, weights=w))
+    if stat == "variance":
+        return float(np.cov(y, aweights=w))
+    if stat == "std":
+        return float(np.sqrt(np.cov(y, aweights=w)))
+    if stat == "quantile":
+        return float(weighted_quantile(y, tau, w=w))
+    if stat == "iqr":
+        return float(
+            weighted_quantile(y, 0.75, w=w) - weighted_quantile(y, 0.25, w=w)
+        )
+    if stat == "gini":
+        return weighted_gini(y, w)
+    if stat == "log_var":
+        return float(np.cov(np.log(np.clip(y, 1e-12, None)), aweights=w))
+    if stat == "theil_t":
+        yp = np.clip(y, 1e-12, None)
+        mu = float(np.average(yp, weights=w))
+        if mu <= 0:
+            return float("nan")
+        return float(np.average((yp / mu) * np.log(yp / mu), weights=w))
+    if stat == "theil_l":
+        yp = np.clip(y, 1e-12, None)
+        mu = float(np.average(yp, weights=w))
+        if mu <= 0:
+            return float("nan")
+        return float(np.log(mu) - np.average(np.log(yp), weights=w))
+    if stat == "atkinson":
+        yp = np.clip(y, 1e-12, None)
+        mu = float(np.average(yp, weights=w))
+        if mu <= 0:
+            return float("nan")
+        return float(1.0 - np.exp(np.average(np.log(yp), weights=w)) / mu)
+    raise ValueError(f"unknown statistic {stat!r}")
+
+
 def sig_stars(pval: float) -> str:
     if pval < 0.001:
         return "***"

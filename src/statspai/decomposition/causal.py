@@ -365,6 +365,17 @@ def mediation_decompose(
     Returns
     -------
     MediationDecompResult with NDE, NIE, CDE, proportion mediated.
+
+    Notes
+    -----
+    Under the purely linear model used here, the **controlled direct
+    effect** CDE(m*) evaluated at the reference level ``m* = E[M | A=0]``
+    coincides numerically with the natural direct effect (NDE). The
+    ``cde`` field is therefore redundant in this implementation — it is
+    retained for API compatibility with VanderWeele's four-way
+    decomposition, but users should not treat it as independent
+    information from ``nde`` unless a nonlinear or
+    interaction-heterogeneous extension is added.
     """
     cov = list(covariates) if covariates else []
     cols = [y, treatment, mediator] + cov

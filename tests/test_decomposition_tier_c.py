@@ -606,6 +606,42 @@ def test_mm_melly_cfm_aligned_reference(cps):
     )
 
 
+def test_qreg_irls_recovers_true_beta():
+    """_qreg_irls should recover QR coefficients on a known location DGP.
+
+    For y = X'β + ε with ε symmetric and zero-median, the median QR
+    should give β̂ ≈ β. Estimation also tested at τ=0.25 and τ=0.75
+    where the true intercept shifts by the corresponding quantile of ε.
+    """
+    from statspai.decomposition.machado_mata import _qreg_irls
+    rng = np.random.default_rng(7)
+    n = 3000
+    X_raw = rng.normal(0, 1, (n, 3))
+    X = np.column_stack([np.ones(n), X_raw])
+    beta_true = np.array([2.0, 1.5, -0.8, 0.3])
+    eps = rng.normal(0, 1.0, n)
+    y = X @ beta_true + eps
+
+    # Median: pure recovery
+    beta_50 = _qreg_irls(y, X, tau=0.5)
+    assert np.allclose(beta_50, beta_true, atol=0.12), (
+        f"Median QR: got {beta_50}, expected {beta_true}"
+    )
+
+    # τ=0.25 / 0.75 shift intercept by Φ⁻¹(τ); slopes should still match
+    from scipy.stats import norm
+    for tau in [0.25, 0.75]:
+        b = _qreg_irls(y, X, tau=tau)
+        expected_intercept = beta_true[0] + norm.ppf(tau)
+        assert abs(b[0] - expected_intercept) < 0.15, (
+            f"τ={tau}: intercept {b[0]} expected {expected_intercept}"
+        )
+        # Slopes should match β_true[1:] to within tolerance
+        assert np.allclose(b[1:], beta_true[1:], atol=0.15), (
+            f"τ={tau}: slopes {b[1:]} expected {beta_true[1:]}"
+        )
+
+
 def test_dfl_mm_reference_convention_opposite(cps):
     """Document the known convention split: DFL(ref=0) composition
     should roughly equal MM(ref=1) composition, because they build

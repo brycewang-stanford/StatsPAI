@@ -33,53 +33,11 @@ from ._common import (
     parse_formula,
     prepare_frame,
     sig_stars,
+    statistic_value as _statistic_value,
     weighted_ecdf,
+    weighted_gini as _weighted_gini,
     weighted_quantile,
 )
-
-
-# ════════════════════════════════════════════════════════════════════════
-# Statistic functions
-# ════════════════════════════════════════════════════════════════════════
-
-def _weighted_gini(y: np.ndarray, w: np.ndarray) -> float:
-    """Weighted Gini (Lerman-Yitzhaki 1989 formula)."""
-    order = np.argsort(y)
-    y_s = y[order]
-    w_s = w[order]
-    W = w_s.sum()
-    cum_w = np.cumsum(w_s)
-    F = (cum_w - 0.5 * w_s) / W  # fractional rank
-    mu = np.average(y_s, weights=w_s)
-    if mu <= 0:
-        return float("nan")
-    return float(2.0 * np.cov(y_s, F, aweights=w_s)[0, 1] / mu)
-
-
-def _statistic_value(
-    y: np.ndarray,
-    w: np.ndarray,
-    stat: str,
-    tau: float = 0.5,
-) -> float:
-    """Evaluate distributional statistic."""
-    if stat == "mean":
-        return float(np.average(y, weights=w))
-    if stat == "variance":
-        return float(np.cov(y, aweights=w))
-    if stat == "std":
-        return float(np.sqrt(np.cov(y, aweights=w)))
-    if stat == "quantile":
-        return float(weighted_quantile(y, tau, w=w))
-    if stat == "iqr":
-        return float(
-            weighted_quantile(y, 0.75, w=w) - weighted_quantile(y, 0.25, w=w)
-        )
-    if stat == "gini":
-        return _weighted_gini(y, w)
-    if stat == "log_var":
-        return float(np.cov(np.log(np.clip(y, 1e-12, None)), aweights=w))
-    raise ValueError(f"unknown statistic {stat!r}")
 
 
 # ════════════════════════════════════════════════════════════════════════
