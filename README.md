@@ -15,7 +15,42 @@ StatsPAI is the **agent-native** Python package for causal inference and applied
 
 It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 
-**NEW in v0.8.0**: **Spatial Econometrics Full-Stack** — 38 new API symbols covering weights, ESDA, ML/GMM regression, GWR/MGWR, and spatial panel. Plus: local projections, GARCH, ARIMA, BVAR, LiNGAM, GES, optimal matching, cardinality matching, RIF decomposition, mediation sensitivity, Cox frailty, AFT survival, rdpower, survey calibration. **60+ new functions across 10 domains.**
+**🎉 NEW in v0.9.0 — Synthetic Control: Most Comprehensive SCM Toolkit in Any Language**
+
+**20 SCM estimators + 6 inference strategies + full research workflow**, all behind a unified `sp.synth(method=...)` dispatcher. No competing package in Python, R, or Stata offers this breadth.
+
+| What | Coverage |
+|---|---|
+| **20 estimators** | `classic`, `penalized`, `demeaned`, `unconstrained`, `augmented` (ASCM), `sdid`, `gsynth`, `staggered`, `mc` (matrix completion), `discos` (distributional), `multi_outcome`, `scpi` (prediction intervals), `bayesian` (MCMC), `bsts` / `causal_impact`, `penscm` (Abadie-L'Hour), `fdid` (Forward DID), `cluster`, `sparse` (LASSO), `kernel`, `kernel_ridge` |
+| **6 inference** | placebo · conformal · bootstrap · jackknife · Bayesian posterior · BSTS posterior |
+| **Research workflow** | `synth_compare()` runs all 20 · `synth_recommend()` auto-selects · `synth_power()` + `synth_mde()` · `synth_sensitivity()` (LOO + time placebos + donor + RMSPE) · `synth_report(format='latex')` one-click publication |
+| **Canonical datasets** | `california_tobacco()`, `german_reunification()`, `basque_terrorism()` |
+| **Correctness** | ASCM re-implemented to Ben-Michael et al. (2021) Eq. 3; Bayesian MCMC Jacobian corrected; 9 release-blocker fixes from a 5-agent code review; 144 synth tests passing |
+
+```python
+import statspai as sp
+from statspai.synth.datasets import california_tobacco
+df = california_tobacco()
+
+# Run every method at once, pick the best
+comp = sp.synth_compare(df, outcome='cigsale', unit='state', time='year',
+                        treated_unit='California', treatment_time=1989)
+comp.plot()                  # overlay all counterfactuals
+
+# Power analysis before committing to a design
+power = sp.synth_power(df, outcome='cigsale', unit='state', time='year',
+                       treated_unit='California', treatment_time=1989,
+                       effect_sizes=[2, 5, 10, 15, 20])
+
+# One-click publication report
+res = sp.synth(df, outcome='cigsale', unit='state', time='year',
+               treated_unit='California', treatment_time=1989, method='augmented')
+sp.synth_report_to_file(res, 'analysis.md')
+```
+
+See the [synth guide](https://github.com/brycewang-stanford/statspai/blob/main/docs/guides/synth.md) for the full 20-method decision table.
+
+**Previously in v0.8.0**: **Spatial Econometrics Full-Stack** — 38 new API symbols covering weights, ESDA, ML/GMM regression, GWR/MGWR, and spatial panel. Plus: local projections, GARCH, ARIMA, BVAR, LiNGAM, GES, optimal matching, cardinality matching, RIF decomposition, mediation sensitivity, Cox frailty, AFT survival, rdpower, survey calibration. **60+ new functions across 10 domains.**
 
 ![StatsPAI interactive plot editor](https://raw.githubusercontent.com/brycewang-stanford/statspai/main/image-1.png)
 
