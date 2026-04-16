@@ -144,7 +144,7 @@ from .regression.advanced_iv import liml, jive, lasso_iv
 # via fixest.wrapper._check_pyfixest, so top-level import never fails.
 from .fixest import feols, fepois, feglm, etable
 # Survival / Duration
-from .survival import cox, kaplan_meier, survreg, CoxResult, KMResult, logrank_test, cox_frailty
+from .survival import cox, kaplan_meier, survreg, CoxResult, KMResult, logrank_test, cox_frailty, aft
 # Nonparametric
 from .nonparametric import lpoly, LPolyResult, kdensity, KDensityResult
 # Time Series (for causal inference)
