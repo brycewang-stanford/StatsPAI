@@ -241,7 +241,8 @@ class CausalForest(BaseModel):
         
         self._treatment_values = np.unique(T)
         self._feature_names = [f'X{i}' for i in range(X.shape[1])]
-        self._X_original = X.copy()  # Store original X for predict method
+        self._X_original = X.copy()
+        self._T_original = T.copy()
         
         # Validate treatment
         if self.discrete_treatment:
@@ -501,19 +502,9 @@ class CausalForest(BaseModel):
                 else:
                     causal_effect = 0.0
             
-            # Update tree leaf value
-            # Note: This is a simplification - in practice, we'd need to 
-            # store these values separately and use them in prediction
-            leaf_mask = (tree.tree_.children_left == -1) & (tree.tree_.children_right == -1)
-            
-            # sklearn decision trees store values as (n_nodes, n_outputs, n_values)
-            # For regression, this is typically (n_nodes, 1, 1)
-            # We need to update all leaf nodes with the causal effect
-            for i in range(len(tree.tree_.value)):
-                if leaf_mask[i]:
-                    # Set the leaf value to causal_effect, maintaining original shape
-                    original_shape = tree.tree_.value[i].shape
-                    tree.tree_.value[i] = np.full(original_shape, causal_effect)
+            # Update THIS leaf's value (leaf_id is the node index in tree.tree_)
+            original_shape = tree.tree_.value[leaf_id].shape
+            tree.tree_.value[leaf_id] = np.full(original_shape, causal_effect)
     
     def effect(self, X: np.ndarray) -> np.ndarray:
         """
@@ -691,6 +682,94 @@ class CausalForest(BaseModel):
     def __repr__(self) -> str:
         """Detailed string representation"""
         return self.__str__()
+
+    # ------------------------------------------------------------------ #
+    #  GRF-inspired extensions
+    # ------------------------------------------------------------------ #
+
+    def variable_importance(self) -> pd.Series:
+        """Permutation-based variable importance for the causal forest.
+
+        For each feature j, shuffle its column in the effect-modifier
+        matrix and measure how much the cross-validated CATE predictions
+        degrade (MSE increase). Higher degradation → more important for
+        treatment-effect heterogeneity.
+
+        Returns a normalised importance score (sums to 1).
+        """
+        if not self.fitted_:
+            raise ValueError("Model must be fitted before computing importance")
+        X = self._X_original.copy()
+        cate_baseline = self.effect(X)
+        n, k = X.shape
+        rng = np.random.default_rng(0)
+        importance = np.empty(k)
+        for j in range(k):
+            X_perm = X.copy()
+            X_perm[:, j] = rng.permutation(X_perm[:, j])
+            cate_perm = self.effect(X_perm)
+            importance[j] = float(np.mean((cate_baseline - cate_perm) ** 2))
+        total = importance.sum()
+        importance = importance / total if total > 0 else importance
+        names = self._feature_names or [f"X{j}" for j in range(k)]
+        return pd.Series(importance, index=names).sort_values(ascending=False)
+
+    def best_linear_projection(
+        self,
+        X_test: Optional[np.ndarray] = None,
+        alpha: float = 0.05,
+    ) -> pd.DataFrame:
+        """Best Linear Projection (BLP) heterogeneity test (Chernozhukov et al. 2020).
+
+        Regress CATE(X_i) on the features X_i:
+
+            CATE_i = β₀ + X_i' β₁ + ε_i
+
+        A joint F-test on β₁ = 0 tests for systematic treatment-effect
+        heterogeneity. Individual t-tests indicate which features drive it.
+
+        Returns a DataFrame with coefficient, SE, t-stat, p-value per feature.
+        """
+        if not self.fitted_:
+            raise ValueError("Model must be fitted first")
+        X = X_test if X_test is not None else self._X_original
+        X = np.asarray(X)
+        cate = self.effect(X)
+        n, k = X.shape
+        # Standardise X so coefficients are comparable
+        X_std = (X - X.mean(axis=0)) / (X.std(axis=0) + 1e-12)
+        D = np.column_stack([np.ones(n), X_std])
+        DtD_inv = np.linalg.inv(D.T @ D)
+        beta = DtD_inv @ (D.T @ cate)
+        e = cate - D @ beta
+        sigma2 = float(e @ e) / (n - k - 1)
+        se = np.sqrt(np.diag(sigma2 * DtD_inv))
+        tvals = beta / se
+        from scipy import stats
+        pvals = 2 * (1 - stats.t.cdf(np.abs(tvals), df=n - k - 1))
+        names = ["Intercept"] + (
+            self._feature_names or [f"X{j}" for j in range(k)]
+        )
+        return pd.DataFrame({
+            "coef": beta, "se": se, "t": tvals, "p": pvals,
+        }, index=names)
+
+    def ate(self, X: Optional[np.ndarray] = None) -> float:
+        """Average Treatment Effect (mean CATE)."""
+        return float(self.effect(X if X is not None else self._X_original).mean())
+
+    def att(self, X: Optional[np.ndarray] = None,
+            T: Optional[np.ndarray] = None) -> float:
+        """Average Treatment Effect on the Treated."""
+        if T is None:
+            if hasattr(self, "_T_original"):
+                T = self._T_original
+            else:
+                raise ValueError("Treatment vector needed for ATT")
+        X = X if X is not None else self._X_original
+        cate = self.effect(X)
+        mask = np.asarray(T).ravel() == 1
+        return float(cate[mask].mean())
 
 
 def causal_forest(
