@@ -304,10 +304,12 @@ def synth_compare(
     treatment_time : any, optional
         First treatment period (inclusive).
     methods : list of str, optional
-        SCM variants to compare. If ``None`` (default), all 12 built-in
-        methods are attempted: classic, penalized, demeaned, detrended,
-        unconstrained, elastic_net, augmented, sdid, gsynth, mc, discos,
-        scpi.
+        SCM variants to compare. If ``None`` (default), all 20 registered
+        methods are attempted, in ascending complexity order:
+        ``classic, penalized, demeaned, detrended, unconstrained,
+        elastic_net, augmented, sdid, gsynth, mc, discos, scpi, penscm,
+        fdid, sparse, cluster, kernel, kernel_ridge, bayesian, bsts``.
+        Pass an explicit subset to reduce runtime.
     placebo : bool, default True
         Whether to run placebo inference for each method.
     alpha : float, default 0.05

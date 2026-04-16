@@ -174,20 +174,44 @@ def bayesian_synth(
 
     # ------------------------------------------------------------------
     # Optionally append covariate features to matching objective
+    #
+    # We standardise each covariate block by the outcome's pre-treatment
+    # residual scale so that the Gaussian likelihood sigma^2 is estimated
+    # primarily from outcome residuals rather than being dominated by
+    # mismatch in covariate scale. Without this, the likelihood's
+    # -0.5 * (T0+K) * log(2 pi sigma^2) term would artificially inflate
+    # the penalty on sigma proportional to the number of covariate rows.
     # ------------------------------------------------------------------
+    n_outcome_rows = len(pre_times)
     if covariates is not None and len(covariates) > 0:
+        # Reference scale: pooled pre-treatment outcome SD (treated + donors).
+        outcome_sd = float(
+            np.std(
+                np.concatenate([Y1_pre, Y0_pre.ravel()]), ddof=1
+            )
+        )
+        outcome_sd = max(outcome_sd, 1e-12)
+
         for cov in covariates:
             cov_panel = data.pivot_table(index=unit, columns=time, values=cov)
-            cov_pre = cov_panel.loc[:, pre_times].values.astype(np.float64)
-            cov_treated = cov_panel.loc[treated_unit, pre_times].values.astype(
-                np.float64
-            )
-            cov_donors = cov_panel.loc[donors, pre_times].values.astype(np.float64)
+            cov_treated = cov_panel.loc[
+                treated_unit, pre_times
+            ].values.astype(np.float64)
+            cov_donors = cov_panel.loc[
+                donors, pre_times
+            ].values.astype(np.float64)
+            # Z-score the covariate block, then rescale to outcome's SD.
+            block = np.concatenate([cov_treated, cov_donors.ravel()])
+            mu = float(np.mean(block))
+            sd = max(float(np.std(block, ddof=1)), 1e-12)
+            cov_treated = (cov_treated - mu) / sd * outcome_sd
+            cov_donors = (cov_donors - mu) / sd * outcome_sd
+
             Y1_pre = np.concatenate([Y1_pre, cov_treated])
             Y0_pre = np.concatenate([Y0_pre, cov_donors], axis=1)
 
     J = len(donors)
-    T0 = len(pre_times)
+    T0 = len(pre_times)         # outcome pre-periods (for post-estimate bookkeeping)
     T1 = len(post_times)
 
     # ------------------------------------------------------------------

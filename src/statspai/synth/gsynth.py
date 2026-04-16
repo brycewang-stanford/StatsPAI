@@ -136,16 +136,14 @@ def gsynth(
     L_control = U[:, :n_factors] * S[:n_factors]  # (J, r): control loadings
 
     # --- Estimate treated unit's loadings from pre-period ---
-    # Y1_pre_dm = L_treated @ F_pre.T  =>  L_treated = Y1_pre_dm @ F_pre @ (F_pre.T @ F_pre)^-1
+    # L_treated solves  (F_pre' F_pre) L_treated' = F_pre' Y1_pre_dm'
     Y1_pre_dm = Y1_pre - grand_mean - (Y1_pre.mean() - grand_mean)
-    FtF_inv = np.linalg.inv(F_pre.T @ F_pre)
-    L_treated = Y1_pre_dm @ F_pre @ FtF_inv  # (r,)
+    L_treated = np.linalg.lstsq(F_pre, Y1_pre_dm, rcond=None)[0]  # (r,)
 
     # --- Estimate factors for post-period from control data ---
-    Y0_post_dm = Y0_post - row_means[:, np.newaxis]  # remove unit FE
-    # F_post from control: Y0_post_dm = L_control @ F_post.T
-    LtL_inv = np.linalg.inv(L_control.T @ L_control)
-    F_post = (Y0_post_dm.T @ L_control @ LtL_inv)  # (T1, r)
+    # F_post.T solves  (L_control' L_control) F_post.T = L_control' Y0_post_dm
+    Y0_post_dm = Y0_post - row_means[:, np.newaxis]
+    F_post = np.linalg.lstsq(L_control, Y0_post_dm, rcond=None)[0].T  # (T1, r)
 
     # --- Counterfactual for treated unit ---
     # Y1_hat = grand_mean + unit_FE + F_post @ L_treated
@@ -176,12 +174,12 @@ def gsynth(
                 L_c = U_p[:, :n_factors] * S_p[:n_factors]
 
                 Y_plac_dm = Y_plac - gm - (Y_plac.mean() - gm)
-                FtF_i = np.linalg.inv(F_p.T @ F_p)
-                L_p = Y_plac_dm @ F_p @ FtF_i
+                L_p = np.linalg.lstsq(F_p, Y_plac_dm, rcond=None)[0]
 
                 Y_ctrl_post_dm = Y_ctrl_post - rm[:, np.newaxis]
-                LtL_i = np.linalg.inv(L_c.T @ L_c)
-                F_post_p = Y_ctrl_post_dm.T @ L_c @ LtL_i
+                F_post_p = np.linalg.lstsq(
+                    L_c, Y_ctrl_post_dm, rcond=None
+                )[0].T
 
                 ue = Y_plac.mean() - gm
                 hat = gm + ue + F_post_p @ L_p

@@ -133,6 +133,9 @@ def _kalman_filter(
         # Observation prediction
         y_pred = (H @ state_pred)[0] + X[t] @ beta
         S = (H @ cov_pred @ H.T + R)[0, 0]  # innovation variance
+        # Guard: S must be strictly positive. Can collapse to 0 when
+        # sigma_obs == sigma_level == 0 (degenerate MLE on constant Y).
+        S = max(S, 1e-12)
 
         pred_errors[t] = y[t] - y_pred if not np.isnan(y[t]) else 0.0
         pred_error_vars[t] = S
@@ -200,8 +203,14 @@ def _kalman_smoother(kf: Dict[str, Any], use_trend: bool = False) -> Dict[str, A
     sm_cov[-1] = filt_c[-1]
 
     for t in range(T - 2, -1, -1):
-        P_pred_inv = np.linalg.inv(pred_c[t + 1] + np.eye(dim) * 1e-10)
-        G = filt_c[t] @ F.T @ P_pred_inv  # smoother gain
+        # Smoother gain  G = filt_c[t] @ F.T @ P_pred^{-1}
+        # via solve:  P_pred.T @ G.T = (filt_c[t] @ F.T).T
+        P_pred = pred_c[t + 1] + np.eye(dim) * 1e-10
+        try:
+            G = np.linalg.solve(P_pred.T, (filt_c[t] @ F.T).T).T
+        except np.linalg.LinAlgError:
+            # Near-singular during diffuse init — fall back to pseudoinverse
+            G = filt_c[t] @ F.T @ np.linalg.pinv(P_pred)
         sm_state[t] = filt_s[t] + G @ (sm_state[t + 1] - pred_s[t + 1])
         sm_cov[t] = filt_c[t] + G @ (sm_cov[t + 1] - pred_c[t + 1]) @ G.T
 

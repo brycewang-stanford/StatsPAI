@@ -131,6 +131,25 @@ def synth(
     Returns
     -------
     CausalResult
+        A unified result object. Fields common to all 20 backends:
+
+        * ``estimate`` : float — ATT (post-treatment average effect).
+        * ``se`` : float — standard error (``NaN`` if ``placebo=False``
+          and the method has no analytic SE).
+        * ``pvalue`` : float — two-sided; floor ``1/(J+1)`` for permutation.
+        * ``ci`` : tuple[float, float] — ``(1-alpha)`` confidence interval.
+        * ``detail`` : pd.DataFrame — one row per post-treatment period with
+          columns ``time, treated, counterfactual, effect``.
+        * ``model_info`` : dict — method-specific diagnostics. Keys present
+          for most methods: ``pre_rmspe``, ``post_rmspe``, ``weights``,
+          ``n_donors``, ``n_pre_periods``, ``n_post_periods``. Extra keys
+          are method-specific — see each variant's own docstring
+          (``help(sp.bayesian_synth)``, ``help(sp.mc_synth)``, ...).
+
+    Notes
+    -----
+    Run ``sp.synth_compare(...)`` to run every method at once and compare
+    point estimates, pre-RMSPE, and placebo p-values side by side.
 
     Examples
     --------
@@ -238,8 +257,8 @@ def synth(
         from .sdid import sdid as _sdid
         se_method = inference or "placebo"
         return _sdid(
-            data=data, y=outcome, unit=unit, time=time,
-            treat_unit=treated_unit, treat_time=treatment_time,
+            data=data, outcome=outcome, unit=unit, time=time,
+            treated_unit=treated_unit, treatment_time=treatment_time,
             method="sdid", covariates=covariates,
             se_method=se_method, alpha=alpha, **kwargs,
         )
@@ -369,7 +388,7 @@ def synth(
         return kernel_ridge_synth(
             data=data, outcome=outcome, unit=unit, time=time,
             treated_unit=treated_unit, treatment_time=treatment_time,
-            covariates=covariates, alpha=alpha, **kwargs,
+            covariates=covariates, placebo=placebo, alpha=alpha, **kwargs,
         )
 
     raise ValueError(

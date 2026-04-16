@@ -45,46 +45,61 @@ def augsynth(
     treatment_time,
     covariates: Optional[List[str]] = None,
     ridge_lambda: Optional[float] = None,
+    placebo: bool = True,
     alpha: float = 0.05,
+    **kwargs,
 ) -> CausalResult:
     """
-    Augmented Synthetic Control Method.
+    Augmented Synthetic Control Method (Ben-Michael, Feller & Rothstein 2021).
 
-    Fits a standard synthetic control, then applies a ridge-regression
-    bias correction using the pre-treatment residuals.
+    Fits a standard SCM then adds a ridge-outcome-model bias correction.
+    Per-period correction is
+
+        bias(t) = m̂_t(X1_pre) − Σ_j γ_j m̂_t(X_j,pre),
+
+    where m̂_t is a ridge regression of donor post-period outcomes on
+    donor pre-period outcomes. Collapses to standard SCM when
+    ``ridge_lambda → ∞`` and to pure outcome-model imputation when
+    ``ridge_lambda → 0``.
 
     Parameters
     ----------
     data : pd.DataFrame
         Panel data in long format.
-    outcome : str
-        Outcome variable column.
-    unit : str
-        Unit identifier column.
-    time : str
-        Time period column.
-    treated_unit : scalar
-        Value in *unit* that identifies the treated unit.
-    treatment_time : scalar
-        First period of treatment.
+    outcome, unit, time : str
+        Column names.
+    treated_unit, treatment_time : scalar
+        Treated-unit identifier and first treatment period.
     covariates : list of str, optional
-        Additional predictors (used in the ridge outcome model).
+        Additional predictors (currently informational; main adjustment
+        comes from pre-treatment outcomes).
     ridge_lambda : float, optional
-        Ridge penalty. If None, selected via leave-one-out CV on
-        pre-treatment donor data.
+        Ridge penalty. When ``None``, selected by leave-one-donor-out CV.
+    placebo : bool, default True
+        Run in-space placebo permutation tests for SE / p-value.
     alpha : float, default 0.05
         Significance level.
+    **kwargs
+        Ignored — accepted for dispatcher compatibility.
 
     Returns
     -------
     CausalResult
-        With `.estimate` (average post-treatment effect), event-study-style
-        dynamic effects in `model_info['effects_by_period']`, and SCM
-        diagnostics in `model_info`.
+        ``detail`` has one row per post-treatment period with columns
+        ``time, treated, counterfactual, effect``. ``model_info`` includes
+        ``pre_rmspe, post_rmspe, weights, ridge_lambda, n_donors,
+        n_pre_periods, n_post_periods, placebo_distribution``.
+
+    References
+    ----------
+    Ben-Michael, E., Feller, A. and Rothstein, J. (2021). "The Augmented
+    Synthetic Control Method." *JASA*, 116(536), 1789-1803.
 
     Examples
     --------
-    >>> result = sp.augsynth(df, outcome='gdp', unit='state', time='year',
+    >>> import statspai as sp
+    >>> df = sp.synth.california_tobacco()
+    >>> result = sp.augsynth(df, outcome='cigsale', unit='state', time='year',
     ...                       treated_unit='California', treatment_time=1989)
     >>> print(result.summary())
     """
@@ -115,56 +130,68 @@ def augsynth(
     gamma = _scm_weights(Y1_pre, Y0_pre)
 
     # --- Step 2: Ridge outcome model ---
-    # Fit ridge on pre-treatment donor data: Y_{jt} = X_{jt} β + ε
-    # Here X = lagged outcomes (or covariates if provided)
-    # For simplicity: use donor pre-treatment outcomes as features
+    # Fit ridge of donor post-outcomes on donor pre-outcomes:
+    #   Y0_post = X β + ε,  X = Y0_pre (J × T0),  β ∈ R^{T0 × T1}
+    # Closed-form:  β = (X'X + λI)^{-1} X' Y0_post.
     if ridge_lambda is None:
-        ridge_lambda = _cv_ridge_lambda(Y0_pre)
+        ridge_lambda = _cv_ridge_lambda_bias(Y0_pre, Y0_post)
 
-    beta = _ridge_fit(Y0_pre, ridge_lambda)
+    beta = _ridge_post_coef(Y0_pre, Y0_post, ridge_lambda)   # (T0, T1)
 
-    # --- Step 3: Augmented estimate ---
-    # SCM counterfactual
-    Y1_hat_scm_pre = Y0_pre.T @ gamma  # (T0,)
+    # --- Step 3: Augmented estimate (Ben-Michael et al. 2021 Eq. 3) ---
+    Y1_hat_scm_pre = Y0_pre.T @ gamma    # (T0,)
     Y1_hat_scm_post = Y0_post.T @ gamma  # (T1,)
 
-    # Bias correction: difference between SCM prediction and actual
-    pre_residual_scm = Y1_pre - Y1_hat_scm_pre
+    pre_residual_scm = Y1_pre - Y1_hat_scm_pre           # (T0,)
     pre_rmspe = float(np.sqrt(np.mean(pre_residual_scm ** 2)))
 
-    # Augmented counterfactual (simplified Ben-Michael formulation):
-    # Bias-correct with average pre-treatment residual
-    bias = np.mean(pre_residual_scm)
-    Y1_hat_aug_post = Y1_hat_scm_post + bias
+    # Per-period bias correction:
+    #   bias(t) = m̂_t(X1_pre) − Σ_j γ_j m̂_t(X_j,pre)
+    #          = (Y1_pre − Y0_pre'γ) @ β_t
+    #          = pre_residual_scm @ β[:, t]
+    bias_per_period = pre_residual_scm @ beta            # (T1,)
+    Y1_hat_aug_post = Y1_hat_scm_post + bias_per_period  # (T1,)
 
-    # Treatment effects by period
     effects = Y1_post - Y1_hat_aug_post
     att = float(np.mean(effects))
 
-    # --- Inference via placebo (conformal-style) ---
-    placebo_effects = []
-    for j, donor in enumerate(donors):
-        # Leave-one-out: use remaining donors
-        other_idx = [i for i in range(J) if i != j]
-        Y_plac_pre = Y0_pre[j]
-        Y_plac_post = Y0_post[j]
-        Y_others_pre = Y0_pre[other_idx]
-        Y_others_post = Y0_post[other_idx]
+    # --- Inference via placebo permutation ---
+    if placebo:
+        placebo_effects = []
+        for j in range(J):
+            other_idx = [i for i in range(J) if i != j]
+            Y_plac_pre = Y0_pre[j]
+            Y_plac_post = Y0_post[j]
+            Y_others_pre = Y0_pre[other_idx]
+            Y_others_post = Y0_post[other_idx]
 
-        g_plac = _scm_weights(Y_plac_pre, Y_others_pre)
-        plac_post_hat = Y_others_post.T @ g_plac
-        plac_pre_hat = Y_others_pre.T @ g_plac
-        plac_bias = np.mean(Y_plac_pre - plac_pre_hat)
-        plac_eff = float(np.mean(Y_plac_post - plac_post_hat - plac_bias))
-        placebo_effects.append(plac_eff)
+            g_plac = _scm_weights(Y_plac_pre, Y_others_pre)
+            plac_pre_hat = Y_others_pre.T @ g_plac
+            plac_post_hat = Y_others_post.T @ g_plac
 
-    placebo_effects = np.array(placebo_effects)
-    se = float(np.std(placebo_effects, ddof=1))
-    pvalue = float(np.mean(np.abs(placebo_effects) >= abs(att)))
-    pvalue = max(pvalue, 1 / (J + 1))  # minimum p-value
+            beta_plac = _ridge_post_coef(
+                Y_others_pre, Y_others_post, ridge_lambda
+            )
+            plac_residual = Y_plac_pre - plac_pre_hat
+            plac_bias = plac_residual @ beta_plac
 
-    t_crit = sp_stats.norm.ppf(1 - alpha / 2)
-    ci = (att - t_crit * se, att + t_crit * se)
+            plac_eff = float(np.mean(
+                Y_plac_post - plac_post_hat - plac_bias
+            ))
+            placebo_effects.append(plac_eff)
+
+        placebo_effects = np.array(placebo_effects)
+        se = float(np.std(placebo_effects, ddof=1))
+        pvalue = float(np.mean(np.abs(placebo_effects) >= abs(att)))
+        pvalue = max(pvalue, 1 / (J + 1))
+
+        t_crit = sp_stats.norm.ppf(1 - alpha / 2)
+        ci = (att - t_crit * se, att + t_crit * se)
+    else:
+        placebo_effects = np.array([])
+        se = float("nan")
+        pvalue = float("nan")
+        ci = (float("nan"), float("nan"))
 
     # Build period-level results
     effects_df = pd.DataFrame({
@@ -223,61 +250,68 @@ def _scm_weights(Y1_pre: np.ndarray, Y0_pre: np.ndarray) -> np.ndarray:
     return result.x
 
 
-def _ridge_fit(Y0_pre: np.ndarray, lam: float) -> np.ndarray:
-    """
-    Ridge regression coefficients for outcome model.
-    Returns (T0, T0) coefficient matrix (simplified: predict each period from all others).
-    """
-    J, T0 = Y0_pre.shape
-    # Ridge: β = (X'X + λI)^{-1} X'Y
-    # Use Y0_pre transposed: each row is a time period, columns are donors
-    X = Y0_pre.T  # (T0, J)
-    XtX = X.T @ X + lam * np.eye(J)
-    beta = np.linalg.solve(XtX, X.T @ X)  # (J, T0) simplified
-    return beta
-
-
-def _ridge_correction_weights(
+def _ridge_post_coef(
     Y0_pre: np.ndarray,
     Y0_post: np.ndarray,
-    gamma: np.ndarray,
     lam: float,
 ) -> np.ndarray:
     """
-    Compute ridge-based correction factor for each post-treatment period.
-    Returns an array of shape (T1,) with correction multipliers.
+    Ridge regression coefficients for the outcome model used in the
+    Ben-Michael et al. (2021) ASCM bias correction.
+
+    Fits β so that Y0_post ≈ Y0_pre @ β using Tikhonov-regularised OLS,
+    with X ≡ Y0_pre treated as a (J, T0) design matrix and Y ≡ Y0_post
+    treated as a (J, T1) multi-output target.
+
+    Closed-form: β = (X'X + λ I_{T0})^{-1} X' Y0_post.
+
+    Parameters
+    ----------
+    Y0_pre : (J, T0) donor pre-treatment outcomes.
+    Y0_post : (J, T1) donor post-treatment outcomes.
+    lam : non-negative ridge penalty.
+
+    Returns
+    -------
+    beta : (T0, T1) coefficient matrix.
     """
-    T1 = Y0_post.shape[1]
-    # Simplified: uniform correction
-    return np.ones(T1)
+    T0 = Y0_pre.shape[1]
+    A = Y0_pre.T @ Y0_pre + lam * np.eye(T0)
+    rhs = Y0_pre.T @ Y0_post
+    return np.linalg.solve(A, rhs)
 
 
-def _cv_ridge_lambda(Y0_pre: np.ndarray, lambdas=None) -> float:
-    """Leave-one-out CV to select ridge penalty."""
+def _cv_ridge_lambda_bias(
+    Y0_pre: np.ndarray,
+    Y0_post: np.ndarray,
+    lambdas: Optional[np.ndarray] = None,
+) -> float:
+    """
+    Leave-one-donor-out CV to pick the ridge penalty for the ASCM
+    outcome model m̂: Y0_pre → Y0_post.
+    """
     if lambdas is None:
         lambdas = np.logspace(-3, 3, 20)
 
-    J, T0 = Y0_pre.shape
+    J = Y0_pre.shape[0]
     best_lam = 1.0
     best_mse = np.inf
 
     for lam in lambdas:
         mse = 0.0
         for j in range(J):
-            # Leave donor j out
-            Y_train = np.delete(Y0_pre, j, axis=0)  # (J-1, T0)
-            Y_test = Y0_pre[j]  # (T0,)
-            X = Y_train.T  # (T0, J-1)
-            XtX = X.T @ X + lam * np.eye(J - 1)
+            idx = [i for i in range(J) if i != j]
+            X_tr = Y0_pre[idx]
+            Y_tr = Y0_post[idx]
             try:
-                beta = np.linalg.solve(XtX, X.T @ Y_test)
-                pred = X @ beta
-                mse += np.mean((Y_test - pred) ** 2)
+                beta = _ridge_post_coef(X_tr, Y_tr, lam)
+                pred = Y0_pre[j] @ beta      # (T1,)
+                mse += float(np.mean((Y0_post[j] - pred) ** 2))
             except np.linalg.LinAlgError:
                 mse += 1e10
         mse /= J
         if mse < best_mse:
             best_mse = mse
-            best_lam = lam
+            best_lam = float(lam)
 
-    return float(best_lam)
+    return best_lam

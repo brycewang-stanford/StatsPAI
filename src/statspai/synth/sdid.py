@@ -36,11 +36,15 @@ from ..core.results import CausalResult
 
 def sdid(
     data: pd.DataFrame,
-    y: str,
-    unit: str,
-    time: str,
-    treat_unit: Any,
-    treat_time: Any,
+    outcome: Optional[str] = None,
+    unit: Optional[str] = None,
+    time: Optional[str] = None,
+    treated_unit: Any = None,
+    treatment_time: Any = None,
+    *,
+    y: Optional[str] = None,
+    treat_unit: Any = None,
+    treat_time: Any = None,
     method: Literal['sdid', 'sc', 'did'] = 'sdid',
     covariates: Optional[List[str]] = None,
     se_method: Literal['placebo', 'bootstrap', 'jackknife'] = 'placebo',
@@ -57,16 +61,16 @@ def sdid(
     ----------
     data : pd.DataFrame
         Balanced panel data in long format.
-    y : str
-        Outcome variable.
+    outcome : str
+        Outcome variable column. Alias ``y=`` accepted for R-style calls.
     unit : str
         Unit identifier column.
     time : str
         Time period column.
-    treat_unit : scalar or list
-        Treated unit(s).
-    treat_time : scalar
-        First treatment period (inclusive).
+    treated_unit : scalar or list
+        Treated unit(s). Alias ``treat_unit=`` accepted.
+    treatment_time : scalar
+        First treatment period (inclusive). Alias ``treat_time=`` accepted.
     method : {'sdid', 'sc', 'did'}, default 'sdid'
         * ``'sdid'`` — Synthetic DID (unit + time weights)
         * ``'sc'``   — Synthetic Control (unit weights only)
@@ -125,6 +129,32 @@ def sdid(
     ...                 treat_time=1989, method=m)
     ...     print(f"{m:4s}: ATT = {r.estimate:.3f} (SE = {r.se:.3f})")
     """
+    # --- Resolve canonical/legacy parameter names ---------------------
+    if outcome is None:
+        outcome = y
+    if treated_unit is None:
+        treated_unit = treat_unit
+    if treatment_time is None:
+        treatment_time = treat_time
+
+    if outcome is None:
+        raise TypeError("sdid: provide `outcome` (or legacy alias `y`)")
+    if unit is None or time is None:
+        raise TypeError("sdid: `unit` and `time` are required")
+    if treated_unit is None:
+        raise TypeError(
+            "sdid: provide `treated_unit` (or legacy alias `treat_unit`)"
+        )
+    if treatment_time is None:
+        raise TypeError(
+            "sdid: provide `treatment_time` (or legacy alias `treat_time`)"
+        )
+
+    # Internal variable names kept short for the math below.
+    y = outcome
+    treat_unit = treated_unit
+    treat_time = treatment_time
+
     rng = np.random.default_rng(seed)
 
     # --- Parse treated units ------------------------------------------
