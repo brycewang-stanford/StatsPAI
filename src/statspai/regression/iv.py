@@ -187,13 +187,33 @@ def _liml_kappa(
     A = W0.T @ M_full @ W0
     B = W0.T @ M_exog @ W0
 
+    # kappa_LIML solves the generalized symmetric eigenvalue problem
+    #     B v = kappa A v
+    # with A = W0' M_full W0, B = W0' M_exog W0 (both symmetric PSD).
+    # Because B >= A in the Loewner order (extra residualisation shrinks
+    # SSR), all eigenvalues are >= 1, and kappa_LIML is the *smallest*.
+    # NOTE: the previous implementation used ``np.linalg.eigvalsh`` on the
+    # non-symmetric product ``inv(A) @ B`` which silently returned garbage
+    # (often negative or complex real parts) — always bug, flipping
+    # LIML into a biased direction. Fixed by using the proper generalized
+    # eigendecomposition via ``scipy.linalg.eigh(B, A)``.
     try:
-        # kappa_LIML = min eigenvalue of inv(A) @ B
-        # where A = W0' M_full W0, B = W0' M_exog W0
-        eigvals = np.linalg.eigvalsh(np.linalg.inv(A) @ B)
+        from scipy.linalg import eigh as _sp_eigh
+        eigvals = _sp_eigh(B, A, eigvals_only=True)
         kappa = float(np.min(eigvals))
-    except np.linalg.LinAlgError:
-        warnings.warn("LIML eigenvalue computation failed, falling back to 2SLS (kappa=1)")
+        if not np.isfinite(kappa) or kappa < 1 - 1e-8:
+            # Numerical pathology — fall back to 2SLS rather than produce a
+            # demonstrably wrong kappa.
+            warnings.warn(
+                f"LIML kappa computation returned {kappa}; falling back to 2SLS.",
+                RuntimeWarning, stacklevel=2,
+            )
+            kappa = 1.0
+    except Exception:
+        warnings.warn(
+            "LIML generalized eigenvalue solve failed; falling back to 2SLS.",
+            RuntimeWarning, stacklevel=2,
+        )
         kappa = 1.0
 
     return kappa
@@ -895,12 +915,58 @@ class IVRegression(BaseModel):
         return self._results
 
     def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
-        """Generate predictions from fitted IV model."""
+        """Generate predictions from the fitted IV model.
+
+        For a structural-form estimator, the natural forecast of ``y`` given
+        new data is ``X_exog β_exog + X_endog β_endog`` — i.e. we plug
+        observed values of the endogenous variables through the structural
+        equation. Instruments are not used at prediction time.
+
+        Parameters
+        ----------
+        data : pd.DataFrame, optional
+            New data at which to predict. Must contain all exogenous and
+            endogenous variables referenced by the model's formula. If
+            ``None``, returns in-sample fitted values.
+        """
         if not self.is_fitted:
             raise ValueError("Model must be fitted before prediction")
         if data is None:
             return self._results.fitted_values()
-        raise NotImplementedError("Out-of-sample prediction not yet implemented")
+        if self.formula is None:
+            raise ValueError(
+                "Out-of-sample prediction requires the model to have been fit "
+                "with a formula (not raw y, X arrays)."
+            )
+
+        parsed = parse_formula(self.formula)
+        exog = parsed["exogenous"]
+        endog = parsed["endogenous"]
+        needed = exog + endog
+        missing = [v for v in needed if v not in data.columns]
+        if missing:
+            raise ValueError(
+                f"New data is missing columns referenced by the model: {missing}"
+            )
+
+        params = np.asarray(self._results.params)
+        names = list(self._results.params.index) if hasattr(
+            self._results.params, "index"
+        ) else list(self._exog_names) + list(self._endog_names)
+
+        n_new = len(data)
+        X_new_cols = []
+        for nm in names:
+            if nm in {"Intercept", "const"}:
+                X_new_cols.append(np.ones(n_new))
+            elif nm in data.columns:
+                X_new_cols.append(data[nm].to_numpy(dtype=float))
+            else:
+                raise ValueError(
+                    f"Cannot map parameter '{nm}' to a column in the new data"
+                )
+        X_new = np.column_stack(X_new_cols)
+        return X_new @ params
 
     @property
     def first_stage(self) -> List[Dict[str, float]]:
@@ -1072,5 +1138,6 @@ def ivreg(
     -------
     EconometricResults
     """
-    return iv(formula=formula, data=data, method='2sls',
+    kwargs.setdefault('method', '2sls')
+    return iv(formula=formula, data=data,
               robust=robust, cluster=cluster, **kwargs)

@@ -328,28 +328,111 @@ class OLSRegression(BaseModel):
         self.is_fitted = True
         return self._results
     
-    def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
-        """
-        Generate predictions
-        
+    def predict(
+        self,
+        data: Optional[pd.DataFrame] = None,
+        what: str = "mean",
+        alpha: float = 0.05,
+        return_df: bool = False,
+    ) -> "np.ndarray | pd.DataFrame":
+        """Generate predictions from the fitted OLS model.
+
         Parameters
         ----------
         data : pd.DataFrame, optional
-            Data for prediction
-            
+            New data at which to predict. If ``None``, returns the
+            in-sample fitted values.
+        what : {"mean", "confidence", "prediction"}, default "mean"
+            - ``"mean"`` — point predictions only (default).
+            - ``"confidence"`` — point + ``(1-alpha)`` confidence interval
+              for the conditional mean ``E[y | x]``.
+            - ``"prediction"`` — point + ``(1-alpha)`` prediction interval
+              for a new observation (wider than the CI by ``sqrt(sigma^2)``).
+        alpha : float, default 0.05
+            Significance level for the interval.
+        return_df : bool, default False
+            Return a DataFrame with columns ``["yhat", "lower", "upper"]``.
+            Ignored (forces True) when ``what != "mean"``.
+
         Returns
         -------
-        np.ndarray
-            Predicted values
+        np.ndarray or pd.DataFrame
+            Point predictions, optionally with interval columns.
         """
         if not self.is_fitted:
             raise ValueError("Model must be fitted before prediction")
-        
+
+        # In-sample path
         if data is None:
-            return self._results.fitted_values()
-        
-        # TODO: Implement out-of-sample prediction
-        raise NotImplementedError("Out-of-sample prediction not yet implemented")
+            yhat = np.asarray(self._results.fitted_values()).ravel()
+            if what == "mean" and not return_df:
+                return yhat
+            # Fall through to interval machinery using the training design X.
+            X_new = self.X
+        else:
+            if self.formula is None:
+                raise ValueError(
+                    "Out-of-sample prediction requires the model to have been fit "
+                    "with a formula (not raw y, X arrays)."
+                )
+            # Build X from the RHS of the formula. patsy's dmatrices() wants
+            # the LHS variable present in `data`; at prediction time we only
+            # have the regressors, so use dmatrix on the RHS only.
+            from patsy import dmatrix
+            rhs = self.formula.split("~", 1)[1].strip()
+            X_df = dmatrix(rhs, data, return_type="dataframe")
+            missing = [nm for nm in self.var_names if nm not in X_df.columns]
+            if missing:
+                raise ValueError(
+                    f"New data is missing columns produced by the formula: {missing}"
+                )
+            X_new = X_df[self.var_names].values
+            params = np.asarray(self._results.params)
+            yhat = X_new @ params
+
+        if what == "mean" and not return_df:
+            return yhat
+
+        params = np.asarray(self._results.params)
+        # Covariance of the estimated coefficients
+        cov = None
+        diag = self._results.data_info.get("cov_params", None) if hasattr(
+            self._results, "data_info"
+        ) else None
+        if diag is not None:
+            cov = np.asarray(diag)
+        else:
+            # Reconstruct from std_errors (diagonal approximation if full cov missing)
+            se = np.asarray(self._results.std_errors)
+            cov = np.diag(se ** 2)
+
+        # var(x' beta) = x' Σ x
+        var_mean = np.einsum("ij,jk,ik->i", X_new, cov, X_new)
+        var_mean = np.maximum(var_mean, 0.0)
+        se_mean = np.sqrt(var_mean)
+
+        df_resid = self._results.data_info.get("df_resid", np.inf)
+        t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
+
+        if what == "confidence":
+            lower = yhat - t_crit * se_mean
+            upper = yhat + t_crit * se_mean
+        elif what == "prediction":
+            sigma2 = self._results.diagnostics.get("sigma2", None)
+            if sigma2 is None:
+                # fall back to residual variance
+                e = np.asarray(self._results.data_info.get("residuals", []))
+                sigma2 = float(e @ e) / df_resid if len(e) else 0.0
+            se_pred = np.sqrt(var_mean + float(sigma2))
+            lower = yhat - t_crit * se_pred
+            upper = yhat + t_crit * se_pred
+        else:
+            raise ValueError(
+                f"`what` must be 'mean', 'confidence', or 'prediction'; got {what!r}"
+            )
+
+        out = pd.DataFrame({"yhat": yhat, "lower": lower, "upper": upper})
+        return out
 
 
 def regress(
