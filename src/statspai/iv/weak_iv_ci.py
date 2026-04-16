@@ -250,13 +250,18 @@ def conditional_lr_ci(
     stat_arr = np.empty(len(beta_grid))
     crit_arr = np.empty(len(beta_grid))
 
+    df_r = max(n - kW - k, 1)
+    # Precompute Zs'Dt (invariant across loop)
+    ZsDt = Zs.T @ Dt  # (k,)
+    DtDt = float(Dt @ Dt)
+    DtZsZsDt = float(ZsDt @ ZsDt)
+
     for i, b0 in enumerate(beta_grid):
         ustar = Yt - b0 * Dt
-        # Reduced-form Sigma under H0
-        M_Z = np.eye(n) - Zs @ Zs.T
+        # Sigma = YD' M_Z YD / df, avoiding n×n M_Z via YD'YD - (Zs'YD)'(Zs'YD)
         YD = np.column_stack([ustar, Dt])
-        df_r = max(n - kW - k, 1)
-        Sigma = YD.T @ M_Z @ YD / df_r
+        ZsYD = Zs.T @ YD  # (k, 2)
+        Sigma = (YD.T @ YD - ZsYD.T @ ZsYD) / df_r
         suu = float(Sigma[0, 0])
         svv = float(Sigma[1, 1])
         suv = float(Sigma[0, 1])
@@ -333,13 +338,13 @@ def k_test_ci(
     crit = stats.chi2.ppf(level, df=1)
 
     stat_arr = np.empty(len(beta_grid))
-    M_Z = np.eye(n) - Zs @ Zs.T
+    df_r = max(n - kW - k, 1)
 
     for i, b0 in enumerate(beta_grid):
         ustar = Yt - b0 * Dt
         YD = np.column_stack([ustar, Dt])
-        df_r = max(n - kW - k, 1)
-        Sigma = YD.T @ M_Z @ YD / df_r
+        ZsYD = Zs.T @ YD
+        Sigma = (YD.T @ YD - ZsYD.T @ ZsYD) / df_r
         suu = float(Sigma[0, 0])
         svv = float(Sigma[1, 1])
         suv = float(Sigma[0, 1])

@@ -215,18 +215,11 @@ def _target_weights(
         return c
 
     if target == "att":
-        # ATT = ∫_0^1 MTE(u) · Pr(U≤u | D=1) du  ≈  ∫_0^1 (m_1-m_0) * (p̄≥u) ...
-        # We approximate using observed propensity distribution among treated.
-        # Concretely: weight_k = ∫_0^1 u^k * F̄_P|D=1(u) du
-        # F̄_P|D=1(u) = Pr(P ≥ u | D=1).
-        if target == "att":
-            p_t = p_hat  # treated filter passed externally
-        p_sample = late_bounds if late_bounds is not None else p_hat
-        # simplification: use uniform plug-in via empirical CDF samples
+        # ATT = ∫_0^1 MTE(u) · Pr(P ≥ u | D=1) du  / E[P | D=1]
+        # p_hat is already the treated subsample (caller passes p_hat[D==1])
         u_grid = np.linspace(0.01, 0.99, 101)
-        w = np.array([(p_sample >= u).mean() for u in u_grid])
+        w = np.array([(p_hat >= u).mean() for u in u_grid])
         w /= max(np.trapezoid(w, u_grid), 1e-12)
-        # For each k, ∫ u^k * w(u) du
         wk = np.array([np.trapezoid(u_grid ** k * w, u_grid) for k in range(K + 1)])
         return np.concatenate([wk, -wk])
 

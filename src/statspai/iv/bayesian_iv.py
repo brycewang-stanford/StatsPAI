@@ -190,25 +190,26 @@ def bayesian_iv(
     Zt = _residualize(Z, W)
     k = Zt.shape[1]
 
-    # Projection matrix for instruments
-    PZ = Zt @ np.linalg.solve(Zt.T @ Zt + 1e-10 * np.eye(k), Zt.T)
-    MZ = np.eye(n) - PZ
+    # Precompute ZtZ_inv for fast u'PZu = u'Z(Z'Z)^{-1}Z'u = ||Z'u||²_{inv}
+    ZtZ = Zt.T @ Zt + 1e-10 * np.eye(k)
+    ZtZ_inv = np.linalg.inv(ZtZ)
 
     def log_posterior(beta: float) -> float:
         u = Yt - beta * Dt
-        u_Pz = float(u @ PZ @ u)
-        u_Mz = float(u @ MZ @ u)
+        Ztu = Zt.T @ u  # (k,)
+        u_Pz = float(Ztu @ ZtZ_inv @ Ztu)
+        u_u = float(u @ u)
+        u_Mz = u_u - u_Pz
         if u_Mz <= 0:
             return -np.inf
         # AR quasi-log-likelihood: -AR/2 where AR = n * u'PZu / u'MZu
-        # Maximised when u orthogonal to Z (correct β)
         ar = n * u_Pz / u_Mz
         log_lik = -0.5 * ar
         log_prior = -0.5 * (beta / prior_sd) ** 2
         return log_lik + log_prior
 
     # --- Initialize at 2SLS estimate ---
-    D_hat = PZ @ Dt
+    D_hat = Zt @ (ZtZ_inv @ (Zt.T @ Dt))
     denom = float(D_hat @ Dt)
     if abs(denom) > 1e-12:
         beta_init = float(D_hat @ Yt) / denom

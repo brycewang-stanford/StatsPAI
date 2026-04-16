@@ -50,6 +50,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+import numpy as np
+
 # ─── Core estimators (re-exports) ───────────────────────────────────────
 from ..regression.iv import iv, ivreg, IVRegression
 from ..regression.advanced_iv import liml, jive as jive_legacy, lasso_iv
@@ -293,8 +295,6 @@ def _attach_augmented_diagnostics(model, result, opts: Dict[str, Any]):
         result.diagnostics["augmented_diagnostics_error"] = str(e)
 
 
-# np import only needed for the _attach helper; keep local
-import numpy as np  # noqa: E402
 
 
 __all__ = [

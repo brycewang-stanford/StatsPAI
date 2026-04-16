@@ -197,8 +197,14 @@ def npiv(
     Zt = _residualize(Z, W)
 
     # === Stage 1: sieve regression of D on Z ===
-    Phi_Z = _build_basis(Zt[:, 0] if Zt.shape[1] == 1 else np.linalg.norm(Zt, axis=1),
-                         k_z, basis)
+    if Zt.shape[1] == 1:
+        z_scalar = Zt[:, 0]
+    else:
+        # Multi-instrument: build tensor-product basis would be complex;
+        # use first-stage fitted value from linear projection as the index.
+        pi_lin, *_ = np.linalg.lstsq(Zt, Dt, rcond=None)
+        z_scalar = Zt @ pi_lin  # scalar index, preserves instrument info
+    Phi_Z = _build_basis(z_scalar, k_z, basis)
     pi_hat, *_ = np.linalg.lstsq(Phi_Z, Dt, rcond=None)
     Dt_hat = Phi_Z @ pi_hat
     resid_fs = Dt - Dt_hat

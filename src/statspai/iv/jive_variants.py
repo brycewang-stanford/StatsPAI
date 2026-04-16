@@ -185,14 +185,11 @@ def _jive_estimate(
             D_hat = ((Pz @ D) - hz[:, None] * D) / (1 - hz)[:, None]
 
     elif method == "ijive":
-        # Ackerberg-Devereux 2009 IJIVE: drop own-observation and re-scale
+        # Ackerberg-Devereux 2009 IJIVE: leave-one-out projection
+        # identical to JIVE1 in point estimate; differs in SE.
         D_hat = np.empty_like(D)
         for j in range(p):
             D_hat[:, j] = (D_hat_full[:, j] - h * D[:, j]) / (1 - h)
-        # IJIVE additional degrees-of-freedom correction:
-        # scale by (n - k - W.shape[1]) / n  (AD09 eq 10 variant)
-        scale = (n - k - W.shape[1]) / n if n > k + W.shape[1] else 1.0
-        D_hat = scale * D_hat + (1 - scale) * D
 
     elif method == "rjive":
         if ridge <= 0:

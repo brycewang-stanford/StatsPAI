@@ -153,7 +153,15 @@ def plausibly_exogenous_uci(
 
     gamma_arr = np.asarray(list(gamma_grid), dtype=float)
     if gamma_arr.ndim == 1:
-        gamma_arr = gamma_arr.reshape(-1, Z.shape[1]) if Z.shape[1] > 1 else gamma_arr.reshape(-1, 1)
+        if Z.shape[1] > 1:
+            if len(gamma_arr) % Z.shape[1] != 0:
+                raise ValueError(
+                    f"gamma_grid length {len(gamma_arr)} is not divisible "
+                    f"by n_instruments={Z.shape[1]}"
+                )
+            gamma_arr = gamma_arr.reshape(-1, Z.shape[1])
+        else:
+            gamma_arr = gamma_arr.reshape(-1, 1)
 
     beta_hat, _, var0 = _tsls(Y, D, Z, W)
     # When p_endog > 1, focus on the "target_endog" coefficient (default: column 0).

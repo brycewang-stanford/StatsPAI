@@ -235,7 +235,11 @@ def kleibergen_paap_rk(
     Z_tilde = _residualize(Z, W)
 
     # Reduced form coefficients: D_tilde = Z_tilde @ Pi + V
-    ZZ_inv = np.linalg.inv(Z_tilde.T @ Z_tilde)
+    ZtZ = Z_tilde.T @ Z_tilde
+    try:
+        ZZ_inv = np.linalg.inv(ZtZ)
+    except np.linalg.LinAlgError:
+        ZZ_inv = np.linalg.pinv(ZtZ)
     Pi = ZZ_inv @ (Z_tilde.T @ D_tilde)  # k x p
     V = D_tilde - Z_tilde @ Pi
 
@@ -246,13 +250,16 @@ def kleibergen_paap_rk(
         cov_vec = np.kron(Sigma, ZZ_inv)
         cov_label = "nonrobust"
     elif cov_type == "robust":
-        # Meat: sum_i (Z_i Z_i') ⊗ (V_i V_i')
+        # Meat: Σ_i  kron(z_i z_i', v_i v_i')  — KP (2006) eq. 13
+        # Convention: vec(Pi) stacks columns of Pi (k×p), so Var is (kp × kp)
+        # with blocks (Z'Z)^{-1} ⊗ Σ_VV under homoskedasticity.
+        # Robust sandwich: bread = kron(ZZ_inv, I_p) on both sides.
         meat = np.zeros((k * p, k * p))
         for i in range(n):
-            zi = Z_tilde[i:i + 1].T  # k x 1
-            vi = V[i:i + 1].T  # p x 1
-            meat += np.kron(vi @ vi.T, zi @ zi.T)
-        bread = np.kron(np.eye(p), ZZ_inv)
+            zi = Z_tilde[i]   # (k,)
+            vi = V[i]         # (p,)
+            meat += np.kron(np.outer(zi, zi), np.outer(vi, vi))
+        bread = np.kron(ZZ_inv, np.eye(p))
         cov_vec = bread @ meat @ bread
         cov_label = "HC robust"
     elif cov_type == "cluster":
@@ -264,17 +271,14 @@ def kleibergen_paap_rk(
         meat = np.zeros((k * p, k * p))
         for cid in groups:
             idx = np.where((g == cid).values)[0]
-            Zc = Z_tilde[idx]
-            Vc = V[idx]
-            score = np.kron(Vc, Zc).sum(axis=0)
-            # score is p*k (row-major kron of per-obs kron sum); rebuild properly
+            # Cluster score: Σ_{t∈cluster} kron(z_t, v_t) → vectorised form
             score_mat = np.zeros((k, p))
             for t in idx:
                 score_mat += np.outer(Z_tilde[t], V[t])
-            v = score_mat.flatten(order='F')  # matches vec(Pi) stacking cols
+            v = score_mat.flatten(order='F')  # vec(score) with col-stacking
             meat += np.outer(v, v)
         meat *= G / max(G - 1, 1)
-        bread = np.kron(np.eye(p), ZZ_inv)
+        bread = np.kron(ZZ_inv, np.eye(p))
         cov_vec = bread @ meat @ bread
         cov_label = f"cluster ({G} groups)"
     else:
@@ -291,19 +295,26 @@ def kleibergen_paap_rk(
     rk_f = rk_wald / df_num
     rk_wald_pvalue = float(1 - stats.chi2.cdf(rk_wald, df=k - p + 1))
 
-    # KP rk LM statistic (Kleibergen 2002 / Kleibergen-Paap 2006 eq. 17)
-    # Equivalent to Wald when homoskedastic, more stable under weak identification
-    # KP rk LM = n * tr( (D'M_W D)^{-1} D'P_Z D )  after robust-ification
+    # KP rk LM statistic (Kleibergen-Paap 2006, Theorem 1)
+    # Tests H0: rank(Pi) <= p-1 vs H1: rank(Pi) = p.
+    # The rk LM is based on the *smallest* canonical correlation /
+    # singular value of the whitened reduced-form matrix A = Zs' Ds.
+    # Under H0, rk_lm ~ chi²((k - p + 1)).
     Sigma = (V.T @ V) / n
     try:
         Sigma_half_inv = np.linalg.inv(np.linalg.cholesky(Sigma))
     except np.linalg.LinAlgError:
         Sigma_half_inv = np.linalg.pinv(_sqrtm_sym(Sigma))
-    Zs = Z_tilde @ np.linalg.cholesky(ZZ_inv)  # orthonormalised instruments
+    try:
+        ZZ_chol = np.linalg.cholesky(Z_tilde.T @ Z_tilde / n)
+        Zs = Z_tilde @ np.linalg.inv(ZZ_chol.T)  # orthonormalised instruments
+    except np.linalg.LinAlgError:
+        Zs = Z_tilde
     Ds = D_tilde @ Sigma_half_inv.T  # whitened endog
-    A = Zs.T @ Ds  # k x p
-    rk_lm = float(np.sum(A ** 2))
-    rk_lm_pvalue = float(1 - stats.chi2.cdf(rk_lm, df=(k - p + 1) * p))
+    A = Zs.T @ Ds / np.sqrt(n)  # k x p
+    sv = np.linalg.svd(A, compute_uv=False)
+    rk_lm = float(n * sv[-1] ** 2)   # smallest sv², scaled by n
+    rk_lm_pvalue = float(1 - stats.chi2.cdf(rk_lm, df=(k - p + 1)))
 
     return KleibergenPaapResult(
         rk_wald=rk_wald,
@@ -412,7 +423,7 @@ def sanderson_windmeijer(
         tss = float(y_j @ y_j)
 
         df1 = k - (p - 1)  # SW adjusted numerator df
-        df2 = n - n_W - k  # denominator df (net of all controls + instruments)
+        df2 = n - n_W - k - (p - 1)  # SW (2016) eq. 7 denominator df
         if df1 <= 0:
             raise ValueError(
                 f"Not enough instruments: k - (p-1) = {df1} for endogenous '{names[j]}'."
