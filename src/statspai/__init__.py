@@ -146,7 +146,11 @@ from .survival import cox, kaplan_meier, survreg, CoxResult, KMResult, logrank_t
 # Nonparametric
 from .nonparametric import lpoly, LPolyResult, kdensity, KDensityResult
 # Time Series (for causal inference)
-from .timeseries import var, VARResult, granger_causality, irf, structural_break, StructuralBreakResult, cusum_test
+from .timeseries import (
+    var, VARResult, granger_causality, irf,
+    structural_break, StructuralBreakResult, cusum_test,
+    local_projections, LocalProjectionsResult,
+)
 # Experimental Design
 from .experimental import randomize, RandomizationResult, balance_check, BalanceResult, attrition_test, attrition_bounds, AttritionResult, optimal_design, OptimalDesignResult
 # Missing Data / Imputation
