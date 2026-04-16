@@ -220,29 +220,8 @@ def _solve_weights(
     y: np.ndarray, X: np.ndarray, penalization: float = 0.0,
 ) -> np.ndarray:
     """Standard SCM weights: min ||y - Xw||^2 + pen*||w||^2, w>=0, sum=1."""
-    J = X.shape[1]
-
-    def objective(w):
-        r = y - X @ w
-        loss = r @ r
-        if penalization > 0:
-            loss += penalization * (w @ w)
-        return loss
-
-    def jac(w):
-        r = y - X @ w
-        g = -2 * X.T @ r
-        if penalization > 0:
-            g += 2 * penalization * w
-        return g
-
-    res = optimize.minimize(
-        objective, np.ones(J) / J, jac=jac, method="SLSQP",
-        bounds=[(0, 1)] * J,
-        constraints={"type": "eq", "fun": lambda w: np.sum(w) - 1},
-        options={"maxiter": 1000, "ftol": 1e-12},
-    )
-    return res.x
+    from ._core import solve_simplex_weights
+    return solve_simplex_weights(y, X, penalization=penalization)
 
 
 def _conformal_pvalue(

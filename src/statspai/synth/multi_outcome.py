@@ -446,22 +446,10 @@ def _scm_weights(
     -------
     w : ndarray, shape (J,)
     """
-    J = Y_donors.shape[0]
-
-    def objective(w):
-        resid = y_treated - Y_donors.T @ w
-        return float(np.sum(resid ** 2) + penalization * np.sum(w ** 2))
-
-    constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}
-    bounds = [(0.0, 1.0)] * J
-    w0 = np.ones(J) / J
-
-    result = minimize(
-        objective, w0, method="SLSQP",
-        bounds=bounds, constraints=constraints,
-        options={"maxiter": 1000, "ftol": 1e-12},
+    from ._core import solve_simplex_weights
+    return solve_simplex_weights(
+        y_treated, Y_donors.T, penalization=penalization,
     )
-    return result.x
 
 
 def _concatenated_weights(

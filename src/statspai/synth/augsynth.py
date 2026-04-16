@@ -235,19 +235,8 @@ def _scm_weights(Y1_pre: np.ndarray, Y0_pre: np.ndarray) -> np.ndarray:
     Standard SCM: find non-negative weights that minimise
     ||Y1_pre - Y0_pre' γ||² subject to sum(γ) = 1, γ >= 0.
     """
-    J = Y0_pre.shape[0]
-
-    def objective(g):
-        return np.sum((Y1_pre - Y0_pre.T @ g) ** 2)
-
-    constraints = {"type": "eq", "fun": lambda g: np.sum(g) - 1}
-    bounds = [(0, 1)] * J
-    g0 = np.ones(J) / J
-
-    result = minimize(objective, g0, method="SLSQP",
-                      bounds=bounds, constraints=constraints,
-                      options={"maxiter": 1000, "ftol": 1e-12})
-    return result.x
+    from ._core import solve_simplex_weights
+    return solve_simplex_weights(Y1_pre, Y0_pre.T)
 
 
 def _ridge_post_coef(

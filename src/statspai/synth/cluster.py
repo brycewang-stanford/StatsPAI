@@ -492,26 +492,8 @@ def _scm_weights(Y1_pre: np.ndarray, Y0_pre: np.ndarray) -> np.ndarray:
     Standard SCM: non-negative weights minimising
     ||Y1 - Y0^T w||^2   s.t.  sum(w) = 1,  w >= 0.
     """
-    J = Y0_pre.shape[0]
-    if J == 1:
-        return np.array([1.0])
-
-    def objective(w: np.ndarray) -> float:
-        return float(np.sum((Y1_pre - Y0_pre.T @ w) ** 2))
-
-    constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}
-    bounds = [(0.0, 1.0)] * J
-    w0 = np.ones(J) / J
-
-    result = optimize.minimize(
-        objective,
-        w0,
-        method="SLSQP",
-        bounds=bounds,
-        constraints=constraints,
-        options={"maxiter": 1000, "ftol": 1e-12},
-    )
-    return result.x
+    from ._core import solve_simplex_weights
+    return solve_simplex_weights(Y1_pre, Y0_pre.T)
 
 
 def _run_placebos(

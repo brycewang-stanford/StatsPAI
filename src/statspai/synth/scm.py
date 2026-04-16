@@ -520,41 +520,10 @@ class SyntheticControl:
         min_w ||Y_treated_pre - Y_donors_pre @ w||^2 + pen * ||w||^2
         s.t.  w_j >= 0,  sum(w) = 1
         """
-        J = Y_donors_pre.shape[1]
-
-        if J == 0:
-            raise ValueError("No donor units available")
-
-        def objective(w):
-            residual = Y_treated_pre - Y_donors_pre @ w
-            loss = residual @ residual
-            if self.penalization > 0:
-                loss += self.penalization * (w @ w)
-            return loss
-
-        def jac(w):
-            residual = Y_treated_pre - Y_donors_pre @ w
-            grad = -2 * Y_donors_pre.T @ residual
-            if self.penalization > 0:
-                grad += 2 * self.penalization * w
-            return grad
-
-        # Constraints: sum(w) = 1
-        constraints = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1}
-        # Bounds: w >= 0
-        bounds = [(0, 1)] * J
-        # Initial: uniform
-        w0 = np.ones(J) / J
-
-        result = optimize.minimize(
-            objective, w0, jac=jac,
-            method='SLSQP',
-            bounds=bounds,
-            constraints=constraints,
-            options={'maxiter': 1000, 'ftol': 1e-12},
+        from ._core import solve_simplex_weights
+        return solve_simplex_weights(
+            Y_treated_pre, Y_donors_pre, penalization=self.penalization,
         )
-
-        return result.x
 
     # ------------------------------------------------------------------
     # Estimation

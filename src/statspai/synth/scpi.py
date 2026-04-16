@@ -541,23 +541,8 @@ def _weights_simplex(
     y: np.ndarray, X: np.ndarray, w0: np.ndarray,
 ) -> np.ndarray:
     """Simplex-constrained SCM: min ||y - Xw||^2, w >= 0, sum(w) = 1."""
-    J = X.shape[1]
-
-    def objective(w):
-        r = y - X @ w
-        return float(r @ r)
-
-    def jac(w):
-        r = y - X @ w
-        return -2.0 * X.T @ r
-
-    res = optimize.minimize(
-        objective, w0, jac=jac, method="SLSQP",
-        bounds=[(0.0, 1.0)] * J,
-        constraints={"type": "eq", "fun": lambda w: np.sum(w) - 1.0},
-        options={"maxiter": 1000, "ftol": 1e-12},
-    )
-    return res.x
+    from ._core import solve_simplex_weights
+    return solve_simplex_weights(y, X, w0=w0)
 
 
 def _weights_lasso(
