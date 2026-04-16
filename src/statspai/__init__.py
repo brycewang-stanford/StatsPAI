@@ -154,6 +154,7 @@ from .timeseries import (
     local_projections, LocalProjectionsResult,
     garch, GARCHResult,
     arima, ARIMAResult,
+    bvar, BVARResult,
 )
 # Experimental Design
 from .experimental import randomize, RandomizationResult, balance_check, BalanceResult, attrition_test, attrition_bounds, AttritionResult, optimal_design, OptimalDesignResult

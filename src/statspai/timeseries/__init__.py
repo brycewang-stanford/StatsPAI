@@ -11,6 +11,7 @@ from .cointegration import engle_granger, johansen, CointegrationResult
 from .local_projections import local_projections, LocalProjectionsResult
 from .garch import garch, GARCHResult
 from .arima import arima, ARIMAResult
+from .bvar import bvar, BVARResult
 
 __all__ = [
     "var", "VARResult", "granger_causality", "irf",
@@ -19,4 +20,5 @@ __all__ = [
     "local_projections", "LocalProjectionsResult",
     "garch", "GARCHResult",
     "arima", "ARIMAResult",
+    "bvar", "BVARResult",
 ]
