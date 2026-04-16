@@ -15,7 +15,7 @@ StatsPAI is the **agent-native** Python package for causal inference and applied
 
 It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 
-**NEW in v0.6**: `sp.interactive(fig)` — a Stata Graph Editor-style WYSIWYG plot editor for Jupyter, with 29 academic themes, real-time preview, and auto-generated reproducible code.
+**NEW in v0.8.0**: **Spatial Econometrics Full-Stack** — 38 new API symbols covering weights, ESDA, ML/GMM regression, GWR/MGWR, and spatial panel. Plus: local projections, GARCH, ARIMA, BVAR, LiNGAM, GES, optimal matching, cardinality matching, RIF decomposition, mediation sensitivity, Cox frailty, AFT survival, rdpower, survey calibration. **60+ new functions across 10 domains.**
 
 ![StatsPAI interactive plot editor](https://raw.githubusercontent.com/brycewang-stanford/statspai/main/image-1.png)
 
@@ -33,7 +33,8 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 | Heterogeneity analysis | Manual subgroup splits + forest plots | Manual `lapply` + `ggplot` | **`subgroup_analysis()` with Wald test** |
 | Modern ML causal | Limited (no DML, no causal forest) | Fragmented (DoubleML, grf, SuperLearner separate) | **DML, Causal Forest, Meta-Learners, TMLE, DeepIV** |
 | Neural causal models | None | None | **TARNet, CFRNet, DragonNet** |
-| Causal discovery | None | `pcalg` (complex API) | **`notears()`, `pc_algorithm()`** |
+| Causal discovery | None | `pcalg` (complex API) | **`notears()`, `pc_algorithm()`, `lingam()`, `ges()`** |
+| Spatial econometrics | None | 5 packages (spdep+spatialreg+sphet+splm+GWmodel) | **38 functions: weights→ESDA→ML/GMM→GWR/MGWR→panel** |
 | Policy learning | None | `policytree` (standalone) | **`policy_tree()` + `policy_value()`** |
 | Result objects | Inconsistent across commands | Inconsistent across packages | **Unified `CausalResult` with `.summary()`, `.plot()`, `.to_latex()`, `.cite()`** |
 | Interactive plot editing | Graph Editor (no code export) | None | **`sp.interactive()` — GUI editing with auto-generated code** |
@@ -545,14 +546,14 @@ sp.subgroup_analysis(df, formula="wage ~ education + experience",
 | **`ggplot2` visualization** | R's grammar of graphics is more flexible than matplotlib for complex figures. |
 | **`modelsummary`** | R's `modelsummary` is the gold standard for regression tables — StatsPAI's is close but not yet identical. |
 | **CRAN quality control** | R packages go through peer review. Python packages vary in quality. |
-| **Spatial econometrics** | `spdep`, `spatialreg` — R has a deeper spatial ecosystem. |
+| **Spatial econometrics** | ~~`spdep`, `spatialreg`~~ — **As of v0.8.0, StatsPAI matches R's 5-package spatial stack** (spdep + spatialreg + sphet + splm + GWmodel) in a single unified API, with numerical parity to PySAL spreg at rtol<1e-7 on the Columbus benchmark. |
 
 ---
 
 ## API at a Glance
 
 ```text
-390+ public functions/classes
+450+ public functions/classes
 
 Regression:     regress, ivreg, glm, logit, probit, mlogit, ologit, poisson, nbreg, ppmlhdfe,
                 tobit, heckman, qreg, truncreg, fracreg, betareg, sureg, three_sls, gmm
@@ -565,16 +566,26 @@ Matching:       match, ebalance, ipw, aipw
 Synth:          synth, sdid, gsynth, augsynth, staggered_synth, conformal_synth
 ML Causal:      dml, causal_forest, deepiv, metalearner, tmle
 Neural:         tarnet, cfrnet, dragonnet
-Discovery:      notears, pc_algorithm
+Spatial:        sar, sem, sdm, slx, sac, sar_gmm, sem_gmm, sarar_gmm,          ← NEW v0.8
+                moran, geary, getis_ord_g, join_counts, lm_tests, impacts,
+                gwr, mgwr, gwr_bandwidth, spatial_panel,
+                queen_weights, rook_weights, knn_weights, distance_band, kernel_weights
+Discovery:      notears, pc_algorithm, lingam, ges                              ← NEW v0.8
 Policy:         policy_tree, policy_value
-Survival:       cox, kaplan_meier, survreg, logrank_test
-Time Series:    var, granger_causality, irf, structural_break, johansen, engle_granger
+Survival:       cox, kaplan_meier, survreg, logrank_test, cox_frailty, aft      ← NEW v0.8
+Time Series:    var, granger_causality, irf, structural_break, johansen,
+                local_projections, garch, arima, bvar                           ← NEW v0.8
 Nonparametric:  lpoly, kdensity
 Experimental:   randomize, balance_check, attrition_test, optimal_design
+Matching:       match, ebalance, optimal_match, cardinality_match               ← NEW v0.8
+Decomposition:  oaxaca, gelbach, rifreg, rif_decomposition                      ← NEW v0.8
 Imputation:     mice, mi_estimate
 Frontier:       frontier (stochastic frontier analysis)
 Structural:     blp (BLP demand estimation)
+Survey:         svydesign, svymean, svytotal, svyglm, rake, linear_calibration  ← NEW v0.8
 MR:             mendelian_randomization, mr_ivw, mr_egger, mr_median
+Mediation:      mediate, mediate_sensitivity                                    ← NEW v0.8
+RD:             rdrobust, rdplot, rddensity, rdmc, rdms, rdpower, rdsampsi      ← NEW v0.8
 Smart Workflow: recommend, compare_estimators, assumption_audit,
                 sensitivity_dashboard, pub_ready, replicate
 Output:         modelsummary, outreg2, sumstats, balance_table, tab, coefplot, binscatter
@@ -584,6 +595,71 @@ Plot Editor:    interactive (WYSIWYG editor), set_theme (29 academic themes)
 ---
 
 ## Release Notes
+
+### v0.8.0 (2026-04-16) — Spatial Econometrics Full-Stack + 10-Domain Breadth Upgrade
+
+**60+ new functions, 450+ total API, 1,230+ tests passing. Largest release in StatsPAI history.**
+
+**Spatial Econometrics (NEW — 38 API symbols, 3,178 LOC, 69 tests):**
+
+- **Weights**: `W` (sparse CSR), `queen_weights`, `rook_weights`, `knn_weights`, `distance_band`, `kernel_weights`, `block_weights`
+- **ESDA**: `moran` (global + local LISA), `geary`, `getis_ord_g`, `getis_ord_local`, `join_counts`, `moran_plot`, `lisa_cluster_map`
+- **ML Regression**: `sar`, `sem`, `sdm`, `slx`, `sac` (SARAR) — sparse-aware, scales to N=100K
+- **GMM Regression**: `sar_gmm`, `sem_gmm`, `sarar_gmm` (Kelejian-Prucha 1998/1999, het-robust)
+- **Diagnostics**: `lm_tests` (Anselin 1988 — LM-err/LM-lag/Robust-LM/SARMA), `moran_residuals`
+- **Effects**: `impacts` (LeSage-Pace 2009 direct/indirect/total with simulated SE)
+- **GWR**: `gwr`, `mgwr` (Multiscale GWR), `gwr_bandwidth` (AICc/CV golden-section)
+- **Spatial Panel**: `spatial_panel` (SAR-FE / SEM-FE / SDM-FE, entity + twoways)
+- **Cross-validated**: Columbus SAR/SEM rtol<1e-7 vs PySAL spreg; Georgia GWR bit-identical vs mgwr
+
+**Time Series (4 new estimators):**
+
+- `local_projections` — Jordà (2005) horizon-by-horizon IRF with Newey-West HAC
+- `garch` — GARCH(p,q) volatility model, MLE, multi-step forecast
+- `arima` — ARIMA/SARIMAX with auto (p,d,q) selection via AICc grid
+- `bvar` — Bayesian VAR with Minnesota (Litterman) prior, closed-form posterior
+
+**Causal Discovery (2 new algorithms):**
+
+- `lingam` — DirectLiNGAM (Shimizu 2011), bit-identical match vs lingam package
+- `ges` — Greedy Equivalence Search (Chickering 2002), BIC-based CPDAG learning
+
+**Matching (2 new methods):**
+
+- `optimal_match` — global 1:1 matching via Hungarian algorithm (min total Mahalanobis distance)
+- `cardinality_match` — Zubizarreta (2014) LP-based matching with SMD balance constraints
+
+**Decomposition & Mediation:**
+
+- `rifreg` — RIF regression (Firpo-Fortin-Lemieux 2009), unconditional quantile partial effects
+- `rif_decomposition` — RIF Oaxaca-Blinder for distributional statistics
+- `mediate_sensitivity` — Imai-Keele-Yamamoto (2010) ρ-sensitivity analysis
+
+**RD & Design:**
+
+- `rdpower`, `rdsampsi` — power calculations for RD designs (Cattaneo et al. 2019)
+
+**Survey:**
+
+- `rake` — iterative proportional fitting (Deming-Stephan) for survey calibration
+- `linear_calibration` — Deville-Särndal (1992) chi-squared distance calibration
+
+**Survival (2 new models):**
+
+- `cox_frailty` — Cox proportional hazards with shared gamma frailty
+- `aft` — Accelerated Failure Time (exponential/Weibull/lognormal/loglogistic)
+
+**ML-Causal (GRF extensions):**
+
+- `CausalForest.variable_importance()` — permutation-based feature importance for CATE
+- `CausalForest.best_linear_projection()` — BLP heterogeneity test (Chernozhukov et al. 2020)
+- `CausalForest.ate()`, `.att()` — convenience accessors
+- **Bugfix**: honest leaf values now correctly vary per-leaf (was overwriting all leaves)
+
+**Infrastructure:**
+
+- OLS/IV `predict(data, what='confidence'|'prediction')` — out-of-sample with intervals
+- Pre-release code review: 3 critical + 2 high-priority bugs fixed before release
 
 ### v0.6.0 (2026-04-05) — Complete Econometrics Toolkit + Smart Workflow Engine
 

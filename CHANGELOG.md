@@ -2,6 +2,69 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.8.0] - 2026-04-16
+
+### Spatial Econometrics Full-Stack + 10-Domain Breadth Upgrade
+
+**Largest release in StatsPAI history. 60+ new functions across 10 domains.**
+
+#### Spatial Econometrics (NEW — 38 API symbols)
+
+From 3 functions / 419 LOC to **38 functions / 3,178 LOC / 69 tests**. Python's first unified spatial econometrics package.
+
+- **Weights (L1)**: `W` (sparse CSR), `queen_weights`, `rook_weights`, `knn_weights`, `distance_band`, `kernel_weights`, `block_weights`
+- **ESDA (L2)**: `moran` (global + local), `geary`, `getis_ord_g`, `getis_ord_local`, `join_counts`, `moran_plot`, `lisa_cluster_map`
+- **ML Regression (L3)**: `sar`, `sem`, `sdm`, `slx`, `sac` — sparse-backed, dual log-det path (exact + Barry-Pace), scales to N=100K
+- **GMM (L3)**: `sar_gmm`, `sem_gmm`, `sarar_gmm` — Kelejian-Prucha (1998/1999), heteroskedasticity-robust
+- **Diagnostics**: `lm_tests` (Anselin 1988 full battery), `moran_residuals`
+- **Effects**: `impacts` (LeSage-Pace 2009 direct/indirect/total + simulated SE)
+- **GWR (L4)**: `gwr`, `mgwr` (Multiscale GWR), `gwr_bandwidth` (AICc/CV golden-section)
+- **Spatial Panel (L5)**: `spatial_panel` (SAR-FE / SEM-FE / SDM-FE, entity + twoways)
+- **Cross-validated**: Columbus rtol<1e-7 vs PySAL spreg 1.9.0; Georgia GWR bit-identical vs mgwr 2.2.1; GMM rtol<1e-4 vs spreg GM_*
+
+#### Time Series
+
+- `local_projections` — Jordà (2005) IRF with Newey-West HAC
+- `garch` — GARCH(p,q) MLE with multi-step forecast
+- `arima` — ARIMA/SARIMAX with auto (p,d,q) AICc grid search
+- `bvar` — Bayesian VAR with Minnesota (Litterman) prior
+
+#### Causal Discovery
+
+- `lingam` — DirectLiNGAM (Shimizu 2011), bit-identical vs lingam package
+- `ges` — Greedy Equivalence Search (Chickering 2002)
+
+#### Matching
+
+- `optimal_match` — Hungarian 1:1 matching (min total Mahalanobis distance)
+- `cardinality_match` — Zubizarreta (2014) LP-based matching with balance constraints
+
+#### Decomposition & Mediation
+
+- `rifreg` — RIF regression (Firpo-Fortin-Lemieux 2009)
+- `rif_decomposition` — RIF Oaxaca-Blinder for distributional statistics
+- `mediate_sensitivity` — Imai-Keele-Yamamoto (2010) ρ-sensitivity
+
+#### RD & Survey
+
+- `rdpower`, `rdsampsi` — power/sample-size for RD designs
+- `rake`, `linear_calibration` — survey calibration (Deville-Särndal 1992)
+
+#### Survival
+
+- `cox_frailty` — Cox with shared gamma frailty (Therneau-Grambsch)
+- `aft` — Accelerated Failure Time (exponential/Weibull/lognormal/loglogistic)
+
+#### ML-Causal (GRF)
+
+- `CausalForest.variable_importance()`, `.best_linear_projection()`, `.ate()`, `.att()`
+- **Bugfix**: honest leaf values now correctly vary per-leaf
+
+#### Infrastructure
+
+- OLS/IV `predict(data, what='confidence'|'prediction')` with intervals
+- Pre-release code review: 3 critical + 2 high-priority bugs fixed
+
 ## [0.7.1] - 2026-04-15
 
 DID-focused polish release. Brings the Wooldridge (2021) ETWFE
