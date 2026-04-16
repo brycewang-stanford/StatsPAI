@@ -618,12 +618,12 @@ def _signed_distance_to_vertical(
     """
     Signed distance to vertical boundary x1 = cutoff.
 
-    For vertical boundary, distance is simply x1 - cutoff.  Sign is
-    positive for treated, negative for control.
+    For vertical boundary, distance is simply x1 - cutoff.
+    Sign is determined by position relative to cutoff (not treatment
+    status), so it works correctly for both sharp and fuzzy designs.
+    Positive = right of cutoff, negative = left.
     """
-    raw_dist = X1 - cutoff
-    sign = np.where(T == 1, 1.0, -1.0)
-    return np.abs(raw_dist) * sign
+    return X1 - cutoff
 
 
 def _signed_distance_to_curve(

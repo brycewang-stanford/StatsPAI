@@ -70,13 +70,22 @@ def _polynomial_residuals(y: np.ndarray, x: np.ndarray, p: int,
                           covs: Optional[np.ndarray] = None) -> np.ndarray:
     """Partial out polynomial in X (and optional covariates) from Y."""
     n = len(y)
-    # Build design: polynomial terms 1, x, x^2, ..., x^p
-    X_design = np.column_stack([x ** k for k in range(1, p + 1)])
-    if covs is not None and covs.shape[1] > 0:
-        X_design = np.column_stack([X_design, covs])
-    # Add intercept
+    parts = []
+    # Polynomial terms x^1, ..., x^p (if p > 0)
+    if p > 0:
+        parts.extend([x ** k for k in range(1, p + 1)])
+    # Covariates
+    if covs is not None:
+        if covs.ndim == 1:
+            parts.append(covs.reshape(-1, 1))
+        elif covs.shape[1] > 0:
+            parts.append(covs)
+
+    if len(parts) == 0:
+        return y - np.mean(y)
+
+    X_design = np.column_stack(parts)
     X_design = np.column_stack([np.ones(n), X_design])
-    # OLS residuals
     beta, _, _, _ = np.linalg.lstsq(X_design, y, rcond=None)
     return y - X_design @ beta
 

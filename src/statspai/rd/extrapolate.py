@@ -740,9 +740,11 @@ def rd_multi_extrapolate(
     # Step 3: Heterogeneity test (Wald test: are all tau_j equal?)
     # ------------------------------------------------------------------
     if k >= 2:
-        tau_mean = np.mean(tau_vals)
-        # Wald statistic: sum of (tau_j - tau_bar)^2 / se_j^2
-        wald_stat = np.sum((tau_vals - tau_mean) ** 2 / (se_vals ** 2))
+        # Inverse-variance weighted mean (GLS-optimal for Wald test)
+        iv_weights = 1.0 / (se_vals ** 2)
+        tau_wbar = np.sum(iv_weights * tau_vals) / iv_weights.sum()
+        # Wald statistic: sum of (tau_j - tau_wbar)^2 / se_j^2
+        wald_stat = np.sum(iv_weights * (tau_vals - tau_wbar) ** 2)
         wald_df = k - 1
         wald_pval = 1.0 - sp_stats.chi2.cdf(wald_stat, wald_df)
         heterogeneity_test = {

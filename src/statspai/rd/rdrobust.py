@@ -152,13 +152,11 @@ def rdrobust(
     Y, X_c, D, Z = _parse_data(data, y, x, c, fuzzy, covs)
 
     # --- Observation-level weights ---
-    W_obs = None
     if weights is not None:
-        if weights not in data.columns:
-            raise ValueError(f"Weights column '{weights}' not found in data")
-        W_obs = data[weights].values.astype(float)
-        # Apply same NaN filtering as _parse_data (valid mask)
-        # W_obs is aligned after _parse_data filters
+        raise NotImplementedError(
+            "Observation-level weights are not yet supported in rdrobust. "
+            "This parameter is reserved for a future release."
+        )
 
     # --- Donut hole: exclude observations within donut radius ---
     if donut > 0:
@@ -979,18 +977,19 @@ def _local_poly_wls(
 # ======================================================================
 
 def _cer_factor(n: int, p: int = 1) -> float:
-    """CER shrinkage factor: h_CER = h_MSE * cer_factor.
+    """CER shrinkage factor: h_CER = h_MSE * n^{-1/((2p+3)(2p+5))}.
 
+    From Calonico, Cattaneo, Farrell (2020, Econometrics Journal, Theorem 1).
     The CER-optimal bandwidth shrinks the MSE-optimal bandwidth to
     improve coverage error of robust bias-corrected CIs.
-    From Calonico, Cattaneo, Farrell (2020, Econometrics Journal):
-    h_CER ~ h_MSE * n^{-1/(2p+3)} / n^{-1/(2p+4+epsilon)}
-    For p=1: h_CER ~ h_MSE * n^{-1/20} approximately.
+
+    For p=1: exponent = -1/35 ≈ -0.02857.
+    For p=2: exponent = -1/63 ≈ -0.01587.
     """
-    # Rate difference: MSE rate is n^{-1/(2p+3)}, CER rate is n^{-1/(2p+4)}
-    mse_rate = 1.0 / (2 * p + 3)
-    cer_rate = 1.0 / (2 * p + 4)
-    return float(n ** (cer_rate - mse_rate))
+    if n <= 1:
+        return 1.0
+    rate_exponent = 1.0 / ((2 * p + 3) * (2 * p + 5))
+    return float(n ** (-rate_exponent))
 
 
 def _select_bandwidth(
