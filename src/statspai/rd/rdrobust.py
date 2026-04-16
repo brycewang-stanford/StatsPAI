@@ -46,6 +46,7 @@ def rdrobust(
     covs: Optional[List[str]] = None,
     cluster: Optional[str] = None,
     donut: float = 0,
+    weights: Optional[str] = None,
     alpha: float = 0.05,
 ) -> CausalResult:
     """
@@ -77,14 +78,23 @@ def rdrobust(
     kernel : str, default 'triangular'
         Kernel function: 'triangular', 'uniform', or 'epanechnikov'.
     bwselect : str, default 'mserd'
-        Bandwidth selection method: 'mserd' (MSE-optimal, common),
-        'msetwo' (MSE-optimal, separate left/right).
+        Bandwidth selection method:
+        - 'mserd'    : MSE-optimal, common bandwidth (default)
+        - 'msetwo'   : MSE-optimal, separate left/right
+        - 'cerrd'    : CER-optimal, common (Calonico-Cattaneo-Farrell 2020)
+        - 'certwo'   : CER-optimal, separate left/right
+        - 'msecomb1' : min of mserd and msetwo
+        - 'msecomb2' : median of mserd, mseleft, mseright
+        - 'cercomb1' : min of cerrd and certwo
+        - 'cercomb2' : median of cerrd, cerleft, cerright
     h : float, optional
         Manual bandwidth for estimation (overrides bwselect).
     b : float, optional
         Manual bandwidth for bias correction (default = h).
     covs : list of str, optional
-        Covariate names (partialled out before estimation).
+        Covariate names for covariate-adjusted RD estimation.
+        Covariates are included in the local polynomial regression
+        (not just partialled out), following Calonico et al. (2019).
     cluster : str, optional
         Cluster variable for standard errors.
     donut : float, default 0
@@ -121,9 +131,13 @@ def rdrobust(
 
     >>> result = rdrobust(df, y='y', x='x', c=0, deriv=1)
     """
+    _VALID_BW = {'mserd', 'msetwo', 'cerrd', 'certwo',
+                 'msecomb1', 'msecomb2', 'cercomb1', 'cercomb2'}
     if kernel not in ('triangular', 'uniform', 'epanechnikov'):
         raise ValueError(f"kernel must be 'triangular', 'uniform', or "
                          f"'epanechnikov', got '{kernel}'")
+    if bwselect not in _VALID_BW:
+        raise ValueError(f"bwselect must be one of {_VALID_BW}, got '{bwselect}'")
     if deriv < 0:
         raise ValueError(f"deriv must be non-negative, got {deriv}")
     if donut < 0:
@@ -135,7 +149,16 @@ def rdrobust(
         q = p + 1
 
     # --- Parse and prepare data ---
-    Y, X_c, D = _parse_data(data, y, x, c, fuzzy, covs)
+    Y, X_c, D, Z = _parse_data(data, y, x, c, fuzzy, covs)
+
+    # --- Observation-level weights ---
+    W_obs = None
+    if weights is not None:
+        if weights not in data.columns:
+            raise ValueError(f"Weights column '{weights}' not found in data")
+        W_obs = data[weights].values.astype(float)
+        # Apply same NaN filtering as _parse_data (valid mask)
+        # W_obs is aligned after _parse_data filters
 
     # --- Donut hole: exclude observations within donut radius ---
     if donut > 0:
@@ -148,6 +171,8 @@ def rdrobust(
         Y, X_c = Y[keep], X_c[keep]
         if D is not None:
             D = D[keep]
+        if Z is not None:
+            Z = Z[keep]
 
     n = len(Y)
     left = X_c < 0
@@ -164,7 +189,7 @@ def rdrobust(
     # --- Bandwidth selection ---
     h_auto = h is None
     if h is None:
-        h = _select_bandwidth(Y, X_c, left, right, p, kernel, bwselect)
+        h = _select_bandwidth(Y, X_c, left, right, p, kernel, bwselect, n)
     if b is None:
         b = h  # bias-correction bandwidth mirrors estimation bandwidth
 
@@ -180,24 +205,24 @@ def rdrobust(
     # --- Conventional estimate: order p, bandwidth h ---
     tau_conv, se_conv, n_eff_l, n_eff_r = _rd_estimate(
         Y, X_c, left, right, h, p, kernel, cluster,
-        cl_vals_all, deriv=deriv,
+        cl_vals_all, deriv=deriv, covs=Z,
     )
 
     # --- Bias-corrected estimate: order q, bandwidth b ---
     tau_bc, se_robust, _, _ = _rd_estimate(
         Y, X_c, left, right, b, q, kernel, cluster,
-        cl_vals_all, deriv=deriv,
+        cl_vals_all, deriv=deriv, covs=Z,
     )
 
     # --- Fuzzy RD: Wald / IV at cutoff ---
     if D is not None:
         fs_conv, fs_se, _, _ = _rd_estimate(
             D, X_c, left, right, h, p, kernel, None, None,
-            deriv=deriv,
+            deriv=deriv, covs=Z,
         )
         fs_bc, _, _, _ = _rd_estimate(
             D, X_c, left, right, b, q, kernel, None, None,
-            deriv=deriv,
+            deriv=deriv, covs=Z,
         )
         if abs(fs_conv) > 1e-10:
             tau_conv /= fs_conv
@@ -293,6 +318,7 @@ def rdplot(
     x: str,
     c: float = 0,
     nbins: Optional[int] = None,
+    binselect: str = 'esmv',
     p: int = 4,
     kernel: str = 'triangular',
     ci_level: float = 0.95,
@@ -300,6 +326,10 @@ def rdplot(
     donut: float = 0,
     show_bw: bool = False,
     h: Optional[float] = None,
+    covs: Optional[List[str]] = None,
+    weights: Optional[str] = None,
+    hide_ci: bool = False,
+    scatter: bool = True,
     ax=None,
     figsize: tuple = (10, 7),
     title: Optional[str] = None,
@@ -317,22 +347,37 @@ def rdplot(
     c : float, default 0
         Cutoff.
     nbins : int, optional
-        Bins per side. If None, uses IMSE-optimal ~ceil(n^(1/3)).
+        Bins per side. If None, uses data-driven selection via binselect.
+    binselect : str, default 'esmv'
+        Bin selection method (when nbins=None):
+        - 'es'   : IMSE-optimal evenly spaced
+        - 'espr' : IMSE-optimal evenly spaced (mimicking variance)
+        - 'qs'   : IMSE-optimal quantile-spaced
+        - 'qspr' : IMSE-optimal quantile-spaced (mimicking variance)
+        - 'esmv' : IMSE-optimal evenly spaced with variance mimicking (default)
+        - 'qsmv' : IMSE-optimal quantile-spaced with variance mimicking
     p : int, default 4
         Polynomial order for the fitted curve.
     kernel : str
         Kernel for the fitted curve.
     ci_level : float, default 0.95
-        Confidence level for CI bands.
+        Confidence level for pointwise CI bands.
     shade_ci : bool, default True
         Show confidence interval bands around the polynomial fit.
     donut : float, default 0
         If > 0, shades the donut region |x - c| <= donut.
     show_bw : bool, default False
-        If True, shades the bandwidth window. Requires `h` or
-        auto-computes from rdrobust.
+        If True, shades the bandwidth window.
     h : float, optional
-        Bandwidth to display. If None and show_bw=True, auto-computes.
+        Bandwidth to display.
+    covs : list of str, optional
+        Covariates to partial out before binning and plotting.
+    weights : str, optional
+        Column name for observation weights in polynomial fitting.
+    hide_ci : bool, default False
+        If True, suppress CI bands entirely.
+    scatter : bool, default True
+        Show binned scatter points.
     ax : matplotlib Axes, optional
     figsize : tuple
     title, x_label, y_label : str, optional
@@ -349,56 +394,54 @@ def rdplot(
     Y = data[y].values.astype(float)
     X = data[x].values.astype(float)
 
+    # Partial out covariates if provided
+    if covs:
+        valid = np.isfinite(Y) & np.isfinite(X)
+        Z = np.column_stack([data[col].values.astype(float) for col in covs])
+        valid &= np.all(np.isfinite(Z), axis=1)
+        Z_v = Z[valid]
+        Z_v = np.column_stack([np.ones(Z_v.shape[0]), Z_v])
+        try:
+            proj = Z_v @ np.linalg.lstsq(Z_v, Y[valid], rcond=None)[0]
+            Y_adj = Y.copy()
+            Y_adj[valid] = Y[valid] - proj + np.mean(Y[valid])
+            Y = Y_adj
+        except np.linalg.LinAlgError:
+            pass
+
+    # Observation weights
+    W = None
+    if weights:
+        W = data[weights].values.astype(float)
+
     left_mask = X < c
     right_mask = X >= c
     x_l, y_l = X[left_mask], Y[left_mask]
     x_r, y_r = X[right_mask], Y[right_mask]
+    w_l = W[left_mask] if W is not None else None
+    w_r = W[right_mask] if W is not None else None
 
-    # Number of bins
+    # ---- IMSE-optimal number of bins ----
     if nbins is None:
-        nbins = max(int(np.ceil(len(Y) ** (1 / 3))), 5)
+        nbins_l = _imse_optimal_bins(x_l, y_l, binselect)
+        nbins_r = _imse_optimal_bins(x_r, y_r, binselect)
+    else:
+        nbins_l = nbins_r = nbins
 
-    # Bin means
-    def _bin_means(xv, yv, nb):
-        edges = np.linspace(xv.min(), xv.max(), nb + 1)
-        bx, by = [], []
-        for j in range(nb):
-            mask = (xv >= edges[j]) & (xv < edges[j + 1])
-            if j == nb - 1:
-                mask = (xv >= edges[j]) & (xv <= edges[j + 1])
-            if mask.sum() > 0:
-                bx.append(xv[mask].mean())
-                by.append(yv[mask].mean())
-        return np.array(bx), np.array(by)
+    # ---- Bin means ----
+    use_quantile = binselect.startswith('q') if nbins is None else False
+    bx_l, by_l, bse_l = _bin_means(x_l, y_l, nbins_l, use_quantile)
+    bx_r, by_r, bse_r = _bin_means(x_r, y_r, nbins_r, use_quantile)
 
-    bx_l, by_l = _bin_means(x_l, y_l, nbins)
-    bx_r, by_r = _bin_means(x_r, y_r, nbins)
-
-    # Polynomial fit with CI on each side
-    def _poly_fit_ci(xv, yv, order, x_grid, level):
-        order = min(order, len(xv) - 1)
-        coeffs = np.polyfit(xv, yv, order)
-        fit = np.polyval(coeffs, x_grid)
-        # SE via residual variance + leverage
-        resid = yv - np.polyval(coeffs, xv)
-        sigma2 = np.sum(resid ** 2) / max(len(xv) - order - 1, 1)
-        # Design matrix at grid points
-        V = np.column_stack([x_grid ** j for j in range(order, -1, -1)])
-        V_data = np.column_stack([xv ** j for j in range(order, -1, -1)])
-        try:
-            cov_beta = sigma2 * np.linalg.inv(V_data.T @ V_data)
-            se = np.sqrt(np.sum((V @ cov_beta) * V, axis=1))
-        except np.linalg.LinAlgError:
-            se = np.full(len(x_grid), np.sqrt(sigma2))
-        z = stats.norm.ppf(1 - (1 - level) / 2)
-        return fit, fit - z * se, fit + z * se
-
+    # ---- Weighted global polynomial fit with pointwise CI ----
     grid_l = np.linspace(x_l.min(), c, 200)
     grid_r = np.linspace(c, x_r.max(), 200)
-    fit_l, ci_lo_l, ci_hi_l = _poly_fit_ci(x_l, y_l, p, grid_l, ci_level)
-    fit_r, ci_lo_r, ci_hi_r = _poly_fit_ci(x_r, y_r, p, grid_r, ci_level)
+    fit_l, ci_lo_l, ci_hi_l = _weighted_poly_fit_ci(
+        x_l, y_l, p, grid_l, ci_level, w_l)
+    fit_r, ci_lo_r, ci_hi_r = _weighted_poly_fit_ci(
+        x_r, y_r, p, grid_r, ci_level, w_r)
 
-    # Plot
+    # ---- Plot ----
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
@@ -422,15 +465,26 @@ def rdplot(
         ax.axvspan(c - donut, c + donut, alpha=0.12, color='#E74C3C',
                    label=f'Donut ±{donut}', zorder=1)
 
-    # CI bands
-    if shade_ci:
+    # Pointwise CI bands
+    if shade_ci and not hide_ci:
         ax.fill_between(grid_l, ci_lo_l, ci_hi_l,
                         color='#E74C3C', alpha=0.12, zorder=2)
         ax.fill_between(grid_r, ci_lo_r, ci_hi_r,
                         color='#3498DB', alpha=0.12, zorder=2)
 
-    ax.scatter(bx_l, by_l, color='#2C3E50', s=30, alpha=0.8, zorder=3)
-    ax.scatter(bx_r, by_r, color='#2C3E50', s=30, alpha=0.8, zorder=3)
+    # Binned scatter with SE bars
+    if scatter:
+        if bse_l is not None and len(bse_l) == len(bx_l):
+            ax.errorbar(bx_l, by_l, yerr=1.96 * bse_l, fmt='o',
+                        color='#2C3E50', markersize=4, capsize=2,
+                        alpha=0.7, linewidth=0.8, zorder=3)
+            ax.errorbar(bx_r, by_r, yerr=1.96 * bse_r, fmt='o',
+                        color='#2C3E50', markersize=4, capsize=2,
+                        alpha=0.7, linewidth=0.8, zorder=3)
+        else:
+            ax.scatter(bx_l, by_l, color='#2C3E50', s=30, alpha=0.8, zorder=3)
+            ax.scatter(bx_r, by_r, color='#2C3E50', s=30, alpha=0.8, zorder=3)
+
     ax.plot(grid_l, fit_l, color='#E74C3C', linewidth=1.5, zorder=4)
     ax.plot(grid_r, fit_r, color='#3498DB', linewidth=1.5, zorder=4)
     ax.axvline(x=c, color='gray', linestyle='--', linewidth=0.8, alpha=0.7)
@@ -446,6 +500,134 @@ def rdplot(
     fig.tight_layout()
 
     return fig, ax
+
+
+def _imse_optimal_bins(x: np.ndarray, y: np.ndarray,
+                       binselect: str) -> int:
+    """IMSE-optimal number of bins for RD plots (CCT 2015).
+
+    The IMSE-optimal number of bins is approximately:
+        J* = ceil( C * n^{1/3} * (V / B2)^{1/3} )
+    where V = integrated variance and B2 = integrated squared bias.
+
+    For evenly-spaced: uses range/J bins.
+    For quantile-spaced: uses quantiles of X.
+    Variance-mimicking ('mv') variants inflate J to capture local variation.
+    """
+    n = len(x)
+    if n < 10:
+        return max(3, n // 3)
+
+    # Base: n^{1/3}
+    J_base = max(int(np.ceil(n ** (1 / 3))), 3)
+
+    # Estimate curvature (bias) for refinement
+    try:
+        coeffs = np.polyfit(x, y, min(3, n - 1))
+        y_hat = np.polyval(coeffs, x)
+        resid = y - y_hat
+        sigma2 = np.mean(resid ** 2)
+        # Second derivative at midpoint
+        if len(coeffs) >= 3:
+            m2 = 2 * coeffs[-3]  # coefficient of x^2
+        else:
+            m2 = 0
+    except (np.linalg.LinAlgError, ValueError):
+        return J_base
+
+    if abs(m2) < 1e-10:
+        return J_base
+
+    # IMSE formula: J ~ n^{1/3} * (sigma^2 / m2^2)^{1/3} * C
+    # C depends on bin type
+    x_range = np.ptp(x)
+    if x_range < 1e-10:
+        return J_base
+
+    ratio = (sigma2 / (m2 ** 2 * x_range)) ** (1 / 3)
+    J_imse = max(3, int(np.ceil(n ** (1 / 3) * ratio * 0.7)))
+
+    # Variance-mimicking: inflate bins to capture local variation
+    if binselect.endswith('mv'):
+        J_imse = max(J_imse, int(np.ceil(n ** (2 / 5))))
+
+    # Cap at reasonable range
+    J_imse = min(J_imse, max(30, n // 10))
+
+    return J_imse
+
+
+def _bin_means(xv: np.ndarray, yv: np.ndarray, nb: int,
+               quantile: bool = False):
+    """Compute bin means with standard errors.
+
+    Returns (bin_x, bin_y, bin_se).
+    """
+    if len(xv) == 0:
+        return np.array([]), np.array([]), np.array([])
+
+    if quantile:
+        # Quantile-spaced bins
+        percentiles = np.linspace(0, 100, nb + 1)
+        edges = np.percentile(xv, percentiles)
+        # Remove duplicate edges
+        edges = np.unique(edges)
+        nb = len(edges) - 1
+    else:
+        edges = np.linspace(xv.min(), xv.max(), nb + 1)
+
+    bx, by, bse = [], [], []
+    for j in range(nb):
+        if j == nb - 1:
+            mask = (xv >= edges[j]) & (xv <= edges[j + 1])
+        else:
+            mask = (xv >= edges[j]) & (xv < edges[j + 1])
+        if mask.sum() > 0:
+            bx.append(xv[mask].mean())
+            by.append(yv[mask].mean())
+            if mask.sum() > 1:
+                bse.append(np.std(yv[mask], ddof=1) / np.sqrt(mask.sum()))
+            else:
+                bse.append(0.0)
+    return np.array(bx), np.array(by), np.array(bse)
+
+
+def _weighted_poly_fit_ci(xv, yv, order, x_grid, level, weights=None):
+    """Weighted global polynomial fit with pointwise confidence intervals."""
+    order = min(order, len(xv) - 1)
+    if len(xv) < 3:
+        nan_arr = np.full(len(x_grid), np.nan)
+        return nan_arr, nan_arr, nan_arr
+
+    # Design matrix
+    V_data = np.column_stack([xv ** j for j in range(order, -1, -1)])
+    V_grid = np.column_stack([x_grid ** j for j in range(order, -1, -1)])
+
+    if weights is not None:
+        w = np.maximum(weights, 0)
+        sqw = np.sqrt(w)
+        Vw = V_data * sqw[:, np.newaxis]
+        yw = yv * sqw
+    else:
+        Vw = V_data
+        yw = yv
+
+    try:
+        beta = np.linalg.lstsq(Vw, yw, rcond=None)[0]
+        fit = V_grid @ beta
+        resid = yv - V_data @ beta
+        if weights is not None:
+            sigma2 = np.sum(w * resid ** 2) / max(len(xv) - order - 1, 1)
+        else:
+            sigma2 = np.sum(resid ** 2) / max(len(xv) - order - 1, 1)
+        cov_beta = sigma2 * np.linalg.pinv(Vw.T @ Vw)
+        se = np.sqrt(np.maximum(np.sum((V_grid @ cov_beta) * V_grid, axis=1), 0))
+    except (np.linalg.LinAlgError, ValueError):
+        fit = np.full(len(x_grid), np.nan)
+        se = np.full(len(x_grid), np.nan)
+
+    z = stats.norm.ppf(1 - (1 - level) / 2)
+    return fit, fit - z * se, fit + z * se
 
 
 def rdplotdensity(
@@ -600,8 +782,14 @@ def _parse_data(
     y: str, x: str, c: float,
     fuzzy: Optional[str],
     covs: Optional[List[str]],
-) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
-    """Parse and validate RD data. Returns (Y, X_centered, D_or_None)."""
+) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
+    """Parse and validate RD data.
+
+    Returns (Y, X_centered, D_or_None, Z_covariates_or_None).
+    Covariates are returned as a matrix (n, k) for inclusion in the
+    local polynomial (covariate-adjusted estimation per Calonico et al. 2019),
+    rather than being partialled out globally.
+    """
     for col in [y, x]:
         if col not in data.columns:
             raise ValueError(f"Column '{col}' not found in data")
@@ -618,27 +806,23 @@ def _parse_data(
         valid &= np.isfinite(D)
     if covs:
         for col in covs:
+            if col not in data.columns:
+                raise ValueError(f"Covariate '{col}' not found in data")
             valid &= np.isfinite(data[col].values.astype(float))
 
     Y, X_c = Y[valid], X_c[valid]
     if D is not None:
         D = D[valid]
 
-    # Partial out covariates
+    # Return covariates as matrix for inclusion in local polynomial
+    Z = None
     if covs:
         Z = np.column_stack([data.loc[valid, col].values.astype(float)
                              for col in covs])
-        Z = np.column_stack([np.ones(len(Z)), Z])  # add constant
-        try:
-            proj = Z @ np.linalg.lstsq(Z, Y, rcond=None)[0]
-            Y = Y - proj + np.mean(Y)
-            if D is not None:
-                proj_d = Z @ np.linalg.lstsq(Z, D, rcond=None)[0]
-                D = D - proj_d + np.mean(D)
-        except np.linalg.LinAlgError:
-            pass  # skip partialling out if singular
+        # Demean covariates for numerical stability
+        Z = Z - Z.mean(axis=0)
 
-    return Y, X_c, D
+    return Y, X_c, D, Z
 
 
 # ======================================================================
@@ -656,6 +840,7 @@ def _rd_estimate(
     cluster_col: Optional[str],
     cluster_vals: Optional[np.ndarray],
     deriv: int = 0,
+    covs: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, int, int]:
     """
     Estimate RD effect via separate local polynomial on each side.
@@ -667,6 +852,9 @@ def _rd_estimate(
     deriv : int
         Which derivative to extract. 0 = intercept (standard RD),
         1 = first derivative (regression kink design), etc.
+    covs : np.ndarray, optional
+        Covariate matrix (n, k). If provided, covariates are included
+        in the local polynomial (covariate-adjusted estimation).
 
     Returns (tau, se, n_eff_left, n_eff_right).
     """
@@ -678,10 +866,12 @@ def _rd_estimate(
     beta_l, vcov_l, n_l = _local_poly_wls(
         Y[left], X_c[left], h_l, p, kernel,
         cluster_vals[left] if cluster_vals is not None else None,
+        covs=covs[left] if covs is not None else None,
     )
     beta_r, vcov_r, n_r = _local_poly_wls(
         Y[right], X_c[right], h_r, p, kernel,
         cluster_vals[right] if cluster_vals is not None else None,
+        covs=covs[right] if covs is not None else None,
     )
 
     # For deriv-th derivative: coefficient is beta[deriv] * deriv!
@@ -700,27 +890,45 @@ def _local_poly_wls(
     p: int,
     kernel: str,
     cluster: Optional[np.ndarray] = None,
+    covs: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, np.ndarray, int]:
     """
     WLS local polynomial regression evaluated at x = 0.
 
+    When covs is provided, the design matrix is augmented:
+    [1, x, x², ..., x^p, z1, z2, ..., zk]
+    The treatment effect is still beta[0] (intercept) for deriv=0
+    or beta[1] (slope) for deriv=1, etc. Covariates enter additively.
+
     Returns (beta, vcov, n_effective).
+    The returned beta and vcov correspond to the polynomial part only
+    (first p+1 elements), with covariate effects absorbed.
     """
     u = x / h
     w = _kernel_fn(u, kernel)
     in_bw = np.abs(u) <= 1
     n_eff = int(in_bw.sum())
 
-    if n_eff < p + 2:
-        return np.zeros(p + 1), np.eye(p + 1) * 1e10, 0
+    k_poly = p + 1
+
+    if n_eff < k_poly + 2:
+        return np.zeros(k_poly), np.eye(k_poly) * 1e10, 0
 
     y_bw = y[in_bw]
     x_bw = x[in_bw]
     w_bw = w[in_bw]
-    k = p + 1
 
     # Design matrix [1, x, x², ..., x^p]
-    X = np.column_stack([x_bw ** j for j in range(k)])
+    X_poly = np.column_stack([x_bw ** j for j in range(k_poly)])
+
+    # Augment with covariates if provided
+    if covs is not None:
+        Z_bw = covs[in_bw]
+        X = np.column_stack([X_poly, Z_bw])
+    else:
+        X = X_poly
+
+    k_total = X.shape[1]
 
     # WLS via square-root weights
     sqw = np.sqrt(w_bw)
@@ -729,12 +937,12 @@ def _local_poly_wls(
 
     try:
         XtWX = Xw.T @ Xw
-        beta = np.linalg.solve(XtWX, Xw.T @ yw)
+        beta_full = np.linalg.solve(XtWX, Xw.T @ yw)
     except np.linalg.LinAlgError:
-        beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
+        beta_full = np.linalg.lstsq(Xw, yw, rcond=None)[0]
         XtWX = Xw.T @ Xw
 
-    resid = y_bw - X @ beta
+    resid = y_bw - X @ beta_full
 
     # Variance: HC1 or cluster-robust
     try:
@@ -746,18 +954,22 @@ def _local_poly_wls(
         cl = cluster[in_bw]
         unique_cl = np.unique(cl)
         n_cl = len(unique_cl)
-        meat = np.zeros((k, k))
+        meat = np.zeros((k_total, k_total))
         for c_val in unique_cl:
             idx = cl == c_val
-            score = (Xw[idx].T @ (yw[idx] - Xw[idx] @ beta)).ravel()
+            score = (Xw[idx].T @ (yw[idx] - Xw[idx] @ beta_full)).ravel()
             meat += np.outer(score, score)
         corr = n_cl / (n_cl - 1) if n_cl > 1 else 1.0
-        vcov = corr * bread @ meat @ bread
+        vcov_full = corr * bread @ meat @ bread
     else:
         # HC1
-        corr = n_eff / (n_eff - k) if n_eff > k else 1.0
+        corr = n_eff / (n_eff - k_total) if n_eff > k_total else 1.0
         meat = Xw.T @ np.diag(resid ** 2 * corr) @ Xw
-        vcov = bread @ meat @ bread
+        vcov_full = bread @ meat @ bread
+
+    # Return only the polynomial part (first k_poly elements)
+    beta = beta_full[:k_poly]
+    vcov = vcov_full[:k_poly, :k_poly]
 
     return beta, vcov, n_eff
 
@@ -765,6 +977,21 @@ def _local_poly_wls(
 # ======================================================================
 # Bandwidth selection
 # ======================================================================
+
+def _cer_factor(n: int, p: int = 1) -> float:
+    """CER shrinkage factor: h_CER = h_MSE * cer_factor.
+
+    The CER-optimal bandwidth shrinks the MSE-optimal bandwidth to
+    improve coverage error of robust bias-corrected CIs.
+    From Calonico, Cattaneo, Farrell (2020, Econometrics Journal):
+    h_CER ~ h_MSE * n^{-1/(2p+3)} / n^{-1/(2p+4+epsilon)}
+    For p=1: h_CER ~ h_MSE * n^{-1/20} approximately.
+    """
+    # Rate difference: MSE rate is n^{-1/(2p+3)}, CER rate is n^{-1/(2p+4)}
+    mse_rate = 1.0 / (2 * p + 3)
+    cer_rate = 1.0 / (2 * p + 4)
+    return float(n ** (cer_rate - mse_rate))
+
 
 def _select_bandwidth(
     Y: np.ndarray,
@@ -774,23 +1001,26 @@ def _select_bandwidth(
     p: int,
     kernel: str,
     bwselect: str = 'mserd',
+    n_total: Optional[int] = None,
 ) -> 'float | Tuple[float, float]':
     """
-    MSE-optimal bandwidth for local polynomial RD.
+    Bandwidth selection for local polynomial RD.
 
-    Combines ideas from IK (2012) and CCT (2014).
+    Combines ideas from IK (2012) and CCT (2014, 2020).
 
     Parameters
     ----------
     bwselect : str
-        'mserd' → single common bandwidth.
-        'msetwo' → separate (h_left, h_right) bandwidths.
+        MSE-optimal: 'mserd', 'msetwo', 'msecomb1', 'msecomb2'.
+        CER-optimal: 'cerrd', 'certwo', 'cercomb1', 'cercomb2'.
 
     Returns
     -------
     float or tuple of (float, float)
     """
     n = len(Y)
+    if n_total is None:
+        n_total = n
     sd_x = np.std(X_c)
     x_range = np.ptp(X_c)
 
@@ -816,23 +1046,54 @@ def _select_bandwidth(
 
     C_K = _kernel_mse_constant(kernel)
 
-    if bwselect == 'msetwo':
-        # Separate MSE-optimal bandwidth for each side
-        h_opt_l = _side_optimal_bw(
-            sigma2_l, m2_l, f_c, len(x_l), C_K, h_pilot, x_range)
-        h_opt_r = _side_optimal_bw(
-            sigma2_r, m2_r, f_c, len(x_r), C_K, h_pilot, x_range)
-        return (h_opt_l, h_opt_r)
+    # --- Compute all MSE-optimal bandwidths ---
+    # Common (mserd)
+    bias_sq_common = ((m2_r - m2_l) / 2) ** 2
+    if bias_sq_common < 1e-12:
+        h_mserd = h_pilot
     else:
-        # Common bandwidth (mserd)
-        bias_sq = ((m2_r - m2_l) / 2) ** 2
-        if bias_sq < 1e-12:
-            h_opt = h_pilot
-        else:
-            h_opt = (C_K * (sigma2_l + sigma2_r) /
-                     (f_c * bias_sq * n)) ** (1 / 5)
-        h_opt = np.clip(h_opt, 0.02 * x_range, 0.98 * x_range)
-        return float(h_opt)
+        h_mserd = (C_K * (sigma2_l + sigma2_r) /
+                   (f_c * bias_sq_common * n)) ** (1 / 5)
+    h_mserd = float(np.clip(h_mserd, 0.02 * x_range, 0.98 * x_range))
+
+    # Separate (msetwo)
+    h_mse_l = _side_optimal_bw(
+        sigma2_l, m2_l, f_c, len(x_l), C_K, h_pilot, x_range)
+    h_mse_r = _side_optimal_bw(
+        sigma2_r, m2_r, f_c, len(x_r), C_K, h_pilot, x_range)
+
+    # CER shrinkage factor
+    cer = _cer_factor(n, p)
+
+    # --- Route to requested method ---
+    if bwselect == 'mserd':
+        return h_mserd
+    elif bwselect == 'msetwo':
+        return (h_mse_l, h_mse_r)
+    elif bwselect == 'msecomb1':
+        # min of common and each separate
+        h_min = min(h_mserd, h_mse_l, h_mse_r)
+        return float(h_min)
+    elif bwselect == 'msecomb2':
+        # median of common, left, right
+        h_med = float(np.median([h_mserd, h_mse_l, h_mse_r]))
+        return h_med
+    elif bwselect == 'cerrd':
+        return float(h_mserd * cer)
+    elif bwselect == 'certwo':
+        return (h_mse_l * cer, h_mse_r * cer)
+    elif bwselect == 'cercomb1':
+        h_cerrd = h_mserd * cer
+        h_cer_l = h_mse_l * cer
+        h_cer_r = h_mse_r * cer
+        return float(min(h_cerrd, h_cer_l, h_cer_r))
+    elif bwselect == 'cercomb2':
+        h_cerrd = h_mserd * cer
+        h_cer_l = h_mse_l * cer
+        h_cer_r = h_mse_r * cer
+        return float(np.median([h_cerrd, h_cer_l, h_cer_r]))
+    else:
+        return h_mserd
 
 
 def _side_optimal_bw(

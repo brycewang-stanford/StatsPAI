@@ -43,7 +43,15 @@ from .did import (
     aggte, cs_report, CSReport, ggdid,
     bjs_pretrend_joint,
 )
-from .rd import rdrobust, rdplot, rdplotdensity, rdbwsensitivity, rdbalance, rdplacebo, rdsummary, rkd, rd_honest, rdit, rdpower, rdsampsi
+from .rd import (
+    rdrobust, rdplot, rdplotdensity, rdbwselect,
+    rdbwsensitivity, rdbalance, rdplacebo, rdsummary,
+    rkd, rd_honest, rdit, rdpower, rdsampsi,
+    rdrandinf, rdwinselect, rdsensitivity, rdrbounds,
+    rdhte, rdbwhte, rdhte_lincom,
+    rd_forest, rd_boost, rd_lasso, rd_cate_summary,
+    rd_extrapolate, rd_multi_extrapolate, rd_external_validity,
+)
 from .synth import (
     synth, SyntheticControl, synthplot, sdid, augsynth,
     demeaned_synth, robust_synth, gsynth, staggered_synth, conformal_synth,
@@ -164,6 +172,8 @@ from .imputation import mice, MICEResult, mi_estimate
 from .mendelian import mendelian_randomization, MRResult, mr_egger, mr_ivw, mr_median
 # Multi-cutoff / Geographic RD
 from .rd import rdmc, rdms, RDMultiResult
+# 2D Boundary RD (Cattaneo, Titiunik, Yu 2025)
+from .rd import rd2d, rd2d_bw, rd2d_plot
 # Continuous Treatment DID
 from .did import continuous_did
 
@@ -264,6 +274,7 @@ __all__ = [
     "rdrobust",
     "rdplot",
     "rdplotdensity",
+    "rdbwselect",
     "rdbwsensitivity",
     "rdbalance",
     "rdplacebo",
@@ -271,6 +282,20 @@ __all__ = [
     "rkd",
     "rd_honest",
     "rdit",
+    "rdrandinf",
+    "rdwinselect",
+    "rdsensitivity",
+    "rdrbounds",
+    "rdhte",
+    "rdbwhte",
+    "rdhte_lincom",
+    "rd_forest",
+    "rd_boost",
+    "rd_lasso",
+    "rd_cate_summary",
+    "rd_extrapolate",
+    "rd_multi_extrapolate",
+    "rd_external_validity",
     # Synthetic Control
     "synth",
     "SyntheticControl",

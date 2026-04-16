@@ -386,6 +386,8 @@ def rdsummary(
     kernel: str = 'triangular',
     alpha: float = 0.05,
     verbose: bool = True,
+    plot: bool = False,
+    full: bool = False,
 ) -> Dict[str, Any]:
     """
     One-stop RD diagnostic battery.
@@ -393,11 +395,17 @@ def rdsummary(
     Runs the main RD estimate plus all standard validation checks in
     a single call, returning a structured summary.
 
-    Diagnostics run:
+    Diagnostics run (standard):
     1. Main RD estimate (conventional + robust)
     2. Density manipulation test (CJM 2020)
     3. Covariate balance at cutoff (if covs provided)
-    4. Bandwidth sensitivity (5 grid points)
+    4. Bandwidth sensitivity
+
+    Extended diagnostics (full=True):
+    5. Honest CI (Armstrong-Kolesár 2020)
+    6. Power analysis (MDE at 80%)
+    7. Placebo cutoff tests (5 placebos per side)
+    8. Multiple bandwidth selectors comparison
 
     Parameters
     ----------
@@ -415,6 +423,10 @@ def rdsummary(
     alpha : float, default 0.05
     verbose : bool, default True
         Print formatted summary to console.
+    plot : bool, default False
+        Generate a multi-panel diagnostic plot.
+    full : bool, default False
+        Run extended diagnostics (honest CI, power, placebos).
 
     Returns
     -------
@@ -423,6 +435,11 @@ def rdsummary(
         'density_test': CausalResult from rddensity
         'balance': pd.DataFrame (if covs given)
         'bw_sensitivity': pd.DataFrame
+        'honest_ci': CausalResult (if full=True)
+        'power': RDPowerResult (if full=True)
+        'placebos': pd.DataFrame (if full=True)
+        'bandwidth_comparison': pd.DataFrame (if full=True)
+        'figure': matplotlib Figure (if plot=True)
     """
     from .rdrobust import rdrobust
     from ..diagnostics.rddensity import rddensity
@@ -452,7 +469,8 @@ def rdsummary(
     # 4. Bandwidth sensitivity
     import matplotlib
     backend = matplotlib.get_backend()
-    matplotlib.use('Agg')
+    if not plot:
+        matplotlib.use('Agg')
     try:
         bws = rdbwsensitivity(data, y=y, x=x, c=c, fuzzy=fuzzy, p=p,
                               kernel=kernel, n_grid=7, alpha=alpha)
@@ -460,16 +478,72 @@ def rdsummary(
     except Exception:
         results['bw_sensitivity'] = None
     finally:
-        matplotlib.use(backend)
+        if not plot:
+            matplotlib.use(backend)
+
+    # --- Extended diagnostics ---
+    if full:
+        # 5. Honest CI
+        try:
+            from .honest_ci import rd_honest
+            honest = rd_honest(data, y=y, x=x, c=c, kernel=kernel, alpha=alpha)
+            results['honest_ci'] = honest
+        except Exception:
+            results['honest_ci'] = None
+
+        # 6. Power analysis
+        try:
+            from .rdpower import rdpower as _rdpower
+            mi = est.model_info
+            n_l = mi.get('n_left', 500)
+            n_r = mi.get('n_right', 500)
+            bw_h = mi.get('bandwidth_h', 0.5)
+            if isinstance(bw_h, tuple):
+                bw_h = bw_h[0]
+            power_res = _rdpower(
+                tau=est.estimate,
+                n_left=n_l, n_right=n_r,
+                h_left=bw_h, h_right=bw_h,
+                alpha=alpha,
+            )
+            results['power'] = power_res
+        except Exception:
+            results['power'] = None
+
+        # 7. Placebo cutoff tests
+        try:
+            placebos = rdplacebo(data, y=y, x=x, c=c, fuzzy=fuzzy,
+                                n_placebo=10, p=p, kernel=kernel, alpha=alpha)
+            results['placebos'] = placebos
+        except Exception:
+            results['placebos'] = None
+
+        # 8. Bandwidth comparison across methods
+        try:
+            from .bandwidth import rdbwselect
+            bw_comp = rdbwselect(data, y=y, x=x, c=c, fuzzy=fuzzy,
+                                p=p, kernel=kernel, all=True)
+            results['bandwidth_comparison'] = bw_comp
+        except Exception:
+            results['bandwidth_comparison'] = None
 
     # Print summary
     if verbose:
-        _print_rdsummary(results, alpha)
+        _print_rdsummary(results, alpha, full=full)
+
+    # Multi-panel diagnostic plot
+    if plot:
+        try:
+            fig = _rd_diagnostic_plot(data, y, x, c, results, alpha)
+            results['figure'] = fig
+        except Exception:
+            results['figure'] = None
 
     return results
 
 
-def _print_rdsummary(results: Dict[str, Any], alpha: float):
+def _print_rdsummary(results: Dict[str, Any], alpha: float,
+                     full: bool = False):
     """Pretty-print the RD summary."""
     est = results['estimate']
     mi = est.model_info
@@ -524,4 +598,154 @@ def _print_rdsummary(results: Dict[str, Any], alpha: float):
         all_sig = (bws['pvalue'] < alpha).all()
         print(f"  {'Robust' if all_sig else 'NOT robust'} across bandwidths.")
 
+    # Extended diagnostics
+    if full:
+        # Honest CI
+        honest = results.get('honest_ci')
+        if honest is not None:
+            h_mi = honest.model_info
+            print(f"\n--- Honest CI (Armstrong-Kolesar 2020) ---")
+            print(f"  Honest 95% CI:  [{honest.ci[0]:.4f}, {honest.ci[1]:.4f}]")
+            print(f"  Naive 95% CI:   [{h_mi['naive_ci'][0]:.4f}, "
+                  f"{h_mi['naive_ci'][1]:.4f}]")
+            print(f"  Smoothness M:   {h_mi['M']:.4g}")
+            print(f"  Bias bound:     {h_mi['bias_bound']:.4f}")
+
+        # Power
+        power = results.get('power')
+        if power is not None:
+            print(f"\n--- Power Analysis ---")
+            print(f"  Power (current): {power.power:.2%}")
+            print(f"  MDE (80% power): {power.mde:.4f}")
+
+        # Placebos
+        placebos = results.get('placebos')
+        if placebos is not None:
+            print(f"\n--- Placebo Cutoff Tests ---")
+            n_placebo_sig = placebos.loc[
+                ~placebos['is_true_cutoff'], 'pvalue'
+            ].lt(alpha).sum()
+            n_placebos = (~placebos['is_true_cutoff']).sum()
+            print(f"  {n_placebo_sig}/{n_placebos} placebo cutoffs "
+                  f"significant at {alpha:.0%}")
+            if n_placebo_sig > 0:
+                print("  WARNING: Significant placebo effects detected.")
+            else:
+                print("  No significant placebo effects. Design looks valid.")
+
+        # Bandwidth comparison
+        bw_comp = results.get('bandwidth_comparison')
+        if bw_comp is not None:
+            print(f"\n--- Bandwidth Comparison ---")
+            print(bw_comp.to_string(index=False))
+
     print("\n" + "=" * 60)
+
+
+def _rd_diagnostic_plot(
+    data: pd.DataFrame,
+    y: str, x: str, c: float,
+    results: Dict[str, Any],
+    alpha: float,
+):
+    """Generate a multi-panel RD diagnostic figure."""
+    import matplotlib.pyplot as plt
+
+    n_panels = 4
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+
+    # Panel 1: RD Plot
+    from .rdrobust import rdplot
+    try:
+        rdplot(data, y=y, x=x, c=c, ax=axes[0, 0], show_bw=True,
+               title='RD Plot with Bandwidth')
+    except Exception:
+        axes[0, 0].set_title('RD Plot (failed)')
+
+    # Panel 2: Density at cutoff
+    from .rdrobust import rdplotdensity
+    try:
+        rdplotdensity(data, x=x, c=c, ax=axes[0, 1],
+                      title='Density at Cutoff')
+    except Exception:
+        axes[0, 1].set_title('Density Plot (failed)')
+
+    # Panel 3: Bandwidth sensitivity
+    bws = results.get('bw_sensitivity')
+    if bws is not None and len(bws) > 0:
+        ax3 = axes[1, 0]
+        est = results['estimate']
+        mi = est.model_info
+        h_opt = mi.get('bandwidth_h', None)
+
+        ax3.errorbar(bws['bandwidth'], bws['estimate'],
+                     yerr=[bws['estimate'] - bws['ci_lower'],
+                           bws['ci_upper'] - bws['estimate']],
+                     fmt='o-', color='#2C3E50', markersize=4,
+                     linewidth=1, capsize=3, alpha=0.8)
+        ax3.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)
+        if h_opt is not None:
+            bw_val = h_opt[0] if isinstance(h_opt, tuple) else h_opt
+            ax3.axvline(x=bw_val, color='#E74C3C', linestyle='--',
+                        linewidth=0.8, alpha=0.7)
+        ax3.set_xlabel('Bandwidth')
+        ax3.set_ylabel('RD Estimate')
+        ax3.set_title('Bandwidth Sensitivity')
+        ax3.spines['top'].set_visible(False)
+        ax3.spines['right'].set_visible(False)
+    else:
+        axes[1, 0].set_title('Bandwidth Sensitivity (N/A)')
+
+    # Panel 4: Covariate balance or placebo cutoffs
+    bal = results.get('balance')
+    placebos = results.get('placebos')
+    ax4 = axes[1, 1]
+
+    if bal is not None and len(bal) > 0:
+        # Covariate balance plot
+        y_pos = range(len(bal))
+        colors = ['#E74C3C' if s else '#2ECC71'
+                  for s in bal['significant']]
+        ax4.barh(list(y_pos), bal['estimate'], color=colors, alpha=0.7)
+        ax4.set_yticks(list(y_pos))
+        ax4.set_yticklabels(bal['covariate'], fontsize=9)
+        ax4.axvline(x=0, color='gray', linestyle='--', linewidth=0.8)
+        ax4.set_xlabel('Discontinuity in Covariate')
+        ax4.set_title('Covariate Balance at Cutoff')
+        ax4.spines['top'].set_visible(False)
+        ax4.spines['right'].set_visible(False)
+    elif placebos is not None and len(placebos) > 0:
+        # Placebo cutoff plot
+        true_mask = placebos['is_true_cutoff']
+        placebo_mask = ~true_mask
+        if placebo_mask.any():
+            pr = placebos[placebo_mask]
+            ax4.errorbar(pr['cutoff'], pr['estimate'],
+                         yerr=[pr['estimate'] - pr['ci_lower'],
+                               pr['ci_upper'] - pr['estimate']],
+                         fmt='o', color='#95A5A6', markersize=5,
+                         capsize=3, label='Placebo')
+        if true_mask.any():
+            tr = placebos[true_mask]
+            ax4.errorbar(tr['cutoff'], tr['estimate'],
+                         yerr=[tr['estimate'] - tr['ci_lower'],
+                               tr['ci_upper'] - tr['estimate']],
+                         fmt='D', color='#E74C3C', markersize=8,
+                         capsize=4, label='True cutoff', zorder=5)
+        ax4.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)
+        ax4.set_xlabel('Cutoff')
+        ax4.set_ylabel('RD Estimate')
+        ax4.set_title('Placebo Cutoff Tests')
+        ax4.legend(fontsize=9)
+        ax4.spines['top'].set_visible(False)
+        ax4.spines['right'].set_visible(False)
+    else:
+        ax4.set_title('Additional Diagnostics (N/A)')
+        ax4.text(0.5, 0.5, 'No covariates\nprovided',
+                 ha='center', va='center', transform=ax4.transAxes,
+                 fontsize=12, color='gray')
+
+    fig.suptitle('RD Diagnostic Dashboard', fontsize=14, fontweight='bold')
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+
+    return fig
