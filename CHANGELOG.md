@@ -2,6 +2,66 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.0] - 2026-04-16
+
+### Synthetic Control — Most Comprehensive SCM Toolkit in Any Language
+
+Release focus: `statspai.synth`. **20 SCM methods + 6 inference strategies + full research workflow (compare / power / sensitivity / one-click reports)**, all behind the unified `sp.synth(method=...)` dispatcher. No competing package in Python, R, or Stata offers this breadth.
+
+#### Seven new SCM estimators
+
+| Method | Reference |
+|---|---|
+| `bayesian_synth` | Dirichlet-prior MCMC with full posterior credible intervals (Vives & Martinez 2024) |
+| `bsts_synth` / `causal_impact` | Bayesian Structural Time Series via Kalman filter/smoother (Brodersen et al. 2015) |
+| `penalized_synth` (penscm) | Pairwise discrepancy penalty (Abadie & L'Hour 2021, *JASA*) |
+| `fdid` | Forward DID with optimal donor subset selection (Li 2024) |
+| `cluster_synth` | K-means / spectral / hierarchical donor clustering (Rho 2024) |
+| `sparse_synth` | L1 / constrained-LASSO / joint V+W (Amjad, Shah & Shen 2018, *JMLR*) |
+| `kernel_synth` + `kernel_ridge_synth` | RKHS / MMD-based nonlinear matching |
+
+Previous methods — classic, penalized, demeaned, unconstrained, augmented, SDID, gsynth, staggered, MC, discos, multi-outcome, scpi — remain with bug fixes (see below).
+
+#### Research workflow
+
+- `synth_compare(df, ...)` — run every method at once, tabular + graphical comparison
+- `synth_recommend(df, ...)` — auto-select best estimator by pre-fit + robustness
+- `synth_report(result, format='markdown'|'latex'|'text')` — one-click publication-ready report
+- `synth_power(df, effect_sizes=[...])` — first power-analysis tool for SCM designs
+- `synth_mde(df, target_power=0.8)` — minimum detectable effect
+- `synth_sensitivity(result)` — LOO + time placebos + donor sensitivity + RMSPE filtering
+- Three canonical datasets shipped: `california_tobacco()`, `german_reunification()`, `basque_terrorism()`
+
+#### Release-blocker fixes from comprehensive module review
+
+Following a 5-parallel-agent code review (correctness / numerics / API / perf / docs), nine release blockers were fixed:
+
+- **ASCM correction formula** — `augsynth` now follows Ben-Michael, Feller & Rothstein (2021) Eq. 3 per-period ridge bias `(Y1_pre − Y0'γ) @ β(T0, T1)`, replacing the scalar mean-residual placeholder. `_ridge_fit` RHS bug also fixed.
+- **Bayesian likelihood scale** — covariate rows are now z-scored to the pooled pre-outcome SD before concatenation, preventing scale mismatch from dominating the Gaussian `σ²` posterior.
+- **Bayesian MCMC Jacobian** — missing `log(σ′/σ)` correction for the log-normal random-walk proposal on σ has been added to the MH acceptance ratio.
+- **BSTS Kalman filter** — innovation variance floored at `1e-12` (prevents `log(0)` on constant outcome series); RTS smoother `inv → solve + pinv` fallback on near-singular predicted covariance.
+- **gsynth factor estimation** — four `np.linalg.inv` calls (loadings + placebo loop) replaced with `np.linalg.lstsq` (robust to rank-deficient `F'F` / `L'L`).
+- **Dispatcher `**kwargs` leakage** — `augsynth` gains `**kwargs + placebo=True`; `sp.synth(method='augmented', placebo=False)` no longer raises `TypeError`.
+- **Dispatcher `kernel_ridge` placebo bypass** — `placebo=` now forwarded correctly.
+- **Cross-method API consistency** — `sdid()` now accepts canonical `outcome / treated_unit / treatment_time` (legacy `y / treat_unit / treat_time` aliases retained for backwards compatibility).
+- **Documentation accuracy** — `synth_compare` docstring reflects 20 methods (was 12); `synth()` Returns section enumerates all `CausalResult` fields.
+
+#### Tests & validation
+
+- **144 synth tests passing** (new: 12-method cross-method consistency benchmark verifying every estimator recovers a known ATT within 1.5 units on a clean DGP).
+- **Full suite: 1481 passed, 4 skipped, 0 failed** (5m42s).
+- New guide: `docs/guides/synth.md` — complete tutorial covering all 20 methods with a method-choice decision table.
+
+#### API migration notes
+
+`sdid(y=, treat_unit=, treat_time=)` still works but `outcome=, treated_unit=, treatment_time=` is preferred for consistency with every other `sp.synth.*` function. A deprecation of the legacy names is planned for v1.0.
+
+### Other Modules
+
+Decomposition and Regression Discontinuity modules received significant upgrades in this release cycle (tier-C decomposition expansion to 18 methods + unified `sp.decompose()`; RD `_core.py` primitive centralization + bug fixes from code review). These will be highlighted in a dedicated follow-up release note.
+
+---
+
 ## [0.8.0] - 2026-04-16
 
 ### Spatial Econometrics Full-Stack + 10-Domain Breadth Upgrade

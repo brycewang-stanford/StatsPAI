@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 __author__ = "Bryce Wang"
 __email__ = "bryce@copaper.ai"
 
