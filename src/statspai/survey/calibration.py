@@ -148,8 +148,6 @@ def linear_calibration(
     lam = XtDX_inv @ (T_pop - T_current)
     g = 1.0 + X @ lam
     w = d * g
-    # Normalise to mean=1 for convenience
-    w = w / w.sum() * n
 
     return CalibrationResult(
         calibrated_weights=w,
