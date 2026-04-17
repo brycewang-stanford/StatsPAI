@@ -2,6 +2,181 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.2] - 2026-04-16
+
+### Decomposition Analysis — Most Comprehensive Decomposition Toolkit in Python
+
+Release focus: `statspai.decomposition`. **18 first-class decomposition methods across 13 modules (~6,200 LOC, 54 tests)** — Python's first (and most complete) implementation of the full decomposition analysis toolkit spanning mean, distributional, inequality, demographic, and causal decomposition. Beats Stata `ddecompose` / `cdeco` / `oaxaca` / `rifhdreg` / `mvdcmp` / `fairlie` and R `Counterfactual` / `ddecompose` / `oaxaca` / `dineq` in scope; occupies the previously empty Python high-ground where only one unmaintained PyPI package existed.
+
+#### What's in `sp.decompose` (18 methods, 30 aliases)
+
+**Mean decomposition**
+
+| Function | Method / Paper |
+|---|---|
+| `sp.oaxaca(df, ...)` | Blinder-Oaxaca threefold with 5 reference coefficients (Blinder 1973; Oaxaca 1973; Neumark 1988; Cotton 1988; Reimers 1983) |
+| `sp.gelbach(df, ...)` | Sequential orthogonal decomposition of omitted-variable bias (Gelbach 2016, *JoLE*) |
+| `sp.fairlie(df, ...)` | Nonlinear logit/probit decomposition (Fairlie 1999, 2005) |
+| `sp.bauer_sinning(df, ...)` / `sp.yun_nonlinear(df, ...)` | Bauer-Sinning (2008) + Yun (2004, 2005) detailed nonlinear |
+
+**Distributional decomposition**
+
+| Function | Method / Paper |
+|---|---|
+| `sp.rifreg(df, ...)` / `sp.rif_decomposition(...)` | Recentered Influence Function regression + OB (Firpo, Fortin & Lemieux 2009, *Econometrica*) |
+| `sp.ffl_decompose(df, ...)` | Two-step detailed decomposition (Firpo, Fortin & Lemieux 2018, *Econometrics*) |
+| `sp.dfl_decompose(df, ...)` | Reweighting counterfactual distributions (DiNardo, Fortin & Lemieux 1996, *Econometrica*) |
+| `sp.machado_mata(df, ...)` | Simulation-based quantile regression decomposition (Machado & Mata 2005, *JAE*) |
+| `sp.melly_decompose(df, ...)` | Analytical quantile regression decomposition (Melly 2005, *Labour Economics*) |
+| `sp.cfm_decompose(df, ...)` | Distribution regression counterfactuals (Chernozhukov, Fernández-Val & Melly 2013, *Econometrica*) |
+
+**Inequality decomposition**
+
+| Function | Method / Paper |
+|---|---|
+| `sp.subgroup_decompose(df, ...)` | Between/within for Theil T, Theil L, GE(α), Gini (Dagum 1997), Atkinson, CV² (Shorrocks 1984) |
+| `sp.shapley_inequality(df, ...)` | Shorrocks-Shapley allocation of inequality to covariates (Shorrocks 2013, *JoEI*) |
+| `sp.source_decompose(df, ...)` | Gini source decomposition (Lerman & Yitzhaki 1985, *ReStat*) |
+
+**Demographic standardization**
+
+| Function | Method / Paper |
+|---|---|
+| `sp.kitagawa_decompose(df, ...)` | Two-factor rate decomposition (Kitagawa 1955, *JASA*) |
+| `sp.das_gupta(df_a, df_b, ...)` | Multi-factor symmetric decomposition (Das Gupta 1993) |
+
+**Causal decomposition**
+
+| Function | Method / Paper |
+|---|---|
+| `sp.gap_closing(df, method=...)` (regression / IPW / AIPW) | Gap-closing estimator (Lundberg 2021, *Sociol. Methods Res.*) |
+| `sp.mediation_decompose(df, ...)` | Natural direct/indirect effects (VanderWeele 2014, *Epidemiology*) |
+| `sp.disparity_decompose(df, ...)` | Causal disparity decomposition (Jackson & VanderWeele 2018, *Epidemiology*) |
+
+**Unified entry point**
+
+```python
+import statspai as sp
+result = sp.decompose(method='ffl', data=df, y='log_wage',
+                      group='female', x=['education', 'experience'],
+                      stat='quantile', tau=0.5)
+result.summary(); result.plot(); result.to_latex()
+```
+
+30 aliases supported (`'mm'` → `machado_mata`, `'dinardo_fortin_lemieux'` → `dfl`, etc.).
+
+#### Why this matters
+- **Stata** has it scattered across 6+ packages (`oaxaca`, `ddecompose`, `cdeco`, `rifhdreg`, `mvdcmp`, `fairlie`) with no unified API.
+- **R** has `ddecompose`, `Counterfactual`, `dineq` — three different authors, three different conventions.
+- **Python** previously had only one 2018-vintage unmaintained PyPI package (basic Oaxaca).
+- **StatsPAI 0.9.2**: one API, one result-class contract (`.summary()` / `.plot()` / `.to_latex()` / `._repr_html_()`), three inference modes (analytical / bootstrap / none), all numpy/scipy/pandas.
+
+#### Quality bar
+- 54 tests including cross-method consistency (`test_dfl_ffl_mean_agree`, `test_mm_melly_cfm_aligned_reference`, `test_dfl_mm_reference_convention_opposite`) and numerical identity checks (FFL four-part sum, weighted Gini RIF E_w[RIF]=G).
+- Closed-form influence functions for Theil T / Theil L / Atkinson (no O(n²) numerical fallback).
+- Weighted O(n log n) Dagum Gini via sorted-ECDF pairwise-MAD identity.
+- Logit non-convergence surfaces as RuntimeWarning; bootstrap failure rate >5% warns.
+
+## [0.9.1] - 2026-04-16
+
+### Regression Discontinuity — Most Comprehensive RD Toolkit in Any Language
+
+Release focus: `statspai.rd`. **18+ RD estimators, diagnostics, and inference methods across 14 modules (~10,300 LOC)** — now the most feature-complete RD package in Python, R, or Stata. The full machinery behind Calonico-Cattaneo-Titiunik (CCT), Cattaneo-Jansson-Ma density tests, Armstrong-Kolesar honest CIs, Cattaneo-Titiunik-Vazquez-Bare local randomization, Cattaneo-Titiunik-Yu boundary (2D) RD, and Angrist-Rokkanen external validity — all in one `import statspai as sp`.
+
+#### What's in `sp.rd` (14 modules)
+
+**Core estimation**
+
+| Function | Method / Paper |
+|---|---|
+| `sp.rdrobust(df, ...)` | Sharp / Fuzzy / Kink RD with bias-corrected robust inference (Calonico, Cattaneo & Titiunik 2014, *Econometrica*; 2020, *Stata Journal*) |
+| `sp.rdrobust(..., covs=...)` | Covariate-adjusted local polynomial (Calonico, Cattaneo, Farrell & Titiunik 2019, *ReStat*) |
+| `sp.rd2d(df, x1, x2, ...)` | Boundary discontinuity / 2D RD designs (Cattaneo, Titiunik & Yu 2025) |
+| `sp.rkd(df, ...)` | Regression Kink Design (Card, Lee, Pei & Weber 2015, *Econometrica*) |
+| `sp.rdit(df, time, ...)` | Regression Discontinuity in Time (Hausman & Rapson 2018, *Annual Review*) |
+| `sp.rdmc(df, cutoffs=[...])` | Multi-cutoff RD (Cattaneo, Titiunik, Vazquez-Bare & Keele 2016) |
+| `sp.rdms(df, scores=[...])` | Multi-score RD (Cattaneo, Idrobo & Titiunik 2024) |
+
+**Bandwidth selection**
+
+| Function | Selector |
+|---|---|
+| `sp.rdbwselect(df, bwselect='mserd')` | MSE-optimal (Imbens-Kalyanaraman 2012) |
+| `sp.rdbwselect(..., bwselect='msetwo')` | Two-bandwidth MSE |
+| `sp.rdbwselect(..., bwselect='cerrd'/'cercomb1'/'cercomb2')` | CER-optimal coverage-error-rate (Calonico, Cattaneo & Farrell 2020, *Econometrics Journal*) |
+
+**Inference**
+
+| Function | Method |
+|---|---|
+| `sp.rd_honest(df, ...)` | Honest CIs with worst-case bias bound (Armstrong & Kolesar 2018, *Econometrica*; 2020, *QE*) |
+| `sp.rdrandinf(df, ...)` | Local randomization inference via Fisher exact tests (Cattaneo, Frandsen & Titiunik 2015) |
+| `sp.rdwinselect(df, ...)` | Data-driven window selection for local randomization |
+| `sp.rdsensitivity(df, ...)` | Sensitivity analysis across windows |
+| `sp.rdrbounds(df, ...)` | Rosenbaum sensitivity bounds for hidden selection |
+
+**Heterogeneous treatment effects**
+
+| Function | Method |
+|---|---|
+| `sp.rdhte(df, covs=[...])` | CATE via fully interacted local linear (Calonico et al. 2025) |
+| `sp.rdbwhte(df, ...)` | HTE-optimal bandwidth |
+| `sp.rd_forest(df, ...)` | Causal forest + RD |
+| `sp.rd_boost(df, ...)` | Gradient boosting + RD |
+| `sp.rd_lasso(df, ...)` | LASSO-assisted RD with covariate selection |
+
+**External validity & extrapolation**
+
+| Function | Method |
+|---|---|
+| `sp.rd_extrapolate(df, ...)` | Away-from-cutoff extrapolation (Angrist & Rokkanen 2015, *JASA*) |
+| `sp.rd_multi_extrapolate(df, cutoffs=[...])` | Multi-cutoff extrapolation (Cattaneo, Keele, Titiunik & Vazquez-Bare 2024) |
+
+**Diagnostics & visualization**
+
+| Function | Purpose |
+|---|---|
+| `sp.rdsummary(df, ...)` | **One-click dashboard** — rdrobust + density test + bandwidth sensitivity + placebo cutoffs + covariate balance |
+| `sp.rdplot(df, ...)` | IMSE-optimal binned scatter with pointwise CI bands (Calonico, Cattaneo & Titiunik 2015, *JASA*) |
+| `sp.rddensity(df, ...)` | Cattaneo-Jansson-Ma (2020, *JASA*) manipulation test |
+| `sp.rdbalance(df, covs=[...])` | Covariate balance tests at cutoff |
+| `sp.rdplacebo(df, cutoffs=[...])` | Placebo cutoff tests |
+
+**Power analysis**
+
+| Function | Purpose |
+|---|---|
+| `sp.rdpower(df, effect_sizes=[...])` | Power curves for RD designs |
+| `sp.rdsampsi(df, target_power=0.8)` | Required sample size |
+
+#### Refactor — rd/\_core.py consolidation
+
+A 5-sprint refactor (commit 44f7529) centralized shared low-level primitives that had been duplicated across 9 RD files into a single private module `rd/_core.py` (191 lines):
+
+- `_kernel_fn` — triangular / epanechnikov / uniform / gaussian (previously 4 duplicate definitions)
+- `_kernel_constants` / `_kernel_mse_constant` — MSE-optimal bandwidth constants
+- `_local_poly_wls` — WLS local polynomial fit with HC1 / cluster-robust variance + optional covariate augmentation
+- `_sandwich_variance` — HC1 / cluster sandwich for arbitrary design matrices
+
+**Net effect**: 253 lines of duplicated math consolidated into 191 lines of canonical implementation. 97 RD tests pass with zero regression.
+
+#### Bug fixes (since 0.9.0)
+
+- RDD extrapolation: `_ols_fit` singular matrix fallback (commit 052594a)
+- 3 critical + 3 high-priority bugs from comprehensive RD code review (commit 6489270)
+- Density test: bug in CJM (2020) implementation + DGP helper fixes + validation tests (commit b66f312)
+
+#### Tests
+
+- **97 RD tests + 1 skipped, 0 failed** across 5 test files.
+
+### Also in 0.9.1
+
+- **`synth/_core.py`** — simplex weight solver consolidated from 6 duplicate implementations (commit a4036a2). Analytic Jacobian now available to all six callers for ~3-5x speedup.
+- **`decomposition/_common.py`** — new `influence_function(y, stat, tau, w)` is the canonical 9-stat RIF kernel. `rif.rif_values` public API **expands from 3 to 9 statistics** (commits 0789223, 5569fd0).
+
+---
+
 ## [0.9.0] - 2026-04-16
 
 ### Synthetic Control — Most Comprehensive SCM Toolkit in Any Language
