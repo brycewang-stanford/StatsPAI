@@ -2,6 +2,75 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Multilevel / Mixed-Effects Overhaul
+
+Release focus: `statspai.multilevel`. The previous implementation was a
+400-line single file covering only the two-level linear mixed model
+with a diagonal random-effect covariance. It has been rewritten as a
+proper sub-package (~2,000 LOC across `_core.py`, `lmm.py`, `glmm.py`,
+`diagnostics.py`, `comparison.py`) with feature parity against
+`lme4`/Stata `mixed` and additions on top.
+
+### New in `sp.mixed`
+
+- **Unstructured covariance** `G` for random effects is now the
+  default (`cov_type='unstructured'`, Cholesky-parameterised so the
+  optimiser is unconstrained). `diagonal` and `identity` remain
+  available for nested-model comparisons.
+- **Three-level nested models** via `group=['school', 'class']` —
+  fits school- and class-level random intercepts jointly (verified to
+  match `statsmodels.MixedLM(..., re_formula="1", vc_formula={...})`
+  to four decimals on the variance components and fixed effects).
+- **BLUP posterior standard errors** (`result.ranef(conditional_se=
+  True)`) — exposes
+  `Var(u|y) = G − GZ'V⁻¹ZG + GZ'V⁻¹X Cov(β̂) X'V⁻¹ZG` for use in
+  caterpillar plots.
+- **`predict(new_data, include_random=…)`** — population-marginal and
+  group-conditional predictions, with zeroed-out BLUPs for unseen
+  groups.
+- **Nakagawa-Schielzeth marginal & conditional R²** via
+  `result.r_squared()`.
+- **AIC / BIC, `wald_test()`** for linear restrictions,
+  **`to_markdown()` / `to_latex()` / `_repr_html_()` / `cite()`**,
+  and `plot(kind='caterpillar' | 'residuals')`.
+
+### New functions
+
+- **`sp.melogit` / `sp.mepoisson` / `sp.meglm`** — Generalised linear
+  mixed models (binomial logit, Poisson log, Gaussian identity) fitted
+  by Laplace approximation with canonical-link observed information.
+  Supports random intercepts and random slopes, `cov_type` as for
+  `sp.mixed`, binomial `trials=` and Poisson `offset=`. Results expose
+  `odds_ratios()` / `incidence_rate_ratios()` and a `predict(type=
+  'response'|'linear')` method.
+- **`sp.icc(result)`** — intra-class correlation with a delta-method
+  (logit-scale) 95% CI.
+- **`sp.lrtest(restricted, full)`** — likelihood-ratio test between
+  two nested mixed-model fits with automatic Self-Liang χ̄²
+  boundary correction when variance components are being tested.
+
+### Validation
+
+- Linear mixed models: fixed effects and variance components agree
+  with `statsmodels.MixedLM` to 4 decimal places on both random-
+  intercept and unstructured random-slope specifications
+  (`test_multilevel.py::TestRandomSlopeUnstructured::
+  test_matches_statsmodels`).
+- Three-level nested: variance components identified jointly and match
+  the reference implementation to 2 decimal places
+  (`TestThreeLevelNested::test_separates_variance_components`).
+- GLMM recovery tests on 2,000-observation synthetic panels confirm
+  slope and random-intercept variance within expected sampling ranges.
+
+### Behavioural changes
+
+- The default `cov_type` for `sp.mixed` is now `'unstructured'`
+  (previously effectively diagonal). Pass `cov_type='diagonal'`
+  explicitly for the old behaviour.
+- `LR test vs. pooled OLS` now uses the ML-converted likelihood
+  (previously a mix of REML and ML that could produce inconsistent
+  values when `method='reml'`).
+
 ## [0.9.2] - 2026-04-16
 
 ### Decomposition Analysis — Most Comprehensive Decomposition Toolkit in Python

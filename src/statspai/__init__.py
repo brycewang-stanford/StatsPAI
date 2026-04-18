@@ -237,7 +237,16 @@ from .panel.panel_fgls import panel_fgls
 # Interactive Fixed Effects
 # (already imported in round 2)
 # Mixed Effects / Multilevel
-from .multilevel import mixed, MixedResult
+from .multilevel import (
+    mixed,
+    MixedResult,
+    meglm,
+    melogit,
+    mepoisson,
+    MEGLMResult,
+    icc,
+    lrtest,
+)
 # Stochastic Frontier
 from .frontier import frontier, FrontierResult
 # General GMM
@@ -673,6 +682,8 @@ __all__ = [
     "panel_logit", "panel_probit",
     "panel_fgls",
     "mixed", "MixedResult",
+    "meglm", "melogit", "mepoisson", "MEGLMResult",
+    "icc", "lrtest",
     "frontier", "FrontierResult",
     "gmm",
 ]

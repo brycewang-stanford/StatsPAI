@@ -129,7 +129,10 @@ If a method exists in R, we aim to match or exceed its feature set in Python —
 | `panel_fgls()` | FGLS with heteroskedasticity and AR(1) | `xtgls` |
 | `interactive_fe()` | Interactive fixed effects (Bai 2009) | — |
 | `panel_unitroot()` | Panel unit root (IPS / LLC / Fisher / Hadri) | `xtunitroot` |
-| `mixed()` | Multilevel / mixed effects (HLM) | `mixed` |
+| `mixed()` | Linear mixed / multilevel (HLM): unstructured *G*, 3-level nested, BLUP posterior SEs, Nakagawa–Schielzeth R², caterpillar plot, `predict()` | `mixed` |
+| `melogit()`, `mepoisson()`, `meglm()` | Generalised linear mixed models via Laplace approximation (binomial / Poisson / Gaussian) with odds-ratio & IRR tables | `melogit` / `mepoisson` / `meglm` |
+| `icc()` | Intra-class correlation with delta-method 95% CI | `estat icc` |
+| `lrtest()` | Likelihood-ratio test between nested mixed models with Self–Liang χ̄² boundary correction | `lrtest` |
 
 ### Survival / Duration Analysis
 
