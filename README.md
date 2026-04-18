@@ -15,40 +15,33 @@ StatsPAI is the **agent-native** Python package for causal inference and applied
 
 It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 
-**🎉 NEW in v0.9.0 — Synthetic Control: Most Comprehensive SCM Toolkit in Any Language**
+**🎉 NEW in v0.9.2 — Decomposition Analysis: Most Comprehensive Decomposition Toolkit in Python**
 
-**20 SCM estimators + 6 inference strategies + full research workflow**, all behind a unified `sp.synth(method=...)` dispatcher. No competing package in Python, R, or Stata offers this breadth.
+**18 first-class decomposition methods across 13 modules (~6,200 LOC, 54 tests)**, unified under one `sp.decompose(method=...)` dispatcher. Python's first (and most complete) implementation of the full decomposition stack — mean, distributional, inequality, demographic, and causal. Beats Stata (`oaxaca`/`ddecompose`/`cdeco`/`rifhdreg`/`mvdcmp`/`fairlie`) and R (`Counterfactual`/`ddecompose`/`oaxaca`/`dineq`) in scope with one API, one result class, three inference modes (analytical / bootstrap / none).
 
-| What | Coverage |
+| Family | Methods |
 |---|---|
-| **20 estimators** | `classic`, `penalized`, `demeaned`, `unconstrained`, `augmented` (ASCM), `sdid`, `gsynth`, `staggered`, `mc` (matrix completion), `discos` (distributional), `multi_outcome`, `scpi` (prediction intervals), `bayesian` (MCMC), `bsts` / `causal_impact`, `penscm` (Abadie-L'Hour), `fdid` (Forward DID), `cluster`, `sparse` (LASSO), `kernel`, `kernel_ridge` |
-| **6 inference** | placebo · conformal · bootstrap · jackknife · Bayesian posterior · BSTS posterior |
-| **Research workflow** | `synth_compare()` runs all 20 · `synth_recommend()` auto-selects · `synth_power()` + `synth_mde()` · `synth_sensitivity()` (LOO + time placebos + donor + RMSPE) · `synth_report(format='latex')` one-click publication |
-| **Canonical datasets** | `california_tobacco()`, `german_reunification()`, `basque_terrorism()` |
-| **Correctness** | ASCM re-implemented to Ben-Michael et al. (2021) Eq. 3; Bayesian MCMC Jacobian corrected; 9 release-blocker fixes from a 5-agent code review; 144 synth tests passing |
+| **Mean** | `oaxaca` (Blinder-Oaxaca threefold, 5 reference coefficients), `gelbach` (sequential OVB, Gelbach 2016), `fairlie` (nonlinear logit/probit), `bauer_sinning` / `yun_nonlinear` (detailed nonlinear) |
+| **Distributional** | `rifreg` / `rif_decomposition` (Firpo-Fortin-Lemieux 2009), `ffl_decompose` (FFL 2018 two-step), `dfl_decompose` (DiNardo-Fortin-Lemieux 1996 reweighting), `machado_mata` (MM 2005 simulation), `melly_decompose` (Melly 2005 analytical), `cfm_decompose` (Chernozhukov-Fernández-Val-Melly 2013) |
+| **Inequality** | `subgroup_decompose` (Theil T/L, GE(α), Dagum Gini, Atkinson, CV²), `shapley_inequality` (Shorrocks 2013), `source_decompose` (Lerman-Yitzhaki 1985) |
+| **Demographic** | `kitagawa_decompose` (1955), `das_gupta` (1993 multi-factor symmetric) |
+| **Causal** | `gap_closing` (Lundberg 2021, regression/IPW/AIPW), `mediation_decompose` (VanderWeele 2014 NDE/NIE), `disparity_decompose` (Jackson-VanderWeele 2018) |
 
 ```python
 import statspai as sp
-from statspai.synth.datasets import california_tobacco
-df = california_tobacco()
 
-# Run every method at once, pick the best
-comp = sp.synth_compare(df, outcome='cigsale', unit='state', time='year',
-                        treated_unit='California', treatment_time=1989)
-comp.plot()                  # overlay all counterfactuals
-
-# Power analysis before committing to a design
-power = sp.synth_power(df, outcome='cigsale', unit='state', time='year',
-                       treated_unit='California', treatment_time=1989,
-                       effect_sizes=[2, 5, 10, 15, 20])
-
-# One-click publication report
-res = sp.synth(df, outcome='cigsale', unit='state', time='year',
-               treated_unit='California', treatment_time=1989, method='augmented')
-sp.synth_report_to_file(res, 'analysis.md')
+# One unified entrypoint — 30 aliases supported
+result = sp.decompose(method='ffl', data=df, y='log_wage',
+                      group='female', x=['education', 'experience'],
+                      stat='quantile', tau=0.5)
+result.summary(); result.plot(); result.to_latex()
 ```
 
-See the [synth guide](https://github.com/brycewang-stanford/statspai/blob/main/docs/guides/synth.md) for the full 20-method decision table.
+Closed-form influence functions for Theil / Atkinson (no O(n²) fallback); weighted O(n log n) Dagum Gini via sorted-ECDF; cross-method consistency checks (DFL↔FFL mean agreement, MM↔Melly↔CFM reference alignment).
+
+**Previously in v0.9.1 — Regression Discontinuity**: **18+ RD estimators, diagnostics, and inference methods across 14 modules (~10,300 LOC)** — now the most feature-complete RD package in any language. Covers CCT sharp/fuzzy/kink, 2D/boundary RD (`rd2d`), RDIT, multi-cutoff & multi-score, honest CIs (Armstrong-Kolesar), local randomization (`rdrandinf`/`rdwinselect`/`rdsensitivity`), CJM density tests, Rosenbaum bounds, CATE via `rdhte` + ML variants (`rd_forest`/`rd_boost`/`rd_lasso`), external-validity extrapolation (Angrist-Rokkanen), power (`rdpower`/`rdsampsi`), and a one-click `sp.rdsummary()` dashboard. 97 RD tests pass; `rd/_core.py` consolidates kernel/WLS/sandwich primitives from 9 files into one 191-line canonical module.
+
+**Previously in v0.9.0 — Synthetic Control**: **20 SCM estimators + 6 inference strategies + full research workflow**, all behind the unified `sp.synth(method=...)` dispatcher. Seven new estimators in this release: `bayesian_synth` (Dirichlet MCMC), `bsts_synth` / `causal_impact` (Kalman smoother), `penscm` (Abadie-L'Hour 2021), `fdid` (Forward DID), `cluster_synth`, `sparse_synth` (LASSO), `kernel_synth` + `kernel_ridge_synth`. Research workflow: `synth_compare()` runs all 20 · `synth_recommend()` auto-selects · `synth_power()` + `synth_mde()` first power-analysis tool for SCM · `synth_sensitivity()` · `synth_report(format='latex')`. ASCM re-implemented to Ben-Michael et al. (2021) Eq. 3; Bayesian MCMC Jacobian corrected; 9 release-blocker fixes from a 5-agent review; 144 synth tests passing. Canonical datasets: `california_tobacco()`, `german_reunification()`, `basque_terrorism()`. See the [synth guide](https://github.com/brycewang-stanford/statspai/blob/main/docs/guides/synth.md).
 
 **Previously in v0.8.0**: **Spatial Econometrics Full-Stack** — 38 new API symbols covering weights, ESDA, ML/GMM regression, GWR/MGWR, and spatial panel. Plus: local projections, GARCH, ARIMA, BVAR, LiNGAM, GES, optimal matching, cardinality matching, RIF decomposition, mediation sensitivity, Cox frailty, AFT survival, rdpower, survey calibration. **60+ new functions across 10 domains.**
 
@@ -631,6 +624,112 @@ Plot Editor:    interactive (WYSIWYG editor), set_theme (29 academic themes)
 
 ## Release Notes
 
+### v0.9.2 (2026-04-16) — Decomposition Analysis Mega-Release
+
+Release focus: `statspai.decomposition`. **18 first-class decomposition methods across 13 modules (~6,200 LOC, 54 tests)** — Python's first (and most complete) implementation of the full decomposition toolkit spanning mean, distributional, inequality, demographic, and causal decomposition. Occupies the previously empty Python high-ground where only one unmaintained 2018-vintage PyPI package existed.
+
+**18 methods (30 aliases) under `sp.decompose()`:**
+
+- **Mean** — `oaxaca` (Blinder-Oaxaca threefold with 5 reference coefficients: Neumark 1988, Cotton 1988, Reimers 1983, group A, group B), `gelbach` (Gelbach 2016 sequential OVB), `fairlie` (nonlinear logit/probit), `bauer_sinning` / `yun_nonlinear` (detailed nonlinear)
+- **Distributional** — `rifreg` / `rif_decomposition` (FFL 2009), `ffl_decompose` (FFL 2018 two-step), `dfl_decompose` (DiNardo-Fortin-Lemieux 1996 reweighting), `machado_mata` (MM 2005), `melly_decompose` (Melly 2005), `cfm_decompose` (Chernozhukov-Fernández-Val-Melly 2013)
+- **Inequality** — `subgroup_decompose` (Theil T/L, GE(α), Dagum Gini, Atkinson, CV²), `shapley_inequality` (Shorrocks 2013), `source_decompose` (Lerman-Yitzhaki 1985)
+- **Demographic** — `kitagawa_decompose` (1955), `das_gupta` (1993 multi-factor symmetric)
+- **Causal** — `gap_closing` (Lundberg 2021 regression/IPW/AIPW), `mediation_decompose` (VanderWeele 2014 NDE/NIE), `disparity_decompose` (Jackson-VanderWeele 2018)
+
+**Quality bar:**
+
+- Closed-form influence functions for Theil T / Theil L / Atkinson (no O(n²) numerical fallback)
+- Weighted O(n log n) Dagum Gini via sorted-ECDF pairwise-MAD identity
+- Cross-method consistency tests (`test_dfl_ffl_mean_agree`, `test_mm_melly_cfm_aligned_reference`, `test_dfl_mm_reference_convention_opposite`)
+- Numerical identity checks: FFL four-part sum, weighted Gini RIF `E_w[RIF] = G`
+- Logit non-convergence surfaces as `RuntimeWarning`; bootstrap failure rate >5% warns
+- 54 decomposition tests + core refactor consolidation: `decomposition/_common.py` hosts `influence_function(y, stat, tau, w)` — the canonical 9-statistic RIF kernel (`rif.rif_values` public API expands from 3 to 9 statistics)
+
+**Unified entry point:**
+
+```python
+import statspai as sp
+result = sp.decompose(method='ffl', data=df, y='log_wage',
+                      group='female', x=['education', 'experience'],
+                      stat='quantile', tau=0.5)
+result.summary(); result.plot(); result.to_latex()
+```
+
+### v0.9.1 (2026-04-16) — Regression Discontinuity Mega-Upgrade
+
+Release focus: `statspai.rd`. **18+ RD estimators, diagnostics, and inference methods across 14 modules (~10,300 LOC)** — the most feature-complete RD package in Python, R, or Stata. Full machinery behind CCT, Cattaneo-Jansson-Ma density tests, Armstrong-Kolesar honest CIs, Cattaneo-Titiunik-Vazquez-Bare local randomization, Cattaneo-Titiunik-Yu boundary (2D) RD, and Angrist-Rokkanen external validity — all under `sp.*`.
+
+**Core estimation:**
+
+- `rdrobust` — sharp / fuzzy / kink RD with bias-corrected robust inference (CCT 2014); covariate-adjusted local polynomial (CCFT 2019)
+- `rd2d` — boundary discontinuity / 2D RD (Cattaneo, Titiunik & Yu 2025)
+- `rkd` — Regression Kink Design (Card, Lee, Pei & Weber 2015)
+- `rdit` — Regression Discontinuity in Time (Hausman & Rapson 2018)
+- `rdmc`, `rdms` — multi-cutoff and multi-score RD
+
+**Bandwidth selection:** `rdbwselect` with `mserd`, `msetwo`, `cerrd`, `cercomb1`, `cercomb2` (Imbens-Kalyanaraman 2012; CCF 2020).
+
+**Inference:**
+
+- `rd_honest` — honest CIs with worst-case bias bound (Armstrong-Kolesar 2018, 2020)
+- `rdrandinf`, `rdwinselect`, `rdsensitivity` — local randomization inference (Cattaneo-Frandsen-Titiunik 2015)
+- `rdrbounds` — Rosenbaum sensitivity bounds for hidden selection
+
+**Heterogeneous treatment effects:** `rdhte` (CATE via fully interacted local linear), `rdbwhte`, `rd_forest`, `rd_boost`, `rd_lasso`.
+
+**External validity & extrapolation:** `rd_extrapolate` (Angrist-Rokkanen 2015), `rd_multi_extrapolate` (CKTV 2024).
+
+**Diagnostics & one-click dashboard:** `rdsummary` (rdrobust + density test + bandwidth sensitivity + placebo cutoffs + covariate balance), `rdplot` (IMSE-optimal binning), `rddensity` (CJM 2020), `rdbalance`, `rdplacebo`.
+
+**Power analysis:** `rdpower`, `rdsampsi`.
+
+**Refactor — `rd/_core.py`:** 5-sprint refactor consolidated shared low-level primitives duplicated across 9 RD files into one 191-line canonical private module (`_kernel_fn`, `_kernel_constants`, `_local_poly_wls`, `_sandwich_variance`). 253 lines of duplicated math → 191 lines of canonical implementation. 97 RD tests pass with zero regression.
+
+**Also in 0.9.1:**
+
+- `synth/_core.py` — simplex weight solver consolidated from 6 duplicate implementations; analytic Jacobian now available to all six callers (~3-5× speedup)
+- Bug fixes: density test CJM (2020) implementation + DGP helpers + validation tests; 3 critical + 3 high-priority bugs from comprehensive RD code review; `_ols_fit` singular matrix fallback
+
+### v0.9.0 (2026-04-16) — Synthetic Control Mega-Expansion
+
+Release focus: `statspai.synth`. **20 SCM methods + 6 inference strategies + full research workflow** (compare / power / sensitivity / one-click reports), all behind the unified `sp.synth(method=...)` dispatcher. No competing package in Python, R, or Stata offers this breadth.
+
+**Seven new SCM estimators:**
+
+| Method | Reference |
+|---|---|
+| `bayesian_synth` | Dirichlet-prior MCMC with full posterior credible intervals (Vives & Martinez 2024) |
+| `bsts_synth` / `causal_impact` | Bayesian Structural Time Series via Kalman filter/smoother (Brodersen et al. 2015) |
+| `penalized_synth` (penscm) | Pairwise discrepancy penalty (Abadie & L'Hour 2021, *JASA*) |
+| `fdid` | Forward DID with optimal donor subset selection (Li 2024) |
+| `cluster_synth` | K-means / spectral / hierarchical donor clustering (Rho 2024) |
+| `sparse_synth` | L1 / constrained-LASSO / joint V+W (Amjad, Shah & Shen 2018, *JMLR*) |
+| `kernel_synth` + `kernel_ridge_synth` | RKHS / MMD-based nonlinear matching |
+
+Previous methods — classic, penalized, demeaned, unconstrained, augmented (ASCM), SDID, gsynth, staggered, MC, discos, multi-outcome, scpi — remain with bug fixes.
+
+**Research workflow:**
+
+- `synth_compare(df, ...)` — run every method at once, tabular + graphical comparison
+- `synth_recommend(df, ...)` — auto-select best estimator by pre-fit + robustness
+- `synth_report(result, format='markdown'|'latex'|'text')` — one-click publication-ready report
+- `synth_power(df, effect_sizes=[...])` — first power-analysis tool for SCM designs
+- `synth_mde(df, target_power=0.8)` — minimum detectable effect
+- `synth_sensitivity(result)` — LOO + time placebos + donor sensitivity + RMSPE filtering
+- Canonical datasets: `california_tobacco()`, `german_reunification()`, `basque_terrorism()`
+
+**Release-blocker fixes (5-parallel-agent code review — correctness / numerics / API / perf / docs):**
+
+- **ASCM correction formula** — `augsynth` now follows Ben-Michael, Feller & Rothstein (2021) Eq. 3 per-period ridge bias `(Y1_pre − Y0'γ) @ β(T0, T1)`, replacing the scalar mean-residual placeholder; `_ridge_fit` RHS bug also fixed
+- **Bayesian likelihood scale** — covariate rows z-scored to pooled pre-outcome SD before concatenation
+- **Bayesian MCMC Jacobian** — missing `log(σ′/σ)` correction for log-normal random-walk proposal on σ added to MH acceptance ratio
+- **BSTS Kalman filter** — innovation variance floored at `1e-12`; RTS smoother `inv → solve + pinv` fallback on near-singular predicted covariance
+- **gsynth factor estimation** — four `np.linalg.inv` → `np.linalg.lstsq` (robust to rank-deficient `F'F` / `L'L`)
+- **Dispatcher `**kwargs`** leakage fixed for `augsynth` and `kernel_ridge` placebo forwarding
+- **Cross-method API consistency** — `sdid()` accepts canonical `outcome / treated_unit / treatment_time` (legacy aliases retained)
+
+**Tests & validation:** 144 synth tests passing (new: 12-method cross-method consistency benchmark). Full suite: 1481 passed, 4 skipped, 0 failed. New guide: `docs/guides/synth.md` with a 20-method decision table.
+
 ### v0.8.0 (2026-04-16) — Spatial Econometrics Full-Stack + 10-Domain Breadth Upgrade
 
 **60+ new functions, 450+ total API, 1,230+ tests passing. Largest release in StatsPAI history.**
@@ -844,9 +943,9 @@ pytest
 @software{wang2025statspai,
   title={StatsPAI: The Causal Inference & Econometrics Toolkit for Python},
   author={Wang, Bryce},
-  year={2025},
+  year={2026},
   url={https://github.com/brycewang-stanford/statspai},
-  version={0.6.0}
+  version={0.9.2}
 }
 ```
 
