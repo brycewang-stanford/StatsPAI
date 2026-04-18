@@ -1,6 +1,6 @@
 site_name: StatsPAI
 site_description: Python causal inference toolkit — econometrics, DiD, SDID, RD, IV, ML causal inference
-site_author: Bryce Wang
+site_author: Biaoyue Wang
 repo_url: https://github.com/brycewang-stanford/StatsPAI
 repo_name: brycewang-stanford/StatsPAI
 edit_uri: edit/main/docs/

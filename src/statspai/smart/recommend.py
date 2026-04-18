@@ -79,6 +79,20 @@ class RecommendationResult:
                 lines.append(f"    Robustness: {rec['robustness']}")
             if rec.get('code'):
                 lines.append(f"    Code: {rec['code']}")
+            v = rec.get('verify')
+            if v:
+                if v.get('error'):
+                    lines.append(f"    Verify: skipped ({v['error']})")
+                elif np.isfinite(v.get('score', np.nan)):
+                    stab = v.get('stability', {}).get('score', np.nan)
+                    plac = v.get('placebo', {}).get('score', np.nan)
+                    subs = v.get('subsample', {}).get('score', np.nan)
+                    lines.append(
+                        f"    Verify: score={v['score']:.0f}/100  "
+                        f"(stability={stab:.0f}, placebo={plac:.0f}, "
+                        f"subsample={subs:.0f}, B={v.get('B_used','?')}, "
+                        f"{v.get('elapsed_s',0):.1f}s)"
+                    )
 
         lines.append(f"\n{'─' * 70}")
         lines.append("SUGGESTED WORKFLOW")
@@ -234,6 +248,10 @@ def recommend(
     cutoff: float = None,
     design: str = None,
     dag=None,
+    verify: bool = False,
+    verify_B: int = 50,
+    verify_budget_s: float = 30.0,
+    verify_top_k: int = 3,
 ) -> RecommendationResult:
     """
     Recommend the appropriate estimator(s) for your research question.
@@ -271,6 +289,17 @@ def recommend(
         'observational', 'panel', 'cross-section'.
     dag : DAG, optional
         Causal DAG for identification analysis.
+    verify : bool, default False
+        If True, empirically verify the top-k recommendations on the actual
+        data via bootstrap stability, placebo test, and subsample agreement.
+        Results are attached to each recommendation as ``verify_score`` and
+        used to re-rank the top-k. Opt-in because it costs extra compute.
+    verify_B : int, default 50
+        Bootstrap replications per recommendation (auto-capped by budget).
+    verify_budget_s : float, default 30.0
+        Wall-clock budget (seconds) per verified recommendation.
+    verify_top_k : int, default 3
+        Number of top recommendations to verify.
 
     Returns
     -------
@@ -356,19 +385,19 @@ def recommend(
                           'Robust to heterogeneous treatment effects (unlike TWFE).',
                 'assumptions': ['Parallel trends', 'No anticipation', 'Staggered adoption'],
                 'robustness': 'Run sp.pretrends_test(), sp.honest_did(), sp.event_study()',
-                'code': f"sp.callaway_santanna(df, y='{y}', treat='{treatment}', "
-                        f"time='{time}', id='{id}')",
-                'params': {'data': data, 'y': y, 'treat': treatment,
-                           'time': time, 'id': id},
+                'code': f"sp.callaway_santanna(df, y='{y}', g='{treatment}', "
+                        f"t='{time}', i='{id}')",
+                'params': {'data': data, 'y': y, 'g': treatment,
+                           't': time, 'i': id},
             })
             recommendations.append({
                 'method': 'Sun-Abraham (2021) — interaction-weighted',
                 'function': 'sun_abraham',
                 'reason': 'Alternative heterogeneity-robust DID estimator.',
-                'code': f"sp.sun_abraham(df, y='{y}', treat='{treatment}', "
-                        f"time='{time}', id='{id}')",
-                'params': {'data': data, 'y': y, 'treat': treatment,
-                           'time': time, 'id': id},
+                'code': f"sp.sun_abraham(df, y='{y}', g='{treatment}', "
+                        f"t='{time}', i='{id}')",
+                'params': {'data': data, 'y': y, 'g': treatment,
+                           't': time, 'i': id},
             })
         else:
             recommendations.append({
@@ -396,15 +425,21 @@ def recommend(
 
     elif design == 'iv':
         z = instrument or 'instrument'
+        exog_controls = [c for c in controls if c not in (treatment, z)]
+        exog_str = " + ".join(exog_controls[:5]) if exog_controls else ""
+        iv_formula = (
+            f"{y} ~ {exog_str} + ({treatment} ~ {z})"
+            if exog_str else f"{y} ~ ({treatment} ~ {z})"
+        )
         recommendations.append({
             'method': '2SLS (two-stage least squares)',
-            'function': 'iv',
+            'function': 'ivreg',
             'reason': 'Standard IV estimator for endogenous treatment.',
             'assumptions': ['Instrument relevance (F > 10)',
                             'Exclusion restriction', 'Monotonicity (for LATE)'],
             'robustness': 'Check first-stage F, sp.anderson_rubin_test(), sp.kitagawa_test()',
-            'code': f"sp.iv(data=df, y='{y}', x_endog=['{treatment}'], z=['{z}'])",
-            'params': {'data': data, 'y': y, 'x_endog': [treatment], 'z': [z]},
+            'code': f"sp.ivreg('{iv_formula}', data=df, robust='hc1')",
+            'params': {'formula': iv_formula, 'data': data, 'robust': 'hc1'},
         })
         recommendations.append({
             'method': 'LIML (robust to weak instruments)',
@@ -430,40 +465,45 @@ def recommend(
             'function': 'match',
             'reason': 'Nonparametric causal effect under unconfoundedness.',
             'assumptions': ['Unconfoundedness (CIA)', 'Common support (overlap)'],
-            'code': f"sp.match(df, y='{y}', treatment='{treatment}', "
+            'code': f"sp.match(df, y='{y}', treat='{treatment}', "
                     f"covariates=[{ctrl_str}])",
-            'params': {'data': data, 'y': y, 'treatment': treatment,
+            'params': {'data': data, 'y': y, 'treat': treatment,
                        'covariates': controls[:10]},
         })
         recommendations.append({
             'method': 'Double ML (high-dimensional controls)',
             'function': 'dml',
             'reason': 'Handles many controls without overfitting via cross-fitting.',
-            'code': f"sp.dml(df, y='{y}', treatment='{treatment}', "
+            'code': f"sp.dml(df, y='{y}', treat='{treatment}', "
                     f"covariates=[{ctrl_str}])",
-            'params': {'data': data, 'y': y, 'treatment': treatment,
+            'params': {'data': data, 'y': y, 'treat': treatment,
                        'covariates': controls[:20]},
         })
 
     elif design == 'panel':
+        panel_rhs = treatment if treatment else '1'
+        panel_controls = [c for c in controls if c != treatment][:5]
+        if panel_controls:
+            panel_rhs += " + " + " + ".join(panel_controls)
+        panel_formula = f"{y} ~ {panel_rhs}"
         recommendations.append({
             'method': 'Panel FE (within estimator)',
             'function': 'panel',
             'reason': 'Controls for time-invariant unobservables.',
             'assumptions': ['Strict exogeneity', 'No time-varying confounders'],
-            'code': f"sp.panel(df, y='{y}', x=['{treatment}', {ctrl_str}], "
-                    f"id='{id}', time='{time}', method='fe')",
-            'params': {'data': data, 'y': y, 'x': [treatment] + controls[:5],
-                       'id': id, 'time': time, 'method': 'fe'},
+            'code': f"sp.panel(df, '{panel_formula}', "
+                    f"entity='{id}', time='{time}', method='fe')",
+            'params': {'data': data, 'formula': panel_formula,
+                       'entity': id, 'time': time, 'method': 'fe'},
         })
         recommendations.append({
             'method': 'Correlated Random Effects (Mundlak)',
             'function': 'panel',
             'reason': 'Mundlak projection allows RE efficiency with FE consistency.',
-            'code': f"sp.panel(df, y='{y}', x=['{treatment}'], "
-                    f"id='{id}', time='{time}', method='mundlak')",
-            'params': {'data': data, 'y': y, 'x': [treatment] + controls[:5],
-                       'id': id, 'time': time, 'method': 'mundlak'},
+            'code': f"sp.panel(df, '{panel_formula}', "
+                    f"entity='{id}', time='{time}', method='mundlak')",
+            'params': {'data': data, 'formula': panel_formula,
+                       'entity': id, 'time': time, 'method': 'mundlak'},
         })
 
     else:
@@ -510,6 +550,33 @@ def recommend(
             'params': {'data': data, 'y': y, 'x': [treatment] + controls[:5]
                        if treatment else controls[:5]},
         })
+
+    # Optional empirical verification (Plan 3: rule prior + empirical posterior)
+    if verify and recommendations:
+        from .verify import verify_recommendation
+
+        k = min(verify_top_k, len(recommendations))
+        for rec in recommendations[:k]:
+            try:
+                rec["verify"] = verify_recommendation(
+                    rec, data,
+                    B=verify_B,
+                    budget_s=verify_budget_s,
+                )
+            except Exception as e:
+                rec["verify"] = {"score": np.nan, "error": str(e)}
+
+        # Re-rank top-k by verify score (stable sort; rest of list untouched)
+        head = recommendations[:k]
+        tail = recommendations[k:]
+        head.sort(
+            key=lambda r: (
+                -(r.get("verify", {}).get("score") or -1)
+                if r.get("verify") and np.isfinite(r["verify"].get("score", np.nan))
+                else 0
+            )
+        )
+        recommendations = head + tail
 
     return RecommendationResult(
         recommendations=recommendations,

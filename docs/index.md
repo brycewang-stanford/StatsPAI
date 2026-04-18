@@ -70,7 +70,7 @@ package:
 
 ```bibtex
 @software{statspai,
-  author  = {Wang, Bryce},
+  author  = {Wang, Biaoyue},
   title   = {StatsPAI: Python Causal Inference Toolkit},
   year    = {2026},
   url     = {https://github.com/brycewang-stanford/StatsPAI}

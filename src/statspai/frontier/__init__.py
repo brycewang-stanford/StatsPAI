@@ -14,11 +14,14 @@ Helpers: :func:`te_summary`.
 from .sfa import frontier, FrontierResult
 from .panel import xtfrontier
 from .te_tools import te_summary, te_rank
+from .metafrontier import metafrontier, MetafrontierResult
 
 __all__ = [
     "frontier",
     "xtfrontier",
     "FrontierResult",
+    "metafrontier",
+    "MetafrontierResult",
     "te_summary",
     "te_rank",
 ]

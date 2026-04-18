@@ -924,7 +924,7 @@ Interactive Plot Editor: Font presets redesigned to show actual font names; sepa
 
 **Team:**
 
-- **Bryce Wang** — Founder. Economics, Finance, CS & AI. Stanford REAP.
+- **Biaoyue Wang** — Founder. Economics, Finance, CS & AI. Stanford REAP.
 - **Dr. Scott Rozelle** — Co-founder & Strategic Advisor. Stanford Senior Fellow, author of *Invisible China*.
 - <img width="812" height="178" alt="image" src="https://github.com/user-attachments/assets/8dfd4a9e-ed17-482f-83c4-b489cb354da0" />
 ---
@@ -945,10 +945,10 @@ pytest
 ```bibtex
 @software{wang2025statspai,
   title={StatsPAI: The Causal Inference & Econometrics Toolkit for Python},
-  author={Wang, Bryce},
+  author={Wang, Biaoyue},
   year={2026},
   url={https://github.com/brycewang-stanford/statspai},
-  version={0.9.2}
+  version={0.9.3}
 }
 ```
 

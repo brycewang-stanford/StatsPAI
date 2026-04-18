@@ -814,6 +814,137 @@ class TestBootstrap:
         assert np.isclose(r1.std_errors["x1"], r2.std_errors["x1"])
 
 
+class TestConditionalPredict:
+    def test_conditional_efficiency_matches_training_efficiency(self):
+        """Posterior E[exp(-u)|eps] on held-out data should agree with efficiency() on same rows."""
+        df = _simulate_hn_production(1200, 0.2, 0.4, seed=1001)
+        # Fit on all data.
+        res = frontier(df, y="y", x=["x1", "x2"], dist="half-normal")
+        # predict with y present on the same rows — should match efficiency() output.
+        te_train = res.efficiency(method="bc").values
+        te_pred = res.predict(df, what="conditional_efficiency").values
+        assert np.allclose(te_train, te_pred, atol=1e-10)
+
+    def test_conditional_requires_y(self):
+        df = _simulate_hn_production(300, 0.2, 0.4, seed=1002)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        no_y = df[["x1"]]
+        with pytest.raises(KeyError, match="requires the dependent"):
+            res.predict(no_y, what="conditional_efficiency")
+
+    def test_conditional_inefficiency_bounded(self):
+        df = _simulate_hn_production(400, 0.2, 0.5, seed=1003)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        u_hat = res.predict(df, what="conditional_inefficiency").values
+        assert (u_hat >= -1e-6).all()
+
+
+class TestReturnsToScale:
+    def test_rts_correct_for_crs_dgp(self):
+        rng = np.random.default_rng(1101)
+        n = 3000
+        x1 = rng.normal(0, 1, n)
+        x2 = rng.normal(0, 1, n)
+        v = rng.normal(0, 0.2, n)
+        u = np.abs(rng.normal(0, 0.3, n))
+        y = 1.0 + 0.6 * x1 + 0.4 * x2 + v - u  # sum = 1 (CRS)
+        df = pd.DataFrame({"y": y, "x1": x1, "x2": x2})
+        res = frontier(df, y="y", x=["x1", "x2"])
+        rts = res.returns_to_scale()
+        assert abs(rts["rts"] - 1.0) < 0.05
+        assert rts["pvalue"] > 0.05  # fail to reject CRS
+        assert "CRS" in rts["interpretation"]
+
+    def test_rts_detects_irs(self):
+        rng = np.random.default_rng(1102)
+        n = 3000
+        x1 = rng.normal(0, 1, n)
+        x2 = rng.normal(0, 1, n)
+        v = rng.normal(0, 0.2, n)
+        u = np.abs(rng.normal(0, 0.3, n))
+        y = 1.0 + 0.7 * x1 + 0.6 * x2 + v - u  # sum = 1.3
+        df = pd.DataFrame({"y": y, "x1": x1, "x2": x2})
+        res = frontier(df, y="y", x=["x1", "x2"])
+        rts = res.returns_to_scale()
+        assert rts["rts"] > 1.1
+        assert rts["pvalue"] < 0.01
+        assert "IRS" in rts["interpretation"]
+
+
+class TestUsigmaMarginalEffects:
+    def test_usigma_me_matches_finite_difference(self):
+        rng = np.random.default_rng(1201)
+        n = 3000
+        x1 = rng.normal(0, 1, n)
+        w1 = rng.normal(0, 1, n)
+        sigma_u_i = np.exp(-1.0 + 0.4 * w1)
+        u = np.abs(rng.normal(0, sigma_u_i))
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "w1": w1})
+        res = frontier(df, y="y", x=["x1"], dist="half-normal", usigma=["w1"])
+
+        analytic = res.marginal_effects(source="usigma", at="observation")["w1"].values
+        h = 1e-5
+        E_u_0 = res.predict(df, what="expected_inefficiency").values
+        df_p = df.copy()
+        df_p["w1"] = df_p["w1"] + h
+        E_u_p = res.predict(df_p, what="expected_inefficiency").values
+        fd = (E_u_p - E_u_0) / h
+        assert np.max(np.abs(analytic - fd)) < 1e-4
+
+    def test_usigma_me_requires_usigma_model(self):
+        df = _simulate_hn_production(200, 0.2, 0.4, seed=1202)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        with pytest.raises(RuntimeError, match="usigma"):
+            res.marginal_effects(source="usigma")
+
+
+class TestMetafrontier:
+    def test_metafrontier_envelopes_group_frontiers(self):
+        """Meta frontier x'beta_meta should dominate every group's x'beta^k."""
+        from statspai.frontier import metafrontier
+
+        rng = np.random.default_rng(1301)
+        N_per, K = 150, 3
+        n = N_per * K
+        x1 = rng.normal(0, 1, n)
+        groups_arr = np.repeat(["A", "B", "C"], N_per)
+        intercepts = {"A": 1.0, "B": 0.7, "C": 0.5}
+        u = np.abs(rng.normal(0, 0.3, n))
+        v = rng.normal(0, 0.15, n)
+        y = np.array(
+            [intercepts[g] + 0.5 * x1[i] + v[i] - u[i] for i, g in enumerate(groups_arr)]
+        )
+        df = pd.DataFrame({"y": y, "x1": x1, "g": groups_arr})
+        res = metafrontier(df, y="y", x=["x1"], group="g")
+
+        # Verify meta frontier envelopes each group's frontier for every obs.
+        X = np.column_stack([np.ones(n), df["x1"].to_numpy()])
+        meta_frontier = X @ res.beta_meta.to_numpy()
+        for g, bg in res.beta_groups.items():
+            group_frontier = X @ bg.to_numpy()
+            assert (meta_frontier >= group_frontier - 1e-8).all()
+
+    def test_metafrontier_tgr_in_0_1(self):
+        from statspai.frontier import metafrontier
+        rng = np.random.default_rng(1302)
+        N_per, K = 100, 2
+        n = N_per * K
+        x1 = rng.normal(0, 1, n)
+        groups_arr = np.repeat(["A", "B"], N_per)
+        intercepts = {"A": 1.0, "B": 0.6}
+        u = np.abs(rng.normal(0, 0.3, n))
+        v = rng.normal(0, 0.15, n)
+        y = np.array(
+            [intercepts[g] + 0.5 * x1[i] + v[i] - u[i] for i, g in enumerate(groups_arr)]
+        )
+        df = pd.DataFrame({"y": y, "x1": x1, "g": groups_arr})
+        res = metafrontier(df, y="y", x=["x1"], group="g")
+        assert ((res.tgr > 0) & (res.tgr <= 1)).all()
+        assert ((res.te_meta >= 0) & (res.te_meta <= 1)).all()
+
+
 class TestMonteCarloCoverage:
     """Canonical cross-check: 95% asymptotic CI should cover truth ~95% of time.
 

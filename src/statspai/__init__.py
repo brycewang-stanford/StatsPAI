@@ -22,8 +22,8 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.2"
-__author__ = "Bryce Wang"
+__version__ = "0.9.3"
+__author__ = "Biaoyue Wang"
 __email__ = "bryce@copaper.ai"
 
 from .core.results import EconometricResults, CausalResult
@@ -223,7 +223,9 @@ from .smart import (
     sensitivity_dashboard, SensitivityDashboard,
     pub_ready, PubReadyResult,
     replicate, list_replications,
+    verify_recommendation,
 )
+verify = verify_recommendation  # convenience alias
 
 # === NEW v0.6 Round 3 ===
 # Truncated Regression
@@ -248,7 +250,11 @@ from .multilevel import (
     lrtest,
 )
 # Stochastic Frontier
-from .frontier import frontier, xtfrontier, FrontierResult, te_summary, te_rank
+from .frontier import (
+    frontier, xtfrontier, FrontierResult,
+    metafrontier, MetafrontierResult,
+    te_summary, te_rank,
+)
 # General GMM
 from .gmm import gmm
 
@@ -676,6 +682,7 @@ __all__ = [
     "sensitivity_dashboard", "SensitivityDashboard",
     "pub_ready", "PubReadyResult",
     "replicate", "list_replications",
+    "verify", "verify_recommendation",
     # === v0.6 Round 3 ===
     "truncreg",
     "sureg", "SURResult", "three_sls",
@@ -685,6 +692,7 @@ __all__ = [
     "meglm", "melogit", "mepoisson", "MEGLMResult",
     "icc", "lrtest",
     "frontier", "xtfrontier", "FrontierResult",
+    "metafrontier", "MetafrontierResult",
     "te_summary", "te_rank",
     "gmm",
 ]

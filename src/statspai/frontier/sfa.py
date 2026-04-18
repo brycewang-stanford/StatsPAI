@@ -166,13 +166,20 @@ class FrontierResult(EconometricResults):
         new_data : pandas.DataFrame
             Must contain the frontier regressors and, if the model has
             ``usigma`` / ``vsigma`` / ``emean`` covariates, those columns too.
+            For ``what='conditional_*'`` the dependent variable ``y`` must
+            also be present so that the composed-error residual can be
+            computed and conditioned on.
             Rows with any missing value are dropped.
-        what : {'frontier', 'expected_inefficiency', 'expected_efficiency'}
-            * ``'frontier'`` — deterministic frontier ``x_new' beta``.  This
-              is the maximum attainable output (production) or minimum cost.
-            * ``'expected_inefficiency'`` — marginal ``E[u_new]`` using the
-              fitted variance / mean parameters (no residual conditioning).
+        what : {'frontier', 'expected_inefficiency', 'expected_efficiency',
+                'conditional_inefficiency', 'conditional_efficiency'}
+            * ``'frontier'`` — deterministic frontier ``x_new' beta``.
+            * ``'expected_inefficiency'`` — marginal ``E[u_new]``.
             * ``'expected_efficiency'`` — marginal ``E[exp(-u_new)]``.
+            * ``'conditional_inefficiency'`` — Jondrow posterior
+              ``E[u | eps_new]`` where ``eps_new = y_new - x_new'beta``;
+              requires ``y`` column in ``new_data``.
+            * ``'conditional_efficiency'`` — Battese-Coelli
+              ``E[exp(-u) | eps_new]``; requires ``y``.
 
         Returns
         -------
@@ -180,8 +187,12 @@ class FrontierResult(EconometricResults):
             Indexed by the (post-dropna) rows of ``new_data``.
         """
         what = what.lower()
-        if what not in {"frontier", "expected_inefficiency", "expected_efficiency"}:
-            raise ValueError(f"Unknown what={what!r}.")
+        valid = {
+            "frontier", "expected_inefficiency", "expected_efficiency",
+            "conditional_inefficiency", "conditional_efficiency",
+        }
+        if what not in valid:
+            raise ValueError(f"Unknown what={what!r}.  Valid: {sorted(valid)}.")
 
         regressors = self.data_info.get("regressors", [])
         usigma_cols = self.data_info.get("usigma_cols") or []
@@ -189,6 +200,15 @@ class FrontierResult(EconometricResults):
         emean_cols = self.data_info.get("emean_cols") or []
 
         required = list(regressors) + list(usigma_cols) + list(vsigma_cols) + list(emean_cols)
+        needs_y = what.startswith("conditional_")
+        if needs_y:
+            y_col = self.data_info.get("dep_var")
+            if y_col is None or y_col not in new_data.columns:
+                raise KeyError(
+                    f"what={what!r} requires the dependent variable "
+                    f"{y_col!r} to be present in new_data."
+                )
+            required = [y_col] + required
         missing = [c for c in required if c not in new_data.columns]
         if missing:
             raise KeyError(f"new_data is missing required columns: {missing}")
@@ -230,6 +250,35 @@ class FrontierResult(EconometricResults):
 
         if what == "expected_inefficiency":
             return pd.Series(E_u, index=idx, name="expected_inefficiency")
+
+        if what.startswith("conditional_"):
+            y_col = self.data_info.get("dep_var")
+            y_new = df_new[y_col].to_numpy(dtype=float)
+            sigma_v_new = self._eval_sigma(
+                df_new, vsigma_cols,
+                log_sigma_const_name="v__cons" if vsigma_cols else "ln_sigma_v",
+                coef_prefix="v_",
+            )
+            eps_new = y_new - frontier_hat
+            sign = self.model_info.get("sign", -1)
+            if dist == "half-normal":
+                E_u_cond, TE_bc_cond = _fc.jondrow_halfnormal(
+                    eps_new, sigma_v_new, sigma_u_new, sign
+                )
+            elif dist == "exponential":
+                E_u_cond, TE_bc_cond = _fc.jondrow_exponential(
+                    eps_new, sigma_v_new, sigma_u_new, sign
+                )
+            else:
+                E_u_cond, TE_bc_cond = _fc.jondrow_truncnormal(
+                    eps_new, sigma_v_new, sigma_u_new, mu_new, sign
+                )
+            if what == "conditional_inefficiency":
+                return pd.Series(E_u_cond, index=idx, name="conditional_inefficiency")
+            return pd.Series(
+                np.clip(TE_bc_cond, 0.0, 1.0),
+                index=idx, name="conditional_efficiency",
+            )
 
         # Marginal E[exp(-u_new)] for each distribution.
         if dist == "half-normal":
@@ -277,65 +326,169 @@ class FrontierResult(EconometricResults):
         return intercept + Z @ coefs
 
     # ------------------------------------------------------------------
-    # Marginal effects (BC95-style inefficiency determinants)
+    # Marginal effects (BC95 + Caudill-Ford-Gropper)
     # ------------------------------------------------------------------
 
     def marginal_effects(
         self,
         kind: str = "inefficiency",
+        source: str = "emean",
         at: str = "observation",
     ) -> pd.DataFrame:
-        """Marginal effects of ``emean`` covariates on expected inefficiency.
-
-        Only available for ``dist='truncated-normal'`` with ``emean=[...]``
-        (Battese-Coelli 1995).  Computes
-
-            dE[u_i] / dz_ij  =  delta_j * [1 - (mu_i/sigma_u)*phi/Phi - (phi/Phi)^2]
-
-        where ``mu_i = delta' [1, z_i]``, ``phi/Phi = phi(mu_i/sigma_u)/Phi(mu_i/sigma_u)``.
+        """Marginal effects of inefficiency-shifting covariates.
 
         Parameters
         ----------
         kind : {'inefficiency'}
-            Currently only inefficiency marginal effects are supported.
+            Currently only ``E[u]`` marginal effects are supported.
+        source : {'emean', 'usigma'}
+            ``'emean'``  — derivative wrt the BC95 mean covariates
+            ``z`` via ``mu_i = delta'[1, z_i]``. Requires ``dist='truncated-normal'``
+            and a model fitted with ``emean=[...]``.
+            ``'usigma'`` — derivative wrt the Caudill-Ford-Gropper (1995)
+            ``sigma_u`` covariates ``w`` via ``ln sigma_u_i = gamma'[1, w_i]``.
+            Requires a model fitted with ``usigma=[...]``.
         at : {'observation', 'mean', 'ame'}
-            * ``'observation'`` — per-row marginal effects (DataFrame).
-            * ``'mean'`` or ``'ame'`` — average marginal effect (Series).
 
-        Returns
-        -------
-        pandas.DataFrame or pandas.Series
+        Formulas
+        --------
+        emean (truncated-normal):
+            d E[u_i] / d z_ij = delta_j * [1 - (mu/sigma) * phi/Phi - (phi/Phi)^2]
+        usigma (half-normal):
+            d E[u_i] / d w_ij = gamma_j * sigma_u_i * sqrt(2/pi)
+        usigma (exponential):
+            d E[u_i] / d w_ij = gamma_j * sigma_u_i
+        usigma (truncated-normal):
+            d E[u_i] / d w_ij = gamma_j * sigma_u_i * [phi/Phi + ratio * phi/Phi * (phi/Phi - (-ratio))]
+            (chain rule through sigma_u_i = exp(gamma'[1, w_i])).
         """
         if kind != "inefficiency":
             raise ValueError("Only kind='inefficiency' is supported.")
+
+        source = source.lower()
+        if source == "emean":
+            return self._marginal_effects_emean(at=at)
+        if source == "usigma":
+            return self._marginal_effects_usigma(at=at)
+        raise ValueError(f"Unknown source={source!r}.")
+
+    def _marginal_effects_emean(self, at: str) -> pd.DataFrame:
         if self.model_info.get("inefficiency_dist") != "truncated-normal":
             raise RuntimeError(
-                "marginal_effects() requires dist='truncated-normal'."
+                "marginal_effects(source='emean') requires dist='truncated-normal'."
             )
         emean_cols = self.data_info.get("emean_cols")
         if not emean_cols:
             raise RuntimeError(
-                "marginal_effects() requires the model to have emean=[...]."
+                "marginal_effects(source='emean') requires model to have emean=[...]."
             )
-
         mu_i = np.asarray(self.diagnostics["mu_i"])
         sigma_u_i = np.asarray(self.diagnostics["sigma_u_i"])
         ratio = mu_i / sigma_u_i
-        ratio_factor = _fc._phi_over_Phi(ratio)
-        # d E[u_i] / d mu_i = 1 - (mu/sigma)*phi/Phi - (phi/Phi)^2.
-        jacobian = 1.0 - ratio * ratio_factor - ratio_factor**2
-
+        phi_over_Phi = _fc._phi_over_Phi(ratio)
+        jac = 1.0 - ratio * phi_over_Phi - phi_over_Phi**2
         deltas = np.array([self.params[f"mu_{c}"] for c in emean_cols])
-        # Outer product: row i, col k: jacobian_i * delta_k.
-        effects = jacobian[:, None] * deltas[None, :]
+        effects = jac[:, None] * deltas[None, :]
         effects_df = pd.DataFrame(
             effects, columns=emean_cols,
             index=self.diagnostics.get("efficiency_index"),
         )
+        return effects_df.mean(axis=0) if at in {"mean", "ame"} else effects_df
 
-        if at in {"mean", "ame"}:
-            return effects_df.mean(axis=0)
-        return effects_df
+    def _marginal_effects_usigma(self, at: str) -> pd.DataFrame:
+        usigma_cols = self.data_info.get("usigma_cols")
+        if not usigma_cols:
+            raise RuntimeError(
+                "marginal_effects(source='usigma') requires model to have usigma=[...]."
+            )
+        dist = self.model_info.get("inefficiency_dist", "half-normal")
+        sigma_u_i = np.asarray(self.diagnostics["sigma_u_i"])
+        # Chain rule: d sigma_u_i / d w_ij = sigma_u_i * gamma_j.
+        if dist == "half-normal":
+            factor = sigma_u_i * np.sqrt(2.0 / np.pi)
+        elif dist == "exponential":
+            factor = sigma_u_i  # E[u] = sigma_u for Exp(scale=sigma_u)
+        else:  # truncated-normal: E[u] = mu + sigma * phi/Phi(mu/sigma)
+            mu_i = np.asarray(self.diagnostics["mu_i"])
+            ratio = mu_i / sigma_u_i
+            phi_over_Phi = _fc._phi_over_Phi(ratio)
+            # d E[u]/d sigma_u = phi/Phi(r) - mu/sigma * (1 - r*phi/Phi - (phi/Phi)^2)
+            # Simpler derivation: d/d sigma [mu + sigma * M(mu/sigma)] where M = phi/Phi.
+            # = M(r) + sigma * M'(r) * (-mu/sigma^2)
+            # = M(r) - (mu/sigma) * M'(r) = M(r) - r * [-r*M - M^2] = M + r^2 M + r*M^2
+            # = M * (1 + r^2) + r * M^2
+            factor = sigma_u_i * (phi_over_Phi * (1.0 + ratio**2) + ratio * phi_over_Phi**2)
+
+        gammas = np.array([self.params[f"u_{c}"] for c in usigma_cols])
+        effects = factor[:, None] * gammas[None, :]
+        effects_df = pd.DataFrame(
+            effects, columns=usigma_cols,
+            index=self.diagnostics.get("efficiency_index"),
+        )
+        return effects_df.mean(axis=0) if at in {"mean", "ame"} else effects_df
+
+    # ------------------------------------------------------------------
+    # Returns to scale (Cobb-Douglas / translog convenience)
+    # ------------------------------------------------------------------
+
+    def returns_to_scale(
+        self,
+        inputs: Optional[List[str]] = None,
+        alpha: float = 0.05,
+    ) -> Dict[str, float]:
+        """Sum of input elasticities (RTS) with Wald test H0: RTS = 1 (CRS).
+
+        Parameters
+        ----------
+        inputs : list of str, optional
+            Input-variable names (should be log-transformed inputs in a
+            Cobb-Douglas frontier).  Defaults to ``self.data_info['regressors']``.
+        alpha : float, default 0.05
+
+        Returns
+        -------
+        dict with keys: ``rts``, ``se``, ``statistic``, ``pvalue``,
+        ``ci_lower``, ``ci_upper``, ``interpretation``.
+        """
+        if inputs is None:
+            inputs = self.data_info.get("regressors", [])
+        if not inputs:
+            raise RuntimeError("No regressors found to compute RTS.")
+        vcov = self.diagnostics.get("vcov")
+        # Build restriction vector R such that R @ beta = sum of elasticities.
+        param_names = self.params.index.tolist()
+        R = np.zeros(len(param_names))
+        for v in inputs:
+            if v not in param_names:
+                raise KeyError(f"{v!r} is not a fitted parameter.")
+            R[param_names.index(v)] = 1.0
+
+        rts_hat = float(R @ self.params.to_numpy())
+        rts_se = float(np.sqrt(R @ vcov @ R)) if vcov is not None else float("nan")
+        stat = (rts_hat - 1.0) / rts_se if rts_se > 0 else float("nan")
+        pval = (
+            2.0 * (1.0 - stats.norm.cdf(abs(stat)))
+            if np.isfinite(stat)
+            else float("nan")
+        )
+        z_crit = stats.norm.ppf(1.0 - alpha / 2.0)
+        ci_lo = rts_hat - z_crit * rts_se if np.isfinite(rts_se) else float("nan")
+        ci_hi = rts_hat + z_crit * rts_se if np.isfinite(rts_se) else float("nan")
+        if rts_hat > 1.0 + z_crit * rts_se:
+            verdict = "increasing returns to scale (IRS)"
+        elif rts_hat < 1.0 - z_crit * rts_se:
+            verdict = "decreasing returns to scale (DRS)"
+        else:
+            verdict = "fail to reject constant returns (CRS)"
+        return {
+            "rts": rts_hat,
+            "se": rts_se,
+            "statistic": stat,
+            "pvalue": pval,
+            "ci_lower": ci_lo,
+            "ci_upper": ci_hi,
+            "interpretation": verdict,
+        }
 
     def lr_test_no_inefficiency(self) -> Dict[str, float]:
         """One-sided LR test ``H0: sigma_u = 0`` (mixed chi-bar squared)."""
