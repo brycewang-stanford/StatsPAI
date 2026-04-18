@@ -59,6 +59,8 @@ def xtfrontier(
     dist: str = "half-normal",
     cost: bool = False,
     emean: Optional[List[str]] = None,
+    vce: str = "oim",
+    cluster: Optional[str] = None,
     maxiter: int = 500,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -99,9 +101,12 @@ def xtfrontier(
     if model == "bc95":
         if emean is None:
             raise ValueError("model='bc95' requires emean=[...].")
+        # Default BC95 cluster is the panel id (standard for applied papers).
+        cl = cluster if cluster is not None else (id if vce != "oim" else None)
         return _fit_bc95(
             data, y, x, id_col=id, time_col=time, emean=emean,
             cost=cost, maxiter=maxiter, tol=tol, alpha=alpha,
+            vce=vce, cluster=cl,
         )
     if dist not in {"half-normal", "truncated-normal"}:
         raise ValueError(f"dist={dist!r} not supported for panel model.")
@@ -110,6 +115,7 @@ def xtfrontier(
         data, y, x,
         id_col=id, time_col=time,
         model=model, dist=dist, cost=cost,
+        vce=vce, cluster=cluster,
         maxiter=maxiter, tol=tol, alpha=alpha,
     )
 
@@ -130,6 +136,8 @@ def _fit_bc95(
     maxiter: int,
     tol: float,
     alpha: float,
+    vce: str = "oim",
+    cluster: Optional[str] = None,
 ) -> FrontierResult:
     """BC95: u_it ~ N^+(z_it' delta, sigma_u^2) independently.
 
@@ -143,6 +151,8 @@ def _fit_bc95(
         dist="truncated-normal",
         cost=cost,
         emean=emean,
+        vce=vce,
+        cluster=cluster,
         maxiter=maxiter,
         tol=tol,
         alpha=alpha,
@@ -178,7 +188,18 @@ def _fit_ti_tvd(
     maxiter: int,
     tol: float,
     alpha: float,
+    vce: str = "oim",
+    cluster: Optional[str] = None,
 ) -> FrontierResult:
+    vce = vce.lower()
+    if vce not in {"oim", "opg", "robust"}:
+        raise ValueError(f"Unknown vce={vce!r}.")
+    if cluster is not None and vce == "oim":
+        vce = "robust"
+    # Default cluster for panel: the panel unit id (groups are units).
+    cluster_effective = cluster if cluster is not None else (
+        id_col if vce != "oim" else None
+    )
     sign = 1 if cost else -1
     has_mu = dist == "truncated-normal"
     has_eta = model == "tvd"
@@ -237,6 +258,46 @@ def _fit_ti_tvd(
         if not has_eta:
             return np.ones(n)
         return np.exp(-eta * rel_time)
+
+    def per_group_loglik(theta: np.ndarray) -> np.ndarray:
+        """Return the length-N vector of group log-likelihoods."""
+        beta = theta[:k_beta]
+        sigma_v = float(np.exp(theta[idx_ln_sv]))
+        sigma_u = float(np.exp(theta[idx_ln_su]))
+        mu_scalar = float(theta[idx_mu]) if has_mu else 0.0
+        eta = float(theta[idx_eta]) if has_eta else 0.0
+        a_vec = compute_a(eta)
+        eps = y_vec - X_mat @ beta
+        w_sq = a_vec**2
+        C_i = np.bincount(group_idx, weights=w_sq, minlength=N)
+        A_i = np.bincount(group_idx, weights=a_vec * eps, minlength=N)
+        norm_eps = np.bincount(group_idx, weights=eps**2, minlength=N)
+        C_safe = np.where(C_i > 0, C_i, np.nan)
+        eps_tilde = A_i / C_safe
+        ssw_a = norm_eps - A_i**2 / C_safe
+        T_i = counts
+        denom = C_i * sigma_u**2 + sigma_v**2
+        sigma_star2 = sigma_v**2 * sigma_u**2 / denom
+        sigma_star = np.sqrt(sigma_star2)
+        mu_star = (sign * sigma_u**2 * A_i + sigma_v**2 * mu_scalar) / denom
+        if has_mu:
+            term_eps = -C_i * (eps_tilde - sign * mu_scalar) ** 2 / (2.0 * denom)
+            log_trunc = _fc._log_phi_cdf(mu_scalar / sigma_u)
+        else:
+            term_eps = -C_i * eps_tilde**2 / (2.0 * denom)
+            log_trunc = -np.log(2.0)
+        with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+            ll_group = (
+                -T_i / 2.0 * np.log(2.0 * np.pi)
+                - T_i * np.log(sigma_v)
+                - ssw_a / (2.0 * sigma_v**2)
+                + np.log(sigma_star)
+                - np.log(sigma_u)
+                - log_trunc
+                + term_eps
+                + _fc._log_phi_cdf(mu_star / sigma_star)
+            )
+        return ll_group
 
     def neg_loglik(theta: np.ndarray) -> float:
         if not np.all(np.isfinite(theta)):
@@ -339,7 +400,24 @@ def _fit_ti_tvd(
 
     # SE
     H = _fc.numerical_hessian(neg_loglik, theta_hat)
-    vcov = _fc.safe_invert_hessian(H)
+    vcov_oim = _fc.safe_invert_hessian(H)
+    if vce == "oim":
+        vcov = vcov_oim
+    else:
+        group_scores = _fc.per_obs_scores(per_group_loglik, theta_hat)
+        # per_group_loglik returns shape (N,) so group_scores is (N, k).
+        if vce == "opg":
+            OPG = group_scores.T @ group_scores
+            vcov = _fc.safe_invert_hessian(OPG)
+        else:  # robust or cluster
+            if (cluster_effective is None or cluster_effective == id_col):
+                # Groups already = panel units; score summation is identity.
+                vcov = _fc.robust_vcov(H, group_scores, cluster_idx=None)
+            else:
+                # Re-cluster groups into meta-clusters.
+                meta = df.groupby(id_col)[cluster_effective].first()
+                meta_idx = pd.Categorical(meta.values).codes.astype(int)
+                vcov = _fc.robust_vcov(H, group_scores, cluster_idx=meta_idx)
     se = np.sqrt(np.clip(np.diag(vcov), 0.0, None))
 
     # Posterior E[u_i | e_i] using derived formulas
@@ -389,6 +467,7 @@ def _fit_ti_tvd(
             "method": f"Panel ML ({model}, {dist})",
             "panel_model": model,
             "inefficiency_dist": dist,
+            "vce": vce if cluster_effective is None else f"cluster({cluster_effective})",
             "cost": cost,
             "sign": sign,
             "te_method": "bc",

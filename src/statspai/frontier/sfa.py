@@ -458,6 +458,8 @@ def frontier(
     vsigma: Optional[List[str]] = None,
     emean: Optional[List[str]] = None,
     te_method: str = "bc",
+    vce: str = "oim",
+    cluster: Optional[str] = None,
     maxiter: int = 500,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -489,6 +491,14 @@ def frontier(
         ``dist='truncated-normal'``.
     te_method : {'bc', 'jlms'}, default 'bc'
         Default technical-efficiency formula accessed via ``.efficiency()``.
+    vce : {'oim', 'opg', 'robust'}, default 'oim'
+        Variance-covariance estimator:
+        ``'oim'``    — observed information matrix (inverse numerical Hessian).
+        ``'opg'``    — outer product of gradients (Berndt-Hall-Hall-Hausman).
+        ``'robust'`` — sandwich ``H^{-1} (S' S) H^{-1}`` (White 1982).
+    cluster : str, optional
+        Cluster variable for cluster-robust SE (Liang-Zeger 1986).  When
+        specified, implies ``vce='robust'`` aggregated over clusters.
     maxiter : int, default 500
     tol : float, default 1e-8
     alpha : float, default 0.05
@@ -514,10 +524,18 @@ def frontier(
     if emean is not None and dist != "truncated-normal":
         raise ValueError("emean=... requires dist='truncated-normal'.")
 
+    vce = vce.lower()
+    if vce not in {"oim", "opg", "robust"}:
+        raise ValueError(f"Unknown vce={vce!r}.")
+    if cluster is not None and vce == "oim":
+        vce = "robust"
+
     required = [y] + list(x)
     for opt in (usigma, vsigma, emean):
         if opt:
             required += list(opt)
+    if cluster is not None and cluster not in required:
+        required.append(cluster)
     df = data[required].dropna().copy()
     n = len(df)
     if n < len(x) + 3:
@@ -570,6 +588,19 @@ def frontier(
             mu = None
         return beta, sigma_u, sigma_v, mu
 
+    def per_obs_loglik(theta):
+        """Return vector of per-observation log-likelihoods (length n)."""
+        beta, sigma_u, sigma_v, mu = _unpack(theta)
+        eps = y_vec - X_mat @ beta
+        with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+            if dist == "half-normal":
+                ll = _fc.loglik_halfnormal(eps, sigma_v, sigma_u, sign)
+            elif dist == "exponential":
+                ll = _fc.loglik_exponential(eps, sigma_v, sigma_u, sign)
+            else:
+                ll = _fc.loglik_truncated_normal(eps, sigma_v, sigma_u, mu, sign)
+        return ll
+
     def neg_loglik(theta):
         if not np.all(np.isfinite(theta)):
             return 1e20
@@ -582,14 +613,7 @@ def frontier(
             or np.any(sigma_v > 1e6)
         ):
             return 1e20
-        eps = y_vec - X_mat @ beta
-        with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
-            if dist == "half-normal":
-                ll = _fc.loglik_halfnormal(eps, sigma_v, sigma_u, sign)
-            elif dist == "exponential":
-                ll = _fc.loglik_exponential(eps, sigma_v, sigma_u, sign)
-            else:
-                ll = _fc.loglik_truncated_normal(eps, sigma_v, sigma_u, mu, sign)
+        ll = per_obs_loglik(theta)
         if not np.isfinite(ll).all():
             return 1e20
         return -float(ll.sum())
@@ -677,10 +701,22 @@ def frontier(
     ll_val = -neg_loglik(theta_hat)
     beta_hat, sigma_u_i, sigma_v_i, mu_i = _unpack(theta_hat)
 
-    # ---------------------- Standard errors (numerical Hessian) ----------------------
+    # ---------------------- Standard errors ----------------------
 
     H = _fc.numerical_hessian(neg_loglik, theta_hat)
-    vcov = _fc.safe_invert_hessian(H)
+    vcov_oim = _fc.safe_invert_hessian(H)
+    if vce == "oim":
+        vcov = vcov_oim
+    else:
+        scores = _fc.per_obs_scores(per_obs_loglik, theta_hat)
+        if vce == "opg":
+            OPG = scores.T @ scores
+            vcov = _fc.safe_invert_hessian(OPG)
+        else:  # 'robust' or cluster
+            cluster_idx = None
+            if cluster is not None:
+                cluster_idx = pd.Categorical(df[cluster]).codes.astype(int)
+            vcov = _fc.robust_vcov(H, scores, cluster_idx=cluster_idx)
     se = np.sqrt(np.clip(np.diag(vcov), 0.0, None))
 
     # ---------------------- Efficiency scores ----------------------
@@ -739,6 +775,7 @@ def frontier(
             "cost": cost,
             "sign": sign,
             "te_method": te_method,
+            "vce": vce if cluster is None else f"cluster({cluster})",
             "has_usigma": usigma is not None,
             "has_vsigma": vsigma is not None,
             "has_emean": emean is not None,

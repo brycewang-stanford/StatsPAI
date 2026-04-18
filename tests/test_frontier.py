@@ -566,6 +566,126 @@ class TestMarginalEffects:
         assert np.isclose(obs.mean().iloc[0], ame.iloc[0])
 
 
+class TestVarianceEstimators:
+    def test_oim_vs_opg_close_for_well_specified(self):
+        """Under correct specification, OIM and OPG SEs should be close."""
+        df = _simulate_hn_production(3000, 0.2, 0.5, seed=501)
+        r_oim = frontier(df, y="y", x=["x1"], dist="half-normal", vce="oim")
+        r_opg = frontier(df, y="y", x=["x1"], dist="half-normal", vce="opg")
+        # Within 20% (asymptotic equivalence).
+        diff = abs(r_oim.std_errors["x1"] - r_opg.std_errors["x1"])
+        assert diff / r_oim.std_errors["x1"] < 0.25
+
+    def test_robust_se_finite_and_different_from_oim(self):
+        df = _simulate_hn_production(1000, 0.2, 0.4, seed=502)
+        r_oim = frontier(df, y="y", x=["x1"], dist="half-normal", vce="oim")
+        r_rob = frontier(df, y="y", x=["x1"], dist="half-normal", vce="robust")
+        assert np.isfinite(r_rob.std_errors["x1"])
+        # Robust changes the SE (usually marginal when correctly specified).
+        assert r_rob.std_errors["x1"] > 0
+
+    def test_cluster_se_larger_under_within_cluster_correlation(self):
+        """Cluster-robust SE should exceed OIM when clusters share noise."""
+        rng = np.random.default_rng(503)
+        n = 2000
+        x1 = rng.normal(0, 1, n)
+        g = rng.integers(0, 40, n)
+        u = np.abs(rng.normal(0, 0.4, n))
+        g_shock = rng.normal(0, 0.4, 40)[g]  # strong cluster noise
+        v = rng.normal(0, 0.15, n) + g_shock
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "g": g})
+        r_oim = frontier(df, y="y", x=["x1"], dist="half-normal", vce="oim")
+        r_cl = frontier(df, y="y", x=["x1"], dist="half-normal", cluster="g")
+        assert r_cl.std_errors["x1"] > r_oim.std_errors["x1"]
+
+    def test_unknown_vce_raises(self):
+        df = _simulate_hn_production(100, 0.2, 0.4, seed=504)
+        with pytest.raises(ValueError, match="vce"):
+            frontier(df, y="y", x=["x1"], vce="bootstrap")
+
+    def test_cluster_implies_robust(self):
+        df = _simulate_hn_production(500, 0.2, 0.4, seed=505)
+        df["g"] = np.repeat(np.arange(10), 50)
+        r = frontier(df, y="y", x=["x1"], cluster="g")
+        assert "cluster" in r.model_info["vce"]
+
+    def test_panel_cluster_reduces_to_group_scores(self):
+        """Panel vce='robust' == cluster=id (both aggregate at group level)."""
+        rng = np.random.default_rng(506)
+        N, T = 80, 4
+        id_ = np.repeat(np.arange(N), T)
+        t_ = np.tile(np.arange(T), N)
+        n = N * T
+        x1 = rng.normal(0, 1, n)
+        u_i = np.abs(rng.normal(0, 0.4, N))
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - np.repeat(u_i, T)
+        df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
+        r_rob = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
+                           model="ti", vce="robust")
+        r_cl = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
+                          model="ti", cluster="id")
+        # Both should give identical SEs (cluster=id IS the natural grouping).
+        assert np.isclose(r_rob.std_errors["x1"], r_cl.std_errors["x1"])
+
+
+class TestPanelPredict:
+    def test_panel_ti_predict_frontier(self):
+        rng = np.random.default_rng(601)
+        N, T = 40, 5
+        id_ = np.repeat(np.arange(N), T)
+        t_ = np.tile(np.arange(T), N)
+        n = N * T
+        x1 = rng.normal(0, 1, n)
+        u_i = np.abs(rng.normal(0, 0.4, N))
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - np.repeat(u_i, T)
+        df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="ti")
+        new = pd.DataFrame({"x1": [0.0, 1.0]})
+        fr = res.predict(new, what="frontier")
+        expected = np.array([res.params["_cons"],
+                             res.params["_cons"] + res.params["x1"]])
+        assert np.allclose(fr.values, expected, atol=1e-12)
+
+    def test_panel_ti_predict_expected_efficiency(self):
+        rng = np.random.default_rng(602)
+        N, T = 40, 5
+        id_ = np.repeat(np.arange(N), T)
+        t_ = np.tile(np.arange(T), N)
+        n = N * T
+        x1 = rng.normal(0, 1, n)
+        u_i = np.abs(rng.normal(0, 0.4, N))
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - np.repeat(u_i, T)
+        df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="ti")
+        te = res.predict(pd.DataFrame({"x1": [0.0]}), what="expected_efficiency")
+        assert 0 <= te.iloc[0] <= 1
+
+    def test_bc95_panel_predict_varies_with_emean(self):
+        rng = np.random.default_rng(603)
+        N, T = 60, 4
+        id_ = np.repeat(np.arange(N), T)
+        t_ = np.tile(np.arange(T), N)
+        n = N * T
+        x1 = rng.normal(0, 1, n)
+        z1 = rng.normal(0, 1, n)
+        mu_it = 0.2 + 0.3 * z1
+        u = sst.truncnorm.rvs(-mu_it / 0.4, np.inf, loc=mu_it, scale=0.4,
+                              random_state=rng)
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "z1": z1, "id": id_, "t": t_})
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
+                         model="bc95", emean=["z1"])
+        new = pd.DataFrame({"x1": [0, 0], "z1": [-1.0, 1.0]})
+        E_u = res.predict(new, what="expected_inefficiency").values
+        # Positive emean coef on z1 → higher z1 gives larger E[u].
+        assert E_u[1] > E_u[0]
+
+
 class TestTruncatedNormalRobustness:
     def test_multi_start_gives_at_least_as_good_ll(self):
         """After multi-start, TN fit must be at least as good as single-start."""

@@ -342,6 +342,60 @@ def numerical_hessian(
     return H
 
 
+def per_obs_scores(
+    per_obs_loglik: Callable[[np.ndarray], np.ndarray],
+    theta: np.ndarray,
+    step: float = 1e-6,
+) -> np.ndarray:
+    """Finite-difference per-observation score matrix ``J`` with ``J[i, k] = d log f_i / d theta_k``.
+
+    Used for OPG / robust / cluster-robust standard errors.  Cost is
+    ``2k`` evaluations of ``per_obs_loglik``; each call must return a
+    length-``n`` vector of log-likelihood contributions.
+    """
+    theta = np.asarray(theta, dtype=float)
+    k = theta.size
+    n = per_obs_loglik(theta).shape[0]
+    J = np.empty((n, k))
+    for j in range(k):
+        th = theta.copy()
+        th[j] += step
+        fp = per_obs_loglik(th)
+        th[j] -= 2.0 * step
+        fm = per_obs_loglik(th)
+        J[:, j] = (fp - fm) / (2.0 * step)
+    return J
+
+
+def robust_vcov(
+    H: np.ndarray,
+    scores: np.ndarray,
+    cluster_idx: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    """Sandwich variance ``H^{-1} (S' S) H^{-1}``.
+
+    Parameters
+    ----------
+    H : ndarray
+        Hessian of *negative* log-likelihood at the MLE.
+    scores : ndarray, shape (n, k)
+        Per-observation scores ``d log f_i / d theta_k``.
+    cluster_idx : ndarray, optional
+        If provided, sum scores within cluster before outer-producting
+        (Liang-Zeger 1986 / Wooldridge 2010 cluster-robust).
+    """
+    if cluster_idx is None:
+        B = scores.T @ scores
+    else:
+        # Sum rows by cluster.
+        n_clusters = int(cluster_idx.max()) + 1
+        cluster_scores = np.zeros((n_clusters, scores.shape[1]))
+        np.add.at(cluster_scores, cluster_idx, scores)
+        B = cluster_scores.T @ cluster_scores
+    H_inv = safe_invert_hessian(H)
+    return H_inv @ B @ H_inv
+
+
 def safe_invert_hessian(H: np.ndarray) -> np.ndarray:
     """Invert a Hessian with ridge regularization on failure."""
     try:
@@ -502,6 +556,8 @@ __all__ = [
     "jondrow_truncnormal",
     "numerical_hessian",
     "safe_invert_hessian",
+    "per_obs_scores",
+    "robust_vcov",
     "build_design",
     "build_optional_design",
     "evaluate_sigma",
