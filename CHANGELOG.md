@@ -2,6 +2,97 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Stochastic Frontier Analysis Overhaul
+
+Release focus: `statspai.frontier`. The prior implementation was a
+270-line single file with one function covering cross-sectional
+half-normal / exponential / truncated-normal frontiers, no panel
+support, no heteroskedasticity, no inefficiency determinants, and —
+critically — a sign error in the Jondrow posterior that silently
+produced wrong efficiency scores, plus a wrong ε-coefficient in the
+exponential log-likelihood that the old test never exercised. The
+module has been rewritten (~1,300 LOC across `_core.py`, `sfa.py`,
+`panel.py`, `te_tools.py`) to match or exceed Stata's
+`frontier` / `xtfrontier` and R's `frontier` / `sfaR`.
+
+### Correctness fixes
+
+- **Jondrow posterior μ\***: corrected `sign` convention in all three
+  distributions — the old code's `μ* = -sign·ε·σ_u²/σ²` has been
+  replaced by the derivation-verified `μ* = sign·ε·σ_u²/σ²` (and the
+  analogous correction for truncated-normal). Efficiency scores from
+  the old implementation were systematically biased; re-run any prior
+  analyses.
+- **Normal-exponential log-density**: fixed the ε-coefficient and
+  Φ argument (the old form was `+ sign·ε/σ_u + log Φ((-sign·ε - σ_v²/σ_u)/σ_v)`;
+  correct per Greene 2008 eq. 2.39 is `- sign·ε/σ_u + log Φ(sign·ε/σ_v - σ_v/σ_u)`).
+  The old exponential path never produced efficiency scores (returned NaN) —
+  now returns correct Battese-Coelli scores.
+- **Truncated-normal density**: fixed the `centered` offset in the
+  φ factor from `(ε + sign·μ)/σ` to `(ε - sign·μ)/σ`.
+- Monte-Carlo density-integration tests (`∫ f(ε) dε = 1`) now guard
+  against regressions for all three distributions.
+
+### New cross-sectional `sp.frontier`
+
+- **Heteroskedastic inefficiency** via `usigma=[...]` — parameterises
+  `ln σ_u_i = γ_u' [1, w_i]` (Caudill-Ford-Gropper 1995, Hadri 1999).
+- **Heteroskedastic noise** via `vsigma=[...]` — parameterises
+  `ln σ_v_i = γ_v' [1, r_i]` (Wang 2002).
+- **Inefficiency determinants** via `emean=[...]` — the
+  Battese-Coelli (1995) / Kumbhakar-Ghosh-McGuckin (1991) model
+  `μ_i = δ' [1, z_i]` for `dist='truncated-normal'`.
+- **Battese-Coelli (1988) TE**: `result.efficiency(method='bc')` returns
+  `E[exp(-u)|ε]` (the Stata default) in addition to the JLMS
+  approximation `exp(-E[u|ε])` (`method='jlms'`).
+- **LR test for absence of inefficiency**: one-sided mixed χ̄²
+  (Kodde-Palm 1986) via `result.lr_test_no_inefficiency()`.
+- **Bootstrap CI for unit efficiency**: parametric-bootstrap bounds
+  via `result.efficiency_ci(alpha=.05, B=500)`.
+- **Residual skewness diagnostic** stored at
+  `result.diagnostics['residual_skewness']`.
+- Optimiser now has hard bounds on `ln σ` and guards against
+  σ → 0 / σ → ∞ excursions that previously caused truncated-normal
+  fits to diverge.
+
+### New panel `sp.xtfrontier`
+
+- **Pitt-Lee (1981) time-invariant** (`model='ti'`):
+  `u_it = u_i`, half-normal or truncated-normal.  Closed-form group
+  log-likelihood derived from the per-unit integration; unit-level
+  TE stored at `result.diagnostics['efficiency_bc_unit']`.
+- **Battese-Coelli (1992) time-varying decay** (`model='tvd'`):
+  `u_it = exp(-η(t - T_i)) · u_i` with η estimated jointly.  The
+  obs-level efficiency uses `E[exp(-a_it u_i)|e_i]` under the
+  posterior `u_i ~ N⁺(μ*, σ*²)` (MGF form).
+- **Battese-Coelli (1995) inefficiency effects** (`model='bc95'`):
+  `u_it ~ N⁺(z_it' δ, σ_u²)` independently; returned with unit-mean
+  efficiency roll-up.
+
+### Helpers
+
+- `sp.te_summary(result)` — Stata-style descriptive table of TE
+  scores (n, mean, sd, quartiles, share > 0.9, share < 0.5).
+- `sp.te_rank(result, with_ci=True)` — efficiency ranking with
+  optional bootstrap CIs for benchmarking.
+
+### Tests
+
+- **33 new tests** covering: parameter recovery for all three
+  cross-sectional distributions, cost vs production sign handling,
+  heteroskedastic σ_u / σ_v, BC95 determinants, LR specification tests,
+  TE-score bounds and internal consistency, bootstrap CI structure,
+  Pitt-Lee / BC92 / BC95 panel recovery, and density-integrates-to-1
+  kernel sanity checks.
+
+### Migration
+
+- Old: `frontier(df, y='y', x=['x1'])` still works (same required args).
+- New keyword-only args: `usigma`, `vsigma`, `emean`, `te_method`,
+  `start`.
+- Existing efficiency scores should be recomputed — prior values were
+  systematically biased by the Jondrow sign error.
+
 ## [Unreleased] — Multilevel / Mixed-Effects Overhaul
 
 Release focus: `statspai.multilevel`. The previous implementation was a

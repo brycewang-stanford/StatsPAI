@@ -248,7 +248,7 @@ from .multilevel import (
     lrtest,
 )
 # Stochastic Frontier
-from .frontier import frontier, FrontierResult
+from .frontier import frontier, xtfrontier, FrontierResult, te_summary, te_rank
 # General GMM
 from .gmm import gmm
 
@@ -684,6 +684,7 @@ __all__ = [
     "mixed", "MixedResult",
     "meglm", "melogit", "mepoisson", "MEGLMResult",
     "icc", "lrtest",
-    "frontier", "FrontierResult",
+    "frontier", "xtfrontier", "FrontierResult",
+    "te_summary", "te_rank",
     "gmm",
 ]

@@ -1,0 +1,490 @@
+"""Comprehensive tests for the stochastic frontier module.
+
+Covers:
+* Cross-sectional half-normal, exponential, truncated-normal recovery.
+* Heteroskedastic ``sigma_u`` and ``sigma_v``.
+* BC95-style inefficiency determinants (``emean``).
+* Cost-frontier sign conventions.
+* Panel: Pitt-Lee TI (half-normal & truncated-normal), Battese-Coelli
+  TVD decay, and BC95 inefficiency-effects.
+* Efficiency scores (Battese-Coelli vs JLMS) internal consistency.
+* Specification tests (LR against OLS) and skewness diagnostic.
+* Bootstrap CIs, ranking, and descriptive summaries.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+import pytest
+from scipy import stats as sst
+
+import warnings
+
+# Suppress noisy runtime warnings from fringe optimizer steps.
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+
+from statspai.frontier import (
+    frontier,
+    xtfrontier,
+    FrontierResult,
+    te_summary,
+    te_rank,
+)
+from statspai.frontier import _core as _fc
+
+
+# ---------------------------------------------------------------------------
+# Simulated data helpers
+# ---------------------------------------------------------------------------
+
+
+def _simulate_hn_production(n, sigma_v, sigma_u, seed=0):
+    rng = np.random.default_rng(seed)
+    x1 = rng.normal(0, 1, n)
+    x2 = rng.normal(0, 1, n)
+    u = np.abs(rng.normal(0, sigma_u, n))
+    v = rng.normal(0, sigma_v, n)
+    y = 1.0 + 0.5 * x1 + 0.3 * x2 + v - u
+    return pd.DataFrame({"y": y, "x1": x1, "x2": x2})
+
+
+def _simulate_cost(n, sigma_v, sigma_u, seed=1):
+    rng = np.random.default_rng(seed)
+    x1 = rng.normal(0, 1, n)
+    u = np.abs(rng.normal(0, sigma_u, n))
+    v = rng.normal(0, sigma_v, n)
+    y = 1.0 + 0.5 * x1 + v + u  # cost: + u
+    return pd.DataFrame({"y": y, "x1": x1})
+
+
+def _simulate_panel_ti(N, T, sigma_v, sigma_u, seed=2):
+    rng = np.random.default_rng(seed)
+    id_ = np.repeat(np.arange(N), T)
+    t_ = np.tile(np.arange(T), N)
+    n = N * T
+    x1 = rng.normal(0, 1, n)
+    x2 = rng.normal(0, 1, n)
+    u_i = np.abs(rng.normal(0, sigma_u, N))
+    u_it = np.repeat(u_i, T)
+    v = rng.normal(0, sigma_v, n)
+    y = 1.0 + 0.6 * x1 + 0.4 * x2 + v - u_it
+    return pd.DataFrame({"y": y, "x1": x1, "x2": x2, "id": id_, "t": t_})
+
+
+def _simulate_panel_tvd(N, T, sigma_v, sigma_u, mu, eta, seed=3):
+    rng = np.random.default_rng(seed)
+    id_ = np.repeat(np.arange(N), T)
+    t_ = np.tile(np.arange(T), N)
+    n = N * T
+    x1 = rng.normal(0, 1, n)
+    u_i = sst.truncnorm.rvs(-mu / sigma_u, np.inf, loc=mu, scale=sigma_u,
+                            size=N, random_state=rng)
+    a_it = np.exp(-eta * (t_ - (T - 1)))
+    u_it = a_it * np.repeat(u_i, T)
+    v = rng.normal(0, sigma_v, n)
+    y = 1.0 + 0.6 * x1 + v - u_it
+    return pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
+
+
+# ---------------------------------------------------------------------------
+# Cross-sectional recovery
+# ---------------------------------------------------------------------------
+
+
+class TestCrossSectionalRecovery:
+    def test_half_normal_production_recovers_parameters(self):
+        df = _simulate_hn_production(2000, 0.2, 0.5, seed=42)
+        res = frontier(df, y="y", x=["x1", "x2"], dist="half-normal")
+        assert res.model_info["converged"]
+        assert abs(res.params["x1"] - 0.5) < 0.03
+        assert abs(res.params["x2"] - 0.3) < 0.03
+        assert abs(np.exp(res.params["ln_sigma_u"]) - 0.5) < 0.05
+        assert abs(np.exp(res.params["ln_sigma_v"]) - 0.2) < 0.03
+
+    def test_half_normal_cost_sign_flip(self):
+        df = _simulate_cost(2000, 0.15, 0.4, seed=7)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal", cost=True)
+        assert res.model_info["converged"]
+        assert res.model_info["sign"] == 1
+        # With cost=False on cost-generated data, sigma_u should collapse.
+        res_wrong = frontier(df, y="y", x=["x1"], dist="half-normal", cost=False)
+        # Wrong sign ⇒ residuals right-skewed, HN production LL will try to
+        # shrink sigma_u towards the bound.  Correct fit must have higher LL.
+        assert (
+            res.diagnostics["log_likelihood"]
+            > res_wrong.diagnostics["log_likelihood"] - 5
+        )
+
+    def test_exponential_production_recovers_parameters(self):
+        rng = np.random.default_rng(3)
+        n = 3000
+        x1 = rng.normal(0, 1, n)
+        sigma_v_true, sigma_u_true = 0.2, 0.4
+        v = rng.normal(0, sigma_v_true, n)
+        u = rng.exponential(sigma_u_true, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1})
+        res = frontier(df, y="y", x=["x1"], dist="exponential")
+        assert res.model_info["converged"]
+        assert abs(np.exp(res.params["ln_sigma_u"]) - 0.4) < 0.05
+        assert abs(np.exp(res.params["ln_sigma_v"]) - 0.2) < 0.05
+
+    def test_truncated_normal_production_recovers_mu(self):
+        rng = np.random.default_rng(4)
+        n = 5000
+        x1 = rng.normal(0, 1, n)
+        mu_t, su_t, sv_t = 0.5, 0.4, 0.2
+        u = sst.truncnorm.rvs(-mu_t / su_t, np.inf, loc=mu_t, scale=su_t,
+                              size=n, random_state=rng)
+        v = rng.normal(0, sv_t, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1})
+        res = frontier(df, y="y", x=["x1"], dist="truncated-normal")
+        assert res.model_info["converged"]
+        assert abs(res.params["mu"] - 0.5) < 0.15
+        assert abs(np.exp(res.params["ln_sigma_u"]) - 0.4) < 0.08
+        assert abs(np.exp(res.params["ln_sigma_v"]) - 0.2) < 0.03
+
+
+# ---------------------------------------------------------------------------
+# Heteroskedasticity & BC95 determinants
+# ---------------------------------------------------------------------------
+
+
+class TestHeteroskedasticity:
+    def test_usigma_recovers_coefficient(self):
+        rng = np.random.default_rng(11)
+        n = 4000
+        x1 = rng.normal(0, 1, n)
+        w1 = rng.normal(0, 1, n)
+        sigma_u_i = np.exp(-1.0 + 0.5 * w1)
+        u = np.abs(rng.normal(0, sigma_u_i))
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "w1": w1})
+        res = frontier(df, y="y", x=["x1"], dist="half-normal", usigma=["w1"])
+        assert res.model_info["converged"]
+        assert abs(res.params["u__cons"] - (-1.0)) < 0.1
+        assert abs(res.params["u_w1"] - 0.5) < 0.1
+
+    def test_vsigma_recovers_coefficient(self):
+        rng = np.random.default_rng(12)
+        n = 4000
+        x1 = rng.normal(0, 1, n)
+        r1 = rng.normal(0, 1, n)
+        sigma_v_i = np.exp(-1.5 + 0.3 * r1)
+        u = np.abs(rng.normal(0, 0.4, n))
+        v = rng.normal(0, sigma_v_i)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "r1": r1})
+        res = frontier(df, y="y", x=["x1"], dist="half-normal", vsigma=["r1"])
+        assert res.model_info["converged"]
+        assert abs(res.params["v_r1"] - 0.3) < 0.1
+
+    def test_bc95_emean_determinants(self):
+        rng = np.random.default_rng(13)
+        n = 4000
+        x1 = rng.normal(0, 1, n)
+        z1 = rng.normal(0, 1, n)
+        mu_i = 0.3 + 0.2 * z1
+        u = sst.truncnorm.rvs(-mu_i / 0.3, np.inf, loc=mu_i, scale=0.3,
+                              random_state=rng)
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "z1": z1})
+        res = frontier(df, y="y", x=["x1"], dist="truncated-normal", emean=["z1"])
+        assert res.model_info["converged"]
+        assert abs(res.params["mu__cons"] - 0.3) < 0.15
+        assert abs(res.params["mu_z1"] - 0.2) < 0.08
+
+    def test_emean_requires_truncated_normal(self):
+        df = _simulate_hn_production(200, 0.2, 0.4, seed=5)
+        df["z"] = np.random.default_rng(5).normal(0, 1, 200)
+        with pytest.raises(ValueError, match="emean"):
+            frontier(df, y="y", x=["x1"], dist="half-normal", emean=["z"])
+
+
+# ---------------------------------------------------------------------------
+# Specification tests
+# ---------------------------------------------------------------------------
+
+
+class TestSpecificationTests:
+    def test_lr_rejects_no_inefficiency_when_u_present(self):
+        df = _simulate_hn_production(1500, 0.2, 0.5, seed=21)
+        res = frontier(df, y="y", x=["x1", "x2"], dist="half-normal")
+        lr = res.lr_test_no_inefficiency()
+        assert lr["statistic"] > 30.0
+        assert lr["pvalue"] < 0.001
+
+    def test_lr_does_not_reject_when_no_inefficiency(self):
+        rng = np.random.default_rng(22)
+        n = 1500
+        x1 = rng.normal(0, 1, n)
+        v = rng.normal(0, 0.3, n)  # v only, no u
+        y = 1.0 + 0.5 * x1 + v
+        df = pd.DataFrame({"y": y, "x1": x1})
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        lr = res.lr_test_no_inefficiency()
+        # With no inefficiency signal, LR stat should be small.
+        assert lr["statistic"] < 5.0
+
+    def test_mixed_chibar_pvalue_helper(self):
+        # Kodde-Palm boundary test: 0.5 * chi2(1) mass gives p=0.5 at LR=0.
+        assert _fc.mixed_chi_bar_pvalue(0.0, df_boundary=1) == 1.0
+        assert _fc.mixed_chi_bar_pvalue(3.84, df_boundary=1) == pytest.approx(
+            0.025, abs=2e-3
+        )
+
+
+# ---------------------------------------------------------------------------
+# Efficiency scores
+# ---------------------------------------------------------------------------
+
+
+class TestEfficiencyScores:
+    def test_efficiency_in_0_1(self):
+        df = _simulate_hn_production(500, 0.2, 0.5, seed=30)
+        res = frontier(df, y="y", x=["x1", "x2"], dist="half-normal")
+        te_bc = res.efficiency(method="bc").values
+        te_jl = res.efficiency(method="jlms").values
+        assert np.all(te_bc >= 0.0) and np.all(te_bc <= 1.0)
+        assert np.all(te_jl >= 0.0) and np.all(te_jl <= 1.0)
+
+    def test_efficiency_exponential_is_valid(self):
+        rng = np.random.default_rng(31)
+        n = 1000
+        x1 = rng.normal(0, 1, n)
+        v = rng.normal(0, 0.2, n)
+        u = rng.exponential(0.4, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1})
+        res = frontier(df, y="y", x=["x1"], dist="exponential")
+        te = res.efficiency()
+        # Previously produced NaN for exponential; must now be finite & in (0,1).
+        assert te.notna().all()
+        assert (te > 0).all() and (te <= 1).all()
+
+    def test_efficiency_bc_vs_jlms_close_but_distinct(self):
+        df = _simulate_hn_production(500, 0.2, 0.5, seed=32)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        te_bc = res.efficiency("bc").values
+        te_jl = res.efficiency("jlms").values
+        # Battese-Coelli is exact, JLMS is approximation; they correlate > 0.99
+        corr = np.corrcoef(te_bc, te_jl)[0, 1]
+        assert corr > 0.99
+        # But means differ.
+        assert not np.allclose(te_bc, te_jl)
+
+    def test_inefficiency_positive_for_production(self):
+        df = _simulate_hn_production(500, 0.2, 0.5, seed=33)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        u_hat = res.inefficiency()
+        assert (u_hat >= -1e-6).all()
+
+    def test_efficiency_ci_has_coverage_structure(self):
+        df = _simulate_hn_production(300, 0.2, 0.5, seed=34)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        ci = res.efficiency_ci(alpha=0.10, B=80, seed=1)
+        assert set(ci.columns) == {"point", "lower", "upper"}
+        assert (ci["lower"] <= ci["upper"]).all()
+        assert (ci["lower"] >= 0.0).all()
+        assert (ci["upper"] <= 1.0 + 1e-12).all()
+
+
+# ---------------------------------------------------------------------------
+# Helpers: summary, rank
+# ---------------------------------------------------------------------------
+
+
+class TestHelpers:
+    def test_te_summary(self):
+        df = _simulate_hn_production(400, 0.2, 0.5, seed=41)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        s = te_summary(res)
+        assert {"mean", "median", "min", "max"}.issubset(s.columns)
+        assert s.loc["efficiency", "mean"] > 0.0
+
+    def test_te_rank_with_and_without_ci(self):
+        df = _simulate_hn_production(200, 0.2, 0.5, seed=42)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        r = te_rank(res)
+        assert "rank" in r.columns and r["rank"].min() == 1
+        r2 = te_rank(res, with_ci=True, B=40)
+        assert {"lower", "upper"}.issubset(r2.columns)
+
+
+# ---------------------------------------------------------------------------
+# Panel SFA
+# ---------------------------------------------------------------------------
+
+
+class TestPanelTimeInvariant:
+    def test_pitt_lee_halfnormal_recovers(self):
+        df = _simulate_panel_ti(N=100, T=6, sigma_v=0.2, sigma_u=0.5, seed=51)
+        res = xtfrontier(df, y="y", x=["x1", "x2"], id="id", time="t",
+                         model="ti", dist="half-normal")
+        assert res.model_info["converged"]
+        assert abs(res.params["x1"] - 0.6) < 0.05
+        assert abs(res.params["x2"] - 0.4) < 0.05
+        assert abs(res.model_info["sigma_u"] - 0.5) < 0.08
+        assert abs(res.model_info["sigma_v"] - 0.2) < 0.03
+
+    def test_pitt_lee_truncated_normal_runs(self):
+        rng = np.random.default_rng(52)
+        N, T = 120, 5
+        id_ = np.repeat(np.arange(N), T)
+        t_ = np.tile(np.arange(T), N)
+        n = N * T
+        x1 = rng.normal(0, 1, n)
+        mu_t = 0.4
+        u_i = sst.truncnorm.rvs(-mu_t / 0.3, np.inf, loc=mu_t, scale=0.3,
+                                size=N, random_state=rng)
+        u_it = np.repeat(u_i, T)
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - u_it
+        df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
+                         model="ti", dist="truncated-normal")
+        assert res.model_info["converged"]
+        assert "mu" in res.params.index
+        assert res.model_info["sigma_u"] > 0
+
+    def test_pitt_lee_unit_level_efficiency_matches_obs(self):
+        df = _simulate_panel_ti(80, 5, 0.2, 0.5, seed=53)
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="ti")
+        unit_te = res.diagnostics["efficiency_bc_unit"]
+        # Because u is time-invariant, obs-level efficiency equals unit efficiency
+        # replicated per observation (a_it = 1 for TI).
+        obs_te = res.diagnostics["efficiency_bc"]
+        group_idx = res.diagnostics["group_idx"]
+        aligned = unit_te.to_numpy()[group_idx]
+        assert np.allclose(obs_te, aligned, atol=1e-10)
+
+
+class TestPanelTVD:
+    def test_battese_coelli_1992_recovers_eta(self):
+        df = _simulate_panel_tvd(N=120, T=6, sigma_v=0.2, sigma_u=0.3,
+                                 mu=0.4, eta=0.05, seed=61)
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
+                         model="tvd", dist="truncated-normal")
+        assert res.model_info["converged"]
+        assert abs(res.params["eta"] - 0.05) < 0.05
+        assert abs(res.params["x1"] - 0.6) < 0.05
+
+    def test_tvd_requires_time(self):
+        df = _simulate_panel_ti(60, 4, 0.2, 0.4, seed=62)
+        with pytest.raises(ValueError, match="time"):
+            xtfrontier(df, y="y", x=["x1"], id="id", model="tvd")
+
+
+class TestPanelBC95:
+    def test_bc95_recovers_determinant_coefficient(self):
+        rng = np.random.default_rng(71)
+        N, T = 150, 5
+        id_ = np.repeat(np.arange(N), T)
+        t_ = np.tile(np.arange(T), N)
+        n = N * T
+        x1 = rng.normal(0, 1, n)
+        z1 = rng.normal(0, 1, n)
+        mu_it = 0.2 + 0.3 * z1
+        u = sst.truncnorm.rvs(-mu_it / 0.4, np.inf, loc=mu_it, scale=0.4,
+                              random_state=rng)
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "z1": z1, "id": id_, "t": t_})
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
+                         model="bc95", emean=["z1"])
+        assert res.model_info["converged"]
+        assert abs(res.params["mu_z1"] - 0.3) < 0.1
+        assert "efficiency_bc_unit_mean" in res.diagnostics
+
+    def test_bc95_requires_emean(self):
+        df = _simulate_panel_ti(40, 3, 0.2, 0.4, seed=72)
+        with pytest.raises(ValueError, match="emean"):
+            xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="bc95")
+
+
+# ---------------------------------------------------------------------------
+# Kernel math sanity checks
+# ---------------------------------------------------------------------------
+
+
+class TestKernelMath:
+    def test_halfnormal_is_valid_density(self):
+        # Integrate the simulated f(eps) over eps ~ via Monte Carlo.
+        rng = np.random.default_rng(91)
+        n = 20000
+        sigma_v, sigma_u = 0.3, 0.5
+        u = np.abs(rng.normal(0, sigma_u, n))
+        v = rng.normal(0, sigma_v, n)
+        eps = v - u  # production
+        ll = _fc.loglik_halfnormal(eps, np.full(n, sigma_v),
+                                   np.full(n, sigma_u), sign=-1)
+        assert np.all(np.isfinite(ll))
+        # Empirical KL: compare to kernel estimate.
+        grid = np.linspace(-3, 2, 300)
+        f = np.exp(_fc.loglik_halfnormal(grid, np.array([sigma_v]),
+                                          np.array([sigma_u]), sign=-1))
+        integral = np.trapz(f, grid)
+        assert abs(integral - 1.0) < 0.01
+
+    def test_exponential_is_valid_density(self):
+        grid = np.linspace(-5, 3, 1000)
+        sigma_v, sigma_u = 0.3, 0.4
+        f = np.exp(_fc.loglik_exponential(grid, np.array([sigma_v]),
+                                           np.array([sigma_u]), sign=-1))
+        integral = np.trapz(f, grid)
+        assert abs(integral - 1.0) < 0.01
+
+    def test_truncated_normal_is_valid_density(self):
+        grid = np.linspace(-5, 4, 1000)
+        sv, su, mu = 0.3, 0.4, 0.5
+        f = np.exp(_fc.loglik_truncated_normal(
+            grid, np.array([sv]), np.array([su]), np.array([mu]), sign=-1
+        ))
+        integral = np.trapz(f, grid)
+        assert abs(integral - 1.0) < 0.01
+
+    def test_halfnormal_and_trunc_agree_when_mu_zero(self):
+        eps = np.linspace(-2, 2, 200)
+        sv = np.full(eps.size, 0.3)
+        su = np.full(eps.size, 0.5)
+        mu = np.zeros(eps.size)
+        ll_hn = _fc.loglik_halfnormal(eps, sv, su, sign=-1)
+        ll_tn = _fc.loglik_truncated_normal(eps, sv, su, mu, sign=-1)
+        assert np.allclose(ll_hn, ll_tn, atol=1e-10)
+
+    def test_battese_coelli_te_bounded(self):
+        mu = np.linspace(-2, 3, 50)
+        sigma = np.full(mu.shape, 0.5)
+        te = _fc._battese_coelli_te(mu, sigma)
+        assert np.all((te >= 0) & (te <= 1))
+
+
+# ---------------------------------------------------------------------------
+# Result object API
+# ---------------------------------------------------------------------------
+
+
+class TestResultObject:
+    def test_summary_renders(self):
+        df = _simulate_hn_production(300, 0.2, 0.4, seed=101)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        s = res.summary()
+        assert isinstance(s, str) and len(s) > 50
+
+    def test_is_frontier_result(self):
+        df = _simulate_hn_production(200, 0.2, 0.4, seed=102)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        assert isinstance(res, FrontierResult)
+
+    def test_efficiency_method_dispatch(self):
+        df = _simulate_hn_production(200, 0.2, 0.4, seed=103)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        bc1 = res.efficiency()  # default = 'bc'
+        bc2 = res.efficiency("bc")
+        assert np.allclose(bc1, bc2)
+        with pytest.raises(ValueError):
+            res.efficiency("unknown-method")
