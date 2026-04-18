@@ -47,6 +47,7 @@ Regression: A Robust Inference Approach." *Journal of Econometrics*,
 from __future__ import annotations
 
 from typing import Optional, List, Union, Tuple
+import warnings
 import numpy as np
 import pandas as pd
 from scipy import stats, optimize
@@ -136,6 +137,14 @@ def ivqreg(
             f"need at least {len(endog_list)} instruments for "
             f"{len(endog_list)} endogenous regressor(s), got {len(inst_list)}"
         )
+    # Multi-dim endogenous + no bootstrap = no inference. Warn loudly.
+    if len(endog_list) > 1 and (bootstrap is None or bootstrap <= 0):
+        warnings.warn(
+            f"ivqreg: endog has {len(endog_list)} dims but bootstrap=0 — "
+            f"standard errors will be NaN. Set bootstrap>=200 (or use a "
+            f"single endogenous variable) for inference.",
+            UserWarning, stacklevel=2,
+        )
 
     # Drop NA
     cols = [y] + endog_list + inst_list + exog_list
@@ -166,6 +175,7 @@ def ivqreg(
         )
 
         # Bootstrap SEs
+        n_boot_failed = 0
         if bootstrap and bootstrap > 0:
             rng = np.random.default_rng(random_state)
             kd = D.shape[1]
@@ -182,6 +192,13 @@ def ivqreg(
                     boot[b] = alpha_b
                 except Exception:
                     boot[b] = np.nan
+                    n_boot_failed += 1
+            if n_boot_failed > bootstrap * 0.1:
+                warnings.warn(
+                    f"ivqreg: {n_boot_failed}/{bootstrap} bootstrap replicates "
+                    f"failed at τ={tq:.3f}. SEs may be unreliable.",
+                    UserWarning, stacklevel=2,
+                )
             se_alpha = np.nanstd(boot, axis=0, ddof=1)
         else:
             se_alpha = np.full(D.shape[1], np.nan)

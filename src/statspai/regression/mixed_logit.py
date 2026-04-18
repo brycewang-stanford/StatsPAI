@@ -93,44 +93,22 @@ def _halton_draws(n_draws: int, n_dim: int, n_ind: int,
     U = np.empty((total, n_dim))
     for d in range(n_dim):
         U[:, d] = _halton(total, _PRIMES[d % len(_PRIMES)])
-    # Small jitter to avoid exact duplicates across very long sequences
+    # Randomized-start Halton (Bhat 2003): one uniform shift per dim,
+    # modulo 1. Preserves low-discrepancy while decorrelating parallel
+    # dims and avoiding exact ties when many individuals share Primes.
     rng = np.random.default_rng(seed)
-    U = (U + rng.uniform(0, 1e-12, size=U.shape)) % 1.0
+    shift = rng.uniform(0.0, 1.0, size=(1, n_dim))
+    U = (U + shift) % 1.0
+    # Clip to avoid Φ⁻¹(0) = -∞ / Φ⁻¹(1) = +∞
+    U = np.clip(U, 1e-12, 1.0 - 1e-12)
     U = U.reshape(n_ind, n_draws, n_dim)
-    # Inverse standard-normal CDF
-    Z = stats.norm.ppf(U)
-    return Z
+    return stats.norm.ppf(U)
 
 
-# ---------------------------------------------------------------------------
-# Distribution transforms
-# ---------------------------------------------------------------------------
-
-def _transform(eta: np.ndarray, dist: str) -> np.ndarray:
-    """
-    Map a standard-normal draw ``eta = (eta - mu)/sigma`` into the
-    implied random-coefficient distribution.
-
-    ``eta`` here is the RAW shifted/scaled draw, i.e. mu + sigma * z
-    where z ~ N(0,1).
-    """
-    if dist == 'normal':
-        return eta
-    if dist == 'lognormal':
-        return np.exp(eta)
-    if dist == 'triangular':
-        # Use the bijection from Phi(z) in (0,1) to triangular(-1,1)
-        # scaled by sigma around mu, but we already have eta = mu + sig*z,
-        # so apply inverse CDF mapping for triangular on top of Phi(z)
-        # to preserve the mu/sig interpretation approximately.
-        u = stats.norm.cdf((eta - eta.mean()) / (eta.std() + 1e-12))
-        tri = np.where(
-            u < 0.5,
-            -1 + np.sqrt(2 * u),
-             1 - np.sqrt(2 * (1 - u)),
-        )
-        return eta.mean() + eta.std() * tri
-    raise ValueError(f"unknown distribution: {dist}")
+# (Per-column distribution transforms are applied inside
+#  ``_MixedLogitFitter._apply_draws`` so that the (μ, σ) parameters map
+#  onto the target distribution without re-standardizing by empirical
+#  sample moments. See Train 2009 §6.3.)
 
 
 # ---------------------------------------------------------------------------
@@ -140,12 +118,12 @@ def _transform(eta: np.ndarray, dist: str) -> np.ndarray:
 def mixlogit(
     data: pd.DataFrame,
     y: str,
-    alt: str,
     chid: str,
     x_fixed: Optional[List[str]] = None,
     x_random: Optional[List[str]] = None,
     random_dist: Optional[Dict[str, str]] = None,
     panel_id: Optional[str] = None,
+    alt: Optional[str] = None,
     n_draws: int = 500,
     correlated: bool = False,
     robust: bool = True,
@@ -164,12 +142,14 @@ def mixlogit(
         Long-format choice data: one row per (choice-situation, alternative).
     y : str
         Column name with the 0/1 chosen indicator.
-    alt : str
-        Alternative identifier (ignored if alternatives can be ordered
-        by row within ``chid``; used only for diagnostics).
     chid : str
         Choice-situation identifier. All rows with the same ``chid``
         form one choice set.
+    alt : str, optional
+        Alternative identifier — accepted for API compatibility with
+        ``statsmodels.MNLogit`` / Stata conventions, but the ordering
+        of alternatives is taken directly from the DataFrame's row
+        order within each ``chid`` group.
     x_fixed : list of str, optional
         Columns entering with fixed (non-random) coefficients.
     x_random : list of str, optional
@@ -237,52 +217,86 @@ class _MixedLogitFitter:
         self.__dict__.update(kw)
         if not self.x_random:
             raise ValueError("x_random must contain at least one column")
-        for col in [self.y, self.alt, self.chid] + self.x_fixed + self.x_random:
+        required = [self.y, self.chid] + self.x_fixed + self.x_random
+        for col in required:
             if col not in self.data.columns:
                 raise ValueError(f"column '{col}' not in data")
+        if self.alt is not None and self.alt not in self.data.columns:
+            raise ValueError(f"alt '{self.alt}' not in data")
         if self.panel_id is not None and self.panel_id not in self.data.columns:
             raise ValueError(f"panel_id '{self.panel_id}' not in data")
         for name, d in (self.random_dist or {}).items():
             if d not in ('normal', 'lognormal', 'triangular'):
                 raise ValueError(f"distribution '{d}' not supported")
+            if name not in self.x_random:
+                raise ValueError(f"random_dist key '{name}' not in x_random")
+        if self.correlated:
+            for name in self.x_random:
+                dist = (self.random_dist or {}).get(name, 'normal')
+                if dist != 'normal':
+                    raise ValueError(
+                        f"correlated=True requires all random coefficients to be "
+                        f"'normal'; got '{dist}' for '{name}'. Set correlated=False "
+                        f"to mix distributions (Train 2009 §6.3)."
+                    )
 
     # ------------------------- data prep ------------------------------
 
     def _prepare(self):
-        df = self.data.sort_values(
-            [self.panel_id, self.chid] if self.panel_id else [self.chid]
-        ).reset_index(drop=True)
+        # Sort rows so each ``chid`` is contiguous. Using a stable sort
+        # preserves the within-chid alternative ordering.
+        sort_cols = [self.panel_id, self.chid] if self.panel_id else [self.chid]
+        df = (self.data
+              .sort_values(sort_cols, kind='mergesort')
+              .reset_index(drop=True))
 
-        # Panel grouping: if no panel_id, each choice situation is its own "ind"
+        # Encode chid / panel_id via ``pd.factorize(sort=False)`` which
+        # assigns integer codes in FIRST-APPEARANCE order. Because the
+        # DataFrame is already sorted, codes are monotonically non-
+        # decreasing — so ``sit_idx`` aligns with the contiguous row
+        # blocks used by the log-likelihood. This avoids the lex-order
+        # misalignment bug that would arise with ``np.unique``.
+        sit_idx, _ = pd.factorize(df[self.chid].values, sort=False)
+        sit_idx = sit_idx.astype(np.int64)
+        n_sit = int(sit_idx.max()) + 1 if len(sit_idx) else 0
+
         group_col = self.panel_id if self.panel_id else self.chid
+        ind_of_row, _ = pd.factorize(df[group_col].values, sort=False)
+        ind_of_row = ind_of_row.astype(np.int64)
+        n_ind = int(ind_of_row.max()) + 1 if len(ind_of_row) else 0
 
-        # Choice-situation sizes
-        chid_codes, chid_first = np.unique(df[self.chid].values, return_inverse=True)
-        # Alternative count per situation
-        sit_sizes = np.bincount(chid_first)
-        # Individual mapping (for Halton draws)
-        ind_codes, ind_first = np.unique(df[group_col].values, return_inverse=True)
-        n_ind = len(ind_codes)
+        # Situation sizes (alternatives per chid block)
+        sit_sizes = np.bincount(sit_idx, minlength=n_sit)
 
-        # Choice-situation → individual map
-        # (pick the first row's individual for each situation)
-        sit_to_ind = np.empty(len(chid_codes), dtype=np.int64)
-        for j, c in enumerate(chid_codes):
-            mask = df[self.chid].values == c
-            sit_to_ind[j] = ind_first[np.argmax(mask)]
+        # Situation → individual: first row of each situation
+        sit_starts = np.concatenate(([0], np.cumsum(sit_sizes)))
+        sit_to_ind = ind_of_row[sit_starts[:-1]]
+
+        # Sanity: each situation must have exactly one chosen alternative.
+        y_arr = df[self.y].values.astype(float)
+        chosen_count = np.bincount(
+            sit_idx, weights=(y_arr > 0.5).astype(float), minlength=n_sit
+        )
+        bad = np.where(chosen_count != 1)[0]
+        if len(bad) > 0:
+            raise ValueError(
+                f"{len(bad)} choice situation(s) do not have exactly one "
+                f"chosen alternative (y==1). First offender index: {int(bad[0])}."
+            )
 
         Xf = (df[self.x_fixed].values.astype(float)
               if self.x_fixed else np.empty((len(df), 0)))
         Xr = df[self.x_random].values.astype(float)
-        y = df[self.y].values.astype(float)
 
         return {
-            'Xf': Xf, 'Xr': Xr, 'y': y,
-            'sit_idx': chid_first,        # row → situation index (0..S-1)
+            'Xf': Xf, 'Xr': Xr, 'y': y_arr,
+            'sit_idx': sit_idx,           # row → situation index (monotone)
             'sit_sizes': sit_sizes,       # situation → #alts
+            'sit_starts': sit_starts,     # cumulative row starts (n_sit+1,)
             'sit_to_ind': sit_to_ind,     # situation → individual index
+            'ind_of_row': ind_of_row,     # row → individual index
             'n_ind': n_ind,
-            'n_sit': len(chid_codes),
+            'n_sit': n_sit,
             'n_rows': len(df),
         }
 
@@ -300,82 +314,100 @@ class _MixedLogitFitter:
         sc = theta[kf + kr:]
         return bf, mu, sc
 
-    def _scale_mat(self, sc, kr):
+    def _apply_draws(self, zR, mu, sc, kr):
+        """
+        Build per-individual random-coefficient draws from standard-normal
+        base ``zR`` shaped ``(n_ind, R, kr)``.
+
+        - ``correlated=True``  → β = μ + L z,  L lower-Cholesky of Σ
+                                  (all dims must be 'normal')
+        - ``correlated=False`` → β_k = μ_k + |σ_k| · t_k(z_k)
+                                  where t_k is the inverse CDF of the
+                                  per-dim distribution (normal / lognormal /
+                                  triangular) applied to Φ(z_k).
+
+        This keeps the (μ, σ) parameter interpretation intact for every
+        distribution — unlike re-standardizing by empirical sample moments,
+        which breaks identification.
+        """
         if self.correlated:
+            # Cholesky-based full covariance (all dims normal)
             L = np.zeros((kr, kr))
-            idx = np.tril_indices(kr)
-            L[idx] = sc
-            # force positive diagonal for identifiability
-            diag_idx = np.arange(kr)
-            L[diag_idx, diag_idx] = np.abs(L[diag_idx, diag_idx]) + 1e-6
-            return L
-        # diagonal
-        return np.diag(np.abs(sc) + 1e-8)
+            L[np.tril_indices(kr)] = sc
+            diag = np.arange(kr)
+            L[diag, diag] = np.abs(L[diag, diag]) + 1e-6
+            return mu[None, None, :] + zR @ L.T
+
+        # Diagonal: transform each dim independently
+        beta = np.empty_like(zR)
+        sig = np.abs(sc) + 1e-8                        # (kr,)
+        for k, name in enumerate(self.x_random):
+            dist = (self.random_dist or {}).get(name, 'normal')
+            z_k = zR[..., k]
+            if dist == 'normal':
+                beta[..., k] = mu[k] + sig[k] * z_k
+            elif dist == 'lognormal':
+                beta[..., k] = np.exp(mu[k] + sig[k] * z_k)
+            elif dist == 'triangular':
+                # Map standard-normal draw to Unif(0,1) via Φ, then apply
+                # the inverse CDF of Triangular(-1, 0, 1), then shift-scale.
+                u = stats.norm.cdf(z_k)
+                t = np.where(
+                    u < 0.5,
+                    -1.0 + np.sqrt(2.0 * np.clip(u, 0, 1)),
+                     1.0 - np.sqrt(2.0 * np.clip(1.0 - u, 0, 1)),
+                )
+                beta[..., k] = mu[k] + sig[k] * t
+            else:  # pragma: no cover — validated in __init__
+                raise ValueError(f"distribution '{dist}' not supported")
+        return beta
+
+    def _grad_ll(self, theta, D, kf, kr, draws, eps):
+        """Central-difference gradient of total log-likelihood (sum_i ℓ_i)."""
+        p = len(theta)
+        g = np.zeros(p)
+        for j in range(p):
+            tp = theta.copy(); tp[j] += eps
+            tm = theta.copy(); tm[j] -= eps
+            ll_p = self._loglik_per_ind(tp, D, kf, kr, draws).sum()
+            ll_m = self._loglik_per_ind(tm, D, kf, kr, draws).sum()
+            g[j] = (ll_p - ll_m) / (2.0 * eps)
+        return g
 
     def _loglik_per_ind(self, theta, D, kf, kr, draws):
         bf, mu, sc = self._unpack(theta, kf, kr)
-        L_chol = self._scale_mat(sc, kr)
 
         Xr = D['Xr']             # (N_rows, kr)
         Xf = D['Xf']             # (N_rows, kf)
         y = D['y']
-        sit_idx = D['sit_idx']
-        sit_to_ind = D['sit_to_ind']
+        ind_of_row = D['ind_of_row']
+        sit_starts = D['sit_starts']
         n_sit = D['n_sit']
         n_ind = D['n_ind']
         R = draws.shape[1]
 
-        # Draws: eta_{i,r,k} = mu_k + (L @ z)_k  — same for every choice of ind i
-        # Shape of beta_draws: (n_ind, R, kr)
-        zR = draws                                    # (n_ind, R, kr)
-        beta_raw = mu[None, None, :] + zR @ L_chol.T  # (n_ind, R, kr)
+        beta_draws = self._apply_draws(draws, mu, sc, kr)     # (n_ind, R, kr)
 
-        # Apply per-column distribution transform
-        for k, name in enumerate(self.x_random):
-            dist = (self.random_dist or {}).get(name, 'normal')
-            if dist != 'normal':
-                beta_raw[..., k] = _transform(beta_raw[..., k], dist)
-
-        # Now compute logit probs for each row, each draw
-        # Utility contribution from random coefs for each row:
-        #   Xr_row dot beta_draws[ind(row), :, :]  →  (R,) per row
-        ind_of_row = sit_to_ind[sit_idx]              # (N_rows,)
+        # Utility from random coefs for each row × draw
         Xr_beta = np.einsum(
-            'nk,nrk->nr', Xr, beta_raw[ind_of_row]
-        )                                             # (N_rows, R)
+            'nk,nrk->nr', Xr, beta_draws[ind_of_row]
+        )                                                     # (N_rows, R)
 
         if kf > 0:
-            Xf_bf = Xf @ bf                           # (N_rows,)
-            util = Xf_bf[:, None] + Xr_beta           # (N_rows, R)
+            util = (Xf @ bf)[:, None] + Xr_beta               # (N_rows, R)
         else:
             util = Xr_beta
 
-        # Max-subtract per situation for numerical stability.
-        # Situations can have heterogeneous sizes, but each row belongs
-        # to exactly one situation, so do a segmented max by situation.
-        # Use np.maximum.at-like via pandas groupby to be safe but fast.
-        #
-        # Here we use a loop over situations grouped by size for speed.
-        # For typical discrete-choice datasets S is large-ish; but per-row
-        # vectorized segmentation via np.maximum.reduceat needs sorted IDs,
-        # which we already have (we sorted data by chid).
-        # Compute per-situation starts:
-        sit_starts = np.concatenate(([0], np.cumsum(D['sit_sizes'])))
-        # log-sum-exp per situation & per draw
-        # LSE_s,r = log sum_{i in s} exp(util_{i,r})
+        # Segmented log-sum-exp over each situation block (rows are
+        # already sorted to be contiguous by construction of ``_prepare``).
         lse = np.empty((n_sit, R))
+        chosen_row = np.empty(n_sit, dtype=np.int64)
         for s in range(n_sit):
             a, b = sit_starts[s], sit_starts[s + 1]
             block = util[a:b]                         # (n_alt_s, R)
             m = block.max(axis=0, keepdims=True)
             lse[s] = m.ravel() + np.log(np.sum(np.exp(block - m), axis=0))
-
-        # Prob of chosen alternative in each situation × draw:
-        # P_{s,r} = exp(util_{chosen(s), r} - LSE_{s,r})
-        chosen_row = np.empty(n_sit, dtype=np.int64)
-        for s in range(n_sit):
-            a, b = sit_starts[s], sit_starts[s + 1]
-            # Exactly one y==1 per situation by construction
+            # Chosen alternative (exactly one validated in _prepare)
             rel = np.argmax(y[a:b])
             chosen_row[s] = a + rel
         logP_sit = util[chosen_row] - lse             # (n_sit, R)
@@ -383,17 +415,23 @@ class _MixedLogitFitter:
         # For each individual, simulated likelihood = mean over draws of
         # product over their situations.
         #   ℓ_i(theta) = log(1/R * sum_r prod_s P_{s,r})
-        # Stabilize via log-mean-exp over draws of sum_s logP_sit_s,r
+        # Vectorised accumulator via np.add.at (sit_to_ind is bounded).
         sum_logP_per_ind_per_draw = np.zeros((n_ind, R))
-        for s in range(n_sit):
-            i = sit_to_ind[s]
-            sum_logP_per_ind_per_draw[i] += logP_sit[s]
+        np.add.at(sum_logP_per_ind_per_draw, D['sit_to_ind'], logP_sit)
 
-        # log-mean-exp
+        # Numerically stable log-mean-exp with underflow guard: if every
+        # draw is effectively -inf (pathological parameter region during
+        # line-search), return a large finite negative instead of NaN.
         m = sum_logP_per_ind_per_draw.max(axis=1, keepdims=True)
-        ll_per_ind = (m.ravel()
-                      + np.log(np.mean(np.exp(sum_logP_per_ind_per_draw - m),
-                                       axis=1)))
+        shifted = sum_logP_per_ind_per_draw - m
+        mean_exp = np.mean(np.exp(shifted), axis=1)
+        # mean_exp ∈ (0, 1]; never exactly 0 unless shifted == -inf rowwise.
+        log_mean = np.where(
+            mean_exp > 0,
+            np.log(np.maximum(mean_exp, 1e-300)),
+            -1e300,
+        )
+        ll_per_ind = m.ravel() + log_mean
         return ll_per_ind
 
     # ---------------------- optimization ------------------------------
@@ -431,22 +469,46 @@ class _MixedLogitFitter:
         ll_hat = -opt.fun
 
         # --- Standard errors -----------------------------------------
-        # Inverse-Hessian (classical); OPG sandwich if robust.
-        H_inv = opt.hess_inv if hasattr(opt, 'hess_inv') else None
-        if H_inv is None:
-            H_inv = np.eye(len(theta_hat))
+        #
+        # For simulated MLE with common random numbers across all theta
+        # evaluations, SEs use per-individual scores computed via
+        # CENTRAL finite differences (bias O(h²) vs forward O(h)) and a
+        # numerical Hessian from those scores. Step size h ~ R^{-1/2} is
+        # chosen larger than the simulation-noise floor (Train 2009
+        # §10.1). ``eps=1e-4`` is a safe default for R ≥ 200.
+        #
+        # ``robust=True``  → OPG-sandwich using the information-matrix
+        #                   identity that, at the MLE, B ≈ A, so
+        #                   V = A^{-1} B A^{-1}.
+        # ``robust=False`` → plain numerical Hessian inverse.
+        p = len(theta_hat)
+        eps = 1e-4
+        scores = np.zeros((D['n_ind'], p))
+        for j in range(p):
+            th_plus = theta_hat.copy();  th_plus[j]  += eps
+            th_minus = theta_hat.copy(); th_minus[j] -= eps
+            ll_p = self._loglik_per_ind(th_plus,  D, kf, kr, draws)
+            ll_m = self._loglik_per_ind(th_minus, D, kf, kr, draws)
+            scores[:, j] = (ll_p - ll_m) / (2.0 * eps)
+
+        B = scores.T @ scores                # outer-product-of-gradients
+        # Numerical Hessian via finite differences on the total log-lik
+        grad_plus  = np.zeros((p, p))
+        grad_minus = np.zeros((p, p))
+        for j in range(p):
+            th_plus  = theta_hat.copy(); th_plus[j]  += eps
+            th_minus = theta_hat.copy(); th_minus[j] -= eps
+            # reuse central-difference gradient of full LL (sum over i)
+            grad_plus[j]  = self._grad_ll(th_plus,  D, kf, kr, draws, eps)
+            grad_minus[j] = self._grad_ll(th_minus, D, kf, kr, draws, eps)
+        H = -(grad_plus - grad_minus) / (2.0 * eps)          # -∂²ℓ/∂θ∂θ'
+        H = 0.5 * (H + H.T)                                  # symmetrize
+        try:
+            H_inv = np.linalg.inv(H + 1e-8 * np.eye(p))
+        except np.linalg.LinAlgError:
+            H_inv = np.linalg.pinv(H)
 
         if self.robust:
-            # Numerical gradient per individual via finite differences
-            eps = 1e-5
-            ll_base_i = self._loglik_per_ind(theta_hat, D, kf, kr, draws)
-            scores = np.zeros((D['n_ind'], len(theta_hat)))
-            for p in range(len(theta_hat)):
-                th_p = theta_hat.copy()
-                th_p[p] += eps
-                ll_p = self._loglik_per_ind(th_p, D, kf, kr, draws)
-                scores[:, p] = (ll_p - ll_base_i) / eps
-            B = scores.T @ scores
             V = H_inv @ B @ H_inv
         else:
             V = H_inv

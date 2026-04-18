@@ -63,12 +63,12 @@ def dml(
         - ``'irm'`` : interactive regression model (binary D; ATE via AIPW)
         - ``'pliv'`` : partially linear IV (endogenous D with instrument(s) Z)
 
-    instrument : str or list of str, optional
-        Instrument variable(s) Z. **Required when** ``model='pliv'``.
-        If a list is passed, the first-stage reduced form is a
-        scalar projection ``z_bar = E[Z_1 | X]`` (use a single strong
-        instrument; for many-instrument settings project into a scalar
-        before passing).
+    instrument : str, optional
+        Scalar instrument variable Z. **Required when** ``model='pliv'``.
+        For many-instrument settings, project Z onto a scalar index
+        (e.g. first-stage linear combination) before passing.
+        A list with ``len>1`` is rejected to avoid silently dropping
+        instruments.
     ml_g : sklearn estimator, optional
         ML model for outcome nuisance ``E[Y|X]``
         (default: ``GradientBoostingRegressor``).
@@ -173,6 +173,13 @@ class DoubleML:
             raise ValueError(
                 f"'instrument' is only valid when model='pliv' "
                 f"(got model='{self.model}')"
+            )
+        if self.model == 'pliv' and self.instrument is not None and len(self.instrument) > 1:
+            raise ValueError(
+                f"model='pliv' currently accepts a single scalar instrument; "
+                f"got {len(self.instrument)}: {self.instrument}. For multiple "
+                f"instruments, project them onto a scalar index (e.g. the "
+                f"OLS first-stage fitted value) and pass that column name."
             )
         if self.n_folds < 2:
             raise ValueError(f"n_folds must be >= 2, got {self.n_folds}")
@@ -380,7 +387,9 @@ class DoubleML:
         with y_tilde = Y-g_hat, d_tilde = D-m_hat, z_tilde = Z-r_hat.
 
         Asymptotic variance (Chernozhukov 2018, Eq. 4.12):
-            V = E[psi^2] / E[z_tilde * d_tilde]^2
+            sqrt(n) (θ̂ - θ₀)  →  N(0, σ² / J²)
+        with σ² = E[ψ²],  J = E[(Z - r(X))(D - m(X))] = E[z̃ · d̃],
+        i.e.  Var(θ̂) ≈ σ² / (J² · n)   and   SE = √(σ² / (J² · n)).
         """
         from sklearn.base import clone
         from sklearn.model_selection import KFold
@@ -412,11 +421,18 @@ class DoubleML:
                 z_resid[test_idx] = Z[test_idx] - ml_r.predict(X[test_idx])
 
             denom = float(np.sum(z_resid * d_resid))
-            if abs(denom) < 1e-10:
+            # Scale-aware weak-instrument guard: compare the covariance
+            # sum to the geometric mean of z̃ and d̃ scales. A truly weak
+            # instrument satisfies |E[z̃·d̃]| ≪ sd(z̃)·sd(d̃).
+            scale = (float(np.sqrt(np.sum(z_resid**2) *
+                                   np.sum(d_resid**2))))
+            if abs(denom) < 1e-6 * max(scale, 1.0):
                 raise RuntimeError(
-                    "Degenerate PLIV first stage: residualized "
-                    "instrument is orthogonal to residualized "
-                    "treatment. Check instrument strength."
+                    f"Degenerate PLIV first stage: residualized "
+                    f"instrument is (near-)orthogonal to residualized "
+                    f"treatment. |E[z̃·d̃]| = {abs(denom):.2e}, "
+                    f"scale = {scale:.2e}. Instrument likely weak or "
+                    f"irrelevant conditional on X."
                 )
             theta = float(np.sum(z_resid * y_resid) / denom)
 

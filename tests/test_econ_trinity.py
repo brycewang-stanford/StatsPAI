@@ -168,3 +168,149 @@ class TestIVQR:
             sp.ivqreg(dgp_ivqr, y='y',
                       endog=['d', 'x'], instruments='z',
                       tau=0.5, bootstrap=0)
+
+
+# =============================================================================
+# Adversarial / regression tests (bugs caught in code review)
+# =============================================================================
+
+class TestAdversarial:
+    """Tests that target specific bugs discovered during the first review."""
+
+    def test_mixlogit_string_chid_matches_numeric(self):
+        """
+        B1/B2 regression: Mixed Logit must produce identical results whether
+        chid values sort lexicographically or numerically. Prior to the fix,
+        using string chids like 'c0','c1','c10','c100',... would silently
+        misalign situation blocks and biased all parameters.
+        """
+        import numpy as np
+        rng = np.random.default_rng(0)
+        N, T, J = 150, 3, 3
+        beta_price, mean_q, sd_q = -1.0, 1.5, 0.6
+        beta_q_ind = rng.normal(mean_q, sd_q, size=N)
+        rows_num, rows_str = [], []
+        for n in range(N):
+            for t in range(T):
+                prices = rng.uniform(0.5, 2.0, J)
+                quality = rng.uniform(0, 3, J)
+                u = (beta_price * prices + beta_q_ind[n] * quality
+                     + rng.gumbel(0, 1, J))
+                chosen = int(np.argmax(u))
+                for j in range(J):
+                    base = {
+                        'price': prices[j], 'quality': quality[j],
+                        'y': 1.0 if j == chosen else 0.0,
+                    }
+                    rows_num.append({'pid': n, 'chid': n * T + t, **base})
+                    rows_str.append({'pid': f'p{n:03d}',
+                                     'chid': f'c{n * T + t}', **base})
+        df_num = pd.DataFrame(rows_num)
+        df_str = pd.DataFrame(rows_str)
+
+        r_num = sp.mixlogit(df_num, y='y', chid='chid',
+                            x_fixed=['price'], x_random=['quality'],
+                            panel_id='pid', n_draws=100, maxiter=30)
+        r_str = sp.mixlogit(df_str, y='y', chid='chid',
+                            x_fixed=['price'], x_random=['quality'],
+                            panel_id='pid', n_draws=100, maxiter=30)
+        # Bit-identical parameters (tolerance for float noise)
+        for name in ['price', 'mean_quality', 'sd_quality']:
+            assert abs(r_num.params[name] - r_str.params[name]) < 1e-8, (
+                f"{name}: numeric vs string chid differ by "
+                f"{abs(r_num.params[name] - r_str.params[name]):.2e}"
+            )
+
+    def test_mixlogit_missing_chosen_alternative_raises(self):
+        """B-extra: situations without exactly one y==1 must raise."""
+        df = pd.DataFrame({
+            'chid': [1, 1, 1, 2, 2, 2],
+            'y':    [0, 0, 0, 1, 0, 0],  # chid=1 has no chosen
+            'x':    [1.0, 2.0, 3.0, 1.5, 2.5, 3.5],
+        })
+        with pytest.raises(ValueError, match='chosen alternative'):
+            sp.mixlogit(df, y='y', chid='chid', x_random=['x'],
+                        n_draws=50, maxiter=10)
+
+    def test_mixlogit_correlated_rejects_non_normal(self):
+        """B3-related: correlated=True must reject lognormal/triangular."""
+        df = pd.DataFrame({
+            'chid': [0, 0, 1, 1],
+            'y': [1, 0, 0, 1],
+            'x1': [1.0, 2.0, 1.5, 2.5],
+            'x2': [0.5, 1.5, 0.8, 1.8],
+        })
+        with pytest.raises(ValueError, match='correlated=True'):
+            sp.mixlogit(df, y='y', chid='chid',
+                        x_random=['x1', 'x2'],
+                        random_dist={'x1': 'lognormal'},
+                        correlated=True,
+                        n_draws=20, maxiter=5)
+
+    def test_ivqreg_multidim_warns_when_bootstrap_zero(self):
+        """B5: multi-dim endog without bootstrap must warn about NaN SEs."""
+        rng = np.random.default_rng(0)
+        n = 300
+        Z1 = rng.normal(size=n); Z2 = rng.normal(size=n)
+        X = rng.normal(size=n);  u = rng.normal(size=n)
+        D1 = 0.6 * Z1 + 0.2 * X + 0.3 * u + 0.3 * rng.normal(size=n)
+        D2 = 0.5 * Z2 + 0.2 * X + 0.3 * u + 0.3 * rng.normal(size=n)
+        Y = 1.0 * D1 + 0.5 * D2 + 0.3 * X + u
+        df = pd.DataFrame({'y': Y, 'd1': D1, 'd2': D2,
+                           'z1': Z1, 'z2': Z2, 'x': X})
+        with pytest.warns(UserWarning, match='bootstrap=0'):
+            sp.ivqreg(df, y='y', endog=['d1', 'd2'],
+                      instruments=['z1', 'z2'], exog=['x'],
+                      tau=0.5, bootstrap=0)
+
+    def test_dml_pliv_rejects_multi_instrument_list(self):
+        """H7: passing 2+ instruments must raise (no silent truncation)."""
+        rng = np.random.default_rng(0)
+        n = 400
+        X = rng.normal(size=(n, 3))
+        Z1 = 0.5 * X[:, 0] + rng.normal(size=n)
+        Z2 = 0.5 * X[:, 1] + rng.normal(size=n)
+        u = rng.normal(size=n)
+        D = 0.4 * Z1 + 0.3 * Z2 + 0.5 * u + rng.normal(size=n) * 0.3
+        Y = 1.5 * D + X[:, 0] + 0.5 * u
+        df = pd.DataFrame({
+            'y': Y, 'd': D, 'z1': Z1, 'z2': Z2,
+            **{f'x{i}': X[:, i] for i in range(3)},
+        })
+        with pytest.raises(ValueError, match='single scalar instrument'):
+            sp.dml(df, y='y', treat='d',
+                   covariates=['x0', 'x1', 'x2'],
+                   model='pliv', instrument=['z1', 'z2'])
+
+    def test_dml_pliv_degenerate_instrument_raises(self):
+        """
+        M6: the weak-instrument guard is scale-aware and catches
+        *degenerate* instruments (near-zero covariance after residualizing
+        on X). This test uses Z = X[:,0] exactly — a perfectly collinear
+        (irrelevant) instrument whose residualization on X leaves pure
+        ML-fit noise.
+        """
+        rng = np.random.default_rng(0)
+        n = 800
+        X = rng.normal(size=(n, 3))
+        # Z is literally a linear function of X → residualization kills it
+        # (up to ML approximation error; the scale-aware guard triggers
+        # when the ratio is below 1e-6, which requires the ML predictor
+        # to be near-exact on X → deliberately use a linear learner that
+        # can recover X[:,0] exactly).
+        Z = X[:, 0].copy()
+        D = 0.5 * X[:, 1] + 0.3 * X[:, 2] + 0.5 * rng.normal(size=n)
+        Y = 1.0 * D + X[:, 0] + rng.normal(size=n)
+        df = pd.DataFrame({
+            'y': Y, 'd': D, 'z': Z,
+            **{f'x{i}': X[:, i] for i in range(3)},
+        })
+        from sklearn.linear_model import LinearRegression
+        # A near-perfect linear fit of Z on X makes z_resid ≈ 0 →
+        # |E[z̃·d̃]| / scale ≈ 0 → guard trips.
+        with pytest.raises(RuntimeError, match='Degenerate PLIV'):
+            sp.dml(df, y='y', treat='d',
+                   covariates=['x0', 'x1', 'x2'],
+                   model='pliv', instrument='z',
+                   ml_r=LinearRegression(),
+                   n_folds=5)
