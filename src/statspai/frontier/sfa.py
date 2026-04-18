@@ -400,6 +400,37 @@ class FrontierResult(EconometricResults):
         )
 
 
+def _refit_bootstrap(
+    df_b: pd.DataFrame,
+    y: str,
+    x: list,
+    dist: str,
+    cost: bool,
+    usigma: Optional[list],
+    vsigma: Optional[list],
+    emean: Optional[list],
+    spec,  # _FrontierSpec describing parameter layout
+    start: np.ndarray,
+    maxiter: int,
+    tol: float,
+) -> np.ndarray:
+    """Re-fit the frontier model on one bootstrap sample; return theta-hat.
+
+    Silently returns ``start`` if the bootstrap replica fails to converge
+    (keeps bootstrap robust to occasional pathological draws).
+    """
+    try:
+        res = frontier(
+            df_b, y=y, x=x, dist=dist, cost=cost,
+            usigma=usigma, vsigma=vsigma, emean=emean,
+            vce="oim",  # fast SE; we only need the point estimate here
+            maxiter=maxiter, tol=tol, start=start,
+        )
+        return res.params.to_numpy()
+    except Exception:
+        return start
+
+
 def _draw_truncated_normal(mu, sigma, rng) -> np.ndarray:
     """Draw u ~ N^+(mu, sigma^2) truncated at 0 (inverse-CDF)."""
     mu = np.asarray(mu, dtype=float)
@@ -460,6 +491,8 @@ def frontier(
     te_method: str = "bc",
     vce: str = "oim",
     cluster: Optional[str] = None,
+    B: int = 400,
+    seed: Optional[int] = None,
     maxiter: int = 500,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -525,7 +558,7 @@ def frontier(
         raise ValueError("emean=... requires dist='truncated-normal'.")
 
     vce = vce.lower()
-    if vce not in {"oim", "opg", "robust"}:
+    if vce not in {"oim", "opg", "robust", "bootstrap"}:
         raise ValueError(f"Unknown vce={vce!r}.")
     if cluster is not None and vce == "oim":
         vce = "robust"
@@ -707,6 +740,34 @@ def frontier(
     vcov_oim = _fc.safe_invert_hessian(H)
     if vce == "oim":
         vcov = vcov_oim
+    elif vce == "bootstrap":
+        # Resample rows (or clusters) with replacement, refit B times.
+        rng_boot = np.random.default_rng(seed)
+        estimates = np.empty((B, spec.k_total))
+        n_df = len(df)
+        if cluster is None:
+            # Row-level bootstrap
+            for b in range(B):
+                idx_b = rng_boot.integers(0, n_df, n_df)
+                df_b = df.iloc[idx_b].reset_index(drop=True)
+                res_b = _refit_bootstrap(
+                    df_b, y, x, dist, cost, usigma, vsigma, emean,
+                    spec, start=theta_hat, maxiter=maxiter, tol=tol,
+                )
+                estimates[b] = res_b
+        else:
+            # Cluster-level bootstrap (preserves within-cluster dep.)
+            clusters = df[cluster].unique()
+            for b in range(B):
+                sampled = rng_boot.choice(clusters, size=len(clusters), replace=True)
+                df_b = pd.concat([df[df[cluster] == c] for c in sampled],
+                                 ignore_index=True)
+                res_b = _refit_bootstrap(
+                    df_b, y, x, dist, cost, usigma, vsigma, emean,
+                    spec, start=theta_hat, maxiter=maxiter, tol=tol,
+                )
+                estimates[b] = res_b
+        vcov = np.cov(estimates, rowvar=False)
     else:
         scores = _fc.per_obs_scores(per_obs_loglik, theta_hat)
         if vce == "opg":

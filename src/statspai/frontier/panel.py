@@ -1,23 +1,20 @@
 """
 Panel stochastic frontier estimation — :func:`xtfrontier`.
 
-Implements three panel SFA designs:
+Implements five panel SFA designs:
 
 * ``model='ti'``  — Pitt-Lee (1981) time-invariant: ``u_it = u_i``.
-  With ``dist='half-normal'`` u_i ~ N^+(0, sigma_u^2); with
-  ``dist='truncated-normal'`` u_i ~ N^+(mu, sigma_u^2).
-
-* ``model='tvd'`` — Battese-Coelli (1992) time-varying decay:
-  ``u_it = exp(-eta (t - T_i)) * u_i``  with u_i ~ N^+(mu, sigma_u^2).
-  ``eta > 0`` means inefficiency declines over time; ``eta < 0`` rises.
-  ``eta = 0`` collapses to Pitt-Lee TI.
-
-* ``model='bc95'`` — Battese-Coelli (1995) inefficiency effects:
-  u_it ~ N^+(z_it' delta, sigma_u^2), independent across (i, t).  The
-  ``z`` covariates shift the mean of the truncated normal.  This is
-  equivalent to the cross-sectional :func:`frontier` call with
-  ``dist='truncated-normal'`` and ``emean=z``, but returns a panel-aware
-  result with per-unit efficiency aggregation.
+* ``model='tvd'`` — Battese-Coelli (1992) time-varying decay.
+* ``model='bc95'`` — Battese-Coelli (1995) inefficiency effects.
+* ``model='tfe'`` — Greene (2005) **True Fixed Effects**:
+  ``y_it = alpha_i + x_it' beta + v_it + s * u_it``, with ``alpha_i`` as
+  firm fixed effects (estimated via dummies) separately from inefficiency
+  ``u_it ~ N^+(0, sigma_u^2)``.  Resolves the Pitt-Lee confound where
+  unobserved firm heterogeneity was absorbed into ``u_i``.
+* ``model='tre'`` — Greene (2005) **True Random Effects**:
+  ``alpha_i ~ N(0, sigma_alpha^2)`` integrated out by Gauss-Hermite
+  quadrature; ``u_it`` independent inefficiency.  Same identification
+  as TFE but efficient when the RE assumption is reasonable.
 
 Equivalent to Stata's::
 
@@ -26,8 +23,9 @@ Equivalent to Stata's::
     xtfrontier y x, tvd
     frontier y x, dist(tnormal) emean(z)      (BC95)
 
-and R's ``frontier::sfa`` with panel data, or ``sfaR::sfacross`` /
-``sfaR::sfapanel``.
+and R's ``frontier::sfa`` / ``sfaR::sfacross``.  TFE/TRE mirror Greene
+(2005) "Reconsidering heterogeneity in panel data estimators of the
+stochastic frontier model", *J. Econometrics* 126, 269-303.
 """
 
 from __future__ import annotations
@@ -94,10 +92,25 @@ def xtfrontier(
     model = model.lower()
     dist = dist.lower().replace("_", "-")
 
-    if model not in {"ti", "tvd", "bc95"}:
+    if model not in {"ti", "tvd", "bc95", "tfe", "tre"}:
         raise ValueError(f"Unknown panel model: {model!r}.")
     if model == "tvd" and time is None:
         raise ValueError("model='tvd' requires a time variable.")
+
+    if model == "tfe":
+        return _fit_tfe(
+            data, y, x, id_col=id, time_col=time,
+            dist=dist, cost=cost,
+            vce=vce, cluster=cluster,
+            maxiter=maxiter, tol=tol, alpha=alpha,
+        )
+    if model == "tre":
+        return _fit_tre(
+            data, y, x, id_col=id, time_col=time,
+            dist=dist, cost=cost,
+            vce=vce, cluster=cluster,
+            maxiter=maxiter, tol=tol, alpha=alpha,
+        )
     if model == "bc95":
         if emean is None:
             raise ValueError("model='bc95' requires emean=[...].")
@@ -513,6 +526,304 @@ def _fit_ti_tvd(
             "sigma_v_i": np.full(n, sigma_v),
             "mu_i": np.full(n, mu_hat),
             "efficiency_index": df.index.to_numpy(),
+            "hessian": H,
+            "vcov": vcov,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Greene (2005) True Fixed Effects (TFE)
+# ---------------------------------------------------------------------------
+
+
+def _fit_tfe(
+    data: pd.DataFrame,
+    y: str,
+    x: List[str],
+    id_col: str,
+    time_col: Optional[str],
+    dist: str,
+    cost: bool,
+    vce: str,
+    cluster: Optional[str],
+    maxiter: int,
+    tol: float,
+    alpha: float,
+) -> FrontierResult:
+    """True Fixed Effects SFA (Greene 2005): firm dummies + composed error.
+
+    y_it = alpha_i + x_it' beta + v_it + sign * u_it,
+    with u_it ~ N^+(0, sigma_u^2) independent, v_it ~ N(0, sigma_v^2).
+    Firm effects estimated as N-1 dummies (reference firm absorbed in
+    constant).  Incidental-parameters concern mild for moderate T.
+    """
+    required = [y] + list(x) + [id_col]
+    if time_col is not None:
+        required.append(time_col)
+    if cluster is not None and cluster not in required:
+        required.append(cluster)
+    df = data[required].dropna().copy()
+    df = df.sort_values(
+        [id_col] + ([time_col] if time_col is not None else [])
+    ).reset_index(drop=True)
+
+    # Build firm-dummy columns (drop first for identification, keep cons).
+    dummies = pd.get_dummies(df[id_col], prefix=f"_{id_col}", drop_first=True,
+                              dtype=float)
+    extended_x = list(x) + list(dummies.columns)
+    df_ext = pd.concat([df.drop(columns=dummies.columns, errors="ignore"),
+                        dummies], axis=1)
+
+    # Delegate to cross-sectional frontier() — it returns a FrontierResult.
+    res = _cs_frontier(
+        data=df_ext,
+        y=y,
+        x=extended_x,
+        dist=dist,
+        cost=cost,
+        vce=vce,
+        cluster=cluster if cluster is not None else id_col,
+        maxiter=maxiter,
+        tol=tol,
+        alpha=alpha,
+    )
+    res.model_info["model_type"] = (
+        f"Panel Stochastic Frontier (TFE, {'Cost' if cost else 'Production'})"
+    )
+    res.model_info["method"] = f"Greene 2005 TFE ({dist}, N={df[id_col].nunique()} dummies)"
+    res.model_info["panel_model"] = "tfe"
+    res.data_info["id_col"] = id_col
+    res.data_info["time_col"] = time_col
+    res.data_info["n_units"] = df[id_col].nunique()
+    # Strip the N-1 firm-dummy param names from the public-facing regressors.
+    res.data_info["regressors"] = list(x)
+    return res
+
+
+# ---------------------------------------------------------------------------
+# Greene (2005) True Random Effects (TRE) with Gauss-Hermite quadrature
+# ---------------------------------------------------------------------------
+
+
+def _fit_tre(
+    data: pd.DataFrame,
+    y: str,
+    x: List[str],
+    id_col: str,
+    time_col: Optional[str],
+    dist: str,
+    cost: bool,
+    vce: str,
+    cluster: Optional[str],
+    maxiter: int,
+    tol: float,
+    alpha: float,
+    n_quad: int = 24,
+) -> FrontierResult:
+    """True Random Effects SFA (Greene 2005) via Gauss-Hermite quadrature.
+
+    y_it = alpha_i + x_it' beta + v_it + sign * u_it,
+    alpha_i ~ N(0, sigma_alpha^2), v_it ~ N(0, sigma_v^2),
+    u_it ~ N^+(0, sigma_u^2)  (half-normal; support for truncated-normal
+    omitted here — BC95 is the recommended route when inefficiency has
+    covariate-varying mean).
+
+    Integrates alpha_i out of the group likelihood via n_quad-node
+    Gauss-Hermite quadrature.
+    """
+    from scipy import stats as _sst
+    if dist not in {"half-normal", "exponential"}:
+        raise ValueError(
+            "TRE currently supports dist in {'half-normal', 'exponential'}. "
+            "For inefficiency determinants use model='bc95'."
+        )
+    sign = 1 if cost else -1
+
+    required = [y] + list(x) + [id_col]
+    if time_col is not None:
+        required.append(time_col)
+    if cluster is not None and cluster not in required:
+        required.append(cluster)
+    df = data[required].dropna().copy()
+    df = df.sort_values(
+        [id_col] + ([time_col] if time_col is not None else [])
+    ).reset_index(drop=True)
+
+    y_vec, X_mat, beta_names = _fc.build_design(df, y, x, add_constant=True)
+    group_idx, _, counts, unique_ids = _fc.group_panel(df, id_col, time_col)
+    N = len(unique_ids)
+    n = len(df)
+    k_beta = X_mat.shape[1]
+
+    # Gauss-Hermite quadrature nodes/weights (weight exp(-x^2), Sum w = sqrt(pi)).
+    nodes, weights = np.polynomial.hermite.hermgauss(n_quad)
+
+    # Parameter layout: [beta, ln_sigma_v, ln_sigma_u, ln_sigma_alpha]
+    k_total = k_beta + 3
+    param_names = list(beta_names) + ["ln_sigma_v", "ln_sigma_u", "ln_sigma_alpha"]
+
+    def per_group_loglik(theta: np.ndarray) -> np.ndarray:
+        beta = theta[:k_beta]
+        sigma_v = float(np.exp(theta[k_beta]))
+        sigma_u = float(np.exp(theta[k_beta + 1]))
+        sigma_alpha = float(np.exp(theta[k_beta + 2]))
+        eps = y_vec - X_mat @ beta  # (n,)
+
+        alpha_shifts = sigma_alpha * np.sqrt(2.0) * nodes  # (n_quad,)
+        # Shift eps by each alpha_k: shape (n_quad, n)
+        eps_shifted = eps[None, :] - alpha_shifts[:, None]
+
+        if dist == "half-normal":
+            log_f = _fc.loglik_halfnormal(
+                eps_shifted, sigma_v, sigma_u, sign
+            )
+        else:
+            log_f = _fc.loglik_exponential(
+                eps_shifted, sigma_v, sigma_u, sign
+            )
+        # Sum log-f within each group, per quadrature node → (n_quad, N).
+        log_f_group = np.zeros((n_quad, N))
+        for k in range(n_quad):
+            log_f_group[k] = np.bincount(
+                group_idx, weights=log_f[k], minlength=N
+            )
+        log_contrib = np.log(weights)[:, None] + log_f_group  # (n_quad, N)
+        # Log-sum-exp over quadrature nodes, group-by-group.
+        M = log_contrib.max(axis=0)
+        ll_group = M + np.log(
+            np.sum(np.exp(log_contrib - M[None, :]), axis=0)
+        ) - 0.5 * np.log(np.pi)
+        return ll_group
+
+    def neg_loglik(theta):
+        if not np.all(np.isfinite(theta)):
+            return 1e20
+        sigma_v = float(np.exp(theta[k_beta]))
+        sigma_u = float(np.exp(theta[k_beta + 1]))
+        sigma_alpha = float(np.exp(theta[k_beta + 2]))
+        if any(s <= 1e-8 or s > 1e6 for s in (sigma_v, sigma_u, sigma_alpha)):
+            return 1e20
+        with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+            ll_group = per_group_loglik(theta)
+        if not np.isfinite(ll_group).all():
+            return 1e20
+        return -float(ll_group.sum())
+
+    # Starting values: OLS for beta, half residual std for sigma_v and sigma_u,
+    # between-unit variance for sigma_alpha.
+    beta0, _, _, _ = np.linalg.lstsq(X_mat, y_vec, rcond=None)
+    resid0 = y_vec - X_mat @ beta0
+    sigma0 = max(float(np.std(resid0)), 1e-3)
+    # Split residual variance between alpha, v, u (rough heuristic).
+    ln_sv0 = np.log(sigma0 * 0.4)
+    ln_su0 = np.log(sigma0 * 0.4)
+    # Between-unit variance estimate.
+    group_means = np.bincount(group_idx, weights=resid0, minlength=N) / counts
+    between_sd = max(float(np.std(group_means)), 1e-3)
+    ln_sa0 = np.log(between_sd)
+    theta0 = np.concatenate([beta0, [ln_sv0, ln_su0, ln_sa0]])
+
+    bounds = [(-1e6, 1e6)] * k_beta + [(-12.0, 5.0)] * 3
+
+    result = minimize(
+        neg_loglik, theta0, method="L-BFGS-B", bounds=bounds,
+        options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
+    )
+    theta_hat = result.x
+    ll_val = -neg_loglik(theta_hat)
+
+    sigma_v = float(np.exp(theta_hat[k_beta]))
+    sigma_u = float(np.exp(theta_hat[k_beta + 1]))
+    sigma_alpha = float(np.exp(theta_hat[k_beta + 2]))
+
+    # SE via numerical Hessian, with optional vce='opg'/'robust'
+    H = _fc.numerical_hessian(neg_loglik, theta_hat)
+    vcov_oim = _fc.safe_invert_hessian(H)
+    vce_l = vce.lower()
+    if vce_l == "oim":
+        vcov = vcov_oim
+    else:
+        group_scores = _fc.per_obs_scores(per_group_loglik, theta_hat)
+        if vce_l == "opg":
+            vcov = _fc.safe_invert_hessian(group_scores.T @ group_scores)
+        else:
+            cluster_effective = cluster if cluster is not None else id_col
+            if cluster_effective == id_col:
+                vcov = _fc.robust_vcov(H, group_scores, cluster_idx=None)
+            else:
+                meta = df.groupby(id_col)[cluster_effective].first()
+                meta_idx = pd.Categorical(meta.values).codes.astype(int)
+                vcov = _fc.robust_vcov(H, group_scores, cluster_idx=meta_idx)
+    se = np.sqrt(np.clip(np.diag(vcov), 0.0, None))
+
+    # Compute per-observation efficiency by integrating over posterior alpha | e_i.
+    # For simplicity use unconditional marginal E[exp(-u_it)] (same for all obs).
+    # Obs-level JLMS using eps - E[alpha | e_i] is more accurate but omitted
+    # here; expose the marginal for dashboards.
+    beta_hat = theta_hat[:k_beta]
+    eps_hat = y_vec - X_mat @ beta_hat
+    E_u_marg = sigma_u * np.sqrt(2.0 / np.pi) if dist == "half-normal" else sigma_u
+    TE_jlms_obs = np.full(n, np.exp(-E_u_marg))
+    if dist == "half-normal":
+        from scipy import stats as _st
+        TE_bc_obs = 2.0 * np.exp(sigma_u**2 / 2.0) * _st.norm.cdf(-sigma_u)
+    else:
+        TE_bc_obs = 1.0 / (1.0 + sigma_u)
+    TE_bc_obs = np.full(n, np.clip(TE_bc_obs, 0.0, 1.0))
+
+    params = pd.Series(theta_hat, index=param_names)
+    std_errors = pd.Series(se, index=param_names)
+
+    sigma2_v_u = sigma_v**2 + sigma_u**2
+    return FrontierResult(
+        params=params,
+        std_errors=std_errors,
+        model_info={
+            "model_type": (
+                f"Panel Stochastic Frontier (TRE, "
+                f"{'Cost' if cost else 'Production'})"
+            ),
+            "method": f"Greene 2005 TRE ({dist}, n_quad={n_quad})",
+            "panel_model": "tre",
+            "inefficiency_dist": dist,
+            "cost": cost,
+            "sign": sign,
+            "te_method": "bc",
+            "sigma_v": sigma_v,
+            "sigma_u": sigma_u,
+            "sigma_alpha": sigma_alpha,
+            "lambda": sigma_u / sigma_v if sigma_v > 0 else np.nan,
+            "gamma": sigma_u**2 / sigma2_v_u,
+            "mean_efficiency_bc": float(np.mean(TE_bc_obs)),
+            "mean_efficiency_jlms": float(np.mean(TE_jlms_obs)),
+            "converged": bool(result.success),
+            "vce": vce_l if (cluster is None or cluster == id_col)
+                   else f"cluster({cluster})",
+        },
+        data_info={
+            "n_obs": n,
+            "n_units": N,
+            "dep_var": y,
+            "regressors": list(x),
+            "id_col": id_col,
+            "time_col": time_col,
+            "df_resid": max(n - k_total, 1),
+        },
+        diagnostics={
+            "log_likelihood": float(ll_val),
+            "aic": float(-2.0 * ll_val + 2.0 * k_total),
+            "bic": float(-2.0 * ll_val + np.log(n) * k_total),
+            "sigma_u": sigma_u,
+            "sigma_v": sigma_v,
+            "sigma_alpha": sigma_alpha,
+            "efficiency_bc": TE_bc_obs,
+            "efficiency_jlms": TE_jlms_obs,
+            "efficiency_index": df.index.to_numpy(),
+            "sigma_u_i": np.full(n, sigma_u),
+            "sigma_v_i": np.full(n, sigma_v),
+            "mu_i": np.zeros(n),
+            "eps": eps_hat,
             "hessian": H,
             "vcov": vcov,
         },

@@ -602,7 +602,7 @@ class TestVarianceEstimators:
     def test_unknown_vce_raises(self):
         df = _simulate_hn_production(100, 0.2, 0.4, seed=504)
         with pytest.raises(ValueError, match="vce"):
-            frontier(df, y="y", x=["x1"], vce="bootstrap")
+            frontier(df, y="y", x=["x1"], vce="jackknife")
 
     def test_cluster_implies_robust(self):
         df = _simulate_hn_production(500, 0.2, 0.4, seed=505)
@@ -707,6 +707,153 @@ class TestTruncatedNormalRobustness:
         # TN has one more parameter (mu), so its LL must be >= HN's LL - epsilon.
         assert (res.diagnostics["log_likelihood"]
                 >= res_hn.diagnostics["log_likelihood"] - 0.5)
+
+
+class TestGreeneTrueEffects:
+    """Greene (2005) True Fixed/Random Effects SFA models."""
+
+    def test_tre_recovers_three_variance_components(self):
+        """TRE should separate alpha_i, v_it, and u_it."""
+        rng = np.random.default_rng(701)
+        N, T = 80, 6
+        id_ = np.repeat(np.arange(N), T)
+        t_ = np.tile(np.arange(T), N)
+        n = N * T
+        x1 = rng.normal(0, 1, n)
+        sigma_alpha_true = 0.4
+        sigma_v_true = 0.15
+        sigma_u_true = 0.3
+        alpha_i = rng.normal(0, sigma_alpha_true, N)
+        u_it = np.abs(rng.normal(0, sigma_u_true, n))
+        v = rng.normal(0, sigma_v_true, n)
+        y = 1.0 + 0.5 * x1 + np.repeat(alpha_i, T) + v - u_it
+        df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
+
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="tre")
+        assert res.model_info["converged"]
+        assert abs(res.params["x1"] - 0.5) < 0.05
+        assert abs(np.exp(res.params["ln_sigma_v"]) - sigma_v_true) < 0.08
+        assert abs(np.exp(res.params["ln_sigma_u"]) - sigma_u_true) < 0.08
+        assert abs(np.exp(res.params["ln_sigma_alpha"]) - sigma_alpha_true) < 0.15
+
+    def test_tre_exposes_sigma_alpha_in_model_info(self):
+        df = _simulate_panel_ti(50, 5, 0.15, 0.3, seed=702)
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="tre")
+        assert "sigma_alpha" in res.model_info
+        assert res.model_info["sigma_alpha"] > 0
+
+    def test_tre_rejects_truncated_normal(self):
+        df = _simulate_panel_ti(30, 4, 0.2, 0.3, seed=703)
+        with pytest.raises(ValueError, match="tre currently|TRE currently"):
+            xtfrontier(df, y="y", x=["x1"], id="id", time="t",
+                       model="tre", dist="truncated-normal")
+
+    def test_tfe_recovers_with_long_t(self):
+        """TFE (brute-force firm dummies) works well when T is not too short."""
+        rng = np.random.default_rng(704)
+        N, T = 30, 20  # long T to mitigate incidental-parameters bias
+        id_ = np.repeat(np.arange(N), T)
+        t_ = np.tile(np.arange(T), N)
+        n = N * T
+        x1 = rng.normal(0, 1, n)
+        alpha_i = rng.normal(2.0, 0.5, N)
+        u_it = np.abs(rng.normal(0, 0.35, n))
+        v = rng.normal(0, 0.15, n)
+        y = np.repeat(alpha_i, T) + 0.5 * x1 + v - u_it
+        df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="tfe")
+        assert abs(res.params["x1"] - 0.5) < 0.05
+        # sigma_u identified when T is moderate
+        assert 0.25 < np.exp(res.params["ln_sigma_u"]) < 0.5
+
+    def test_tfe_stripped_regressor_list(self):
+        """Dummy columns shouldn't leak into result.data_info['regressors']."""
+        rng = np.random.default_rng(705)
+        N, T = 20, 15
+        id_ = np.repeat(np.arange(N), T)
+        t_ = np.tile(np.arange(T), N)
+        n = N * T
+        x1 = rng.normal(0, 1, n)
+        alpha_i = rng.normal(0, 0.3, N)
+        u = np.abs(rng.normal(0, 0.3, n))
+        v = rng.normal(0, 0.15, n)
+        y = 1.0 + 0.5 * x1 + np.repeat(alpha_i, T) + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="tfe")
+        assert res.data_info["regressors"] == ["x1"]
+
+
+class TestBootstrap:
+    def test_bootstrap_se_close_to_oim_for_iid_data(self):
+        df = _simulate_hn_production(1000, 0.2, 0.4, seed=801)
+        r_oim = frontier(df, y="y", x=["x1"], vce="oim")
+        r_bs = frontier(df, y="y", x=["x1"], vce="bootstrap", B=80, seed=1)
+        # Within 40% — bootstrap noise at B=80 can be significant.
+        rel = abs(r_bs.std_errors["x1"] - r_oim.std_errors["x1"]) / r_oim.std_errors["x1"]
+        assert rel < 0.4
+        assert np.isfinite(r_bs.std_errors["x1"])
+
+    def test_cluster_bootstrap_respects_cluster_structure(self):
+        rng = np.random.default_rng(802)
+        n = 600
+        x1 = rng.normal(0, 1, n)
+        g = rng.integers(0, 30, n)
+        u = np.abs(rng.normal(0, 0.4, n))
+        v = rng.normal(0, 0.2, n) + rng.normal(0, 0.3, 30)[g]
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "g": g})
+        r_cluster_bs = frontier(
+            df, y="y", x=["x1"], vce="bootstrap", cluster="g", B=80, seed=3
+        )
+        assert np.isfinite(r_cluster_bs.std_errors["x1"])
+
+    def test_bootstrap_reproducible_with_seed(self):
+        df = _simulate_hn_production(300, 0.2, 0.4, seed=803)
+        r1 = frontier(df, y="y", x=["x1"], vce="bootstrap", B=30, seed=7)
+        r2 = frontier(df, y="y", x=["x1"], vce="bootstrap", B=30, seed=7)
+        assert np.isclose(r1.std_errors["x1"], r2.std_errors["x1"])
+
+
+class TestMonteCarloCoverage:
+    """Canonical cross-check: 95% asymptotic CI should cover truth ~95% of time.
+
+    This is the rigorous analogue of comparing to a single R-frontier fit:
+    instead of trusting one point estimate, we verify the *sampling
+    distribution* of our estimator matches theory.
+    """
+
+    @pytest.mark.slow
+    def test_oim_ci_coverage_half_normal(self):
+        """95% CI coverage for beta and sigma_u over 60 Monte Carlo draws."""
+        n_mc = 60
+        n = 800
+        true_beta = 0.5
+        true_sigma_u = 0.4
+        true_sigma_v = 0.2
+        covered_b = 0
+        covered_su = 0
+        for s in range(n_mc):
+            rng = np.random.default_rng(900 + s)
+            x1 = rng.normal(0, 1, n)
+            u = np.abs(rng.normal(0, true_sigma_u, n))
+            v = rng.normal(0, true_sigma_v, n)
+            y = 1.0 + true_beta * x1 + v - u
+            df = pd.DataFrame({"y": y, "x1": x1})
+            res = frontier(df, y="y", x=["x1"], dist="half-normal")
+            lo = res.params["x1"] - 1.96 * res.std_errors["x1"]
+            hi = res.params["x1"] + 1.96 * res.std_errors["x1"]
+            if lo < true_beta < hi:
+                covered_b += 1
+            # sigma_u via delta method on ln_sigma_u: σ_u SE ≈ σ_u * se(ln σ_u)
+            su_hat = np.exp(res.params["ln_sigma_u"])
+            su_se = su_hat * res.std_errors["ln_sigma_u"]
+            if abs(su_hat - true_sigma_u) < 1.96 * su_se:
+                covered_su += 1
+        coverage_b = covered_b / n_mc
+        coverage_su = covered_su / n_mc
+        # Expected 95%, tolerate ±10 pp with n_mc=60.
+        assert coverage_b >= 0.85, f"beta coverage: {coverage_b}"
+        assert coverage_su >= 0.80, f"sigma_u coverage: {coverage_su}"
 
 
 class TestKernelMath:
