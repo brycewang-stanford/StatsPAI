@@ -283,9 +283,15 @@ def jondrow_truncnormal(
 
 
 def _posterior_truncnormal_mean(mu: np.ndarray, sigma: np.ndarray) -> np.ndarray:
-    """E[X] for X ~ N^+(mu, sigma^2) truncated at 0."""
+    """E[X] for X ~ N^+(mu, sigma^2) truncated at 0.
+
+    The closed-form ``mu + sigma * phi(mu/sigma)/Phi(mu/sigma)`` is
+    mathematically non-negative but can dip slightly below zero at
+    extreme ``mu/sigma << 0`` because of Mills-ratio series truncation.
+    We clamp to ``>= 0`` to preserve the theoretical support.
+    """
     ratio = mu / sigma
-    return mu + sigma * _phi_over_Phi(ratio)
+    return np.maximum(mu + sigma * _phi_over_Phi(ratio), 0.0)
 
 
 def _battese_coelli_te(mu: np.ndarray, sigma: np.ndarray) -> np.ndarray:

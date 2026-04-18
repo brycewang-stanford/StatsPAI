@@ -363,15 +363,15 @@ def _fit_ti_tvd(
     # For BC: compute E[exp(-a_it u_i)|e_i] where u_i ~ N+(mu*, sigma*^2).
     # MGF-type formula: E[exp(-c*X)] with X ~ N+(mu, sigma^2) =
     #   exp(-c*mu + 0.5 c^2 sigma^2) * Phi(mu/sigma - c*sigma) / Phi(mu/sigma).
-    TE_bc_obs = np.empty(n)
-    for row in range(n):
-        i = group_idx[row]
-        c = a_vec[row]
-        TE_bc_obs[row] = float(
-            np.exp(-c * mu_star[i] + 0.5 * c**2 * sigma_star[i] ** 2)
-            * np.exp(_fc._log_phi_cdf(mu_star[i] / sigma_star[i] - c * sigma_star[i]))
-            / max(np.exp(_fc._log_phi_cdf(mu_star[i] / sigma_star[i])), 1e-300)
-        )
+    # Vectorized via group_idx expansion (avoids O(n) Python loop).
+    mu_star_obs = mu_star[group_idx]
+    sigma_star_obs = sigma_star[group_idx]
+    c = a_vec
+    log_num = _fc._log_phi_cdf(mu_star_obs / sigma_star_obs - c * sigma_star_obs)
+    log_den = _fc._log_phi_cdf(mu_star_obs / sigma_star_obs)
+    TE_bc_obs = np.exp(
+        -c * mu_star_obs + 0.5 * c**2 * sigma_star_obs**2 + log_num - log_den
+    )
     TE_bc_obs = np.clip(TE_bc_obs, 0.0, 1.0)
 
     params = pd.Series(theta_hat, index=param_names)

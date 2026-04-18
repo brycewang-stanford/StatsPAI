@@ -52,6 +52,66 @@ class FrontierResult(EconometricResults):
     efficiency-score access, LR tests, and bootstrap helpers.
     """
 
+    # ---- Names of diagnostics whose values are per-observation arrays ----
+    # The parent class renders every diagnostic literally; we override summary
+    # to show an SFA-specific block instead of dumping these arrays.
+    _ARRAY_DIAGS = frozenset(
+        {
+            "sigma_u_i", "sigma_v_i", "mu_i", "eps",
+            "efficiency_bc", "efficiency_jlms", "inefficiency_jlms",
+            "efficiency_index", "a_it", "group_idx", "unit_ids",
+            "efficiency_bc_unit", "efficiency_jlms_unit",
+            "efficiency_bc_unit_mean",
+            "hessian", "vcov", "spec",
+        }
+    )
+
+    def summary(self, alpha: float = 0.05) -> str:
+        """Publication-ready summary table (Stata-style SFA block).
+
+        Overrides :class:`EconometricResults.summary` to hide per-observation
+        diagnostic arrays and surface the SFA-specific scalars.
+        """
+        # Hide array diagnostics from the parent's generic renderer.
+        hidden = {k: self.diagnostics.pop(k) for k in list(self.diagnostics.keys())
+                  if k in self._ARRAY_DIAGS}
+        try:
+            base = EconometricResults.summary(self, alpha=alpha)
+        finally:
+            self.diagnostics.update(hidden)
+
+        # Build the SFA-specific footer.
+        mi = self.model_info
+        lines = ["", "Variance decomposition:"]
+        lines.append("-" * 20)
+        if "sigma_u_mean" in mi:  # cross-sectional
+            su, sv = mi["sigma_u_mean"], mi["sigma_v_mean"]
+        else:
+            su, sv = mi.get("sigma_u", float("nan")), mi.get("sigma_v", float("nan"))
+        sigma2 = su**2 + sv**2
+        lam = su / sv if sv > 0 else float("nan")
+        gamma = su**2 / sigma2 if sigma2 > 0 else float("nan")
+        lines.append(f"  sigma_u          : {su:.6f}")
+        lines.append(f"  sigma_v          : {sv:.6f}")
+        lines.append(f"  sigma            : {np.sqrt(sigma2):.6f}")
+        lines.append(f"  lambda = su/sv   : {lam:.4f}")
+        lines.append(f"  gamma  = su^2/s^2: {gamma:.4f}")
+        mean_bc = mi.get("mean_efficiency_bc")
+        mean_jlms = mi.get("mean_efficiency_jlms")
+        if mean_bc is not None:
+            lines.append(f"  mean TE (BC)     : {mean_bc:.4f}")
+        if mean_jlms is not None:
+            lines.append(f"  mean TE (JLMS)   : {mean_jlms:.4f}")
+
+        lr = self.diagnostics.get("lr_no_inefficiency")
+        if lr is not None:
+            from . import _core as _fc
+            pval = _fc.mixed_chi_bar_pvalue(float(lr), df_boundary=1)
+            lines.append("")
+            lines.append(f"LR test vs OLS (H0: sigma_u=0):  chi-bar^2(1)={lr:.4f}  p={pval:.4f}")
+
+        return base + "\n" + "\n".join(lines)
+
     def efficiency(
         self,
         method: Optional[str] = None,

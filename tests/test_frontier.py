@@ -378,6 +378,42 @@ class TestPanelTVD:
         with pytest.raises(ValueError, match="time"):
             xtfrontier(df, y="y", x=["x1"], id="id", model="tvd")
 
+    def test_unbalanced_panel_ti(self):
+        """TI should survive an unbalanced panel (including some T_i=1)."""
+        rng = np.random.default_rng(63)
+        N = 50
+        T_per = rng.integers(1, 7, N)
+        rows = [(i, t) for i in range(N) for t in range(T_per[i])]
+        ids = np.array([r[0] for r in rows])
+        times = np.array([r[1] for r in rows])
+        n = len(rows)
+        x1 = rng.normal(0, 1, n)
+        u_i = np.abs(rng.normal(0, 0.4, N))
+        u_it = u_i[ids]
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - u_it
+        df = pd.DataFrame({"y": y, "x1": x1, "id": ids, "t": times})
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="ti")
+        assert res.model_info["converged"]
+        assert res.data_info["n_obs"] == n
+
+    def test_panel_ti_cost_frontier_runs(self):
+        """Cost panel frontier must converge (composed error v + u)."""
+        rng = np.random.default_rng(64)
+        N, T = 80, 5
+        id_ = np.repeat(np.arange(N), T)
+        t_ = np.tile(np.arange(T), N)
+        n = N * T
+        x1 = rng.normal(0, 1, n)
+        u_i = np.abs(rng.normal(0, 0.4, N))
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v + np.repeat(u_i, T)  # cost
+        df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="ti",
+                         cost=True)
+        assert res.model_info["converged"]
+        assert res.model_info["sign"] == 1
+
 
 class TestPanelBC95:
     def test_bc95_recovers_determinant_coefficient(self):
@@ -462,6 +498,25 @@ class TestKernelMath:
         te = _fc._battese_coelli_te(mu, sigma)
         assert np.all((te >= 0) & (te <= 1))
 
+    def test_posterior_mean_non_negative_at_extremes(self):
+        """Guard against Mills-ratio truncation yielding tiny negative means."""
+        mu = np.array([-500.0, -50.0, -5.0, 0.0, 5.0, 50.0])
+        sigma = np.array([1.0, 0.5, 0.3, 0.7, 0.4, 0.2])
+        E_u = _fc._posterior_truncnormal_mean(mu, sigma)
+        assert np.all(E_u >= 0.0)
+        assert np.all(np.isfinite(E_u))
+
+    def test_cost_frontier_densities_integrate_to_1(self):
+        """Cost-frontier densities must also integrate to 1 (new regression)."""
+        grid = np.linspace(-3, 5, 2000)
+        sv, su = np.array([0.3]), np.array([0.4])
+        for fn in (_fc.loglik_halfnormal, _fc.loglik_exponential):
+            f = np.exp(fn(grid, sv, su, sign=+1))
+            assert abs(np.trapezoid(f, grid) - 1.0) < 0.01
+        mu = np.array([0.5])
+        f = np.exp(_fc.loglik_truncated_normal(grid, sv, su, mu, sign=+1))
+        assert abs(np.trapezoid(f, grid) - 1.0) < 0.01
+
 
 # ---------------------------------------------------------------------------
 # Result object API
@@ -474,6 +529,30 @@ class TestResultObject:
         res = frontier(df, y="y", x=["x1"], dist="half-normal")
         s = res.summary()
         assert isinstance(s, str) and len(s) > 50
+
+    def test_summary_does_not_dump_per_obs_arrays(self):
+        """Regression: summary() used to print 37KB of per-obs sigma_u_i etc."""
+        df = _simulate_hn_production(800, 0.2, 0.4, seed=104)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        s = res.summary()
+        # Without the fix, the per-obs array of sigma_u_i gets rendered as a
+        # huge numpy array and the string balloons past 5000 chars for n=800.
+        assert len(s) < 5000
+        # But the variance-decomposition block must be there.
+        assert "sigma_u" in s.lower()
+        assert "gamma" in s.lower() or "λ" in s or "lambda" in s.lower()
+
+    def test_summary_shows_lr_test(self):
+        df = _simulate_hn_production(300, 0.2, 0.5, seed=105)
+        res = frontier(df, y="y", x=["x1"])
+        s = res.summary()
+        assert "LR test" in s
+
+    def test_panel_summary_no_array_dump(self):
+        df = _simulate_panel_ti(40, 5, 0.2, 0.4, seed=106)
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="ti")
+        s = res.summary()
+        assert len(s) < 5000
 
     def test_is_frontier_result(self):
         df = _simulate_hn_production(200, 0.2, 0.4, seed=102)
