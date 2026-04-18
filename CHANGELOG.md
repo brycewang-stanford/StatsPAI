@@ -71,6 +71,36 @@ proper sub-package (~2,000 LOC across `_core.py`, `lmm.py`, `glmm.py`,
   (previously a mix of REML and ML that could produce inconsistent
   values when `method='reml'`).
 
+### Post-review hardening (post oracle + code-reviewer audit)
+
+- **[BLOCKER fix]** `MixedResult.predict(data=None)` previously returned
+  predictions in group-iteration order rather than the original row
+  order. `_GroupBlock` now carries the training row indices and
+  `predict()` scatters the output back to the correct positions.
+  Regression test: `tests/test_multilevel.py::TestRandomIntercept::
+  test_predict_is_row_aligned_with_training_frame`.
+- **[BLOCKER fix]** GLMM inner Newton (`_find_mode`) now damps large
+  steps and returns a convergence flag. `meglm` aggregates per-cluster
+  failures and emits a `RuntimeWarning` when any cluster fails to
+  converge — a previously silent failure mode.
+- **[HIGH fix]** `MEGLMResult` gains `to_latex()` and `plot()` so it
+  matches the unified StatsPAI result contract.
+- **[HIGH fix]** `lrtest` now raises `ValueError` on cross-family
+  comparisons and on REML fits whose fixed-effect design differs,
+  preventing invalid LR statistics. Multi-component boundary
+  corrections emit a `RuntimeWarning` explaining the conservative
+  upper bound (Stram–Lee 1994 mixture not implemented).
+- **[HIGH fix]** `mixed()` / `meglm()` reject non-hashable group
+  values with a descriptive `TypeError` instead of producing a
+  silently corrupted BLUP dict.
+- **[MED fix]** `icc(result, n_boot>0)` raises `NotImplementedError`
+  instead of silently returning the delta-method CI. `icc()` warns
+  when `n_groups < 30` (delta-method CI unreliable).
+- **[MED fix]** Three-level nested fit emits a warning when any
+  outer group has only one inner group (class variance then not
+  identified), and exposes both school and class ICCs via
+  `variance_components['icc(outer)']` / `icc(outer+inner)`.
+
 ## [0.9.2] - 2026-04-16
 
 ### Decomposition Analysis — Most Comprehensive Decomposition Toolkit in Python

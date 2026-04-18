@@ -197,16 +197,21 @@ class MixedResult:
         new cluster.
         """
         if data is None:
-            # Use the training blocks.
+            # Use the training blocks; scatter results back to the
+            # cleaned-frame row order so the returned Series lines up
+            # with ``df.dropna(subset=<used columns>)``.
             out = np.empty(self.n_obs)
-            idx_start = 0
             for block in self._blocks:
                 mu = block.X @ self.fixed_effects.values
                 if include_random:
-                    u = self.blups[block.key]
-                    mu = mu + block.Z @ u
-                out[idx_start : idx_start + block.n] = mu
-                idx_start += block.n
+                    u = self.blups.get(block.key)
+                    if u is not None:
+                        mu = mu + block.Z @ u
+                if block.row_idx is not None:
+                    out[block.row_idx] = mu
+                else:  # pragma: no cover — legacy path without row_idx
+                    idx_start = int(getattr(block, "_idx_start", 0))
+                    out[idx_start : idx_start + block.n] = mu
             return pd.Series(out, name="yhat")
 
         # Arbitrary new data ------------------------------------------------
@@ -644,7 +649,7 @@ def _three_level_nll(
     XtVinvy = np.zeros(p_fixed)
     logdet_sum = 0.0
 
-    for y_s, X_s, inner_ids, inner_unique in blocks_outer:
+    for y_s, X_s, inner_ids, inner_unique, _row_idx in blocks_outer:
         n_s = len(y_s)
         V = sigma2_e * np.eye(n_s) + sigma2_s * np.ones((n_s, n_s))
         # Add block-diagonal contribution from inner clusters.
@@ -669,7 +674,7 @@ def _three_level_nll(
         return 1e12
 
     quad = 0.0
-    for y_s, X_s, inner_ids, inner_unique in blocks_outer:
+    for y_s, X_s, inner_ids, inner_unique, _row_idx in blocks_outer:
         n_s = len(y_s)
         V = sigma2_e * np.eye(n_s) + sigma2_s * np.ones((n_s, n_s))
         for c in inner_unique:
@@ -706,6 +711,8 @@ def _fit_three_level_intercept(
     alpha: float,
 ) -> MixedResult:
     """Fit a school > class > student nested random-intercept LMM."""
+    import warnings as _warnings
+
     fixed_names = ["_cons"] + list(x_fixed)
     random_names = ["_cons"]
     p_fixed = len(fixed_names)
@@ -713,12 +720,28 @@ def _fit_three_level_intercept(
 
     # Build outer blocks.
     blocks_outer = []
+    singleton_outers = 0
+    positions = np.arange(len(df))
     for key, sub in df.groupby(outer_col, sort=False):
+        row_idx = positions[df.index.get_indexer(sub.index)]
         y_s = sub[y].to_numpy(dtype=float)
         X_s = sub[["__intercept__"] + list(x_fixed)].to_numpy(dtype=float)
         inner_ids = sub[inner_col].to_numpy()
         inner_unique = np.unique(inner_ids)
-        blocks_outer.append((y_s, X_s, inner_ids, inner_unique))
+        if len(inner_unique) < 2:
+            singleton_outers += 1
+        blocks_outer.append((y_s, X_s, inner_ids, inner_unique, row_idx))
+
+    if singleton_outers > 0:
+        _warnings.warn(
+            f"three-level fit: {singleton_outers}/{len(blocks_outer)} "
+            f"outer groups ({outer_col!r}) contain only one inner group "
+            f"({inner_col!r}); the within-outer / between-inner variance "
+            "is not identified for those outer groups and may bias the "
+            "estimates.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     n_obs = len(df)
     # Starting values from OLS
@@ -744,7 +767,7 @@ def _fit_three_level_intercept(
     XtVinvX = np.zeros((p_fixed, p_fixed))
     XtVinvy = np.zeros(p_fixed)
     V_list = []
-    for y_s, X_s, inner_ids, inner_unique in blocks_outer:
+    for y_s, X_s, inner_ids, inner_unique, _row_idx in blocks_outer:
         n_s = len(y_s)
         V = sigma2_e * np.eye(n_s) + sigma2_s * np.ones((n_s, n_s))
         for c in inner_unique:
@@ -764,7 +787,7 @@ def _fit_three_level_intercept(
     class_blups = []
     class_blup_keys = []
     class_blup_school = []
-    for (y_s, X_s, inner_ids, inner_unique), V in zip(blocks_outer, V_list):
+    for (y_s, X_s, inner_ids, inner_unique, _rix), V in zip(blocks_outer, V_list):
         r = y_s - X_s @ beta_hat
         Vinv_r = np.linalg.solve(V, r)
         u_school = sigma2_s * float(np.sum(Vinv_r))
@@ -809,15 +832,26 @@ def _fit_three_level_intercept(
     else:
         ll_ml = ll
 
-    icc_outer = sigma2_s / (sigma2_s + sigma2_c + sigma2_e) if (sigma2_s + sigma2_c + sigma2_e) > 0 else np.nan
+    total_var = sigma2_s + sigma2_c + sigma2_e
+    icc_outer = sigma2_s / total_var if total_var > 0 else np.nan
+    icc_inner = (sigma2_s + sigma2_c) / total_var if total_var > 0 else np.nan
+    # Store the inner ICC (proportion of variance at or above the class
+    # level) in the variance_components dict for transparency.
+    vc[f"icc({outer_col})"] = icc_outer
+    vc[f"icc({outer_col}+{inner_col})"] = icc_inner
 
     # Package the fit as a MixedResult with _blocks tailored for predict/R².
-    # For the three-level case we expose the outermost random-effect
-    # variance via ``icc`` (school-level) and keep the full VC dict.
+    # The ``_G`` slot is normally a q×q random-effect covariance; in the
+    # three-level path we store a marker NaN matrix so downstream code
+    # doesn't mistake it for a genuine single-level G.
     blocks_proxy = []
-    for y_s, X_s, inner_ids, inner_unique in blocks_outer:
+    for y_s, X_s, inner_ids, inner_unique, row_idx in blocks_outer:
         Z_s = np.ones((len(y_s), 1))
-        blocks_proxy.append(_GroupBlock(key=None, y=y_s, X=X_s, Z=Z_s, n=len(y_s)))
+        blocks_proxy.append(
+            _GroupBlock(
+                key=None, y=y_s, X=X_s, Z=Z_s, n=len(y_s), row_idx=row_idx
+            )
+        )
 
     return MixedResult(
         fixed_effects=pd.Series(beta_hat, index=fixed_names),
@@ -830,6 +864,10 @@ def _fit_three_level_intercept(
         log_likelihood=ll_ml,
         _se_fixed=pd.Series(np.sqrt(np.diag(cov_beta)), index=fixed_names),
         _cov_fixed=cov_beta,
+        # The three-level path has no single q×q random-effect matrix;
+        # expose the *total* between-cluster variance (σ²_s + σ²_c) so
+        # Nakagawa-Schielzeth R² still has something to work with, while
+        # flagging the synthetic nature through ``_cov_type``.
         _G=np.array([[sigma2_s + sigma2_c]]),
         _sigma2=sigma2_e,
         _blocks=blocks_proxy,

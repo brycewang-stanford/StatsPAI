@@ -50,6 +50,8 @@ import pandas as pd
 from scipy import stats
 from scipy.optimize import minimize
 
+import warnings
+
 from ._core import (
     _GroupBlock,
     _as_str_list,
@@ -359,6 +361,73 @@ class MEGLMResult:
             "}\n"
         )
 
+    # ------------------------------------------------------------------
+    # LaTeX / plot — round out the unified result contract
+    # ------------------------------------------------------------------
+
+    def to_latex(self) -> str:
+        """Booktabs LaTeX fragment; mirrors ``MixedResult.to_latex``."""
+        lines = [
+            r"\begin{table}[htbp]",
+            r"\centering",
+            rf"\caption{{{self.family.capitalize()} GLMM ({self.link} link)}}",
+            r"\begin{tabular}{lrrrr}",
+            r"\toprule",
+            r"Variable & Coef. & Std.\ Err. & $z$ & $P>|z|$ \\",
+            r"\midrule",
+        ]
+        for var in self.fixed_effects.index:
+            b = self.fixed_effects[var]
+            se = self._se_fixed[var]
+            z = b / se if se else float("nan")
+            p = 2 * (1 - stats.norm.cdf(abs(z))) if z == z else float("nan")
+            lines.append(f"{var} & {b:.4f} & {se:.4f} & {z:.3f} & {p:.4f} \\\\")
+        lines.append(r"\midrule")
+        lines.append(r"\multicolumn{5}{l}{\textit{Variance components}} \\")
+        for name, val in self.variance_components.items():
+            safe = name.replace("_", r"\_")
+            lines.append(f"{safe} & \\multicolumn{{4}}{{r}}{{{val:.6f}}} \\\\")
+        lines.append(r"\bottomrule")
+        lines.append(
+            rf"\multicolumn{{5}}{{l}}{{\footnotesize $N={self.n_obs}$, "
+            rf"groups $={self.n_groups}$, LogL $={self.log_likelihood:.3f}$, "
+            rf"AIC $={self.aic:.2f}$.}} \\"
+        )
+        lines.append(r"\end{tabular}")
+        lines.append(r"\end{table}")
+        return "\n".join(lines)
+
+    def plot(self, kind: str = "caterpillar", variable: Optional[str] = None, **kwargs):
+        """
+        Diagnostic plot for the GLMM fit.
+
+        Only ``kind='caterpillar'`` is currently supported: a forest plot
+        of the BLUPs for one random effect (default: the intercept).
+        Posterior SEs are not returned by ``meglm`` at present, so the
+        error bars are omitted.
+        """
+        import matplotlib.pyplot as plt  # local import to keep plotting optional
+
+        if kind != "caterpillar":
+            raise ValueError(f"unknown plot kind {kind!r}")
+
+        name = variable if variable is not None else self._random_names[0]
+        if name not in self.random_effects.columns:
+            raise ValueError(f"random effect {name!r} not in model")
+        u = self.random_effects[name].copy().sort_values()
+        fig, ax = plt.subplots(**{"figsize": (6, 0.2 * len(u) + 1), **kwargs})
+        y_pos = np.arange(len(u))
+        ax.plot(u.values, y_pos, "o", ms=3)
+        ax.axvline(0, color="black", linewidth=0.8, linestyle="--")
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels([str(i) for i in u.index], fontsize=7)
+        ax.set_xlabel(f"BLUP of {name}")
+        ax.set_title(
+            f"Caterpillar plot ({self.family} GLMM): random {name}"
+        )
+        fig.tight_layout()
+        return fig, ax
+
     def predict(
         self,
         data: Optional[pd.DataFrame] = None,
@@ -411,16 +480,19 @@ def _find_mode(
     weights: np.ndarray,
     offset: np.ndarray,
     u0: np.ndarray,
-    max_inner: int = 40,
+    max_inner: int = 50,
     tol: float = 1e-8,
-) -> Tuple[np.ndarray, np.ndarray, float]:
+) -> Tuple[np.ndarray, np.ndarray, float, bool]:
     """
-    Newton iteration for the conditional mode û_j.
+    Newton iteration for the conditional mode û_j with step damping.
 
-    Returns ``(û_j, H_j, log|H_j|)`` where H_j = Z_j' W_j Z_j + G⁻¹ is
-    the negative Hessian of the joint log-likelihood at û_j.
+    Returns ``(û_j, H_j, log|H_j|, converged)``.  ``converged`` is
+    ``False`` when the tolerance is not met within ``max_inner`` iterations
+    or when the Hessian cannot be factorised — the outer optimiser can
+    then record a warning rather than silently using a stale mode.
     """
     u = u0.copy()
+    converged = False
     for _ in range(max_inner):
         eta = block.X @ beta + block.Z @ u + offset
         mu = family.inv_link(eta)
@@ -444,9 +516,19 @@ def _find_mode(
             step = np.linalg.solve(H, grad)
         except np.linalg.LinAlgError:
             break
+
+        # Simple step damping: keep ‖step‖ ≤ 5·‖u‖ to avoid blow-up
+        # when the mode is very far from the current iterate.
+        step_norm = float(np.linalg.norm(step))
+        u_norm = float(np.linalg.norm(u)) + 1e-12
+        if step_norm > 5.0 * max(u_norm, 1.0):
+            step = step * (5.0 * max(u_norm, 1.0) / step_norm)
+            step_norm = float(np.linalg.norm(step))
+
         u_new = u + step
-        if np.linalg.norm(step) < tol * (1 + np.linalg.norm(u)):
+        if step_norm < tol * (1 + u_norm):
             u = u_new
+            converged = True
             break
         u = u_new
 
@@ -463,7 +545,8 @@ def _find_mode(
     sign, logdet_H = np.linalg.slogdet(H)
     if sign <= 0:
         logdet_H = np.inf
-    return u, H, logdet_H
+        converged = False
+    return u, H, logdet_H, converged
 
 
 # ---------------------------------------------------------------------------
@@ -498,7 +581,7 @@ def _laplace_nll(
     for j, block in enumerate(blocks):
         w = weights_list[j]
         off = offsets_list[j]
-        u_hat, H_j, logdet_H = _find_mode(
+        u_hat, H_j, logdet_H, _inner_converged = _find_mode(
             block,
             beta,
             G,
@@ -651,7 +734,7 @@ def meglm(
         method="L-BFGS-B",
         options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
     )
-    converged = bool(res.success)
+    outer_converged = bool(res.success)
 
     beta_hat = res.x[:p_fixed]
     G_hat = _unpack_G(res.x[p_fixed:], q_random, cov_type)
@@ -663,9 +746,14 @@ def meglm(
     keys = []
 
     info = np.zeros((p_fixed, p_fixed))
+    inner_failures = 0
     for j, (block, w, off) in enumerate(zip(blocks, weights_list, offsets_list)):
         u0 = u_cache[j]  # warm-started cache from the last NLL evaluation
-        u_hat, H_j, _ = _find_mode(block, beta_hat, G_hat, Ginv, fam, w, off, u0)
+        u_hat, H_j, _, inner_ok = _find_mode(
+            block, beta_hat, G_hat, Ginv, fam, w, off, u0
+        )
+        if not inner_ok:
+            inner_failures += 1
         eta = block.X @ beta_hat + block.Z @ u_hat + off
         mu = fam.inv_link(eta)
         if fam.name == "binomial":
@@ -689,6 +777,15 @@ def meglm(
     except np.linalg.LinAlgError:
         cov_beta = np.full((p_fixed, p_fixed), np.nan)
         se_beta = np.full(p_fixed, np.nan)
+
+    if inner_failures > 0:
+        warnings.warn(
+            f"GLMM Laplace inner Newton failed to converge for "
+            f"{inner_failures}/{len(blocks)} clusters; standard errors "
+            "and log-likelihood may be unreliable for those groups.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     random_effects_df = pd.DataFrame(blup_rows, index=keys)
     random_effects_df.index.name = group
@@ -726,7 +823,7 @@ def meglm(
         _fixed_names=fixed_names,
         _random_names=random_names,
         _y_name=y,
-        _converged=converged,
+        _converged=outer_converged and inner_failures == 0,
         _method="laplace",
         _cov_type=cov_type,
         _alpha=alpha,

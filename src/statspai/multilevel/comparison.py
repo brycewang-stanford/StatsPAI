@@ -5,18 +5,28 @@ Model-comparison helpers for mixed-effects models.
 ``mixed()`` / ``meglm()``.  When the difference lies purely in the
 number of variance components being tested, the asymptotic reference
 distribution is a mixture of chi-squareds (χ̄²) rather than a plain
-χ² — we apply the Self-Liang (1987) 50/50 mixture correction
-automatically for single-component boundary tests; for multi-component
-boundary tests we fall back to a conservative average of the
-bracketing χ² df's.
+χ² — we apply the Self–Liang (1987) 50/50 mixture correction
+automatically for single-component boundary tests.
+
+For *multi-component* variance boundary tests the correct reference
+distribution is the Stram–Lee (1994, *Biometrics* 50: 1171) finite
+mixture of χ² distributions whose weights depend on the specific
+covariance parameterisation (`unstructured` adds both variances and
+covariances, each with different boundary behaviour).  Implementing the
+general Stram–Lee mixture requires enumerating the sub-models with
+different sets of components on the boundary; we currently fall back to
+a *conservative* 0.5·(χ²_{df-1} + χ²_df) tail and warn — this is at
+worst anti-conservative only when the full χ²_df tail would be.
 """
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+import pandas as pd
 from scipy import stats
 
 
@@ -57,6 +67,15 @@ def _n_variance_params(result: Any) -> int:
     return 1
 
 
+def _fixed_effect_names(result: Any) -> list:
+    fe = getattr(result, "fixed_effects", None)
+    if fe is None:
+        return []
+    if isinstance(fe, pd.Series):
+        return list(fe.index)
+    return list(fe)
+
+
 def lrtest(
     restricted: Any,
     full: Any,
@@ -72,15 +91,48 @@ def lrtest(
         ``restricted`` — i.e. the parameter space of the restricted
         model is a subset of the full model's.
     boundary
-        Whether to apply the Self-Liang χ̄² boundary correction.  When
-        ``None`` (default) we infer it from whether the restriction
-        touches a variance component — the only parameters that live on
-        the boundary of their support.
+        Whether to apply the χ̄² boundary correction.  When ``None``
+        (default) we infer it from whether the restriction touches a
+        variance component — the only parameters that live on the
+        boundary of their support.
 
     Returns
     -------
     LRTestResult
+
+    Raises
+    ------
+    ValueError
+        If the two fits have different response families (e.g. one is
+        binomial, the other Poisson) — their log-likelihoods are not
+        comparable and a naive LR statistic is meaningless.
+    ValueError
+        If either fit used REML and the fixed-effect design differs
+        between the two models.  REML log-likelihoods are only
+        comparable across fits that share the same fixed-effect design
+        matrix; always use ML for LR tests of fixed effects.
     """
+    # --- 1. Family / response consistency -----------------------------
+    fam_r = getattr(restricted, "family", None)
+    fam_f = getattr(full, "family", None)
+    if fam_r != fam_f:
+        raise ValueError(
+            f"cross-family LR tests are not valid: restricted is "
+            f"{fam_r!r}, full is {fam_f!r}."
+        )
+
+    # --- 2. REML vs. fixed-effect restriction -------------------------
+    meth_r = getattr(restricted, "_method", None)
+    meth_f = getattr(full, "_method", None)
+    fe_r = _fixed_effect_names(restricted)
+    fe_f = _fixed_effect_names(full)
+    if (meth_r == "reml" or meth_f == "reml") and fe_r != fe_f:
+        raise ValueError(
+            "LR tests between fits with different fixed-effect designs "
+            "require ML, not REML.  Refit both models with "
+            "``method='ml'`` before calling lrtest()."
+        )
+
     ll_r = float(restricted.log_likelihood)
     ll_f = float(full.log_likelihood)
     chi2 = max(2.0 * (ll_f - ll_r), 0.0)
@@ -94,10 +146,21 @@ def lrtest(
         boundary = var_df > 0
 
     if boundary and df == 1:
-        # Classic 50/50 mixture of χ²_0 and χ²_1 (Self-Liang 1987).
+        # Classic 50/50 mixture of χ²_0 and χ²_1 (Self–Liang 1987).
         p = 0.5 * (1.0 - stats.chi2.cdf(chi2, 1))
     elif boundary and df >= 2:
-        # Conservative: average of χ²_(df-1) and χ²_df tail probabilities.
+        # The exact reference is the Stram–Lee (1994) mixture, whose
+        # weights depend on the covariance parameterisation.  We fall
+        # back to a simple conservative upper bound and warn.
+        warnings.warn(
+            "lrtest: multi-component boundary correction uses a "
+            "conservative upper bound on the p-value; the exact "
+            "Stram–Lee (1994) χ̄² mixture is not implemented.  "
+            "For critical decisions, corroborate with a parametric "
+            "bootstrap.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         p = 0.5 * (
             (1.0 - stats.chi2.cdf(chi2, df - 1))
             + (1.0 - stats.chi2.cdf(chi2, df))

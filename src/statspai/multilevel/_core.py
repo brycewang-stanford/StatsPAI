@@ -139,12 +139,18 @@ class _GroupBlock:
     These are expensive to construct — touching pandas for each group on
     every likelihood evaluation would be prohibitive.  We do it once and
     hand the raw numpy arrays to the hot loop.
+
+    ``row_idx`` is the positional index of each observation in the
+    **original** training dataframe (post-``dropna``).  It lets
+    ``predict(data=None)`` return predictions aligned with that
+    dataframe rather than the group-iteration order.
     """
     key: object
     y: np.ndarray               # (n_j,)
     X: np.ndarray               # (n_j, p)
     Z: np.ndarray               # (n_j, q)  (intercept-first ordering)
     n: int
+    row_idx: np.ndarray = None  # positional row indices into original df
 
     def V(self, G: np.ndarray, sigma2: float) -> np.ndarray:
         """Marginal covariance V_j = Z_j G Z_j' + sigma² I."""
@@ -169,14 +175,19 @@ def _group_blocks(
     random_names = ["_cons"] + list(x_random)
 
     blocks: List[_GroupBlock] = []
+    # Positional row indices relative to the cleaned (post-dropna) frame.
+    positions = np.arange(len(df))
     for key, sub in df.groupby(group_col_name, sort=False):
+        idx = positions[df.index.get_indexer(sub.index)]
         y_j = sub[y].to_numpy(dtype=float)
         X_j = sub[["__intercept__"] + list(x_fixed)].to_numpy(dtype=float)
         if x_random:
             Z_j = sub[["__intercept__"] + list(x_random)].to_numpy(dtype=float)
         else:
             Z_j = sub[["__intercept__"]].to_numpy(dtype=float)
-        blocks.append(_GroupBlock(key=key, y=y_j, X=X_j, Z=Z_j, n=len(sub)))
+        blocks.append(
+            _GroupBlock(key=key, y=y_j, X=X_j, Z=Z_j, n=len(sub), row_idx=idx)
+        )
     return blocks, fixed_names, random_names
 
 
@@ -222,6 +233,20 @@ def _prepare_frame(
     missing = [c for c in all_cols if c not in data.columns]
     if missing:
         raise KeyError(f"missing columns in data: {missing}")
+
+    # Reject non-hashable group values early — a list/array in the
+    # group column silently poisons the ``blups`` dict at fit time.
+    for g in group_cols:
+        sample = data[g].iloc[0] if len(data) else None
+        if sample is not None:
+            try:
+                hash(sample)
+            except TypeError as exc:
+                raise TypeError(
+                    f"group column {g!r} contains unhashable values "
+                    f"(e.g. {type(sample).__name__}); cast it to a "
+                    "hashable type (str, int, tuple) before calling mixed()."
+                ) from exc
     # Dedup while preserving order — random-slope variables frequently
     # also appear in ``x_fixed``, and pandas creates duplicated columns
     # when asked to index a column twice.

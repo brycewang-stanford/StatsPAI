@@ -6,6 +6,7 @@ criteria, and the Nakagawa-Schielzeth R² (delegated to the
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Optional
 
@@ -83,16 +84,26 @@ def icc(
     rho = var_u / total
 
     if n_boot and n_boot > 0:
-        rng = np.random.default_rng(seed)
-        # Parametric bootstrap on the variance components — treat them
-        # as log-normally distributed (positive, right-skewed).  Uses
-        # a chi-squared approximation with effective df ≈ 2·rho^2/SE²
-        # once SE is derived from the delta method below.
-        pass  # falls through to delta-method CI; full bootstrap optional
+        raise NotImplementedError(
+            "parametric-bootstrap ICC intervals are not implemented yet; "
+            "call icc(result, n_boot=0) for the delta-method CI."
+        )
 
     # Delta method on logit scale keeps the CI inside [0,1].
     # Var(log var_u) ≈ 2 / dof_u ; approximate dof from group count.
+    # This is a crude heuristic that treats var_u as χ²-distributed with
+    # (n_groups - 1) df; it gets tight CIs wrong for small samples and
+    # ignores the correlation between var_u and var_e under (RE)ML —
+    # flagged below so users don't over-interpret the bounds.
     n_groups = max(getattr(result, "n_groups", 1), 1)
+    if n_groups < 30:
+        warnings.warn(
+            f"icc(): delta-method CI is unreliable for n_groups="
+            f"{n_groups} < 30 (treats var(u) as χ²-distributed with "
+            "n_groups df).  Interpret the bounds cautiously.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     var_log_var_u = 2.0 / n_groups
     var_log_var_e = 2.0 / max(result.n_obs - result.n_fixed, 1)
     # logit(rho) = log(var_u) - log(var_e)

@@ -105,6 +105,32 @@ class TestRandomIntercept:
         # Residual variance ≈ σ²_ε = 0.25 (same sample)
         assert 0.2 < np.var(resid) < 0.32
 
+    def test_predict_is_row_aligned_with_training_frame(self):
+        """Regression test: predict(data=None) must not reorder rows."""
+        rng = np.random.default_rng(0)
+        n_g, n_per = 6, 5
+        group = np.repeat(np.arange(n_g), n_per)
+        # Scramble row order so groups are interleaved.
+        idx = rng.permutation(len(group))
+        group = group[idx]
+        x = rng.normal(0, 1, len(group))
+        u = np.array([rng.normal(0, 1, n_g)[g] for g in group])
+        y = 2.0 + 0.5 * x + u + rng.normal(0, 0.3, len(group))
+        df = pd.DataFrame({"y": y, "x": x, "g": group}).reset_index(drop=True)
+        r = sp.mixed(df, "y", ["x"], "g")
+        p_null = r.predict().values
+        p_df = r.predict(df).values
+        np.testing.assert_allclose(p_null, p_df)
+        # Independent alignment check: the correlation with y should be
+        # positive and not ~0 (which is what mis-alignment produces).
+        assert np.corrcoef(df["y"].values, p_null)[0, 1] > 0.4
+
+    def test_rejects_unhashable_group_values(self):
+        df = _random_intercept_panel()
+        df["g_bad"] = [list(range(3)) for _ in range(len(df))]  # unhashable
+        with pytest.raises(TypeError):
+            sp.mixed(df, "y", ["x"], "g_bad")
+
     def test_predict_marginal_vs_conditional(self):
         df = _random_intercept_panel()
         r = sp.mixed(df, "y", ["x"], "g")
@@ -210,6 +236,34 @@ class TestThreeLevelNested:
         with pytest.raises(NotImplementedError):
             sp.mixed(df, "y", ["x"], group=["school", "klass"], x_random=["x"])
 
+    def test_variance_components_keys(self):
+        df = _three_level_panel(n_schools=30)
+        r = sp.mixed(df, "y", ["x"], group=["school", "klass"])
+        # Three-level fit must expose all three variance components and
+        # both ICCs via the documented key names.
+        assert "var(_cons|school)" in r.variance_components
+        assert "var(_cons|klass)" in r.variance_components
+        assert "var(Residual)" in r.variance_components
+        assert "icc(school)" in r.variance_components
+        assert "icc(school+klass)" in r.variance_components
+
+    def test_singleton_inner_warns(self):
+        # Build a panel where some schools have only one class.
+        rng = np.random.default_rng(0)
+        records = []
+        cid = 0
+        for s in range(20):
+            n_classes = 1 if s < 5 else 4
+            for _ in range(n_classes):
+                for _ in range(12):
+                    x = rng.normal()
+                    y = 1 + 0.4 * x + rng.normal(0, 0.5)
+                    records.append({"school": s, "klass": cid, "x": x, "y": y})
+                cid += 1
+        df = pd.DataFrame(records)
+        with pytest.warns(RuntimeWarning):
+            sp.mixed(df, "y", ["x"], group=["school", "klass"])
+
 
 # ---------------------------------------------------------------------------
 # GLMM — logit and Poisson
@@ -249,6 +303,35 @@ class TestMELogit:
         assert (orr["upper"] > orr["OR"]).all()
 
 
+class TestMEGLMResultContract:
+    """Contract tests — every result class must expose the same surface."""
+
+    def _fit(self):
+        rng = np.random.default_rng(0)
+        n_g, n_per = 40, 20
+        g = np.repeat(np.arange(n_g), n_per)
+        x = rng.normal(0, 1, n_g * n_per)
+        u = np.repeat(rng.normal(0, 0.5, n_g), n_per)
+        eta = 0.1 + 0.5 * x + u
+        p = 1 / (1 + np.exp(-eta))
+        y = rng.binomial(1, p)
+        df = pd.DataFrame({"y": y, "x": x, "g": g})
+        return sp.melogit(df, "y", ["x"], "g")
+
+    def test_to_latex(self):
+        tex = self._fit().to_latex()
+        assert r"\begin{table}" in tex and r"\end{table}" in tex
+
+    def test_plot_caterpillar(self):
+        fig, ax = self._fit().plot(kind="caterpillar")
+        # matplotlib artists created — basic smoke.
+        assert fig is not None and ax is not None
+
+    def test_plot_invalid_kind(self):
+        with pytest.raises(ValueError):
+            self._fit().plot(kind="not-a-kind")
+
+
 class TestMEPoisson:
     def test_recovers_truth(self):
         rng = np.random.default_rng(2026)
@@ -276,7 +359,9 @@ class TestMEPoisson:
 
 class TestLRTest:
     def test_variance_only_boundary(self):
-        # Simulate with NO random effect: LR stat should be small.
+        # Simulate with NO random effect: LR stat should be small,
+        # p-value should be large.  (The previous `or` assertion was
+        # vacuous; this enforces both conditions.)
         rng = np.random.default_rng(11)
         g = np.repeat(np.arange(30), 20)
         x = rng.normal(0, 1, 600)
@@ -284,8 +369,8 @@ class TestLRTest:
         df = pd.DataFrame({"y": y, "x": x, "g": g})
 
         r_full = sp.mixed(df, "y", ["x"], "g")
-        # Restricted: pooled OLS captured via the full model's _lr_test dict.
-        assert r_full._lr_test["chi2"] < 3.84 or r_full._lr_test["p"] > 0.01
+        assert r_full._lr_test["chi2"] < 3.84
+        assert r_full._lr_test["p"] > 0.05
 
     def test_nested_models(self):
         df = _random_slope_panel(n_groups=100, n_per=30, sigma_slope=0.3,
@@ -297,6 +382,40 @@ class TestLRTest:
         # A random slope is present → we should strongly reject.
         assert lr.chi2 > 0
         assert lr.p_value < 0.05
+
+    def test_multi_component_boundary_warns(self):
+        # Unstructured → diagonal adds 2 free params on the boundary.
+        df = _random_slope_panel(n_groups=80, n_per=30, sigma_slope=0.3,
+                                 rho=0.2, sigma_int=0.6, sigma_e=0.5)
+        r_full = sp.mixed(df, "y", ["x"], "g", x_random=["x"],
+                          cov_type="unstructured")
+        r_restricted = sp.mixed(df, "y", ["x"], "g")
+        with pytest.warns(RuntimeWarning):
+            sp.lrtest(r_restricted, r_full, boundary=True)
+
+    def test_rejects_cross_family(self):
+        rng = np.random.default_rng(3)
+        n = 400
+        g = np.repeat(np.arange(20), 20)
+        x = rng.normal(0, 1, n)
+        u = np.repeat(rng.normal(0, 0.3, 20), 20)
+        df = pd.DataFrame({
+            "y_bin": rng.binomial(1, 1 / (1 + np.exp(-(0.1 + 0.5 * x + u)))),
+            "y_ct": rng.poisson(np.exp(0.1 + 0.3 * x + u)),
+            "x": x, "g": g,
+        })
+        r_b = sp.melogit(df, "y_bin", ["x"], "g")
+        r_p = sp.mepoisson(df, "y_ct", ["x"], "g")
+        with pytest.raises(ValueError):
+            sp.lrtest(r_b, r_p)
+
+    def test_rejects_reml_with_fixed_effect_change(self):
+        df = _random_intercept_panel()
+        df["z"] = np.random.default_rng(0).normal(size=len(df))
+        r_small = sp.mixed(df, "y", ["x"], "g", method="reml")
+        r_big = sp.mixed(df, "y", ["x", "z"], "g", method="reml")
+        with pytest.raises(ValueError):
+            sp.lrtest(r_small, r_big)
 
 
 # ---------------------------------------------------------------------------
@@ -316,6 +435,18 @@ class TestICC:
         df = _random_intercept_panel()
         r = sp.mixed(df, "y", ["x"], "g")
         assert isinstance(float(sp.icc(r)), float)
+
+    def test_n_boot_not_implemented(self):
+        df = _random_intercept_panel()
+        r = sp.mixed(df, "y", ["x"], "g")
+        with pytest.raises(NotImplementedError):
+            sp.icc(r, n_boot=100)
+
+    def test_small_n_groups_warns(self):
+        df = _random_intercept_panel(n_groups=10, n_per=20)
+        r = sp.mixed(df, "y", ["x"], "g")
+        with pytest.warns(RuntimeWarning):
+            sp.icc(r)
 
 
 # ---------------------------------------------------------------------------
