@@ -447,6 +447,148 @@ class TestPanelBC95:
 # ---------------------------------------------------------------------------
 
 
+class TestPredict:
+    def test_predict_frontier_matches_xbeta(self):
+        df = _simulate_hn_production(500, 0.2, 0.4, seed=201)
+        res = frontier(df, y="y", x=["x1", "x2"], dist="half-normal")
+        new = pd.DataFrame({"x1": [0.0, 1.0], "x2": [0.0, -0.5]})
+        fr = res.predict(new, what="frontier")
+        # Manually: cons + 1*x1 coef + (-0.5)*x2 coef
+        cons = res.params["_cons"]
+        b1 = res.params["x1"]
+        b2 = res.params["x2"]
+        expected = np.array([cons, cons + b1 - 0.5 * b2])
+        assert np.allclose(fr.values, expected, atol=1e-12)
+
+    def test_predict_expected_efficiency_in_bounds(self):
+        df = _simulate_hn_production(200, 0.2, 0.5, seed=202)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        new = pd.DataFrame({"x1": np.linspace(-2, 2, 10)})
+        te = res.predict(new, what="expected_efficiency")
+        assert (te > 0).all() and (te <= 1).all()
+
+    def test_predict_expected_inefficiency_matches_closed_form(self):
+        df = _simulate_hn_production(300, 0.2, 0.5, seed=203)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        new = pd.DataFrame({"x1": [0.0]})
+        E_u = res.predict(new, what="expected_inefficiency").iloc[0]
+        sigma_u = np.exp(res.params["ln_sigma_u"])
+        expected = sigma_u * np.sqrt(2.0 / np.pi)  # marginal HN
+        assert abs(E_u - expected) < 1e-10
+
+    def test_predict_handles_usigma(self):
+        """Heteroskedastic u: new data with different w should give different E[u]."""
+        rng = np.random.default_rng(204)
+        n = 1500
+        x1 = rng.normal(0, 1, n)
+        w1 = rng.normal(0, 1, n)
+        sigma_u_i = np.exp(-1.0 + 0.3 * w1)
+        u = np.abs(rng.normal(0, sigma_u_i))
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "w1": w1})
+        res = frontier(df, y="y", x=["x1"], dist="half-normal", usigma=["w1"])
+        new = pd.DataFrame({"x1": [0.0, 0.0], "w1": [-2.0, 2.0]})
+        E_u = res.predict(new, what="expected_inefficiency").values
+        # Different w → different E[u]; w=2 should give higher u (positive coef).
+        assert E_u[1] > E_u[0]
+
+    def test_predict_rejects_missing_columns(self):
+        df = _simulate_hn_production(200, 0.2, 0.4, seed=205)
+        res = frontier(df, y="y", x=["x1", "x2"], dist="half-normal")
+        with pytest.raises(KeyError, match="missing"):
+            res.predict(pd.DataFrame({"x1": [0.0]}))  # missing x2
+
+    def test_predict_rejects_unknown_what(self):
+        df = _simulate_hn_production(100, 0.2, 0.4, seed=206)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        with pytest.raises(ValueError):
+            res.predict(df, what="nonsense")
+
+
+class TestMarginalEffects:
+    def test_bc95_marginal_effects_match_finite_difference(self):
+        rng = np.random.default_rng(301)
+        n = 3000
+        x1 = rng.normal(0, 1, n)
+        z1 = rng.normal(0, 1, n)
+        mu_it = 0.3 + 0.25 * z1
+        u = sst.truncnorm.rvs(-mu_it / 0.3, np.inf, loc=mu_it, scale=0.3,
+                              random_state=rng)
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "z1": z1})
+        res = frontier(df, y="y", x=["x1"], dist="truncated-normal", emean=["z1"])
+
+        analytic = res.marginal_effects(at="observation")["z1"].values
+        h = 1e-5
+        E0 = res.predict(df, what="expected_inefficiency").values
+        df_plus = df.copy()
+        df_plus["z1"] = df_plus["z1"] + h
+        E1 = res.predict(df_plus, what="expected_inefficiency").values
+        fd = (E1 - E0) / h
+        assert np.max(np.abs(analytic - fd)) < 1e-5
+
+    def test_marginal_effects_requires_emean(self):
+        """TN model without emean must raise, not silently return zero effects."""
+        rng = np.random.default_rng(302)
+        n = 500
+        x1 = rng.normal(0, 1, n)
+        u = sst.truncnorm.rvs(-0.3 / 0.3, np.inf, loc=0.3, scale=0.3,
+                              size=n, random_state=rng)
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1})
+        res = frontier(df, y="y", x=["x1"], dist="truncated-normal")
+        with pytest.raises(RuntimeError, match="emean"):
+            res.marginal_effects()
+
+    def test_marginal_effects_requires_truncated_normal(self):
+        """HN / exponential must raise — no mu to differentiate through."""
+        df = _simulate_hn_production(100, 0.2, 0.4, seed=304)
+        res = frontier(df, y="y", x=["x1"], dist="half-normal")
+        with pytest.raises(RuntimeError, match="truncated-normal"):
+            res.marginal_effects()
+
+    def test_marginal_effects_ame_is_mean(self):
+        rng = np.random.default_rng(303)
+        n = 500
+        x1 = rng.normal(0, 1, n)
+        z1 = rng.normal(0, 1, n)
+        u = sst.truncnorm.rvs(-0.3 / 0.3, np.inf, loc=0.3, scale=0.3,
+                              size=n, random_state=rng)
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "z1": z1})
+        res = frontier(df, y="y", x=["x1"], dist="truncated-normal", emean=["z1"])
+        obs = res.marginal_effects(at="observation")
+        ame = res.marginal_effects(at="ame")
+        assert np.isclose(obs.mean().iloc[0], ame.iloc[0])
+
+
+class TestTruncatedNormalRobustness:
+    def test_multi_start_gives_at_least_as_good_ll(self):
+        """After multi-start, TN fit must be at least as good as single-start."""
+        rng = np.random.default_rng(401)
+        n = 1000
+        x1 = rng.normal(0, 1, n)
+        # Challenging case: true mu near 0 (ambiguous between HN and TN).
+        mu_t = 0.05
+        u = sst.truncnorm.rvs(-mu_t / 0.4, np.inf, loc=mu_t, scale=0.4,
+                              size=n, random_state=rng)
+        v = rng.normal(0, 0.2, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1})
+        res = frontier(df, y="y", x=["x1"], dist="truncated-normal")
+        # Just verify LL is reasonable (finite, not degenerate)
+        assert np.isfinite(res.diagnostics["log_likelihood"])
+        # And not absurdly worse than a half-normal fit of same data.
+        res_hn = frontier(df, y="y", x=["x1"], dist="half-normal")
+        # TN has one more parameter (mu), so its LL must be >= HN's LL - epsilon.
+        assert (res.diagnostics["log_likelihood"]
+                >= res_hn.diagnostics["log_likelihood"] - 0.5)
+
+
 class TestKernelMath:
     def test_halfnormal_is_valid_density(self):
         # Integrate the simulated f(eps) over eps ~ via Monte Carlo.

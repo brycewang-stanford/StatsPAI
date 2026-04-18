@@ -150,6 +150,193 @@ class FrontierResult(EconometricResults):
             return "efficiency_jlms"
         raise ValueError(f"Unknown TE method: {method!r}")
 
+    # ------------------------------------------------------------------
+    # Out-of-sample prediction
+    # ------------------------------------------------------------------
+
+    def predict(
+        self,
+        new_data: pd.DataFrame,
+        what: str = "frontier",
+    ) -> pd.Series:
+        """Out-of-sample prediction.
+
+        Parameters
+        ----------
+        new_data : pandas.DataFrame
+            Must contain the frontier regressors and, if the model has
+            ``usigma`` / ``vsigma`` / ``emean`` covariates, those columns too.
+            Rows with any missing value are dropped.
+        what : {'frontier', 'expected_inefficiency', 'expected_efficiency'}
+            * ``'frontier'`` — deterministic frontier ``x_new' beta``.  This
+              is the maximum attainable output (production) or minimum cost.
+            * ``'expected_inefficiency'`` — marginal ``E[u_new]`` using the
+              fitted variance / mean parameters (no residual conditioning).
+            * ``'expected_efficiency'`` — marginal ``E[exp(-u_new)]``.
+
+        Returns
+        -------
+        pandas.Series
+            Indexed by the (post-dropna) rows of ``new_data``.
+        """
+        what = what.lower()
+        if what not in {"frontier", "expected_inefficiency", "expected_efficiency"}:
+            raise ValueError(f"Unknown what={what!r}.")
+
+        regressors = self.data_info.get("regressors", [])
+        usigma_cols = self.data_info.get("usigma_cols") or []
+        vsigma_cols = self.data_info.get("vsigma_cols") or []
+        emean_cols = self.data_info.get("emean_cols") or []
+
+        required = list(regressors) + list(usigma_cols) + list(vsigma_cols) + list(emean_cols)
+        missing = [c for c in required if c not in new_data.columns]
+        if missing:
+            raise KeyError(f"new_data is missing required columns: {missing}")
+        df_new = new_data[required].dropna().copy()
+        idx = df_new.index
+        n_new = len(df_new)
+        if n_new == 0:
+            raise ValueError("All rows dropped after removing missing values.")
+
+        # --- Rebuild design and pull fitted coefficients ---
+        params = self.params
+        beta = params.loc[["_cons"] + list(regressors)].to_numpy()
+        const = np.ones((n_new, 1))
+        X_new = np.concatenate([const, df_new[regressors].to_numpy()], axis=1)
+        frontier_hat = X_new @ beta
+
+        if what == "frontier":
+            return pd.Series(frontier_hat, index=idx, name="frontier")
+
+        # Need sigma_u / sigma_v / mu for new rows.
+        sigma_u_new = self._eval_sigma(
+            df_new, usigma_cols,
+            log_sigma_const_name="u__cons" if usigma_cols else "ln_sigma_u",
+            coef_prefix="u_",
+        )
+        mu_new = self._eval_mu(df_new, emean_cols)
+        dist = self.model_info.get("inefficiency_dist", "half-normal")
+
+        if dist == "half-normal":
+            E_u = sigma_u_new * np.sqrt(2.0 / np.pi)
+        elif dist == "exponential":
+            E_u = sigma_u_new
+        elif dist == "truncated-normal":
+            ratio = mu_new / sigma_u_new
+            E_u = mu_new + sigma_u_new * _fc._phi_over_Phi(ratio)
+            E_u = np.maximum(E_u, 0.0)
+        else:
+            raise RuntimeError(f"Unsupported dist for predict: {dist}")
+
+        if what == "expected_inefficiency":
+            return pd.Series(E_u, index=idx, name="expected_inefficiency")
+
+        # Marginal E[exp(-u_new)] for each distribution.
+        if dist == "half-normal":
+            # E[exp(-|Z|)] with Z ~ N(0, sigma_u^2): 2 * exp(sigma_u^2/2) * Phi(-sigma_u).
+            te = 2.0 * np.exp(sigma_u_new**2 / 2.0) * stats.norm.cdf(-sigma_u_new)
+        elif dist == "exponential":
+            # E[exp(-u)] with u ~ Exp(scale=sigma_u): 1/(1 + sigma_u).
+            te = 1.0 / (1.0 + sigma_u_new)
+        else:  # truncated-normal
+            num = np.exp(-mu_new + 0.5 * sigma_u_new**2)
+            log_numer = _fc._log_phi_cdf(mu_new / sigma_u_new - sigma_u_new)
+            log_denom = _fc._log_phi_cdf(mu_new / sigma_u_new)
+            te = num * np.exp(log_numer - log_denom)
+        te = np.clip(te, 0.0, 1.0)
+        return pd.Series(te, index=idx, name="expected_efficiency")
+
+    def _eval_sigma(
+        self,
+        df: pd.DataFrame,
+        cols: List[str],
+        log_sigma_const_name: str,
+        coef_prefix: str,
+    ) -> np.ndarray:
+        """Compute per-row sigma from fitted log-sigma coefficients.
+
+        Handles both the homoskedastic case (single ``ln_sigma_{u,v}`` param)
+        and the heteroskedastic case (``{prefix}_cons`` plus ``{prefix}{col}``).
+        """
+        if not cols:
+            return np.exp(np.full(len(df), self.params[log_sigma_const_name]))
+        intercept = self.params[f"{coef_prefix}_cons"]
+        W = df[cols].to_numpy(dtype=float)
+        coefs = np.array([self.params[f"{coef_prefix}{c}"] for c in cols])
+        return np.exp(intercept + W @ coefs)
+
+    def _eval_mu(self, df: pd.DataFrame, cols: List[str]) -> np.ndarray:
+        """Compute per-row mu for truncated-normal emean."""
+        if "mu" in self.params.index and not cols:
+            return np.full(len(df), self.params["mu"])
+        if not cols:
+            return np.zeros(len(df))  # half-normal / exponential: no mu
+        intercept = self.params["mu__cons"]
+        Z = df[cols].to_numpy(dtype=float)
+        coefs = np.array([self.params[f"mu_{c}"] for c in cols])
+        return intercept + Z @ coefs
+
+    # ------------------------------------------------------------------
+    # Marginal effects (BC95-style inefficiency determinants)
+    # ------------------------------------------------------------------
+
+    def marginal_effects(
+        self,
+        kind: str = "inefficiency",
+        at: str = "observation",
+    ) -> pd.DataFrame:
+        """Marginal effects of ``emean`` covariates on expected inefficiency.
+
+        Only available for ``dist='truncated-normal'`` with ``emean=[...]``
+        (Battese-Coelli 1995).  Computes
+
+            dE[u_i] / dz_ij  =  delta_j * [1 - (mu_i/sigma_u)*phi/Phi - (phi/Phi)^2]
+
+        where ``mu_i = delta' [1, z_i]``, ``phi/Phi = phi(mu_i/sigma_u)/Phi(mu_i/sigma_u)``.
+
+        Parameters
+        ----------
+        kind : {'inefficiency'}
+            Currently only inefficiency marginal effects are supported.
+        at : {'observation', 'mean', 'ame'}
+            * ``'observation'`` — per-row marginal effects (DataFrame).
+            * ``'mean'`` or ``'ame'`` — average marginal effect (Series).
+
+        Returns
+        -------
+        pandas.DataFrame or pandas.Series
+        """
+        if kind != "inefficiency":
+            raise ValueError("Only kind='inefficiency' is supported.")
+        if self.model_info.get("inefficiency_dist") != "truncated-normal":
+            raise RuntimeError(
+                "marginal_effects() requires dist='truncated-normal'."
+            )
+        emean_cols = self.data_info.get("emean_cols")
+        if not emean_cols:
+            raise RuntimeError(
+                "marginal_effects() requires the model to have emean=[...]."
+            )
+
+        mu_i = np.asarray(self.diagnostics["mu_i"])
+        sigma_u_i = np.asarray(self.diagnostics["sigma_u_i"])
+        ratio = mu_i / sigma_u_i
+        ratio_factor = _fc._phi_over_Phi(ratio)
+        # d E[u_i] / d mu_i = 1 - (mu/sigma)*phi/Phi - (phi/Phi)^2.
+        jacobian = 1.0 - ratio * ratio_factor - ratio_factor**2
+
+        deltas = np.array([self.params[f"mu_{c}"] for c in emean_cols])
+        # Outer product: row i, col k: jacobian_i * delta_k.
+        effects = jacobian[:, None] * deltas[None, :]
+        effects_df = pd.DataFrame(
+            effects, columns=emean_cols,
+            index=self.diagnostics.get("efficiency_index"),
+        )
+
+        if at in {"mean", "ame"}:
+            return effects_df.mean(axis=0)
+        return effects_df
+
     def lr_test_no_inefficiency(self) -> Dict[str, float]:
         """One-sided LR test ``H0: sigma_u = 0`` (mixed chi-bar squared)."""
         stat = self.diagnostics.get("lr_no_inefficiency")
@@ -465,13 +652,27 @@ def frontier(
         for _ in range(k_delta_mu - 1):
             bounds.append((-50.0, 50.0))
 
-    result = minimize(
-        neg_loglik,
-        start,
-        method="L-BFGS-B",
-        bounds=bounds,
-        options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
-    )
+    def _fit_from(start_vec):
+        return minimize(
+            neg_loglik,
+            start_vec,
+            method="L-BFGS-B",
+            bounds=bounds,
+            options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
+        )
+
+    result = _fit_from(start)
+
+    # Multi-start safety net for truncated-normal (Waldman 1982):
+    # TN is notoriously prone to flat LL near mu=0; try a second start
+    # with small positive mu to escape the spurious plateau.
+    if dist == "truncated-normal":
+        alt_start = start.copy()
+        alt_start[sl_dm.start] = 0.5  # perturb intercept of mu block
+        alt_result = _fit_from(alt_start)
+        if -alt_result.fun > -result.fun + 1e-4:
+            result = alt_result
+
     theta_hat = result.x
     ll_val = -neg_loglik(theta_hat)
     beta_hat, sigma_u_i, sigma_v_i, mu_i = _unpack(theta_hat)
@@ -554,6 +755,9 @@ def frontier(
             "n_obs": n,
             "dep_var": y,
             "regressors": list(x),
+            "usigma_cols": list(usigma) if usigma else None,
+            "vsigma_cols": list(vsigma) if vsigma else None,
+            "emean_cols": list(emean) if emean else None,
             "df_resid": max(n - spec.k_total, 1),
         },
         diagnostics={
