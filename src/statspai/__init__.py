@@ -162,6 +162,8 @@ from .registry import list_functions, describe_function, function_schema, search
 from .regression.glm import glm, GLMEstimator
 from .regression.logit_probit import logit, probit, cloglog
 from .regression.multinomial import mlogit, ologit, oprobit, clogit
+from .regression.mixed_logit import mixlogit
+from .regression.iv_quantile import ivqreg
 # Count Data
 from .regression.count import poisson, nbreg, ppmlhdfe
 from .regression.zeroinflated import zip_model, zinb, hurdle
@@ -622,6 +624,7 @@ __all__ = [
     "glm", "GLMEstimator",
     "logit", "probit", "cloglog",
     "mlogit", "ologit", "oprobit", "clogit",
+    "mixlogit", "ivqreg",
     # Count Data
     "poisson", "nbreg", "ppmlhdfe",
     "zip_model", "zinb", "hurdle",
