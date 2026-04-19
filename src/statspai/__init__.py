@@ -253,6 +253,7 @@ from .multilevel import (
 from .frontier import (
     frontier, xtfrontier, FrontierResult,
     metafrontier, MetafrontierResult,
+    malmquist, MalmquistResult, translog_design,
     zisf, lcsf,
     te_summary, te_rank,
 )
@@ -694,6 +695,7 @@ __all__ = [
     "icc", "lrtest",
     "frontier", "xtfrontier", "FrontierResult",
     "metafrontier", "MetafrontierResult",
+    "malmquist", "MalmquistResult", "translog_design",
     "zisf", "lcsf",
     "te_summary", "te_rank",
     "gmm",

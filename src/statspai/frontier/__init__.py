@@ -16,6 +16,7 @@ from .panel import xtfrontier
 from .te_tools import te_summary, te_rank
 from .metafrontier import metafrontier, MetafrontierResult
 from .mixture import zisf, lcsf
+from .malmquist import malmquist, MalmquistResult, translog_design
 
 __all__ = [
     "frontier",
@@ -23,6 +24,9 @@ __all__ = [
     "FrontierResult",
     "metafrontier",
     "MetafrontierResult",
+    "malmquist",
+    "MalmquistResult",
+    "translog_design",
     "zisf",
     "lcsf",
     "te_summary",

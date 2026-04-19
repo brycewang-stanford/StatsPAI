@@ -945,6 +945,101 @@ class TestMetafrontier:
         assert ((res.te_meta >= 0) & (res.te_meta <= 1)).all()
 
 
+class TestMalmquist:
+    """Malmquist TFP index (Fare-Grosskopf-Lindgren-Roos 1994)."""
+
+    def test_malmquist_detects_positive_technical_change(self):
+        """Frontier intercept grows 5% per year → TC should be > 1."""
+        from statspai.frontier import malmquist
+
+        rng = np.random.default_rng(1701)
+        N = 100
+        periods = [2018, 2019, 2020]
+        intercepts = {2018: 1.0, 2019: 1.05, 2020: 1.10}
+        u_persist = np.abs(rng.normal(0, 0.3, N))
+        rows = []
+        for t in periods:
+            for i in range(N):
+                x1 = rng.normal(0, 1)
+                x2 = rng.normal(0, 1)
+                u = u_persist[i] * rng.uniform(0.8, 1.2)
+                v = rng.normal(0, 0.15)
+                y = intercepts[t] + 0.5 * x1 + 0.4 * x2 + v - u
+                rows.append({"id": i, "t": t, "y": y, "x1": x1, "x2": x2})
+        df = pd.DataFrame(rows)
+        res = malmquist(df, y="y", x=["x1", "x2"], id="id", time="t")
+        # Mean TC across transitions should exceed 1 (tech progress).
+        mean_tc = res.index_table["tc"].mean()
+        assert mean_tc > 1.03, f"mean_tc={mean_tc}"
+        # Mean M > 1 (overall growth).
+        assert res.index_table["m_index"].mean() > 1.0
+
+    def test_malmquist_decomposition_multiplicative(self):
+        """M = EC * TC must hold row-wise (identity)."""
+        from statspai.frontier import malmquist
+        rng = np.random.default_rng(1702)
+        N = 40
+        periods = [1, 2]
+        rows = []
+        for t in periods:
+            for i in range(N):
+                x1 = rng.normal(0, 1)
+                u = np.abs(rng.normal(0, 0.3))
+                v = rng.normal(0, 0.15)
+                y = (1.0 + 0.05 * t) + 0.5 * x1 + v - u
+                rows.append({"id": i, "t": t, "y": y, "x1": x1})
+        df = pd.DataFrame(rows)
+        res = malmquist(df, y="y", x=["x1"], id="id", time="t")
+        m = res.index_table["m_index"].values
+        ec = res.index_table["ec"].values
+        tc = res.index_table["tc"].values
+        assert np.allclose(m, ec * tc, rtol=1e-8)
+
+    def test_malmquist_requires_two_periods(self):
+        from statspai.frontier import malmquist
+        df = _simulate_hn_production(100, 0.2, 0.4, seed=1703)
+        df["id"] = np.arange(100)
+        df["t"] = 2020  # single period
+        with pytest.raises(ValueError, match="two periods"):
+            malmquist(df, y="y", x=["x1"], id="id", time="t")
+
+
+class TestTranslogDesign:
+    def test_translog_design_adds_squares_and_interactions(self):
+        from statspai.frontier import translog_design
+        df = pd.DataFrame({"log_k": [1.0, 2.0, 3.0], "log_l": [0.5, 1.5, 2.5]})
+        tl = translog_design(df, inputs=["log_k", "log_l"])
+        assert "log_k_sq" in tl.columns
+        assert "log_l_sq" in tl.columns
+        assert "log_k_x_log_l" in tl.columns
+        # 0.5 * log_k^2 convention
+        assert np.isclose(tl["log_k_sq"].iloc[2], 0.5 * 3.0**2)
+        assert np.isclose(tl["log_k_x_log_l"].iloc[0], 1.0 * 0.5)
+
+    def test_translog_opt_out_squares(self):
+        from statspai.frontier import translog_design
+        df = pd.DataFrame({"log_k": [1.0], "log_l": [1.0]})
+        tl = translog_design(df, inputs=["log_k", "log_l"],
+                              include_squares=False)
+        assert "log_k_sq" not in tl.columns
+        assert "log_k_x_log_l" in tl.columns
+
+    def test_translog_opt_out_interactions(self):
+        from statspai.frontier import translog_design
+        df = pd.DataFrame({"log_k": [1.0], "log_l": [1.0]})
+        tl = translog_design(df, inputs=["log_k", "log_l"],
+                              include_interactions=False)
+        assert "log_k_x_log_l" not in tl.columns
+        assert "log_k_sq" in tl.columns
+
+    def test_translog_attrs_list(self):
+        from statspai.frontier import translog_design
+        df = pd.DataFrame({"log_k": [1.0, 2.0], "log_l": [1.0, 2.0]})
+        tl = translog_design(df, inputs=["log_k", "log_l"])
+        terms = tl.attrs["translog_terms"]
+        assert "log_k" in terms and "log_k_sq" in terms and "log_k_x_log_l" in terms
+
+
 class TestMonteCarloCoverage:
     """Canonical cross-check: 95% asymptotic CI should cover truth ~95% of time.
 

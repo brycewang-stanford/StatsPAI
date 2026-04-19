@@ -103,6 +103,121 @@ class RecommendationResult:
         lines.append("\n" + "=" * 70)
         return "\n".join(lines)
 
+    def to_latex(self, caption: Optional[str] = None,
+                 label: str = "tab:recommendation") -> str:
+        r"""Export recommendations as a booktabs LaTeX table.
+
+        If ``verify=True`` was used when calling ``recommend()``, the
+        table includes the empirical verification columns (score,
+        bootstrap stability, placebo pass-rate, subsample agreement) —
+        suitable for dropping into a paper appendix.
+
+        Parameters
+        ----------
+        caption : str, optional
+            Table caption. Defaults to the detected design.
+        label : str
+            LaTeX label for cross-referencing.
+
+        Returns
+        -------
+        str
+            LaTeX source (booktabs + threeparttable).
+        """
+        has_verify = any(
+            isinstance(r.get("verify"), dict)
+            and np.isfinite(r["verify"].get("score", np.nan))
+            for r in self.recommendations
+        )
+        if caption is None:
+            caption = (
+                f"StatsPAI recommended estimators for "
+                f"{self.design.replace('_', ' ')} design"
+                + (" (with empirical verification)" if has_verify else "")
+            )
+
+        def _esc(s: str) -> str:
+            return (str(s).replace("\\", r"\textbackslash{}")
+                         .replace("_", r"\_")
+                         .replace("&", r"\&")
+                         .replace("%", r"\%")
+                         .replace("#", r"\#"))
+
+        if has_verify:
+            header = (r"Rank & Method & Function & "
+                      r"Score & Stab. & Plac. & Subs. \\")
+            col_spec = "rllrrrr"
+        else:
+            header = r"Rank & Method & Function & Reason \\"
+            col_spec = "rllp{6cm}"
+
+        lines = [
+            r"\begin{table}[!htbp]",
+            r"\centering",
+            r"\begin{threeparttable}",
+            rf"\caption{{{_esc(caption)}}}",
+            rf"\label{{{label}}}",
+            rf"\begin{{tabular}}{{{col_spec}}}",
+            r"\toprule",
+            header,
+            r"\midrule",
+        ]
+
+        for i, rec in enumerate(self.recommendations, 1):
+            method = _esc(rec["method"])
+            func = rf"\texttt{{sp.{_esc(rec['function'])}()}}"
+            if has_verify:
+                v = rec.get("verify") or {}
+                score = v.get("score", np.nan)
+                stab = (v.get("stability") or {}).get("score", np.nan)
+                plac = (v.get("placebo") or {}).get("score", np.nan)
+                subs = (v.get("subsample") or {}).get("score", np.nan)
+                err = v.get("error")
+
+                def _fmt(x):
+                    return f"{x:.0f}" if isinstance(x, float) and np.isfinite(x) else "--"
+
+                marker = f" {{\\tiny\\textit{{({_esc(err)})}}}}" if err else ""
+                lines.append(
+                    f"{i} & {method}{marker} & {func} & "
+                    f"{_fmt(score)} & {_fmt(stab)} & {_fmt(plac)} & {_fmt(subs)} \\\\"
+                )
+            else:
+                reason = _esc(rec.get("reason", ""))
+                lines.append(f"{i} & {method} & {func} & {reason} \\\\")
+
+        lines.extend([
+            r"\bottomrule",
+            r"\end{tabular}",
+            r"\begin{tablenotes}",
+            r"\footnotesize",
+        ])
+        if has_verify:
+            lines.extend([
+                r"\item \textbf{Score}: weighted composite in [0, 100] "
+                r"(higher = more empirical support).",
+                r"\item \textbf{Stab.}: bootstrap stability "
+                r"($100 \times (1 - \text{CV})$ of point estimate across $B$ resamples).",
+                r"\item \textbf{Plac.}: placebo pass rate "
+                r"(\% of permuted-treatment runs with $p > 0.10$).",
+                r"\item \textbf{Subs.}: sign agreement across 50\% subsamples.",
+                r"\item Data: " + _esc(f"N={self.data_profile['n_obs']:,}") +
+                (f", {self.data_profile.get('n_units', '?')} units "
+                 f"$\\times$ {self.data_profile.get('n_periods', '?')} periods"
+                 if self.data_profile.get('panel') else "") + ".",
+            ])
+        else:
+            lines.append(
+                r"\item Rankings are rule-based; call with "
+                r"\texttt{verify=True} for empirical scores."
+            )
+        lines.extend([
+            r"\end{tablenotes}",
+            r"\end{threeparttable}",
+            r"\end{table}",
+        ])
+        return "\n".join(lines)
+
     def _workflow_steps(self):
         """Generate a recommended workflow."""
         steps = []
@@ -378,6 +493,21 @@ def recommend(
     elif design == 'did':
         # Staggered vs 2-period
         if time and data[time].nunique() > 2:
+            cohort_col = f"_cohort_{treatment}"
+
+            def _derive_cohort(df_in, _treat=treatment, _id=id, _time=time,
+                                _col=cohort_col):
+                """Attach cohort column = first treated period per unit."""
+                out = df_in.copy()
+                if _id and _id in out.columns:
+                    treated = out[out[_treat] == 1]
+                    cmap = treated.groupby(_id)[_time].min()
+                    out[_col] = out[_id].map(cmap).fillna(0).astype(int)
+                else:
+                    out[_col] = 0
+                return out
+
+            did_data = _derive_cohort(data)
             recommendations.append({
                 'method': 'Callaway-Sant\'Anna (2021) — staggered DID',
                 'function': 'callaway_santanna',
@@ -385,19 +515,24 @@ def recommend(
                           'Robust to heterogeneous treatment effects (unlike TWFE).',
                 'assumptions': ['Parallel trends', 'No anticipation', 'Staggered adoption'],
                 'robustness': 'Run sp.pretrends_test(), sp.honest_did(), sp.event_study()',
-                'code': f"sp.callaway_santanna(df, y='{y}', g='{treatment}', "
+                'code': f"# Derived cohort column = first period treated\n"
+                        f"sp.callaway_santanna(df, y='{y}', g='{cohort_col}', "
                         f"t='{time}', i='{id}')",
-                'params': {'data': data, 'y': y, 'g': treatment,
+                'params': {'data': did_data, 'y': y, 'g': cohort_col,
                            't': time, 'i': id},
+                'prep': _derive_cohort,
+                'raw_treat': treatment,
             })
             recommendations.append({
                 'method': 'Sun-Abraham (2021) — interaction-weighted',
                 'function': 'sun_abraham',
                 'reason': 'Alternative heterogeneity-robust DID estimator.',
-                'code': f"sp.sun_abraham(df, y='{y}', g='{treatment}', "
+                'code': f"sp.sun_abraham(df, y='{y}', g='{cohort_col}', "
                         f"t='{time}', i='{id}')",
-                'params': {'data': data, 'y': y, 'g': treatment,
+                'params': {'data': did_data, 'y': y, 'g': cohort_col,
                            't': time, 'i': id},
+                'prep': _derive_cohort,
+                'raw_treat': treatment,
             })
         else:
             recommendations.append({

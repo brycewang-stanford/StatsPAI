@@ -56,6 +56,11 @@ def _get_id_col(rec: Dict[str, Any]) -> Optional[str]:
 
 
 def _get_treat_col(rec: Dict[str, Any], data: pd.DataFrame) -> Optional[str]:
+    # Explicit raw treatment override wins (used by CSA/SA where params.g
+    # points to a derived cohort column that won't exist in raw bootstraps).
+    raw = rec.get("raw_treat")
+    if isinstance(raw, str) and raw in data.columns:
+        return raw
     params = rec.get("params", {})
     for k in _TREAT_KEYS:
         v = params.get(k)
@@ -158,7 +163,9 @@ def _run_method(rec: Dict[str, Any], data: pd.DataFrame) -> Optional[float]:
         return None
 
     params = dict(rec.get("params", {}))
-    params["data"] = data
+    prep = rec.get("prep")
+    prepared = prep(data) if callable(prep) else data
+    params["data"] = prepared
 
     try:
         with warnings.catch_warnings():
@@ -167,7 +174,7 @@ def _run_method(rec: Dict[str, Any], data: pd.DataFrame) -> Optional[float]:
     except Exception:
         return None
 
-    treat_name = _get_treat_col(rec, data)
+    treat_name = _get_treat_col(rec, prepared)
     return _extract_estimate(result, treat_name=treat_name)
 
 
@@ -251,7 +258,9 @@ def _placebo_pass(
             permuted[treat_col] = rng.permutation(permuted[treat_col].values)
 
         params = dict(rec.get("params", {}))
-        params["data"] = permuted
+        prep = rec.get("prep")
+        prep_data = prep(permuted) if callable(prep) else permuted
+        params["data"] = prep_data
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
