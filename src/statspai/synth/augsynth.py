@@ -103,6 +103,18 @@ def augsynth(
     ...                       treated_unit='California', treatment_time=1989)
     >>> print(result.summary())
     """
+    # --- Input validation (unified with classic SCM contract) ---
+    required_cols = [outcome, unit, time]
+    if covariates:
+        required_cols = required_cols + list(covariates)
+    for col in required_cols:
+        if col not in data.columns:
+            raise ValueError(f"Column '{col}' not found in data")
+    if treated_unit not in data[unit].values:
+        raise ValueError(
+            f"Treated unit '{treated_unit}' not found in '{unit}' column"
+        )
+
     # --- Reshape to wide format ---
     panel = data.pivot_table(index=unit, columns=time, values=outcome)
     all_times = sorted(panel.columns)
@@ -201,6 +213,28 @@ def augsynth(
         "effect": effects,
     })
 
+    # Unified gap table (full trajectory, matches classic SCM contract)
+    all_times_arr = np.array(pre_times + post_times)
+    Y1_all = np.concatenate([Y1_pre, Y1_post])
+    Y1_hat_all = np.concatenate([Y1_hat_scm_pre, Y1_hat_aug_post])
+    gap_all = Y1_all - Y1_hat_all
+    gap_df = pd.DataFrame({
+        "time": all_times_arr,
+        "treated": Y1_all,
+        "synthetic": Y1_hat_all,
+        "gap": gap_all,
+        "post_treatment": np.concatenate([
+            np.zeros(T0, dtype=bool), np.ones(T1, dtype=bool),
+        ]),
+    })
+
+    weight_df = (
+        pd.DataFrame({"unit": donors, "weight": gamma})
+        .sort_values("weight", ascending=False)
+        .reset_index(drop=True)
+    )
+    weight_df = weight_df[weight_df["weight"] > 1e-6]
+
     return CausalResult(
         method="Augmented Synthetic Control (ASCM)",
         estimand="ATT",
@@ -214,14 +248,24 @@ def augsynth(
         model_info={
             "model_type": "Synthetic Control (Augmented)",
             "pre_rmspe": pre_rmspe,
+            "pre_treatment_rmse": pre_rmspe,
+            "pre_treatment_mspe": pre_rmspe ** 2,
             "post_rmspe": float(np.sqrt(np.mean(effects ** 2))),
-            "weights": dict(zip(donors, gamma)),
+            "weights": weight_df,
+            "weights_dict": dict(zip(donors, gamma)),
             "n_donors": J,
             "n_pre_periods": T0,
             "n_post_periods": T1,
+            "treatment_time": treatment_time,
+            "treated_unit": treated_unit,
             "ridge_lambda": ridge_lambda,
             "effects_by_period": effects_df,
+            "gap_table": gap_df,
+            "times": all_times_arr,
+            "Y_synth": Y1_hat_all,
+            "Y_treated": Y1_all,
             "placebo_distribution": placebo_effects,
+            "n_placebos": len(placebo_effects),
         },
     )
 

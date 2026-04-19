@@ -2,6 +2,196 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Stochastic Frontier Analysis Overhaul
+
+Release focus: `statspai.frontier`. The prior implementation was a
+270-line single file with one function covering cross-sectional
+half-normal / exponential / truncated-normal frontiers, no panel
+support, no heteroskedasticity, no inefficiency determinants, and —
+critically — a sign error in the Jondrow posterior that silently
+produced wrong efficiency scores, plus a wrong ε-coefficient in the
+exponential log-likelihood that the old test never exercised. The
+module has been rewritten (~1,300 LOC across `_core.py`, `sfa.py`,
+`panel.py`, `te_tools.py`) to match or exceed Stata's
+`frontier` / `xtfrontier` and R's `frontier` / `sfaR`.
+
+### Correctness fixes
+
+- **Jondrow posterior μ\***: corrected `sign` convention in all three
+  distributions — the old code's `μ* = -sign·ε·σ_u²/σ²` has been
+  replaced by the derivation-verified `μ* = sign·ε·σ_u²/σ²` (and the
+  analogous correction for truncated-normal). Efficiency scores from
+  the old implementation were systematically biased; re-run any prior
+  analyses.
+- **Normal-exponential log-density**: fixed the ε-coefficient and
+  Φ argument (the old form was `+ sign·ε/σ_u + log Φ((-sign·ε - σ_v²/σ_u)/σ_v)`;
+  correct per Greene 2008 eq. 2.39 is `- sign·ε/σ_u + log Φ(sign·ε/σ_v - σ_v/σ_u)`).
+  The old exponential path never produced efficiency scores (returned NaN) —
+  now returns correct Battese-Coelli scores.
+- **Truncated-normal density**: fixed the `centered` offset in the
+  φ factor from `(ε + sign·μ)/σ` to `(ε - sign·μ)/σ`.
+- Monte-Carlo density-integration tests (`∫ f(ε) dε = 1`) now guard
+  against regressions for all three distributions.
+
+### New cross-sectional `sp.frontier`
+
+- **Heteroskedastic inefficiency** via `usigma=[...]` — parameterises
+  `ln σ_u_i = γ_u' [1, w_i]` (Caudill-Ford-Gropper 1995, Hadri 1999).
+- **Heteroskedastic noise** via `vsigma=[...]` — parameterises
+  `ln σ_v_i = γ_v' [1, r_i]` (Wang 2002).
+- **Inefficiency determinants** via `emean=[...]` — the
+  Battese-Coelli (1995) / Kumbhakar-Ghosh-McGuckin (1991) model
+  `μ_i = δ' [1, z_i]` for `dist='truncated-normal'`.
+- **Battese-Coelli (1988) TE**: `result.efficiency(method='bc')` returns
+  `E[exp(-u)|ε]` (the Stata default) in addition to the JLMS
+  approximation `exp(-E[u|ε])` (`method='jlms'`).
+- **LR test for absence of inefficiency**: one-sided mixed χ̄²
+  (Kodde-Palm 1986) via `result.lr_test_no_inefficiency()`.
+- **Bootstrap CI for unit efficiency**: parametric-bootstrap bounds
+  via `result.efficiency_ci(alpha=.05, B=500)`.
+- **Residual skewness diagnostic** stored at
+  `result.diagnostics['residual_skewness']`.
+- Optimiser now has hard bounds on `ln σ` and guards against
+  σ → 0 / σ → ∞ excursions that previously caused truncated-normal
+  fits to diverge.
+
+### New panel `sp.xtfrontier`
+
+- **Pitt-Lee (1981) time-invariant** (`model='ti'`):
+  `u_it = u_i`, half-normal or truncated-normal.  Closed-form group
+  log-likelihood derived from the per-unit integration; unit-level
+  TE stored at `result.diagnostics['efficiency_bc_unit']`.
+- **Battese-Coelli (1992) time-varying decay** (`model='tvd'`):
+  `u_it = exp(-η(t - T_i)) · u_i` with η estimated jointly.  The
+  obs-level efficiency uses `E[exp(-a_it u_i)|e_i]` under the
+  posterior `u_i ~ N⁺(μ*, σ*²)` (MGF form).
+- **Battese-Coelli (1995) inefficiency effects** (`model='bc95'`):
+  `u_it ~ N⁺(z_it' δ, σ_u²)` independently; returned with unit-mean
+  efficiency roll-up.
+
+### Helpers
+
+- `sp.te_summary(result)` — Stata-style descriptive table of TE
+  scores (n, mean, sd, quartiles, share > 0.9, share < 0.5).
+- `sp.te_rank(result, with_ci=True)` — efficiency ranking with
+  optional bootstrap CIs for benchmarking.
+
+### Tests
+
+- **33 new tests** covering: parameter recovery for all three
+  cross-sectional distributions, cost vs production sign handling,
+  heteroskedastic σ_u / σ_v, BC95 determinants, LR specification tests,
+  TE-score bounds and internal consistency, bootstrap CI structure,
+  Pitt-Lee / BC92 / BC95 panel recovery, and density-integrates-to-1
+  kernel sanity checks.
+
+### Migration
+
+- Old: `frontier(df, y='y', x=['x1'])` still works (same required args).
+- New keyword-only args: `usigma`, `vsigma`, `emean`, `te_method`,
+  `start`.
+- Existing efficiency scores should be recomputed — prior values were
+  systematically biased by the Jondrow sign error.
+
+## [Unreleased] — Multilevel / Mixed-Effects Overhaul
+
+Release focus: `statspai.multilevel`. The previous implementation was a
+400-line single file covering only the two-level linear mixed model
+with a diagonal random-effect covariance. It has been rewritten as a
+proper sub-package (~2,000 LOC across `_core.py`, `lmm.py`, `glmm.py`,
+`diagnostics.py`, `comparison.py`) with feature parity against
+`lme4`/Stata `mixed` and additions on top.
+
+### New in `sp.mixed`
+
+- **Unstructured covariance** `G` for random effects is now the
+  default (`cov_type='unstructured'`, Cholesky-parameterised so the
+  optimiser is unconstrained). `diagonal` and `identity` remain
+  available for nested-model comparisons.
+- **Three-level nested models** via `group=['school', 'class']` —
+  fits school- and class-level random intercepts jointly (verified to
+  match `statsmodels.MixedLM(..., re_formula="1", vc_formula={...})`
+  to four decimals on the variance components and fixed effects).
+- **BLUP posterior standard errors** (`result.ranef(conditional_se=
+  True)`) — exposes
+  `Var(u|y) = G − GZ'V⁻¹ZG + GZ'V⁻¹X Cov(β̂) X'V⁻¹ZG` for use in
+  caterpillar plots.
+- **`predict(new_data, include_random=…)`** — population-marginal and
+  group-conditional predictions, with zeroed-out BLUPs for unseen
+  groups.
+- **Nakagawa-Schielzeth marginal & conditional R²** via
+  `result.r_squared()`.
+- **AIC / BIC, `wald_test()`** for linear restrictions,
+  **`to_markdown()` / `to_latex()` / `_repr_html_()` / `cite()`**,
+  and `plot(kind='caterpillar' | 'residuals')`.
+
+### New functions
+
+- **`sp.melogit` / `sp.mepoisson` / `sp.meglm`** — Generalised linear
+  mixed models (binomial logit, Poisson log, Gaussian identity) fitted
+  by Laplace approximation with canonical-link observed information.
+  Supports random intercepts and random slopes, `cov_type` as for
+  `sp.mixed`, binomial `trials=` and Poisson `offset=`. Results expose
+  `odds_ratios()` / `incidence_rate_ratios()` and a `predict(type=
+  'response'|'linear')` method.
+- **`sp.icc(result)`** — intra-class correlation with a delta-method
+  (logit-scale) 95% CI.
+- **`sp.lrtest(restricted, full)`** — likelihood-ratio test between
+  two nested mixed-model fits with automatic Self-Liang χ̄²
+  boundary correction when variance components are being tested.
+
+### Validation
+
+- Linear mixed models: fixed effects and variance components agree
+  with `statsmodels.MixedLM` to 4 decimal places on both random-
+  intercept and unstructured random-slope specifications
+  (`test_multilevel.py::TestRandomSlopeUnstructured::
+  test_matches_statsmodels`).
+- Three-level nested: variance components identified jointly and match
+  the reference implementation to 2 decimal places
+  (`TestThreeLevelNested::test_separates_variance_components`).
+- GLMM recovery tests on 2,000-observation synthetic panels confirm
+  slope and random-intercept variance within expected sampling ranges.
+
+### Behavioural changes
+
+- The default `cov_type` for `sp.mixed` is now `'unstructured'`
+  (previously effectively diagonal). Pass `cov_type='diagonal'`
+  explicitly for the old behaviour.
+- `LR test vs. pooled OLS` now uses the ML-converted likelihood
+  (previously a mix of REML and ML that could produce inconsistent
+  values when `method='reml'`).
+
+### Post-review hardening (post oracle + code-reviewer audit)
+
+- **[BLOCKER fix]** `MixedResult.predict(data=None)` previously returned
+  predictions in group-iteration order rather than the original row
+  order. `_GroupBlock` now carries the training row indices and
+  `predict()` scatters the output back to the correct positions.
+  Regression test: `tests/test_multilevel.py::TestRandomIntercept::
+  test_predict_is_row_aligned_with_training_frame`.
+- **[BLOCKER fix]** GLMM inner Newton (`_find_mode`) now damps large
+  steps and returns a convergence flag. `meglm` aggregates per-cluster
+  failures and emits a `RuntimeWarning` when any cluster fails to
+  converge — a previously silent failure mode.
+- **[HIGH fix]** `MEGLMResult` gains `to_latex()` and `plot()` so it
+  matches the unified StatsPAI result contract.
+- **[HIGH fix]** `lrtest` now raises `ValueError` on cross-family
+  comparisons and on REML fits whose fixed-effect design differs,
+  preventing invalid LR statistics. Multi-component boundary
+  corrections emit a `RuntimeWarning` explaining the conservative
+  upper bound (Stram–Lee 1994 mixture not implemented).
+- **[HIGH fix]** `mixed()` / `meglm()` reject non-hashable group
+  values with a descriptive `TypeError` instead of producing a
+  silently corrupted BLUP dict.
+- **[MED fix]** `icc(result, n_boot>0)` raises `NotImplementedError`
+  instead of silently returning the delta-method CI. `icc()` warns
+  when `n_groups < 30` (delta-method CI unreliable).
+- **[MED fix]** Three-level nested fit emits a warning when any
+  outer group has only one inner group (class variance then not
+  identified), and exposes both school and class ICCs via
+  `variance_components['icc(outer)']` / `icc(outer+inner)`.
+
 ## [0.9.2] - 2026-04-16
 
 ### Decomposition Analysis — Most Comprehensive Decomposition Toolkit in Python

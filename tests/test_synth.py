@@ -85,7 +85,8 @@ class TestSyntheticControl:
         """Result should have correct structure."""
         result = synth(
             panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11, placebo=False,
+            treated_unit='unit_0', treatment_time=11, method='classic',
+            placebo=False,
         )
 
         assert result.method == 'Synthetic Control Method'

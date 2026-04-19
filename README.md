@@ -129,7 +129,10 @@ If a method exists in R, we aim to match or exceed its feature set in Python —
 | `panel_fgls()` | FGLS with heteroskedasticity and AR(1) | `xtgls` |
 | `interactive_fe()` | Interactive fixed effects (Bai 2009) | — |
 | `panel_unitroot()` | Panel unit root (IPS / LLC / Fisher / Hadri) | `xtunitroot` |
-| `mixed()` | Multilevel / mixed effects (HLM) | `mixed` |
+| `mixed()` | Linear mixed / multilevel (HLM): unstructured *G*, 3-level nested, BLUP posterior SEs, Nakagawa–Schielzeth R², caterpillar plot, `predict()` | `mixed` |
+| `melogit()`, `mepoisson()`, `meglm()` | Generalised linear mixed models via Laplace approximation (binomial / Poisson / Gaussian) with odds-ratio & IRR tables | `melogit` / `mepoisson` / `meglm` |
+| `icc()` | Intra-class correlation with delta-method 95% CI | `estat icc` |
+| `lrtest()` | Likelihood-ratio test between nested mixed models with Self–Liang χ̄² boundary correction | `lrtest` |
 
 ### Survival / Duration Analysis
 
@@ -921,7 +924,7 @@ Interactive Plot Editor: Font presets redesigned to show actual font names; sepa
 
 **Team:**
 
-- **Bryce Wang** — Founder. Economics, Finance, CS & AI. Stanford REAP.
+- **Biaoyue Wang** — Founder. Economics, Finance, CS & AI. Stanford REAP.
 - **Dr. Scott Rozelle** — Co-founder & Strategic Advisor. Stanford Senior Fellow, author of *Invisible China*.
 - <img width="812" height="178" alt="image" src="https://github.com/user-attachments/assets/8dfd4a9e-ed17-482f-83c4-b489cb354da0" />
 ---
@@ -942,10 +945,10 @@ pytest
 ```bibtex
 @software{wang2025statspai,
   title={StatsPAI: The Causal Inference & Econometrics Toolkit for Python},
-  author={Wang, Bryce},
+  author={Wang, Biaoyue},
   year={2026},
   url={https://github.com/brycewang-stanford/statspai},
-  version={0.9.2}
+  version={0.9.3}
 }
 ```
 

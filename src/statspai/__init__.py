@@ -22,8 +22,8 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.2"
-__author__ = "Bryce Wang"
+__version__ = "0.9.3"
+__author__ = "Biaoyue Wang"
 __email__ = "bryce@copaper.ai"
 
 from .core.results import EconometricResults, CausalResult
@@ -223,7 +223,9 @@ from .smart import (
     sensitivity_dashboard, SensitivityDashboard,
     pub_ready, PubReadyResult,
     replicate, list_replications,
+    verify_recommendation, verify_benchmark,
 )
+verify = verify_recommendation  # convenience alias
 
 # === NEW v0.6 Round 3 ===
 # Truncated Regression
@@ -237,9 +239,24 @@ from .panel.panel_fgls import panel_fgls
 # Interactive Fixed Effects
 # (already imported in round 2)
 # Mixed Effects / Multilevel
-from .multilevel import mixed, MixedResult
+from .multilevel import (
+    mixed,
+    MixedResult,
+    meglm,
+    melogit,
+    mepoisson,
+    MEGLMResult,
+    icc,
+    lrtest,
+)
 # Stochastic Frontier
-from .frontier import frontier, FrontierResult
+from .frontier import (
+    frontier, xtfrontier, FrontierResult,
+    metafrontier, MetafrontierResult,
+    malmquist, MalmquistResult, translog_design,
+    zisf, lcsf,
+    te_summary, te_rank,
+)
 # General GMM
 from .gmm import gmm
 
@@ -667,12 +684,19 @@ __all__ = [
     "sensitivity_dashboard", "SensitivityDashboard",
     "pub_ready", "PubReadyResult",
     "replicate", "list_replications",
+    "verify", "verify_recommendation", "verify_benchmark",
     # === v0.6 Round 3 ===
     "truncreg",
     "sureg", "SURResult", "three_sls",
     "panel_logit", "panel_probit",
     "panel_fgls",
     "mixed", "MixedResult",
-    "frontier", "FrontierResult",
+    "meglm", "melogit", "mepoisson", "MEGLMResult",
+    "icc", "lrtest",
+    "frontier", "xtfrontier", "FrontierResult",
+    "metafrontier", "MetafrontierResult",
+    "malmquist", "MalmquistResult", "translog_design",
+    "zisf", "lcsf",
+    "te_summary", "te_rank",
     "gmm",
 ]

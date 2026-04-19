@@ -326,7 +326,7 @@ result = rec.run()       # 一键执行推荐的方法
 
 **团队：**
 
-- **Bryce Wang** — 创始人。经济学、金融学、计算机与 AI。斯坦福 REAP。
+- **Biaoyue Wang** — 创始人。经济学、金融学、计算机与 AI。斯坦福 REAP。
 - **Dr. Scott Rozelle** — 联合创始人兼战略顾问。斯坦福高级研究员，《看不见的中国》作者。
 
 ---
@@ -347,10 +347,10 @@ pytest
 ```bibtex
 @software{wang2025statspai,
   title={StatsPAI: The Causal Inference & Econometrics Toolkit for Python},
-  author={Wang, Bryce},
-  year={2025},
+  author={Wang, Biaoyue},
+  year={2026},
   url={https://github.com/brycewang-stanford/statspai},
-  version={0.6.2}
+  version={0.9.3}
 }
 ```
 

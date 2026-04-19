@@ -48,7 +48,7 @@ def synth(
     time: str,
     treated_unit: Any = None,
     treatment_time: Any = None,
-    method: str = "classic",
+    method: str = "augmented",
     covariates: Optional[List[str]] = None,
     penalization: float = 0.0,
     placebo: bool = True,
@@ -216,13 +216,22 @@ def synth(
         )
 
     # --- Dispatch ---
-    if method in ("classic", "penalized", "ridge"):
+    if method in ("classic", "classic_adh", "adh", "penalized", "ridge"):
         if method in ("penalized", "ridge") and penalization == 0.0:
             penalization = kwargs.pop("l2_penalty", 0.01)
+        special_predictors = kwargs.pop("special_predictors", None)
+        v_method = kwargs.pop("v_method", "auto")
+        standardize_predictors = kwargs.pop("standardize_predictors", True)
+        n_random_starts = kwargs.pop("n_random_starts", 4)
         model = SyntheticControl(
             data=data, outcome=outcome, unit=unit, time=time,
             treated_unit=treated_unit, treatment_time=treatment_time,
-            covariates=covariates, penalization=penalization, alpha=alpha,
+            covariates=covariates,
+            special_predictors=special_predictors,
+            v_method=v_method,
+            standardize_predictors=standardize_predictors,
+            n_random_starts=n_random_starts,
+            penalization=penalization, alpha=alpha,
         )
         return model.fit(placebo=placebo)
 
@@ -402,23 +411,49 @@ def synth(
     )
 
 
+SpecialPredictor = Tuple[str, Any, str]  # (col, period_spec, op)
+
+
 class SyntheticControl:
     """
-    Synthetic Control estimator.
+    Canonical Synthetic Control estimator (Abadie, Diamond & Hainmueller
+    2010) with nested V-W optimization.
 
     Parameters
     ----------
     data : pd.DataFrame
-        Long-format panel (unit, time, outcome, ...).
+        Long-format panel ``(unit, time, outcome, ...)``.
     outcome, unit, time : str
         Column names.
     treated_unit : any
         Identifier of the treated unit.
     treatment_time : any
-        First treatment period.
+        First treatment period (inclusive).
     covariates : list of str, optional
+        Column names whose pre-treatment means are used as predictors for
+        the V-weighted matching problem.
+    special_predictors : list of tuple, optional
+        R/Stata ``Synth``-style predictor specifications. Each entry is
+        ``(column, period_spec, op)`` where ``period_spec`` is a scalar
+        year, a list of years, or a ``slice(start, stop)`` (inclusive),
+        and ``op`` is ``'mean'`` or ``'sum'``. When omitted together with
+        ``covariates``, the pre-treatment outcome vector itself is used as
+        the predictor (V has no identifying power and is fixed to the
+        identity, following Kaul et al. 2015).
+    v_method : {'auto', 'nested', 'equal'}, default 'auto'
+        ``'auto'`` → nested V-W when covariates / special predictors are
+        supplied, equal V otherwise. ``'nested'`` forces the outer V
+        optimisation even when only Y lags are used (note: the outer
+        problem is then under-identified, per Kaul et al. 2015). Equal
+        V reduces to the outcome-only simplex LS estimator.
+    standardize_predictors : bool, default True
+        Rescale predictors to unit range before the V optimization.
+    n_random_starts : int, default 4
+        Additional random Dirichlet starts for the outer V optimiser.
     penalization : float, default 0.0
+        Ridge penalty on donor weights.
     alpha : float, default 0.05
+        Significance level for confidence intervals.
     """
 
     def __init__(
@@ -430,6 +465,10 @@ class SyntheticControl:
         treated_unit: Any,
         treatment_time: Any,
         covariates: Optional[List[str]] = None,
+        special_predictors: Optional[List[SpecialPredictor]] = None,
+        v_method: str = "auto",
+        standardize_predictors: bool = True,
+        n_random_starts: int = 4,
         penalization: float = 0.0,
         alpha: float = 0.05,
     ):
@@ -440,6 +479,10 @@ class SyntheticControl:
         self.treated_unit = treated_unit
         self.treatment_time = treatment_time
         self.covariates = covariates or []
+        self.special_predictors = special_predictors or []
+        self.v_method = v_method
+        self.standardize_predictors = standardize_predictors
+        self.n_random_starts = n_random_starts
         self.penalization = penalization
         self.alpha = alpha
 
@@ -460,7 +503,7 @@ class SyntheticControl:
             )
 
     def _prepare_matrices(self):
-        """Pivot data into (T x J) outcome matrix."""
+        """Pivot data into (T x J) outcome matrix and build predictor tables."""
         pivot = self.data.pivot_table(
             index=self.time, columns=self.unit, values=self.outcome,
         )
@@ -482,28 +525,92 @@ class SyntheticControl:
         self.donor_units = donor_cols
         self.Y_donors = pivot[donor_cols].values  # (T, J)
 
-        # Handle NaN: drop donors with any NaN in pre-period
+        # Drop donors with any NaN in pre-period
         pre_donors = self.Y_donors[self.pre_mask]
         valid = ~np.any(np.isnan(pre_donors), axis=0)
         if valid.sum() == 0:
             raise ValueError("No valid donor units (all have NaN in pre-period)")
         self.Y_donors = self.Y_donors[:, valid]
-        self.donor_units = [self.donor_units[i] for i in range(len(self.donor_units)) if valid[i]]
+        self.donor_units = [
+            self.donor_units[i] for i in range(len(self.donor_units)) if valid[i]
+        ]
 
-        # Covariate matching matrix (pre-treatment averages)
+        # Build predictor table X (K, 1+J)
+        all_units = [self.treated_unit] + list(self.donor_units)
+        self._predictor_names: List[str] = []
+        predictor_rows: List[np.ndarray] = []
+
+        # 1. Simple covariate means over the pre-treatment window
         if self.covariates:
             pre_data = self.data[self.data[self.time] < self.treatment_time]
-            cov_treated = pre_data[pre_data[self.unit] == self.treated_unit][self.covariates].mean().values
-            cov_donors = []
-            for d in self.donor_units:
-                cov_donors.append(
-                    pre_data[pre_data[self.unit] == d][self.covariates].mean().values
+            for col in self.covariates:
+                row = []
+                for u in all_units:
+                    vals = pre_data.loc[pre_data[self.unit] == u, col]
+                    row.append(vals.mean() if len(vals) else np.nan)
+                predictor_rows.append(np.asarray(row, dtype=float))
+                self._predictor_names.append(f"{col}[mean]")
+
+        # 2. Special predictors (R/Stata-style)
+        if self.special_predictors:
+            for col, period_spec, op in self.special_predictors:
+                if col not in self.data.columns:
+                    raise ValueError(
+                        f"special_predictor column '{col}' not in data"
+                    )
+                row = []
+                years = self._resolve_period_spec(period_spec)
+                spec_df = self.data[self.data[self.time].isin(years)]
+                for u in all_units:
+                    vals = spec_df.loc[spec_df[self.unit] == u, col]
+                    if len(vals) == 0:
+                        row.append(np.nan)
+                    elif op == "mean":
+                        row.append(vals.mean())
+                    elif op == "sum":
+                        row.append(vals.sum())
+                    else:
+                        raise ValueError(
+                            f"special_predictor op must be 'mean' or 'sum', "
+                            f"got '{op}'"
+                        )
+                predictor_rows.append(np.asarray(row, dtype=float))
+                label = (
+                    f"{col}[{years[0]}]" if len(years) == 1
+                    else f"{col}[{years[0]}-{years[-1]},{op}]"
                 )
-            self.cov_treated = cov_treated
-            self.cov_donors = np.array(cov_donors).T  # (n_covs, J)
+                self._predictor_names.append(label)
+
+        if predictor_rows:
+            X_full = np.vstack(predictor_rows)           # (K, J+1)
+            if np.any(~np.isfinite(X_full)):
+                raise ValueError(
+                    "Predictor matrix contains NaN/Inf — check data coverage."
+                )
+            self.X_treated = X_full[:, 0]                # (K,)
+            self.X_donors = X_full[:, 1:]                # (K, J)
+            self._has_predictors = True
         else:
-            self.cov_treated = None
-            self.cov_donors = None
+            # No covariates / special predictors → use pre-period Y
+            # as predictors.  V optimisation is under-identified here
+            # (Kaul et al. 2015), so we'll fix V = I in _solve_weights.
+            self.X_treated = self.Y_treated[self.pre_mask].copy()
+            self.X_donors = self.Y_donors[self.pre_mask].copy()
+            self._predictor_names = [
+                f"{self.outcome}[{t}]" for t in self.times[self.pre_mask]
+            ]
+            self._has_predictors = False
+
+    def _resolve_period_spec(self, period_spec: Any) -> List[Any]:
+        """Expand scalar / list / slice specs into a concrete year list."""
+        all_times = list(self.times)
+        if isinstance(period_spec, slice):
+            start = period_spec.start if period_spec.start is not None else all_times[0]
+            stop = period_spec.stop if period_spec.stop is not None else all_times[-1]
+            return [t for t in all_times if start <= t <= stop]
+        if isinstance(period_spec, (list, tuple, np.ndarray)):
+            return list(period_spec)
+        return [period_spec]
 
     # ------------------------------------------------------------------
     # Weight optimization
@@ -513,21 +620,69 @@ class SyntheticControl:
         self,
         Y_treated_pre: np.ndarray,
         Y_donors_pre: np.ndarray,
-    ) -> np.ndarray:
+        X_treated: np.ndarray,
+        X_donors: np.ndarray,
+        run_nested: bool,
+    ) -> Dict[str, Any]:
         """
-        Find optimal donor weights by minimizing pre-treatment MSPE.
+        Nested V-W solver.
 
-        min_w ||Y_treated_pre - Y_donors_pre @ w||^2 + pen * ||w||^2
-        s.t.  w_j >= 0,  sum(w) = 1
+        * ``run_nested=True`` — full ADH(2010) outer V + inner W loop.
+        * ``run_nested=False`` — equal V, solve inner W once.  Used when
+          predictors are just the pre-period outcomes (V unidentified,
+          per Kaul et al. 2015).
+
+        Returns dict with keys ``w``, ``v``, ``loss``, ``inner_loss``,
+        ``scale``, ``n_starts``, ``converged``.
         """
-        from ._core import solve_simplex_weights
-        return solve_simplex_weights(
-            Y_treated_pre, Y_donors_pre, penalization=self.penalization,
+        from ._core import (
+            solve_synth_weights_adh,
+            _inner_w_given_v,
+            standardize_predictors,
         )
+
+        if run_nested:
+            return solve_synth_weights_adh(
+                X_treated, X_donors, Y_treated_pre, Y_donors_pre,
+                standardize=self.standardize_predictors,
+                n_random_starts=self.n_random_starts,
+                penalization=self.penalization,
+            )
+
+        # Equal V path (also used as a fast fallback)
+        if self.standardize_predictors:
+            X1s, X0s, scale = standardize_predictors(X_treated, X_donors)
+        else:
+            X1s, X0s = X_treated, X_donors
+            scale = np.ones(X_treated.shape[0])
+        K = X_treated.shape[0]
+        V = np.ones(K)
+        w = _inner_w_given_v(V, X1s, X0s, penalization=self.penalization)
+        r_outer = Y_treated_pre - Y_donors_pre @ w
+        r_inner = X1s - X0s @ w
+        return {
+            "w": w,
+            "v": V,
+            "loss": float(r_outer @ r_outer),
+            "inner_loss": float(np.sum(V * r_inner ** 2)),
+            "scale": scale,
+            "n_starts": 1,
+            "converged": True,
+        }
 
     # ------------------------------------------------------------------
     # Estimation
     # ------------------------------------------------------------------
+
+    def _should_run_nested(self) -> bool:
+        """Decide whether to run the outer V optimization."""
+        if self.v_method == "equal":
+            return False
+        if self.v_method == "nested":
+            return True
+        # 'auto': run nested iff predictors come from covariates /
+        # special predictors, not purely pre-outcome lags.
+        return self._has_predictors
 
     def fit(self, placebo: bool = True) -> CausalResult:
         """
@@ -536,7 +691,7 @@ class SyntheticControl:
         Parameters
         ----------
         placebo : bool, default True
-            Run placebo tests across all donor units.
+            Run in-space placebo tests across all donor units.
 
         Returns
         -------
@@ -545,8 +700,14 @@ class SyntheticControl:
         Y_pre_treated = self.Y_treated[self.pre_mask]
         Y_pre_donors = self.Y_donors[self.pre_mask]
 
-        # Solve for donor weights
-        weights = self._solve_weights(Y_pre_treated, Y_pre_donors)
+        run_nested = self._should_run_nested()
+        solver_out = self._solve_weights(
+            Y_pre_treated, Y_pre_donors,
+            self.X_treated, self.X_donors,
+            run_nested=run_nested,
+        )
+        weights = solver_out["w"]
+        V = solver_out["v"]
 
         # Synthetic control trajectory
         Y_synth = self.Y_donors @ weights  # (T,)
@@ -606,6 +767,26 @@ class SyntheticControl:
             'post_treatment': self.post_mask,
         })
 
+        # --- Predictor V table (ADH diagnostic) ---
+        v_df = pd.DataFrame({
+            'predictor': self._predictor_names,
+            'v_weight': V,
+        })
+
+        # --- Predictor balance table (treated vs synthetic on matching vars) ---
+        X_synth = self.X_donors @ weights
+        predictor_balance_df = pd.DataFrame({
+            'predictor': self._predictor_names,
+            'treated': self.X_treated,
+            'synthetic': X_synth,
+            'donor_mean': self.X_donors.mean(axis=1),
+        })
+
+        # --- Weight-concentration diagnostics ---
+        w_active = weights[weights > 1e-6]
+        hhi = float(np.sum(weights ** 2))
+        n_effective = 1.0 / hhi if hhi > 0 else 0.0
+
         # --- Model info ---
         model_info: Dict[str, Any] = {
             'n_donors': len(self.donor_units),
@@ -617,10 +798,18 @@ class SyntheticControl:
             'treatment_time': self.treatment_time,
             'treated_unit': self.treated_unit,
             'weights': weight_df,
+            'v_weights': v_df,
+            'predictor_balance': predictor_balance_df,
             'gap_table': gap_df,
             'Y_synth': Y_synth,
             'Y_treated': self.Y_treated,
             'times': self.times,
+            'v_method': 'nested' if run_nested else 'equal',
+            'n_starts': solver_out['n_starts'],
+            'converged': solver_out['converged'],
+            'n_active_donors': int(len(w_active)),
+            'weight_hhi': round(hhi, 4),
+            'effective_n_donors': round(n_effective, 2),
         }
 
         if len(placebo_atts) > 0:
@@ -650,15 +839,15 @@ class SyntheticControl:
         """
         Run placebo SCM for each donor unit (in-space placebo).
 
+        Placebo predictor matrices are rebuilt per unit so covariates /
+        special predictors are re-averaged on the right unit set.
+
         Returns
         -------
-        dict with keys:
-            atts : list[float]          — placebo ATTs
-            pre_mspes : list[float]     — pre-treatment MSPEs
-            post_mspes : list[float]    — post-treatment MSPEs
-            ratios : list[float]        — post_RMSPE / pre_RMSPE
-            gaps : np.ndarray           — (T, n_placebos) full gap trajectories
-            units : list                — placebo unit names
+        dict with keys
+            atts, pre_mspes, post_mspes, ratios : list
+            gaps : np.ndarray (T, n_placebos)
+            units : list
         """
         atts: List[float] = []
         pre_mspes: List[float] = []
@@ -670,19 +859,38 @@ class SyntheticControl:
         all_units_data = np.column_stack([
             self.Y_treated[:, np.newaxis], self.Y_donors
         ])
+        # Placebo predictor matrix: column 0 = treated, 1..J = donors
+        X_all = np.column_stack([self.X_treated[:, None], self.X_donors])
+
+        run_nested = self._should_run_nested()
 
         for i, placebo_unit in enumerate(self.donor_units):
-            # Treat this donor as "treated", rest as donors
-            idx_placebo = i + 1  # +1 because treated is at index 0
+            idx_placebo = i + 1  # treated at column 0
             Y_placebo = all_units_data[:, idx_placebo]
-            donor_idx = [j for j in range(all_units_data.shape[1]) if j != idx_placebo]
+            donor_idx = [
+                j for j in range(all_units_data.shape[1]) if j != idx_placebo
+            ]
             Y_placebo_donors = all_units_data[:, donor_idx]
 
             Y_pre_p = Y_placebo[self.pre_mask]
             Y_pre_d = Y_placebo_donors[self.pre_mask]
 
+            # Swap predictor columns accordingly
+            X_placebo = X_all[:, idx_placebo]
+            X_placebo_donors = X_all[:, donor_idx]
+            # When no covariates were given, X = pre-outcome of the
+            # placebo unit (which just swapped).
+            if not self._has_predictors:
+                X_placebo = Y_pre_p
+                X_placebo_donors = Y_pre_d
+
             try:
-                w = self._solve_weights(Y_pre_p, Y_pre_d)
+                sol = self._solve_weights(
+                    Y_pre_p, Y_pre_d,
+                    X_placebo, X_placebo_donors,
+                    run_nested=run_nested,
+                )
+                w = sol["w"]
                 synth_p = Y_placebo_donors @ w
                 gap_p = Y_placebo - synth_p
 

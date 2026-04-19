@@ -17,6 +17,8 @@ from .assumptions import assumption_audit, AssumptionResult
 from .sensitivity import sensitivity_dashboard, SensitivityDashboard
 from .publication import pub_ready, PubReadyResult
 from .replicate import replicate, list_replications
+from .verify import verify_recommendation
+from .benchmark import verify_benchmark
 
 __all__ = [
     "recommend", "RecommendationResult",
@@ -25,4 +27,5 @@ __all__ = [
     "sensitivity_dashboard", "SensitivityDashboard",
     "pub_ready", "PubReadyResult",
     "replicate", "list_replications",
+    "verify_recommendation", "verify_benchmark",
 ]
