@@ -36,6 +36,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from scipy.optimize import minimize
+from scipy.special import logsumexp
 
 from . import _core as _fc
 from .sfa import FrontierResult, frontier as _cs_frontier
@@ -74,16 +75,38 @@ def xtfrontier(
     id : str
         Panel unit identifier.
     time : str, optional
-        Time variable (required for ``model='tvd'``).
-    model : {'ti', 'tvd', 'bc95'}
-        ``'ti'``  Pitt-Lee (1981) time-invariant.
-        ``'tvd'`` Battese-Coelli (1992) time-varying decay.
-        ``'bc95'`` Battese-Coelli (1995) inefficiency effects model.
+        Time variable (required for ``model='tvd'`` and recommended for
+        all panel models; falls back to observation order otherwise).
+    model : {'ti', 'tvd', 'bc95', 'tfe', 'tre'}
+        ``'ti'``   Pitt-Lee (1981) time-invariant inefficiency.
+        ``'tvd'``  Battese-Coelli (1992) time-varying decay.
+        ``'bc95'`` Battese-Coelli (1995) inefficiency effects model
+        (requires ``emean``).
+        ``'tfe'``  Greene (2005) True Fixed Effects: unit dummies +
+        cross-sectional composed error.  Recommended for T >= ~10.
+        ``'tre'``  Greene (2005) True Random Effects:
+        ``alpha_i ~ N(0, sigma_alpha^2)`` integrated out by
+        Gauss-Hermite quadrature.
     dist : {'half-normal', 'truncated-normal'}
-        For ``ti`` and ``tvd``.  BC95 always uses truncated-normal.
+        For ``ti``, ``tvd``, ``tfe``, ``tre``.  BC95 always uses TN.
     cost : bool, default False
     emean : list of str, optional
         Required for ``model='bc95'``; inefficiency determinants ``z_it``.
+    vce : {'oim', 'opg', 'robust', 'cluster'}, default 'oim'
+        Variance-covariance estimator.  ``'oim'`` uses the inverse
+        observed information.  ``'opg'`` is the outer product of
+        gradients (BHHH).  ``'robust'`` is the sandwich
+        ``H^-1 (S'S) H^-1``.  Passing ``cluster=`` implies cluster-robust
+        SEs (Liang-Zeger 1986).  Note: ``vce='bootstrap'`` is only
+        available on the cross-sectional :func:`frontier`; for panel
+        models use ``'robust'`` with ``cluster=id`` instead.
+    cluster : str, optional
+        Column name for cluster-robust SEs.  Defaults to ``id`` whenever
+        ``vce != 'oim'`` (the natural grouping for panels).
+    bias_correct : bool, default False
+        TFE-only.  If True, applies Dhaene-Jochmans (2015) split-panel
+        jackknife to reduce the O(1/T) incidental-parameters bias on
+        ``beta`` and ``sigma_u``.
     maxiter, tol, alpha : see :func:`frontier`.
 
     Returns
@@ -207,6 +230,15 @@ def _fit_ti_tvd(
     cluster: Optional[str] = None,
 ) -> FrontierResult:
     vce = vce.lower()
+    if vce == "bootstrap":
+        raise NotImplementedError(
+            "vce='bootstrap' is not supported for panel models "
+            "('ti'/'tvd'); the group log-likelihood structure makes "
+            "row-level bootstrap invalid. Use vce='robust' (or "
+            "vce='cluster' with cluster=id) for panel-robust SEs, or "
+            "switch to the cross-sectional frontier() if a bootstrap "
+            "is essential."
+        )
     if vce not in {"oim", "opg", "robust"}:
         raise ValueError(f"Unknown vce={vce!r}.")
     if cluster is not None and vce == "oim":
@@ -622,6 +654,31 @@ def _fit_tfe(
     times_second = set(times[half:])
     mask1 = df[time_col].isin(times_first)
     mask2 = df[time_col].isin(times_second)
+
+    # Unit-level guard: for unbalanced / short panels, a unit may land in
+    # one half with only 1 observation, which makes the firm-dummy TFE
+    # likelihood degenerate (the dummy absorbs the single residual
+    # perfectly, sigma collapses). Refuse to bias-correct in that case
+    # rather than silently emit nonsense.
+    t_per_unit_1 = df.loc[mask1.values].groupby(id_col).size()
+    t_per_unit_2 = df.loc[mask2.values].groupby(id_col).size()
+    min_t1 = int(t_per_unit_1.min()) if len(t_per_unit_1) else 0
+    min_t2 = int(t_per_unit_2.min()) if len(t_per_unit_2) else 0
+    if min_t1 < 2 or min_t2 < 2:
+        import warnings as _warnings
+        _warnings.warn(
+            f"bias_correct=True: at least one unit has T_i<2 in a "
+            f"half-panel (min_T first={min_t1}, second={min_t2}); "
+            "skipping Dhaene-Jochmans jackknife to avoid degenerate fit. "
+            "Use a longer/more balanced panel for unbiased correction.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        res.model_info["bias_correct"] = (
+            "skipped (degenerate half-panel, min_T<2)"
+        )
+        return res
+
     df1 = df_ext[mask1.values].reset_index(drop=True)
     df2 = df_ext[mask2.values].reset_index(drop=True)
     # Refit on each half.
@@ -632,8 +689,9 @@ def _fit_tfe(
                         vce="oim", cluster=None,
                         maxiter=maxiter, tol=tol, alpha=alpha)
     # Guard against degenerate splits: if either half's ln_sigma parameter
-    # sits on the optimizer bound, BC on that parameter is untrustworthy
-    # (documented DJ caveat for very short T).  Keep only x coefficients.
+    # sits on *either* optimizer bound, BC on that parameter is untrustworthy
+    # (documented DJ caveat for very short T). Upper bound catches the
+    # sigma-explode case where a unit dummy absorbs all signal.
     corrected = {}
     for name in list(x):
         if name in res1.params.index and name in res2.params.index:
@@ -642,10 +700,12 @@ def _fit_tfe(
             corrected[name] = 2.0 * full - avg
 
     sigma_bound_low = -11.5
+    sigma_bound_high = 4.5  # optimizer caps ln_sigma at 5.0
     sigmas_ok = True
     for name in ("ln_sigma_v", "ln_sigma_u"):
         for r in (res1, res2):
-            if r.params[name] < sigma_bound_low:
+            p = r.params[name]
+            if p < sigma_bound_low or p > sigma_bound_high:
                 sigmas_ok = False
     if sigmas_ok:
         for name in ("ln_sigma_v", "ln_sigma_u"):
@@ -657,7 +717,7 @@ def _fit_tfe(
         res.params[k] = v
     res.model_info["bias_correct"] = (
         "Dhaene-Jochmans 2015 split-panel jackknife"
-        + ("" if sigmas_ok else " (sigmas skipped: split degenerate)")
+        + ("" if sigmas_ok else " (sigmas skipped: split on bound)")
     )
     return res
 
@@ -750,11 +810,9 @@ def _fit_tre(
                 group_idx, weights=log_f[k], minlength=N
             )
         log_contrib = np.log(weights)[:, None] + log_f_group  # (n_quad, N)
-        # Log-sum-exp over quadrature nodes, group-by-group.
-        M = log_contrib.max(axis=0)
-        ll_group = M + np.log(
-            np.sum(np.exp(log_contrib - M[None, :]), axis=0)
-        ) - 0.5 * np.log(np.pi)
+        # scipy logsumexp handles the all-(-inf) corner (returns -inf rather
+        # than NaN from exp(-inf - (-inf)) = exp(nan) in a hand-rolled form).
+        ll_group = logsumexp(log_contrib, axis=0) - 0.5 * np.log(np.pi)
         return ll_group
 
     def neg_loglik(theta):
@@ -818,10 +876,14 @@ def _fit_tre(
                 vcov = _fc.robust_vcov(H, group_scores, cluster_idx=meta_idx)
     se = np.sqrt(np.clip(np.diag(vcov), 0.0, None))
 
-    # Compute per-observation efficiency by integrating over posterior alpha | e_i.
-    # For simplicity use unconditional marginal E[exp(-u_it)] (same for all obs).
-    # Obs-level JLMS using eps - E[alpha | e_i] is more accurate but omitted
-    # here; expose the marginal for dashboards.
+    # TRE efficiency: for simplicity the marginal E[exp(-u_it)] is reported
+    # as a single scalar broadcast to all observations. The proper
+    # posterior-conditional score E[exp(-u_it) | e_i] (integrating alpha
+    # out) is not implemented here — doing so would require a second
+    # Gauss-Hermite pass per observation. Users calling
+    # ``res.efficiency()`` on a TRE result therefore see *constant*
+    # scores; we surface a warning from summary()/efficiency() via the
+    # ``panel_model='tre'`` flag in model_info.
     beta_hat = theta_hat[:k_beta]
     eps_hat = y_vec - X_mat @ beta_hat
     E_u_marg = sigma_u * np.sqrt(2.0 / np.pi) if dist == "half-normal" else sigma_u
@@ -861,6 +923,15 @@ def _fit_tre(
             "converged": bool(result.success),
             "vce": vce_l if (cluster is None or cluster == id_col)
                    else f"cluster({cluster})",
+            # Tell FrontierResult.efficiency() / summary() that per-obs
+            # efficiency is a broadcast marginal, not a posterior score,
+            # so callers can be warned rather than silently read a
+            # constant vector.
+            "efficiency_kind": "tre_marginal",
+            "efficiency_note": (
+                "TRE reports marginal E[exp(-u)] broadcast to all obs; "
+                "posterior E[exp(-u)|e_i] integration not implemented."
+            ),
         },
         data_info={
             "n_obs": n,

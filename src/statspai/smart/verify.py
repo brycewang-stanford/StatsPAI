@@ -1,33 +1,42 @@
 """
-Empirical verification for estimator recommendations.
+Resampling-stability checks for estimator recommendations.
 
-The ``recommend()`` engine is a rule-based decision tree: given data shape
-and research design, it returns ranked methods as a *prior*. This module
-adds a *posterior* signal by running each recommended method on resamples
-of the actual data and scoring:
+The ``recommend()`` engine is a rule-based decision tree: given data
+shape and research design, it returns ranked methods as a *prior*.
+This module runs each recommended method on resamples of the observed
+data and produces a composite **stability_score** in [0, 100]:
 
 1. **Bootstrap stability** — coefficient of variation across B bootstraps.
-   Low CV → method gives consistent estimates under resampling.
-2. **Placebo pass** — p-value under permuted treatment. Should be >α
-   (no spurious effect when treatment is randomly shuffled).
+   Low CV → estimate is stable under row/cluster resampling.
+2. **Placebo pass rate** — share of permuted-treatment runs with p>0.10.
+   Note: unconditional permutation destroys confounder structure and
+   therefore has limited power for selection-on-observables designs.
 3. **Subsample agreement** — sign agreement across K random 50% splits.
    High agreement → robust to sample composition.
 
-These are combined into a ``verify_score`` in [0, 100] used only to
-re-rank the top-k recommendations. The rule-based design detection is
-untouched — this is *additive* empirical evidence, not a replacement.
+WHAT THIS SCORE IS NOT
+----------------------
+The composite is a **stability** score, not a validity score. It does
+NOT establish:
+
+- that identifying assumptions hold (unconfoundedness, parallel trends,
+  exclusion restrictions, continuity at the cutoff, ...);
+- that the method is unbiased for the estimand of interest;
+- that the method beats alternatives on MSE against ground truth.
+
+A biased estimator on observational data can be perfectly stable, pass
+the (unconditional) placebo test, and agree across subsamples — and
+score near 100. Treat this score as "does the method behave predictably
+on this dataset," not as empirical evidence that it is correct.
 
 Design notes
 ------------
 - Opt-in only (``verify=False`` default in ``recommend()``).
 - Time budget enforced; B automatically reduced if base method is slow.
 - Failures per-method are caught — one bad fit does not poison the run.
-- No ground-truth required: all signals are derivable from the data
-  itself, so this works for any dataset the user brings.
-
-This is NOT a claim of "which method has lowest RMSE" — without a true
-counterfactual we cannot measure accuracy. It measures *behavior under
-resampling* on the data you have.
+- Independent RNG streams for bootstrap / placebo / subsample so that
+  results are reproducible even when the bootstrap budget is exhausted
+  early.
 """
 
 from __future__ import annotations
@@ -228,10 +237,24 @@ def _placebo_pass(
     """Permutation test: shuffle treatment, expect null.
 
     Returns share of placebo runs where p>0.10 (correctly non-significant).
+
+    Three distinct outcomes:
+    - ``applicable=False`` (score=NaN): treatment column not identifiable
+      from the recommendation — placebo cannot run at all. This drops
+      the component from the composite average (NaN-safe).
+    - ``applicable=True, total=0`` (score=0): placebo ran but no p-value
+      could be extracted from any rep. We score 0 rather than NaN so
+      methods that silently lack a p-value are penalised rather than
+      escaping the placebo check via NaN renormalisation.
+    - ``applicable=True, total>0`` (score in [0,100]): normal path.
     """
     treat_col = _get_treat_col(rec, data)
     if not treat_col or treat_col not in data.columns:
-        return {"score": np.nan, "passed": 0, "total": 0}
+        # Genuinely not applicable — e.g. RD, where "treatment" isn't a
+        # permutable column. Return NaN so the composite drops it.
+        return {
+            "score": np.nan, "passed": 0, "total": 0, "applicable": False
+        }
 
     id_col = _get_id_col(rec)
     n_pass = 0
@@ -240,7 +263,9 @@ def _placebo_pass(
 
     func = getattr(sp, rec["function"], None)
     if func is None:
-        return {"score": np.nan, "passed": 0, "total": 0}
+        return {
+            "score": np.nan, "passed": 0, "total": 0, "applicable": False
+        }
 
     for _ in range(n_reps):
         permuted = data.copy()
@@ -274,8 +299,17 @@ def _placebo_pass(
         except Exception:
             continue
 
-    score = 100.0 * n_pass / n_total if n_total else np.nan
-    return {"score": score, "passed": n_pass, "total": n_total}
+    if n_total:
+        score = 100.0 * n_pass / n_total
+    else:
+        # Placebo is applicable (treatment column resolved, method
+        # callable) but no p-value could be extracted. Penalise this
+        # case with score=0 so it doesn't silently escape via NaN.
+        score = 0.0
+    return {
+        "score": score, "passed": n_pass, "total": n_total,
+        "applicable": True,
+    }
 
 
 def _subsample_agreement(
@@ -337,10 +371,20 @@ def verify_recommendation(
 
     Returns
     -------
-    dict with keys: ``score`` (0-100 overall), ``stability``,
-    ``placebo``, ``subsample``, ``elapsed_s``, ``B_used``.
+    dict with keys: ``score`` (0-100 stability composite, NOT a
+    validity score), ``stability``, ``placebo``, ``subsample``,
+    ``elapsed_s``, ``B_used``.
+
+    Notes
+    -----
+    The score measures resampling behavior, not identification
+    validity. A biased estimator can score high. See module docstring.
     """
-    rng = np.random.default_rng(seed)
+    # Independent RNG streams per component so that non-determinism in
+    # bootstrap timing does not leak into placebo/subsample draws.
+    rng_boot = np.random.default_rng(seed)
+    rng_placebo = np.random.default_rng(seed + 1)
+    rng_sub = np.random.default_rng(seed + 2)
     t_start = time.perf_counter()
 
     # First probe base runtime so we can cap B within budget
@@ -367,9 +411,9 @@ def verify_recommendation(
         B_used = min(B, max_B)
 
     deadline = t_start + boot_budget
-    stability = _bootstrap_stability(rec, data, B_used, rng, deadline)
-    placebo = _placebo_pass(rec, data, rng, n_reps=n_placebo)
-    subsample = _subsample_agreement(rec, data, K=K_subsample, rng=rng)
+    stability = _bootstrap_stability(rec, data, B_used, rng_boot, deadline)
+    placebo = _placebo_pass(rec, data, rng_placebo, n_reps=n_placebo)
+    subsample = _subsample_agreement(rec, data, K=K_subsample, rng=rng_sub)
 
     # Combine: weights reflect our confidence in each signal
     weights = []

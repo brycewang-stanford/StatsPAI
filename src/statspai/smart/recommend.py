@@ -82,16 +82,17 @@ class RecommendationResult:
             v = rec.get('verify')
             if v:
                 if v.get('error'):
-                    lines.append(f"    Verify: skipped ({v['error']})")
+                    lines.append(f"    Stability: skipped ({v['error']})")
                 elif np.isfinite(v.get('score', np.nan)):
                     stab = v.get('stability', {}).get('score', np.nan)
                     plac = v.get('placebo', {}).get('score', np.nan)
                     subs = v.get('subsample', {}).get('score', np.nan)
                     lines.append(
-                        f"    Verify: score={v['score']:.0f}/100  "
-                        f"(stability={stab:.0f}, placebo={plac:.0f}, "
+                        f"    Stability: score={v['score']:.0f}/100  "
+                        f"(resample={stab:.0f}, placebo={plac:.0f}, "
                         f"subsample={subs:.0f}, B={v.get('B_used','?')}, "
-                        f"{v.get('elapsed_s',0):.1f}s)"
+                        f"{v.get('elapsed_s',0):.1f}s)  "
+                        f"[measures resampling stability, NOT identification validity]"
                     )
 
         lines.append(f"\n{'─' * 70}")
@@ -108,9 +109,18 @@ class RecommendationResult:
         r"""Export recommendations as a booktabs LaTeX table.
 
         If ``verify=True`` was used when calling ``recommend()``, the
-        table includes the empirical verification columns (score,
-        bootstrap stability, placebo pass-rate, subsample agreement) —
-        suitable for dropping into a paper appendix.
+        table includes the stability-check columns (composite score,
+        bootstrap stability, placebo pass-rate, subsample agreement).
+
+        IMPORTANT CAVEAT FOR AUTHORS:
+        The stability score measures whether a method gives **consistent**
+        estimates under resampling on the observed data — it does NOT
+        establish identification validity or protect against unobserved
+        confounding. A biased OLS on observational data will typically
+        score high because the bias is stable across resamples.  Do not
+        cite this score as evidence that a method is "correct" for a
+        given design; use it only to compare the stability of methods
+        that already satisfy the design's identification assumptions.
 
         Parameters
         ----------
@@ -145,7 +155,7 @@ class RecommendationResult:
 
         if has_verify:
             header = (r"Rank & Method & Function & "
-                      r"Score & Stab. & Plac. & Subs. \\")
+                      r"Stab.\ Score & Resample & Plac. & Subs. \\")
             col_spec = "rllrrrr"
         else:
             header = r"Rank & Method & Function & Reason \\"
@@ -194,13 +204,19 @@ class RecommendationResult:
         ])
         if has_verify:
             lines.extend([
-                r"\item \textbf{Score}: weighted composite in [0, 100] "
-                r"(higher = more empirical support).",
-                r"\item \textbf{Stab.}: bootstrap stability "
+                r"\item \textbf{Stab.\ Score}: weighted composite in [0, 100]"
+                r" measuring estimate \emph{stability} under resampling;"
+                r" \emph{not} a measure of identification validity.",
+                r"\item \textbf{Resample}: bootstrap stability "
                 r"($100 \times (1 - \text{CV})$ of point estimate across $B$ resamples).",
-                r"\item \textbf{Plac.}: placebo pass rate "
-                r"(\% of permuted-treatment runs with $p > 0.10$).",
+                r"\item \textbf{Plac.}: permutation placebo pass rate "
+                r"(\% of permuted-treatment runs with $p > 0.10$). "
+                r"Note: unconditional permutation destroys confounder "
+                r"structure and thus has limited power for "
+                r"selection-on-observables designs.",
                 r"\item \textbf{Subs.}: sign agreement across 50\% subsamples.",
+                r"\item \textbf{Caveat}: high stability is necessary but not"
+                r" sufficient; a biased estimator can be perfectly stable.",
                 r"\item Data: " + _esc(f"N={self.data_profile['n_obs']:,}") +
                 (f", {self.data_profile.get('n_units', '?')} units "
                  f"$\\times$ {self.data_profile.get('n_periods', '?')} periods"
@@ -405,10 +421,16 @@ def recommend(
     dag : DAG, optional
         Causal DAG for identification analysis.
     verify : bool, default False
-        If True, empirically verify the top-k recommendations on the actual
-        data via bootstrap stability, placebo test, and subsample agreement.
-        Results are attached to each recommendation as ``verify_score`` and
-        used to re-rank the top-k. Opt-in because it costs extra compute.
+        If True, run *resampling-stability* checks on the top-k
+        recommendations (bootstrap CV, permutation placebo, 50%-subsample
+        sign agreement) and attach a composite ``score`` to each
+        recommendation's ``verify`` dict. The score is used to re-rank
+        the top-k. Opt-in because it costs extra compute.
+
+        IMPORTANT: this score measures whether estimates are **stable**
+        under resampling, NOT whether the method satisfies the design's
+        identification assumptions. A biased method on observational
+        data can score near 100. See ``statspai.smart.verify`` docstring.
     verify_B : int, default 50
         Bootstrap replications per recommendation (auto-capped by budget).
     verify_budget_s : float, default 30.0

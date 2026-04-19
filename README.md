@@ -15,29 +15,20 @@ StatsPAI is the **agent-native** Python package for causal inference and applied
 
 It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 
-**🎉 NEW in v0.9.2 — Decomposition Analysis: Most Comprehensive Decomposition Toolkit in Python**
+**🎉 NEW in v0.9.3 — Econometric Overhaul: Stochastic Frontier + Mixed Models + 3 New Causal Pillars**
 
-**18 first-class decomposition methods across 13 modules (~6,200 LOC, 54 tests)**, unified under one `sp.decompose(method=...)` dispatcher. Python's first (and most complete) implementation of the full decomposition stack — mean, distributional, inequality, demographic, and causal. Beats Stata (`oaxaca`/`ddecompose`/`cdeco`/`rifhdreg`/`mvdcmp`/`fairlie`) and R (`Counterfactual`/`ddecompose`/`oaxaca`/`dineq`) in scope with one API, one result class, three inference modes (analytical / bootstrap / none).
+Three simultaneous deep overhauls plus author-attribution correction. **⚠️ Critical correctness fix** in `sp.frontier`: a latent Jondrow posterior sign error in all prior versions produced systematically biased efficiency scores; the `dist='exponential'` path additionally returned NaN for unit efficiency. **Re-run any prior frontier analyses.**
 
-| Family | Methods |
+| Area | Highlights |
 |---|---|
-| **Mean** | `oaxaca` (Blinder-Oaxaca threefold, 5 reference coefficients), `gelbach` (sequential OVB, Gelbach 2016), `fairlie` (nonlinear logit/probit), `bauer_sinning` / `yun_nonlinear` (detailed nonlinear) |
-| **Distributional** | `rifreg` / `rif_decomposition` (Firpo-Fortin-Lemieux 2009), `ffl_decompose` (FFL 2018 two-step), `dfl_decompose` (DiNardo-Fortin-Lemieux 1996 reweighting), `machado_mata` (MM 2005 simulation), `melly_decompose` (Melly 2005 analytical), `cfm_decompose` (Chernozhukov-Fernández-Val-Melly 2013) |
-| **Inequality** | `subgroup_decompose` (Theil T/L, GE(α), Dagum Gini, Atkinson, CV²), `shapley_inequality` (Shorrocks 2013), `source_decompose` (Lerman-Yitzhaki 1985) |
-| **Demographic** | `kitagawa_decompose` (1955), `das_gupta` (1993 multi-factor symmetric) |
-| **Causal** | `gap_closing` (Lundberg 2021, regression/IPW/AIPW), `mediation_decompose` (VanderWeele 2014 NDE/NIE), `disparity_decompose` (Jackson-VanderWeele 2018) |
+| **Stochastic Frontier** (`sp.frontier` / `sp.xtfrontier`) | Stata/R parity + more: heteroskedastic `usigma` / `vsigma` / `emean`, Battese-Coelli (1988) TE, LR mixed-χ̄² test, bootstrap unit-efficiency CIs. Panel: Pitt-Lee, BC92, BC95, Greene (2005) TFE/TRE with Dhaene-Jochmans (2015) jackknife bias correction. `vce='opg' / 'robust' / 'cluster' / 'bootstrap'`, metafrontier, conditional `predict()`, RTS. **New:** `sp.zisf` (Zero-Inefficiency SFA), `sp.lcsf` (Latent-Class SFA), `sp.malmquist` (Malmquist TFP index, M = EC × TC), `sp.translog_design` (translog helper). |
+| **Multilevel / Mixed-Effects** (`sp.multilevel`) | lme4/Stata `mixed` parity: unstructured random-effect covariance (new default), three-level nested models, BLUP posterior SEs, Nakagawa-Schielzeth R². **New:** `sp.melogit` / `sp.mepoisson` / `sp.meglm` (Laplace GLMMs), `sp.icc` (delta-method CI), `sp.lrtest` (Self-Liang χ̄² boundary correction). |
+| **Econometric Trinity** (P0 Pillars) | **`sp.dml(model='pliv')`** — DML Partially Linear IV (Chernozhukov et al. 2018) with cross-fitted nuisances. **`sp.mixlogit`** — Random-coefficient MNL via simulated ML with Halton draws (Python's first full implementation). **`sp.ivqreg`** — Chernozhukov-Hansen IV quantile regression via inverse-QR profile. |
+| **Smart workflow** | **`sp.verify`** / **`sp.verify_benchmark`** — posterior verification engine for `sp.recommend()` outputs. Aggregates bootstrap stability + placebo pass rate + subsample agreement into a `verify_score ∈ [0, 100]`. Opt-in via `recommend(verify=True)`. |
 
-```python
-import statspai as sp
+Multilevel, frontier, and econ-trinity passed independent oracle + code-reviewer audits (multilevel: 4 BLOCKER + 5 HIGH fixed; econ-trinity: 4 BLOCKER + 7 HIGH fixed; frontier: self-audit fixed Mills-tail, TVD-loop, cost-panel, summary-dump). Author attribution corrected to **Biaoyue Wang**.
 
-# One unified entrypoint — 30 aliases supported
-result = sp.decompose(method='ffl', data=df, y='log_wage',
-                      group='female', x=['education', 'experience'],
-                      stat='quantile', tau=0.5)
-result.summary(); result.plot(); result.to_latex()
-```
-
-Closed-form influence functions for Theil / Atkinson (no O(n²) fallback); weighted O(n log n) Dagum Gini via sorted-ECDF; cross-method consistency checks (DFL↔FFL mean agreement, MM↔Melly↔CFM reference alignment).
+**Previously in v0.9.2 — Decomposition Analysis**: **18 first-class decomposition methods across 13 modules (~6,200 LOC, 54 tests)**, unified under `sp.decompose(method=...)`. Mean (Blinder-Oaxaca/Gelbach/Fairlie/Bauer-Sinning/Yun), distributional (RIF/FFL/DFL/Machado-Mata/Melly/CFM), inequality (Theil/Atkinson/Dagum/Shapley/Lerman-Yitzhaki), demographic (Kitagawa/Das-Gupta), and causal (gap_closing/mediation_decompose/disparity_decompose). Closed-form influence functions for Theil/Atkinson, weighted O(n log n) Dagum Gini, cross-method consistency checks.
 
 **Previously in v0.9.1 — Regression Discontinuity**: **18+ RD estimators, diagnostics, and inference methods across 14 modules (~10,300 LOC)** — now the most feature-complete RD package in any language. Covers CCT sharp/fuzzy/kink, 2D/boundary RD (`rd2d`), RDIT, multi-cutoff & multi-score, honest CIs (Armstrong-Kolesar), local randomization (`rdrandinf`/`rdwinselect`/`rdsensitivity`), CJM density tests, Rosenbaum bounds, CATE via `rdhte` + ML variants (`rd_forest`/`rd_boost`/`rd_lasso`), external-validity extrapolation (Angrist-Rokkanen), power (`rdpower`/`rdsampsi`), and a one-click `sp.rdsummary()` dashboard. 97 RD tests pass; `rd/_core.py` consolidates kernel/WLS/sandwich primitives from 9 files into one 191-line canonical module.
 
@@ -626,6 +617,34 @@ Plot Editor:    interactive (WYSIWYG editor), set_theme (29 academic themes)
 ---
 
 ## Release Notes
+
+### v0.9.3 (2026-04-19) — Stochastic Frontier + Multilevel + Econometric Trinity
+
+14 commits since 0.9.2. See [CHANGELOG](CHANGELOG.md) for full detail.
+
+**⚠️ Critical correctness fix in `sp.frontier`.** A latent Jondrow-posterior sign error in all prior versions (≤ 0.9.2) produced systematically biased efficiency scores; the `dist='exponential'` path additionally returned NaN for unit efficiency. **Re-run any prior frontier analyses.**
+
+**1. Stochastic Frontier — full Stata/R parity and beyond.** `sp.frontier` + `sp.xtfrontier` rewritten (~2,700 LOC).
+
+- **Cross-sectional**: heteroskedastic inefficiency `usigma=[...]` (Caudill-Ford-Gropper 1995), heteroskedastic noise `vsigma=[...]` (Wang 2002), inefficiency determinants `emean=[...]` (Kumbhakar-Ghosh-McGuckin 1991); Battese-Coelli (1988) `E[exp(-u)|ε]` alongside JLMS; LR mixed-χ̄² test (Kodde-Palm 1986); parametric-bootstrap unit-efficiency CIs.
+- **Panel**: Pitt-Lee (1981) time-invariant; Battese-Coelli (1992) time-decay; Battese-Coelli (1995) full-flexibility; Greene (2005) TFE/TRE; Dhaene-Jochmans (2015) split-panel jackknife bias correction via `xtfrontier(..., model='tfe', bias_correct=True)`.
+- **New advanced frontiers**: **`sp.zisf`** — Zero-Inefficiency SFA mixture (Kumbhakar-Parmeter-Tsionas 2013); **`sp.lcsf`** — 2-class Latent-Class SFA (Orea-Kumbhakar 2004 / Greene 2005).
+- **Productivity**: **`sp.malmquist`** — Färe-Grosskopf-Lindgren-Roos (1994) Malmquist TFP index with M = EC × TC decomposition; **`sp.translog_design`** — Cobb-Douglas → Translog design-matrix helper.
+- **Inference + post-estimation**: `vce='opg' / 'robust' / 'cluster' / 'bootstrap'` with Monte-Carlo coverage check; conditional `predict()`, returns-to-scale, `usigma` / `emean` marginal effects, metafrontier.
+
+**2. Multilevel / Mixed-Effects — `sp.multilevel` rewritten.** From a 400-LOC two-level single file to a ~2,500-LOC sub-package with lme4/Stata `mixed` parity. `sp.mixed` now defaults to unstructured random-effect covariance, supports three-level nested models (`group=['school','class']`), BLUP posterior SEs, Nakagawa-Schielzeth R², caterpillar plots. New top-level: **`sp.melogit`** / **`sp.mepoisson`** / **`sp.meglm`** (Laplace GLMMs), **`sp.icc`** (delta-method CI), **`sp.lrtest`** (Self-Liang χ̄² boundary correction). Verified against `statsmodels.MixedLM` to 4 decimal places.
+
+**3. Econometric Trinity — three new P0 pillars** (~1,170 LOC).
+
+- **`sp.dml(model='pliv', instrument=...)`** — Partially Linear IV (Chernozhukov et al. 2018, §4.2) with Neyman-orthogonal score and cross-fitted `g`/`m`/`r` nuisances; influence-function SEs.
+- **`sp.mixlogit`** — Random-coefficient MNL via simulated ML with Halton draws. Normal / log-normal / triangular mixing; diagonal or Cholesky covariance; panel repeated-choice; OPG-sandwich SEs. Python's first feature-complete implementation.
+- **`sp.ivqreg`** — Chernozhukov-Hansen IV quantile regression via inverse-QR profile. Grid + Brent (scalar endogenous); BFGS on `b̂(α)` (multi-dim); pairs-bootstrap SEs.
+
+**4. Smart workflow — posterior verification.** **`sp.verify`** / **`sp.verify_benchmark`** — aggregates bootstrap stability + placebo pass rate + subsample agreement into a `verify_score ∈ [0, 100]` for any `sp.recommend()` output. Opt-in via `recommend(verify=True)`; zero overhead when off.
+
+**Quality bar.** Multilevel passed oracle + code-reviewer audit (4 BLOCKER + 5 HIGH fixed); econ-trinity passed self-audit (4 BLOCKER + 7 HIGH fixed); frontier self-audit fixed Mills-tail, TVD-loop, cost-panel, summary-dump issues. Test count: 93/93 frontier, 18/18 smart, 10/10 econ-trinity pass.
+
+**Meta.** Author attribution corrected from "Bryce Wang" to **"Biaoyue Wang"** in `pyproject.toml`, `__author__`, English/Chinese READMEs, `docs/index.md`, and `mkdocs.yml` (JOSS `paper.md` was already correct).
 
 ### v0.9.2 (2026-04-16) — Decomposition Analysis Mega-Release
 

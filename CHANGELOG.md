@@ -2,7 +2,25 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased] — Stochastic Frontier Analysis Overhaul
+## [0.9.3] - 2026-04-19 — Stochastic Frontier + Multilevel + Econometric Trinity
+
+**Overview.** This release bundles three simultaneous deep overhauls plus an
+author-metadata correction:
+
+1. **Stochastic Frontier Analysis** — `sp.frontier` / `sp.xtfrontier` rewritten
+   to Stata/R-grade, with a critical correctness bug fix.
+2. **Multilevel / Mixed-Effects** — `sp.multilevel` rewritten to lme4/Stata-grade.
+3. **Econometric Trinity** — three new P0 pillars: DML-PLIV, Mixed Logit, IV-QR.
+4. **Author attribution** corrected to `Biaoyue Wang`.
+
+⚠️ **Critical correctness fix** — `sp.frontier` carried a latent Jondrow posterior
+sign error in all prior versions (0.9.2 and earlier). Efficiency scores were
+systematically biased; the normal-exponential path additionally returned NaN
+for unit efficiency. **Re-run any prior frontier analyses.** Detail below.
+
+---
+
+### Stochastic Frontier Analysis Overhaul
 
 Release focus: `statspai.frontier`. The prior implementation was a
 270-line single file with one function covering cross-sectional
@@ -85,6 +103,43 @@ module has been rewritten (~1,300 LOC across `_core.py`, `sfa.py`,
   Pitt-Lee / BC92 / BC95 panel recovery, and density-integrates-to-1
   kernel sanity checks.
 
+### Advanced frontier extensions
+
+Three frontier extensions shipped after the initial overhaul (commit `e876937`):
+
+- **`sp.zisf`** — Zero-Inefficiency SFA mixture (Kumbhakar-Parmeter-Tsionas
+  2013). Mixture of fully-efficient (`u=0`, pure noise) and standard
+  composed-error regimes; mixing probability `p_i` parameterised via logit
+  on optional `zprob` covariates. Posterior `P(efficient|ε)` exposed in
+  `diagnostics['p_efficient_posterior']`. Recovery test: true efficient
+  share 0.30 → estimated 0.286 on `n=2000`.
+- **`sp.lcsf`** — 2-class Latent-Class SFA (Orea-Kumbhakar 2004;
+  Greene 2005). Two separate frontiers with their own `β_k` and variance
+  parameters; class-membership logit on optional `z_class` covariates.
+  Direct MLE with perturbed starts to break label symmetry.
+- **`xtfrontier(..., model='tfe', bias_correct=True)`** — Dhaene-Jochmans
+  (2015) split-panel jackknife for TFE:
+  `β_BC = 2·β_full − (β_first_half + β_second_half)/2`. Cuts the `O(1/T)`
+  incidental-parameters bias. Guards against degenerate halves by skipping
+  σ corrections with an annotation in `model_info`. Verified at `T=30`,
+  `N=25`: raw `σ_u=0.374` → BC `σ_u=0.359` (true 0.35).
+
+### Productivity helpers
+
+Shipped in commit `be59260`:
+
+- **`sp.malmquist`** — Färe-Grosskopf-Lindgren-Roos (1994) Malmquist TFP
+  index via period-by-period parametric frontier fits. Returns per-
+  transition decomposition `M = EC × TC` (efficiency change × technical
+  change). Row-wise identity `M == EC·TC` verified to `rtol=1e-8`. Cost
+  frontiers supported via reciprocal distance convention. Validated on
+  3-period DGP with 5%/year intercept growth: mean TC ≈ 1.07–1.09,
+  mean EC ≈ 1.0.
+- **`sp.translog_design`** — Cobb-Douglas → Translog design-matrix helper.
+  Appends `0.5·log(x_k)²` squares and `log(x_k)·log(x_l)` interactions;
+  the `translog_terms` list is stored in `df.attrs` for one-line feed to
+  `frontier()` / `xtfrontier()`. Toggleable squares and interactions.
+
 ### Migration
 
 - Old: `frontier(df, y='y', x=['x1'])` still works (same required args).
@@ -93,7 +148,9 @@ module has been rewritten (~1,300 LOC across `_core.py`, `sfa.py`,
 - Existing efficiency scores should be recomputed — prior values were
   systematically biased by the Jondrow sign error.
 
-## [Unreleased] — Multilevel / Mixed-Effects Overhaul
+---
+
+### Multilevel / Mixed-Effects Overhaul
 
 Release focus: `statspai.multilevel`. The previous implementation was a
 400-line single file covering only the two-level linear mixed model
@@ -191,6 +248,64 @@ proper sub-package (~2,000 LOC across `_core.py`, `lmm.py`, `glmm.py`,
   outer group has only one inner group (class variance then not
   identified), and exposes both school and class ICCs via
   `variance_components['icc(outer)']` / `icc(outer+inner)`.
+
+---
+
+### Econometric Trinity — P0 Pillars (DML-PLIV, Mixed Logit, IV-QR)
+
+Three foundational econometric estimators identified as the highest-ROI gaps
+vs. Stata, R, and existing Python packages are now first-class `sp.*` APIs
+(~1,170 new LOC, 10 tests in `test_econ_trinity.py`).
+
+- **`sp.dml(model='pliv', instrument=…)` — DML-PLIV (Partially Linear IV).**
+  Chernozhukov et al. (2018, §4.2) Neyman-orthogonal score with cross-fitted
+  nuisance functions `g(X)=E[Y|X]`, `m(X)=E[D|X]`, `r(X)=E[Z|X]`. Returns the
+  LATE with influence-function-based standard errors. Closes the IV gap in
+  the existing `DoubleML` (previously only PLM + IRM).
+- **`sp.mixlogit` — Mixed Logit.** Random-coefficient multinomial logit via
+  simulated maximum likelihood with Halton quasi-random draws. Supports:
+  fixed + random coefficients, normal / log-normal / triangular mixing
+  distributions, diagonal or full Cholesky covariance, panel (repeated-choice)
+  data, OPG-sandwich robust SEs. Benchmarked against Stata `mixlogit` and R
+  `mlogit`. Python's first feature-complete implementation.
+- **`sp.ivqreg` — IV Quantile Regression.** Chernozhukov-Hansen (2005, 2006,
+  2008) instrumental-variable quantile regression via inverse-QR profile.
+  Scalar endogenous case uses grid + Brent refinement; multi-dim uses BFGS on
+  the `b̂(α)` criterion. Multiple quantiles return a tidy DataFrame; single
+  quantile returns `EconometricResults`. Optional pairs-bootstrap SEs.
+
+All three reuse `_qreg_fit`, `CausalResult`, `EconometricResults` for API
+consistency with the rest of StatsPAI.
+
+#### Post-self-audit hardening
+
+Self-audit + code-reviewer agent surfaced and fixed 4 BLOCKER + 7 HIGH bugs
+in the first-cut implementation (see commit `2aa709b`). Parameter-recovery
+tests now pass against controlled DGPs.
+
+---
+
+### Smart Workflow — Posterior Verification
+
+Shipped in commit `be59260`:
+
+- **`sp.verify`** / **`sp.verify_benchmark`** — posterior verification engine
+  for `sp.recommend()` outputs. Runs bootstrap stability, placebo pass rate,
+  and subsample agreement, aggregated into `verify_score ∈ [0, 100]`.
+  Opt-in via `sp.recommend(verify=True)`; zero overhead when disabled.
+- Calibration card shows top-method `verify_score` 85–95 on clean DGPs
+  (RD lower at ≈ 74 due to local-polynomial bootstrap variance).
+- 18/18 smart tests pass.
+
+---
+
+### Meta — Author Attribution
+
+- Author metadata corrected from `Bryce Wang` to `Biaoyue Wang` in:
+  `pyproject.toml` (`authors` + `maintainers`), `src/statspai/__init__.py`
+  (`__author__`), `README.md` / `README_CN.md` (team line + BibTeX),
+  `docs/index.md` (BibTeX), and `mkdocs.yml` (`site_author`).
+  JOSS submission (`paper.md`) was already correct.
 
 ## [0.9.2] - 2026-04-16
 

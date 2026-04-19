@@ -352,18 +352,25 @@ def per_obs_scores(
     Used for OPG / robust / cluster-robust standard errors.  Cost is
     ``2k`` evaluations of ``per_obs_loglik``; each call must return a
     length-``n`` vector of log-likelihood contributions.
+
+    The step size is *scaled* with ``|theta[j]|`` so that large
+    log-sigma parameters (which can sit near ``ln sigma ~ 5``) do not
+    suffer catastrophic cancellation against a fixed absolute step.
     """
     theta = np.asarray(theta, dtype=float)
     k = theta.size
     n = per_obs_loglik(theta).shape[0]
     J = np.empty((n, k))
     for j in range(k):
+        # Scale-adaptive central-difference step: relative for |theta_j|
+        # of O(1) or larger, absolute floor `step` for near-zero params.
+        h = max(step * abs(theta[j]), step)
         th = theta.copy()
-        th[j] += step
+        th[j] += h
         fp = per_obs_loglik(th)
-        th[j] -= 2.0 * step
+        th[j] -= 2.0 * h
         fm = per_obs_loglik(th)
-        J[:, j] = (fp - fm) / (2.0 * step)
+        J[:, j] = (fp - fm) / (2.0 * h)
     return J
 
 
@@ -387,7 +394,15 @@ def robust_vcov(
     if cluster_idx is None:
         B = scores.T @ scores
     else:
-        # Sum rows by cluster.
+        # Sum rows by cluster. Negative codes (from pd.Categorical NaN
+        # rows) silently alias to cluster_scores[-1] via np.add.at, so
+        # validate explicitly before aggregating.
+        cluster_idx = np.asarray(cluster_idx)
+        if (cluster_idx < 0).any():
+            raise ValueError(
+                "cluster_idx contains negative codes (likely NaN in the "
+                "cluster column). Drop NaN rows before calling robust_vcov."
+            )
         n_clusters = int(cluster_idx.max()) + 1
         cluster_scores = np.zeros((n_clusters, scores.shape[1]))
         np.add.at(cluster_scores, cluster_idx, scores)

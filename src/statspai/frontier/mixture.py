@@ -203,7 +203,12 @@ def zisf(
             "inefficiency_dist": dist,
             "cost": cost,
             "sign": sign,
-            "te_method": "bc",
+            "te_method": "bc_mixture",
+            "te_note": (
+                "Mixture posterior: p_eff*1 + (1-p_eff)*E[exp(-u)|eps]; "
+                "not the vanilla Battese-Coelli scalar"
+            ),
+            "vce": "oim",
             "has_zprob": zprob is not None,
             "sigma_u_mean": sigma_u,
             "sigma_v_mean": sigma_v,
@@ -336,20 +341,65 @@ def lcsf(
     beta0, _, _, _ = np.linalg.lstsq(X_mat, y_vec, rcond=None)
     resid0 = y_vec - X_mat @ beta0
     sigma0 = max(float(np.std(resid0)), 1e-3)
-    # Perturb starts to break symmetry.
-    theta0 = np.concatenate([
-        beta0 * 0.9, [np.log(sigma0 * 0.4), np.log(sigma0 * 0.5)],
-        beta0 * 1.1, [np.log(sigma0 * 0.6), np.log(sigma0 * 0.3)],
-        np.zeros(k_theta),
-    ])
+
     bounds = (
         [(-1e6, 1e6)] * k_beta + [(-12.0, 5.0), (-12.0, 5.0)]
         + [(-1e6, 1e6)] * k_beta + [(-12.0, 5.0), (-12.0, 5.0)]
         + [(-10.0, 10.0)] * k_theta
     )
-    result = minimize(neg_loglik, theta0, method="L-BFGS-B", bounds=bounds,
-                      options={"maxiter": maxiter, "ftol": tol, "gtol": tol})
-    theta_hat = result.x
+
+    # Multi-start to break label symmetry. A single deterministic 0.9/1.1
+    # perturbation fails when beta0 ~ 0 (both classes start from the same
+    # point). We try several random perturbations on top of a fixed
+    # sigma_u asymmetry and take the best-LL result.
+    rng = np.random.default_rng(12345)
+    n_starts = 4
+    sigma_asym = np.array([
+        [0.3, 0.6],  # class 1 lower su, class 2 higher
+        [0.5, 0.5],
+        [0.25, 0.75],
+        [0.4, 0.55],
+    ])
+    best_result = None
+    best_fun = np.inf
+    for s in range(n_starts):
+        jitter1 = rng.normal(0.0, 0.3, size=beta0.shape)
+        jitter2 = rng.normal(0.0, 0.3, size=beta0.shape)
+        su1_start = np.log(max(sigma0 * sigma_asym[s, 0], 1e-3))
+        su2_start = np.log(max(sigma0 * sigma_asym[s, 1], 1e-3))
+        theta_start = np.concatenate([
+            beta0 + jitter1, [np.log(sigma0 * 0.4), su1_start],
+            beta0 + jitter2, [np.log(sigma0 * 0.4), su2_start],
+            np.zeros(k_theta),
+        ])
+        try:
+            r = minimize(
+                neg_loglik, theta_start, method="L-BFGS-B", bounds=bounds,
+                options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
+            )
+        except Exception:
+            continue
+        if r.fun < best_fun and np.isfinite(r.fun):
+            best_fun = r.fun
+            best_result = r
+    if best_result is None:
+        raise RuntimeError("lcsf: all starts failed to converge.")
+    result = best_result
+    theta_hat = result.x.copy()
+
+    # Canonical labeling: enforce sigma_u_class1 <= sigma_u_class2 so that
+    # downstream posterior class probs and param blocks are comparable
+    # across datasets / bootstrap draws. Without this, classes are
+    # arbitrarily ordered by optimizer path.
+    _ln_su1 = theta_hat[k_beta + 1]
+    _ln_su2 = theta_hat[2 * k_beta + 3]
+    if _ln_su1 > _ln_su2:
+        block1 = theta_hat[:k_beta + 2].copy()
+        block2 = theta_hat[k_beta + 2:2 * k_beta + 4].copy()
+        theta_class = theta_hat[2 * k_beta + 4:].copy()
+        # Swap block1 and block2; flip sign of class logit so that
+        # the now-class-1 has the same physical probability.
+        theta_hat = np.concatenate([block2, block1, -theta_class])
     ll_val = -neg_loglik(theta_hat)
 
     idx = 0
@@ -403,7 +453,12 @@ def lcsf(
             "inefficiency_dist": dist,
             "cost": cost,
             "sign": sign,
-            "te_method": "bc",
+            "te_method": "bc_mixture",
+            "te_note": (
+                "Mixture posterior: p1*E[exp(-u1)|eps] + "
+                "(1-p1)*E[exp(-u2)|eps]; labels canonical by ascending sigma_u"
+            ),
+            "vce": "oim",
             "sigma_u_mean": (su1 + su2) / 2.0,
             "sigma_v_mean": (sv1 + sv2) / 2.0,
             "mean_efficiency_bc": float(np.mean(TE_lcsf)),

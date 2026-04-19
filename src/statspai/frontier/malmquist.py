@@ -259,20 +259,34 @@ def translog_design(
     Returns
     -------
     pandas.DataFrame
-        Original data + appended translog terms.  The translog term
-        names are returned as the list via ``df.attrs['translog_terms']``.
+        Original data + appended translog terms.  Two lists are stored
+        on ``df.attrs`` for convenience (neither is auto-consumed by
+        :func:`frontier` or :func:`xtfrontier` — the user must pass one
+        of them explicitly as ``x=``):
+
+        - ``df.attrs['translog_terms']`` — *all* regressors for a
+          translog frontier: original inputs + squares + interactions.
+          Pass this directly to ``sp.frontier(..., x=terms)``.
+        - ``df.attrs['translog_added_terms']`` — only the *new* columns
+          appended by this helper (squares and interactions). Use this
+          if you already have ``inputs`` in your ``x`` list and just
+          want to extend it.
 
     Examples
     --------
     >>> df_tl = translog_design(df, inputs=["log_k", "log_l"])
-    >>> # use df_tl with the extra terms in sp.frontier:
+    >>> # Option A — one-liner, pass the full translog regressor list:
     >>> terms = df_tl.attrs["translog_terms"]
     >>> sp.frontier(df_tl, y="log_y", x=terms)
+    >>> # Option B — extend an existing x list without double-counting:
+    >>> base = ["log_k", "log_l"]
+    >>> sp.frontier(df_tl, y="log_y",
+    ...             x=base + df_tl.attrs["translog_added_terms"])
     """
     if not inputs:
         raise ValueError("inputs must be non-empty.")
     df = data.copy()
-    added: List[str] = list(inputs)
+    added: List[str] = []  # only the columns this helper creates
 
     if include_squares:
         for k in inputs:
@@ -287,7 +301,9 @@ def translog_design(
                 df[col] = df[k] * df[l]
                 added.append(col)
 
-    df.attrs["translog_terms"] = added
+    # The full translog regressor list = original inputs + newly added terms.
+    df.attrs["translog_terms"] = list(inputs) + added
+    df.attrs["translog_added_terms"] = added
     return df
 
 

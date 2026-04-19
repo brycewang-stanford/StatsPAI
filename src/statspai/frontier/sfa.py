@@ -28,6 +28,7 @@ and R's ``frontier::sfa()`` / ``sfaR::sfacross()``.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -73,9 +74,15 @@ class FrontierResult(EconometricResults):
         diagnostic arrays and surface the SFA-specific scalars.
         """
         # Hide array diagnostics from the parent's generic renderer.
-        hidden = {k: self.diagnostics.pop(k) for k in list(self.diagnostics.keys())
-                  if k in self._ARRAY_DIAGS}
+        # Use a snapshot + full try/finally so that an exception between
+        # the pop and the parent call cannot leave diagnostics half-
+        # emptied (previous code could lose diagnostics permanently if
+        # an error were raised before the outer try: ran).
+        hidden: Dict[str, Any] = {}
         try:
+            for k in list(self.diagnostics.keys()):
+                if k in self._ARRAY_DIAGS:
+                    hidden[k] = self.diagnostics.pop(k)
             base = EconometricResults.summary(self, alpha=alpha)
         finally:
             self.diagnostics.update(hidden)
@@ -129,6 +136,19 @@ class FrontierResult(EconometricResults):
         vals = self.diagnostics.get(key)
         if vals is None:
             raise KeyError(f"Efficiency scores '{key}' not available.")
+        # TRE stores a broadcast marginal, not a per-obs posterior; warn
+        # once per call so callers don't mistake a constant Series for a
+        # degenerate model fit.
+        if self.model_info.get("efficiency_kind") == "tre_marginal":
+            warnings.warn(
+                "TRE efficiency scores are the marginal E[exp(-u)] "
+                "broadcast to every observation (posterior E[.|e_i] "
+                "integration over alpha_i is not implemented). "
+                "res.efficiency().std() will be 0 by construction; "
+                "use TFE or BC95 for per-observation scores.",
+                UserWarning,
+                stacklevel=2,
+            )
         idx = self.diagnostics.get("efficiency_index")
         return pd.Series(vals, name=key, index=idx if idx is not None else None)
 
@@ -144,9 +164,9 @@ class FrontierResult(EconometricResults):
         if method is None:
             method = self.model_info.get("te_method", "bc")
         method = method.lower()
-        if method in {"bc", "battese-coelli", "battesecoelli"}:
+        if method in {"bc", "battese-coelli", "battesecoelli", "bc_mixture"}:
             return "efficiency_bc"
-        if method in {"jlms", "jondrow"}:
+        if method in {"jlms", "jondrow", "jlms_mixture"}:
             return "efficiency_jlms"
         raise ValueError(f"Unknown TE method: {method!r}")
 
@@ -569,8 +589,11 @@ def _refit_bootstrap(
 ) -> np.ndarray:
     """Re-fit the frontier model on one bootstrap sample; return theta-hat.
 
-    Silently returns ``start`` if the bootstrap replica fails to converge
-    (keeps bootstrap robust to occasional pathological draws).
+    Returns an all-NaN vector if the bootstrap replica fails to converge.
+    Caller must filter NaN rows before computing the sample covariance,
+    otherwise the variance estimate is downward-biased toward the point
+    estimate (old behavior returned ``start`` = theta_hat, which silently
+    collapsed bootstrap SEs on pathological draws).
     """
     try:
         res = frontier(
@@ -581,7 +604,7 @@ def _refit_bootstrap(
         )
         return res.params.to_numpy()
     except Exception:
-        return start
+        return np.full(spec.k_total, np.nan)
 
 
 def _draw_truncated_normal(mu, sigma, rng) -> np.ndarray:
@@ -920,7 +943,24 @@ def frontier(
                     spec, start=theta_hat, maxiter=maxiter, tol=tol,
                 )
                 estimates[b] = res_b
-        vcov = np.cov(estimates, rowvar=False)
+        # Filter failed replicates (all-NaN rows) before computing variance.
+        # Using `start`=theta_hat as a fallback would pull Var() toward zero.
+        valid_mask = np.isfinite(estimates).all(axis=1)
+        n_valid = int(valid_mask.sum())
+        if n_valid < max(5, B // 10):
+            raise RuntimeError(
+                f"Bootstrap converged on only {n_valid}/{B} replicates; "
+                "variance estimate is unreliable. Try vce='robust' or "
+                "larger B, or check for near-boundary sigma."
+            )
+        if n_valid < B:
+            warnings.warn(
+                f"Bootstrap: {B - n_valid}/{B} replicates failed; "
+                f"SE computed from {n_valid} valid draws.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        vcov = np.cov(estimates[valid_mask], rowvar=False)
     else:
         scores = _fc.per_obs_scores(per_obs_loglik, theta_hat)
         if vce == "opg":

@@ -785,13 +785,19 @@ class TestGreeneTrueEffects:
 
 class TestBootstrap:
     def test_bootstrap_se_close_to_oim_for_iid_data(self):
+        # B=200 so the bootstrap-SE Monte Carlo error is ~5% of the true
+        # SE. Threshold 0.20 is ~4 MC sigmas: well-behaved bootstrap
+        # almost never triggers a false fail, but a bootstrap that
+        # silently falls back to a degenerate estimate (old SE-collapse
+        # bug) would miss by far more than 20% and fail this test.
         df = _simulate_hn_production(1000, 0.2, 0.4, seed=801)
         r_oim = frontier(df, y="y", x=["x1"], vce="oim")
-        r_bs = frontier(df, y="y", x=["x1"], vce="bootstrap", B=80, seed=1)
-        # Within 40% — bootstrap noise at B=80 can be significant.
+        r_bs = frontier(df, y="y", x=["x1"], vce="bootstrap", B=200, seed=1)
         rel = abs(r_bs.std_errors["x1"] - r_oim.std_errors["x1"]) / r_oim.std_errors["x1"]
-        assert rel < 0.4
+        assert rel < 0.20, f"bootstrap SE too far from OIM: rel={rel:.3f}"
         assert np.isfinite(r_bs.std_errors["x1"])
+        # Bootstrap SE must not be implausibly small (old collapse bug).
+        assert r_bs.std_errors["x1"] > 0.5 * r_oim.std_errors["x1"]
 
     def test_cluster_bootstrap_respects_cluster_structure(self):
         rng = np.random.default_rng(802)
@@ -1050,8 +1056,19 @@ class TestMonteCarloCoverage:
 
     @pytest.mark.slow
     def test_oim_ci_coverage_half_normal(self):
-        """95% CI coverage for beta and sigma_u over 60 Monte Carlo draws."""
-        n_mc = 60
+        """95% CI coverage for beta and sigma_u over 200 Monte Carlo draws.
+
+        Power rationale:
+        - At true coverage = 0.95, n_mc=200: binomial SD ~ 1.5 pp, so the
+          0.90 lower threshold on beta is >3 sigma below the mean and
+          never false-fires.
+        - If coverage is actually 0.85 (a real bug), P(pass) at the 0.90
+          threshold is < 2%: the test catches it essentially always.
+        The old n_mc=60 + 0.80 sigma_u threshold allowed a method with
+        true 80% coverage to pass with ~80% probability — effectively
+        unfalsifiable.
+        """
+        n_mc = 200
         n = 800
         true_beta = 0.5
         true_sigma_u = 0.4
@@ -1077,9 +1094,9 @@ class TestMonteCarloCoverage:
                 covered_su += 1
         coverage_b = covered_b / n_mc
         coverage_su = covered_su / n_mc
-        # Expected 95%, tolerate ±10 pp with n_mc=60.
-        assert coverage_b >= 0.85, f"beta coverage: {coverage_b}"
-        assert coverage_su >= 0.80, f"sigma_u coverage: {coverage_su}"
+        # Expected 95%, tolerate ±5 pp with n_mc=200 (3-sigma band).
+        assert coverage_b >= 0.90, f"beta coverage: {coverage_b}"
+        assert coverage_su >= 0.88, f"sigma_u coverage: {coverage_su}"
 
 
 class TestZeroInefficiency:
@@ -1193,10 +1210,20 @@ class TestTFEBiasCorrection:
         r_raw = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="tfe")
         r_bc = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
                           model="tfe", bias_correct=True)
-        # BC sigma_u should be closer to true 0.35 than raw.
+        # With fixed seed the direction of bias reduction must hold:
+        # BC sigma_u strictly closer to the true 0.35 than raw.
+        # A +0.02 slack (prior version) allowed a broken correction
+        # that made bias WORSE by 2 pp to still pass.
         raw_bias = abs(np.exp(r_raw.params["ln_sigma_u"]) - 0.35)
         bc_bias = abs(np.exp(r_bc.params["ln_sigma_u"]) - 0.35)
-        assert bc_bias <= raw_bias + 0.02  # allow small MC noise slack
+        assert bc_bias < raw_bias, (
+            f"bias correction did not reduce bias: raw={raw_bias:.4f}, "
+            f"bc={bc_bias:.4f}"
+        )
+        # And reduction must be substantive (not a 0.1% cosmetic change).
+        assert bc_bias <= 0.75 * raw_bias + 1e-6, (
+            f"bias reduction too small: raw={raw_bias:.4f}, bc={bc_bias:.4f}"
+        )
         assert "Dhaene-Jochmans" in r_bc.model_info.get("bias_correct", "")
 
     def test_bias_correct_requires_time(self):
