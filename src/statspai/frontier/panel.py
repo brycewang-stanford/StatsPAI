@@ -59,6 +59,7 @@ def xtfrontier(
     emean: Optional[List[str]] = None,
     vce: str = "oim",
     cluster: Optional[str] = None,
+    bias_correct: bool = False,
     maxiter: int = 500,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -102,6 +103,7 @@ def xtfrontier(
             data, y, x, id_col=id, time_col=time,
             dist=dist, cost=cost,
             vce=vce, cluster=cluster,
+            bias_correct=bias_correct,
             maxiter=maxiter, tol=tol, alpha=alpha,
         )
     if model == "tre":
@@ -550,6 +552,7 @@ def _fit_tfe(
     maxiter: int,
     tol: float,
     alpha: float,
+    bias_correct: bool = False,
 ) -> FrontierResult:
     """True Fixed Effects SFA (Greene 2005): firm dummies + composed error.
 
@@ -598,6 +601,64 @@ def _fit_tfe(
     res.data_info["n_units"] = df[id_col].nunique()
     # Strip the N-1 firm-dummy param names from the public-facing regressors.
     res.data_info["regressors"] = list(x)
+
+    if not bias_correct:
+        return res
+
+    # ------------------------------------------------------------------
+    # Dhaene-Jochmans (2015) split-panel jackknife bias correction:
+    #   theta_BC = 2 * theta_full - (theta_first_half + theta_second_half) / 2
+    # Cuts O(1/T) incidental-parameter bias.  Requires time_col to split.
+    # ------------------------------------------------------------------
+    if time_col is None:
+        raise ValueError("bias_correct=True requires a time variable for split.")
+    times = np.sort(df[time_col].unique())
+    half = len(times) // 2
+    if half < 2:
+        raise ValueError(
+            "Need at least 4 time periods per unit for split-panel jackknife."
+        )
+    times_first = set(times[:half])
+    times_second = set(times[half:])
+    mask1 = df[time_col].isin(times_first)
+    mask2 = df[time_col].isin(times_second)
+    df1 = df_ext[mask1.values].reset_index(drop=True)
+    df2 = df_ext[mask2.values].reset_index(drop=True)
+    # Refit on each half.
+    res1 = _cs_frontier(df1, y=y, x=extended_x, dist=dist, cost=cost,
+                        vce="oim", cluster=None,
+                        maxiter=maxiter, tol=tol, alpha=alpha)
+    res2 = _cs_frontier(df2, y=y, x=extended_x, dist=dist, cost=cost,
+                        vce="oim", cluster=None,
+                        maxiter=maxiter, tol=tol, alpha=alpha)
+    # Guard against degenerate splits: if either half's ln_sigma parameter
+    # sits on the optimizer bound, BC on that parameter is untrustworthy
+    # (documented DJ caveat for very short T).  Keep only x coefficients.
+    corrected = {}
+    for name in list(x):
+        if name in res1.params.index and name in res2.params.index:
+            full = res.params[name]
+            avg = 0.5 * (res1.params[name] + res2.params[name])
+            corrected[name] = 2.0 * full - avg
+
+    sigma_bound_low = -11.5
+    sigmas_ok = True
+    for name in ("ln_sigma_v", "ln_sigma_u"):
+        for r in (res1, res2):
+            if r.params[name] < sigma_bound_low:
+                sigmas_ok = False
+    if sigmas_ok:
+        for name in ("ln_sigma_v", "ln_sigma_u"):
+            full = res.params[name]
+            avg = 0.5 * (res1.params[name] + res2.params[name])
+            corrected[name] = 2.0 * full - avg
+    # Overwrite in-place (keep SE from full-panel numerical Hessian).
+    for k, v in corrected.items():
+        res.params[k] = v
+    res.model_info["bias_correct"] = (
+        "Dhaene-Jochmans 2015 split-panel jackknife"
+        + ("" if sigmas_ok else " (sigmas skipped: split degenerate)")
+    )
     return res
 
 

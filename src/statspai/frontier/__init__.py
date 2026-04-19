@@ -15,6 +15,7 @@ from .sfa import frontier, FrontierResult
 from .panel import xtfrontier
 from .te_tools import te_summary, te_rank
 from .metafrontier import metafrontier, MetafrontierResult
+from .mixture import zisf, lcsf
 
 __all__ = [
     "frontier",
@@ -22,6 +23,8 @@ __all__ = [
     "FrontierResult",
     "metafrontier",
     "MetafrontierResult",
+    "zisf",
+    "lcsf",
     "te_summary",
     "te_rank",
 ]

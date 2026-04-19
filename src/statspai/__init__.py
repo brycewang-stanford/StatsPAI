@@ -223,7 +223,7 @@ from .smart import (
     sensitivity_dashboard, SensitivityDashboard,
     pub_ready, PubReadyResult,
     replicate, list_replications,
-    verify_recommendation,
+    verify_recommendation, verify_benchmark,
 )
 verify = verify_recommendation  # convenience alias
 
@@ -253,6 +253,7 @@ from .multilevel import (
 from .frontier import (
     frontier, xtfrontier, FrontierResult,
     metafrontier, MetafrontierResult,
+    zisf, lcsf,
     te_summary, te_rank,
 )
 # General GMM
@@ -682,7 +683,7 @@ __all__ = [
     "sensitivity_dashboard", "SensitivityDashboard",
     "pub_ready", "PubReadyResult",
     "replicate", "list_replications",
-    "verify", "verify_recommendation",
+    "verify", "verify_recommendation", "verify_benchmark",
     # === v0.6 Round 3 ===
     "truncreg",
     "sureg", "SURResult", "three_sls",
@@ -693,6 +694,7 @@ __all__ = [
     "icc", "lrtest",
     "frontier", "xtfrontier", "FrontierResult",
     "metafrontier", "MetafrontierResult",
+    "zisf", "lcsf",
     "te_summary", "te_rank",
     "gmm",
 ]

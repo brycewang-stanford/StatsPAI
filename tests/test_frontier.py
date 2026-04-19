@@ -987,6 +987,148 @@ class TestMonteCarloCoverage:
         assert coverage_su >= 0.80, f"sigma_u coverage: {coverage_su}"
 
 
+class TestZeroInefficiency:
+    """Zero-Inefficiency SFA (Kumbhakar-Parmeter-Tsionas 2013)."""
+
+    def test_zisf_recovers_mixture_probability(self):
+        from statspai.frontier import zisf
+        rng = np.random.default_rng(1401)
+        n = 2000
+        x1 = rng.normal(0, 1, n)
+        eff_mask = rng.uniform(0, 1, n) < 0.3  # 30% efficient
+        u = np.where(eff_mask, 0.0, np.abs(rng.normal(0, 0.5, n)))
+        v = rng.normal(0, 0.15, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1})
+        res = zisf(df, y="y", x=["x1"])
+        assert res.model_info["converged"]
+        assert abs(res.params["x1"] - 0.5) < 0.05
+        assert abs(np.exp(res.params["ln_sigma_u"]) - 0.5) < 0.1
+        assert abs(res.model_info["mean_p_efficient"] - 0.3) < 0.05
+
+    def test_zisf_with_zprob_covariate(self):
+        """Class probability should respond to a covariate."""
+        from statspai.frontier import zisf
+        rng = np.random.default_rng(1402)
+        n = 2000
+        x1 = rng.normal(0, 1, n)
+        z1 = rng.normal(0, 1, n)
+        # Higher z1 → higher chance of being efficient.
+        p_eff = 1.0 / (1.0 + np.exp(-z1))
+        eff_mask = rng.uniform(0, 1, n) < p_eff
+        u = np.where(eff_mask, 0.0, np.abs(rng.normal(0, 0.4, n)))
+        v = rng.normal(0, 0.15, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "z1": z1})
+        res = zisf(df, y="y", x=["x1"], zprob=["z1"])
+        assert res.model_info["converged"]
+        # Logit coef on z1 should be clearly positive.
+        assert res.params["p_z1"] > 0.3
+
+    def test_zisf_rejects_unsupported_dist(self):
+        from statspai.frontier import zisf
+        df = _simulate_hn_production(200, 0.15, 0.4, seed=1403)
+        with pytest.raises(ValueError, match="half-normal"):
+            zisf(df, y="y", x=["x1"], dist="exponential")
+
+
+class TestLatentClassSFA:
+    """Latent-Class SFA (Orea-Kumbhakar 2004)."""
+
+    def test_lcsf_recovers_two_classes(self):
+        from statspai.frontier import lcsf
+        rng = np.random.default_rng(1501)
+        n = 2500
+        x1 = rng.normal(0, 1, n)
+        class_1 = rng.uniform(0, 1, n) < 0.5
+        u = np.abs(rng.normal(0, 0.3, n))
+        v = rng.normal(0, 0.15, n)
+        y = np.where(
+            class_1,
+            1.0 + 0.8 * x1 + v - u,
+            2.0 + 0.3 * x1 + v - u,
+        )
+        df = pd.DataFrame({"y": y, "x1": x1})
+        res = lcsf(df, y="y", x=["x1"])
+        assert res.model_info["converged"]
+        # Class recovery: one class should have x1 ≈ 0.8, the other ≈ 0.3.
+        c1_x1 = res.params["c1:x1"]
+        c2_x1 = res.params["c2:x1"]
+        matched = (abs(c1_x1 - 0.8) < 0.1 and abs(c2_x1 - 0.3) < 0.1) or (
+            abs(c1_x1 - 0.3) < 0.1 and abs(c2_x1 - 0.8) < 0.1
+        )
+        assert matched, f"c1_x1={c1_x1}, c2_x1={c2_x1}"
+
+    def test_lcsf_efficiency_bounded(self):
+        from statspai.frontier import lcsf
+        rng = np.random.default_rng(1502)
+        n = 1000
+        x1 = rng.normal(0, 1, n)
+        u = np.abs(rng.normal(0, 0.3, n))
+        v = rng.normal(0, 0.15, n)
+        y = 1.0 + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1})
+        res = lcsf(df, y="y", x=["x1"])
+        eff = res.efficiency()
+        assert (eff >= 0).all() and (eff <= 1).all()
+
+    def test_lcsf_two_classes_exposed(self):
+        from statspai.frontier import lcsf
+        df = _simulate_hn_production(500, 0.15, 0.4, seed=1503)
+        res = lcsf(df, y="y", x=["x1"])
+        assert res.model_info["n_classes"] == 2
+        assert "p_class1_posterior" in res.diagnostics
+
+
+class TestTFEBiasCorrection:
+    """Dhaene-Jochmans (2015) split-panel jackknife bias correction."""
+
+    def test_bias_correct_reduces_sigma_u_bias_when_t_large(self):
+        rng = np.random.default_rng(1601)
+        N, T = 25, 30
+        id_ = np.repeat(np.arange(N), T)
+        t_ = np.tile(np.arange(T), N)
+        n = N * T
+        x1 = rng.normal(0, 1, n)
+        alpha_i = rng.normal(2.0, 0.5, N)
+        u = np.abs(rng.normal(0, 0.35, n))
+        v = rng.normal(0, 0.15, n)
+        y = np.repeat(alpha_i, T) + 0.5 * x1 + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
+        r_raw = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="tfe")
+        r_bc = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
+                          model="tfe", bias_correct=True)
+        # BC sigma_u should be closer to true 0.35 than raw.
+        raw_bias = abs(np.exp(r_raw.params["ln_sigma_u"]) - 0.35)
+        bc_bias = abs(np.exp(r_bc.params["ln_sigma_u"]) - 0.35)
+        assert bc_bias <= raw_bias + 0.02  # allow small MC noise slack
+        assert "Dhaene-Jochmans" in r_bc.model_info.get("bias_correct", "")
+
+    def test_bias_correct_requires_time(self):
+        df = _simulate_panel_ti(20, 10, 0.15, 0.35, seed=1602)
+        df_no_time = df.drop(columns=["t"])
+        with pytest.raises(ValueError, match="time"):
+            xtfrontier(df_no_time, y="y", x=["x1"], id="id",
+                       model="tfe", bias_correct=True)
+
+    def test_bias_correct_requires_enough_periods(self):
+        """Splits require T >= 4; shorter panels should raise."""
+        rng = np.random.default_rng(1603)
+        N, T = 20, 3  # T=3 is too short
+        id_ = np.repeat(np.arange(N), T)
+        t_ = np.tile(np.arange(T), N)
+        n = N * T
+        x1 = rng.normal(0, 1, n)
+        alpha_i = rng.normal(0, 0.3, N)
+        u = np.abs(rng.normal(0, 0.3, n))
+        v = rng.normal(0, 0.15, n)
+        y = 1.0 + 0.5 * x1 + np.repeat(alpha_i, T) + v - u
+        df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
+        with pytest.raises(ValueError, match="time periods"):
+            xtfrontier(df, y="y", x=["x1"], id="id", time="t",
+                       model="tfe", bias_correct=True)
+
+
 class TestKernelMath:
     def test_halfnormal_is_valid_density(self):
         # Integrate the simulated f(eps) over eps ~ via Monte Carlo.
