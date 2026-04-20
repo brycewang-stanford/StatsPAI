@@ -243,24 +243,31 @@ def _fit_monotonicity(Y, D, S, n, alpha, n_boot, seed):
         # ignorability — bounds only for this method.
 
         # Zhang-Rubin sharp bounds on SACE.
-        # The never-survivor ratio among (D=1, S=1) is bounded above by
-        #   q = pi_always / p_s1_d1   (share of always-takers)
-        # and we extract the worst/best q-slice of (D=1, S=1) outcomes.
+        # q = P(always | D=1, S=1) is the share of always-takers in the
+        # (D=1, S=1) cell; we extract the bottom/top q-slice to bound
+        # E[Y(1) | always] from below/above (Zhang & Rubin 2003 §4).
         sace_lo, sace_hi = np.nan, np.nan
         if np.any((D_ == 1) & (S_ == 1)):
             y_11 = Y_[(D_ == 1) & (S_ == 1)]
             n_11 = len(y_11)
-            if p_s1_d1 > 1e-8:
+            if p_s1_d1 > 1e-8 and pi_always > 1e-8:
                 q = pi_always / p_s1_d1
                 q = float(np.clip(q, 0.0, 1.0))
-                k = max(int(round(q * n_11)), 1)
-                y_sorted = np.sort(y_11)
-                # Lower bound: take the k smallest (pessimistic for always)
-                lb_mu1 = float(np.mean(y_sorted[:k]))
-                # Upper bound: take the k largest
-                ub_mu1 = float(np.mean(y_sorted[-k:]))
-                # Control-arm always-takers are directly identified:
-                if pi_always > 1e-8:
+                k = int(round(q * n_11))
+                if k == 0:
+                    # Rounded to zero support → always-taker slice is
+                    # empty in this cell. Bounds collapse to the control-
+                    # arm always-taker mean (partial degeneracy); flag
+                    # with NaN so callers can detect it.
+                    sace_lo = float('nan')
+                    sace_hi = float('nan')
+                else:
+                    y_sorted = np.sort(y_11)
+                    # Lower bound on E[Y(1)|always]: bottom-k slice
+                    # (worst case: always-takers had the lowest outcomes)
+                    lb_mu1 = float(np.mean(y_sorted[:k]))
+                    # Upper bound on E[Y(1)|always]: top-k slice
+                    ub_mu1 = float(np.mean(y_sorted[-k:]))
                     sace_lo = lb_mu1 - mu_01
                     sace_hi = ub_mu1 - mu_01
 

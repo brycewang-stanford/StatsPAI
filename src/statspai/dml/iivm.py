@@ -46,6 +46,22 @@ class DoubleMLIIVM(_DoubleMLBase):
                 "model='iivm' requires a binary (0/1) treatment D. "
                 "For continuous treatments use model='pliv'."
             )
+        # Identification requires variation in both Z AND D. Without
+        # variation in D the LATE is trivially non-identified and the
+        # nuisance regressions blow up; we'd rather fail loud here
+        # than return a giant-SE garbage estimate from near-zero
+        # first-stage compliance.
+        if len(np.unique(Z)) < 2:
+            raise ValueError(
+                "model='iivm' requires variation in Z (saw a single value). "
+                "The instrument must take both 0 and 1 in the data."
+            )
+        if len(np.unique(D)) < 2:
+            raise ValueError(
+                "model='iivm' requires variation in D (saw a single value). "
+                "The treatment must take both 0 and 1 — with no compliance "
+                "variation, LATE is not identified."
+            )
 
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=rng_seed)
         g1 = np.zeros(n)
@@ -115,11 +131,18 @@ class DoubleMLIIVM(_DoubleMLBase):
 
     # ----- small helpers kept here (local to IIVM) -----
 
+    # Subgroups below this size fall back to a constant (subgroup mean)
+    # rather than fitting a flexible learner on pathologically small
+    # data. Fitting a gradient-boosted forest on <10 rows almost always
+    # overfits and poisons the influence function for the whole test
+    # fold; falling back to the mean is biased but stable.
+    _MIN_SUBGROUP_FIT = 10
+
     @staticmethod
     def _fit_predict_subgroup(learner, X_sub, y_sub, X_te, fallback_y):
         """Fit `learner` on a subgroup; fall back to subgroup mean if too small."""
         from sklearn.base import clone
-        if len(X_sub) > 1:
+        if len(X_sub) >= DoubleMLIIVM._MIN_SUBGROUP_FIT:
             clf = clone(learner)
             clf.fit(X_sub, y_sub)
             return clf.predict(X_te)
@@ -131,7 +154,10 @@ class DoubleMLIIVM(_DoubleMLBase):
     def _fit_predict_classifier(learner, X_sub, d_sub, X_te):
         """Fit a classifier on (X_sub, d_sub); fall back to mean(d_sub)."""
         from sklearn.base import clone
-        if len(X_sub) > 1 and len(np.unique(d_sub)) > 1:
+        if (
+            len(X_sub) >= DoubleMLIIVM._MIN_SUBGROUP_FIT
+            and len(np.unique(d_sub)) > 1
+        ):
             clf = clone(learner)
             clf.fit(X_sub, d_sub)
             if hasattr(clf, 'predict_proba'):

@@ -25,6 +25,12 @@ class _DoubleMLBase:
     _REQUIRES_INSTRUMENT: bool = False
     _BINARY_TREATMENT: bool = False  # True → default_ml_m is classifier
     _BINARY_INSTRUMENT: bool = False  # True → default_ml_r is classifier
+    # Some IV models (IIVM) genuinely only work with a single scalar
+    # instrument; PLIV with multiple Z is fine in principle but the
+    # current reduced-form r(X) is scalar so we still project to a
+    # scalar index before passing. Models that can handle vector Z
+    # override this to False.
+    _REQUIRES_SCALAR_INSTRUMENT: bool = True
 
     def __init__(
         self,
@@ -77,7 +83,12 @@ class _DoubleMLBase:
                 f"'instrument' is only valid when model requires an IV "
                 f"(got model='{self._MODEL_TAG.lower()}')"
             )
-        if self._REQUIRES_INSTRUMENT and self.instrument is not None and len(self.instrument) > 1:
+        if (
+            self._REQUIRES_INSTRUMENT
+            and self._REQUIRES_SCALAR_INSTRUMENT
+            and self.instrument is not None
+            and len(self.instrument) > 1
+        ):
             raise ValueError(
                 f"model='{self._MODEL_TAG.lower()}' accepts a single scalar "
                 f"instrument; got {len(self.instrument)}: {self.instrument}. "
@@ -134,15 +145,25 @@ class _DoubleMLBase:
         thetas: List[float] = []
         ses: List[float] = []
         for rep in range(self.n_rep):
-            theta, se = self._fit_one_rep(Y, D, X, Z, n, rng_seed=42 + rep)
-            thetas.append(theta)
-            ses.append(se)
+            theta_r, se_r = self._fit_one_rep(Y, D, X, Z, n, rng_seed=42 + rep)
+            thetas.append(theta_r)
+            ses.append(se_r)
 
         if len(thetas) == 1:
             theta, se = thetas[0], ses[0]
         else:
-            theta = float(np.median(thetas))
-            se = float(np.median(ses))
+            # Chernozhukov et al. (2018) eq. 3.7 / Algorithm 1 Step 4:
+            # point estimate = median of rep estimates,
+            # SE accounts for BOTH within-rep nuisance variance AND
+            # between-rep dispersion of the point estimates:
+            #     σ̂² = median_r ( se_r² + (θ̂_r − θ̂_med)² )
+            # This avoids under-coverage that would result from
+            # taking only median(se_r).
+            thetas_arr = np.asarray(thetas, dtype=float)
+            ses_arr = np.asarray(ses, dtype=float)
+            theta = float(np.median(thetas_arr))
+            s2 = ses_arr**2 + (thetas_arr - theta) ** 2
+            se = float(np.sqrt(np.median(s2)))
 
         t_stat = theta / se if se > 0 else 0.0
         pvalue = float(2 * (1 - stats.norm.cdf(abs(t_stat))))

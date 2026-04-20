@@ -468,14 +468,17 @@ def _weighted_logit_cluster(X, y, w, cluster_ids):
     max_iter = 50
     tol = 1e-8
     for _ in range(max_iter):
-        eta = X @ beta
-        # Stabilize the logistic link against overflow on extreme eta
-        eta_clip = np.clip(eta, -30, 30)
+        # Stabilize the logistic link against overflow on extreme eta.
+        # CRITICAL: the working response z must be built from the SAME eta
+        # that produced p_hat — otherwise the Newton step mixes clipped
+        # probabilities with unclipped linear predictors and can diverge
+        # for extreme rows. Use eta_clip throughout the update.
+        eta_clip = np.clip(X @ beta, -30, 30)
         p_hat = 1 / (1 + np.exp(-eta_clip))
         p_hat = np.clip(p_hat, 1e-8, 1 - 1e-8)
         W_diag = w * p_hat * (1 - p_hat)
         # Working response: z = eta + (y - p) / (p*(1-p))
-        z = eta + (y - p_hat) / np.clip(p_hat * (1 - p_hat), 1e-8, None)
+        z = eta_clip + (y - p_hat) / np.clip(p_hat * (1 - p_hat), 1e-8, None)
         # Solve weighted LS: (X' W X) beta = X' W z
         XtWX = (X * W_diag[:, None]).T @ X
         XtWz = (X * W_diag[:, None]).T @ z

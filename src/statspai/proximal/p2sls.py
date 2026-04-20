@@ -218,6 +218,14 @@ def proximal(
             f"Z is a weak instrument for W; estimates may be unreliable.",
             RuntimeWarning, stacklevel=2,
         )
+    elif first_stage_F is None and k_w > 1:
+        warnings.warn(
+            f"Proximal: first-stage F is only reported for a single "
+            f"endogenous proxy (k_w=1); got k_w={k_w}. For multiple W "
+            f"the Cragg-Donald/Kleibergen-Paap minimum-eigenvalue "
+            f"statistic is required and is not yet implemented.",
+            RuntimeWarning, stacklevel=2,
+        )
     if n_boot and n_boot > 0:
         model_info['n_boot'] = n_boot
         model_info['n_boot_failed'] = boot_failed
@@ -282,28 +290,27 @@ def _linear_iv_fit(y, X, Zmat, k_exog):
     sigma2 = float(np.sum(resid**2)) / max(n - k, 1)
     vcov = sigma2 * np.linalg.pinv(X_hat.T @ X_hat)
 
-    # First-stage F: test whether the endogenous block W is explained
-    # by the excluded Z. Endogenous columns are k_exog..k-1 of X.
+    # First-stage F: only well-defined for a single endogenous regressor
+    # (k_w == 1). For multiple endogenous W's the correct weak-instrument
+    # statistic is the Cragg-Donald / Kleibergen-Paap minimum eigenvalue,
+    # which we do not ship yet. Reporting a pooled-F across W columns
+    # would be misleading (no null distribution), so we return None and
+    # let the caller handle the absence.
     first_stage_F: Optional[float] = None
-    if k > k_exog:
+    k_w = k - k_exog
+    if k_w == 1:
         try:
-            endog_block = X[:, k_exog:]
-            # Fit on exog only (restricted) vs. exog + Z (unrestricted)
-            # and do a multivariate F on the joint null "all Z coefs = 0".
+            wj = X[:, k_exog]
             ex = Zmat[:, :k_exog]
             full = Zmat
-            rss_restr = 0.0
-            rss_full = 0.0
-            for j in range(endog_block.shape[1]):
-                wj = endog_block[:, j]
-                # Restricted: regress wj on exog only
-                b_r = np.linalg.pinv(ex.T @ ex) @ ex.T @ wj
-                r_r = wj - ex @ b_r
-                rss_restr += float(r_r @ r_r)
-                # Unrestricted: regress on full (exog + Z)
-                b_u = np.linalg.pinv(full.T @ full) @ full.T @ wj
-                r_u = wj - full @ b_u
-                rss_full += float(r_u @ r_u)
+            # Restricted: regress wj on exog only
+            b_r = np.linalg.pinv(ex.T @ ex) @ ex.T @ wj
+            r_r = wj - ex @ b_r
+            rss_restr = float(r_r @ r_r)
+            # Unrestricted: regress wj on full (exog + Z)
+            b_u = np.linalg.pinv(full.T @ full) @ full.T @ wj
+            r_u = wj - full @ b_u
+            rss_full = float(r_u @ r_u)
             q = full.shape[1] - ex.shape[1]      # # excluded instruments
             df_denom = n - full.shape[1]
             if rss_full > 0 and q > 0 and df_denom > 0:
