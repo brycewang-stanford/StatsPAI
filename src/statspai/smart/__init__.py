@@ -17,8 +17,11 @@ from .assumptions import assumption_audit, AssumptionResult
 from .sensitivity import sensitivity_dashboard, SensitivityDashboard
 from .publication import pub_ready, PubReadyResult
 from .replicate import replicate, list_replications
-from .verify import verify_recommendation
-from .benchmark import verify_benchmark
+
+# verify_recommendation / verify_benchmark are lazily imported via
+# __getattr__ below so that the expensive stability-check machinery
+# only loads when actually used. This keeps ``recommend(..., verify=False)``
+# genuinely zero-overhead at import time, matching the docstring promise.
 
 __all__ = [
     "recommend", "RecommendationResult",
@@ -29,3 +32,18 @@ __all__ = [
     "replicate", "list_replications",
     "verify_recommendation", "verify_benchmark",
 ]
+
+
+def __getattr__(name):
+    # Cache into globals() after first resolve so subsequent attribute
+    # accesses bypass __getattr__ entirely (matches the top-level
+    # statspai/__init__.py pattern).
+    if name == "verify_recommendation":
+        from .verify import verify_recommendation as _vr
+        globals()["verify_recommendation"] = _vr
+        return _vr
+    if name == "verify_benchmark":
+        from .benchmark import verify_benchmark as _vb
+        globals()["verify_benchmark"] = _vb
+        return _vb
+    raise AttributeError(f"module 'statspai.smart' has no attribute {name!r}")

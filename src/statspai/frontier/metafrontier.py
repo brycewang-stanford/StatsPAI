@@ -90,6 +90,7 @@ def metafrontier(
     dist: str = "half-normal",
     cost: bool = False,
     te_method: str = "bc",
+    lp_tol: float = 1e-7,
     **frontier_kwargs,
 ) -> MetafrontierResult:
     """Estimate a metafrontier across ``K`` groups.
@@ -101,6 +102,12 @@ def metafrontier(
     dist : inefficiency distribution for the group-level frontiers.
     cost : bool, default False
     te_method : {'bc', 'jlms'}
+    lp_tol : float, default 1e-7
+        Primal / dual feasibility tolerance forwarded to HiGHS.  With
+        thousands of constraints and floating-point group betas, HiGHS
+        can declare numerical infeasibility on mathematically feasible
+        problems; loosening ``lp_tol`` (e.g., ``1e-6``) typically
+        recovers these cases.
     frontier_kwargs : forwarded to :func:`frontier` for each group
         (e.g., ``usigma``, ``vsigma``, ``emean``, ``vce``, ``cluster``).
 
@@ -171,17 +178,39 @@ def metafrontier(
     # beta_meta unbounded; default linprog bounds are (0, None), override to (None, None)
     bounds = [(None, None)] * p
 
+    lp_options = {
+        "primal_feasibility_tolerance": lp_tol,
+        "dual_feasibility_tolerance": lp_tol,
+        "presolve": True,
+    }
     lp = linprog(
         c=c,
         A_ub=A_ub,
         b_ub=b_ub,
         bounds=bounds,
         method="highs",
+        options=lp_options,
     )
-    if not lp.success:
+    # Near-infeasible retry: if HiGHS flags infeasibility at the tight
+    # tolerance, try once more with a looser tolerance before raising.
+    if not lp.success and lp_tol < 1e-5:
+        lp_options_loose = dict(lp_options)
+        lp_options_loose["primal_feasibility_tolerance"] = 1e-5
+        lp_options_loose["dual_feasibility_tolerance"] = 1e-5
+        lp_retry = linprog(
+            c=c, A_ub=A_ub, b_ub=b_ub, bounds=bounds,
+            method="highs", options=lp_options_loose,
+        )
+        if lp_retry.success:
+            lp = lp_retry
+    if not lp.success or lp.x is None:
+        # Suggest a tolerance 10x looser than whatever the user passed,
+        # capped at 1e-3 (below this the LP solution is not trustworthy).
+        suggested_tol = min(max(lp_tol * 10.0, 1e-6), 1e-3)
         raise RuntimeError(
-            f"Metafrontier LP failed: {lp.message}. Try different data or "
-            "fewer groups."
+            f"Metafrontier LP failed: {lp.message}. "
+            f"Try lp_tol={suggested_tol:.0e} (current: {lp_tol:.0e}), "
+            f"check for near-collinear group betas, or reduce group count."
         )
     beta_meta_arr = lp.x
     beta_meta = pd.Series(beta_meta_arr, index=beta_groups[group_ids[0]].index,

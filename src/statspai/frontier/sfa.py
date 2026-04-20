@@ -249,9 +249,15 @@ class FrontierResult(EconometricResults):
             return pd.Series(frontier_hat, index=idx, name="frontier")
 
         # Need sigma_u / sigma_v / mu for new rows.
+        # Canonical constant-name comes from _core.const_name_for so the
+        # predict() path never diverges from how parameters were named
+        # at fit time by build_optional_design().
+        u_const_name = (
+            _fc.const_name_for("u_") if usigma_cols else "ln_sigma_u"
+        )
         sigma_u_new = self._eval_sigma(
             df_new, usigma_cols,
-            log_sigma_const_name="u__cons" if usigma_cols else "ln_sigma_u",
+            log_sigma_const_name=u_const_name,
             coef_prefix="u_",
         )
         mu_new = self._eval_mu(df_new, emean_cols)
@@ -274,9 +280,12 @@ class FrontierResult(EconometricResults):
         if what.startswith("conditional_"):
             y_col = self.data_info.get("dep_var")
             y_new = df_new[y_col].to_numpy(dtype=float)
+            v_const_name = (
+                _fc.const_name_for("v_") if vsigma_cols else "ln_sigma_v"
+            )
             sigma_v_new = self._eval_sigma(
                 df_new, vsigma_cols,
-                log_sigma_const_name="v__cons" if vsigma_cols else "ln_sigma_v",
+                log_sigma_const_name=v_const_name,
                 coef_prefix="v_",
             )
             eps_new = y_new - frontier_hat
@@ -300,18 +309,17 @@ class FrontierResult(EconometricResults):
                 index=idx, name="conditional_efficiency",
             )
 
-        # Marginal E[exp(-u_new)] for each distribution.
+        # Marginal E[exp(-u_new)] for each distribution. Route through the
+        # stabilized :func:`_core._battese_coelli_te` for HN / TN (HN is
+        # the mu=0 special case of TN) so extreme bootstrap-path sigma
+        # values don't overflow the exp term.
         if dist == "half-normal":
-            # E[exp(-|Z|)] with Z ~ N(0, sigma_u^2): 2 * exp(sigma_u^2/2) * Phi(-sigma_u).
-            te = 2.0 * np.exp(sigma_u_new**2 / 2.0) * stats.norm.cdf(-sigma_u_new)
+            te = _fc._battese_coelli_te(np.zeros_like(sigma_u_new), sigma_u_new)
         elif dist == "exponential":
             # E[exp(-u)] with u ~ Exp(scale=sigma_u): 1/(1 + sigma_u).
             te = 1.0 / (1.0 + sigma_u_new)
         else:  # truncated-normal
-            num = np.exp(-mu_new + 0.5 * sigma_u_new**2)
-            log_numer = _fc._log_phi_cdf(mu_new / sigma_u_new - sigma_u_new)
-            log_denom = _fc._log_phi_cdf(mu_new / sigma_u_new)
-            te = num * np.exp(log_numer - log_denom)
+            te = _fc._battese_coelli_te(mu_new, sigma_u_new)
         te = np.clip(te, 0.0, 1.0)
         return pd.Series(te, index=idx, name="expected_efficiency")
 
@@ -326,10 +334,13 @@ class FrontierResult(EconometricResults):
 
         Handles both the homoskedastic case (single ``ln_sigma_{u,v}`` param)
         and the heteroskedastic case (``{prefix}_cons`` plus ``{prefix}{col}``).
+        The constant-name is derived from :func:`_core.const_name_for` so
+        this stays consistent with parameter naming at fit time.
         """
         if not cols:
             return np.exp(np.full(len(df), self.params[log_sigma_const_name]))
-        intercept = self.params[f"{coef_prefix}_cons"]
+        intercept_name = _fc.const_name_for(coef_prefix)
+        intercept = self.params[intercept_name]
         W = df[cols].to_numpy(dtype=float)
         coefs = np.array([self.params[f"{coef_prefix}{c}"] for c in cols])
         return np.exp(intercept + W @ coefs)
@@ -340,7 +351,7 @@ class FrontierResult(EconometricResults):
             return np.full(len(df), self.params["mu"])
         if not cols:
             return np.zeros(len(df))  # half-normal / exponential: no mu
-        intercept = self.params["mu__cons"]
+        intercept = self.params[_fc.const_name_for("mu_")]
         Z = df[cols].to_numpy(dtype=float)
         coefs = np.array([self.params[f"mu_{c}"] for c in cols])
         return intercept + Z @ coefs

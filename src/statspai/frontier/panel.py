@@ -61,6 +61,7 @@ def xtfrontier(
     vce: str = "oim",
     cluster: Optional[str] = None,
     bias_correct: bool = False,
+    n_quad: int = 24,
     maxiter: int = 500,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -107,6 +108,13 @@ def xtfrontier(
         TFE-only.  If True, applies Dhaene-Jochmans (2015) split-panel
         jackknife to reduce the O(1/T) incidental-parameters bias on
         ``beta`` and ``sigma_u``.
+    n_quad : int, default 24
+        TRE-only.  Number of Gauss-Hermite nodes used to integrate out
+        ``alpha_i``.  Increase to 48 or 64 when ``sigma_alpha`` is large
+        relative to ``sigma_v`` (large between-firm heterogeneity) so
+        that the quadrature tails are not truncated.  A warning is
+        emitted when the fitted ``sigma_alpha`` suggests insufficient
+        tail coverage at the chosen ``n_quad``.
     maxiter, tol, alpha : see :func:`frontier`.
 
     Returns
@@ -134,6 +142,7 @@ def xtfrontier(
             data, y, x, id_col=id, time_col=time,
             dist=dist, cost=cost,
             vce=vce, cluster=cluster,
+            n_quad=n_quad,
             maxiter=maxiter, tol=tol, alpha=alpha,
         )
     if model == "bc95":
@@ -855,6 +864,33 @@ def _fit_tre(
     sigma_v = float(np.exp(theta_hat[k_beta]))
     sigma_u = float(np.exp(theta_hat[k_beta + 1]))
     sigma_alpha = float(np.exp(theta_hat[k_beta + 2]))
+
+    # Tail-coverage warning: Gauss-Hermite quadrature covers
+    # |alpha| < sqrt(2)*node_max * sigma_alpha in absolute units.
+    # For n_quad=24 the coverage is ~7.6 * sigma_alpha — enough for
+    # typical applications. It becomes marginal when:
+    #   (a) n_quad is small (<16), geometry alone is too tight; OR
+    #   (b) heterogeneity ratio sigma_alpha / sigma_v is large (>5),
+    #       meaning between-firm variance dominates noise and the
+    #       posterior over alpha|e_i is broad — needing more tail mass.
+    # Either condition gets a warning so users can bump n_quad.
+    node_max = float(nodes.max())
+    tail_span_sigma_alpha = np.sqrt(2.0) * node_max  # in sigma_alpha units
+    het_ratio = sigma_alpha / max(sigma_v, 1e-12)
+    geometry_tight = n_quad < 16
+    heterogeneity_large = het_ratio > 5.0 and n_quad < 48
+    if geometry_tight or heterogeneity_large:
+        import warnings as _warnings
+        _warnings.warn(
+            f"TRE Gauss-Hermite quadrature may be under-resolved: "
+            f"n_quad={n_quad}, coverage={tail_span_sigma_alpha:.1f} "
+            f"sigma_alpha, sigma_alpha/sigma_v={het_ratio:.2f} "
+            f"(fitted sigma_alpha={sigma_alpha:.3g}, sigma_v={sigma_v:.3g}). "
+            f"{'Large heterogeneity ratio' if heterogeneity_large else 'Small n_quad'} "
+            "suggests bumping n_quad to 48 or 64 and re-fitting.",
+            UserWarning,
+            stacklevel=3,
+        )
 
     # SE via numerical Hessian, with optional vce='opg'/'robust'
     H = _fc.numerical_hessian(neg_loglik, theta_hat)

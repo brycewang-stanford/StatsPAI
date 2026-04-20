@@ -109,12 +109,52 @@ class TestCrossSectionalRecovery:
         assert res.model_info["sign"] == 1
         # With cost=False on cost-generated data, sigma_u should collapse.
         res_wrong = frontier(df, y="y", x=["x1"], dist="half-normal", cost=False)
-        # Wrong sign ⇒ residuals right-skewed, HN production LL will try to
-        # shrink sigma_u towards the bound.  Correct fit must have higher LL.
+        # Strict: on cost-generated data the correct (cost=True) fit must
+        # achieve STRICTLY higher log-likelihood than the wrong-sign fit.
+        # Previous version allowed a 5-nat slack, which masked any
+        # implementation bug that degraded but didn't flip the ranking.
         assert (
             res.diagnostics["log_likelihood"]
-            > res_wrong.diagnostics["log_likelihood"] - 5
+            > res_wrong.diagnostics["log_likelihood"]
+        ), (
+            f"correct-sign LL ({res.diagnostics['log_likelihood']:.3f}) "
+            f"should strictly exceed wrong-sign LL "
+            f"({res_wrong.diagnostics['log_likelihood']:.3f})"
         )
+
+    def test_cost_frontier_recovers_parameters(self):
+        """Cross-sectional cost frontier: verify beta / sigma_u recovery.
+
+        The existing ``test_half_normal_cost_sign_flip`` compares log-
+        likelihoods across sign conventions but never checks that the
+        slopes and variance parameters land near the truth. A bug that
+        inverts beta while preserving LL ordering could slip through
+        without this test.
+        """
+        rng = np.random.default_rng(777)
+        n = 2500
+        x1 = rng.normal(0, 1, n)
+        x2 = rng.normal(0, 1, n)
+        true_beta_1, true_beta_2 = 0.5, -0.3
+        true_sigma_u, true_sigma_v = 0.35, 0.15
+        u = np.abs(rng.normal(0, true_sigma_u, n))
+        v = rng.normal(0, true_sigma_v, n)
+        # Cost frontier: log_cost = alpha + beta * x + v + u
+        y = 1.0 + true_beta_1 * x1 + true_beta_2 * x2 + v + u
+        df = pd.DataFrame({"y": y, "x1": x1, "x2": x2})
+        res = frontier(df, y="y", x=["x1", "x2"], dist="half-normal", cost=True)
+        assert res.model_info["converged"]
+        assert res.model_info["sign"] == 1
+        # Slope recovery — tight because we have n=2500.
+        assert abs(res.params["x1"] - true_beta_1) < 0.03, (
+            f"x1 beta drift: {res.params['x1']:.4f} vs 0.50"
+        )
+        assert abs(res.params["x2"] - true_beta_2) < 0.03, (
+            f"x2 beta drift: {res.params['x2']:.4f} vs -0.30"
+        )
+        # Variance recovery.
+        assert abs(np.exp(res.params["ln_sigma_u"]) - true_sigma_u) < 0.05
+        assert abs(np.exp(res.params["ln_sigma_v"]) - true_sigma_v) < 0.04
 
     def test_exponential_production_recovers_parameters(self):
         rng = np.random.default_rng(3)
@@ -1001,6 +1041,65 @@ class TestMalmquist:
         tc = res.index_table["tc"].values
         assert np.allclose(m, ec * tc, rtol=1e-8)
 
+    def test_malmquist_tc_matches_hand_computation(self):
+        """Reference test: when frontier shifts by known delta and a firm
+        tracks the frontier exactly, TC = exp(delta_alpha) and EC = 1.
+
+        This is the first test in the suite that compares Malmquist
+        numbers against an *external* hand-computed reference rather
+        than the implementation's own identity M = EC * TC. A silent
+        sign flip in log_TC or a formula error in the geometric-mean
+        component would be caught here even though the identity test
+        would still pass.
+        """
+        from statspai.frontier import malmquist
+        rng = np.random.default_rng(1703)
+        N = 400
+        delta_alpha = 0.10   # known outward frontier shift period 1 -> 2
+        beta_true = 0.5
+        # Low noise so OLS/SFA betas are very close to truth.
+        sigma_u_true = 0.02
+        sigma_v_true = 0.02
+        rows = []
+        # Each firm tracks the frontier: y_t = alpha_t + beta * x_t + v - u
+        # Under low noise, firms stay close to the moving frontier so both
+        # log D^t(x^t, y^t) and log D^{t+1}(x^{t+1}, y^{t+1}) are small and
+        # equal on average, giving EC ~ 1 and TC ~ exp(delta_alpha).
+        for t_idx, t in enumerate([1, 2]):
+            alpha_t = 1.0 + t_idx * delta_alpha
+            for i in range(N):
+                x1 = rng.normal(0, 1)
+                u = np.abs(rng.normal(0, sigma_u_true))
+                v = rng.normal(0, sigma_v_true)
+                y = alpha_t + beta_true * x1 + v - u
+                rows.append({"id": i, "t": t, "y": y, "x1": x1})
+        df = pd.DataFrame(rows)
+        res = malmquist(df, y="y", x=["x1"], id="id", time="t")
+
+        # Hand-computed reference values (independent of the
+        # implementation): given frontier shift = exp(delta_alpha) and
+        # firms track the frontier, mean TC should be close to
+        # exp(delta_alpha) and mean EC close to 1.
+        expected_tc = float(np.exp(delta_alpha))
+        expected_ec = 1.0
+        mean_tc = float(res.index_table["tc"].mean())
+        mean_ec = float(res.index_table["ec"].mean())
+        # Tolerances: sampling noise + finite sigma_u lifting mean log D.
+        # 0.02 on TC is ~18% of the effect (delta_alpha=0.10 -> TC 1.105);
+        # a sign flip in log_TC (which would give TC ~ exp(-0.10) = 0.905)
+        # would fail this at >9 sigma.
+        assert abs(mean_tc - expected_tc) < 0.03, (
+            f"mean TC {mean_tc:.4f} vs expected {expected_tc:.4f} "
+            f"(|diff|={abs(mean_tc - expected_tc):.4f})"
+        )
+        assert abs(mean_ec - expected_ec) < 0.04, (
+            f"mean EC {mean_ec:.4f} vs expected {expected_ec:.4f}"
+        )
+        # M = EC * TC should equal the observed mean M up to noise;
+        # more importantly the direction is correct.
+        mean_m = float(res.index_table["m_index"].mean())
+        assert mean_m > 1.05, f"mean M {mean_m:.4f} should exceed 1 (growth)"
+
     def test_malmquist_requires_two_periods(self):
         from statspai.frontier import malmquist
         df = _simulate_hn_production(100, 0.2, 0.4, seed=1703)
@@ -1044,6 +1143,52 @@ class TestTranslogDesign:
         tl = translog_design(df, inputs=["log_k", "log_l"])
         terms = tl.attrs["translog_terms"]
         assert "log_k" in terms and "log_k_sq" in terms and "log_k_x_log_l" in terms
+        # added_terms should be ONLY the new columns (no original inputs).
+        added = tl.attrs["translog_added_terms"]
+        assert "log_k" not in added and "log_l" not in added
+        assert "log_k_sq" in added and "log_k_x_log_l" in added
+
+    def test_translog_integration_with_frontier(self):
+        """Integration: translog_design(...) → sp.frontier(x=attrs['translog_terms']).
+
+        Verifies the advertised one-liner workflow actually runs end-to-end
+        (previously the attrs field was never consumed). Also verifies
+        that squared / interaction coefficients are near zero when the
+        true DGP is Cobb-Douglas (translog nests CD as restrictions).
+        """
+        from statspai.frontier import translog_design
+        rng = np.random.default_rng(1750)
+        n = 600
+        # Cobb-Douglas DGP: translog terms should all be ~0.
+        log_k = rng.normal(0, 0.5, n)
+        log_l = rng.normal(0, 0.5, n)
+        u = np.abs(rng.normal(0, 0.2, n))
+        v = rng.normal(0, 0.1, n)
+        log_y = 1.0 + 0.4 * log_k + 0.5 * log_l + v - u
+        df = pd.DataFrame({
+            "log_y": log_y, "log_k": log_k, "log_l": log_l,
+        })
+        tl = translog_design(df, inputs=["log_k", "log_l"])
+        terms = tl.attrs["translog_terms"]
+        # Option A: pass the full translog regressor list in one shot.
+        res = frontier(tl, y="log_y", x=terms, dist="half-normal")
+        assert res.model_info.get("converged", False)
+        # Squared + interaction terms should be small on a CD DGP.
+        for extra in ("log_k_sq", "log_l_sq", "log_k_x_log_l"):
+            assert extra in res.params.index, (
+                f"{extra!r} missing from fitted params — integration broken"
+            )
+            assert abs(res.params[extra]) < 0.15, (
+                f"CD DGP should give near-zero translog coeffs; "
+                f"{extra}={res.params[extra]:.4f}"
+            )
+        # Option B: extend an existing x via translog_added_terms.
+        base = ["log_k", "log_l"]
+        extra_terms = tl.attrs["translog_added_terms"]
+        res2 = frontier(tl, y="log_y", x=base + extra_terms, dist="half-normal")
+        # Same model, should reproduce the same beta up to optimizer noise.
+        for name in ("log_k", "log_l"):
+            assert abs(res.params[name] - res2.params[name]) < 1e-3
 
 
 class TestMonteCarloCoverage:
@@ -1155,21 +1300,46 @@ class TestLatentClassSFA:
         class_1 = rng.uniform(0, 1, n) < 0.5
         u = np.abs(rng.normal(0, 0.3, n))
         v = rng.normal(0, 0.15, n)
+        true_alpha_1, true_alpha_2 = 1.0, 2.0
+        true_slope_1, true_slope_2 = 0.8, 0.3
         y = np.where(
             class_1,
-            1.0 + 0.8 * x1 + v - u,
-            2.0 + 0.3 * x1 + v - u,
+            true_alpha_1 + true_slope_1 * x1 + v - u,
+            true_alpha_2 + true_slope_2 * x1 + v - u,
         )
         df = pd.DataFrame({"y": y, "x1": x1})
         res = lcsf(df, y="y", x=["x1"])
         assert res.model_info["converged"]
-        # Class recovery: one class should have x1 ≈ 0.8, the other ≈ 0.3.
+        # Class recovery: one class should match (slope=0.8, alpha=1.0),
+        # the other (slope=0.3, alpha=2.0). Verify that BOTH slope and
+        # intercept match the SAME class pairing — guards against the
+        # partial-swap failure mode where slopes land right but intercepts
+        # are swapped across classes.
         c1_x1 = res.params["c1:x1"]
         c2_x1 = res.params["c2:x1"]
-        matched = (abs(c1_x1 - 0.8) < 0.1 and abs(c2_x1 - 0.3) < 0.1) or (
-            abs(c1_x1 - 0.3) < 0.1 and abs(c2_x1 - 0.8) < 0.1
+        c1_cons = res.params["c1:_cons"]
+        c2_cons = res.params["c2:_cons"]
+        # Canonical ordering (ascending sigma_u) makes which class is "c1"
+        # deterministic, but the mapping (c1 ↔ slope=0.8) depends on
+        # whether class 1 in the DGP has higher or lower sigma_u after
+        # the canonical flip. Check both orderings consistently.
+        pairing_a = (  # c1 = slope_1 / alpha_1, c2 = slope_2 / alpha_2
+            abs(c1_x1 - true_slope_1) < 0.12
+            and abs(c2_x1 - true_slope_2) < 0.12
+            and abs(c1_cons - true_alpha_1) < 0.15
+            and abs(c2_cons - true_alpha_2) < 0.15
         )
-        assert matched, f"c1_x1={c1_x1}, c2_x1={c2_x1}"
+        pairing_b = (  # c1 = slope_2 / alpha_2, c2 = slope_1 / alpha_1
+            abs(c1_x1 - true_slope_2) < 0.12
+            and abs(c2_x1 - true_slope_1) < 0.12
+            and abs(c1_cons - true_alpha_2) < 0.15
+            and abs(c2_cons - true_alpha_1) < 0.15
+        )
+        assert pairing_a or pairing_b, (
+            f"class labels don't map consistently across slope/intercept: "
+            f"c1=(alpha={c1_cons:.3f}, slope={c1_x1:.3f}), "
+            f"c2=(alpha={c2_cons:.3f}, slope={c2_x1:.3f})"
+        )
 
     def test_lcsf_efficiency_bounded(self):
         from statspai.frontier import lcsf

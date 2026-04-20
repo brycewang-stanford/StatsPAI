@@ -88,6 +88,7 @@ def malmquist(
     *,
     dist: str = "half-normal",
     cost: bool = False,
+    overflow_threshold: float = 1e6,
     **frontier_kwargs,
 ) -> MalmquistResult:
     """Compute the Malmquist productivity index via period-by-period SFA.
@@ -97,8 +98,16 @@ def malmquist(
     data : pandas.DataFrame
     y, x, id, time : str / list of str
     dist, cost : forwarded to :func:`frontier`
+    overflow_threshold : float, default 1e6
+        Any firm-level ``m_index`` / ``ec`` / ``tc`` whose absolute value
+        exceeds this is replaced with NaN and a UserWarning is emitted.
+        Protects summary statistics from contamination by degenerate
+        per-period frontier fits.
     **frontier_kwargs : forwarded to per-period :func:`frontier`
-        (e.g., ``usigma``, ``vsigma``, ``emean``).
+        (e.g., ``usigma``, ``vsigma``, ``emean``).  The reserved names
+        ``data``, ``y``, ``x``, ``id``, ``time``, ``dist``, ``cost`` are
+        rejected up-front with a clear ``TypeError`` rather than leaking
+        through to :func:`frontier` with a less helpful error.
 
     Returns
     -------
@@ -112,6 +121,15 @@ def malmquist(
     fitted period ``D < 1`` corresponds to technically inefficient
     firms and ``D = 1`` on the frontier.
     """
+    _reserved = {"data", "y", "x", "id", "time", "dist", "cost"}
+    _bad = _reserved & set(frontier_kwargs.keys())
+    if _bad:
+        raise TypeError(
+            f"malmquist() received reserved argument(s) {sorted(_bad)} via "
+            f"**frontier_kwargs; pass them as the top-level positional/keyword "
+            f"arguments instead."
+        )
+
     required = [y] + list(x) + [id, time]
     df = data[required].dropna().copy()
     df = df.sort_values([id, time]).reset_index(drop=True)
@@ -198,6 +216,31 @@ def malmquist(
     if len(index_table) == 0:
         raise RuntimeError(
             "No consecutive-period observations found; Malmquist index is empty."
+        )
+
+    # Guard against overflow when a per-period frontier is degenerate and
+    # produces a huge log-distance. Without clipping, a single +inf m_index
+    # can propagate through `.mean()` to contaminate the whole period's
+    # summary. We replace values above `overflow_threshold` with NaN so
+    # that `.mean()` / `.std()` skip them cleanly.
+    import warnings as _warnings
+    overflow_mask = pd.DataFrame(False, index=index_table.index,
+                                  columns=["m_index", "ec", "tc"])
+    for col in ("m_index", "ec", "tc"):
+        mask = ~np.isfinite(index_table[col].to_numpy()) | (
+            np.abs(index_table[col].to_numpy()) > overflow_threshold
+        )
+        overflow_mask[col] = mask
+        if mask.any():
+            index_table.loc[mask, col] = np.nan
+    n_bad = int(overflow_mask.to_numpy().any(axis=1).sum())
+    if n_bad > 0:
+        _warnings.warn(
+            f"Malmquist: {n_bad} firm-period entries exceeded "
+            f"overflow_threshold={overflow_threshold:g} and were set to "
+            f"NaN. Check per-period frontier fits for degeneracy.",
+            UserWarning,
+            stacklevel=2,
         )
 
     by_period = index_table.groupby(f"{time}_to")[["m_index", "ec", "tc"]].agg(

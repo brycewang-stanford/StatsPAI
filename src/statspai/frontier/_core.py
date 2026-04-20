@@ -298,11 +298,20 @@ def _battese_coelli_te(mu: np.ndarray, sigma: np.ndarray) -> np.ndarray:
     """E[exp(-X)] for X ~ N^+(mu, sigma^2) truncated at 0.
 
     Battese-Coelli (1988): exp(-mu + 0.5 sigma^2) * Phi(mu/sigma - sigma) / Phi(mu/sigma).
+
+    Implementation works entirely in log-space to survive large sigma
+    (otherwise ``exp(0.5 * sigma^2)`` overflows float64 at sigma ~ 40).
+    Bootstrap paths can feed extreme sigma values that slip past the
+    optimizer's evaluate_sigma guards, so we stabilize here as well.
     """
-    num = np.exp(-mu + 0.5 * sigma**2)
     log_numer = _log_phi_cdf(mu / sigma - sigma)
     log_denom = _log_phi_cdf(mu / sigma)
-    te = num * np.exp(log_numer - log_denom)
+    # log TE = -mu + 0.5 * sigma^2 + log Phi(mu/sigma - sigma) - log Phi(mu/sigma)
+    log_te = -mu + 0.5 * sigma**2 + log_numer - log_denom
+    # log_te should be <= 0 analytically; clip at 0 before exp to prevent
+    # any numerical drift above 1.0 from leaking past the final clip.
+    log_te = np.minimum(log_te, 0.0)
+    te = np.exp(log_te)
     return np.clip(te, 0.0, 1.0)
 
 
@@ -449,6 +458,17 @@ def build_design(
     return y_vec, X_mat, names
 
 
+def const_name_for(prefix: str) -> str:
+    """Return the canonical constant parameter name for a given design prefix.
+
+    Single source of truth for the ``<prefix>_cons`` convention used by
+    :func:`build_optional_design` and consumers like
+    ``FrontierResult._eval_sigma``. Callers should never hard-code the
+    string; any change here automatically propagates.
+    """
+    return f"{prefix}_cons"
+
+
 def build_optional_design(
     data: pd.DataFrame,
     cols: Optional[list[str]],
@@ -467,7 +487,7 @@ def build_optional_design(
     if include_constant:
         const = np.ones((len(data), 1))
         mat = np.concatenate([const, block], axis=1)
-        names = [f"{prefix}_cons"] + [f"{prefix}{c}" for c in cols]
+        names = [const_name_for(prefix)] + [f"{prefix}{c}" for c in cols]
     else:
         mat = block
         names = [f"{prefix}{c}" for c in cols]
@@ -575,6 +595,7 @@ __all__ = [
     "robust_vcov",
     "build_design",
     "build_optional_design",
+    "const_name_for",
     "evaluate_sigma",
     "lr_test_statistic",
     "mixed_chi_bar_pvalue",

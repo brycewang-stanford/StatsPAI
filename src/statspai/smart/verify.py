@@ -222,10 +222,29 @@ def _bootstrap_stability(
     arr = np.asarray(estimates)
     mean = float(arr.mean())
     std = float(arr.std(ddof=1))
-    cv = std / abs(mean) if abs(mean) > 1e-8 else np.inf
+    # Near-zero-mean handling: the coefficient of variation explodes when
+    # the true effect is near zero (a CORRECT null-effect estimator is
+    # not "unstable" just because it estimates zero stably). Fall back
+    # to a scale-free dispersion metric — IQR / (|median| + data MAD) —
+    # so a well-behaved null-effect scores high rather than zero.
+    if abs(mean) > 1e-3 * (np.abs(arr).max() + 1e-12):
+        cv = std / abs(mean)
+        metric = "cv"
+    else:
+        q1, med, q3 = np.quantile(arr, [0.25, 0.5, 0.75])
+        iqr = float(q3 - q1)
+        mad = float(np.median(np.abs(arr - med))) + 1e-12
+        # Scale dispersion by MAD (robust scale of estimates themselves)
+        cv = iqr / (abs(med) + mad)
+        metric = "iqr_over_medmad"
     # Score: CV of 0 → 100, CV of 1.0 → 0, clamped
     score = max(0.0, min(100.0, 100.0 * (1.0 - min(cv, 1.0))))
-    return {"n_success": len(estimates), "cv": cv, "score": score}
+    return {
+        "n_success": len(estimates),
+        "cv": cv,
+        "score": score,
+        "metric": metric,
+    }
 
 
 def _placebo_pass(

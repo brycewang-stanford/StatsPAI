@@ -223,9 +223,13 @@ from .smart import (
     sensitivity_dashboard, SensitivityDashboard,
     pub_ready, PubReadyResult,
     replicate, list_replications,
-    verify_recommendation, verify_benchmark,
 )
-verify = verify_recommendation  # convenience alias
+
+# verify / verify_recommendation / verify_benchmark are loaded lazily via
+# __getattr__ at the bottom of this file so that `import statspai` doesn't
+# drag in the resampling-stability machinery unless the caller actually
+# asks for it. Preserves the "zero overhead when verify=False" guarantee
+# in recommend().
 
 # === NEW v0.6 Round 3 ===
 # Truncated Regression
@@ -699,4 +703,84 @@ __all__ = [
     "zisf", "lcsf",
     "te_summary", "te_rank",
     "gmm",
+    # ---- v0.9.3 __all__ completeness pass ----
+    # Items below were imported at the top of the file but previously
+    # missing from __all__, breaking `from statspai import *` and some
+    # IDE autocompleters. Grouped by subsystem for readability.
+    # Causal impact / mediation
+    "impactplot", "mediate_sensitivity",
+    # Synth suite
+    "synthplot",
+    "multi_outcome_synth", "scpi", "scest", "scdata",
+    "discos", "discos_test", "discos_plot", "qqsynth",
+    "stochastic_dominance",
+    "synth_loo", "synth_time_placebo", "synth_donor_sensitivity",
+    "synth_rmspe_filter", "synth_sensitivity", "synth_sensitivity_plot",
+    "synth_power", "synth_mde", "synth_power_plot",
+    "synth_compare", "synth_recommend", "SynthComparison",
+    "synth_report", "synth_report_to_file",
+    "german_reunification", "basque_terrorism", "california_tobacco",
+    # Spatial
+    "W",
+    "moran", "moran_local", "moran_plot", "moran_residuals",
+    "geary", "getis_ord_g", "getis_ord_local", "join_counts",
+    "lisa_cluster_map", "lm_tests", "impacts",
+    "queen_weights", "rook_weights", "knn_weights",
+    "distance_band", "kernel_weights", "block_weights",
+    "gwr", "mgwr", "gwr_bandwidth",
+    "sac", "slx", "sar_gmm", "sarar_gmm", "sem_gmm",
+    "spatial_panel",
+    # RD
+    "rd2d", "rd2d_bw", "rd2d_plot", "rdpower", "rdsampsi",
+    "dgp_rd_2d", "dgp_rd_hte", "dgp_rd_kink", "dgp_rd_multi", "dgp_rdit",
+    # Decomposition
+    "decompose", "dfl_decompose",
+    "machado_mata", "melly_decompose",
+    "rifreg", "rif_decomposition", "ffl_decompose",
+    "fairlie", "yun_nonlinear", "cfm_decompose",
+    "bauer_sinning", "das_gupta",
+    "gap_closing", "kitagawa_decompose",
+    "source_decompose", "subgroup_decompose",
+    "disparity_decompose", "disparity_panel",
+    "mediation_decompose",
+    "inequality_index", "shapley_inequality",
+    # Panel / DID extras
+    "aggte", "ggdid", "bjs_pretrend_joint", "cs_report", "CSReport",
+    "local_projections", "LocalProjectionsResult",
+    # Matching / survey / survival
+    "cardinality_match", "CardinalityMatchResult",
+    "optimal_match", "OptimalMatchResult",
+    "linear_calibration", "rake",
+    "aft", "cox_frailty",
+    # Causal discovery
+    "lingam", "LiNGAMResult", "ges", "GESResult",
+    # Time series
+    "arima", "ARIMAResult",
+    "bvar", "BVARResult",
+    "garch", "GARCHResult",
+    # Datasets
+    "cps_wage", "mincer_wage_panel", "chilean_households",
+    # Recommendations metadata
+    "available_methods",
 ]
+
+
+def __getattr__(name):
+    """Lazy-load the verify / verify_benchmark entry points.
+
+    Pulling verify.py at import time contradicts the "verify=False ⇒
+    zero overhead" promise in recommend(); defer it to first access.
+    Cache BOTH aliases (``verify`` and ``verify_recommendation``) at
+    the same time so a later access of the un-touched alias doesn't
+    re-enter __getattr__.
+    """
+    if name in {"verify", "verify_recommendation"}:
+        from .smart.verify import verify_recommendation as _vr
+        globals()["verify"] = _vr
+        globals()["verify_recommendation"] = _vr
+        return _vr
+    if name == "verify_benchmark":
+        from .smart.benchmark import verify_benchmark as _vb
+        globals()["verify_benchmark"] = _vb
+        return _vb
+    raise AttributeError(f"module 'statspai' has no attribute {name!r}")

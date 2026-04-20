@@ -723,16 +723,22 @@ def recommend(
             except Exception as e:
                 rec["verify"] = {"score": np.nan, "error": str(e)}
 
-        # Re-rank top-k by verify score (stable sort; rest of list untouched)
+        # Re-rank top-k by verify score (stable sort; rest of list untouched).
+        # Sort descending on score; NaN/error scores fall to the BOTTOM of
+        # the head (keyed to +inf), not the middle — this preserves
+        # determinism and makes a score=0.0 method (runnable but unstable)
+        # strictly outrank a NaN one (not runnable).
         head = recommendations[:k]
         tail = recommendations[k:]
-        head.sort(
-            key=lambda r: (
-                -(r.get("verify", {}).get("score") or -1)
-                if r.get("verify") and np.isfinite(r["verify"].get("score", np.nan))
-                else 0
-            )
-        )
+
+        def _sort_key(rec):
+            v = rec.get("verify") or {}
+            s = v.get("score")
+            if s is None or not np.isfinite(s):
+                return float("inf")  # push NaN / missing to the end
+            return -float(s)         # primary: descending score
+
+        head.sort(key=_sort_key)
         recommendations = head + tail
 
     return RecommendationResult(

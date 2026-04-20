@@ -54,6 +54,8 @@ def zisf(
     zprob: Optional[List[str]] = None,
     dist: str = "half-normal",
     cost: bool = False,
+    vce: str = "oim",
+    cluster: Optional[str] = None,
     maxiter: int = 500,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -86,7 +88,18 @@ def zisf(
         raise ValueError("zisf currently supports dist='half-normal' only.")
     sign = 1 if cost else -1
 
+    vce_l = vce.lower()
+    if vce_l not in {"oim", "opg", "robust"}:
+        raise ValueError(
+            f"zisf: vce={vce!r} not supported. Use 'oim', 'opg', or "
+            "'robust' (pass cluster= for cluster-robust SEs)."
+        )
+    if cluster is not None and vce_l == "oim":
+        vce_l = "robust"
+
     required = [y] + list(x) + (list(zprob) if zprob else [])
+    if cluster is not None:
+        required = required + [cluster]
     df = data[required].dropna().copy()
     n = len(df)
     y_vec, X_mat, beta_names = _fc.build_design(df, y, x, add_constant=True)
@@ -163,7 +176,18 @@ def zisf(
     p_i = 1.0 / (1.0 + np.exp(-(Z_mat @ theta_p)))
 
     H = _fc.numerical_hessian(neg_loglik, theta_hat)
-    vcov = _fc.safe_invert_hessian(H)
+    vcov_oim = _fc.safe_invert_hessian(H)
+    if vce_l == "oim":
+        vcov = vcov_oim
+    else:
+        scores = _fc.per_obs_scores(per_obs_loglik, theta_hat)
+        if vce_l == "opg":
+            vcov = _fc.safe_invert_hessian(scores.T @ scores)
+        else:  # robust / cluster
+            cluster_idx = None
+            if cluster is not None:
+                cluster_idx = pd.Categorical(df[cluster]).codes.astype(int)
+            vcov = _fc.robust_vcov(H, scores, cluster_idx=cluster_idx)
     se = np.sqrt(np.clip(np.diag(vcov), 0.0, None))
 
     # Posterior efficiency:
@@ -208,7 +232,9 @@ def zisf(
                 "Mixture posterior: p_eff*1 + (1-p_eff)*E[exp(-u)|eps]; "
                 "not the vanilla Battese-Coelli scalar"
             ),
-            "vce": "oim",
+            "vce": (
+                vce_l if cluster is None else f"cluster({cluster})"
+            ),
             "has_zprob": zprob is not None,
             "sigma_u_mean": sigma_u,
             "sigma_v_mean": sigma_v,
@@ -263,6 +289,8 @@ def lcsf(
     z_class: Optional[List[str]] = None,
     dist: str = "half-normal",
     cost: bool = False,
+    vce: str = "oim",
+    cluster: Optional[str] = None,
     maxiter: int = 500,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -288,7 +316,18 @@ def lcsf(
         raise ValueError("lcsf currently supports dist='half-normal' only.")
     sign = 1 if cost else -1
 
+    vce_l = vce.lower()
+    if vce_l not in {"oim", "opg", "robust"}:
+        raise ValueError(
+            f"lcsf: vce={vce!r} not supported. Use 'oim', 'opg', or "
+            "'robust' (pass cluster= for cluster-robust SEs)."
+        )
+    if cluster is not None and vce_l == "oim":
+        vce_l = "robust"
+
     required = [y] + list(x) + (list(z_class) if z_class else [])
+    if cluster is not None:
+        required = required + [cluster]
     df = data[required].dropna().copy()
     n = len(df)
     y_vec, X_mat, beta_names = _fc.build_design(df, y, x, add_constant=True)
@@ -430,7 +469,18 @@ def lcsf(
     TE_lcsf = p1_post * TE1 + (1.0 - p1_post) * TE2
 
     H = _fc.numerical_hessian(neg_loglik, theta_hat)
-    vcov = _fc.safe_invert_hessian(H)
+    vcov_oim = _fc.safe_invert_hessian(H)
+    if vce_l == "oim":
+        vcov = vcov_oim
+    else:
+        scores = _fc.per_obs_scores(per_obs_loglik, theta_hat)
+        if vce_l == "opg":
+            vcov = _fc.safe_invert_hessian(scores.T @ scores)
+        else:  # robust / cluster
+            cluster_idx = None
+            if cluster is not None:
+                cluster_idx = pd.Categorical(df[cluster]).codes.astype(int)
+            vcov = _fc.robust_vcov(H, scores, cluster_idx=cluster_idx)
     se = np.sqrt(np.clip(np.diag(vcov), 0.0, None))
 
     param_names = (
@@ -458,7 +508,9 @@ def lcsf(
                 "Mixture posterior: p1*E[exp(-u1)|eps] + "
                 "(1-p1)*E[exp(-u2)|eps]; labels canonical by ascending sigma_u"
             ),
-            "vce": "oim",
+            "vce": (
+                vce_l if cluster is None else f"cluster({cluster})"
+            ),
             "sigma_u_mean": (su1 + su2) / 2.0,
             "sigma_v_mean": (sv1 + sv2) / 2.0,
             "mean_efficiency_bc": float(np.mean(TE_lcsf)),
