@@ -35,6 +35,7 @@ from .diagnostics import (
     gate_test,
     blp_test,
 )
+from .auto_cate import auto_cate, AutoCATEResult
 
 __all__ = [
     'metalearner',
@@ -51,4 +52,6 @@ __all__ = [
     'compare_metalearners',
     'gate_test',
     'blp_test',
+    'auto_cate',
+    'AutoCATEResult',
 ]

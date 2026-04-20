@@ -2,6 +2,83 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.4] - 2026-04-20 — `sp.auto_cate` + strict identification
+
+This release closes two concrete commitments from the 0.9.3 post-release
+retrospective (`社媒文档/4.20-升级说明/StatsPAI-0.9.3之后的一周…`):
+
+1. **Section 5 promise**: *"下一步打算加 `strict_mode=True`"* on
+   `sp.check_identification`. Delivered as `strict=True` plus the
+   `sp.IdentificationError` exception.
+2. **Section 8 gap**: *"ML CATE scheduling isn't as good as econml."*
+   Delivered as `sp.auto_cate()` — one-line multi-learner race with
+   honest Nie-Wager R-loss scoring and BLP calibration.
+
+### Added
+
+- **`sp.auto_cate(data, y, treat, covariates, learners=('s','t','x','r','dr'))`**
+  (`src/statspai/metalearners/auto_cate.py`, +400 LOC) — races the five
+  meta-learners on shared cross-fitted nuisances, scores each on
+  held-out predictions via the Nie-Wager R-loss, runs the
+  Chernozhukov-Demirer-Duflo-Fernández-Val BLP calibration test on
+  each, and returns an `AutoCATEResult` with:
+  - `.leaderboard` — sorted by R-loss, with ATE, SE, CI, BLP β₁/β₂,
+    CATE std/IQR per learner;
+  - `.best_learner` / `.best_result` — the winner chosen by the rule
+    *"lowest R-loss among BLP-β₁-calibrated learners"*;
+  - `.results` — the full fitted `CausalResult` for every learner;
+  - `.agreement` — Pearson-ρ matrix of in-sample CATE vectors across
+    learners (quick sanity check for model dependence);
+  - `.summary()` — a printable leaderboard + agreement table.
+
+  Python's first unified CATE learner race with honest held-out
+  scoring. `econml`'s multi-metalearner pipeline is not bundled into
+  a single call; `causalml`'s BaseMetaLearner comparison doesn't run
+  BLP calibration per learner.
+
+- **`sp.check_identification(..., strict=True)`** raises
+  `sp.IdentificationError` when the report's verdict is `'BLOCKERS'`.
+  The exception carries the full report on `.report` for post-mortem
+  inspection. Default remains `strict=False` (non-breaking).
+
+- **`sp.IdentificationError`** — new exception type, exported at the
+  top level.
+
+- **IV first-stage strength check** in `sp.check_identification`
+  (`_check_iv_strength`) — computed from a single-regressor OLS of
+  treatment on instrument; flags F < 5 as `blocker`, F < 10 as
+  `warning` (Staiger-Stock 1997), F ∈ [10, 30) as `info`. Fires only
+  when `instrument` is supplied.
+
+### Tests
+
+- **`tests/test_auto_cate.py`** (13 tests) — API surface, leaderboard
+  shape, ATE recovery on constant-effect DGP, all-positive ATE on
+  positive DGP, learner subset, invalid learner rejection, selection
+  rule string, agreement matrix, `CausalResult` delegation
+  (`.tidy()`, `.glance()`), custom model override, summary string,
+  top-level `sp.*` availability, heterogeneous-DGP CATE dispersion.
+- **`tests/test_check_identification.py`** (+5 tests) — `strict=True`
+  raises on blockers, tolerates warnings, default non-strict
+  behaviour unchanged, `sp.IdentificationError` top-level export,
+  weak-instrument flagged, strong-instrument not flagged.
+
+### Design
+
+- Published spec at
+  `docs/superpowers/specs/2026-04-20-v094-auto-cate-strict-id-design.md`.
+
+### Non-goals (deferred to 0.9.5+)
+
+- Optuna hyperparameter search inside `auto_cate` — for now the user
+  either accepts the boosted-tree defaults or passes pre-tuned
+  estimators via `outcome_model=`/`propensity_model=`/`cate_model=`.
+- Bayesian `sp.bayes_did` / `sp.bayes_rd` — announced as a 0.9.5
+  preview line.
+- Rust HDFE inner kernel — remains Section 8's open item.
+
+---
+
 ## [Unreleased] — 0.9.3 post-release bugfixes
 
 Four user-reported bugs surfaced during the 0.9.3 end-to-end smoke test.
