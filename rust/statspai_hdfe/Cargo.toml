@@ -1,0 +1,26 @@
+[package]
+name = "statspai_hdfe"
+version = "0.1.0-alpha.1"
+edition = "2021"
+authors = ["Bryce Wang <bryce@copaper.ai>"]
+description = "PyO3 + Rayon HDFE group-demean kernel for StatsPAI"
+license = "MIT"
+readme = "README.md"
+rust-version = "1.76"
+
+[lib]
+name = "statspai_hdfe"
+crate-type = ["cdylib"]
+
+[dependencies]
+# Pin PyO3 conservatively: abi3 compatibility across Python 3.9-3.13
+pyo3 = { version = "0.21", features = ["extension-module", "abi3-py39"] }
+numpy = "0.21"
+ndarray = "0.15"
+rayon = "1.10"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
