@@ -149,10 +149,24 @@ def _get_cn_serif_fonts() -> list:
         available = set()
 
     candidates = [
-        'Songti SC', 'Noto Serif CJK SC', 'SimSun', 'STSong',
-        'Hiragino Mincho ProN', 'AR PL UMing CN',
+        # macOS
+        'Songti SC', 'STSong', 'Hiragino Mincho ProN',
+        # Windows
+        'SimSun', 'NSimSun', 'FangSong', 'KaiTi',
+        # Linux (apt install fonts-noto-cjk / fonts-arphic-*)
+        'Noto Serif CJK SC', 'Noto Serif CJK TC',
+        'Noto Serif CJK JP', 'Noto Serif CJK KR',
+        'Source Han Serif SC', 'Source Han Serif CN', 'Source Han Serif',
+        'AR PL UMing CN', 'AR PL UMing HK', 'AR PL UMing TW',
     ]
     found = [f for f in candidates if f in available]
+    # Substring fallback: any font that looks like a CJK serif
+    if not found:
+        _cjk_serif_kws = ('CJK', 'Han Serif', 'Ming', 'Song')
+        found = [
+            n for n in sorted(available)
+            if any(kw in n for kw in _cjk_serif_kws)
+        ]
     found.extend(['Times New Roman', 'DejaVu Serif'])
     return found
 
@@ -193,18 +207,49 @@ def use_chinese(style: str = 'auto') -> str:
 
     available = {f.name for f in fontManager.ttflist}
 
-    # Priority lists for each platform
+    # Priority lists for each platform.
+    # macOS → Windows → Linux (apt/system fonts) → cross-platform Adobe Source Han.
+    # All 4 Noto CJK regional variants cover Chinese glyphs (GB/T fonts are fine
+    # on Linux desktops that only ship the JP/TC/KR bundles).
     serif_priority = [
-        'Songti SC', 'Noto Serif CJK SC', 'SimSun', 'STSong',
-        'Hiragino Mincho ProN', 'AR PL UMing CN',
+        # macOS
+        'Songti SC', 'STSong', 'Hiragino Mincho ProN',
+        # Windows
+        'SimSun', 'NSimSun', 'FangSong', 'KaiTi',
+        # Linux (apt install fonts-noto-cjk)
+        'Noto Serif CJK SC', 'Noto Serif CJK TC',
+        'Noto Serif CJK JP', 'Noto Serif CJK KR',
+        # Adobe / Google Source Han (cross-platform, Docker/cloud images)
+        'Source Han Serif SC', 'Source Han Serif CN', 'Source Han Serif',
+        # arphic fonts on Linux
+        'AR PL UMing CN', 'AR PL UMing HK', 'AR PL UMing TW',
     ]
     sans_priority = [
+        # macOS
         'PingFang SC', 'PingFang HK', 'Hiragino Sans GB',
-        'Microsoft YaHei', 'SimHei', 'Noto Sans CJK SC',
-        'Heiti TC', 'STHeiti', 'WenQuanYi Micro Hei',
-        'Hiragino Sans',
+        'Heiti TC', 'STHeiti', 'Hiragino Sans',
+        # Windows
+        'Microsoft YaHei', 'Microsoft JhengHei', 'SimHei',
+        # Linux (apt install fonts-noto-cjk / fonts-wqy-*)
+        'Noto Sans CJK SC', 'Noto Sans CJK TC',
+        'Noto Sans CJK JP', 'Noto Sans CJK KR',
+        'WenQuanYi Zen Hei', 'WenQuanYi Micro Hei',
+        # Adobe / Google Source Han (cross-platform, Docker/cloud images)
+        'Source Han Sans SC', 'Source Han Sans CN', 'Source Han Sans',
     ]
     all_priority = sans_priority + serif_priority + ['Arial Unicode MS']
+
+    # Substring heuristics — last-resort fallback when the exact name above
+    # doesn't match (e.g. distro ships "Noto Sans CJK" without region suffix,
+    # or a custom-built Source Han variant).
+    _sans_kws = ('Han Sans', 'CJK', 'WenQuanYi', 'YaHei', 'PingFang', 'Heiti')
+    _serif_kws = ('Han Serif', 'Mincho', 'Ming', 'Song')
+
+    def _substring_match(keywords):
+        for name in sorted(available):
+            if any(kw in name for kw in keywords):
+                return name
+        return None
 
     chosen = None
 
@@ -213,16 +258,22 @@ def use_chinese(style: str = 'auto') -> str:
             if font in available:
                 chosen = font
                 break
+        if chosen is None:
+            chosen = _substring_match(_sans_kws + _serif_kws)
     elif style == 'serif':
         for font in serif_priority:
             if font in available:
                 chosen = font
                 break
+        if chosen is None:
+            chosen = _substring_match(_serif_kws)
     elif style == 'sans':
         for font in sans_priority:
             if font in available:
                 chosen = font
                 break
+        if chosen is None:
+            chosen = _substring_match(_sans_kws)
     elif style in available:
         chosen = style
     else:
@@ -232,9 +283,11 @@ def use_chinese(style: str = 'auto') -> str:
     if chosen is None:
         import warnings
         warnings.warn(
-            "No Chinese font found on this system. "
-            "Install one of: Noto CJK, SimSun, PingFang, "
-            "Microsoft YaHei, or WenQuanYi.",
+            "No Chinese font found on this system. Install one of:\n"
+            "  macOS:   (usually pre-installed — PingFang SC, Songti SC)\n"
+            "  Windows: (usually pre-installed — Microsoft YaHei, SimHei)\n"
+            "  Linux:   apt install fonts-noto-cjk fonts-wqy-zenhei\n"
+            "  Docker:  add `apt install fonts-noto-cjk` to your Dockerfile.",
             UserWarning, stacklevel=2,
         )
         return ''

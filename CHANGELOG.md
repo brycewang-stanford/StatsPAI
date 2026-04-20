@@ -2,6 +2,69 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — 0.9.3 post-release bugfixes
+
+Four user-reported bugs surfaced during the 0.9.3 end-to-end smoke test.
+All are fixed on `main` without a version bump (pending a later patch release).
+
+### Fixed
+
+- **`sp.use_chinese()` failed on Linux** (`plots/themes.py`) — the auto-detect
+  candidate list only covered macOS fonts plus `Noto Sans CJK SC` and
+  `WenQuanYi Micro Hei`, so a Linux/Docker host with `fonts-noto-cjk` (which
+  ships `Noto Sans CJK JP/TC/KR` by default) or `fonts-wqy-zenhei`
+  (`WenQuanYi Zen Hei`) installed got an empty return plus a "no Chinese
+  font" warning. Priority lists are now segmented by platform (macOS →
+  Windows → Linux → cross-platform Source Han), all four Noto CJK regional
+  variants are listed, and a substring fallback (`CJK`, `Han Sans`,
+  `Han Serif`, `WenQuanYi`, `Heiti`, `Ming`) picks up custom/renamed builds.
+  Warning message now includes the exact `apt install fonts-noto-cjk
+  fonts-wqy-zenhei` recipe.
+
+- **`sp.regtable(...)` printed the table twice in REPL/Jupyter**
+  (`output/regression_table.py`, `output/estimates.py`) — `regtable()`,
+  `mean_comparison()` and `esttab()` each called `print(result)` internally
+  and then returned the result, which REPL/Jupyter re-displayed via
+  `__repr__`/`_repr_html_`. All three internal prints are removed; display
+  now flows through the standard Python display protocol.
+
+  **Behaviour change**: scripts that relied on the auto-print side-effect
+  must switch to `print(sp.regtable(...))`. Jupyter and interactive REPLs
+  are unaffected.
+
+- **`sp.regtable(..., output="latex")` was silently ignored**
+  (`output/regression_table.py`) — the `output=` parameter previously
+  controlled only the Word/Excel warning branch; `__str__` always rendered
+  text. `RegtableResult` and `MeanComparisonResult` now store `_output` and
+  dispatch in `__str__`/`__repr__` through `_render(fmt)` over
+  `{text, latex, tex, html, markdown, md}`. Jupyter's `_repr_html_` still
+  always returns HTML. Invalid `output=` values now raise `ValueError`
+  instead of falling back silently.
+
+- **`sp.did()` `treat=` column semantics were easy to mis-specify**
+  (`did/__init__.py`) — for staggered designs the column must hold each
+  unit's first-treatment period (never-treated = `0`, **not** `1`), but
+  users with a pre-existing 0/1 `treated` column consistently passed it
+  straight through and got nonsense estimates. Docstring now carries an
+  explicit callout and a verified pandas idiom for constructing
+  `first_treat` (`.loc[treated==1].groupby('id')['year'].min()` + `.map` +
+  `.fillna(0)`) that broadcasts correctly to pre-treatment rows.
+
+### Added
+
+- Documentation clarifies that `regtable(output=...)` controls `str(result)`
+  while `regtable(filename=...)` dispatches on the file extension — they can
+  diverge, and users should pass matching values.
+- Input validation on `regtable()` / `mean_comparison()` rejects unknown
+  `output=` values with a helpful `ValueError` listing valid choices.
+
+### Tests
+
+`tests/test_v093_bugfixes.py` — 15 regression tests covering all four bugs
+plus the new validation. Full suite: 1655 passed, 4 skipped, 0 regressions.
+
+---
+
 ## [0.9.3] - 2026-04-19 — Stochastic Frontier + Multilevel + GLMM + Econometric Trinity
 
 **Overview.** This release bundles four simultaneous deep overhauls plus an

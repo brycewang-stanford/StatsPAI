@@ -904,8 +904,7 @@ def esttab(
         content = str(result_obj)
         path.write_text(content, encoding="utf-8")
 
-    # Print to console for text output
-    if output == "text" and filename is None:
-        print(result_obj)
+    # No auto-print: Jupyter uses _repr_html_, REPL uses __repr__.
+    # Scripts wanting stdout output should do `print(esttab(...))`.
 
     return result_obj

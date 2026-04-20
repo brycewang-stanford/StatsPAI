@@ -104,8 +104,27 @@ def did(
     y : str
         Outcome variable name.
     treat : str
-        Treatment variable. For 2×2: binary group indicator (0/1).
-        For staggered: first treatment period (0 = never treated).
+        Treatment variable. **The column semantics depend on the design** —
+        one of the most common pitfalls in DID:
+
+        - **2×2 DID** (no ``id``, two periods): a 0/1 group indicator
+          (treated vs. control), identical to a standard DID dummy.
+        - **Staggered DID** (Callaway–Sant'Anna, Sun–Abraham, SDID,
+          Borusyak–Jaravel–Spiess, de Chaisemartin–D'Haultfœuille,
+          Wooldridge etwfe): the **first treatment period** for each unit
+          (aka the cohort / g-variable in R's ``did`` package). Never-treated
+          units must have ``0`` (or ``NaN``), **not ``1``**. A plain 0/1
+          indicator will silently be interpreted as "everyone was first
+          treated in period 1," producing nonsense estimates.
+
+        If you only have a 0/1 ``treated`` column, construct ``first_treat``
+        per unit and broadcast it to all of that unit's rows::
+
+            # First treated year per unit (NaN for never-treated units)
+            first = (df.loc[df['treated'] == 1]
+                       .groupby('id')['year'].min())
+            df['first_treat'] = df['id'].map(first).fillna(0).astype(int)
+            sp.did(df, y='y', treat='first_treat', time='year', id='id')
     time : str
         Time period variable.
     id : str, optional

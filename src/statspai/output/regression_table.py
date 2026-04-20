@@ -70,6 +70,7 @@ class RegtableResult:
         notes: Optional[List[str]],
         add_rows: Optional[Dict[str, List[str]]],
         stats: Optional[List[str]],
+        output: str = "text",
     ):
         self.panels = panels
         self.panel_labels = panel_labels
@@ -88,6 +89,11 @@ class RegtableResult:
         self.add_rows = add_rows or {}
         self.requested_stats = stats or ["N", "R2", "adj_R2", "F"]
         self.n_models = sum(len(p.models) for p in panels)
+        # Controls which renderer __str__ uses. Jupyter still gets HTML via
+        # _repr_html_ regardless, so output='latex' in a notebook still renders
+        # pretty HTML — users who want the LaTeX source call to_latex() or
+        # print(result).
+        self._output = output
 
         # Resolve stat keys once
         self._stat_keys = self._resolve_stat_keys()
@@ -890,8 +896,18 @@ class RegtableResult:
     # Dunder methods
     # ═══════════════════════════════════════════════════════════════════════
 
+    def _render(self, fmt: str) -> str:
+        return {
+            "text": self.to_text,
+            "latex": self.to_latex,
+            "tex": self.to_latex,
+            "html": self.to_html,
+            "markdown": self.to_markdown,
+            "md": self.to_markdown,
+        }.get(fmt, self.to_text)()
+
     def __str__(self) -> str:
-        return self.to_text()
+        return self._render(self._output)
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -974,10 +990,15 @@ def regtable(
     fmt : str, default ``"%.3f"``
         Format string for numeric values.
     output : str, default ``"text"``
-        ``"text"``, ``"latex"``, ``"html"``, ``"markdown"``, ``"word"``,
-        ``"excel"``.
+        Controls what ``str(result)`` / ``repr(result)`` / ``print(result)``
+        returns — one of ``"text"``, ``"latex"``, ``"html"``, ``"markdown"``,
+        ``"word"``, ``"excel"``. In Jupyter, ``_repr_html_`` always renders
+        HTML regardless of this setting.
     filename : str, optional
-        Save the table to this file path.
+        Save the table to this file path. The format is chosen from the
+        **file extension** (``.tex``/``.html``/``.md``/``.docx``/``.xlsx``),
+        independently of ``output=``. Pass a matching extension and
+        ``output=`` to avoid surprises.
     title : str, optional
         Table title / caption.
     notes : list of str, optional
@@ -1007,6 +1028,15 @@ def regtable(
     """
     if not args:
         raise ValueError("At least one model result is required.")
+
+    _VALID_OUTPUTS = {
+        "text", "latex", "tex", "html", "markdown", "md", "word", "excel",
+    }
+    if output not in _VALID_OUTPUTS:
+        raise ValueError(
+            f"output={output!r} is invalid. Must be one of: "
+            f"{sorted(_VALID_OUTPUTS)}"
+        )
 
     # --- Detect panel structure ---
     # If first arg is a list, treat each positional arg as a panel
@@ -1056,9 +1086,12 @@ def regtable(
         notes=notes,
         add_rows=add_rows,
         stats=list(stats) if stats else None,
+        output=output,
     )
 
     # --- Output handling ---
+    # Do NOT auto-print: Jupyter renders via _repr_html_, REPL via __repr__.
+    # Scripts that want the rendered text should `print(regtable(...))`.
     if filename:
         result.save(filename)
     elif output in ("word", "excel"):
@@ -1066,10 +1099,6 @@ def regtable(
             f"output='{output}' requires a filename. "
             f"Use filename='table.{'docx' if output == 'word' else 'xlsx'}'"
         )
-
-    # Print to console for text output without file
-    if output == "text" and filename is None:
-        print(result)
 
     return result
 
@@ -1091,6 +1120,7 @@ class MeanComparisonResult:
         fmt: str,
         title: str,
         weights: Optional[str],
+        output: str = "text",
     ):
         self.variables = variables
         self.group = group
@@ -1099,6 +1129,7 @@ class MeanComparisonResult:
         self.fmt = fmt
         self.title = title
         self.weights = weights
+        self._output = output
 
         # Compute all stats
         self._compute(data)
@@ -1474,8 +1505,18 @@ class MeanComparisonResult:
     # Dunder
     # ═══════════════════════════════════════════════════════════════════════
 
+    def _render(self, fmt: str) -> str:
+        return {
+            "text": self.to_text,
+            "latex": self.to_latex,
+            "tex": self.to_latex,
+            "html": self.to_html,
+            "markdown": self.to_markdown,
+            "md": self.to_markdown,
+        }.get(fmt, self.to_text)()
+
     def __str__(self) -> str:
-        return self.to_text()
+        return self._render(self._output)
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -1548,6 +1589,15 @@ def mean_comparison(
     if group_labels is None:
         group_labels = ("Control", "Treated")
 
+    _VALID_OUTPUTS = {
+        "text", "latex", "tex", "html", "markdown", "md", "word", "excel",
+    }
+    if output not in _VALID_OUTPUTS:
+        raise ValueError(
+            f"output={output!r} is invalid. Must be one of: "
+            f"{sorted(_VALID_OUTPUTS)}"
+        )
+
     result = MeanComparisonResult(
         data=data,
         variables=variables,
@@ -1557,12 +1607,12 @@ def mean_comparison(
         fmt=fmt,
         title=title,
         weights=weights,
+        output=output,
     )
 
     if filename:
         result.save(filename)
 
-    if output == "text" and filename is None:
-        print(result)
-
+    # No auto-print: Jupyter uses _repr_html_, REPL uses __repr__.
+    # Scripts: explicit `print(mean_comparison(...))`.
     return result
