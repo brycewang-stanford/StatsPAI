@@ -176,6 +176,125 @@ class BayesianCausalResult:
 # Posterior summaries (helpers reused by did.py / rd.py)
 # ---------------------------------------------------------------------------
 
+def _sample_model(
+    model,
+    *,
+    inference: str = 'nuts',
+    draws: int = 2000,
+    tune: int = 1000,
+    chains: int = 4,
+    target_accept: float = 0.9,
+    random_state: int = 42,
+    progressbar: bool = False,
+    advi_iterations: int = 20000,
+):
+    """Unified sampling entry-point for all Bayesian estimators.
+
+    Parameters
+    ----------
+    model : ``pm.Model``
+        An already-opened PyMC model (caller uses ``with pm.Model() as m:``).
+    inference : {'nuts', 'advi'}, default 'nuts'
+        - ``'nuts'`` : call :func:`pm.sample` (exact MCMC).
+        - ``'advi'`` : call :func:`pm.fit` with mean-field ADVI, then
+          draw ``draws`` samples from the fitted approximation. Much
+          faster but mean-field assumes independent Gaussians so
+          correlated posteriors look tighter than they are.
+    draws, tune, chains, target_accept, random_state, progressbar :
+        NUTS sampler controls.
+    advi_iterations : int
+        ADVI fit iterations.
+
+    Returns
+    -------
+    arviz.InferenceData
+        Directly usable by :func:`_summarise_posterior`.
+    """
+    pm, _ = _require_pymc()
+    if inference not in ('nuts', 'advi'):
+        raise ValueError(
+            f"inference must be 'nuts' or 'advi'; got {inference!r}"
+        )
+    with model:
+        if inference == 'advi':
+            approx = pm.fit(
+                n=advi_iterations,
+                method='advi',
+                random_seed=random_state,
+                progressbar=progressbar,
+            )
+            trace = approx.sample(draws)
+        else:
+            trace = pm.sample(
+                draws=draws,
+                tune=tune,
+                chains=chains,
+                target_accept=target_accept,
+                random_seed=random_state,
+                progressbar=progressbar,
+                return_inferencedata=True,
+            )
+    return trace
+
+
+@dataclass
+class BayesianHTEIVResult(BayesianCausalResult):
+    """Extension of :class:`BayesianCausalResult` for heterogeneous-effect IV.
+
+    Carries the average LATE (inherited) *plus* a table of CATE-slope
+    posteriors — one row per effect modifier.
+    """
+
+    cate_slopes: pd.DataFrame = field(default_factory=pd.DataFrame)
+    effect_modifiers: List[str] = field(default_factory=list)
+    _modifier_means: Optional[np.ndarray] = None
+
+    def predict_cate(self, values: Dict[str, float]) -> Dict[str, float]:
+        """Posterior summary of CATE at specific modifier values.
+
+        Parameters
+        ----------
+        values : dict[str, float]
+            Map from modifier name → value. Missing modifiers default
+            to the sample mean (i.e. zero contribution after centring).
+
+        Returns
+        -------
+        dict
+            Keys ``{'mean', 'median', 'sd', 'hdi_low', 'hdi_high',
+            'prob_positive'}``.
+        """
+        if self.trace is None or self._modifier_means is None:
+            raise RuntimeError(
+                "predict_cate requires the posterior trace and "
+                "modifier means to be present on the result."
+            )
+        _, az = _require_pymc()
+
+        # Fetch posterior draws of tau_0 and tau_hte (shape (chains, draws) and (chains, draws, K))
+        tau0 = self.trace.posterior['tau_0'].values.reshape(-1)
+        tau_hte = self.trace.posterior['tau_hte'].values.reshape(
+            -1, len(self.effect_modifiers)
+        )
+
+        # Build the modifier vector (deviation from training mean)
+        m_vec = np.zeros(len(self.effect_modifiers))
+        for i, name in enumerate(self.effect_modifiers):
+            v = values.get(name, self._modifier_means[i])
+            m_vec[i] = v - self._modifier_means[i]
+
+        cate_samples = tau0 + tau_hte @ m_vec
+        hdi = np.asarray(az.hdi(cate_samples, hdi_prob=self.hdi_prob)).ravel()
+        return {
+            'mean': float(np.mean(cate_samples)),
+            'median': float(np.median(cate_samples)),
+            'sd': float(np.std(cate_samples, ddof=1)),
+            'hdi_low': float(hdi[0]),
+            'hdi_high': float(hdi[1]),
+            'prob_positive': float(np.mean(cate_samples > 0)),
+        }
+
+
 def _summarise_posterior(
     trace,
     var_name: str,
