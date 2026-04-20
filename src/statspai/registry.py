@@ -304,17 +304,25 @@ def _build_registry():
     register(FunctionSpec(
         name="dml",
         category="causal",
-        description="Double/Debiased Machine Learning for treatment effect estimation.",
+        description=(
+            "Double/Debiased Machine Learning for treatment effect estimation. "
+            "Supports partially linear (PLR), interactive regression (IRM, binary D), "
+            "partially linear IV (PLIV), and interactive IV (IIVM, binary D/binary Z → LATE)."
+        ),
         params=[
             ParamSpec("data", "DataFrame", True),
             ParamSpec("y", "str", True, description="Outcome"),
-            ParamSpec("treatment", "str", True, description="Treatment variable"),
-            ParamSpec("controls", "list", True, description="List of control variable names"),
+            ParamSpec("treat", "str", True, description="Treatment variable"),
+            ParamSpec("covariates", "list", True, description="List of control variable names"),
+            ParamSpec("model", "str", False, "plr", "DML model family",
+                      ["plr", "irm", "pliv", "iivm"]),
+            ParamSpec("instrument", "str", False, description="Instrument (required for pliv/iivm)"),
             ParamSpec("n_folds", "int", False, 5, "Cross-fitting folds"),
+            ParamSpec("n_rep", "int", False, 1, "Repeated cross-fitting splits (median aggregation)"),
         ],
-        returns="EconometricResults",
-        example='sp.dml(data=df, y="outcome", treatment="treat", controls=["x1","x2"])',
-        tags=["dml", "ml", "causal", "semiparametric"],
+        returns="CausalResult",
+        example='sp.dml(df, y="wage", treat="training", covariates=["age","edu"], model="plr")',
+        tags=["dml", "ml", "causal", "semiparametric", "iivm", "plr", "irm", "pliv"],
         reference="Chernozhukov et al. (2018)",
     ))
 
@@ -714,6 +722,166 @@ def _build_registry():
         returns="Dict with method_type and checks list",
         example='sp.diagnose_result(result)',
         tags=["diagnostics", "robustness", "battery", "auto"],
+    ))
+
+    # -- G-methods family ------------------------------------------------- #
+    register(FunctionSpec(
+        name="g_computation",
+        category="causal",
+        description=(
+            "Parametric g-formula (standardization) estimator. "
+            "ATE/ATT for binary D, or dose-response curve for continuous D. "
+            "Consistent under correctly-specified outcome model; not doubly robust."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome"),
+            ParamSpec("treat", "str", True, description="Treatment variable"),
+            ParamSpec("covariates", "list", True, description="Baseline covariates"),
+            ParamSpec("estimand", "str", False, "ATE", "Target estimand",
+                      ["ATE", "ATT", "dose_response"]),
+            ParamSpec("treat_values", "list", False, description="Dose grid (required for dose_response)"),
+            ParamSpec("n_boot", "int", False, 500, "Bootstrap replications for SE"),
+        ],
+        returns="CausalResult",
+        example='sp.g_computation(df, y="wage", treat="trained", covariates=["age","edu"])',
+        tags=["g-computation", "g-formula", "standardization", "causal", "robins"],
+        reference="Robins (1986); Hernán & Robins (2020) ch. 13",
+    ))
+
+    register(FunctionSpec(
+        name="front_door",
+        category="causal",
+        description=(
+            "Pearl's front-door adjustment: identifies ATE with unmeasured "
+            "confounding when a mediator fully transmits the effect of D on Y. "
+            "Supports binary or continuous mediator; integrate_by controls "
+            "Pearl (marginal) vs Fulcher et al. (conditional) aggregation."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome"),
+            ParamSpec("treat", "str", True, description="Binary treatment (0/1)"),
+            ParamSpec("mediator", "str", True, description="Fully-transmitting mediator"),
+            ParamSpec("covariates", "list", False, description="Pre-treatment covariates"),
+            ParamSpec("mediator_type", "str", False, "auto", "Mediator model",
+                      ["auto", "binary", "continuous"]),
+            ParamSpec("integrate_by", "str", False, "marginal",
+                      "MC integration formulation (continuous M only)",
+                      ["marginal", "conditional"]),
+        ],
+        returns="CausalResult",
+        example='sp.front_door(df, y="y", treat="d", mediator="m", covariates=["x"])',
+        tags=["front-door", "pearl", "causal", "mediator", "unobserved-confounding"],
+        reference="Pearl (1995); Fulcher et al. (2020)",
+    ))
+
+    register(FunctionSpec(
+        name="msm",
+        category="causal",
+        description=(
+            "Marginal Structural Models for time-varying treatments with "
+            "time-varying confounders. Uses stabilized IPTW and cluster-robust "
+            "inference. Handles binary or continuous treatment; exposure summary "
+            "can be current, cumulative, or ever."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True, description="Long-format panel (unit × time)"),
+            ParamSpec("y", "str", True, description="Outcome"),
+            ParamSpec("treat", "str", True, description="Time-varying treatment"),
+            ParamSpec("id", "str", True, description="Unit identifier"),
+            ParamSpec("time", "str", True, description="Period identifier"),
+            ParamSpec("time_varying", "list", True,
+                      description="Time-varying confounders (pre-treatment)"),
+            ParamSpec("baseline", "list", False, description="Baseline covariates"),
+            ParamSpec("exposure", "str", False, "cumulative",
+                      "Exposure summary", ["cumulative", "current", "ever"]),
+            ParamSpec("family", "str", False, "gaussian",
+                      "Outcome family", ["gaussian", "binomial"]),
+            ParamSpec("trim", "float", False, 0.01, "Weight truncation quantile"),
+        ],
+        returns="CausalResult",
+        example=('sp.msm(panel, y="Y", treat="A", id="id", time="t", '
+                 'time_varying=["L_lag"], baseline=["V"])'),
+        tags=["msm", "iptw", "time-varying", "robins", "g-methods", "causal"],
+        reference="Robins, Hernán & Brumback (2000); Cole & Hernán (2008)",
+    ))
+
+    register(FunctionSpec(
+        name="mediate_interventional",
+        category="causal",
+        description=(
+            "Interventional (in)direct effects (VanderWeele, Vansteelandt, "
+            "Robins 2014). Identifies mediation effects in the presence of "
+            "treatment-induced mediator-outcome confounders where natural "
+            "(in)direct effects are not identified."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome"),
+            ParamSpec("treat", "str", True, description="Binary treatment"),
+            ParamSpec("mediator", "str", True, description="Mediator variable"),
+            ParamSpec("covariates", "list", False, description="Baseline covariates"),
+            ParamSpec("tv_confounders", "list", False,
+                      description="Treatment-induced M-Y confounders"),
+        ],
+        returns="CausalResult (IIE; IDE and Total in .detail)",
+        example=('sp.mediate_interventional(df, y="y", treat="d", mediator="m", '
+                 'tv_confounders=["L"])'),
+        tags=["mediation", "interventional", "indirect-effect", "causal"],
+        reference="VanderWeele, Vansteelandt & Robins (2014)",
+    ))
+
+    register(FunctionSpec(
+        name="proximal",
+        category="causal",
+        description=(
+            "Proximal Causal Inference via linear 2SLS on the outcome bridge. "
+            "Identifies ATE with unmeasured confounding using two proxy "
+            "variables: a treatment-side Z (instrument for W) and an "
+            "outcome-side W (endogenous bridge regressor)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome"),
+            ParamSpec("treat", "str", True, description="Treatment"),
+            ParamSpec("proxy_z", "list", True, description="Treatment-side proxies (instruments for W)"),
+            ParamSpec("proxy_w", "list", True, description="Outcome-side proxies (endogenous)"),
+            ParamSpec("covariates", "list", False, description="Baseline covariates"),
+            ParamSpec("bridge", "str", False, "linear", "Bridge function family",
+                      ["linear"]),
+            ParamSpec("n_boot", "int", False, 0, "Bootstrap SE replications"),
+        ],
+        returns="CausalResult",
+        example='sp.proximal(df, y="y", treat="d", proxy_z=["z"], proxy_w=["w"])',
+        tags=["proximal", "unobserved-confounding", "bridge", "causal", "2sls"],
+        reference="Tchetgen Tchetgen et al. (2020); Miao, Geng & Tchetgen Tchetgen (2018)",
+    ))
+
+    register(FunctionSpec(
+        name="principal_strat",
+        category="causal",
+        description=(
+            "Principal Stratification (Frangakis & Rubin 2002). "
+            "'monotonicity' method identifies the complier PCE (= LATE) and "
+            "reports Zhang-Rubin sharp bounds on the always-survivor SACE. "
+            "'principal_score' uses Ding-Lu covariate weighting to "
+            "point-identify stratum-specific effects under principal ignorability."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome"),
+            ParamSpec("treat", "str", True, description="Binary treatment"),
+            ParamSpec("strata", "str", True, description="Binary post-treatment variable"),
+            ParamSpec("covariates", "list", False, description="Baseline covariates (required for principal_score)"),
+            ParamSpec("method", "str", False, "monotonicity", "Identification strategy",
+                      ["monotonicity", "principal_score"]),
+            ParamSpec("n_boot", "int", False, 500, "Bootstrap replications"),
+        ],
+        returns="PrincipalStratResult",
+        example='sp.principal_strat(df, y="y", treat="d", strata="s")',
+        tags=["principal-stratification", "sace", "late", "compliance", "causal"],
+        reference="Frangakis & Rubin (2002); Zhang & Rubin (2003); Ding & Lu (2017)",
     ))
 
 
