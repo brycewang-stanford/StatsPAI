@@ -1437,7 +1437,7 @@ class TestKernelMath:
         grid = np.linspace(-3, 2, 300)
         f = np.exp(_fc.loglik_halfnormal(grid, np.array([sigma_v]),
                                           np.array([sigma_u]), sign=-1))
-        integral = np.trapz(f, grid)
+        integral = np.trapezoid(f, grid)
         assert abs(integral - 1.0) < 0.01
 
     def test_exponential_is_valid_density(self):
@@ -1445,7 +1445,7 @@ class TestKernelMath:
         sigma_v, sigma_u = 0.3, 0.4
         f = np.exp(_fc.loglik_exponential(grid, np.array([sigma_v]),
                                            np.array([sigma_u]), sign=-1))
-        integral = np.trapz(f, grid)
+        integral = np.trapezoid(f, grid)
         assert abs(integral - 1.0) < 0.01
 
     def test_truncated_normal_is_valid_density(self):
@@ -1454,7 +1454,7 @@ class TestKernelMath:
         f = np.exp(_fc.loglik_truncated_normal(
             grid, np.array([sv]), np.array([su]), np.array([mu]), sign=-1
         ))
-        integral = np.trapz(f, grid)
+        integral = np.trapezoid(f, grid)
         assert abs(integral - 1.0) < 0.01
 
     def test_halfnormal_and_trunc_agree_when_mu_zero(self):
