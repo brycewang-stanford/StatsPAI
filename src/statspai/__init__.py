@@ -166,6 +166,9 @@ from . import datasets
 # === End-to-end workflow orchestrator ===
 from .workflow import causal, CausalWorkflow
 
+# === LLM agent tool-definition surface ===
+from . import agent
+
 from .power import power, PowerResult, power_rct, power_did, power_rd, power_iv, power_cluster_rct, power_ols, mde
 from .decomposition import (
     oaxaca, gelbach, OaxacaResult, GelbachResult, rifreg, rif_decomposition,
