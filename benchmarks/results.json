@@ -1,0 +1,70 @@
+{
+  "meta": {
+    "statspai_version": "0.9.5",
+    "python": "3.13.2",
+    "platform": "macOS-26.3.1-arm64-arm-64bit-Mach-O",
+    "mode": "quick",
+    "timestamp_utc": "2026-04-20T21:17:21.918646+00:00"
+  },
+  "regression": {
+    "name": "OLS regression (5 covariates, HC1 SE)",
+    "sizes": [
+      1000,
+      10000
+    ],
+    "has_statsmodels": true,
+    "rows": [
+      {
+        "n": 1000,
+        "sp_regress_s": 0.0024352086863170066,
+        "statsmodels_s": 0.00018144437732795873,
+        "speedup_vs_sm": "13.4x slower"
+      },
+      {
+        "n": 10000,
+        "sp_regress_s": 0.0029390419367700815,
+        "statsmodels_s": 0.0009670418997605642,
+        "speedup_vs_sm": "3.0x slower"
+      }
+    ]
+  },
+  "hdfe": {
+    "name": "HDFE (two-way FE: unit \u00d7 time)",
+    "has_linearmodels": true,
+    "rows": [
+      {
+        "n_units": 500,
+        "n_periods": 10,
+        "n_obs": 5000,
+        "sp_absorb_ols_s": 0.0005133749606708685,
+        "linearmodels_panelols_s": 0.01268191693816334,
+        "speedup_vs_lm": "24.7x faster"
+      },
+      {
+        "n_units": 2000,
+        "n_periods": 10,
+        "n_obs": 20000,
+        "sp_absorb_ols_s": 0.0013759167244036992,
+        "linearmodels_panelols_s": 0.022292416426353157,
+        "speedup_vs_lm": "16.2x faster"
+      }
+    ]
+  },
+  "did": {
+    "name": "Staggered DID (4 cohorts, 8 periods)",
+    "rows": [
+      {
+        "n_units": 200,
+        "n_obs": 1600,
+        "cs2021_s": 0.007745437556877732,
+        "wooldridge_s": 0.016305062570609152
+      },
+      {
+        "n_units": 1000,
+        "n_obs": 8000,
+        "cs2021_s": 0.008029145421460271,
+        "wooldridge_s": 0.07738929148763418
+      }
+    ]
+  }
+}
