@@ -59,6 +59,8 @@ from typing import List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from . import _hdfe_kernels as _kernels
+
 
 # ======================================================================
 # Core demean kernel
@@ -84,26 +86,32 @@ def _group_mean_sweep(
     weights: Optional[np.ndarray] = None,
     wsum: Optional[np.ndarray] = None,
 ) -> None:
-    """In-place de-mean x by group codes. 2D x supported (column-wise)."""
+    """In-place de-mean x by group codes. 2D x supported (column-wise).
+
+    Delegates the per-column pass to the Numba-accelerated kernels in
+    :mod:`_hdfe_kernels` when Numba is installed; otherwise falls back
+    to a pure-NumPy ``bincount`` path. Weighted and unweighted variants
+    share the same dispatch.
+    """
     if x.ndim == 1:
+        col = np.ascontiguousarray(x)
         if weights is None:
-            sums = np.bincount(codes, weights=x, minlength=counts.size)
-            means = sums / counts
+            _kernels.sweep(col, codes, counts)
         else:
-            sums = np.bincount(codes, weights=x * weights, minlength=counts.size)
-            means = sums / wsum
-        x -= means[codes]
+            _kernels.sweep_weighted(col, weights, codes, wsum)
+        if col is not x:
+            x[:] = col
     else:
-        G = counts.size
-        n, p = x.shape
         if weights is None:
-            for j in range(p):
-                sums = np.bincount(codes, weights=x[:, j], minlength=G)
-                x[:, j] -= (sums / counts)[codes]
+            for j in range(x.shape[1]):
+                col = np.ascontiguousarray(x[:, j])
+                _kernels.sweep(col, codes, counts)
+                x[:, j] = col
         else:
-            for j in range(p):
-                sums = np.bincount(codes, weights=x[:, j] * weights, minlength=G)
-                x[:, j] -= (sums / wsum)[codes]
+            for j in range(x.shape[1]):
+                col = np.ascontiguousarray(x[:, j])
+                _kernels.sweep_weighted(col, weights, codes, wsum)
+                x[:, j] = col
 
 
 def _map_ap(
@@ -439,20 +447,17 @@ def _group_mean_sweep_seq(
     weights: Optional[np.ndarray],
     wsum_list: Optional[List[np.ndarray]],
 ) -> None:
-    """One full sequential sweep over all K dimensions (in place, 1D)."""
+    """One full sequential sweep over all K dimensions (in place, 1D).
+
+    Dispatches to :mod:`_hdfe_kernels` for Numba-accelerated kernels.
+    """
     K = len(fe_codes)
     if weights is None:
         for k in range(K):
-            codes = fe_codes[k]
-            counts = counts_list[k]
-            sums = np.bincount(codes, weights=col, minlength=counts.size)
-            col -= (sums / counts)[codes]
+            _kernels.sweep(col, fe_codes[k], counts_list[k])
     else:
         for k in range(K):
-            codes = fe_codes[k]
-            wsum = wsum_list[k]
-            sums = np.bincount(codes, weights=col * weights, minlength=wsum.size)
-            col -= (sums / wsum)[codes]
+            _kernels.sweep_weighted(col, weights, fe_codes[k], wsum_list[k])
 
 
 # ======================================================================
