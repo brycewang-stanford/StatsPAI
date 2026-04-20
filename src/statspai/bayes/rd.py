@@ -14,6 +14,7 @@ import pandas as pd
 from ._base import (
     BayesianCausalResult,
     _require_pymc,
+    _sample_model,
     _summarise_posterior,
 )
 
@@ -52,6 +53,8 @@ def bayes_rd(
     prior_noise: float = 5.0,
     rope: Optional[Tuple[float, float]] = None,
     hdi_prob: float = 0.95,
+    inference: str = 'nuts',
+    advi_iterations: int = 20000,
     draws: int = 2000,
     tune: int = 1000,
     chains: int = 4,
@@ -155,19 +158,22 @@ def bayes_rd(
         sigma = pm.HalfNormal('sigma', sigma=prior_noise)
         pm.Normal('y_obs', mu=linpred, sigma=sigma, observed=Y)
 
-        trace = pm.sample(
-            draws=draws,
-            tune=tune,
-            chains=chains,
-            target_accept=target_accept,
-            random_seed=random_state,
-            progressbar=progressbar,
-            return_inferencedata=True,
-        )
+    trace = _sample_model(
+        model,
+        inference=inference,
+        draws=draws,
+        tune=tune,
+        chains=chains,
+        target_accept=target_accept,
+        random_state=random_state,
+        progressbar=progressbar,
+        advi_iterations=advi_iterations,
+    )
 
     summary = _summarise_posterior(trace, 'tau', hdi_prob=hdi_prob, rope=rope)
 
     model_info = {
+        'inference': inference,
         'draws': draws,
         'tune': tune,
         'chains': chains,

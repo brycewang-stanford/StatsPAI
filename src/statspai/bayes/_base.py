@@ -152,15 +152,42 @@ class BayesianCausalResult:
         ]
         if self.prob_rope is not None:
             lines.append(f'  P(|{self.estimand}| < rope): {self.prob_rope:.3f}')
+        # R-hat / ESS formatting has to distinguish three cases:
+        #   1. NUTS with rhat>1.01 -> loud warning
+        #   2. NUTS with healthy rhat -> quiet
+        #   3. ADVI (rhat is NaN because 1 chain) -> different warning
+        #      that tells the user convergence is undiagnosable, not
+        #      that the model failed.
+        inference_mode = self.model_info.get('inference', 'nuts')
+        if inference_mode == 'advi' or np.isnan(self.rhat):
+            rhat_line = ('  R-hat:       n/a  [ADVI: variational mean-field — '
+                         'convergence is not measurable via R-hat; use NUTS '
+                         'for calibrated uncertainty]')
+        elif self.rhat > 1.01:
+            rhat_line = f'  R-hat:       {self.rhat:.4f}  [WARN > 1.01]'
+        else:
+            rhat_line = f'  R-hat:       {self.rhat:.4f}'
+
+        ess_line = f'  ESS (bulk):  {self.ess:.0f}'
+        if inference_mode != 'advi' and np.isfinite(self.ess) and self.ess < 400:
+            ess_line += '  [WARN: low ESS]'
+
+        # Effective chain count is 1 under ADVI regardless of what the
+        # caller requested — show that honestly.
+        requested_chains = self.model_info.get('chains', '?')
+        if inference_mode == 'advi':
+            chains_line = f'  Chains:      1  (ADVI; requested {requested_chains} ignored)'
+        else:
+            chains_line = f'  Chains:      {requested_chains}'
+
         lines.extend([
             '-' * 70,
             'Convergence diagnostics',
-            f'  R-hat:       {self.rhat:.4f}'
-            + ('  [WARN > 1.01]' if self.rhat > 1.01 else ''),
-            f'  ESS (bulk):  {self.ess:.0f}'
-            + ('  [WARN: low ESS]' if self.ess < 400 else ''),
-            f'  Chains:      {self.model_info.get("chains", "?")}',
+            rhat_line,
+            ess_line,
+            chains_line,
             f'  Draws/chain: {self.model_info.get("draws", "?")}',
+            f'  Inference:   {inference_mode}',
             '=' * 70,
         ])
         return '\n'.join(lines)
@@ -224,6 +251,12 @@ def _sample_model(
                 progressbar=progressbar,
             )
             trace = approx.sample(draws)
+            # Record that the effective chain count is 1 regardless of
+            # what the caller requested. Without this the glance()
+            # output misleads — posterior has 1 chain but user asked
+            # for 4.
+            trace.attrs['actual_chains'] = 1
+            trace.attrs['inference'] = 'advi'
         else:
             trace = pm.sample(
                 draws=draws,
@@ -234,6 +267,8 @@ def _sample_model(
                 progressbar=progressbar,
                 return_inferencedata=True,
             )
+            trace.attrs['actual_chains'] = chains
+            trace.attrs['inference'] = 'nuts'
     return trace
 
 

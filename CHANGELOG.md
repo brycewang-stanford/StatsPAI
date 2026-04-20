@@ -2,6 +2,83 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.7] - 2026-04-20 — Heterogeneous-effect Bayesian IV + ADVI toggle
+
+Closes two of the three items queued at v0.9.6's "诚实汇报" list.
+The third (Bayesian bunching) is **explicitly declined** — see the
+"Non-goals" section below.
+
+### Added (0.9.7)
+
+- **`sp.bayes_hte_iv(data, y, treat, instrument, effect_modifiers, ...)`**
+  (`src/statspai/bayes/hte_iv.py`) — Bayesian IV with a linear
+  CATE-by-covariate model. Returns a `BayesianHTEIVResult` carrying:
+  - Average LATE (`tau_0`, at modifier means) with posterior + HDI.
+  - `.cate_slopes` DataFrame — one row per effect modifier with
+    posterior mean, SD, HDI, and `prob_positive`.
+  - `.predict_cate(values: dict) -> dict` — posterior summary of
+    the CATE at user-specified modifier values.
+
+  Model:
+
+      D = pi_0 + pi_Z' Z + pi_X' X + v
+      tau(M) = tau_0 + tau_hte' (M - M_bar)
+      Y = alpha + tau(M) * D + beta_X' X + rho * v_hat + eps
+
+  Control-function formulation keeps NUTS sampling tractable.
+  Multiple instruments + multiple modifiers + exogenous controls
+  all supported.
+
+- **`inference='nuts' | 'advi'`** parameter on every Bayesian
+  estimator — `bayes_did`, `bayes_rd`, `bayes_iv`, `bayes_fuzzy_rd`,
+  and the new `bayes_hte_iv`. Under `'advi'` the estimator goes
+  through `pm.fit(method='advi')` for a 10-50× speedup at the cost
+  of mean-field calibration. `rhat` is reported as `NaN` in ADVI
+  mode (no meaning for variational approximations).
+
+  A shared `_sample_model` helper now owns sampling dispatch, so
+  future backends (`'smc'`, `'pathfinder'`) plug in trivially.
+
+- **`BayesianHTEIVResult`** — top-level export
+  (`sp.BayesianHTEIVResult`). Extends `BayesianCausalResult` with
+  `cate_slopes`, `effect_modifiers`, and `predict_cate(...)`.
+
+### Design spec (0.9.7)
+
+- `docs/superpowers/specs/2026-04-20-v097-bayes-hte-iv-advi.md`
+
+### Tests (0.9.7)
+
+- **`tests/test_bayes_hte_iv.py`** (8 tests) — API surface, avg-LATE
+  recovery on heterogeneous DGP, slope recovery, null-slope
+  coverage on homogeneous DGP, `predict_cate` schema, multi-modifier
+  fit, input validation.
+- **`tests/test_bayes_advi.py`** (10 tests) — ADVI runs on all five
+  Bayesian estimators, posterior means finite,
+  `model_info['inference']` reports correctly, invalid inference
+  modes raise for every estimator (parametrised over 5 functions).
+
+### Non-goals (0.9.7, explicitly declined)
+
+- **Bayesian bunching** (`sp.bayes_bunching`) — after review we
+  decline. Kleven / Saez / Chetty bunching estimators are
+  *structural* public-finance models whose identification depends
+  on utility / optimisation parameterisations that don't generalise
+  across kink types, priors on taste heterogeneity that are
+  domain-specific and hard to default well, and model fits only as
+  interpretable as the structural model itself. This defeats the
+  package's "agent-native one-liner" thesis. The frequentist
+  `sp.bunching` stays where it is. We revisit only on a concrete
+  user use-case that fits the agent-native workflow.
+
+- MTE / complier-heterogeneity IV — queued for 0.9.8+.
+- Extra VI backends beyond ADVI (Pathfinder, SMC) — `_sample_model`
+  is now extensible but the backends stay out of this release.
+- Rust Phase 2 — on `feat/rust-hdfe` branch until the cibuildwheel
+  matrix is green.
+
+---
+
 ## [0.9.6] - 2026-04-20 — Bayesian IV + fuzzy RD + per-learner Optuna + Rust branch + g-methods family
 
 This release bundles two independent sprints that landed the same day:

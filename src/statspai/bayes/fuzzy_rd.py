@@ -17,6 +17,7 @@ import pandas as pd
 from ._base import (
     BayesianCausalResult,
     _require_pymc,
+    _sample_model,
     _summarise_posterior,
 )
 
@@ -46,10 +47,13 @@ def bayes_fuzzy_rd(
     poly: int = 1,
     *,
     prior_late: Tuple[float, float] = (0.0, 10.0),
+    regularize_late: bool = False,
     prior_slope_sigma: float = 10.0,
     prior_noise: float = 5.0,
     rope: Optional[Tuple[float, float]] = None,
     hdi_prob: float = 0.95,
+    inference: str = 'nuts',
+    advi_iterations: int = 20000,
     draws: int = 2000,
     tune: int = 1000,
     chains: int = 4,
@@ -88,9 +92,17 @@ def bayes_fuzzy_rd(
         Default: ``0.5 * std(running)``.
     poly : int, default 1
     prior_late : (float, float)
-        Normal prior on the LATE (used as a regularising prior on the
-        deterministic ratio — it is implemented as a prior on the
-        ``itt_Y`` magnitude so that the ratio inherits natural scale).
+        Mean / SD of a *regularising* Normal prior on the LATE. Only
+        applied when ``regularize_late=True``.
+    regularize_late : bool, default ``False``
+        If ``True``, add an explicit Normal(``mu_late``, ``sigma_late``)
+        soft-prior on the deterministic ratio ``itt_Y / itt_D``. OFF
+        by default — the default posterior is driven purely by the
+        data and the priors on ``itt_Y`` / ``itt_D``. Turn on if you
+        observe ratio explosions under weak compliance; note that the
+        resulting posterior will be biased toward ``mu_late`` when
+        the data is only weakly informative (stacks on top of the
+        implicit prior through the constituents).
     prior_slope_sigma, prior_noise : float
     rope, hdi_prob, draws, tune, chains, target_accept, random_state,
     progressbar : see :func:`bayes_did`.
@@ -191,24 +203,31 @@ def bayes_fuzzy_rd(
         )
         late = pm.Deterministic('late', itt_Y / safe_denom)
 
-        # A weakly informative prior on `late` via a soft potential —
-        # keeps the ratio away from the pathological regime when
-        # itt_D ~ 0 in degenerate DGPs, without impairing recovery on
-        # well-identified cases.
-        pm.Potential(
-            'late_prior',
-            pm.logp(pm.Normal.dist(mu=mu_late, sigma=sigma_late), late),
-        )
+        # Optional soft-prior on the ratio. OFF by default because
+        # it stacks on top of the implicit prior through the priors
+        # on itt_Y / itt_D; turning it on biases the posterior toward
+        # mu_late whenever the data is only weakly informative (weak
+        # compliance at the cutoff). When ON, it is useful to tame
+        # pathological samples as itt_D -> 0 on weakly-identified DGPs.
+        # Document this clearly: flip regularize_late=True if posterior
+        # samples show ratio explosions; leave OFF for honest inference.
+        if regularize_late:
+            pm.Potential(
+                'late_prior',
+                pm.logp(pm.Normal.dist(mu=mu_late, sigma=sigma_late), late),
+            )
 
-        trace = pm.sample(
-            draws=draws,
-            tune=tune,
-            chains=chains,
-            target_accept=target_accept,
-            random_seed=random_state,
-            progressbar=progressbar,
-            return_inferencedata=True,
-        )
+    trace = _sample_model(
+        model,
+        inference=inference,
+        draws=draws,
+        tune=tune,
+        chains=chains,
+        target_accept=target_accept,
+        random_state=random_state,
+        progressbar=progressbar,
+        advi_iterations=advi_iterations,
+    )
 
     summary = _summarise_posterior(
         trace, 'late', hdi_prob=hdi_prob, rope=rope,
@@ -223,6 +242,7 @@ def bayes_fuzzy_rd(
     )
 
     model_info = {
+        'inference': inference,
         'draws': draws,
         'tune': tune,
         'chains': chains,
@@ -236,6 +256,7 @@ def bayes_fuzzy_rd(
         'first_stage_sd': first_stage_sd,
         'first_stage_prob_nonzero': first_stage_prob_nonzero,
         'prior_late': prior_late,
+        'regularize_late': regularize_late,
         'prior_slope_sigma': prior_slope_sigma,
         'prior_noise': prior_noise,
     }

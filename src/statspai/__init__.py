@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.6"
+__version__ = "0.9.7"
 __author__ = "Biaoyue Wang"
 __email__ = "bryce@copaper.ai"
 
@@ -141,8 +141,8 @@ from .metalearners import cate_summary, cate_by_group, cate_plot, cate_group_plo
 from .metalearners import auto_cate, AutoCATEResult
 from .metalearners import auto_cate_tuned
 from .bayes import (
-    bayes_did, bayes_rd, bayes_iv, bayes_fuzzy_rd,
-    BayesianCausalResult,
+    bayes_did, bayes_rd, bayes_iv, bayes_fuzzy_rd, bayes_hte_iv,
+    BayesianCausalResult, BayesianHTEIVResult,
 )
 from .regression.heckman import heckman
 from .regression.quantile import qreg, sqreg
@@ -604,7 +604,9 @@ __all__ = [
     "bayes_rd",
     "bayes_iv",
     "bayes_fuzzy_rd",
+    "bayes_hte_iv",
     "BayesianCausalResult",
+    "BayesianHTEIVResult",
     # Neural Causal Models
     "tarnet",
     "cfrnet",
