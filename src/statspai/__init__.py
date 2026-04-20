@@ -236,6 +236,7 @@ from .smart import (
     sensitivity_dashboard, SensitivityDashboard,
     pub_ready, PubReadyResult,
     replicate, list_replications,
+    check_identification, IdentificationReport, DiagnosticFinding,
 )
 
 # verify / verify_recommendation / verify_benchmark are loaded lazily via
@@ -718,6 +719,7 @@ __all__ = [
     "blp", "BLPResult",
     # === Smart Workflow Engine (unique to StatsPAI) ===
     "recommend", "RecommendationResult",
+    "check_identification", "IdentificationReport", "DiagnosticFinding",
     "compare_estimators", "ComparisonResult",
     "assumption_audit", "AssumptionResult",
     "sensitivity_dashboard", "SensitivityDashboard",

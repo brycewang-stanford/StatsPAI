@@ -17,6 +17,11 @@ from .assumptions import assumption_audit, AssumptionResult
 from .sensitivity import sensitivity_dashboard, SensitivityDashboard
 from .publication import pub_ready, PubReadyResult
 from .replicate import replicate, list_replications
+from .identification import (
+    check_identification,
+    IdentificationReport,
+    DiagnosticFinding,
+)
 
 # verify_recommendation / verify_benchmark are lazily imported via
 # __getattr__ below so that the expensive stability-check machinery
@@ -31,6 +36,7 @@ __all__ = [
     "pub_ready", "PubReadyResult",
     "replicate", "list_replications",
     "verify_recommendation", "verify_benchmark",
+    "check_identification", "IdentificationReport", "DiagnosticFinding",
 ]
 
 
