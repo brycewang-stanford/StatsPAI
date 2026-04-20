@@ -291,6 +291,7 @@ def mediate_interventional(
     n_mc: int = 500,
     n_boot: int = 500,
     alpha: float = 0.05,
+    pvalue_method: str = 'bootstrap_sign',
     seed: int = 42,
 ) -> CausalResult:
     """
@@ -338,6 +339,18 @@ def mediate_interventional(
         Nonparametric bootstrap replications.
     alpha : float, default 0.05
         Significance level.
+    pvalue_method : {'bootstrap_sign', 'wald'}, default 'bootstrap_sign'
+        How the per-effect p-value is computed:
+
+        - ``'bootstrap_sign'`` (default, matches :func:`sp.mediate`):
+          the bootstrap-CI-inversion p-value, i.e. twice the fraction
+          of bootstrap replications on the opposite side of zero
+          from the point estimate. Respects skewed bootstrap
+          distributions.
+        - ``'wald'``: the conventional 2*(1-Φ(|θ̂/ŝe|)) p-value,
+          using the bootstrap SE. Consistent with the Wald
+          pvalue convention used across the rest of StatsPAI's
+          causal-inference surface (e.g. ``sp.aipw``, ``sp.dml``).
     seed : int, default 42
         Random seed.
 
@@ -363,6 +376,11 @@ def mediate_interventional(
     "Effect decomposition in the presence of an exposure-induced
     mediator-outcome confounder." *Epidemiology*, 25(2), 300-306.
     """
+    if pvalue_method not in ('bootstrap_sign', 'wald'):
+        raise ValueError(
+            f"pvalue_method must be 'bootstrap_sign' or 'wald'; "
+            f"got '{pvalue_method}'"
+        )
     covariates = list(covariates or [])
     tv_confounders = list(tv_confounders or [])
     cols = [y, treat, mediator] + covariates + tv_confounders
@@ -475,10 +493,21 @@ def mediate_interventional(
         se = float(np.nanstd(boot, ddof=1))
         lo = float(np.nanpercentile(boot, 100 * alpha / 2))
         hi = float(np.nanpercentile(boot, 100 * (1 - alpha / 2)))
-        # Two-sided bootstrap p-value over successful replications
         boot_clean = boot[~np.isnan(boot)]
         if len(boot_clean) == 0:
             return se, (lo, hi), float('nan')
+
+        if pvalue_method == 'wald':
+            # Conventional Wald p-value: 2 * (1 - Φ(|θ̂/ŝe|)).
+            # Consistent with sp.aipw / sp.dml family.
+            if se > 0:
+                z = point / se
+                p = float(2 * (1 - stats.norm.cdf(abs(z))))
+            else:
+                p = float('nan')
+            return se, (lo, hi), p
+
+        # 'bootstrap_sign' (default): bootstrap CI-inversion p-value.
         if point >= 0:
             p = 2 * float(np.mean(boot_clean <= 0))
         else:
@@ -510,6 +539,7 @@ def mediate_interventional(
         'n_boot_failed': n_failed,
         'n_boot_success': n_success,
         'n_mc': n_mc,
+        'pvalue_method': pvalue_method,
         'tv_confounders': tv_confounders,
         'covariates': covariates,
     }

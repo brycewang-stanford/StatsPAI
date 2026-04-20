@@ -85,6 +85,7 @@ def msm(
     exposure: str = 'cumulative',
     treat_type: str = 'auto',
     trim: float = 0.01,
+    trim_per_period: bool = False,
     alpha: float = 0.05,
     family: str = 'gaussian',
 ) -> CausalResult:
@@ -121,6 +122,15 @@ def msm(
     trim : float, default 0.01
         Truncation quantile applied to weights (symmetric: trims extreme
         weights at ``trim`` and ``1 - trim``). Set to 0 to disable.
+    trim_per_period : bool, default False
+        When True, apply ``trim`` at each period's per-period ratio
+        *before* taking the cumulative product. This is a more
+        aggressive stabilisation strategy used in some longitudinal
+        literature (Cole & Hernán 2008 §3) — it prevents a single
+        outlier period from dominating the cumulative product. When
+        False (the default), trimming is applied once on the final
+        cumulative-product weight, which is the most common convention
+        and matches the original Robins (1998) formulation.
     alpha : float, default 0.05
         Significance level.
     family : {'gaussian', 'binomial'}, default 'gaussian'
@@ -182,7 +192,9 @@ def msm(
     if exposure == 'ever' and treat_type != 'binary':
         raise ValueError("exposure='ever' requires binary treatment.")
 
-    # Build stabilized weights
+    # Build stabilized weights. If per-period trimming is requested,
+    # we trim each period's density-ratio before the cumulative
+    # product is taken (Cole & Hernán 2008 §3).
     sw = stabilized_weights(
         df,
         treat=treat,
@@ -191,11 +203,14 @@ def msm(
         time_varying=time_varying,
         baseline=baseline,
         treat_type=treat_type,
+        trim_per_period=(trim if (trim_per_period and trim and trim > 0) else 0.0),
     )
 
-    # Trim extreme weights (symmetric) — Cole & Hernán 2008
+    # Post-cumulative trimming (the conventional default — once on the
+    # final cumulative weight). Only applied when trim_per_period=False,
+    # since per-period trimming already stabilised each step above.
     w = sw.copy()
-    if trim and trim > 0:
+    if trim and trim > 0 and not trim_per_period:
         lo = np.quantile(w, trim)
         hi = np.quantile(w, 1 - trim)
         w = np.clip(w, lo, hi)
@@ -253,6 +268,7 @@ def msm(
         'sw_max': float(np.max(sw)),
         'sw_min': float(np.min(sw)),
         'sw_trimmed': bool(trim and trim > 0),
+        'trim_per_period': bool(trim_per_period),
         'coef_table': detail.copy(),
         'cluster_var': id,
     }
@@ -297,6 +313,7 @@ def stabilized_weights(
     time_varying: List[str],
     baseline: Optional[List[str]] = None,
     treat_type: str = 'auto',
+    trim_per_period: float = 0.0,
 ) -> np.ndarray:
     """
     Compute stabilized IPTW weights for time-varying treatments.
@@ -327,6 +344,11 @@ def stabilized_weights(
         Baseline covariates.
     treat_type : {'auto', 'binary', 'continuous'}
         Overrides auto-detection.
+    trim_per_period : float, default 0.0
+        If > 0, trim each period's density ratio at the symmetric
+        quantile ``[trim_per_period, 1 - trim_per_period]`` *before*
+        taking the cumulative product. A common value is 0.01. Set to
+        0 to disable per-period trimming (the default).
 
     Returns
     -------
@@ -364,6 +386,12 @@ def stabilized_weights(
 
     eps = 1e-10
     ratio = lik_num / np.maximum(lik_den, eps)
+
+    # Optional per-period trimming BEFORE the cumulative product.
+    if trim_per_period and trim_per_period > 0:
+        lo = float(np.quantile(ratio, trim_per_period))
+        hi = float(np.quantile(ratio, 1 - trim_per_period))
+        ratio = np.clip(ratio, lo, hi)
 
     # Cumulative product within unit (ordered by time via sort above)
     df['_ratio'] = ratio

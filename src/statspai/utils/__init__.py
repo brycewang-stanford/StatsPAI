@@ -14,6 +14,7 @@ from .egen import (
     outlier_indicator,
 )
 from .io import read_data
+from .iv_helpers import scalar_iv_projection
 from .dgp import (
     dgp_did,
     dgp_rd,
@@ -49,6 +50,7 @@ __all__ = [
     'rank',
     'outlier_indicator',
     'read_data',
+    'scalar_iv_projection',
     # Data Generating Processes
     'dgp_did',
     'dgp_rd',

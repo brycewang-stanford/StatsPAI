@@ -92,8 +92,11 @@ class _DoubleMLBase:
             raise ValueError(
                 f"model='{self._MODEL_TAG.lower()}' accepts a single scalar "
                 f"instrument; got {len(self.instrument)}: {self.instrument}. "
-                f"For multiple instruments, project them onto a scalar index "
-                f"and pass that column name."
+                f"For multiple excluded instruments, use "
+                f"sp.scalar_iv_projection(data, treat=..., "
+                f"instruments={self.instrument!r}, covariates=...) "
+                f"to build a scalar first-stage index column, then pass "
+                f"its name to the `instrument=` argument."
             )
         if self.n_folds < 2:
             raise ValueError(f"n_folds must be >= 2, got {self.n_folds}")
