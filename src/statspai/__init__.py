@@ -30,6 +30,9 @@ from .core.results import EconometricResults, CausalResult
 from .regression.ols import regress
 from .regression.iv import iv, ivreg, IVRegression
 from .causal.causal_forest import CausalForest, causal_forest
+from .causal.forest_inference import (
+    calibration_test, test_calibration, rate, honest_variance,
+)
 from .did import (
     did, did_2x2, ddd, callaway_santanna, sun_abraham,
     bacon_decomposition, honest_did, breakdown_m, event_study,
@@ -74,10 +77,14 @@ from .matching import (
     ps_balance, PSBalanceResult,
     optimal_match, cardinality_match,
     OptimalMatchResult, CardinalityMatchResult,
+    overlap_weights, cbps,
 )
 from .dml import dml, DoubleML
 from .deepiv import deepiv, DeepIV
-from .panel import panel, panel_compare, balance_panel, PanelResults, PanelCompareResults, PanelRegression
+from .panel import (
+    panel, panel_compare, balance_panel, PanelResults, PanelCompareResults, PanelRegression,
+    Absorber, demean, absorb_ols, hdfe_ols, FEOLSResult,
+)
 from .causal_impact import causal_impact, CausalImpactEstimator, impactplot
 from .mediation import mediate, MediationAnalysis, mediate_sensitivity
 from .bartik import bartik, BartikIV, ssaggregate, shift_share_se
@@ -89,7 +96,13 @@ from .output.estimates import eststo, estclear, esttab
 from .output.regression_table import regtable, RegtableResult, mean_comparison, MeanComparisonResult
 from .postestimation import margins, marginsplot, margins_at, margins_at_plot, contrast, pwcompare, test, lincom
 from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, effective_f_test, tF_critical_value, evalue, evalue_from_result, diagnose_result, estat, kitagawa_test, KitagawaResult
-from .inference import wild_cluster_bootstrap, aipw, ri_test, ipw, bootstrap, BootstrapResult, twoway_cluster, conley, pate, PATEEstimator, fisher_exact, FisherResult, jackknife_se, cr2_se, wild_cluster_boot
+from .inference import (
+    wild_cluster_bootstrap, aipw, ri_test, ipw, bootstrap, BootstrapResult,
+    twoway_cluster, conley, pate, PATEEstimator, fisher_exact, FisherResult,
+    jackknife_se, cr2_se, wild_cluster_boot,
+    subcluster_wild_bootstrap, wild_cluster_ci_inv,
+    multiway_cluster_vcov, cluster_robust_se, cr3_jackknife_vcov,
+)
 from .spatial import (
     sar, sem, sdm, slx, sac, SpatialModel,
     sar_gmm, sem_gmm, sarar_gmm,
@@ -390,9 +403,28 @@ __all__ = [
     # Causal Impact
     "causal_impact",
     "CausalImpactEstimator",
-    # Causal Forest
+    # Causal Forest + GRF inference
     "CausalForest",
     "causal_forest",
+    "calibration_test",
+    "test_calibration",  # GRF-compatible alias of calibration_test
+    "rate",
+    "honest_variance",
+    # HDFE primitives
+    "Absorber",
+    "demean",
+    "absorb_ols",
+    "hdfe_ols",
+    "FEOLSResult",
+    # Matching extensions
+    "overlap_weights",
+    "cbps",
+    # Inference primitives
+    "subcluster_wild_bootstrap",
+    "wild_cluster_ci_inv",
+    "multiway_cluster_vcov",
+    "cluster_robust_se",
+    "cr3_jackknife_vcov",
     # Output
     "OutReg2",
     "outreg2",
