@@ -71,6 +71,9 @@ nav:
       - "Multilevel / mixed-effects": reference/multilevel.md
       - "Double / debiased ML": reference/dml.md
       - "Causal ML (forests, meta-learners, TMLE, neural)": reference/causal.md
+      - "G-methods (g-formula, front-door, MSM, interventional mediation)": reference/g_methods.md
+      - "Proximal causal inference": reference/proximal.md
+      - "Principal stratification": reference/principal_stratification.md
       - "Sensitivity analysis": reference/sensitivity.md
       - "Smart workflow": reference/smart.md
       - "Spatial econometrics": reference/spatial.md
