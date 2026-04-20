@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "StatsPAI"
-version = "0.9.4"
+version = "0.9.5"
 description = "The Agent-Native Causal Inference & Econometrics Toolkit for Python"
 readme = "README.md"
 license = {text = "MIT"}
@@ -81,6 +81,13 @@ plotting = [
     "seaborn>=0.11.0",
     "plotly>=5.0.0",
 ]
+bayes = [
+    "pymc>=5.0",
+    "arviz>=0.15",
+]
+tune = [
+    "optuna>=3.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/brycewang-stanford/statspai"
@@ -103,7 +110,10 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--cov=statspai --cov-report=html --cov-report=term-missing"
+addopts = "--cov=statspai --cov-report=html --cov-report=term-missing -m 'not slow'"
+markers = [
+    "slow: Monte Carlo coverage suite and other long-running tests. Run with `pytest -m slow tests/coverage_monte_carlo/`. Excluded from default `pytest` run.",
+]
 
 [tool.mypy]
 python_version = "3.9"
