@@ -89,7 +89,16 @@ def _build_null_distribution(
         Y_pre_d = Y_placebo_donors[model.pre_mask]
 
         try:
-            w = model._solve_weights(Y_pre_p, Y_pre_d)
+            # Placebo unit isn't the model's treated unit, so its
+            # predictor matrices aren't pre-computed.  Use pre-Y as
+            # both the outer target and the inner predictor matrix
+            # (equal-V SCM, the standard placebo setup in Abadie et al.).
+            solver_out = model._solve_weights(
+                Y_pre_p, Y_pre_d,
+                Y_pre_p, Y_pre_d,
+                run_nested=False,
+            )
+            w = solver_out["w"]
             synth_p = Y_placebo_donors @ w
             gap_p = Y_placebo - synth_p
 
@@ -262,7 +271,12 @@ def synth_power(
 
     Y_pre_treated = model.Y_treated[model.pre_mask]
     Y_pre_donors = model.Y_donors[model.pre_mask]
-    weights = model._solve_weights(Y_pre_treated, Y_pre_donors)
+    solver_out = model._solve_weights(
+        Y_pre_treated, Y_pre_donors,
+        model.X_treated, model.X_donors,
+        run_nested=model._should_run_nested(),
+    )
+    weights = solver_out["w"]
 
     # Pre-treatment residual SD (noise scale for perturbation)
     Y_synth_pre = (model.Y_donors @ weights)[model.pre_mask]

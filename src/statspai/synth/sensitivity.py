@@ -89,7 +89,15 @@ def _fit_scm_core(
     Y_pre_treated = model.Y_treated[model.pre_mask]
     Y_pre_donors = model.Y_donors[model.pre_mask]
 
-    weights = model._solve_weights(Y_pre_treated, Y_pre_donors)
+    # Mirror SyntheticControl.fit's call pattern: forward the predictor
+    # matrices the model built and let it pick equal-V vs nested-V.  The
+    # solver returns a dict; we want the weight vector.
+    solver_out = model._solve_weights(
+        Y_pre_treated, Y_pre_donors,
+        model.X_treated, model.X_donors,
+        run_nested=model._should_run_nested(),
+    )
+    weights = solver_out["w"]
     Y_synth = model.Y_donors @ weights
     gap = model.Y_treated - Y_synth
 
