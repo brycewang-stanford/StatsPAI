@@ -243,6 +243,7 @@ class CausalForest(BaseModel):
         self._feature_names = [f'X{i}' for i in range(X.shape[1])]
         self._X_original = X.copy()
         self._T_original = T.copy()
+        self._Y_original = Y.copy()
         
         # Validate treatment
         if self.discrete_treatment:
@@ -295,10 +296,15 @@ class CausalForest(BaseModel):
             )
             T_residual = T - T_pred
         
+        # Stash cross-fitted nuisance predictions for downstream inference
+        # (used by :func:`forest_inference.calibration_test` / :func:`rate`).
+        self._m_insample = Y_pred
+        self._e_insample = T_pred if np.asarray(T_pred).ndim == 1 else T_pred[:, 0]
+
         # Step 2: Fit causal forest on residuals
         if self.verbose > 0:
             print("Fitting causal forest...")
-            
+
         self._forest = self._fit_causal_forest(X, T_residual, Y_residual)
         
         # Mark as fitted

@@ -30,6 +30,8 @@ from .optimal import (
     optimal_match, cardinality_match,
     OptimalMatchResult, CardinalityMatchResult,
 )
+from .overlap_weights import overlap_weights
+from .cbps import cbps
 
 __all__ = [
     'match', 'MatchEstimator', 'ebalance', 'balanceplot', 'psplot',
@@ -37,4 +39,6 @@ __all__ = [
     'ps_balance', 'PSBalanceResult',
     'optimal_match', 'cardinality_match',
     'OptimalMatchResult', 'CardinalityMatchResult',
+    'overlap_weights',
+    'cbps',
 ]
