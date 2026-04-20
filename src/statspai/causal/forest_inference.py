@@ -220,43 +220,63 @@ def rate(
 ) -> Dict[str, float]:
     """Rank-Average Treatment Effect (Yadlowsky et al. 2023).
 
-    Let ``S(x) = -τ̂(x)`` denote a prioritization score (here, the
-    negative predicted CATE — so "high priority" = large positive
-    benefit). For a quantile ``q ∈ (0, 1]``, define the TOC (targeting
-    operator characteristic) curve:
+    Let ``S(x) = τ̂(x)`` denote a prioritisation score (higher = higher
+    priority). Define the TOC (targeting operator characteristic) curve:
 
-        TOC(q) = E[τ(X) | S(X) ≤ Q_q(S)] - E[τ(X)]
+        TOC(q) = E[τ(X) | S(X) ≥ Q_{1-q}(S)] - E[τ(X)]
 
-    **AUTOC**: area under the TOC curve, ``∫₀¹ TOC(q) dq``. Large
-    positive values imply that prioritising by τ̂ yields larger average
-    benefit than random assignment.
+    i.e. the expected CATE among the top-``q`` fraction minus the
+    population ATE. Two scalar summaries are supported:
 
-    Inference uses a half-sample split: fit the forest on split A,
-    evaluate AUTOC on split B's AIPW pseudo-outcome, and vice versa.
-    The variance of the averaged estimate is computed from the two
-    half-sample estimates. This is the "DR-learner RATE" estimator
-    recommended by Yadlowsky et al.
+    - **AUTOC**: ``∫₀¹ TOC(q) dq`` — the *unweighted* area under the
+      TOC curve. Emphasises prioritisation performance uniformly
+      across the quantile range.
+    - **QINI**:  ``∫₀¹ q · TOC(q) dq`` — down-weights narrow top
+      fractions; closer to the classical uplift / Qini coefficient.
+
+    Estimation
+    ----------
+    The DR-RATE estimator from Yadlowsky et al. uses an AIPW pseudo-
+    outcome ``Ψ_i`` (computed from the forest's own cross-fitted
+    nuisance predictions) and reduces AUTOC / Qini to a weighted sum:
+
+        AUTOC_hat = (1/n) Σ_i Ψ_i · w_{AUTOC}(R_i / n) - Ψ̄
+        QINI_hat  = (1/n) Σ_i Ψ_i · w_{QINI}(R_i / n)  - (1/2) Ψ̄
+
+    where ``R_i`` is the descending rank of ``S(X_i)`` and the weights
+    are closed-form rank kernels. This representation makes the
+    estimator a sample mean of per-observation contributions φ_i, so
+    the variance admits the standard influence-function form
+
+        Var(AUTOC_hat) = (1/(n(n-1))) Σ_i (φ_i - φ̄)²
+
+    which replaces the conservative half-sample estimator used in the
+    earlier draft of this function.
 
     Parameters
     ----------
     forest : fitted CausalForest
-        Used only for the ranking τ̂(X). (In a strict version you would
-        refit on each half; here we treat the forest as fixed and rely
-        on the forest's own honest split for approximate orthogonality.)
-    X, Y, T : arrays
+    X, Y, T : arrays, optional
+        If omitted, falls back to the forest's stored training arrays.
     target : {'AUTOC', 'QINI'}
-        ``AUTOC`` integrates unweighted; ``QINI`` uses the Qini
-        weighting ``q·TOC(q)``. Both are reported as a single scalar.
     q_grid : int
-        Evaluation points for the TOC curve.
+        Number of quantile grid points used to report the TOC curve.
+        Does not affect the point estimate or SE (those are computed
+        from ranks exactly).
     alpha : float
     seed : int, optional
-        Only used by the half-sample split.
+        Ignored; kept for API backwards compatibility.
 
     Returns
     -------
-    dict with ``estimate``, ``se``, ``ci_low``, ``ci_high``, ``target``,
-    and ``toc_curve`` (an (q_grid, 2) ndarray of (q, TOC(q))).
+    dict with keys ``estimate``, ``se``, ``ci_low``, ``ci_high``,
+    ``target``, ``toc_curve`` (``(q_grid, 2)``), ``n``, ``method``.
+
+    References
+    ----------
+    Yadlowsky, S., Fleming, S., Shah, N., Tibshirani, R., Wager, S.
+    (2023). "Evaluating Treatment Prioritization Rules via Rank-
+    Weighted Average Treatment Effects." arXiv:2111.07966.
     """
     if not forest.fitted_:
         raise ValueError("Forest must be fitted.")
@@ -278,60 +298,70 @@ def rate(
     e_hat = np.clip(e_hat, 0.02, 0.98)
     psi = _construct_pseudo_outcome(Y_, T_, e_hat, m_hat, forest, X_)
     tau_hat = np.asarray(forest.effect(X_)).ravel()
+    psi_bar = float(psi.mean())
 
-    # Split data into halves for variance estimate
-    rng = np.random.default_rng(seed)
-    order = rng.permutation(n)
-    half = n // 2
-    idx_a, idx_b = order[:half], order[half:]
+    # Descending rank by τ̂ (rank 1 = highest priority).  Ties: stable
+    # ordering is fine; any rank permutation among ties leaves the
+    # weighted sum invariant because the kernel only depends on the
+    # fractional rank.
+    desc_order = np.argsort(-tau_hat, kind="mergesort")
+    rank = np.empty(n, dtype=np.float64)
+    rank[desc_order] = np.arange(1, n + 1)  # 1-based rank
+    u = rank / n                             # fractional rank ∈ (0, 1]
 
-    def _autoc_half(idx: np.ndarray) -> Tuple[float, np.ndarray]:
-        psi_h = psi[idx]
-        tau_h = tau_hat[idx]
-        # Sort by -tau (highest priority first)
-        order_h = np.argsort(-tau_h)
-        psi_sorted = psi_h[order_h]
-        # Cumulative mean of psi_sorted = E[τ | S < q_threshold]
-        cum = np.cumsum(psi_sorted) / np.arange(1, len(psi_sorted) + 1)
-        overall_mean = float(psi_h.mean())
-        # TOC(q_k) for q_k = k/n_h
-        qs = np.arange(1, len(psi_sorted) + 1) / len(psi_sorted)
-        toc_vals = cum - overall_mean
-        # Restrict to q_grid evenly spaced points
-        q_targets = np.linspace(1 / q_grid, 1, q_grid)
-        idx_sel = np.searchsorted(qs, q_targets, side="left")
-        idx_sel = np.clip(idx_sel, 0, len(toc_vals) - 1)
-        toc_grid = toc_vals[idx_sel]
-        if target == "AUTOC":
-            area = float(np.trapezoid(toc_grid, q_targets))
-        else:  # QINI: weight by q
-            area = float(np.trapezoid(toc_grid * q_targets, q_targets))
-        return area, np.column_stack([q_targets, toc_grid])
+    # Closed-form rank kernels. Derivation (AUTOC): AUTOC_hat rewrites
+    # as the mean over k ∈ {1,..,n} of the top-k mean of Ψ minus Ψ̄.
+    # Reordering the double sum gives the weight on observation i as
+    # w_i = (1/n) · Σ_{k=R_i}^{n} (1/k) = (H_n - H_{R_i - 1}) / n.
+    # The harmonic-number formula is exact for the empirical estimator.
+    H = np.concatenate([[0.0], np.cumsum(1.0 / np.arange(1, n + 1))])
+    # For observation i with rank R_i, weight = H_n - H_{R_i - 1}.
+    R_int = rank.astype(np.int64)
+    w_autoc = H[n] - H[R_int - 1]  # shape (n,)
+    # Qini kernel: w_{QINI}(u) = 1 - u (weights decrease linearly with
+    # the descending rank). Using the fractional rank keeps the sample
+    # average well-calibrated to the continuous population integral.
+    w_qini = 1.0 - u
 
-    est_a, toc_a = _autoc_half(idx_a)
-    est_b, toc_b = _autoc_half(idx_b)
-    estimate = 0.5 * (est_a + est_b)
+    # Rewrite both estimators as a single sample mean
+    #     θ̂ = (1/n) Σ_i Ψ_i · (w_i - c)
+    # with c = 1 for AUTOC (because AUTOC_hat = mean(Ψ·w) - Ψ̄) and
+    # c = 1/2 for Qini. The per-observation contribution
+    #     φ_i = Ψ_i · (w_i - c)
+    # depends only on obs i (treating the ranks as conditioning), so
+    # its sample variance over n gives the correct influence-function
+    # variance of θ̂ — no whole-sample subtraction is needed.
+    if target == "AUTOC":
+        phi = psi * (w_autoc - 1.0)
+    else:  # QINI
+        phi = psi * (w_qini - 0.5)
+    estimate = float(phi.mean())
 
-    # Half-sample variance
-    # Following Yadlowsky et al., variance of average of two half
-    # estimates = Var(est_a - est_b) / 4 approximately; we compute a
-    # conservative estimate
-    se = float(abs(est_a - est_b) / np.sqrt(2.0)) / np.sqrt(2.0) * 2  # ≈ |a-b|/√2
-    se = max(se, 1e-8)
+    # Influence-function variance: Var_hat(φ) / n, using the n-1
+    # denominator for the centred sum of squares.
+    phi_centered = phi - phi.mean()
+    var_est = float(phi_centered @ phi_centered) / (n * (n - 1)) if n > 1 else float("nan")
+    se = float(np.sqrt(max(var_est, 0.0)))
     z = stats.norm.ppf(1 - alpha / 2)
     ci = (estimate - z * se, estimate + z * se)
 
-    # Report the pooled TOC curve (mean of two halves)
-    toc_full = 0.5 * (toc_a + toc_b)
+    # TOC curve for diagnostics (not used in the IF variance path).
+    psi_sorted = psi[desc_order]
+    cum = np.cumsum(psi_sorted) / np.arange(1, n + 1)
+    toc_all = cum - psi_bar  # length-n array, evaluated at q_k = k/n
+    q_targets = np.linspace(1.0 / q_grid, 1.0, q_grid)
+    idx_sel = np.clip((q_targets * n).astype(np.int64) - 1, 0, n - 1)
+    toc_grid = np.column_stack([q_targets, toc_all[idx_sel]])
+
     return {
         "estimate": estimate,
         "se": se,
         "ci_low": ci[0],
         "ci_high": ci[1],
         "target": target,
-        "toc_curve": toc_full,
-        "est_half_a": est_a,
-        "est_half_b": est_b,
+        "toc_curve": toc_grid,
+        "n": n,
+        "method": "Influence-function SE (Yadlowsky et al. 2023)",
     }
 
 

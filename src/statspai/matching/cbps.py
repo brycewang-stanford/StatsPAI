@@ -107,26 +107,46 @@ def cbps(
     def _solve(X_, T_):
         return _fit_cbps(X_, T_, estimand=estimand, variant=variant)
 
-    beta_hat, ps = _solve(X, T)
+    beta_hat, ps, converged_pt, obj_pt = _solve(X, T)
     if trim > 0:
         ps = np.clip(ps, trim, 1 - trim)
     w1, w0 = _cbps_weights(T, ps, estimand)
     est = float(np.sum(w1 * Y) - np.sum(w0 * Y))
 
-    # Bootstrap
+    # Bootstrap with draw-until-success. Pathological resamples (all
+    # treated or all controls, optimizer failure, singular Hessian) are
+    # discarded and re-drawn so that we return exactly ``n_bootstrap``
+    # successful reps. A hard ceiling on retries guards against
+    # degenerate DGPs.
     boot = np.empty(n_bootstrap)
-    for b in range(n_bootstrap):
+    boot_converged = np.empty(n_bootstrap, dtype=bool)
+    max_retries = 10 * n_bootstrap
+    retries = 0
+    b = 0
+    while b < n_bootstrap and retries < max_retries:
         idx = rng.integers(0, n, size=n)
-        X_b, T_b, Y_b = X[idx], T[idx], Y[idx]
+        T_b = T[idx]
+        # Skip degenerate resamples where the treatment or control arm
+        # disappeared — CBPS has no solution in that subsample.
+        if T_b.sum() < 2 or (1 - T_b).sum() < 2:
+            retries += 1
+            continue
+        X_b, Y_b = X[idx], Y[idx]
         try:
-            _, ps_b = _solve(X_b, T_b)
+            _, ps_b, conv_b, _ = _solve(X_b, T_b)
             if trim > 0:
                 ps_b = np.clip(ps_b, trim, 1 - trim)
             w1b, w0b = _cbps_weights(T_b, ps_b, estimand)
             boot[b] = float(np.sum(w1b * Y_b) - np.sum(w0b * Y_b))
+            boot_converged[b] = conv_b
+            b += 1
         except Exception:
-            boot[b] = np.nan
-    boot = boot[~np.isnan(boot)]
+            retries += 1
+            continue
+    boot = boot[:b]
+    boot_converged = boot_converged[:b]
+    n_boot_success = b
+    n_boot_nonconv = int((~boot_converged).sum())
     se = float(np.std(boot, ddof=1)) if boot.size > 1 else np.nan
     z = sp_stats.norm.ppf(1 - alpha / 2)
     ci = (est - z * se, est + z * se) if np.isfinite(se) else (np.nan, np.nan)
@@ -151,7 +171,12 @@ def cbps(
             zip(["_intercept"] + list(covariates) if add_intercept else list(covariates),
                 smd.tolist())
         ),
+        "converged": converged_pt,
+        "gmm_objective": obj_pt,
         "n_bootstrap": n_bootstrap,
+        "n_bootstrap_success": n_boot_success,
+        "n_bootstrap_nonconverged": n_boot_nonconv,
+        "n_bootstrap_retries": retries,
     }
 
     return CausalResult(
@@ -215,36 +240,48 @@ def _fit_cbps(
     T: np.ndarray,
     estimand: str,
     variant: str,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Fit CBPS by minimising ||g(β)||² (quadratic in moments).
+) -> tuple[np.ndarray, np.ndarray, bool, float]:
+    """Fit CBPS by minimising ``||g(β)||²`` (quadratic in moments).
 
     For ``variant == 'exact'``, solves the K balance equations directly.
     For ``variant == 'over'``, two-step GMM: step 1 uses identity
-    weighting, step 2 uses inverse of empirical second-moment matrix.
+    weighting, step 2 uses the efficient weighting
+    ``(E[g g'])^{-1}``.
+
+    Returns
+    -------
+    beta : ndarray
+        Final logit coefficients.
+    ps : ndarray
+        Final propensity scores, clipped to (ε, 1-ε) for stability.
+    converged : bool
+        Whether the final optimiser call reported convergence.
+    obj_value : float
+        Final GMM objective. Useful as a warm-start quality gauge.
     """
-    p = X.shape[1]
-    # Warm start from standard logistic regression
-    from sklearn.linear_model import LogisticRegression
-    m0 = LogisticRegression(max_iter=1000, solver="lbfgs", C=1e6, fit_intercept=False)
-    m0.fit(X, T)
-    beta0 = m0.coef_[0]
+    # Warm start: prefer statsmodels Logit (Newton-Raphson, exact Hessian
+    # — more numerically stable and closer to R `glm` than sklearn's L2-
+    # regularised LBFGS solver). Fallback to sklearn or to zeros if
+    # neither is available / convergent on this resample.
+    beta0 = _warm_start_logit(X, T)
 
     if variant == "exact":
-        def obj(b):
+        def obj(b: np.ndarray) -> float:
             g = _balance_only(b, X, T, estimand)
             return float(g @ g)
-        res = optimize.minimize(obj, beta0, method="BFGS")
+        res = optimize.minimize(obj, beta0, method="BFGS", options={"maxiter": 200})
         beta = res.x
+        converged = bool(res.success)
+        obj_value = float(res.fun)
     else:
         # Step 1: identity-weighted GMM on stacked moments
-        def obj1(b):
+        def obj1(b: np.ndarray) -> float:
             g = _score_and_balance(b, X, T, estimand)
             return float(g @ g)
-        res1 = optimize.minimize(obj1, beta0, method="BFGS")
+        res1 = optimize.minimize(obj1, beta0, method="BFGS", options={"maxiter": 200})
         beta1 = res1.x
 
         # Step 2: efficient weighting W = (E[g g'])^{-1}
-        # Compute per-observation moments at beta1
         ps1 = _sigmoid(X @ beta1)
         ps1 = np.clip(ps1, 1e-8, 1 - 1e-8)
         if estimand == "ATE":
@@ -257,20 +294,52 @@ def _fit_cbps(
             g2 = w_all[:, None] * X
         G = np.concatenate([g1, g2], axis=1)
         S = G.T @ G / X.shape[0]
+        # Ridge-regularised pinv for singular S
+        ridge = 1e-8 * (np.trace(S) / S.shape[0] + 1.0)
         try:
-            W = np.linalg.pinv(S + 1e-8 * np.eye(S.shape[0]))
+            W = np.linalg.pinv(S + ridge * np.eye(S.shape[0]))
         except np.linalg.LinAlgError:
             W = np.eye(S.shape[0])
 
-        def obj2(b):
+        def obj2(b: np.ndarray) -> float:
             g = _score_and_balance(b, X, T, estimand)
             return float(g @ W @ g)
-        res2 = optimize.minimize(obj2, beta1, method="BFGS")
+        res2 = optimize.minimize(obj2, beta1, method="BFGS", options={"maxiter": 200})
         beta = res2.x
+        converged = bool(res2.success)
+        obj_value = float(res2.fun)
 
     ps_final = _sigmoid(X @ beta)
     ps_final = np.clip(ps_final, 1e-8, 1 - 1e-8)
-    return beta, ps_final
+    return beta, ps_final, converged, obj_value
+
+
+def _warm_start_logit(X: np.ndarray, T: np.ndarray) -> np.ndarray:
+    """Warm-start coefficients for CBPS: Newton-Raphson logit via
+    statsmodels if available; else sklearn LogisticRegression; else
+    zeros. Silent warnings from a non-converging fit are swallowed — a
+    mediocre warm start is still useful to BFGS on the GMM objective.
+    """
+    import warnings
+
+    try:
+        import statsmodels.api as sm  # type: ignore
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            model = sm.Logit(T, X).fit(disp=False, maxiter=100)
+        return np.asarray(model.params, dtype=np.float64)
+    except Exception:
+        pass
+
+    try:
+        from sklearn.linear_model import LogisticRegression
+
+        m = LogisticRegression(max_iter=1000, solver="lbfgs", C=1e6, fit_intercept=False)
+        m.fit(X, T)
+        return m.coef_[0].astype(np.float64)
+    except Exception:
+        return np.zeros(X.shape[1], dtype=np.float64)
 
 
 def _cbps_weights(
