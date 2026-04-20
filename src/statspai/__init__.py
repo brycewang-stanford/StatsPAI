@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.4"
+__version__ = "0.9.5"
 __author__ = "Biaoyue Wang"
 __email__ = "bryce@copaper.ai"
 
@@ -132,6 +132,8 @@ from .gmm import xtabond
 from .metalearners import metalearner, SLearner, TLearner, XLearner, RLearner, DRLearner
 from .metalearners import cate_summary, cate_by_group, cate_plot, cate_group_plot, predict_cate, compare_metalearners, gate_test, blp_test
 from .metalearners import auto_cate, AutoCATEResult
+from .metalearners import auto_cate_tuned
+from .bayes import bayes_did, bayes_rd, BayesianCausalResult
 from .regression.heckman import heckman
 from .regression.quantile import qreg, sqreg
 from .regression.tobit import tobit
@@ -154,6 +156,9 @@ from .multi_treatment import multi_treatment, MultiTreatment
 from .robustness import spec_curve, SpecCurveResult, robustness_report, RobustnessResult, subgroup_analysis, SubgroupResult
 from .survey import svydesign, SurveyDesign, svymean, svytotal, svyglm, rake, linear_calibration
 from .dag import dag, DAG, dag_example, dag_examples, dag_example_positions, dag_simulate
+
+# === Canonical datasets (consolidated facade) ===
+from . import datasets
 from .power import power, PowerResult, power_rct, power_did, power_rd, power_iv, power_cluster_rct, power_ols, mde
 from .decomposition import (
     oaxaca, gelbach, OaxacaResult, GelbachResult, rifreg, rif_decomposition,
@@ -557,6 +562,11 @@ __all__ = [
     "blp_test",
     "auto_cate",
     "AutoCATEResult",
+    "auto_cate_tuned",
+    # Bayesian Causal Models
+    "bayes_did",
+    "bayes_rd",
+    "BayesianCausalResult",
     # Neural Causal Models
     "tarnet",
     "cfrnet",
