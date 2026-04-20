@@ -195,6 +195,25 @@ from .qte import qdid, qte, QTEResult
 from .mht import romano_wolf, RomanoWolfResult, adjust_pvalues, bonferroni, holm, benjamini_hochberg
 from .registry import list_functions, describe_function, function_schema, search_functions, all_schemas
 
+# === Article-facing aliases (sp.rdd / sp.frontdoor / sp.xlearner / ...) ===
+# Thin wrappers around existing implementations; see _article_aliases.py
+from ._article_aliases import (
+    rdd,
+    frontdoor,
+    xlearner,
+    conformal_ite,
+    psm,
+    partial_identification,
+    anderson_rubin_ci,
+    conditional_lr_ci,
+    tF_adjustment,
+)
+# === Auto-race estimators (CS/SA/BJS DiD + 2SLS/LIML/JIVE IV) ===
+from ._auto_estimators import (
+    auto_did, AutoDIDResult,
+    auto_iv, AutoIVResult,
+)
+
 # === NEW MODULES (v0.6) ===
 # GLM & Discrete Choice
 from .regression.glm import glm, GLMEstimator
@@ -859,6 +878,21 @@ __all__ = [
     "cps_wage", "mincer_wage_panel", "chilean_households",
     # Recommendations metadata
     "available_methods",
+    # === Article-facing aliases (blog API sugar) ===
+    "rdd",
+    "frontdoor",
+    "xlearner",
+    "conformal_ite",
+    "psm",
+    "partial_identification",
+    "anderson_rubin_ci",
+    "conditional_lr_ci",
+    "tF_adjustment",
+    # === Auto-race estimators ===
+    "auto_did",
+    "AutoDIDResult",
+    "auto_iv",
+    "AutoIVResult",
 ]
 
 
