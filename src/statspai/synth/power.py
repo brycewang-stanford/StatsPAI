@@ -89,14 +89,25 @@ def _build_null_distribution(
         Y_pre_d = Y_placebo_donors[model.pre_mask]
 
         try:
-            # Placebo unit isn't the model's treated unit, so its
-            # predictor matrices aren't pre-computed.  Use pre-Y as
-            # both the outer target and the inner predictor matrix
-            # (equal-V SCM, the standard placebo setup in Abadie et al.).
+            # Mirror SyntheticControl._compute_in_space_placebos (scm.py
+            # ``fit(placebo=True)`` path): swap predictor columns to
+            # follow the placebo unit, fall back to pre-Y when no
+            # covariates were given, and reuse the model's V regime so
+            # the placebo and the actual fit are estimated identically.
+            if model._has_predictors:
+                X_all_pred = np.column_stack(
+                    [model.X_treated[:, np.newaxis], model.X_donors]
+                )
+                X_placebo = X_all_pred[:, idx_placebo]
+                X_placebo_donors = X_all_pred[:, [j for j in range(
+                    X_all_pred.shape[1]) if j != idx_placebo]]
+            else:
+                X_placebo = Y_pre_p
+                X_placebo_donors = Y_pre_d
             solver_out = model._solve_weights(
                 Y_pre_p, Y_pre_d,
-                Y_pre_p, Y_pre_d,
-                run_nested=False,
+                X_placebo, X_placebo_donors,
+                run_nested=model._should_run_nested(),
             )
             w = solver_out["w"]
             synth_p = Y_placebo_donors @ w

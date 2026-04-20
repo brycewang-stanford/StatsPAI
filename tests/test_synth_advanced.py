@@ -459,6 +459,33 @@ class TestSensitivity:
             f"LOO ATT std = {np.std(atts):.2f}, too variable"
         )
 
+    def test_loo_consistent_with_main_fit(self, panel_data):
+        """
+        Regression guard: LOO with donor X dropped must equal sp.synth()
+        on the same subset.  The sensitivity._fit_scm_core helper used
+        to drift from the main fit's call pattern (predictor matrices
+        not forwarded, return-dict not unpacked) — keep that pinned.
+        """
+        import statspai as sp
+        from statspai.synth.sensitivity import _fit_scm_core
+
+        all_units = panel_data['unit'].unique().tolist()
+        donors = [u for u in all_units if u != 'unit_0']
+        drop = donors[0]
+        keep = [u for u in all_units if u != drop]
+        subset = panel_data[panel_data['unit'].isin(keep)]
+
+        res_helper = _fit_scm_core(
+            panel_data, 'outcome', 'unit', 'time', 'unit_0', 11,
+            donor_subset=[u for u in keep if u != 'unit_0'],
+        )
+        res_main = sp.synth(
+            subset, outcome='outcome', unit='unit', time='time',
+            treated_unit='unit_0', treatment_time=11,
+            method='classic', placebo=False,
+        )
+        assert abs(res_helper['att'] - res_main.estimate) < 1e-6
+
 
 # ====================================================================== #
 #  Integration: all methods through unified synth() dispatcher
