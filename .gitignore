@@ -176,3 +176,6 @@ test-notebooks/demo_causal_inference.ipynb
 # mkdocs build output
 /site/
 
+# Claude Code session state (local only)
+.claude/
+

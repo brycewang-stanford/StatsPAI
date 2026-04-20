@@ -24,8 +24,11 @@ retrospective (`社媒文档/4.20-升级说明/StatsPAI-0.9.3之后的一周…`
   each, and returns an `AutoCATEResult` with:
   - `.leaderboard` — sorted by R-loss, with ATE, SE, CI, BLP β₁/β₂,
     CATE std/IQR per learner;
-  - `.best_learner` / `.best_result` — the winner chosen by the rule
-    *"lowest R-loss among BLP-β₁-calibrated learners"*;
+  - `.best_learner` / `.best_result` — winner selected by lowest
+    held-out Nie-Wager R-loss; BLP β₁/β₂ are reported in the
+    leaderboard as diagnostics, not selection gates (β₁ equals the
+    ATE in units of Y in this parametrization, so there is no
+    natural "β₁ ≈ 1" gate);
   - `.results` — the full fitted `CausalResult` for every learner;
   - `.agreement` — Pearson-ρ matrix of in-sample CATE vectors across
     learners (quick sanity check for model dependence);
@@ -45,10 +48,13 @@ retrospective (`社媒文档/4.20-升级说明/StatsPAI-0.9.3之后的一周…`
   top level.
 
 - **IV first-stage strength check** in `sp.check_identification`
-  (`_check_iv_strength`) — computed from a single-regressor OLS of
-  treatment on instrument; flags F < 5 as `blocker`, F < 10 as
-  `warning` (Staiger-Stock 1997), F ∈ [10, 30) as `info`. Fires only
-  when `instrument` is supplied.
+  (`_check_iv_strength`) — computed from a first-stage OLS
+  `treatment ~ intercept + covariates + instrument` (covariates
+  partialled out before computing the instrument's F, so the
+  reported F matches the Staiger-Stock definition when controls are
+  present). Flags F < 5 as `blocker`, F < 10 as `warning`
+  (Staiger-Stock 1997), F ∈ [10, 30) as `info`. Fires only when
+  `instrument` is supplied.
 
 ### Tests
 
