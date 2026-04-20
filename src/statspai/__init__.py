@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.3"
+__version__ = "0.9.4"
 __author__ = "Biaoyue Wang"
 __email__ = "bryce@copaper.ai"
 
@@ -131,6 +131,7 @@ from .utils import (
 from .gmm import xtabond
 from .metalearners import metalearner, SLearner, TLearner, XLearner, RLearner, DRLearner
 from .metalearners import cate_summary, cate_by_group, cate_plot, cate_group_plot, predict_cate, compare_metalearners, gate_test, blp_test
+from .metalearners import auto_cate, AutoCATEResult
 from .regression.heckman import heckman
 from .regression.quantile import qreg, sqreg
 from .regression.tobit import tobit
@@ -237,6 +238,7 @@ from .smart import (
     pub_ready, PubReadyResult,
     replicate, list_replications,
     check_identification, IdentificationReport, DiagnosticFinding,
+    IdentificationError,
 )
 
 # verify / verify_recommendation / verify_benchmark are loaded lazily via
@@ -553,6 +555,8 @@ __all__ = [
     "compare_metalearners",
     "gate_test",
     "blp_test",
+    "auto_cate",
+    "AutoCATEResult",
     # Neural Causal Models
     "tarnet",
     "cfrnet",
@@ -720,6 +724,7 @@ __all__ = [
     # === Smart Workflow Engine (unique to StatsPAI) ===
     "recommend", "RecommendationResult",
     "check_identification", "IdentificationReport", "DiagnosticFinding",
+    "IdentificationError",
     "compare_estimators", "ComparisonResult",
     "assumption_audit", "AssumptionResult",
     "sensitivity_dashboard", "SensitivityDashboard",

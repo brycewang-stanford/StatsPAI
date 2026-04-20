@@ -21,6 +21,7 @@ from .identification import (
     check_identification,
     IdentificationReport,
     DiagnosticFinding,
+    IdentificationError,
 )
 
 # verify_recommendation / verify_benchmark are lazily imported via
@@ -37,6 +38,7 @@ __all__ = [
     "replicate", "list_replications",
     "verify_recommendation", "verify_benchmark",
     "check_identification", "IdentificationReport", "DiagnosticFinding",
+    "IdentificationError",
 ]
 
 

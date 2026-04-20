@@ -58,6 +58,27 @@ import pandas as pd
 
 
 # ---------------------------------------------------------------------------
+# Exception type for strict mode
+# ---------------------------------------------------------------------------
+
+class IdentificationError(Exception):
+    """Raised by ``check_identification(strict=True)`` when a blocker is found.
+
+    Carries the full :class:`IdentificationReport` on ``self.report`` so
+    downstream code can still inspect findings without re-running.
+    """
+
+    def __init__(self, report: 'IdentificationReport'):
+        self.report = report
+        blockers = [f for f in report.findings if f.severity == 'blocker']
+        header = (f"Identification has {len(blockers)} blocker(s) "
+                  f"({report.design} design, N={report.n_obs})")
+        body = '\n'.join(f'  - {f.category}: {f.message}'
+                         for f in blockers)
+        super().__init__(f"{header}\n{body}" if body else header)
+
+
+# ---------------------------------------------------------------------------
 # Result type
 # ---------------------------------------------------------------------------
 
@@ -427,6 +448,188 @@ def _check_clustering(
             ))
 
 
+def _check_dag_bad_controls(
+    dag,
+    treatment: str,
+    outcome: str,
+    covariates: Sequence[str],
+    findings: List[DiagnosticFinding],
+) -> None:
+    """DAG-based bad-control detection (Cinelli-Forney-Pearl 2022).
+
+    Unlike the correlation heuristic, this catches *M-bias* colliders,
+    mediators, and descendants of the treatment that look pre-treatment
+    but violate backdoor adjustment.
+    """
+    if dag is None:
+        return
+    # Flag any requested covariate that is itself a bad control
+    try:
+        dag_bad = dag.bad_controls(treatment, outcome)
+    except Exception as e:
+        findings.append(DiagnosticFinding(
+            severity='info',
+            category='bad_controls',
+            message=f'DAG bad-control analysis skipped ({e}).',
+        ))
+        return
+
+    requested = set(covariates or [])
+    hit = {v: r for v, r in dag_bad.items() if v in requested}
+    if hit:
+        for v, reasons in hit.items():
+            findings.append(DiagnosticFinding(
+                severity='blocker',
+                category='bad_controls',
+                message=(f"Covariate '{v}' is a DAG-flagged bad control: "
+                         f"{'; '.join(reasons)}."),
+                suggestion=f"Remove '{v}' from the covariate set; use "
+                           f"DAG.adjustment_sets('{treatment}', "
+                           f"'{outcome}') for a valid alternative.",
+                evidence={'covariate': v, 'reasons': reasons},
+            ))
+
+    # Also check that covariates form a valid adjustment set
+    try:
+        adj_sets = dag.adjustment_sets(treatment, outcome)
+    except Exception:
+        adj_sets = []
+    if adj_sets:
+        valid = any(set(a).issubset(requested) for a in adj_sets)
+        if not valid and requested:
+            shortest = min(adj_sets, key=len)
+            findings.append(DiagnosticFinding(
+                severity='warning',
+                category='bad_controls',
+                message=('Covariate set does not satisfy any DAG '
+                         'adjustment criterion; backdoor paths may be '
+                         'open.'),
+                suggestion=f'Use adjustment set: {sorted(shortest)}.',
+                evidence={'valid_adjustment_sets': [sorted(s)
+                                                    for s in adj_sets[:3]]},
+            ))
+
+
+def _check_iv_strength(
+    data: pd.DataFrame,
+    treatment: str,
+    instrument: str,
+    findings: List[DiagnosticFinding],
+    covariates: Optional[Sequence[str]] = None,
+) -> None:
+    """Check instrument strength via first-stage F against Staiger-Stock rule.
+
+    Runs a first-stage OLS of
+    ``treatment ~ intercept + covariates + instrument`` and reports
+    the F-statistic on the instrument coefficient (squared t-stat
+    under homoskedasticity). When covariates are supplied they are
+    partialled out before computing the F — this matches the
+    Staiger-Stock (1997) definition, which is conditional on
+    exogenous controls.
+
+    Flags:
+    - blocker if F < 5 (strongly underidentified)
+    - warning if F < 10 (Staiger-Stock 1997 rule-of-thumb)
+    - info    if F in [10, 30) ("moderate" strength)
+    - silent  if F >= 30 (comfortable)
+
+    Skipped gracefully if columns are missing or non-numeric.
+    """
+    if treatment not in data.columns or instrument not in data.columns:
+        return
+
+    # Restrict to numeric covariates; silently drop non-numeric to avoid
+    # leaking a type error from a diagnostic helper.
+    cov_cols: List[str] = []
+    if covariates:
+        cov_cols = [c for c in covariates
+                    if c in data.columns
+                    and c not in (treatment, instrument)
+                    and pd.api.types.is_numeric_dtype(data[c])]
+
+    needed = [treatment, instrument] + cov_cols
+    sub = data[needed].apply(pd.to_numeric, errors='coerce').dropna()
+    n = len(sub)
+    if n < 20:
+        return  # too small to say anything useful
+
+    t_vec = sub[treatment].to_numpy(dtype=float)
+    z_vec = sub[instrument].to_numpy(dtype=float)
+
+    if cov_cols:
+        # Partial out intercept + covariates from both t and z via OLS,
+        # then run the single-regressor first stage on the residuals.
+        # This yields the correct first-stage F on z after covariates.
+        W = np.column_stack([np.ones(n), sub[cov_cols].to_numpy(dtype=float)])
+        try:
+            WtW_inv = np.linalg.pinv(W.T @ W)
+            H_proj = W @ WtW_inv @ W.T  # projection onto span(W)
+        except np.linalg.LinAlgError:
+            return
+        t_res = t_vec - H_proj @ t_vec
+        z_res = z_vec - H_proj @ z_vec
+        # k_controls = len(cov_cols) + 1 (intercept) — degrees-of-freedom
+        # adjustment below accounts for them.
+        k_controls = W.shape[1]
+    else:
+        t_res = t_vec - t_vec.mean()
+        z_res = z_vec - z_vec.mean()
+        k_controls = 1  # intercept only
+
+    denom = float((z_res ** 2).sum())
+    if denom <= 0 or not np.isfinite(denom):
+        findings.append(DiagnosticFinding(
+            severity='blocker',
+            category='variation',
+            message=f"Instrument '{instrument}' has no residual variance "
+                    f"after partialling out covariates; first stage is "
+                    f"undefined.",
+        ))
+        return
+
+    b = float((z_res * t_res).sum() / denom)
+    resid = t_res - b * z_res
+    ss_res = float((resid ** 2).sum())
+    df_resid = n - k_controls - 1  # controls + intercept + instrument
+    if df_resid <= 0:
+        return
+    sigma2 = ss_res / df_resid
+    var_b = sigma2 / denom
+    if var_b <= 0 or not np.isfinite(var_b):
+        return
+    f_stat = float((b ** 2) / var_b)
+
+    if f_stat < 5.0:
+        findings.append(DiagnosticFinding(
+            severity='blocker',
+            category='variation',
+            message=f"Weak instrument: first-stage F = {f_stat:.2f} "
+                    f"(< 5). Point identification effectively fails.",
+            suggestion="Use weak-IV-robust inference "
+                       "(statspai.iv.anderson_rubin_ci / conditional_lr_ci) "
+                       "or find a stronger instrument.",
+            evidence={'first_stage_F': f_stat},
+        ))
+    elif f_stat < 10.0:
+        findings.append(DiagnosticFinding(
+            severity='warning',
+            category='variation',
+            message=f"Weak instrument: first-stage F = {f_stat:.2f} "
+                    f"(< 10, Staiger-Stock 1997 rule).",
+            suggestion="Use LIML / Fuller or weak-IV-robust CIs "
+                       "(statspai.iv.anderson_rubin_ci) instead of 2SLS.",
+            evidence={'first_stage_F': f_stat},
+        ))
+    elif f_stat < 30.0:
+        findings.append(DiagnosticFinding(
+            severity='info',
+            category='variation',
+            message=f"First-stage F = {f_stat:.2f} "
+                    f"(moderate instrument strength).",
+            evidence={'first_stage_F': f_stat},
+        ))
+
+
 def _check_rd_density(
     data: pd.DataFrame,
     running_var: str,
@@ -485,6 +688,8 @@ def check_identification(
     cutoff: Optional[float] = None,
     design: Optional[str] = None,
     cohort: Optional[str] = None,
+    dag=None,
+    strict: bool = False,
 ) -> IdentificationReport:
     """Run design-level identification diagnostics before fitting an estimator.
 
@@ -516,6 +721,16 @@ def check_identification(
         'rct', 'did', 'rd', 'iv', 'observational', 'panel'.
     cohort : str, optional
         First-treatment-period column (for staggered DID).
+    dag : sp.DAG, optional
+        Causal DAG. If supplied, runs Cinelli-Forney-Pearl (2022)
+        bad-control detection (mediator, descendant, collider, M-bias)
+        and verifies the covariate set satisfies a valid adjustment
+        criterion. Upgrades correlation heuristic to a principled check.
+    strict : bool, default False
+        If True, raise :class:`IdentificationError` when the report's
+        verdict is ``'BLOCKERS'``.  Use in CI / automated pipelines
+        where you want a hard failure when the design is broken.
+        The exception carries ``.report`` for post-mortem inspection.
 
     Returns
     -------
@@ -561,6 +776,9 @@ def check_identification(
     if treatment is not None:
         _check_bad_controls(data, treatment, covariates, y, time,
                             findings=findings)
+        if dag is not None:
+            _check_dag_bad_controls(dag, treatment, y, covariates,
+                                    findings=findings)
         _check_treatment_variation(data, treatment, findings)
         if covariates:
             _check_overlap(data, treatment, covariates, findings)
@@ -572,6 +790,13 @@ def check_identification(
     if design == 'rd' and running_var is not None:
         _check_rd_density(data, running_var, cutoff or 0.0, findings)
 
+    if design == 'iv' and instrument is not None and treatment is not None:
+        _check_iv_strength(data, treatment, instrument, findings,
+                           covariates=covariates)
+
     _check_clustering(data, id, time, cluster, findings)
+
+    if strict and report.verdict == 'BLOCKERS':
+        raise IdentificationError(report)
 
     return report
