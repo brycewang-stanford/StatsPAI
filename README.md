@@ -9,20 +9,21 @@
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
 [![status](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332/status.svg)](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332)
 
-StatsPAI is the **agent-native** Python package for causal inference and applied econometrics. One `import`, 390+ functions, covering the complete empirical research workflow — from classical econometrics to cutting-edge ML/AI causal methods to publication-ready tables in Word, Excel, and LaTeX.
+StatsPAI is the **agent-native** Python package for causal inference and applied econometrics. One `import`, **550+ functions**, covering the complete empirical research workflow — from classical econometrics to cutting-edge ML/AI causal methods to publication-ready tables in Word, Excel, and LaTeX.
 
 **Designed for AI agents**: every function returns structured result objects with self-describing schemas (`list_functions()`, `describe_function()`, `function_schema()`), making StatsPAI the first econometrics toolkit purpose-built for LLM-driven research workflows — while remaining fully ergonomic for human researchers.
 
 It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 
-**🎉 NEW in v0.9.3 — Econometric Overhaul: Stochastic Frontier + Mixed Models + 3 New Causal Pillars**
+**🎉 NEW in v0.9.3 — Econometric Overhaul: Stochastic Frontier + Mixed Models + GLMM Hardening + 3 New Causal Pillars**
 
-Three simultaneous deep overhauls plus author-attribution correction. **⚠️ Critical correctness fix** in `sp.frontier`: a latent Jondrow posterior sign error in all prior versions produced systematically biased efficiency scores; the `dist='exponential'` path additionally returned NaN for unit efficiency. **Re-run any prior frontier analyses.**
+Four simultaneous deep overhauls plus author-attribution correction. **⚠️ Critical correctness fix** in `sp.frontier`: a latent Jondrow posterior sign error in all prior versions produced systematically biased efficiency scores; the `dist='exponential'` path additionally returned NaN for unit efficiency. **Re-run any prior frontier analyses.**
 
 | Area | Highlights |
-|---|---|
+| --- | --- |
 | **Stochastic Frontier** (`sp.frontier` / `sp.xtfrontier`) | Stata/R parity + more: heteroskedastic `usigma` / `vsigma` / `emean`, Battese-Coelli (1988) TE, LR mixed-χ̄² test, bootstrap unit-efficiency CIs. Panel: Pitt-Lee, BC92, BC95, Greene (2005) TFE/TRE with Dhaene-Jochmans (2015) jackknife bias correction. `vce='opg' / 'robust' / 'cluster' / 'bootstrap'`, metafrontier, conditional `predict()`, RTS. **New:** `sp.zisf` (Zero-Inefficiency SFA), `sp.lcsf` (Latent-Class SFA), `sp.malmquist` (Malmquist TFP index, M = EC × TC), `sp.translog_design` (translog helper). |
 | **Multilevel / Mixed-Effects** (`sp.multilevel`) | lme4/Stata `mixed` parity: unstructured random-effect covariance (new default), three-level nested models, BLUP posterior SEs, Nakagawa-Schielzeth R². **New:** `sp.melogit` / `sp.mepoisson` / `sp.meglm` (Laplace GLMMs), `sp.icc` (delta-method CI), `sp.lrtest` (Self-Liang χ̄² boundary correction). |
+| **GLMM hardening** (AGHQ + 3 new families) | Adaptive Gauss-Hermite quadrature via new `nAGQ` argument — `nAGQ=1` reduces exactly to Laplace (verified 1e-10), `nAGQ>1` matches Stata `intpoints(7)` / R `lme4::glmer(nAGQ=7)` accuracy on small clusters. **New families:** `sp.megamma` (Gamma GLMM with ML-estimated dispersion), `sp.menbreg` (Negative Binomial NB-2, reduces to Poisson as α → 0), `sp.meologit` (random-effects ordinal logit, Stata `meologit` / R `ordinal::clmm`). Cross-family AIC comparability: Poisson/Binomial log-likelihoods now include full normalisation constants so `mepoisson` vs `menbreg` AIC is unbiased. |
 | **Econometric Trinity** (P0 Pillars) | **`sp.dml(model='pliv')`** — DML Partially Linear IV (Chernozhukov et al. 2018) with cross-fitted nuisances. **`sp.mixlogit`** — Random-coefficient MNL via simulated ML with Halton draws (Python's first full implementation). **`sp.ivqreg`** — Chernozhukov-Hansen IV quantile regression via inverse-QR profile. |
 | **Smart workflow** | **`sp.verify`** / **`sp.verify_benchmark`** — posterior verification engine for `sp.recommend()` outputs. Aggregates bootstrap stability + placebo pass rate + subsample agreement into a `verify_score ∈ [0, 100]`. Opt-in via `recommend(verify=True)`. |
 
@@ -618,9 +619,9 @@ Plot Editor:    interactive (WYSIWYG editor), set_theme (29 academic themes)
 
 ## Release Notes
 
-### v0.9.3 (2026-04-19) — Stochastic Frontier + Multilevel + Econometric Trinity
+### v0.9.3 (2026-04-19) — Stochastic Frontier + Multilevel + GLMM + Econometric Trinity
 
-14 commits since 0.9.2. See [CHANGELOG](CHANGELOG.md) for full detail.
+24 commits since 0.9.2 (includes the GLMM hardening pillar originally tagged as 0.9.4, folded into 0.9.3 before tag). See [CHANGELOG](CHANGELOG.md) for full detail.
 
 **⚠️ Critical correctness fix in `sp.frontier`.** A latent Jondrow-posterior sign error in all prior versions (≤ 0.9.2) produced systematically biased efficiency scores; the `dist='exponential'` path additionally returned NaN for unit efficiency. **Re-run any prior frontier analyses.**
 
@@ -632,17 +633,19 @@ Plot Editor:    interactive (WYSIWYG editor), set_theme (29 academic themes)
 - **Productivity**: **`sp.malmquist`** — Färe-Grosskopf-Lindgren-Roos (1994) Malmquist TFP index with M = EC × TC decomposition; **`sp.translog_design`** — Cobb-Douglas → Translog design-matrix helper.
 - **Inference + post-estimation**: `vce='opg' / 'robust' / 'cluster' / 'bootstrap'` with Monte-Carlo coverage check; conditional `predict()`, returns-to-scale, `usigma` / `emean` marginal effects, metafrontier.
 
-**2. Multilevel / Mixed-Effects — `sp.multilevel` rewritten.** From a 400-LOC two-level single file to a ~2,500-LOC sub-package with lme4/Stata `mixed` parity. `sp.mixed` now defaults to unstructured random-effect covariance, supports three-level nested models (`group=['school','class']`), BLUP posterior SEs, Nakagawa-Schielzeth R², caterpillar plots. New top-level: **`sp.melogit`** / **`sp.mepoisson`** / **`sp.meglm`** (Laplace GLMMs), **`sp.icc`** (delta-method CI), **`sp.lrtest`** (Self-Liang χ̄² boundary correction). Verified against `statsmodels.MixedLM` to 4 decimal places.
+**2. Multilevel / Mixed-Effects — `sp.multilevel` rewritten.** From a 400-LOC two-level single file to a ~2,700-LOC sub-package with lme4/Stata `mixed` parity. `sp.mixed` now defaults to unstructured random-effect covariance, supports three-level nested models (`group=['school','class']`), BLUP posterior SEs, Nakagawa-Schielzeth R², caterpillar plots. New top-level: **`sp.melogit`** / **`sp.mepoisson`** / **`sp.meglm`** (Laplace GLMMs), **`sp.icc`** (delta-method CI), **`sp.lrtest`** (Self-Liang χ̄² boundary correction). Verified against `statsmodels.MixedLM` to 4 decimal places.
 
-**3. Econometric Trinity — three new P0 pillars** (~1,170 LOC).
+**3. GLMM hardening — AGHQ + Gamma / NegBin / Ordinal.** Closes the three GLMM gaps flagged in the multilevel self-audit. Adaptive Gauss-Hermite quadrature via new **`nAGQ`** argument: `nAGQ=1` reduces exactly to Laplace (verified 1e-10); `nAGQ>1` matches Stata `intpoints(7)` / R `lme4::glmer(nAGQ=7)` accuracy on small clusters with binary or other non-Gaussian outcomes. Wired into all five families (Gaussian / Binomial / Poisson / Gamma / NegBin) plus `meologit`. **New families:** **`sp.megamma`** (Gamma GLMM, log link, ML-estimated dispersion `log φ`, Fisher-scoring IRLS), **`sp.menbreg`** (NB-2 `Var = μ + αμ²`, reduces to Poisson as α → 0), **`sp.meologit`** (random-effects ordinal logit with K−1 reparameterised thresholds `κ_1, log(κ_2−κ_1), …` for unconditional ordering). Cross-family AIC comparability: Poisson and Binomial log-likelihoods now include full normalisation constants (`-log(y!)` / log-binomial-coefficient) so `mepoisson` vs `menbreg` AIC comparisons are unbiased.
+
+**4. Econometric Trinity — three new P0 pillars** (~1,170 LOC).
 
 - **`sp.dml(model='pliv', instrument=...)`** — Partially Linear IV (Chernozhukov et al. 2018, §4.2) with Neyman-orthogonal score and cross-fitted `g`/`m`/`r` nuisances; influence-function SEs.
 - **`sp.mixlogit`** — Random-coefficient MNL via simulated ML with Halton draws. Normal / log-normal / triangular mixing; diagonal or Cholesky covariance; panel repeated-choice; OPG-sandwich SEs. Python's first feature-complete implementation.
 - **`sp.ivqreg`** — Chernozhukov-Hansen IV quantile regression via inverse-QR profile. Grid + Brent (scalar endogenous); BFGS on `b̂(α)` (multi-dim); pairs-bootstrap SEs.
 
-**4. Smart workflow — posterior verification.** **`sp.verify`** / **`sp.verify_benchmark`** — aggregates bootstrap stability + placebo pass rate + subsample agreement into a `verify_score ∈ [0, 100]` for any `sp.recommend()` output. Opt-in via `recommend(verify=True)`; zero overhead when off.
+**5. Smart workflow — posterior verification.** **`sp.verify`** / **`sp.verify_benchmark`** — aggregates bootstrap stability + placebo pass rate + subsample agreement into a `verify_score ∈ [0, 100]` for any `sp.recommend()` output. Opt-in via `recommend(verify=True)`; zero overhead when off.
 
-**Quality bar.** Multilevel passed oracle + code-reviewer audit (4 BLOCKER + 5 HIGH fixed); econ-trinity passed self-audit (4 BLOCKER + 7 HIGH fixed); frontier self-audit fixed Mills-tail, TVD-loop, cost-panel, summary-dump issues. Test count: 93/93 frontier, 18/18 smart, 10/10 econ-trinity pass.
+**Quality bar.** Multilevel passed oracle + code-reviewer audit (4 BLOCKER + 5 HIGH fixed); econ-trinity passed self-audit (4 BLOCKER + 7 HIGH fixed); frontier self-audit fixed Mills-tail, TVD-loop, cost-panel, summary-dump issues. GLMM hardening added 18 new tests (TestAGHQ × 7, TestMEGamma × 3, TestMENegBin × 3, TestMEOLogit × 5) on top of the 35 prior multilevel tests. Test count: 93/93 frontier, 53/53 multilevel (incl. GLMM), 18/18 smart, 10/10 econ-trinity pass.
 
 **Meta.** Author attribution corrected from "Bryce Wang" to **"Biaoyue Wang"** in `pyproject.toml`, `__author__`, English/Chinese READMEs, `docs/index.md`, and `mkdocs.yml` (JOSS `paper.md` was already correct).
 

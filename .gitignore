@@ -19,9 +19,10 @@ Makefile
 build_and_release.sh
 publish_to_pypi.sh
 
-# Documentation and examples (not needed for GitHub release)
-docs/
+# Examples (not shipped with the package)
 examples/
+
+# mkdocs build output only — source lives under docs/ and IS tracked
 
 # Distribution / packaging
 .Python

@@ -9,11 +9,25 @@
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
 [![status](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332/status.svg)](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332)
 
-StatsPAI 是一个**面向 AI Agent** 的 Python 因果推断与应用计量经济学工具包。一个 `import`，390+ 个函数，覆盖从经典计量经济学到前沿 ML/AI 因果推断方法，再到论文级 Word、Excel、LaTeX 输出表格的完整实证研究流程。
+StatsPAI 是一个**面向 AI Agent** 的 Python 因果推断与应用计量经济学工具包。一个 `import`，**550+ 个函数**，覆盖从经典计量经济学到前沿 ML/AI 因果推断方法，再到论文级 Word、Excel、LaTeX 输出表格的完整实证研究流程。
 
 **为 AI Agent 而生**：每个函数都返回结构化结果对象，附带自描述 schema（`list_functions()`、`describe_function()`、`function_schema()`），使 StatsPAI 成为首个专为 LLM 驱动的研究流程设计的计量工具包——同时对人类研究者也完全友好。
 
-它将 R 的 [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html)（fixest、did、rdrobust、gsynth、DoubleML、MatchIt、CausalImpact……）和 Stata 的核心计量命令，统一到一个一致的 Python API 中。
+它将 R 的 [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html)（fixest、did、rdrobust、gsynth、DoubleML、MatchIt、CausalImpact、sfaR、lme4、oaxaca、ddecompose……）和 Stata 的核心计量命令（`frontier`、`xtfrontier`、`mixed`、`meglm`、`mixlogit`、`ivqreg`……），统一到一个一致的 Python API 中。
+
+**🎉 v0.9.3 新功能 — 计量经济学大升级：随机前沿 + 混合效应 + GLMM 硬化 + 三大因果新支柱**
+
+四项同时进行的深度重写，外加作者署名更正。**⚠️ 关键正确性修复**：`sp.frontier` 所有旧版本（≤ 0.9.2）存在 Jondrow 后验符号错误，导致效率分数系统性偏误；`dist='exponential'` 路径还会返回 NaN。**请重新估计此前任何前沿分析结果**。
+
+| 模块 | 亮点 |
+| --- | --- |
+| **随机前沿** (`sp.frontier` / `sp.xtfrontier`) | Stata/R 对标并超越：异方差 `usigma` / `vsigma` / `emean`、Battese-Coelli (1988) TE、LR 混合-χ̄² 检验、bootstrap 单位效率 CI。面板：Pitt-Lee、BC92、BC95、Greene (2005) TFE/TRE + Dhaene-Jochmans (2015) jackknife 纠偏。`vce='opg' / 'robust' / 'cluster' / 'bootstrap'`、元前沿、条件 `predict()`、规模报酬。**新增：** `sp.zisf`（零无效率 SFA）、`sp.lcsf`（潜在类 SFA）、`sp.malmquist`（Malmquist TFP 指数，M = EC × TC）、`sp.translog_design`（translog 设计矩阵助手）。 |
+| **多层/混合效应** (`sp.multilevel`) | lme4/Stata `mixed` 对标：随机效应协方差非约束（新默认）、三层嵌套模型、BLUP 后验 SE、Nakagawa-Schielzeth R²。**新增：** `sp.melogit` / `sp.mepoisson` / `sp.meglm`（Laplace GLMM）、`sp.icc`（delta 法 CI）、`sp.lrtest`（Self-Liang χ̄² 边界校正）。 |
+| **GLMM 硬化**（AGHQ + 3 个新族） | 自适应高斯-埃尔米特积分，新增 `nAGQ` 参数：`nAGQ=1` 严格退化到 Laplace（1e-10 验证），`nAGQ>1` 在小簇二元结局下匹配 Stata `intpoints(7)` / R `lme4::glmer(nAGQ=7)` 精度。**新家族：** `sp.megamma`（Gamma GLMM，ML 估计离散度）、`sp.menbreg`（负二项 NB-2，α → 0 时退化到 Poisson）、`sp.meologit`（随机效应有序 logit，K−1 阈值重参数化保证严格排序）。跨族 AIC 可比：Poisson/Binomial 似然包含完整规范化常数，`mepoisson` vs `menbreg` AIC 比较不再有偏。 |
+| **计量三大新支柱**（P0） | **`sp.dml(model='pliv')`** — DML 部分线性 IV（Chernozhukov et al. 2018），交叉拟合 nuisance。**`sp.mixlogit`** — 随机系数多项 logit，Halton 模拟 ML（Python 首个完整实现）。**`sp.ivqreg`** — Chernozhukov-Hansen 工具变量分位数回归，inverse-QR profile。 |
+| **智能工作流** | **`sp.verify`** / **`sp.verify_benchmark`** — `sp.recommend()` 输出的后验验证引擎：聚合 bootstrap 稳定性 + 安慰剂通过率 + 子样本一致性，输出 `verify_score ∈ [0, 100]`。通过 `recommend(verify=True)` 开启。 |
+
+**先前版本亮点：** v0.9.2 分解分析（`sp.decompose` 18 方法统一入口）；v0.9.1 断点回归（18+ 估计量，14 模块）；v0.9.0 合成控制（20 估计量 + 6 推断策略 + 完整研究工作流）；v0.8.0 空间计量全栈（38 API 符号）。详见 [CHANGELOG](CHANGELOG.md)。
 
 **v0.6 新功能**：`sp.interactive(fig)` —— 类似 Stata Graph Editor 的 WYSIWYG 图表编辑器，支持 29 种学术主题、实时预览、自动生成可复现代码。
 

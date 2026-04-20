@@ -57,5 +57,18 @@ nav:
       - "Repeated cross-sections": guides/repeated_cross_sections.md
       - "Sensitivity analysis (Rambachan–Roth)": guides/honest_did.md
   - Reference:
-      - "DiD module": reference/did.md
+      - "Overview": reference/index.md
+      - "Difference-in-differences": reference/did.md
+      - "Regression discontinuity": reference/rd.md
+      - "Synthetic control": reference/synth.md
+      - "Decomposition analysis": reference/decomposition.md
+      - "Stochastic frontier": reference/frontier.md
+      - "Multilevel / mixed-effects": reference/multilevel.md
+      - "Double / debiased ML": reference/dml.md
+      - "Causal ML (forests, meta-learners, TMLE, neural)": reference/causal.md
+      - "Sensitivity analysis": reference/sensitivity.md
+      - "Smart workflow": reference/smart.md
+      - "Spatial econometrics": reference/spatial.md
+      - "Time series": reference/timeseries.md
+      - "Survival analysis": reference/survival.md
   - Changelog: changelog.md
