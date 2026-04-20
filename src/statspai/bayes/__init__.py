@@ -20,12 +20,17 @@ Available estimators:
 """
 from __future__ import annotations
 
-from ._base import BayesianCausalResult, BayesianHTEIVResult
+from ._base import (
+    BayesianCausalResult,
+    BayesianHTEIVResult,
+    BayesianMTEResult,
+)
 from .did import bayes_did
 from .rd import bayes_rd
 from .iv import bayes_iv
 from .fuzzy_rd import bayes_fuzzy_rd
 from .hte_iv import bayes_hte_iv
+from .mte import bayes_mte
 
 __all__ = [
     'bayes_did',
@@ -33,6 +38,8 @@ __all__ = [
     'bayes_iv',
     'bayes_fuzzy_rd',
     'bayes_hte_iv',
+    'bayes_mte',
     'BayesianCausalResult',
     'BayesianHTEIVResult',
+    'BayesianMTEResult',
 ]

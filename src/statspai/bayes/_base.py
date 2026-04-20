@@ -159,24 +159,32 @@ class BayesianCausalResult:
         #      that tells the user convergence is undiagnosable, not
         #      that the model failed.
         inference_mode = self.model_info.get('inference', 'nuts')
-        if inference_mode == 'advi' or np.isnan(self.rhat):
-            rhat_line = ('  R-hat:       n/a  [ADVI: variational mean-field — '
-                         'convergence is not measurable via R-hat; use NUTS '
-                         'for calibrated uncertainty]')
+        # Variational backends (ADVI, Pathfinder) produce a single
+        # drawn chain — R-hat is meaningless. Exact samplers (NUTS,
+        # SMC) have meaningful R-hat.
+        is_variational = inference_mode in ('advi', 'pathfinder')
+        if is_variational or np.isnan(self.rhat):
+            label = {
+                'advi': 'mean-field ADVI',
+                'pathfinder': 'full-rank ADVI (Pathfinder stand-in)',
+            }.get(inference_mode, 'variational')
+            rhat_line = (f'  R-hat:       n/a  [{label} — convergence is '
+                         'not measurable via R-hat; use NUTS or SMC for '
+                         'calibrated uncertainty]')
         elif self.rhat > 1.01:
             rhat_line = f'  R-hat:       {self.rhat:.4f}  [WARN > 1.01]'
         else:
             rhat_line = f'  R-hat:       {self.rhat:.4f}'
 
         ess_line = f'  ESS (bulk):  {self.ess:.0f}'
-        if inference_mode != 'advi' and np.isfinite(self.ess) and self.ess < 400:
+        if not is_variational and np.isfinite(self.ess) and self.ess < 400:
             ess_line += '  [WARN: low ESS]'
 
-        # Effective chain count is 1 under ADVI regardless of what the
-        # caller requested — show that honestly.
+        # Effective chain count is 1 under variational backends.
         requested_chains = self.model_info.get('chains', '?')
-        if inference_mode == 'advi':
-            chains_line = f'  Chains:      1  (ADVI; requested {requested_chains} ignored)'
+        if is_variational:
+            chains_line = (f'  Chains:      1  ({inference_mode}; requested '
+                           f'{requested_chains} ignored)')
         else:
             chains_line = f'  Chains:      {requested_chains}'
 
@@ -238,9 +246,10 @@ def _sample_model(
         Directly usable by :func:`_summarise_posterior`.
     """
     pm, _ = _require_pymc()
-    if inference not in ('nuts', 'advi'):
+    valid = ('nuts', 'advi', 'pathfinder', 'smc')
+    if inference not in valid:
         raise ValueError(
-            f"inference must be 'nuts' or 'advi'; got {inference!r}"
+            f"inference must be one of {valid}; got {inference!r}"
         )
     with model:
         if inference == 'advi':
@@ -257,7 +266,34 @@ def _sample_model(
             # for 4.
             trace.attrs['actual_chains'] = 1
             trace.attrs['inference'] = 'advi'
-        else:
+        elif inference == 'pathfinder':
+            # PyMC 5.x's stable "smarter-than-mean-field" VI entry-point
+            # is full-rank ADVI — it captures pairwise covariance between
+            # parameters, which mean-field ADVI misses. When PyMC's
+            # `pmx.fit` stabilises we will switch to true Pathfinder;
+            # until then full-rank ADVI is the same spirit.
+            approx = pm.fit(
+                n=advi_iterations,
+                method='fullrank_advi',
+                random_seed=random_state,
+                progressbar=progressbar,
+            )
+            trace = approx.sample(draws)
+            trace.attrs['actual_chains'] = 1
+            trace.attrs['inference'] = 'pathfinder'
+        elif inference == 'smc':
+            # Sequential Monte Carlo — exact sampler that handles
+            # multimodal posteriors well; slower than NUTS on unimodal
+            # problems but a clean fallback when NUTS diverges.
+            trace = pm.sample_smc(
+                draws=draws,
+                chains=chains,
+                random_seed=random_state,
+                progressbar=progressbar,
+            )
+            trace.attrs['actual_chains'] = chains
+            trace.attrs['inference'] = 'smc'
+        else:  # 'nuts'
             trace = pm.sample(
                 draws=draws,
                 tune=tune,
@@ -328,6 +364,51 @@ class BayesianHTEIVResult(BayesianCausalResult):
             'hdi_high': float(hdi[1]),
             'prob_positive': float(np.mean(cate_samples > 0)),
         }
+
+
+@dataclass
+class BayesianMTEResult(BayesianCausalResult):
+    """Bayesian Marginal Treatment Effect result.
+
+    Carries (in addition to the inherited average MTE summary) a
+    full posterior over the MTE curve ``tau(u)`` on a user-specified
+    grid, plus integrated summaries over the treated / untreated /
+    average populations (ATT, ATU, ATE).
+    """
+
+    mte_curve: pd.DataFrame = field(default_factory=pd.DataFrame)
+    u_grid: Optional[np.ndarray] = None
+    ate: float = float('nan')
+    att: float = float('nan')
+    atu: float = float('nan')
+
+    def plot_mte(self, ax=None, figsize=(8, 5)):
+        """Plot the MTE curve with HDI ribbon. Requires matplotlib."""
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            raise ImportError(
+                "plot_mte requires matplotlib; `pip install matplotlib`."
+            )
+        if ax is None:
+            fig, ax = plt.subplots(figsize=figsize)
+        else:
+            fig = ax.get_figure()
+        curve = self.mte_curve
+        ax.plot(curve['u'], curve['posterior_mean'], color='#2C3E50',
+                linewidth=2, label='posterior mean')
+        ax.fill_between(curve['u'], curve['hdi_low'], curve['hdi_high'],
+                        color='#2C3E50', alpha=0.2,
+                        label=f'{int(self.hdi_prob * 100)}% HDI')
+        ax.axhline(0, color='gray', linestyle=':', linewidth=1, alpha=0.6)
+        ax.set_xlabel('Propensity to be treated ($U_D$)', fontsize=11)
+        ax.set_ylabel('MTE($u$)', fontsize=11)
+        ax.set_title('Marginal Treatment Effect', fontsize=13)
+        ax.legend(fontsize=9, frameon=False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        fig.tight_layout()
+        return fig, ax
 
 
 def _summarise_posterior(

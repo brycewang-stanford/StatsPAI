@@ -2,6 +2,83 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.8] - 2026-04-20 — Bayesian Marginal Treatment Effects + Pathfinder / SMC backends
+
+Closes the two explicit next-batch items from v0.9.7's non-goals
+list. Ships **the first Bayesian Marginal Treatment Effect
+estimator in the Python causal-inference stack** and extends the
+sampler dispatch with two new backends.
+
+### Added (0.9.8)
+
+- **`sp.bayes_mte(data, y, treat, instrument, covariates=None, u_grid=..., poly_u=2, ...)`**
+  (`src/statspai/bayes/mte.py`) — Heckman-Vytlacil (2005) Marginal
+  Treatment Effects via PyMC. Returns a `BayesianMTEResult` with:
+  - `.mte_curve` — DataFrame on the user-supplied (or default
+    19-point) grid of propensity-to-be-treated values ``U_D``:
+    columns ``u, posterior_mean, posterior_sd, hdi_low, hdi_high,
+    prob_positive``.
+  - `.ate`, `.att`, `.atu` — integrated MTE over the population /
+    treated / untreated regions.
+  - `.plot_mte()` — quick matplotlib visualisation of the MTE curve
+    with an HDI ribbon.
+
+  Uses a plug-in logit first stage (same pragmatic shortcut as
+  `bayes_iv`): the Bayesian layer lies over the MTE polynomial
+  coefficients only. Asymptotically correct under correctly
+  specified first stage; explicit non-goal is full joint
+  first-stage-+-MTE posterior (queued for 0.9.9+).
+
+- **`inference='pathfinder'`** — new sampler backend routing to
+  PyMC's `pm.fit(method='fullrank_advi')`. Captures pairwise
+  covariance between parameters (mean-field ADVI misses this) at
+  similar speed. Placeholder for when PyMC's `pmx.fit` stabilises;
+  full-rank ADVI is the same spirit.
+
+- **`inference='smc'`** — new sampler backend routing to PyMC's
+  `pm.sample_smc`. Sequential Monte Carlo; slower than NUTS on
+  unimodal posteriors but robust to multi-modal ones where NUTS
+  gets stuck. Unlike ADVI / Pathfinder, SMC returns a multi-chain
+  trace so R-hat stays meaningful.
+
+- **`BayesianMTEResult`** — top-level export
+  (`sp.BayesianMTEResult`). Inherits `BayesianCausalResult` and
+  adds `mte_curve`, `u_grid`, `ate`, `att`, `atu`, `.plot_mte()`.
+
+- **Summary output** now recognises the full sampler menu:
+  - NUTS / SMC: R-hat is meaningful; flagged on > 1.01.
+  - ADVI / Pathfinder: R-hat is variational and flagged as such
+    with a concrete "use NUTS or SMC for calibrated uncertainty"
+    caveat.
+
+### Design spec (0.9.8)
+
+- `docs/superpowers/specs/2026-04-20-v098-bayes-mte-samplers.md`
+
+### Tests (0.9.8)
+
+- **`tests/test_bayes_mte.py`** (9 tests) — API surface, flat-MTE
+  recovery, monotone-MTE slope recovery, custom `u_grid`, `poly_u=1`
+  path, covariate plumbing, top-level export, missing-column and
+  non-binary-treat validation.
+- **`tests/test_bayes_advi.py`** (+5 tests) — Pathfinder on
+  bayes_iv and bayes_did, SMC on bayes_iv and bayes_did, Pathfinder
+  summary() caveat.
+
+### Non-goals (0.9.8, explicit)
+
+- Full joint first-stage + MTE posterior (propagating first-stage
+  uncertainty into `tau(u)`). Plug-in propensity is the v0.9.8
+  choice — correct asymptotically under correctly specified first
+  stage; next release can add a joint model.
+- Multi-instrument MTE — requires policy-relevant weighting
+  (Carneiro-Heckman-Vytlacil 2011) and is out of scope.
+- Non-linear MTE surfaces (GP over `u`) — polynomial of order
+  `poly_u` is what this release supports.
+- Rust Phase 2 — stays on `feat/rust-hdfe` branch.
+
+---
+
 ## [0.9.7] - 2026-04-20 — Heterogeneous-effect Bayesian IV + ADVI toggle
 
 Closes two of the three items queued at v0.9.6's "诚实汇报" list.

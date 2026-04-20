@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.7"
+__version__ = "0.9.8"
 __author__ = "Biaoyue Wang"
 __email__ = "bryce@copaper.ai"
 
@@ -131,6 +131,7 @@ from .plots import binscatter, set_theme, list_themes, use_chinese, interactive,
 from .utils import (
     label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data,
     rowmean, rowtotal, rowmax, rowmin, rowsd, rowcount, rank, outlier_indicator,
+    scalar_iv_projection,
     dgp_did, dgp_rd, dgp_rd_kink, dgp_rd_multi, dgp_rd_hte, dgp_rd_2d, dgp_rdit,
     dgp_iv, dgp_rct, dgp_panel, dgp_observational,
     dgp_cluster_rct, dgp_bunching, dgp_synth, dgp_bartik,
@@ -142,7 +143,8 @@ from .metalearners import auto_cate, AutoCATEResult
 from .metalearners import auto_cate_tuned
 from .bayes import (
     bayes_did, bayes_rd, bayes_iv, bayes_fuzzy_rd, bayes_hte_iv,
-    BayesianCausalResult, BayesianHTEIVResult,
+    bayes_mte,
+    BayesianCausalResult, BayesianHTEIVResult, BayesianMTEResult,
 )
 from .regression.heckman import heckman
 from .regression.quantile import qreg, sqreg
@@ -493,6 +495,7 @@ __all__ = [
     "rank",
     "outlier_indicator",
     "read_data",
+    "scalar_iv_projection",
     # Dynamic Panel GMM
     "xtabond",
     "heckman",
@@ -605,8 +608,10 @@ __all__ = [
     "bayes_iv",
     "bayes_fuzzy_rd",
     "bayes_hte_iv",
+    "bayes_mte",
     "BayesianCausalResult",
     "BayesianHTEIVResult",
+    "BayesianMTEResult",
     # Neural Causal Models
     "tarnet",
     "cfrnet",

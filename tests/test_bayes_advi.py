@@ -134,6 +134,56 @@ def test_bayes_hte_iv_advi_runs():
 # ---------------------------------------------------------------------------
 
 
+def test_bayes_iv_pathfinder_runs():
+    """Pathfinder (full-rank ADVI stand-in) must run; exact recovery
+    is relaxed because ADVI-family samplers are known to be less
+    accurate than NUTS."""
+    df = _iv_data()
+    r = bayes_iv(df, y='y', treat='d', instrument='z',
+                 inference='pathfinder', advi_iterations=3000,
+                 draws=_DRAWS, progressbar=False)
+    assert r.model_info['inference'] == 'pathfinder'
+    assert np.isfinite(r.posterior_mean)
+
+
+def test_bayes_did_pathfinder_runs():
+    df = _did_data()
+    r = bayes_did(df, y='y', treat='treat', post='post',
+                  inference='pathfinder', advi_iterations=3000,
+                  draws=_DRAWS, progressbar=False)
+    assert r.model_info['inference'] == 'pathfinder'
+    assert np.isfinite(r.posterior_mean)
+
+
+def test_bayes_iv_smc_runs():
+    """SMC must run and produce a posterior mean near truth (1.5)."""
+    df = _iv_data()
+    r = bayes_iv(df, y='y', treat='d', instrument='z',
+                 inference='smc', draws=300, chains=2, progressbar=False)
+    assert r.model_info['inference'] == 'smc'
+    assert np.isfinite(r.posterior_mean)
+    # SMC is exact-ish; LATE should be in a wide neighbourhood of truth
+    assert abs(r.posterior_mean - 1.5) < 1.5
+
+
+def test_bayes_did_smc_runs():
+    df = _did_data()
+    r = bayes_did(df, y='y', treat='treat', post='post',
+                  inference='smc', draws=300, chains=2, progressbar=False)
+    assert r.model_info['inference'] == 'smc'
+    assert np.isfinite(r.posterior_mean)
+
+
+def test_bayes_pathfinder_summary_flags_convergence():
+    """Pathfinder is variational, so summary() should say so."""
+    df = _iv_data()
+    r = bayes_iv(df, y='y', treat='d', instrument='z',
+                 inference='pathfinder', advi_iterations=3000,
+                 draws=_DRAWS, progressbar=False)
+    s = r.summary()
+    assert 'pathfinder' in s.lower() or 'full-rank ADVI' in s.lower()
+
+
 def test_bayes_did_advi_summary_flags_rhat():
     """ADVI traces have 1 chain so R-hat is NaN. summary() must
     communicate that convergence is undiagnosable rather than
