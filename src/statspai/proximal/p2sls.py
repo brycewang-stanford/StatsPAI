@@ -69,6 +69,7 @@ def proximal(
     proxy_z: List[str],
     proxy_w: List[str],
     covariates: Optional[List[str]] = None,
+    bridge: str = 'linear',
     n_boot: int = 0,
     alpha: float = 0.05,
     seed: Optional[int] = None,
@@ -91,6 +92,17 @@ def proximal(
         regressors in the linear bridge.
     covariates : list of str, optional
         Measured baseline covariates X (exogenous controls).
+    bridge : {'linear'}, default 'linear'
+        Functional form of the outcome-confounding bridge. Only
+        ``'linear'`` is currently implemented — the linear 2SLS
+        estimator described in Cui et al. (2024, §4).
+
+        Kernel-based bridges (Mastouri et al. 2021) and sieve/RKHS
+        non-parametric bridges (Deaner 2018) are planned for a future
+        release and will be accepted values of this argument.
+        Passing any other string raises ``NotImplementedError`` —
+        we prefer to fail loudly now over silently falling back to
+        the linear bridge and mis-attributing results.
     n_boot : int, default 0
         If > 0, nonparametric bootstrap SE (rows, not cluster-robust).
         If 0, use closed-form 2SLS sandwich SE (homoskedastic).
@@ -112,6 +124,13 @@ def proximal(
     ...             proxy_z=['occupation'], proxy_w=['shs_exposure'],
     ...             covariates=['age', 'sex'])
     """
+    if bridge != 'linear':
+        raise NotImplementedError(
+            f"bridge='{bridge}' is not yet implemented. Only bridge='linear' "
+            f"(Cui et al. 2024 linear 2SLS) is available in this release. "
+            f"Kernel and sieve-RKHS bridges are planned for a future update."
+        )
+
     covariates = list(covariates or [])
     all_cols = [y, treat] + list(proxy_z) + list(proxy_w) + covariates
     missing = [c for c in all_cols if c not in data.columns]
@@ -206,6 +225,7 @@ def proximal(
 
     model_info = {
         'estimator': 'Proximal 2SLS (linear bridge)',
+        'bridge': bridge,
         'n_proxy_z': k_z,
         'n_proxy_w': k_w,
         'n_covariates': len(covariates),

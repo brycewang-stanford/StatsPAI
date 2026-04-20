@@ -346,6 +346,17 @@ def mediate_interventional(
     CausalResult
         ``estimate`` is IIE; full decomposition lives in ``detail``.
 
+    Notes
+    -----
+    **Linear outcome model assumption.** The current implementation
+    hard-codes an OLS outcome regression Y ~ D + M + X_base + X_tv.
+    This permits the Monte-Carlo integration to collapse analytically
+    via the linearity of OLS predictions in the treatment-induced
+    confounder block (X_tv), giving an O(n_mc + n) cost instead of
+    O(n × n_mc). Non-linear outcome models (gradient boosting, neural
+    nets, etc.) would break this vectorisation and are not currently
+    supported — passing a custom learner is not exposed via the API.
+
     References
     ----------
     VanderWeele, T.J., Vansteelandt, S. and Robins, J.M. (2014).

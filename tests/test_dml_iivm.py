@@ -36,15 +36,35 @@ def iivm_dgp():
 
 
 def test_iivm_recovers_late(iivm_dgp):
-    """IIVM should recover LATE ≈ 1.5."""
+    """IIVM should recover LATE ≈ 1.5 (tight; n=3000, 60% compliers)."""
     result = sp.dml(
         iivm_dgp, y='y', treat='d', covariates=['x'],
         model='iivm', instrument='z',
     )
     assert isinstance(result, CausalResult)
     assert result.estimand == 'LATE'
-    assert abs(result.estimate - 1.5) < 0.3, (
+    # Tightened from 0.3 → 0.12 after post-review pass. With n=3000
+    # and π_C≈0.6, the IF-based SE is on the order of 0.03, so 0.12
+    # is a ~4σ envelope — catches bias but not ordinary MC noise.
+    assert abs(result.estimate - 1.5) < 0.12, (
         f"IIVM estimate {result.estimate:.3f}, expected ≈ 1.5"
+    )
+
+
+def test_iivm_se_in_reasonable_range(iivm_dgp):
+    """
+    Guardrail: the reported SE should be roughly in line with what an
+    IF-based calculation predicts for this DGP (σ_ψ / (√n · π_C)).
+    A working-response / aggregation bug or a bad fallback on subgroup
+    fits would blow this up. Keep a loose band for MC/learner noise.
+    """
+    result = sp.dml(
+        iivm_dgp, y='y', treat='d', covariates=['x'],
+        model='iivm', instrument='z',
+    )
+    assert 0.005 < result.se < 0.15, (
+        f"IIVM SE {result.se:.4f} outside expected band; "
+        f"suggests aggregation / clipping / fallback regression."
     )
 
 

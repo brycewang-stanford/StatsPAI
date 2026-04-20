@@ -23,6 +23,12 @@ class DoubleMLIRM(_DoubleMLBase):
     _ESTIMAND = 'ATE'
     _REQUIRES_INSTRUMENT = False
     _BINARY_TREATMENT = True
+    # Subgroups (rows with D=1 / D=0 in the training fold) below this
+    # size fall back to the subgroup mean rather than fitting a flexible
+    # GBM. Mirrors the same protection in DoubleMLIIVM — fitting 100
+    # boosted trees on a handful of rows overfits wildly and poisons
+    # the influence function for the entire test fold.
+    _MIN_SUBGROUP_FIT = 10
 
     def _fit_one_rep(self, Y, D, X, Z, n, rng_seed):
         from sklearn.base import clone
@@ -30,37 +36,55 @@ class DoubleMLIRM(_DoubleMLBase):
 
         if not set(np.unique(D)).issubset({0, 1}):
             raise ValueError("model='irm' requires binary treatment (0/1).")
+        if len(np.unique(D)) < 2:
+            raise ValueError(
+                "model='irm' requires variation in D (both 0 and 1); "
+                "ATE is not identified with a constant treatment."
+            )
 
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=rng_seed)
         psi_scores = np.zeros(n)
+        min_fit = self._MIN_SUBGROUP_FIT
 
         for train_idx, test_idx in kf.split(X):
             D_tr, D_te = D[train_idx], D[test_idx]
             Y_tr, Y_te = Y[train_idx], Y[test_idx]
             X_tr, X_te = X[train_idx], X[test_idx]
 
-            ml_g1 = clone(self.ml_g)
             mask1 = D_tr == 1
-            if mask1.sum() > 0:
+            if mask1.sum() >= min_fit:
+                ml_g1 = clone(self.ml_g)
                 ml_g1.fit(X_tr[mask1], Y_tr[mask1])
                 g1_hat = ml_g1.predict(X_te)
+            elif mask1.sum() > 0:
+                # Too few treated rows to trust a flexible learner; use
+                # the subgroup mean as a stable biased fallback.
+                g1_hat = np.full(len(test_idx), float(np.mean(Y_tr[mask1])))
             else:
                 g1_hat = np.zeros(len(test_idx))
 
-            ml_g0 = clone(self.ml_g)
             mask0 = D_tr == 0
-            if mask0.sum() > 0:
+            if mask0.sum() >= min_fit:
+                ml_g0 = clone(self.ml_g)
                 ml_g0.fit(X_tr[mask0], Y_tr[mask0])
                 g0_hat = ml_g0.predict(X_te)
+            elif mask0.sum() > 0:
+                g0_hat = np.full(len(test_idx), float(np.mean(Y_tr[mask0])))
             else:
                 g0_hat = np.zeros(len(test_idx))
 
-            ml_m = clone(self.ml_m)
-            ml_m.fit(X_tr, D_tr)
-            if hasattr(ml_m, 'predict_proba'):
-                m_hat = ml_m.predict_proba(X_te)[:, 1]
+            # Propensity: need both arms present in training fold
+            if len(np.unique(D_tr)) < 2:
+                # Constant D in training fold — propensity collapses to
+                # the empirical mean; use it.
+                m_hat = np.full(len(test_idx), float(np.mean(D_tr)))
             else:
-                m_hat = ml_m.predict(X_te)
+                ml_m = clone(self.ml_m)
+                ml_m.fit(X_tr, D_tr)
+                if hasattr(ml_m, 'predict_proba'):
+                    m_hat = ml_m.predict_proba(X_te)[:, 1]
+                else:
+                    m_hat = ml_m.predict(X_te)
             m_hat = np.clip(m_hat, 0.01, 0.99)
 
             psi_scores[test_idx] = (

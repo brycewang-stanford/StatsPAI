@@ -50,6 +50,7 @@ principal causal effect estimation." *Statistics in Medicine*, 28(23),
 2857-2875.
 """
 
+import warnings
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
 import numpy as np
@@ -384,7 +385,7 @@ def _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed):
 
     import statsmodels.api as sm
 
-    def _fit_cell_probs(Y_, D_, S_, X_):
+    def _fit_cell_probs(Y_, D_, S_, X_, check_monotonicity=False):
         # p11(X) = P(S=1 | D=1, X)
         mask1 = D_ == 1
         mask0 = D_ == 0
@@ -392,19 +393,28 @@ def _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed):
         p10_fit = _logit_safe(S_[mask0], X_[mask0])
         p11 = _logit_predict(p11_fit, X_, fallback=float(np.mean(S_[mask1])) if mask1.any() else 0.5)
         p10 = _logit_predict(p10_fit, X_, fallback=float(np.mean(S_[mask0])) if mask0.any() else 0.5)
+        # Raw complier share BEFORE clipping — diagnostics for
+        # monotonicity assumption. Under S(1) ≥ S(0), we expect
+        # p11(x) ≥ p10(x) for all x; negative raw e_complier flags
+        # a monotonicity violation in the data (or small-sample noise).
+        raw_complier = p11 - p10
+        violation_frac = float(np.mean(raw_complier < -1e-3)) if check_monotonicity else 0.0
+        min_raw = float(np.min(raw_complier)) if check_monotonicity else 0.0
         # Enforce monotonicity e_complier ≥ 0 by clipping
         e_always = np.clip(p10, 1e-4, 1 - 1e-4)
-        e_complier = np.clip(p11 - p10, 1e-4, 1 - 1e-4)
+        e_complier = np.clip(raw_complier, 1e-4, 1 - 1e-4)
         e_never = np.clip(1 - p11, 1e-4, 1 - 1e-4)
         # Normalize to sum to 1 (can drift from clipping)
         tot = e_always + e_complier + e_never
         e_always /= tot
         e_complier /= tot
         e_never /= tot
-        return e_always, e_complier, e_never
+        return e_always, e_complier, e_never, violation_frac, min_raw
 
-    def _point(Y_, D_, S_, X_):
-        e_a, e_c, e_n = _fit_cell_probs(Y_, D_, S_, X_)
+    def _point(Y_, D_, S_, X_, check_monotonicity=False):
+        e_a, e_c, e_n, viol_frac, min_raw = _fit_cell_probs(
+            Y_, D_, S_, X_, check_monotonicity=check_monotonicity,
+        )
 
         # For the complier PCE under PI:
         #   τ_C = E[Y(1) - Y(0) | complier]
@@ -450,18 +460,39 @@ def _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed):
             'pi_always': float(np.mean(e_a)),
             'pi_complier': float(np.mean(e_c)),
             'pi_never': float(np.mean(e_n)),
+            'mono_violation_frac': viol_frac,
+            'mono_min_raw_complier': min_raw,
         }
 
-    point = _point(Y, D, S, X)
+    point = _point(Y, D, S, X, check_monotonicity=True)
+    # Fire a RuntimeWarning if the fitted cell probabilities imply a
+    # meaningful monotonicity violation. Threshold 5% of units is
+    # conservative; smaller violations are likely small-sample noise
+    # and clipping absorbs them without damage.
+    if point['mono_violation_frac'] > 0.05:
+        warnings.warn(
+            f"Principal stratification: fitted p11(x) < p10(x) for "
+            f"{point['mono_violation_frac']:.1%} of units (min raw "
+            f"p11 - p10 = {point['mono_min_raw_complier']:+.3f}). "
+            f"This suggests the monotonicity assumption S(1) ≥ S(0) "
+            f"may be violated in the data. Clipping preserves valid "
+            f"arithmetic but downstream PCEs rely on monotonicity.",
+            RuntimeWarning, stacklevel=3,
+        )
 
     rng = np.random.default_rng(seed)
     boot = {k: np.full(n_boot, np.nan) for k in ('tau_c', 'tau_a', 'tau_n')}
     for b in range(n_boot):
         idx = rng.integers(0, n, size=n)
         try:
-            bp = _point(Y[idx], D[idx], S[idx], X[idx])
+            # Suppress per-bootstrap monotonicity warnings — we already
+            # fired one on the point estimate; repeating it 500 times
+            # is noise.
+            bp = _point(Y[idx], D[idx], S[idx], X[idx],
+                        check_monotonicity=False)
             for k in boot:
-                boot[k][b] = bp[k]
+                if k in bp:
+                    boot[k][b] = bp[k]
         except Exception:
             pass
 
@@ -512,6 +543,8 @@ def _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed):
             'n_boot': n_boot,
             'covariates': covariates,
             'assumption': 'principal ignorability + monotonicity',
+            'mono_violation_frac': point['mono_violation_frac'],
+            'mono_min_raw_complier': point['mono_min_raw_complier'],
         },
     )
 

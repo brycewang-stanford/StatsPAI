@@ -214,11 +214,22 @@ def front_door(
     z = point / se if se > 0 else 0.0
     pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
 
+    # When there are no covariates (or mediator is binary), the
+    # marginal and conditional formulas coincide — record both the
+    # user's request and what actually ran so the audit trail is clear.
+    if mediator_type == 'binary':
+        effective = 'n/a (binary mediator — closed-form sum)'
+    elif X is None:
+        effective = 'conditional (marginal ≡ conditional when X is empty)'
+    else:
+        effective = integrate_by
+
     model_info = {
         'estimator': 'Front-door adjustment (Pearl 1995)',
         'mediator': mediator,
         'mediator_type': mediator_type,
         'integrate_by': integrate_by,
+        'integrate_by_effective': effective,
         'n_boot': n_boot,
         'n_boot_failed': n_failed,
         'n_boot_success': n_success,
