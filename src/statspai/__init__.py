@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.8"
+__version__ = "0.9.9"
 __author__ = "Biaoyue Wang"
 __email__ = "bryce@copaper.ai"
 
@@ -145,6 +145,8 @@ from .bayes import (
     bayes_did, bayes_rd, bayes_iv, bayes_fuzzy_rd, bayes_hte_iv,
     bayes_mte,
     BayesianCausalResult, BayesianHTEIVResult, BayesianMTEResult,
+    policy_weight_ate, policy_weight_subsidy,
+    policy_weight_prte, policy_weight_marginal,
 )
 from .regression.heckman import heckman
 from .regression.quantile import qreg, sqreg
@@ -631,6 +633,10 @@ __all__ = [
     "BayesianCausalResult",
     "BayesianHTEIVResult",
     "BayesianMTEResult",
+    "policy_weight_ate",
+    "policy_weight_subsidy",
+    "policy_weight_prte",
+    "policy_weight_marginal",
     # Neural Causal Models
     "tarnet",
     "cfrnet",

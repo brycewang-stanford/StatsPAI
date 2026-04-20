@@ -2,6 +2,97 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.9] - 2026-04-20 — Joint first-stage MTE + policy-relevant weights + honesty pass
+
+Closes v0.9.8's two explicit follow-ons (joint first stage,
+policy-relevant weights) and ships a **semantic correction** on the
+MTE labelling that survived two rounds of code review.
+
+### Added (0.9.9)
+
+- **`sp.bayes_mte(..., first_stage='plugin' | 'joint')`** — new
+  kwarg. `'plugin'` (default) preserves v0.9.8 behaviour: logit MLE
+  computes propensity as a fixed constant. `'joint'` puts the
+  first-stage logit coefficients inside the PyMC graph
+  (`pi_intercept`, `pi_Z`, optional `pi_X`), models
+  `D ~ Bernoulli(sigmoid(pi'W))`, and evaluates the effect
+  polynomial at the random propensity — so first-stage uncertainty
+  propagates into the returned curve. 2-4× slower than plug-in but
+  honest about identification noise.
+
+- **`BayesianMTEResult.policy_effect(weight_fn, label, rope=None)`**
+  (`src/statspai/bayes/_base.py`) — posterior summary of
+  `int w(u) g(u) du / int w(u) du` using trapezoidal integration
+  on the fit's `u_grid`. With `policy_weight_ate()` it is now
+  **numerically identical** to `.ate` (both trapezoid on the same
+  grid) — test asserts `< 1e-8` parity.
+
+- **`sp.policy_weight_*`** — four weight-function builders
+  (`src/statspai/bayes/policy_weights.py`):
+  - `policy_weight_ate()` — uniform weight = 1.
+  - `policy_weight_subsidy(u_lo, u_hi)` — indicator on `[u_lo, u_hi]`.
+  - `policy_weight_prte(shift)` — **stylised** rectangle around the
+    mean propensity. The docstring leads with "NOT the textbook
+    Carneiro-Heckman-Vytlacil 2011 PRTE" and shows a worked
+    `scipy.stats.gaussian_kde` snippet users can adapt for the
+    true CHV PRTE with their observed propensity sample.
+  - `policy_weight_marginal(u_star, bandwidth)` — marginal PRTE at
+    a specific propensity via a narrow band.
+
+### Semantic correction (honesty pass)
+
+- **Labelling fix**: v0.9.8's fit was described as the "MTE curve",
+  but the structural model fits `g(p) = E[Y|D=1,P=p] - E[Y|D=0,P=p]`
+  — the *treatment-effect-at-propensity* function. Under the
+  Heckman-Vytlacil (2005) linear-separable + bivariate-normal
+  assumption, `g(p) = MTE(p)`; under arbitrary heterogeneity,
+  `g(p)` is a LATE summary at propensity `p`, not the textbook
+  MTE(u). The module docstring now leads with this caveat and the
+  method label reads `"Bayesian treatment-effect-at-propensity"`
+  rather than `"Bayesian MTE"`. Function name, result class name,
+  and the `mte_curve` field are unchanged for API continuity — the
+  "MTE" naming is retained because applied users expect it and
+  search for it.
+
+### Performance
+
+- Removed `pm.Deterministic('p', ...)` from joint mode. Under large
+  `n`, storing per-unit propensity per draw was
+  `O(chains × draws × n)` memory (e.g. 64MB at n=1000, draws=2000,
+  chains=4). Post-hoc ATT/ATU propensity is now recomputed from
+  the posterior means of `pi_intercept` / `pi_Z` / `pi_X`.
+
+### Tests (0.9.9)
+
+- **`tests/test_bayes_mte_policy.py`** (NEW, 14 tests) — builders'
+  input validation (bad bounds rejected, FP-safe grids), joint
+  mode runs + agrees with plug-in on well-specified DGPs,
+  policy_effect contract, trapezoid parity with `.ate` at 1e-8,
+  top-level export of all four weight builders.
+
+### Code review
+
+- Round-A (agent) found **4 items**: B1 (semantic mislabel),
+  H1 (normalisation inconsistency), H2 (memory blow-up under
+  joint+ADVI), M1 (PRTE-builder naming).
+- Round-B (agent) on the fixes confirmed **no remaining blockers**;
+  one follow-up (test tolerance too loose after the H1 fix) was
+  applied inline before shipping.
+
+### Design spec (0.9.9)
+
+- `docs/superpowers/specs/2026-04-20-v099-mte-joint-policy-weights.md`
+
+### Non-goals (0.9.9)
+
+- Fully H-V-faithful joint model (sampling latent `U_D` per unit) —
+  still a future release. Documented as the natural 0.9.10+ extension.
+- Multi-instrument MTE with per-instrument PRTE weights.
+- Gaussian-process surfaces on `u` (current release is polynomial).
+- Rust Phase 2 — branch work.
+
+---
+
 ## [0.9.8] - 2026-04-20 — Bayesian Marginal Treatment Effects + Pathfinder / SMC backends
 
 Closes the two explicit next-batch items from v0.9.7's non-goals

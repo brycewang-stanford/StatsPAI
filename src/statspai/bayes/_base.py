@@ -382,6 +382,92 @@ class BayesianMTEResult(BayesianCausalResult):
     att: float = float('nan')
     atu: float = float('nan')
 
+    def policy_effect(
+        self,
+        weight_fn,
+        label: str = 'policy',
+        rope: Optional[Tuple[float, float]] = None,
+    ) -> Dict[str, float]:
+        """Posterior summary of a policy-relevant treatment effect.
+
+        Computes ``E[w(U) * MTE(U)] / E[w(U)]`` as a posterior
+        quantity by reusing the fit's posterior draws on ``b_mte``
+        and the stored ``u_grid`` / ``poly_u``. The numerator and
+        denominator are evaluated on the same grid so integration
+        weights cancel.
+
+        Parameters
+        ----------
+        weight_fn : callable
+            Vectorised function ``u -> weights``, where ``u`` is a
+            numpy array on ``self.u_grid``. Values outside ``[0, 1]``
+            are still valid (the grid dictates the support).
+        label : str
+            Identifier propagated into the returned summary dict.
+        rope : (float, float), optional
+            Region of practical equivalence for the policy effect.
+
+        Returns
+        -------
+        dict
+            Keys: ``label, estimate, std_error, hdi_low, hdi_high,
+            prob_positive``, plus ``prob_rope`` if ``rope`` given.
+        """
+        if self.trace is None or self.u_grid is None:
+            raise RuntimeError(
+                "policy_effect requires the fit's trace and u_grid."
+            )
+        _, az = _require_pymc()
+        b_mte_post = self.trace.posterior['b_mte'].values
+        poly_u = b_mte_post.shape[-1] - 1
+        flat = b_mte_post.reshape(-1, poly_u + 1)
+        u = np.asarray(self.u_grid, dtype=float)
+        u_pow = np.column_stack([u ** k for k in range(poly_u + 1)])
+        mte_samples = flat @ u_pow.T         # (S, n_grid)
+        weights = np.asarray(weight_fn(u), dtype=float)
+        if weights.shape != u.shape:
+            raise ValueError(
+                f"weight_fn must return an array of shape {u.shape}; "
+                f"got {weights.shape}."
+            )
+        if not np.any(weights):
+            raise ValueError(
+                "weight_fn produced all-zero weights on the grid."
+            )
+
+        # Trapezoidal integration on ``u_grid`` for both the numerator
+        # ``int w(u) MTE(u) du`` and the denominator ``int w(u) du``.
+        # Using trapezoid (rather than a simple sum) makes
+        # ``policy_effect(policy_weight_ate())`` numerically identical
+        # to the internally-stored ``.ate`` field (both use the same
+        # integrator). The sum-based normalisation is a valid
+        # approximation on a uniform grid but diverges from .ate by
+        # the endpoint-half-weight correction; matching .ate is
+        # more important for agent-native parity.
+        denom = float(np.trapezoid(weights, x=u))
+        if denom == 0.0:
+            raise ValueError(
+                "weight_fn produced an integrated weight of 0 on the grid."
+            )
+        numer_samples = np.trapezoid(mte_samples * weights, x=u, axis=1)
+        policy_samples = numer_samples / denom
+
+        hdi = np.asarray(az.hdi(policy_samples, hdi_prob=self.hdi_prob)).ravel()
+        summary = {
+            'label': label,
+            'estimate': float(np.mean(policy_samples)),
+            'std_error': float(np.std(policy_samples, ddof=1)),
+            'hdi_low': float(hdi[0]),
+            'hdi_high': float(hdi[1]),
+            'prob_positive': float(np.mean(policy_samples > 0)),
+        }
+        if rope is not None:
+            lo, hi = rope
+            summary['prob_rope'] = float(
+                np.mean((policy_samples > lo) & (policy_samples < hi))
+            )
+        return summary
+
     def plot_mte(self, ax=None, figsize=(8, 5)):
         """Plot the MTE curve with HDI ribbon. Requires matplotlib."""
         try:

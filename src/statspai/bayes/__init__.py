@@ -31,6 +31,12 @@ from .iv import bayes_iv
 from .fuzzy_rd import bayes_fuzzy_rd
 from .hte_iv import bayes_hte_iv
 from .mte import bayes_mte
+from .policy_weights import (
+    policy_weight_ate,
+    policy_weight_subsidy,
+    policy_weight_prte,
+    policy_weight_marginal,
+)
 
 __all__ = [
     'bayes_did',
@@ -42,4 +48,8 @@ __all__ = [
     'BayesianCausalResult',
     'BayesianHTEIVResult',
     'BayesianMTEResult',
+    'policy_weight_ate',
+    'policy_weight_subsidy',
+    'policy_weight_prte',
+    'policy_weight_marginal',
 ]
