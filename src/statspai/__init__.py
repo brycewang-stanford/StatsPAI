@@ -86,7 +86,7 @@ from .panel import (
     Absorber, demean, absorb_ols, hdfe_ols, FEOLSResult,
 )
 from .causal_impact import causal_impact, CausalImpactEstimator, impactplot
-from .mediation import mediate, MediationAnalysis, mediate_sensitivity
+from .mediation import mediate, MediationAnalysis, mediate_sensitivity, mediate_interventional
 from .bartik import bartik, BartikIV, ssaggregate, shift_share_se
 from .output.outreg2 import OutReg2, outreg2
 from .output.modelsummary import modelsummary, coefplot
@@ -102,7 +102,9 @@ from .inference import (
     jackknife_se, cr2_se, wild_cluster_boot,
     subcluster_wild_bootstrap, wild_cluster_ci_inv,
     multiway_cluster_vcov, cluster_robust_se, cr3_jackknife_vcov,
+    g_computation, front_door,
 )
+from .msm import msm, MarginalStructuralModel, stabilized_weights
 from .spatial import (
     sar, sem, sdm, slx, sac, SpatialModel,
     sar_gmm, sem_gmm, sarar_gmm,
@@ -159,6 +161,10 @@ from .dag import dag, DAG, dag_example, dag_examples, dag_example_positions, dag
 
 # === Canonical datasets (consolidated facade) ===
 from . import datasets
+
+# === End-to-end workflow orchestrator ===
+from .workflow import causal, CausalWorkflow
+
 from .power import power, PowerResult, power_rct, power_did, power_rd, power_iv, power_cluster_rct, power_ols, mde
 from .decomposition import (
     oaxaca, gelbach, OaxacaResult, GelbachResult, rifreg, rif_decomposition,
@@ -499,6 +505,7 @@ __all__ = [
     # Mediation
     "mediate",
     "MediationAnalysis",
+    "mediate_interventional",
     # Bartik IV
     "bartik",
     "BartikIV",
@@ -539,6 +546,13 @@ __all__ = [
     "jackknife_se",
     "cr2_se",
     "wild_cluster_boot",
+    # G-methods family (g-computation / front-door)
+    "g_computation",
+    "front_door",
+    # Marginal Structural Models (time-varying treatment)
+    "msm",
+    "MarginalStructuralModel",
+    "stabilized_weights",
     # Spatial Econometrics
     "sar",
     "sem",
