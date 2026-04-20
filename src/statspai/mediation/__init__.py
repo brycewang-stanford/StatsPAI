@@ -19,7 +19,13 @@ Baron, R.M. and Kenny, D.A. (1986).
 *Journal of Personality and Social Psychology*, 51(6), 1173-1182.
 """
 
-from .mediate import mediate, MediationAnalysis
+from .mediate import mediate, MediationAnalysis, mediate_interventional
 from .sensitivity import mediate_sensitivity, MediateSensitivityResult
 
-__all__ = ['mediate', 'MediationAnalysis', 'mediate_sensitivity', 'MediateSensitivityResult']
+__all__ = [
+    'mediate',
+    'MediationAnalysis',
+    'mediate_interventional',
+    'mediate_sensitivity',
+    'MediateSensitivityResult',
+]

@@ -2,6 +2,98 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.5] - 2026-04-20 — Bayesian causal + Optuna-tuned CATE + Rust spike
+
+This release closes three items from the v0.9.4 post-release
+retrospective (Section 8 "认怂" list):
+
+1. **Bayesian causal** — `sp.bayes_did` + `sp.bayes_rd` (PyMC).
+2. **ML CATE調参** — `sp.auto_cate_tuned` (Optuna).
+3. **Rust HDFE kernel** — spec + benchmark harness shipped;
+   actual Rust crate deferred to 1.0 on a dedicated branch (any
+   `maturin` change to `pip install` is postponed until a full
+   cross-platform wheel matrix is green).
+
+### Added
+
+- **`sp.bayes_did(data, y, treat, post, unit=None, time=None, ...)`**
+  (`src/statspai/bayes/did.py`) — Bayesian difference-in-differences
+  via PyMC. 2×2 for no panel indices, hierarchical Gaussian random
+  effects when `unit` and/or `time` are supplied. NUTS sampler,
+  configurable priors, `rope=(lo, hi)` for "practical equivalence"
+  posterior probabilities. Returns a `BayesianCausalResult` with
+  posterior mean/median/SD, 95 % HDI, `prob_positive`, `rhat`, `ess`,
+  and the full ArviZ `InferenceData` on `.trace` for downstream
+  plotting.
+
+- **`sp.bayes_rd(data, y, running, cutoff, bandwidth=None, poly=1, ...)`**
+  (`src/statspai/bayes/rd.py`) — Bayesian sharp regression
+  discontinuity with local polynomial (order ≥ 1) and Normal prior
+  on the jump. Bandwidth defaults to `0.5 * std(running)`.
+
+- **`sp.BayesianCausalResult`** — sibling of `CausalResult` with
+  broom-style `.tidy()` / `.glance()` / `.summary()` and
+  Bayesian-native fields (`hdi_lower`, `hdi_upper`, `prob_positive`,
+  `prob_rope`, `rhat`, `ess`). Slots into the same agent-native
+  `pd.concat([r.tidy() for r in results])` workflow as the
+  frequentist estimators.
+
+- **`sp.auto_cate_tuned(..., n_trials=25, timeout=None, search_space=None)`**
+  (`src/statspai/metalearners/auto_cate_tuned.py`) — Optuna's
+  `TPESampler` searches over the nuisance GBM hyperparameters
+  (outcome and propensity model separately), scoring each trial by
+  shared-nuisance held-out R-loss. Best trial's models are handed to
+  `sp.auto_cate`; the winner's `model_info['tuned_params']` records
+  the chosen HP and `['n_trials']` the search budget. Closes the
+  econml "nuisance cross-validation before CATE" ergonomic gap.
+
+- **`sp.fast.hdfe_bench(n_list, n_groups, repeat, seed, atol)`**
+  (`src/statspai/fast/bench.py`) — benchmark harness for HDFE
+  group-demean kernels. Times NumPy, Numba, and (future) Rust paths
+  on the same DGPs and asserts correctness to ≤ 1 × 10⁻¹⁰ vs the
+  NumPy reference. Unavailable backends are recorded, not crashed,
+  so the same harness runs on CI environments that lack Numba and on
+  dev boxes with a future Rust wheel installed.
+
+- **Optional install extras**: `pip install "statspai[bayes]"` pulls
+  `pymc >= 5` + `arviz >= 0.15`. `pip install "statspai[tune]"`
+  pulls `optuna >= 3`. Core `import statspai` works in either's
+  absence; the estimators raise a clean `ImportError` at call time
+  with the install recipe.
+
+### Design docs
+
+- `docs/superpowers/specs/2026-04-20-v095-bayes-optuna-rust-spike.md`
+  — full spec for this release.
+- `docs/superpowers/specs/2026-04-20-v095-rust-hdfe-spike.md` — the
+  phased plan for the Rust HDFE port (crate layout, PyO3 FFI
+  surface, cibuildwheel matrix, graceful-degradation contract).
+
+### Tests
+
+- **`tests/test_bayes_did.py`** (11 tests) — 2×2 + panel recovery,
+  prob_positive calibration, HDI coverage, input validation, ROPE,
+  tidy/glance shape.
+- **`tests/test_bayes_rd.py`** (9 tests) — sharp recovery, null-effect
+  HDI straddles 0, bandwidth shrinks local sample, poly=2 runs,
+  validation errors.
+- **`tests/test_auto_cate_tuned.py`** (7 tests) — API, `n_trials`
+  respected, ATE recovery, custom search space honoured, invalid
+  treatment rejected.
+- **`tests/test_fast_bench.py`** (5 tests) — harness returns
+  `HDFEBenchResult`, dry-run <5 s, Numba/NumPy agree to 1e-10,
+  unavailable paths recorded not crashed, summary string.
+
+### Non-goals (explicit)
+
+- **Variational inference** (`pymc.fit` ADVI) — NUTS only for 0.9.5.
+- **Bayesian fuzzy RD, IV, bunching** — deferred to 0.9.6+.
+- **Rust crate itself** — ships on a dedicated branch with a full
+  `cibuildwheel` matrix; adding `maturin` to `pyproject.toml` without
+  that matrix would break `pip install` for some users.
+
+---
+
 ## [0.9.4] - 2026-04-20 — `sp.auto_cate` + strict identification
 
 This release closes two concrete commitments from the 0.9.3 post-release

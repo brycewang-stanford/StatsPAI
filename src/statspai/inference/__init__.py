@@ -10,6 +10,8 @@ from .wild_bootstrap import wild_cluster_bootstrap
 from .aipw import aipw
 from .randomization import ri_test, fisher_exact, FisherResult
 from .ipw import ipw
+from .g_computation import g_computation
+from .front_door import front_door
 from .bootstrap import bootstrap, BootstrapResult
 from .twoway_cluster import twoway_cluster
 from .conley import conley
@@ -29,6 +31,8 @@ __all__ = [
     'fisher_exact',
     'FisherResult',
     'ipw',
+    'g_computation',
+    'front_door',
     'bootstrap',
     'BootstrapResult',
     'twoway_cluster',

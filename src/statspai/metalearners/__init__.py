@@ -36,6 +36,7 @@ from .diagnostics import (
     blp_test,
 )
 from .auto_cate import auto_cate, AutoCATEResult
+from .auto_cate_tuned import auto_cate_tuned
 
 __all__ = [
     'metalearner',
@@ -54,4 +55,5 @@ __all__ = [
     'blp_test',
     'auto_cate',
     'AutoCATEResult',
+    'auto_cate_tuned',
 ]

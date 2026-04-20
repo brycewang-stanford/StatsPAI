@@ -12,6 +12,7 @@ Supports:
 - Partially linear regression (PLR)               — continuous/binary D, no IV
 - Interactive regression model (IRM)              — binary D, ATE via AIPW
 - Partially linear IV (PLIV)                      — endogenous D with instrument Z
+- Interactive IV model (IIVM)                     — binary D, binary Z, LATE via Wald
 - Multiple cross-fitting splits for median aggregation
 
 References
@@ -62,9 +63,11 @@ def dml(
         - ``'plr'`` : partially linear (continuous or binary D)
         - ``'irm'`` : interactive regression model (binary D; ATE via AIPW)
         - ``'pliv'`` : partially linear IV (endogenous D with instrument(s) Z)
+        - ``'iivm'`` : interactive IV (binary D, binary Z; LATE via Wald ratio)
 
     instrument : str, optional
-        Scalar instrument variable Z. **Required when** ``model='pliv'``.
+        Scalar instrument variable Z. **Required when**
+        ``model in {'pliv', 'iivm'}``.
         For many-instrument settings, project Z onto a scalar index
         (e.g. first-stage linear combination) before passing.
         A list with ``len>1`` is rejected to avoid silently dropping
@@ -104,6 +107,11 @@ def dml(
     >>> result = sp.dml(df, y='earnings', treat='schooling',
     ...                 covariates=['age', 'father_edu', 'mother_edu'],
     ...                 model='pliv', instrument='quarter_of_birth')
+
+    >>> # Interactive IV — binary D, binary Z (LATE)
+    >>> result = sp.dml(df, y='earnings', treat='college',
+    ...                 covariates=['age', 'ability', 'parent_edu'],
+    ...                 model='iivm', instrument='lottery_win')
     """
     estimator = DoubleML(
         data=data, y=y, treat=treat, covariates=covariates,
@@ -117,7 +125,7 @@ def dml(
 class DoubleML:
     """Double Machine Learning estimator (PLR / IRM / PLIV)."""
 
-    _VALID_MODELS = ('plr', 'irm', 'pliv')
+    _VALID_MODELS = ('plr', 'irm', 'pliv', 'iivm')
 
     def __init__(
         self,
@@ -154,7 +162,7 @@ class DoubleML:
 
         self.ml_g = ml_g if ml_g is not None else self._default_ml_g()
         self.ml_m = ml_m if ml_m is not None else self._default_ml_m()
-        self.ml_r = ml_r if ml_r is not None else self._default_ml_g()
+        self.ml_r = ml_r if ml_r is not None else self._default_ml_r()
 
     def _validate(self):
         required = [self.y, self.treat] + self.covariates
@@ -167,19 +175,23 @@ class DoubleML:
             raise ValueError(
                 f"model must be one of {self._VALID_MODELS}, got '{self.model}'"
             )
-        if self.model == 'pliv' and not self.instrument:
-            raise ValueError("model='pliv' requires an 'instrument' argument")
-        if self.model != 'pliv' and self.instrument is not None:
+        iv_models = ('pliv', 'iivm')
+        if self.model in iv_models and not self.instrument:
             raise ValueError(
-                f"'instrument' is only valid when model='pliv' "
+                f"model='{self.model}' requires an 'instrument' argument"
+            )
+        if self.model not in iv_models and self.instrument is not None:
+            raise ValueError(
+                f"'instrument' is only valid when model in {iv_models} "
                 f"(got model='{self.model}')"
             )
-        if self.model == 'pliv' and self.instrument is not None and len(self.instrument) > 1:
+        if self.model in iv_models and self.instrument is not None and len(self.instrument) > 1:
             raise ValueError(
-                f"model='pliv' currently accepts a single scalar instrument; "
-                f"got {len(self.instrument)}: {self.instrument}. For multiple "
-                f"instruments, project them onto a scalar index (e.g. the "
-                f"OLS first-stage fitted value) and pass that column name."
+                f"model='{self.model}' currently accepts a single scalar "
+                f"instrument; got {len(self.instrument)}: {self.instrument}. "
+                f"For multiple instruments, project them onto a scalar index "
+                f"(e.g. the OLS first-stage fitted value) and pass that column "
+                f"name."
             )
         if self.n_folds < 2:
             raise ValueError(f"n_folds must be >= 2, got {self.n_folds}")
@@ -192,7 +204,8 @@ class DoubleML:
         )
 
     def _default_ml_m(self):
-        if self.model == 'irm':
+        # IRM + IIVM both expect binary-treatment classifier first stage
+        if self.model in ('irm', 'iivm'):
             from sklearn.ensemble import GradientBoostingClassifier
             return GradientBoostingClassifier(
                 n_estimators=100, max_depth=3, learning_rate=0.1,
@@ -203,6 +216,16 @@ class DoubleML:
             n_estimators=100, max_depth=3, learning_rate=0.1,
             random_state=42,
         )
+
+    def _default_ml_r(self):
+        """Instrument reduced-form learner. IIVM needs a classifier for binary Z."""
+        if self.model == 'iivm':
+            from sklearn.ensemble import GradientBoostingClassifier
+            return GradientBoostingClassifier(
+                n_estimators=100, max_depth=3, learning_rate=0.1,
+                random_state=42,
+            )
+        return self._default_ml_g()
 
     def fit(self) -> CausalResult:
         """Fit the DML model and return results."""
@@ -226,6 +249,8 @@ class DoubleML:
             thetas, ses = self._fit_irm(Y, D, X, n)
         elif self.model == 'pliv':
             thetas, ses = self._fit_pliv(Y, D, X, Z, n)
+        elif self.model == 'iivm':
+            thetas, ses = self._fit_iivm(Y, D, X, Z, n)
         else:  # pragma: no cover
             raise RuntimeError(f"Unknown model: {self.model}")
 
@@ -249,7 +274,7 @@ class DoubleML:
             'ml_m': type(self.ml_m).__name__,
             'n_covariates': len(self.covariates),
         }
-        if self.model == 'pliv':
+        if self.model in ('pliv', 'iivm'):
             model_info['ml_r'] = type(self.ml_r).__name__
             model_info['instrument'] = self.instrument[0]
 
@@ -259,7 +284,7 @@ class DoubleML:
 
         return CausalResult(
             method=f'Double ML ({self.model.upper()})',
-            estimand='LATE' if self.model == 'pliv' else 'ATE',
+            estimand='LATE' if self.model in ('pliv', 'iivm') else 'ATE',
             estimate=theta,
             se=se,
             pvalue=pvalue,
@@ -441,6 +466,147 @@ class DoubleML:
             J = -np.mean(z_resid * d_resid)  # -E[z_tilde * d_tilde]
             sigma2 = np.mean(psi**2)
             se = float(np.sqrt(sigma2 / (J**2 * n))) if abs(J) > 1e-10 else 0.0
+
+            thetas.append(theta)
+            ses.append(se)
+
+        return thetas, ses
+
+    # ------------------------------------------------------------------
+    # Interactive IV Model (IIVM) — Chernozhukov et al. 2018, §5
+    # ------------------------------------------------------------------
+
+    def _fit_iivm(self, Y, D, X, Z, n):
+        """
+        IIVM — binary D, binary Z. Estimates LATE (compliers).
+
+        Neyman-orthogonal score (DR / efficient influence function):
+
+            psi_a(W; g, m) =
+                g(1, X) - g(0, X)
+                + Z*(Y - g(1, X))/m(X)
+                - (1-Z)*(Y - g(0, X))/(1 - m(X))
+
+            psi_b(W; r, m) =
+                r(1, X) - r(0, X)
+                + Z*(D - r(1, X))/m(X)
+                - (1-Z)*(D - r(0, X))/(1 - m(X))
+
+            theta_LATE = E[psi_a] / E[psi_b]
+
+        where g(z, X) = E[Y|Z=z, X], r(z, X) = E[D|Z=z, X], m(X) = P(Z=1|X).
+        Variance via delta method on the ratio.
+        """
+        from sklearn.base import clone
+        from sklearn.model_selection import KFold
+
+        if not set(np.unique(Z)).issubset({0, 1}):
+            raise ValueError(
+                "model='iivm' requires a binary (0/1) instrument Z. "
+                "For continuous instruments use model='pliv'."
+            )
+        if not set(np.unique(D)).issubset({0, 1}):
+            raise ValueError(
+                "model='iivm' requires a binary (0/1) treatment D. "
+                "For continuous treatments use model='pliv'."
+            )
+
+        thetas, ses = [], []
+
+        for rep in range(self.n_rep):
+            kf = KFold(n_splits=self.n_folds, shuffle=True,
+                       random_state=42 + rep)
+
+            g1 = np.zeros(n)   # E[Y|Z=1, X]
+            g0 = np.zeros(n)   # E[Y|Z=0, X]
+            r1 = np.zeros(n)   # E[D|Z=1, X]
+            r0 = np.zeros(n)   # E[D|Z=0, X]
+            m_hat = np.zeros(n)  # P(Z=1|X)
+
+            for train_idx, test_idx in kf.split(X):
+                X_tr, X_te = X[train_idx], X[test_idx]
+                Y_tr, Z_tr, D_tr = Y[train_idx], Z[train_idx], D[train_idx]
+
+                # g(1, X) = E[Y | Z=1, X]
+                mask_z1 = Z_tr == 1
+                ml_g1 = clone(self.ml_g)
+                if mask_z1.sum() > 1:
+                    ml_g1.fit(X_tr[mask_z1], Y_tr[mask_z1])
+                    g1[test_idx] = ml_g1.predict(X_te)
+                else:
+                    g1[test_idx] = float(np.mean(Y_tr[mask_z1])) if mask_z1.any() else 0.0
+
+                # g(0, X) = E[Y | Z=0, X]
+                mask_z0 = Z_tr == 0
+                ml_g0 = clone(self.ml_g)
+                if mask_z0.sum() > 1:
+                    ml_g0.fit(X_tr[mask_z0], Y_tr[mask_z0])
+                    g0[test_idx] = ml_g0.predict(X_te)
+                else:
+                    g0[test_idx] = float(np.mean(Y_tr[mask_z0])) if mask_z0.any() else 0.0
+
+                # r(1, X) = E[D | Z=1, X] — first-stage compliance among Z=1
+                ml_r1 = clone(self.ml_r)
+                if mask_z1.sum() > 1 and len(np.unique(D_tr[mask_z1])) > 1:
+                    ml_r1.fit(X_tr[mask_z1], D_tr[mask_z1])
+                    if hasattr(ml_r1, 'predict_proba'):
+                        r1[test_idx] = ml_r1.predict_proba(X_te)[:, 1]
+                    else:
+                        r1[test_idx] = ml_r1.predict(X_te)
+                else:
+                    r1[test_idx] = float(np.mean(D_tr[mask_z1])) if mask_z1.any() else 0.0
+
+                # r(0, X) = E[D | Z=0, X]
+                ml_r0 = clone(self.ml_r)
+                if mask_z0.sum() > 1 and len(np.unique(D_tr[mask_z0])) > 1:
+                    ml_r0.fit(X_tr[mask_z0], D_tr[mask_z0])
+                    if hasattr(ml_r0, 'predict_proba'):
+                        r0[test_idx] = ml_r0.predict_proba(X_te)[:, 1]
+                    else:
+                        r0[test_idx] = ml_r0.predict(X_te)
+                else:
+                    r0[test_idx] = float(np.mean(D_tr[mask_z0])) if mask_z0.any() else 0.0
+
+                # m(X) = P(Z=1 | X) — instrument propensity
+                ml_m = clone(self.ml_m)
+                ml_m.fit(X_tr, Z_tr)
+                if hasattr(ml_m, 'predict_proba'):
+                    m_hat[test_idx] = ml_m.predict_proba(X_te)[:, 1]
+                else:
+                    m_hat[test_idx] = ml_m.predict(X_te)
+
+            m_hat = np.clip(m_hat, 0.01, 0.99)
+            # First-stage probabilities must stay in (0,1) for stability
+            r1 = np.clip(r1, 1e-4, 1 - 1e-4)
+            r0 = np.clip(r0, 1e-4, 1 - 1e-4)
+
+            psi_a = (
+                g1 - g0
+                + Z * (Y - g1) / m_hat
+                - (1 - Z) * (Y - g0) / (1 - m_hat)
+            )
+            psi_b = (
+                r1 - r0
+                + Z * (D - r1) / m_hat
+                - (1 - Z) * (D - r0) / (1 - m_hat)
+            )
+
+            num = float(np.mean(psi_a))
+            den = float(np.mean(psi_b))
+            # Weak-instrument guard
+            if abs(den) < 1e-6:
+                raise RuntimeError(
+                    f"Degenerate IIVM first stage: E[psi_b] ≈ {den:.2e}. "
+                    "Compliance (first-stage effect of Z on D) is near zero; "
+                    "LATE is not identified."
+                )
+            theta = num / den
+
+            # Delta-method variance on the ratio
+            # Var(theta) ≈ Var(psi_a - theta * psi_b) / (n * den^2)
+            influence = (psi_a - theta * psi_b) / den
+            sigma2 = float(np.var(influence, ddof=1))
+            se = float(np.sqrt(sigma2 / n))
 
             thetas.append(theta)
             ses.append(se)
