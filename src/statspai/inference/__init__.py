@@ -15,6 +15,12 @@ from .twoway_cluster import twoway_cluster
 from .conley import conley
 from .pate import pate, PATEEstimator
 from .jackknife import jackknife_se, cr2_se, wild_cluster_boot
+from .wild_subcluster import subcluster_wild_bootstrap, wild_cluster_ci_inv
+from .multiway_cluster import (
+    multiway_cluster_vcov,
+    cluster_robust_se,
+    cr3_jackknife_vcov,
+)
 
 __all__ = [
     'wild_cluster_bootstrap',
@@ -32,4 +38,9 @@ __all__ = [
     'jackknife_se',
     'cr2_se',
     'wild_cluster_boot',
+    'subcluster_wild_bootstrap',
+    'wild_cluster_ci_inv',
+    'multiway_cluster_vcov',
+    'cluster_robust_se',
+    'cr3_jackknife_vcov',
 ]

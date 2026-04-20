@@ -37,6 +37,8 @@ from .panel_reg import (
 )
 from .panel_binary import panel_logit, panel_probit
 from .panel_plots import plot_within_between
+from .hdfe import Absorber, demean, absorb_ols
+from .feols import feols as hdfe_feols, hdfe_ols, FEOLSResult
 
 __all__ = [
     'panel',
@@ -48,4 +50,11 @@ __all__ = [
     'panel_logit',
     'panel_probit',
     'plot_within_between',
+    # HDFE primitives (native Python)
+    'Absorber',
+    'demean',
+    'absorb_ols',
+    'hdfe_feols',
+    'hdfe_ols',
+    'FEOLSResult',
 ]
