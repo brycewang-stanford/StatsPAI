@@ -32,6 +32,7 @@ Hernán, M.A. and Robins, J.M. (2020). *Causal Inference: What If.*
 Chapman & Hall/CRC. Chapter 13.
 """
 
+import warnings
 from typing import Optional, List, Any, Sequence
 import numpy as np
 import pandas as pd
@@ -182,13 +183,37 @@ def g_computation(
     point = _point_estimates(Y, D, X)
 
     rng = np.random.default_rng(seed)
-    boot = np.empty((n_boot, len(point)))
+    boot = np.full((n_boot, len(point)), np.nan)
+    n_failed = 0
+    first_err: Optional[str] = None
     for b in range(n_boot):
         idx = rng.integers(0, n, size=n)
         try:
             boot[b] = _point_estimates(Y[idx], D[idx], X[idx])
-        except Exception:
-            boot[b] = point
+        except Exception as e:
+            n_failed += 1
+            if first_err is None:
+                first_err = f"{type(e).__name__}: {e}"
+            # Leave row as NaN so variance is computed only over successes
+
+    n_success = n_boot - n_failed
+    if n_success < 2:
+        raise RuntimeError(
+            f"G-computation bootstrap failed on {n_failed}/{n_boot} replications "
+            f"(only {n_success} succeeded; need ≥2 for SE). "
+            f"First error: {first_err}. "
+            f"Check for multicollinearity, small-cell issues, or treatment "
+            f"support problems in your data."
+        )
+    if n_failed > 0:
+        frac = n_failed / n_boot
+        warnings.warn(
+            f"G-computation: {n_failed}/{n_boot} bootstrap replications "
+            f"failed ({frac:.1%}). SE/CI computed over {n_success} successes. "
+            f"First error: {first_err}.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     se = np.nanstd(boot, axis=0, ddof=1)
     lo_q = 100 * (alpha / 2)
@@ -205,9 +230,13 @@ def g_computation(
         'estimator': 'G-computation (parametric g-formula)',
         'estimand': estimand,
         'n_boot': n_boot,
+        'n_boot_failed': n_failed,
+        'n_boot_success': n_success,
         'ml_Q': type(ml_Q).__name__ if ml_Q is not None else 'OLS',
         'grid': grid.tolist(),
     }
+    if n_failed > 0:
+        model_info['first_bootstrap_error'] = first_err
 
     if estimand == 'dose_response':
         detail = pd.DataFrame({

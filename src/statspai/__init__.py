@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.5"
+__version__ = "0.9.6"
 __author__ = "Biaoyue Wang"
 __email__ = "bryce@copaper.ai"
 
@@ -79,7 +79,7 @@ from .matching import (
     OptimalMatchResult, CardinalityMatchResult,
     overlap_weights, cbps,
 )
-from .dml import dml, DoubleML
+from .dml import dml, DoubleML, DoubleMLPLR, DoubleMLIRM, DoubleMLPLIV, DoubleMLIIVM
 from .deepiv import deepiv, DeepIV
 from .panel import (
     panel, panel_compare, balance_panel, PanelResults, PanelCompareResults, PanelRegression,
@@ -106,6 +106,10 @@ from .inference import (
     g_computation, front_door,
 )
 from .msm import msm, MarginalStructuralModel, stabilized_weights
+from .proximal import proximal, ProximalCausalInference
+from .principal_strat import (
+    principal_strat, PrincipalStratResult, survivor_average_causal_effect,
+)
 from .spatial import (
     sar, sem, sdm, slx, sac, SpatialModel,
     sar_gmm, sem_gmm, sarar_gmm,
@@ -136,7 +140,10 @@ from .metalearners import metalearner, SLearner, TLearner, XLearner, RLearner, D
 from .metalearners import cate_summary, cate_by_group, cate_plot, cate_group_plot, predict_cate, compare_metalearners, gate_test, blp_test
 from .metalearners import auto_cate, AutoCATEResult
 from .metalearners import auto_cate_tuned
-from .bayes import bayes_did, bayes_rd, BayesianCausalResult
+from .bayes import (
+    bayes_did, bayes_rd, bayes_iv, bayes_fuzzy_rd,
+    BayesianCausalResult,
+)
 from .regression.heckman import heckman
 from .regression.quantile import qreg, sqreg
 from .regression.tobit import tobit
@@ -408,6 +415,10 @@ __all__ = [
     # Double ML
     "dml",
     "DoubleML",
+    "DoubleMLPLR",
+    "DoubleMLIRM",
+    "DoubleMLPLIV",
+    "DoubleMLIIVM",
     # DeepIV
     "deepiv",
     "DeepIV",
@@ -557,6 +568,13 @@ __all__ = [
     "msm",
     "MarginalStructuralModel",
     "stabilized_weights",
+    # Proximal Causal Inference (unobserved confounding via proxies)
+    "proximal",
+    "ProximalCausalInference",
+    # Principal Stratification (post-treatment variable strata)
+    "principal_strat",
+    "PrincipalStratResult",
+    "survivor_average_causal_effect",
     # Spatial Econometrics
     "sar",
     "sem",
@@ -584,6 +602,8 @@ __all__ = [
     # Bayesian Causal Models
     "bayes_did",
     "bayes_rd",
+    "bayes_iv",
+    "bayes_fuzzy_rd",
     "BayesianCausalResult",
     # Neural Causal Models
     "tarnet",

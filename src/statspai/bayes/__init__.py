@@ -23,9 +23,13 @@ from __future__ import annotations
 from ._base import BayesianCausalResult
 from .did import bayes_did
 from .rd import bayes_rd
+from .iv import bayes_iv
+from .fuzzy_rd import bayes_fuzzy_rd
 
 __all__ = [
     'bayes_did',
     'bayes_rd',
+    'bayes_iv',
+    'bayes_fuzzy_rd',
     'BayesianCausalResult',
 ]

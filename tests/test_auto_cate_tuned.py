@@ -119,3 +119,63 @@ def test_auto_cate_tuned_invalid_treatment_raises():
     with pytest.raises(ValueError, match='binary'):
         auto_cate_tuned(df, y='y', treat='d', covariates=['x1'],
                         learners=('t',), n_trials=2, n_folds=3)
+
+
+# ---------------------------------------------------------------------------
+# Per-learner tuner (v0.9.6)
+# ---------------------------------------------------------------------------
+
+def test_auto_cate_tuned_invalid_tune_mode_raises(constant_effect_data):
+    with pytest.raises(ValueError, match='tune'):
+        auto_cate_tuned(
+            constant_effect_data, y='y', treat='d',
+            covariates=['x1', 'x2'],
+            learners=('t',), tune='bogus', n_trials=2, n_folds=3,
+        )
+
+
+def test_auto_cate_tuned_per_learner_mode(constant_effect_data):
+    r = auto_cate_tuned(
+        constant_effect_data, y='y', treat='d', covariates=['x1', 'x2'],
+        learners=('t', 'dr'), tune='per_learner',
+        n_trials_per_learner=3, n_folds=3, random_state=1,
+    )
+    info = r.best_result.model_info
+    assert 'per_learner_params' in info
+    assert 'per_learner_r_loss' in info
+    assert set(info['per_learner_params'].keys()) == {'t', 'dr'}
+    assert 'best_per_learner_code' in info
+
+
+def test_auto_cate_tuned_per_learner_no_nuisance_params(constant_effect_data):
+    """When tune='per_learner', nuisance metadata should NOT be set."""
+    r = auto_cate_tuned(
+        constant_effect_data, y='y', treat='d', covariates=['x1', 'x2'],
+        learners=('t',), tune='per_learner',
+        n_trials_per_learner=2, n_folds=3, random_state=1,
+    )
+    info = r.best_result.model_info
+    assert 'tuned_params' not in info
+    assert info['tune_mode'] == 'per_learner'
+
+
+def test_auto_cate_tuned_both_mode(constant_effect_data):
+    r = auto_cate_tuned(
+        constant_effect_data, y='y', treat='d', covariates=['x1', 'x2'],
+        learners=('t', 'dr'), tune='both',
+        n_trials=3, n_trials_per_learner=2, n_folds=3, random_state=1,
+    )
+    info = r.best_result.model_info
+    assert info['tune_mode'] == 'both'
+    assert 'tuned_params' in info
+    assert 'per_learner_params' in info
+    assert set(info['per_learner_params'].keys()) == {'t', 'dr'}
+
+
+def test_auto_cate_tuned_per_learner_selection_rule(constant_effect_data):
+    r = auto_cate_tuned(
+        constant_effect_data, y='y', treat='d', covariates=['x1', 'x2'],
+        learners=('t',), tune='per_learner',
+        n_trials_per_learner=2, n_folds=3, random_state=1,
+    )
+    assert 'per-learner' in r.selection_rule

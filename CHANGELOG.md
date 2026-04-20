@@ -2,6 +2,247 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.6] - 2026-04-20 — Bayesian IV + fuzzy RD + per-learner Optuna + Rust branch + g-methods family
+
+This release bundles two independent sprints that landed the same day:
+
+### Sprint A — Bayesian depth + tuning granularity + Rust branch
+
+1. Bayesian 口袋深度 — adds `sp.bayes_iv` and `sp.bayes_fuzzy_rd`.
+2. Optuna 粒度 — `sp.auto_cate_tuned` now supports `tune='nuisance'`
+   (v0.9.5 behaviour), `tune='per_learner'`, and `tune='both'`.
+3. Rust 工作流 — `feat/rust-hdfe` branch opened with Cargo crate
+   scaffold; `main` stays maturin-free.
+
+### Sprint B — G-methods family, Proximal, Principal Stratification
+
+Closes a causal-inference-coverage audit against the 2026-04-20 gap
+table: ships DML IIVM, g-computation, front-door estimator, MSM,
+interventional mediation, plus two new top-level modules
+**Proximal Causal Inference** and **Principal Stratification**. After
+self-review, a second pass re-polished weight-semantics, bootstrap
+diagnostics, MC vectorisation, and did a full DML internal refactor
+(four per-model files sharing `_DoubleMLBase`).
+
+### Added
+
+- **`sp.bayes_iv(data, y, treat, instrument, covariates=None, ...)`**
+  (`src/statspai/bayes/iv.py`) — Bayesian linear IV via a
+  control-function formulation. First-stage OLS residuals enter the
+  structural equation as an exogeneity correction, so the posterior
+  on the LATE equals 2SLS asymptotically while remaining trivially
+  sampleable in PyMC. Accepts a single instrument or a list. The HDI
+  widens naturally as the instrument gets weaker (no "F < 10" cliff
+  — the posterior prices identification automatically).
+
+- **`sp.bayes_fuzzy_rd(data, y, treat, running, cutoff, ...)`**
+  (`src/statspai/bayes/fuzzy_rd.py`) — Bayesian fuzzy RD via joint
+  ITT-on-Y and ITT-on-D local polynomials with a deterministic
+  ratio for the LATE. Under partial compliance the posterior
+  inherits both noise channels (Wald-ratio posterior); under full
+  compliance it collapses to the sharp RD result. Non-binary uptake
+  is rejected with a clear error. `model_info` reports
+  `first_stage_mean` / `first_stage_sd` so users can eyeball
+  compliance.
+
+- **`sp.auto_cate_tuned(..., tune='nuisance' | 'per_learner' | 'both')`** —
+  new `tune` flag toggles between three regimes:
+
+  - `'nuisance'` (default, v0.9.5 behaviour): shared outcome /
+    propensity GBMs tuned against held-out R-loss.
+  - `'per_learner'`: each learner's final-stage CATE model is
+    tuned independently against held-out R-loss; nuisance stays
+    at defaults. `model_info['per_learner_params']` and
+    `['per_learner_r_loss']` are populated; the best learner's
+    tuned CATE model is fed to `auto_cate` as a hint.
+  - `'both'`: tune the nuisance first, then per-learner CATE on
+    top of that nuisance.
+
+  Also adds `n_trials_per_learner` (defaults to `max(5, n_trials//3)`)
+  and `per_learner_search_space`. Selection-rule text now records
+  which tuning regime ran.
+
+- **`feat/rust-hdfe` branch** (pushed, not merged) — Cargo crate
+  scaffold plus PyO3 stub for the eventual `group_demean` kernel.
+  `main` stays maturin-free so `pip install statspai` is unaffected.
+
+### Design spec
+
+- `docs/superpowers/specs/2026-04-20-v096-bayes-iv-fuzzyrd-perlearner.md`
+
+### Tests
+
+- **`tests/test_bayes_iv.py`** (8 tests) — API, top-level export,
+  strong-IV recovery, weak-IV HDI widens, multi-instrument fit,
+  covariate plumbing, input validation, tidy/glance shape.
+- **`tests/test_bayes_fuzzy_rd.py`** (7 tests) — API, recovery
+  under partial compliance, sharp-equivalence under full
+  compliance, bandwidth shrinks sample, first-stage diagnostics
+  reported, non-binary uptake rejected.
+- **`tests/test_auto_cate_tuned.py`** (+5 tests) — invalid
+  `tune` mode rejected, `'per_learner'` populates params, no
+  nuisance metadata leaks in per_learner mode, `'both'` mode
+  covers both channels, selection_rule mentions per-learner tuning.
+
+### Non-goals (deferred)
+
+- Bunching Bayesian estimator (Kleven-style is structural /
+  macro-flavoured; poor fit for the agent-native API). Queue for
+  0.9.7.
+- Heterogeneous-effect Bayesian IV — LATE only in this release.
+- VI sampler (ADVI) — NUTS only.
+- Rust kernel merged to `main` — stays on `feat/rust-hdfe` until
+  the cibuildwheel matrix is green.
+
+### Added (Sprint B)
+
+- **`sp.dml(..., model='iivm', instrument=Z)`**
+  (`src/statspai/dml/iivm.py`) — Interactive IV (binary D, binary Z)
+  DML estimator for LATE. Uses the efficient-influence-function ratio
+  of two doubly-robust scores `(ψ_a, ψ_b)` with Neyman-orthogonal
+  cross-fitting; SE via delta-method on the ratio. Weak-instrument
+  guard raises `RuntimeError` when `|E[ψ_b]| ≈ 0`. Class form:
+  `sp.DoubleMLIIVM`.
+
+- **`sp.DoubleMLPLR / DoubleMLIRM / DoubleMLPLIV / DoubleMLIIVM`**
+  (`src/statspai/dml/*.py`) — each DML model family now lives in its
+  own file with a shared `_DoubleMLBase` in `dml/_base.py` that
+  handles validation, default learners (auto-selecting classifier vs
+  regressor per model), cross-fitting, and `CausalResult` construction.
+  The legacy `sp.DoubleML(model=...)` façade still works.
+
+- **`sp.g_computation(data, y, treat, covariates, estimand='ATE'|'ATT'|'dose_response', ...)`**
+  (`src/statspai/inference/g_computation.py`) — Robins' (1986)
+  parametric g-formula / standardisation estimator. Supports binary
+  treatment (ATE, ATT) and continuous treatment dose-response grids.
+  Default OLS outcome model or any sklearn-compatible learner via
+  `ml_Q=`. Nonparametric bootstrap SE with NaN-based failure tracking
+  (`model_info['n_boot_failed']`) — replaces silent point-estimate
+  fallback that would shrink SE.
+
+- **`sp.front_door(data, y, treat, mediator, covariates=None, mediator_type='auto', integrate_by='marginal'|'conditional', ...)`**
+  (`src/statspai/inference/front_door.py`) — Pearl (1995) front-door
+  adjustment estimator. Closed-form sums for binary mediator; Monte
+  Carlo integration over a Gaussian conditional density for continuous
+  mediator. Two identification variants exposed: `integrate_by='marginal'`
+  (Pearl 95 aggregate formulation) and `'conditional'` (Fulcher et al.
+  2020 generalised front-door). Bootstrap SE with NaN-based failure
+  tracking.
+
+- **`sp.msm(data, y, treat, id, time, time_varying, baseline=None, exposure='cumulative'|'current'|'ever', family='gaussian'|'binomial', trim=0.01, ...)`**
+  (`src/statspai/msm/`) — Robins-Hernán-Brumback (2000) Marginal
+  Structural Models via stabilised IPTW. Handles time-varying
+  treatment + time-varying confounders (binary or continuous).
+  Weighted pooled regression of outcome on exposure history with
+  cluster-robust CR1 sandwich at the unit level.
+  `sp.stabilized_weights(...)` is exposed as a standalone helper for
+  users who want the weights without fitting the outcome model.
+
+- **`sp.mediate_interventional(data, y, treat, mediator, covariates=None, tv_confounders=None, ...)`**
+  (`src/statspai/mediation/mediate.py`) — VanderWeele, Vansteelandt &
+  Robins (2014) interventional (in)direct effects. Identified in the
+  presence of a treatment-induced mediator-outcome confounder
+  (`tv_confounders=[...]`) where natural (in)direct effects are not.
+  Fully vectorised MC integration (~100× faster than naïve
+  per-observation loop).
+
+- **`sp.proximal(data, y, treat, proxy_z, proxy_w, covariates=None, n_boot=0, ...)`**
+  (`src/statspai/proximal/`) — Proximal Causal Inference (Tchetgen
+  Tchetgen et al. 2020; Miao, Geng & Tchetgen Tchetgen 2018) via
+  linear 2SLS on the outcome bridge function. Handles ATE
+  identification with an unobserved confounder when two proxies
+  (treatment-side `Z` and outcome-side `W`) are available. Reports a
+  first-stage F-stat for the proxy equation and warns when F < 10.
+  Optional nonparametric bootstrap SE via `n_boot=`.
+
+- **`sp.principal_strat(data, y, treat, strata, covariates=None, method='monotonicity'|'principal_score', ...)`**
+  (`src/statspai/principal_strat/`) — Principal Stratification
+  (Frangakis & Rubin 2002). `method='monotonicity'` applies the
+  Angrist-Imbens-Rubin compliance decomposition to identify the
+  complier PCE (= LATE) and returns Zhang-Rubin (2003) sharp bounds
+  for the always-survivor SACE. `method='principal_score'` implements
+  Ding & Lu (2017) principal-score weighting to point-identify
+  always-taker / complier / never-taker PCEs under principal
+  ignorability. Returns a dedicated `PrincipalStratResult` with
+  `strata_proportions`, `effects`, `bounds`.
+
+- **`sp.survivor_average_causal_effect(data, y, treat, survival, ...)`**
+  — friendly wrapper around `principal_strat(method='monotonicity')`
+  for the classical truncation-by-death problem. Reports SACE
+  midpoint + endpoint-union confidence interval.
+
+### Changed (Sprint B)
+
+- **MSM binomial outcome family**: `_weighted_logit_cluster` replaced
+  the previous `statsmodels.GLM(freq_weights=w)` call (which treats
+  weights as integer replication counts) with a hand-rolled IRLS that
+  uses probability-weight semantics. Matches Cole & Hernán (2008) and
+  Stata's `pweight` convention for IPTW.
+
+- **Bootstrap failure reporting**: `g_computation`,
+  `mediate_interventional`, `front_door`, and `proximal` now leave
+  failed bootstrap replications as `NaN`, emit a `RuntimeWarning`
+  with the failure count and first error message, and record
+  `n_boot_failed` / `n_boot_success` / `first_bootstrap_error` in
+  `model_info`. If fewer than two replications succeed, a clean
+  `RuntimeError` is raised rather than silently under-estimating SE.
+
+- **`mediate_interventional` MC loop**: the previous `O(n × n_mc)`
+  Python comprehension is replaced by a closed-form vectorisation
+  that exploits OLS linearity of the outcome model in the
+  treatment-induced-confounder block (`X_tv`). The outer expectation
+  over units collapses to `β_tv · mean(X_tv)`, reducing runtime to
+  `O(n_mc + n)` and giving a measured ~100× speed-up on the
+  reference configuration (n=800, n_boot=200, n_mc=300 drops from
+  ~4 s to ~0.04 s).
+
+- **`sp.dml` internal layout**: the 466-line single-class
+  `dml/double_ml.py` is split into five files
+  (`_base.py` + `plr.py` + `irm.py` + `pliv.py` + `iivm.py`) each
+  owning a single Neyman-orthogonal score and its validation. The
+  public `dml()` function and `DoubleML` class are unchanged; new
+  per-model classes are now directly importable.
+
+- `sp.front_door` with covariates and continuous mediator gained
+  `integrate_by` (see Added).
+
+### Tests (Sprint B)
+
+- **`tests/test_dml_iivm.py`** (5 tests) — LATE recovery on
+  one-sided-noncompliance DGP, significance, binary-D/binary-Z
+  validation, `model_info` fields.
+- **`tests/test_dml_split.py`** (5 tests) — direct-class API equals
+  dispatcher, legacy `DoubleML` façade, PLIV rejects multi-instrument
+  list.
+- **`tests/test_g_computation.py`** (5 tests) — ATE / ATT /
+  dose-response curves recovered within tolerance, validation errors.
+- **`tests/test_front_door.py`** (4 tests) — continuous-M and
+  binary-M ATE recovery on DGP with unobserved confounder, strictly
+  closer to truth than naïve OLS.
+- **`tests/test_front_door_integrate_by.py`** (3 tests) — marginal
+  and conditional variants both recover truth, invalid values rejected.
+- **`tests/test_msm.py`** (5 tests) — cumulative-exposure slope
+  recovery, stabilised-weight shape / mean, `exposure='ever'`
+  requires binary treatment, weight diagnostics exposed.
+- **`tests/test_mediate_interventional.py`** (4 tests) — IIE + IDE
+  decomposition additivity, total-effect sign, binary-D validation.
+- **`tests/test_proximal.py`** (6 tests) — linear-bridge ATE
+  recovery, strictly-better-than-OLS, order-condition check,
+  covariate compatibility, bootstrap SE path, first-stage F reported.
+- **`tests/test_principal_strat.py`** (7 tests) — monotonicity LATE
+  + stratum proportions, valid SACE bounds, principal-score method
+  with informative X, input validation, SACE helper.
+
+### Notes (Sprint B)
+
+- No new required dependency. All additions use NumPy / pandas /
+  scipy / scikit-learn only (statsmodels optional).
+- Full new-module suite: 44 new tests pass; the existing 28
+  DML + mediation regression tests still pass; full collection
+  reports 1960 tests, zero import errors introduced by this sprint.
+
+---
+
 ## [0.9.5] - 2026-04-20 — Bayesian causal + Optuna-tuned CATE + Rust spike
 
 This release closes three items from the v0.9.4 post-release

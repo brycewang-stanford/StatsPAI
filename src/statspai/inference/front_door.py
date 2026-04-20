@@ -48,6 +48,7 @@ Fulcher, I.R., Shpitser, I., Marealle, S., Tchetgen Tchetgen, E.J.
 the generalized front-door criterion." *JRSS-B*, 82(1), 199-214.
 """
 
+import warnings
 from typing import Optional, List, Any
 import numpy as np
 import pandas as pd
@@ -63,6 +64,7 @@ def front_door(
     mediator: str,
     covariates: Optional[List[str]] = None,
     mediator_type: str = 'auto',
+    integrate_by: str = 'marginal',
     n_boot: int = 500,
     n_mc: int = 200,
     alpha: float = 0.05,
@@ -87,6 +89,24 @@ def front_door(
     mediator_type : {'auto', 'binary', 'continuous'}, default 'auto'
         How to model the mediator. ``'auto'`` detects binary if M takes
         only {0,1} values, else continuous.
+    integrate_by : {'marginal', 'conditional'}, default 'marginal'
+        How to integrate over the M-distribution when computing the
+        front-door ATE (continuous M only — ignored for binary M).
+
+        - ``'marginal'``: follows Pearl's (1995) aggregate formulation.
+          For each unit's X_base row, Monte Carlo samples of M are drawn
+          from the population marginal M|D=d distribution (covariate
+          rows are re-sampled inside the MC). Appropriate when the
+          causal estimand is population-averaged and you want variance
+          that reflects the full population of baseline-covariate rows.
+        - ``'conditional'``: follows Fulcher et al. (2020) generalized
+          front-door. For each unit i, M-samples are drawn from the
+          unit-specific conditional M|D=d,X_i distribution. Stricter
+          identification (requires the mediator model to be correct
+          conditional on X_i) but gives per-unit ATE contributions.
+
+        For binary M and for problems with no covariates the two
+        formulations coincide.
     n_boot : int, default 500
         Nonparametric bootstrap replications.
     n_mc : int, default 200
@@ -113,7 +133,18 @@ def front_door(
     front-door criterion is a DAG assumption. Use :func:`sp.dag` with
     ``front_door_adjustment_sets()`` to verify identifiability from your
     assumed DAG before calling this estimator.
+
+    References
+    ----------
+    Pearl, J. (1995). Causal diagrams for empirical research. *Biometrika*.
+    Fulcher et al. (2020). Robust inference on population indirect causal
+    effects: the generalized front-door criterion. *JRSS-B*.
     """
+    if integrate_by not in ('marginal', 'conditional'):
+        raise ValueError(
+            f"integrate_by must be 'marginal' or 'conditional'; "
+            f"got '{integrate_by}'"
+        )
     covariates = list(covariates or [])
     df = data[[y, treat, mediator] + covariates].dropna().reset_index(drop=True)
     Y = df[y].values.astype(float)
@@ -138,20 +169,44 @@ def front_door(
     rng = np.random.default_rng(seed)
 
     def _point(Y_, D_, M_, X_):
-        return _front_door_ate(Y_, D_, M_, X_, mediator_type, n_mc, rng)
+        return _front_door_ate(
+            Y_, D_, M_, X_, mediator_type, n_mc, rng, integrate_by
+        )
 
     point = _point(Y, D, M, X)
 
-    # Bootstrap
-    boot = np.empty(n_boot)
+    # Bootstrap — failures leave NaN, we track and warn rather than
+    # silently replace with the point estimate (which would shrink SE).
+    boot = np.full(n_boot, np.nan)
+    n_failed = 0
+    first_err: Optional[str] = None
     for b in range(n_boot):
         idx = rng.integers(0, n, size=n)
         try:
             boot[b] = _point(
                 Y[idx], D[idx], M[idx], X[idx] if X is not None else None
             )
-        except Exception:
-            boot[b] = point
+        except Exception as e:
+            n_failed += 1
+            if first_err is None:
+                first_err = f"{type(e).__name__}: {e}"
+
+    n_success = n_boot - n_failed
+    if n_success < 2:
+        raise RuntimeError(
+            f"Front-door bootstrap failed on {n_failed}/{n_boot} replications "
+            f"(only {n_success} succeeded; need ≥2 for SE). "
+            f"First error: {first_err}."
+        )
+    if n_failed > 0:
+        frac = n_failed / n_boot
+        warnings.warn(
+            f"Front-door: {n_failed}/{n_boot} bootstrap replications failed "
+            f"({frac:.1%}). SE/CI computed over {n_success} successes. "
+            f"First error: {first_err}.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     se = float(np.nanstd(boot, ddof=1))
     z_crit = stats.norm.ppf(1 - alpha / 2)
@@ -163,11 +218,16 @@ def front_door(
         'estimator': 'Front-door adjustment (Pearl 1995)',
         'mediator': mediator,
         'mediator_type': mediator_type,
+        'integrate_by': integrate_by,
         'n_boot': n_boot,
+        'n_boot_failed': n_failed,
+        'n_boot_success': n_success,
         'n_treated': int((D == 1).sum()),
         'n_control': int((D == 0).sum()),
         'covariates': covariates,
     }
+    if n_failed > 0:
+        model_info['first_bootstrap_error'] = first_err
     if mediator_type == 'continuous':
         model_info['n_mc'] = n_mc
 
@@ -217,7 +277,7 @@ def _logit_predict(fit, X, fallback):
     return np.clip(fit.predict(design), 1e-6, 1 - 1e-6)
 
 
-def _front_door_ate(Y, D, M, X, mediator_type, n_mc, rng):
+def _front_door_ate(Y, D, M, X, mediator_type, n_mc, rng, integrate_by='marginal'):
     """
     Compute front-door ATE on a single (bootstrap or original) sample.
     """
@@ -312,31 +372,53 @@ def _front_door_ate(Y, D, M, X, mediator_type, n_mc, rng):
     mean_m1 = _ols_predict(beta_m1, feat_m)
     mean_m0 = _ols_predict(beta_m0, feat_m)
 
-    # Monte-Carlo integrate:
-    #   E_{m ~ P(M|D=1,x)} [ p_d0 * μ₀(m,x) + p_d1 * μ₁(m,x) ]
-    #   minus the same with d=0 on the outer distribution.
-    X_rep = None if X is None else np.repeat(X, n_mc, axis=0)
-    mean_m1_rep = np.repeat(mean_m1, n_mc)
-    mean_m0_rep = np.repeat(mean_m0, n_mc)
-    eps = rng.standard_normal(n * n_mc)
+    # Monte-Carlo integrate E[Y|do(D=d)] = E_x E_{m|D=d,(·)} [ Σ_{d'} P(d') E[Y|d',m,x] ]
+    # Two variants:
+    #   'conditional'  — per-unit: m ~ N(μ_d(x_i), σ_d^2), X held at x_i.
+    #                    Matches Fulcher et al. (2020) generalized front-door.
+    #   'marginal'     — Pearl (1995) aggregate: for each MC draw, both X and
+    #                    M are re-sampled from the population, so the outer
+    #                    expectation integrates over baseline covariates via MC.
+    if integrate_by == 'conditional' or X is None:
+        # Per-observation MC: m draw uses unit's own (μ_d, σ_d); X stays at x_i
+        X_rep = None if X is None else np.repeat(X, n_mc, axis=0)
+        mean_m1_rep = np.repeat(mean_m1, n_mc)
+        mean_m0_rep = np.repeat(mean_m0, n_mc)
+        eps = rng.standard_normal(n * n_mc)
+        m_samples_d1 = mean_m1_rep + sigma_m1 * eps
+        m_samples_d0 = mean_m0_rep + sigma_m0 * eps
 
-    m_samples_d1 = mean_m1_rep + sigma_m1 * eps
-    m_samples_d0 = mean_m0_rep + sigma_m0 * eps
+        mu0_under_d1 = mu_dprime(beta_y0, m_samples_d1, X_rep)
+        mu1_under_d1 = mu_dprime(beta_y1, m_samples_d1, X_rep)
+        mu0_under_d0 = mu_dprime(beta_y0, m_samples_d0, X_rep)
+        mu1_under_d0 = mu_dprime(beta_y1, m_samples_d0, X_rep)
 
-    mu0_under_d1_samples = mu_dprime(beta_y0, m_samples_d1, X_rep)
-    mu1_under_d1_samples = mu_dprime(beta_y1, m_samples_d1, X_rep)
-    mu0_under_d0_samples = mu_dprime(beta_y0, m_samples_d0, X_rep)
-    mu1_under_d0_samples = mu_dprime(beta_y1, m_samples_d0, X_rep)
+        inner_d1 = p_d0 * mu0_under_d1 + p_d1 * mu1_under_d1
+        inner_d0 = p_d0 * mu0_under_d0 + p_d1 * mu1_under_d0
 
-    inner_d1 = p_d0 * mu0_under_d1_samples + p_d1 * mu1_under_d1_samples
-    inner_d0 = p_d0 * mu0_under_d0_samples + p_d1 * mu1_under_d0_samples
+        inner_d1 = inner_d1.reshape(n, n_mc).mean(axis=1)
+        inner_d0 = inner_d0.reshape(n, n_mc).mean(axis=1)
+        return float(np.mean(inner_d1 - inner_d0))
 
-    # Average MC samples within each observation, then over observations
-    inner_d1 = inner_d1.reshape(n, n_mc).mean(axis=1)
-    inner_d0 = inner_d0.reshape(n, n_mc).mean(axis=1)
+    # 'marginal' — Pearl aggregate formulation. One global pool of
+    # (x, m)-pairs drawn from the population-marginal distributions.
+    sample_idx = rng.integers(0, n, size=n_mc)
+    X_pool = X[sample_idx]
+    mean_m1_pool = mean_m1[sample_idx]
+    mean_m0_pool = mean_m0[sample_idx]
+    eps = rng.standard_normal(n_mc)
+    m_pool_d1 = mean_m1_pool + sigma_m1 * eps
+    m_pool_d0 = mean_m0_pool + sigma_m0 * eps
 
-    ate = float(np.mean(inner_d1 - inner_d0))
-    return ate
+    # E[Y | D=d', M=m, X=x] evaluated at each pooled (x, m)
+    mu0_d1_pool = mu_dprime(beta_y0, m_pool_d1, X_pool)
+    mu1_d1_pool = mu_dprime(beta_y1, m_pool_d1, X_pool)
+    mu0_d0_pool = mu_dprime(beta_y0, m_pool_d0, X_pool)
+    mu1_d0_pool = mu_dprime(beta_y1, m_pool_d0, X_pool)
+
+    e_y_d1 = float(np.mean(p_d0 * mu0_d1_pool + p_d1 * mu1_d1_pool))
+    e_y_d0 = float(np.mean(p_d0 * mu0_d0_pool + p_d1 * mu1_d0_pool))
+    return e_y_d1 - e_y_d0
 
 
 # Citation

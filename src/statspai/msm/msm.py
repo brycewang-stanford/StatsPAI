@@ -441,37 +441,73 @@ def _wls_cluster(X, y, w, cluster_ids):
 
 
 def _weighted_logit_cluster(X, y, w, cluster_ids):
-    """Weighted logistic regression with cluster-robust SE via statsmodels."""
-    try:
-        import statsmodels.api as sm
-        fit = sm.GLM(
-            y, X, family=sm.families.Binomial(),
-            freq_weights=w,
-        ).fit(disp=0, maxiter=300)
-        beta = np.asarray(fit.params)
-        # Cluster-robust sandwich: recompute with score-based meat
-        p_hat = fit.predict(X)
-        resid = y - p_hat
-        u = (w * resid)[:, None] * X
-        clusters = np.unique(cluster_ids)
-        G = len(clusters)
-        p = X.shape[1]
-        n = len(y)
-        u_cluster = np.zeros((G, p))
-        for g, c in enumerate(clusters):
-            mask = cluster_ids == c
-            u_cluster[g] = u[mask].sum(axis=0)
-        meat = u_cluster.T @ u_cluster
-        # Fisher information approximation for logistic with weights
+    """
+    Probability-weighted (IPTW) logistic regression with cluster-robust SE.
+
+    Semantics: IPTW weights are **probability weights** (a.k.a. sampling
+    weights / pweights in Stata), not frequency weights. A row with
+    weight ``w_i`` represents ``w_i`` expected units in the target
+    pseudo-population, not ``w_i`` replicated observations. This matters
+    for inference: the correct sandwich uses the weighted score, with
+    cluster-robust meat and an information-matrix bread.
+
+    We implement this directly (IRLS) rather than via statsmodels'
+    ``freq_weights`` (integer replication) or ``var_weights`` (inverse-
+    variance scaling). Neither of those matches the IPTW definition
+    without careful reinterpretation — doing it by hand keeps the
+    semantics unambiguous and the sandwich coherent.
+    """
+    n, p = X.shape
+    beta = np.zeros(p)
+    # Initialize the intercept at the weighted log-odds of y so IRLS has
+    # a reasonable starting point. Other coefficients start at 0.
+    y_bar_w = float(np.sum(w * y) / max(np.sum(w), 1e-12))
+    y_bar_w = float(np.clip(y_bar_w, 1e-4, 1 - 1e-4))
+    beta[0] = np.log(y_bar_w / (1 - y_bar_w))
+
+    max_iter = 50
+    tol = 1e-8
+    for _ in range(max_iter):
+        eta = X @ beta
+        # Stabilize the logistic link against overflow on extreme eta
+        eta_clip = np.clip(eta, -30, 30)
+        p_hat = 1 / (1 + np.exp(-eta_clip))
+        p_hat = np.clip(p_hat, 1e-8, 1 - 1e-8)
         W_diag = w * p_hat * (1 - p_hat)
-        bread_inv = np.linalg.pinv((X * W_diag[:, None]).T @ X)
-        adj = (G / (G - 1)) * ((n - 1) / (n - p)) if G > 1 and n > p else 1.0
-        vcov = adj * (bread_inv @ meat @ bread_inv)
-        se = np.sqrt(np.maximum(np.diag(vcov), 0.0))
-        return beta, se
-    except Exception:
-        # Degenerate fallback
-        return np.zeros(X.shape[1]), np.full(X.shape[1], np.nan)
+        # Working response: z = eta + (y - p) / (p*(1-p))
+        z = eta + (y - p_hat) / np.clip(p_hat * (1 - p_hat), 1e-8, None)
+        # Solve weighted LS: (X' W X) beta = X' W z
+        XtWX = (X * W_diag[:, None]).T @ X
+        XtWz = (X * W_diag[:, None]).T @ z
+        try:
+            beta_new = np.linalg.solve(XtWX, XtWz)
+        except np.linalg.LinAlgError:
+            beta_new = np.linalg.lstsq(XtWX, XtWz, rcond=None)[0]
+        if np.max(np.abs(beta_new - beta)) < tol:
+            beta = beta_new
+            break
+        beta = beta_new
+
+    # Cluster-robust sandwich:
+    #   Var(beta) = (X' W X)^{-1} [Σ_g U_g U_g'] (X' W X)^{-1}
+    # where U_g = Σ_{i ∈ g} w_i * (y_i - p_i) * x_i is the score.
+    eta = np.clip(X @ beta, -30, 30)
+    p_hat = np.clip(1 / (1 + np.exp(-eta)), 1e-8, 1 - 1e-8)
+    resid = y - p_hat
+    u = (w * resid)[:, None] * X
+    clusters = np.unique(cluster_ids)
+    G = len(clusters)
+    u_cluster = np.zeros((G, p))
+    for g, c in enumerate(clusters):
+        mask = cluster_ids == c
+        u_cluster[g] = u[mask].sum(axis=0)
+    meat = u_cluster.T @ u_cluster
+    W_diag = w * p_hat * (1 - p_hat)
+    bread_inv = np.linalg.pinv((X * W_diag[:, None]).T @ X)
+    adj = (G / (G - 1)) * ((n - 1) / (n - p)) if G > 1 and n > p else 1.0
+    vcov = adj * (bread_inv @ meat @ bread_inv)
+    se = np.sqrt(np.maximum(np.diag(vcov), 0.0))
+    return beta, se
 
 
 # Citation

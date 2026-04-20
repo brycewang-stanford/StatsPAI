@@ -22,6 +22,7 @@ mediator values. Recommended when there are mediator-outcome
 confounders affected by treatment.
 """
 
+import warnings
 from typing import Optional, List, Dict, Any
 import numpy as np
 import pandas as pd
@@ -369,56 +370,51 @@ def mediate_interventional(
 
     def _compute(Y_, D_, M_, Xb_, Xtv_, rng):
         n_ = len(Y_)
-        # Outcome model: Y ~ D + M + X_base + X_tv
+        p_base = Xb_.shape[1]
+        p_tv = Xtv_.shape[1]
+
+        # Outcome model: Y ~ [1, D, M, X_base, X_tv]
         design_y = np.column_stack([np.ones(n_), D_, M_, Xb_, Xtv_])
         beta_y, *_ = np.linalg.lstsq(design_y, Y_, rcond=None)
+        b0, bD, bM = float(beta_y[0]), float(beta_y[1]), float(beta_y[2])
+        b_base = beta_y[3 : 3 + p_base]
+        b_tv = beta_y[3 + p_base : 3 + p_base + p_tv]
 
-        # Mediator model: Gaussian M ~ D + X_base
+        # Mediator model: Gaussian M ~ [1, D, X_base]
         design_m = np.column_stack([np.ones(n_), D_, Xb_])
         beta_m, *_ = np.linalg.lstsq(design_m, M_, rcond=None)
-        m_fitted = design_m @ beta_m
-        resid_m = M_ - m_fitted
+        resid_m = M_ - design_m @ beta_m
         sigma_m = float(np.std(resid_m, ddof=max(1, design_m.shape[1])))
         sigma_m = max(sigma_m, 1e-6)
 
-        # For each unit, compute E[M | D=1, X_base] and E[M | D=0, X_base]
-        mean_m_d1 = (
-            np.column_stack([np.ones(n_), np.ones(n_), Xb_]) @ beta_m
-        )
-        mean_m_d0 = (
-            np.column_stack([np.ones(n_), np.zeros(n_), Xb_]) @ beta_m
-        )
+        # μ_M(d, x_base) = α + δ*d + β' x_base
+        alpha_m, delta_m = float(beta_m[0]), float(beta_m[1])
+        beta_m_base = beta_m[2 : 2 + p_base]
 
-        # Monte Carlo draws from G_{M|d} (marginal over covariates):
-        # sample covariate row j, then draw M ~ N(mean_m_d[j], sigma_m)
+        # MC pool: each j is a (x_base_j, m_d1_j, m_d0_j) triple.
+        # x_base drawn from the empirical marginal; m drawn from the
+        # conditional Gaussian given D=d and that x_base row.
         sample_idx = rng.integers(0, n_, size=n_mc)
-        draws_d1 = mean_m_d1[sample_idx] + sigma_m * rng.standard_normal(n_mc)
-        draws_d0 = mean_m_d0[sample_idx] + sigma_m * rng.standard_normal(n_mc)
+        Xb_pool = Xb_[sample_idx]                                   # (n_mc, p_base)
+        eps = rng.standard_normal(n_mc)
+        base_effect_m = Xb_pool @ beta_m_base                       # (n_mc,)
+        draws_d1 = alpha_m + delta_m * 1.0 + base_effect_m + sigma_m * eps
+        draws_d0 = alpha_m + delta_m * 0.0 + base_effect_m + sigma_m * eps
 
-        # For each original unit's X_tv, evaluate Y counterfactual over the
-        # MC M-draws and average — this is E[Y | D=d, M ~ G_{M|d'}, X_tv].
-        def expected_Y(d_val, m_draws, Xtv_row):
-            # Build design: (1, d, m, X_base_row, X_tv_row) — but since we
-            # integrate over MC, X_base is held at the unit's baseline.
-            # We vectorize over m_draws.
-            len_draws = len(m_draws)
-            Xtv_expand = np.broadcast_to(Xtv_row, (len_draws, Xtv_row.shape[0]))
-            # We marginalize over baseline X via the same MC sample_idx —
-            # i.e. use Xb_[sample_idx] aligned with m_draws.
-            Xb_expand = Xb_[sample_idx]
-            feats = np.column_stack([
-                np.ones(len_draws),
-                np.full(len_draws, d_val),
-                m_draws,
-                Xb_expand,
-                Xtv_expand,
-            ])
-            return float(np.mean(feats @ beta_y))
+        # Y is linear in (D, M, X_base, X_tv) — we exploit this to fully
+        # vectorize. The expectation over the original units' X_tv rows
+        # reduces to b_tv · mean(X_tv) because the outcome is additive.
+        tv_contrib = float(b_tv @ Xtv_.mean(axis=0)) if p_tv else 0.0
+        base_mean_pool = Xb_pool @ b_base                           # (n_mc,)
 
-        # Average over all units' X_tv rows
-        EY_11 = np.mean([expected_Y(1.0, draws_d1, X_tv[i]) for i in range(n_)])
-        EY_10 = np.mean([expected_Y(1.0, draws_d0, X_tv[i]) for i in range(n_)])
-        EY_00 = np.mean([expected_Y(0.0, draws_d0, X_tv[i]) for i in range(n_)])
+        def _EY(d_val, m_draws):
+            # b0 + bD*d + bM*m + b_base·x_base + b_tv·mean(X_tv)
+            inner = b0 + bD * d_val + bM * m_draws + base_mean_pool
+            return float(np.mean(inner)) + tv_contrib
+
+        EY_11 = _EY(1.0, draws_d1)
+        EY_10 = _EY(1.0, draws_d0)
+        EY_00 = _EY(0.0, draws_d0)
 
         iie = EY_11 - EY_10
         ide = EY_10 - EY_00
@@ -428,10 +424,13 @@ def mediate_interventional(
     rng = np.random.default_rng(seed)
     iie_hat, ide_hat, total_hat = _compute(Y, D, M, X_base, X_tv, rng)
 
-    # Bootstrap
-    boot_iie = np.empty(n_boot)
-    boot_ide = np.empty(n_boot)
-    boot_total = np.empty(n_boot)
+    # Bootstrap — failures leave NaN and are reported rather than silently
+    # substituted with the point estimate (which would shrink SE).
+    boot_iie = np.full(n_boot, np.nan)
+    boot_ide = np.full(n_boot, np.nan)
+    boot_total = np.full(n_boot, np.nan)
+    n_failed = 0
+    first_err: Optional[str] = None
     for b in range(n_boot):
         idx = rng.integers(0, n, size=n)
         try:
@@ -439,19 +438,41 @@ def mediate_interventional(
                 Y[idx], D[idx], M[idx], X_base[idx], X_tv[idx], rng
             )
             boot_iie[b], boot_ide[b], boot_total[b] = a, d, t
-        except Exception:
-            boot_iie[b], boot_ide[b], boot_total[b] = iie_hat, ide_hat, total_hat
+        except Exception as e:
+            n_failed += 1
+            if first_err is None:
+                first_err = f"{type(e).__name__}: {e}"
+
+    n_success = n_boot - n_failed
+    if n_success < 2:
+        raise RuntimeError(
+            f"Interventional mediation bootstrap failed on {n_failed}/{n_boot} "
+            f"replications (only {n_success} succeeded; need ≥2 for SE). "
+            f"First error: {first_err}."
+        )
+    if n_failed > 0:
+        frac = n_failed / n_boot
+        warnings.warn(
+            f"Interventional mediation: {n_failed}/{n_boot} bootstrap "
+            f"replications failed ({frac:.1%}). SE/CI computed over "
+            f"{n_success} successes. First error: {first_err}.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     def _ci_pv(boot, point):
-        se = float(np.std(boot, ddof=1))
-        lo = float(np.percentile(boot, 100 * alpha / 2))
-        hi = float(np.percentile(boot, 100 * (1 - alpha / 2)))
-        # Two-sided bootstrap p-value
+        se = float(np.nanstd(boot, ddof=1))
+        lo = float(np.nanpercentile(boot, 100 * alpha / 2))
+        hi = float(np.nanpercentile(boot, 100 * (1 - alpha / 2)))
+        # Two-sided bootstrap p-value over successful replications
+        boot_clean = boot[~np.isnan(boot)]
+        if len(boot_clean) == 0:
+            return se, (lo, hi), float('nan')
         if point >= 0:
-            p = 2 * float(np.mean(boot <= 0))
+            p = 2 * float(np.mean(boot_clean <= 0))
         else:
-            p = 2 * float(np.mean(boot >= 0))
-        p = float(np.clip(p, 1 / n_boot, 1.0))
+            p = 2 * float(np.mean(boot_clean >= 0))
+        p = float(np.clip(p, 1 / max(len(boot_clean), 1), 1.0))
         return se, (lo, hi), p
 
     se_i, ci_i, pv_i = _ci_pv(boot_iie, iie_hat)
@@ -475,10 +496,14 @@ def mediate_interventional(
         'ide': ide_hat,
         'total_effect': total_hat,
         'n_boot': n_boot,
+        'n_boot_failed': n_failed,
+        'n_boot_success': n_success,
         'n_mc': n_mc,
         'tv_confounders': tv_confounders,
         'covariates': covariates,
     }
+    if n_failed > 0:
+        model_info['first_bootstrap_error'] = first_err
 
     return CausalResult(
         method='Interventional Mediation Analysis',
