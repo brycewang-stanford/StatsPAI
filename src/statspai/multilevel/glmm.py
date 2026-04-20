@@ -1,60 +1,72 @@
 """
-Generalized linear mixed models (GLMM) via Laplace approximation.
+Generalized linear mixed models (GLMM).
 
-Supported families and links (canonical only, to keep the Laplace
-approximation clean and the observed information analytic):
+Estimation
+----------
+Two estimation paths are exposed via the ``nAGQ`` argument:
 
-    * ``gaussian`` — identity link.  Mostly for cross-checks against
-      ``mixed()``; for production Gaussian fits use the closed-form
-      linear mixed model.
-    * ``binomial`` — logit link (``sp.melogit``).  Accepts both
-      0/1 Bernoulli and count/trials responses via ``trials=``.
-    * ``poisson``  — log link (``sp.mepoisson``).  Optional exposure
-      offsets via ``offset=``.
+    nAGQ = 1   →  Laplace approximation (default).  Fast; equivalent to
+                  lme4's ``glmer(nAGQ = 1)`` and Stata ``meglm`` default.
+    nAGQ ≥ 2   →  Adaptive Gauss-Hermite quadrature (AGHQ) with ``nAGQ``
+                  nodes per scalar random effect.  Required for unbiased
+                  small-cluster binary outcomes; matches lme4
+                  ``glmer(nAGQ = k)`` and Stata ``meglm intpoints(k)``.
+                  Currently restricted to single scalar random effects
+                  (``q = 1``, e.g. random intercept only) — same
+                  restriction lme4 imposes; tensor-product AGHQ over
+                  random slopes is not enabled because the cost grows
+                  as nAGQ^q.
 
-Model:
+Families
+--------
+Five exponential / dispersion families are supported; each has its
+canonical link plus the most common practical link reported by Stata
+``meglm``:
 
-    η_ij = x_ij' β + z_ij' u_j,    u_j ~ N(0, G),
-    y_ij | u_j ~ Family( g⁻¹(η_ij) ).
+    * ``gaussian``  identity link (``meglm`` Gaussian-with-RE).
+    * ``binomial``  logit link  (``melogit``).  Bernoulli or counts/trials.
+    * ``poisson``   log link    (``mepoisson``).
+    * ``gamma``     log link    — dispersion ``φ`` estimated by ML.
+    * ``nbinomial`` log link    — NB-2 (mean-dispersion ``α`` estimated).
+
+Ordinal-logit GLMM (``meologit``) lives in :mod:`._ordinal`; it shares
+the result class but uses a dedicated fitter because of its threshold
+parameters.
 
 The integrated log-likelihood
 
-    ℓ(β, θ) = Σ_j log ∫ f(y_j | β, u_j) φ(u_j; 0, G) du_j
+    ℓ(β, θ, ψ) = Σ_j log ∫ f(y_j | β, ψ, u_j) φ(u_j; 0, G(θ)) du_j
 
-has no closed form for non-Gaussian families; we approximate each
-integral by a first-order Laplace expansion around the conditional
-mode û_j, giving
+has no closed form for non-Gaussian families.  Each integral is
+approximated either by a first-order Laplace expansion around the
+conditional mode û_j (``nAGQ=1``) or by adaptive Gauss-Hermite
+quadrature recentered at û_j with curvature 1/H_j (``nAGQ>1``).
 
-    ℓ_j(β, θ) ≈ log f(y_j | β, û_j) − ½ û_j' G⁻¹ û_j
-               − ½ log |G| − ½ log |Z_j' W_j Z_j + G⁻¹|,
-
-where W_j is the diagonal GLM weight matrix at û_j.  The outer
-optimisation over (β, θ) is done with L-BFGS; the inner optimisation
-for û_j is a few Newton steps.
-
-Fixed-effect covariance uses the standard GLMM formula
+Fixed-effect covariance uses the standard GLMM observed-information
+formula
 
     Cov(β̂) = ( Σ_j X_j' W_j X_j
               − Σ_j (X_j' W_j Z_j) H_j⁻¹ (Z_j' W_j X_j) )⁻¹,
 
-which is the observed information implied by the Laplace approximation.
+evaluated at the optimum.  This expression is the leading-order
+observed information of the marginal log-likelihood and is identical
+for nAGQ ≥ 1; only the point estimates β̂, θ̂ change with nAGQ.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple
-
-import numpy as np
-import pandas as pd
-from scipy import stats
-from scipy.optimize import minimize
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import warnings
 
+import numpy as np
+import pandas as pd
+from scipy import special, stats
+from scipy.optimize import minimize
+
 from ._core import (
     _GroupBlock,
-    _as_str_list,
     _group_blocks,
     _initial_theta,
     _n_cov_params,
@@ -64,51 +76,110 @@ from ._core import (
 
 
 # ---------------------------------------------------------------------------
-# Exponential-family specs
+# Exponential / dispersion families
 # ---------------------------------------------------------------------------
+#
+# Each family advertises ``n_disp_params``: 0 for Gaussian/Binomial/Poisson
+# (no extra parameter beyond β and G), 1 for Gamma (log φ) and NegBin (log α).
+# The packed parameter is appended to θ after the covariance parameters and
+# converted via ``parse_dispersion`` to its natural-scale value.
+#
+# The four hot-loop methods each take ``dispersion`` (None when n=0):
+#
+#     inv_link(eta)                              μ = g⁻¹(η)
+#     irls_weight(mu, w, dispersion)             −∂²log f/∂η² (Fisher info)
+#     score_eta(y, mu, w, dispersion)            ∂log f/∂η  per observation
+#     log_lik(y, mu, w, dispersion)              Σ log f(y_i; μ_i, …)
+#
+# ``w`` carries either trial counts (binomial) or an observation weight
+# (other families); for the latter it is conventionally a vector of ones.
+
+_LOG_2PI = float(np.log(2.0 * np.pi))
+_EPS = 1e-12
+
 
 class _Family:
-    """Protocol for canonical-link exponential families."""
+    """Base class — concrete families override the four hot-loop methods."""
 
     name: str
+    link: str
+    n_disp_params: int = 0
+
+    # ---- dispersion plumbing -----------------------------------------------
+
+    @classmethod
+    def parse_dispersion(cls, packed: np.ndarray) -> Optional[float]:
+        """Return the natural-scale dispersion from its packed value(s)."""
+        if cls.n_disp_params == 0:
+            return None
+        return float(np.exp(packed[0]))
+
+    @classmethod
+    def initial_dispersion(cls) -> np.ndarray:
+        """Sensible starting value for the packed dispersion vector."""
+        if cls.n_disp_params == 0:
+            return np.zeros(0)
+        return np.zeros(cls.n_disp_params)  # log φ = 0 → φ = 1
+
+    # ---- core hot-loop methods -- subclasses implement -----------------------
 
     @staticmethod
-    def inv_link(eta: np.ndarray) -> np.ndarray:          # g⁻¹(η)
+    def inv_link(eta: np.ndarray) -> np.ndarray:
         raise NotImplementedError
 
     @staticmethod
-    def variance(mu: np.ndarray) -> np.ndarray:           # V(μ) for canonical link
+    def irls_weight(
+        mu: np.ndarray, w: np.ndarray, dispersion: Optional[float]
+    ) -> np.ndarray:
         raise NotImplementedError
 
     @staticmethod
-    def log_lik(y: np.ndarray, mu: np.ndarray, weight: np.ndarray) -> float:
+    def score_eta(
+        y: np.ndarray, mu: np.ndarray, w: np.ndarray, dispersion: Optional[float]
+    ) -> np.ndarray:
+        raise NotImplementedError
+
+    @staticmethod
+    def log_lik(
+        y: np.ndarray, mu: np.ndarray, w: np.ndarray, dispersion: Optional[float]
+    ) -> float:
         raise NotImplementedError
 
 
 class _Gaussian(_Family):
     name = "gaussian"
+    link = "identity"
 
     @staticmethod
     def inv_link(eta):
         return eta
 
     @staticmethod
-    def variance(mu):
-        return np.ones_like(mu)
+    def irls_weight(mu, w, dispersion):
+        return w
 
     @staticmethod
-    def log_lik(y, mu, weight):
-        # weight carries the residual inverse-variance (set by the caller).
-        return float(-0.5 * np.sum(weight * (y - mu) ** 2))
+    def score_eta(y, mu, w, dispersion):
+        return w * (y - mu)
+
+    @staticmethod
+    def log_lik(y, mu, w, dispersion):
+        # Use a unit residual variance scale; the LMM path is preferred for
+        # production Gaussian fits.  ``w`` here carries an observation weight
+        # (typically 1.0) and serves the same role as σ⁻² in a known-variance
+        # working likelihood.  This keeps the GLMM Gaussian path useful as a
+        # cross-check against ``mixed()`` without re-introducing residual
+        # variance into the optimizer state.
+        return float(-0.5 * np.sum(w * (y - mu) ** 2))
 
 
 class _Binomial(_Family):
     name = "binomial"
+    link = "logit"
 
     @staticmethod
     def inv_link(eta):
-        # Numerically stable logistic.
-        out = np.empty_like(eta)
+        out = np.empty_like(eta, dtype=float)
         pos = eta >= 0
         out[pos] = 1.0 / (1.0 + np.exp(-eta[pos]))
         ex = np.exp(eta[~pos])
@@ -116,40 +187,181 @@ class _Binomial(_Family):
         return out
 
     @staticmethod
-    def variance(mu):
-        return mu * (1.0 - mu)
+    def irls_weight(mu, w, dispersion):
+        return w * mu * (1.0 - mu)
 
     @staticmethod
-    def log_lik(y, mu, weight):
-        # y in counts, weight in trials.
-        mu = np.clip(mu, 1e-12, 1 - 1e-12)
-        return float(np.sum(y * np.log(mu) + (weight - y) * np.log(1.0 - mu)))
+    def score_eta(y, mu, w, dispersion):
+        return y - w * mu
+
+    @staticmethod
+    def log_lik(y, mu, w, dispersion):
+        mu = np.clip(mu, _EPS, 1.0 - _EPS)
+        # Include the log-binomial-coefficient constant so the
+        # Bernoulli (w=1) and trials-binomial (w>1) cases yield the full
+        # log-likelihood — this matters for AIC comparability with other
+        # families fit to the same y.  For w=1 the constant is 0 and the
+        # expression reduces to the Bernoulli log-lik.
+        log_coef = special.gammaln(w + 1.0) - special.gammaln(y + 1.0) \
+                   - special.gammaln(w - y + 1.0)
+        return float(np.sum(
+            log_coef + y * np.log(mu) + (w - y) * np.log(1.0 - mu)
+        ))
 
 
 class _Poisson(_Family):
     name = "poisson"
+    link = "log"
 
     @staticmethod
     def inv_link(eta):
         return np.exp(np.clip(eta, -30.0, 30.0))
 
     @staticmethod
-    def variance(mu):
+    def irls_weight(mu, w, dispersion):
         return mu
 
     @staticmethod
-    def log_lik(y, mu, weight):
-        # weight ≡ 1 for the standard Poisson likelihood.  We drop the
-        # log(y!) constant; it is immaterial to optimisation and LRT.
+    def score_eta(y, mu, w, dispersion):
+        return y - mu
+
+    @staticmethod
+    def log_lik(y, mu, w, dispersion):
         mu = np.clip(mu, 1e-300, None)
-        return float(np.sum(y * np.log(mu) - mu))
+        # Include -log(y!) so AIC is comparable to negative-binomial fits
+        # on the same y (NB collapses to Poisson + log(y!) as α → 0).
+        return float(np.sum(y * np.log(mu) - mu - special.gammaln(y + 1.0)))
+
+
+class _Gamma(_Family):
+    """
+    Gamma family with log link (``meglm`` ``family(gamma) link(log)``).
+
+    Density (mean-dispersion form):
+
+        f(y; μ, φ) = (1/(y Γ(1/φ))) · (y / (μ φ))^(1/φ) · exp(-y/(μ φ)),
+        E[Y] = μ,   Var(Y) = φ μ².
+
+    Dispersion ``φ`` is estimated jointly with (β, θ) through the packed
+    parameter ``log φ``.  IRLS weight uses the **expected** Fisher
+    information ``W = 1/φ`` per observation (Fisher scoring), which is
+    always positive — observed info ``W = y/(μ φ)`` would lose definiteness
+    when y < μ.  The score on η is the canonical-Pearson residual scaled
+    by 1/φ.
+    """
+
+    name = "gamma"
+    link = "log"
+    n_disp_params = 1
+
+    @staticmethod
+    def inv_link(eta):
+        return np.exp(np.clip(eta, -30.0, 30.0))
+
+    @staticmethod
+    def irls_weight(mu, w, dispersion):
+        phi = dispersion if dispersion is not None else 1.0
+        return (w / max(phi, _EPS)) * np.ones_like(mu)
+
+    @staticmethod
+    def score_eta(y, mu, w, dispersion):
+        phi = dispersion if dispersion is not None else 1.0
+        return w * (y - mu) / (mu * max(phi, _EPS))
+
+    @staticmethod
+    def log_lik(y, mu, w, dispersion):
+        phi = dispersion if dispersion is not None else 1.0
+        phi = max(phi, _EPS)
+        inv_phi = 1.0 / phi
+        # Drop terms independent of (μ, φ) gradients?  Keep the full kernel
+        # so AIC/BIC are interpretable and so AGHQ's quadrature is exact.
+        ll = (
+            (inv_phi - 1.0) * np.log(np.clip(y, _EPS, None))
+            - special.gammaln(inv_phi)
+            - inv_phi * (np.log(np.clip(mu, _EPS, None)) + np.log(phi))
+            - y / (np.clip(mu, _EPS, None) * phi)
+        )
+        return float(np.sum(w * ll))
+
+
+class _NegBin(_Family):
+    """
+    Negative binomial (NB-2) family with log link (``menbreg``).
+
+    Parameterisation:  Var(Y) = μ + α μ², α > 0.  Density
+
+        f(y; μ, α) = Γ(y + 1/α) / (Γ(1/α) Γ(y+1))
+                     · (1/(1+αμ))^(1/α) · (αμ/(1+αμ))^y.
+
+    α → 0 reduces to Poisson; the score and Fisher weight collapse
+    accordingly.  We pack ``log α`` so the optimiser has unconstrained
+    real support.
+    """
+
+    name = "nbinomial"
+    link = "log"
+    n_disp_params = 1
+
+    @staticmethod
+    def inv_link(eta):
+        return np.exp(np.clip(eta, -30.0, 30.0))
+
+    @staticmethod
+    def irls_weight(mu, w, dispersion):
+        alpha = dispersion if dispersion is not None else 0.0
+        return w * mu / (1.0 + alpha * mu)
+
+    @staticmethod
+    def score_eta(y, mu, w, dispersion):
+        alpha = dispersion if dispersion is not None else 0.0
+        return w * (y - mu) / (1.0 + alpha * mu)
+
+    @staticmethod
+    def log_lik(y, mu, w, dispersion):
+        alpha = dispersion if dispersion is not None else 0.0
+        if alpha <= _EPS:
+            # Poisson limit
+            mu_c = np.clip(mu, 1e-300, None)
+            return float(np.sum(w * (y * np.log(mu_c) - mu_c - special.gammaln(y + 1))))
+        inv_a = 1.0 / alpha
+        am = alpha * np.clip(mu, _EPS, None)
+        ll = (
+            special.gammaln(y + inv_a)
+            - special.gammaln(inv_a)
+            - special.gammaln(y + 1.0)
+            - inv_a * np.log1p(am)
+            + y * (np.log(am) - np.log1p(am))
+        )
+        return float(np.sum(w * ll))
 
 
 _FAMILIES: Dict[str, _Family] = {
     "gaussian": _Gaussian(),
     "binomial": _Binomial(),
     "poisson": _Poisson(),
+    "gamma": _Gamma(),
+    "nbinomial": _NegBin(),
 }
+
+# Aliases accepted from the user but normalised to the canonical key.
+_FAMILY_ALIASES: Dict[str, str] = {
+    "negbin": "nbinomial",
+    "negbinomial": "nbinomial",
+    "negative_binomial": "nbinomial",
+    "nb": "nbinomial",
+    "nb2": "nbinomial",
+}
+
+
+def _resolve_family(name: str) -> _Family:
+    key = name.lower()
+    key = _FAMILY_ALIASES.get(key, key)
+    if key not in _FAMILIES:
+        raise ValueError(
+            f"family must be one of {sorted(_FAMILIES)} (with aliases "
+            f"{sorted(_FAMILY_ALIASES)}); got {name!r}."
+        )
+    return _FAMILIES[key]
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +371,8 @@ _FAMILIES: Dict[str, _Family] = {
 
 @dataclass
 class MEGLMResult:
-    """Container for GLMM (``meglm``, ``melogit``, ``mepoisson``) fits."""
+    """Container for GLMM fits (``meglm``, ``melogit``, ``mepoisson``,
+    ``megamma``, ``menbreg``, ``meologit``)."""
 
     fixed_effects: pd.Series
     random_effects: pd.DataFrame
@@ -187,6 +400,9 @@ class MEGLMResult:
     _alpha: float = field(default=0.05, repr=False)
     _n_cov_params: int = field(default=0, repr=False)
     _offset_name: Optional[str] = field(default=None, repr=False)
+    _dispersion: Optional[float] = field(default=None, repr=False)
+    # Ordinal-logit specific — None for non-ordinal models.
+    thresholds: Optional[pd.Series] = field(default=None, repr=False)
 
     # ------------------------------------------------------------------
     # Convenience
@@ -214,8 +430,21 @@ class MEGLMResult:
         return len(self.fixed_effects)
 
     @property
+    def n_thresholds(self) -> int:
+        return 0 if self.thresholds is None else len(self.thresholds)
+
+    @property
+    def n_dispersion_params(self) -> int:
+        return 0 if self._dispersion is None else 1
+
+    @property
     def n_params(self) -> int:
-        return self.n_fixed + self._n_cov_params
+        return (
+            self.n_fixed
+            + self._n_cov_params
+            + self.n_thresholds
+            + self.n_dispersion_params
+        )
 
     @property
     def aic(self) -> float:
@@ -225,6 +454,11 @@ class MEGLMResult:
     def bic(self) -> float:
         return self.n_params * np.log(self.n_obs) - 2.0 * self.log_likelihood
 
+    @property
+    def dispersion(self) -> Optional[float]:
+        """Estimated dispersion (φ for gamma, α for nbinomial); None otherwise."""
+        return self._dispersion
+
     def conf_int(self, alpha: float = 0.05) -> pd.DataFrame:
         z = stats.norm.ppf(1 - alpha / 2)
         lo = self.fixed_effects - z * self._se_fixed
@@ -232,9 +466,11 @@ class MEGLMResult:
         return pd.DataFrame({"lower": lo, "upper": hi})
 
     def odds_ratios(self) -> pd.DataFrame:
-        """Exponentiated fixed effects and their Wald CIs (logit models)."""
-        if self.family != "binomial":
-            raise ValueError("odds_ratios() only meaningful for binomial GLMMs")
+        """Exponentiated fixed effects with Wald CIs (binomial / ordinal)."""
+        if self.family not in ("binomial", "ordinal"):
+            raise ValueError(
+                "odds_ratios() is meaningful for binomial and ordinal GLMMs only"
+            )
         ci = self.conf_int()
         return pd.DataFrame({
             "OR": np.exp(self.fixed_effects),
@@ -243,9 +479,11 @@ class MEGLMResult:
         })
 
     def incidence_rate_ratios(self) -> pd.DataFrame:
-        """Exponentiated coefficients for Poisson GLMMs."""
-        if self.family != "poisson":
-            raise ValueError("IRR only meaningful for Poisson GLMMs")
+        """Exponentiated coefficients for log-link count GLMMs (Poisson / NB)."""
+        if self.family not in ("poisson", "nbinomial"):
+            raise ValueError(
+                "IRR is meaningful for Poisson and negative-binomial GLMMs only"
+            )
         ci = self.conf_int()
         return pd.DataFrame({
             "IRR": np.exp(self.fixed_effects),
@@ -272,6 +510,11 @@ class MEGLMResult:
         lines.append(f"  Log-likelihood:  {self.log_likelihood:.4f}")
         lines.append(f"  AIC / BIC:       {self.aic:.3f}  /  {self.bic:.3f}")
         lines.append(f"  Converged:       {self._converged}")
+        if self._dispersion is not None:
+            disp_label = {"gamma": "phi", "nbinomial": "alpha"}.get(
+                self.family, "dispersion"
+            )
+            lines.append(f"  Dispersion ({disp_label}): {self._dispersion:.6f}")
         lines.append("-" * w)
 
         z_crit = stats.norm.ppf(1 - self._alpha / 2)
@@ -292,6 +535,11 @@ class MEGLMResult:
                 f"{var:>18s} {b:10.4f} {se:10.4f} {z:8.3f} {p:8.4f}  "
                 f"[{lo:8.4f}, {hi:8.4f}]"
             )
+        if self.thresholds is not None and len(self.thresholds) > 0:
+            lines.append("-" * w)
+            lines.append("Thresholds (cutpoints):")
+            for name, val in self.thresholds.items():
+                lines.append(f"{name:>18s} {val:10.4f}")
         lines.append("-" * w)
         lines.append("Variance components:")
         for name, val in self.variance_components.items():
@@ -362,7 +610,7 @@ class MEGLMResult:
         )
 
     # ------------------------------------------------------------------
-    # LaTeX / plot — round out the unified result contract
+    # LaTeX / plot
     # ------------------------------------------------------------------
 
     def to_latex(self) -> str:
@@ -463,13 +711,14 @@ class MEGLMResult:
             eta = eta + data[self._offset_name].to_numpy(dtype=float)
         if type == "linear":
             return pd.Series(eta, index=data.index, name="eta")
-        fam = _FAMILIES[self.family]
+        fam = _resolve_family(self.family)
         return pd.Series(fam.inv_link(eta), index=data.index, name="mu")
 
 
 # ---------------------------------------------------------------------------
-# Inner mode-finder (Newton on u_j given β, G)
+# Inner mode-finder (Newton on u_j given β, G, dispersion)
 # ---------------------------------------------------------------------------
+
 
 def _find_mode(
     block: _GroupBlock,
@@ -480,6 +729,7 @@ def _find_mode(
     weights: np.ndarray,
     offset: np.ndarray,
     u0: np.ndarray,
+    dispersion: Optional[float],
     max_inner: int = 50,
     tol: float = 1e-8,
 ) -> Tuple[np.ndarray, np.ndarray, float, bool]:
@@ -496,20 +746,10 @@ def _find_mode(
     for _ in range(max_inner):
         eta = block.X @ beta + block.Z @ u + offset
         mu = family.inv_link(eta)
+        W = family.irls_weight(mu, weights, dispersion)
+        s = family.score_eta(block.y, mu, weights, dispersion)
 
-        if family.name == "binomial":
-            W = weights * mu * (1.0 - mu)
-            grad_data = block.Z.T @ (block.y - weights * mu)
-        elif family.name == "poisson":
-            W = mu
-            grad_data = block.Z.T @ (block.y - mu)
-        elif family.name == "gaussian":
-            W = weights
-            grad_data = block.Z.T @ (weights * (block.y - mu))
-        else:  # pragma: no cover
-            raise NotImplementedError(family.name)
-
-        grad = grad_data - Ginv @ u
+        grad = block.Z.T @ s - Ginv @ u
         H = block.Z.T @ (W[:, None] * block.Z) + Ginv
 
         try:
@@ -517,8 +757,8 @@ def _find_mode(
         except np.linalg.LinAlgError:
             break
 
-        # Simple step damping: keep ‖step‖ ≤ 5·‖u‖ to avoid blow-up
-        # when the mode is very far from the current iterate.
+        # Step damping: keep ‖step‖ ≤ 5·max(‖u‖, 1) to avoid blow-up
+        # when the mode is far from the current iterate.
         step_norm = float(np.linalg.norm(step))
         u_norm = float(np.linalg.norm(u)) + 1e-12
         if step_norm > 5.0 * max(u_norm, 1.0):
@@ -532,15 +772,9 @@ def _find_mode(
             break
         u = u_new
 
-    # Final H and log|H|.
     eta = block.X @ beta + block.Z @ u + offset
     mu = family.inv_link(eta)
-    if family.name == "binomial":
-        W = weights * mu * (1.0 - mu)
-    elif family.name == "poisson":
-        W = mu
-    else:
-        W = weights
+    W = family.irls_weight(mu, weights, dispersion)
     H = block.Z.T @ (W[:, None] * block.Z) + Ginv
     sign, logdet_H = np.linalg.slogdet(H)
     if sign <= 0:
@@ -550,11 +784,71 @@ def _find_mode(
 
 
 # ---------------------------------------------------------------------------
-# Objective: negative Laplace log-likelihood
+# Adaptive Gauss-Hermite quadrature (q = 1 only)
+# ---------------------------------------------------------------------------
+#
+# Single random intercept ⇒ q = 1.  For a group j with conditional mode û_j,
+# Hessian H_j and observed unit variance σ̂_j² = 1/H_j, AGHQ approximates
+#
+#     L_j = ∫ exp(h(u)) du
+#         ≈ Σ_k √2 σ̂_j exp(x_k²) w_k · exp(h(û_j + √2 σ̂_j x_k)),
+#
+# where (x_k, w_k) are the standard Gauss-Hermite nodes/weights for
+# ∫ exp(-x²) g(x) dx.  ``log L_j`` is computed via logsumexp for stability.
+#
+# h(u) = log f(y_j | u) − ½ u²/σ² − ½ log(2π σ²)  (with q = 1, G = σ²).
+#
+# For nAGQ = 1 the formula collapses to the Laplace approximation, which we
+# verify in the unit tests.
+
+def _aghq_log_lik(
+    block: _GroupBlock,
+    beta: np.ndarray,
+    sigma2: float,
+    family: _Family,
+    weights: np.ndarray,
+    offset: np.ndarray,
+    u_hat: float,
+    H: float,
+    nodes: np.ndarray,
+    log_weights: np.ndarray,
+    dispersion: Optional[float],
+) -> float:
+    """Per-group AGHQ log-likelihood for a scalar random intercept."""
+    sigma_hat = 1.0 / np.sqrt(max(H, _EPS))
+    # u_k = û + √2 σ̂ x_k
+    u_grid = u_hat + np.sqrt(2.0) * sigma_hat * nodes
+    # log f(y_j | u_k) for each node
+    log_lik_vals = np.empty(nodes.shape[0])
+    for k, u_k in enumerate(u_grid):
+        eta_k = block.X @ beta + block.Z[:, 0] * u_k + offset
+        mu_k = family.inv_link(eta_k)
+        log_lik_vals[k] = family.log_lik(block.y, mu_k, weights, dispersion)
+    # log φ(u_k; 0, σ²) = -½ log(2π σ²) - u_k²/(2σ²)
+    log_prior = -0.5 * (_LOG_2PI + np.log(max(sigma2, _EPS))) - 0.5 * u_grid ** 2 / max(sigma2, _EPS)
+    # log integrand at node k: log f + log prior + x_k² + log w_k + ½ log(2 σ̂²)
+    log_terms = (
+        log_lik_vals
+        + log_prior
+        + nodes ** 2
+        + log_weights
+        + 0.5 * (np.log(2.0) + 2.0 * np.log(sigma_hat))
+    )
+    return float(special.logsumexp(log_terms))
+
+
+def _gh_nodes(n: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Standard Gauss-Hermite nodes/weights for ∫ exp(-x²) g(x) dx."""
+    nodes, weights = special.roots_hermite(n)
+    return nodes, weights
+
+
+# ---------------------------------------------------------------------------
+# Outer NLL: combines Laplace (nAGQ=1) and AGHQ (nAGQ>=2) paths
 # ---------------------------------------------------------------------------
 
 
-def _laplace_nll(
+def _glmm_nll(
     theta: np.ndarray,
     blocks: List[_GroupBlock],
     weights_list: List[np.ndarray],
@@ -564,10 +858,25 @@ def _laplace_nll(
     cov_type: str,
     family: _Family,
     u_cache: List[np.ndarray],
+    nAGQ: int,
+    gh_nodes: Optional[np.ndarray],
+    gh_log_weights: Optional[np.ndarray],
 ):
-    """Packed theta = [β ; cov_params]."""
+    """
+    Negative integrated log-likelihood for a GLMM.
+
+    Layout of ``theta``:
+
+        [ β  (p_fixed)
+        , cov_params                   (n_cov)
+        , dispersion (log φ or log α)  (0 or 1) ]
+    """
     beta = theta[:p_fixed]
-    cov_params = theta[p_fixed:]
+    n_cov = _n_cov_params(q_random, cov_type)
+    cov_params = theta[p_fixed : p_fixed + n_cov]
+    disp_packed = theta[p_fixed + n_cov :]
+    dispersion = family.parse_dispersion(disp_packed) if family.n_disp_params else None
+
     G = _unpack_G(cov_params, q_random, cov_type)
     try:
         sign, logdet_G = np.linalg.slogdet(G)
@@ -577,34 +886,85 @@ def _laplace_nll(
     except np.linalg.LinAlgError:
         return 1e12
 
+    use_aghq = nAGQ > 1
+    if use_aghq and q_random != 1:
+        # Defensive — should be rejected at the public-API boundary.
+        raise ValueError("AGHQ supports only q=1 random-intercept models")
+    sigma2 = float(G[0, 0]) if use_aghq else None
+
     nll = 0.0
     for j, block in enumerate(blocks):
         w = weights_list[j]
         off = offsets_list[j]
-        u_hat, H_j, logdet_H, _inner_converged = _find_mode(
-            block,
-            beta,
-            G,
-            Ginv,
-            family,
-            w,
-            off,
-            u_cache[j],
+        u_hat, H_j, logdet_H, _ = _find_mode(
+            block, beta, G, Ginv, family, w, off, u_cache[j], dispersion
         )
-        u_cache[j] = u_hat  # warm-start for the next evaluation
+        u_cache[j] = u_hat
 
-        eta = block.X @ beta + block.Z @ u_hat + off
-        mu = family.inv_link(eta)
-        ll_data = family.log_lik(block.y, mu, w)
-        quad = float(u_hat @ Ginv @ u_hat)
-
-        # Laplace log-integrand (dropping terms independent of θ):
-        #   log L_j ≈ ll_data − 0.5 q log(2π) − 0.5 log|G| − 0.5 u' G⁻¹ u
-        #            + 0.5 q log(2π) − 0.5 log|H_j|
-        #          = ll_data − 0.5 log|G| − 0.5 u' G⁻¹ u − 0.5 log|H_j|
-        nll -= ll_data - 0.5 * logdet_G - 0.5 * quad - 0.5 * logdet_H
-
+        if use_aghq:
+            # H_j is a 1×1 in q=1, so its scalar value is H_j[0,0].
+            ll_j = _aghq_log_lik(
+                block, beta, sigma2, family, w, off,
+                float(u_hat[0]), float(H_j[0, 0]),
+                gh_nodes, gh_log_weights, dispersion,
+            )
+        else:
+            eta = block.X @ beta + block.Z @ u_hat + off
+            mu = family.inv_link(eta)
+            ll_data = family.log_lik(block.y, mu, w, dispersion)
+            quad = float(u_hat @ Ginv @ u_hat)
+            # Laplace log-integrand (constants in 2π cancel out): see module docstring.
+            ll_j = ll_data - 0.5 * logdet_G - 0.5 * quad - 0.5 * logdet_H
+        nll -= ll_j
     return nll
+
+
+# ---------------------------------------------------------------------------
+# IRLS warm-start for β (and dispersion seed for gamma/nbreg)
+# ---------------------------------------------------------------------------
+
+
+def _irls_init(
+    X: np.ndarray,
+    y: np.ndarray,
+    w: np.ndarray,
+    off: np.ndarray,
+    fam: _Family,
+    maxiter: int = 50,
+    tol: float = 1e-8,
+) -> np.ndarray:
+    """Plain GLM via Fisher scoring — used only to warm-start β.
+
+    Dispersion (φ for gamma, α for nbreg) is left at its default of 1
+    here; the outer optimiser will refine it jointly with (β, θ).
+    """
+    p = X.shape[1]
+    beta = np.zeros(p)
+    # Smarter intercept seeds for non-identity links.
+    if fam.name == "binomial":
+        pbar = np.clip(np.sum(y) / max(np.sum(w), 1.0), 1e-3, 1 - 1e-3)
+        beta[0] = np.log(pbar / (1.0 - pbar))
+    elif fam.name in ("poisson", "nbinomial"):
+        beta[0] = np.log(max(np.mean(y), 1e-6))
+    elif fam.name == "gamma":
+        beta[0] = np.log(max(np.mean(y), 1e-6))
+
+    disp_seed = 1.0 if fam.n_disp_params else None
+
+    for _ in range(maxiter):
+        eta = X @ beta + off
+        mu = fam.inv_link(eta)
+        W = fam.irls_weight(mu, w, disp_seed)
+        grad = X.T @ fam.score_eta(y, mu, w, disp_seed)
+        H = X.T @ (W[:, None] * X) + 1e-8 * np.eye(p)
+        try:
+            step = np.linalg.solve(H, grad)
+        except np.linalg.LinAlgError:
+            break
+        beta += step
+        if np.linalg.norm(step) < tol * (1 + np.linalg.norm(beta)):
+            break
+    return beta
 
 
 # ---------------------------------------------------------------------------
@@ -622,12 +982,13 @@ def meglm(
     cov_type: str = "unstructured",
     trials: Optional[str] = None,
     offset: Optional[str] = None,
+    nAGQ: int = 1,
     maxiter: int = 300,
     tol: float = 1e-6,
     alpha: float = 0.05,
 ) -> MEGLMResult:
     """
-    Fit a generalised linear mixed model by Laplace approximation.
+    Fit a generalised linear mixed model.
 
     Parameters
     ----------
@@ -641,7 +1002,8 @@ def meglm(
     group
         Grouping variable for random effects.
     family
-        ``'gaussian'``, ``'binomial'`` or ``'poisson'``.
+        ``'gaussian'``, ``'binomial'``, ``'poisson'``, ``'gamma'``, or
+        ``'nbinomial'`` (alias ``'negbin'``).
     x_random
         Random-slope variables; defaults to random intercept only.
     cov_type
@@ -653,6 +1015,11 @@ def meglm(
     offset
         Column of fixed offsets added to the linear predictor (e.g.
         ``log(exposure)`` for Poisson rate models).
+    nAGQ
+        Number of adaptive Gauss-Hermite quadrature points per scalar
+        random effect.  ``1`` (default) ≡ Laplace approximation.  Use
+        ``nAGQ=7`` to match Stata ``meglm intpoints(7)``; values
+        ``> 1`` require a single scalar random effect (no random slopes).
     maxiter, tol, alpha
         Optimisation controls / CI width.
 
@@ -660,12 +1027,8 @@ def meglm(
     -------
     MEGLMResult
     """
-    fam_key = family.lower()
-    if fam_key not in _FAMILIES:
-        raise ValueError(
-            f"family must be one of {list(_FAMILIES)}, got {family!r}"
-        )
-    fam = _FAMILIES[fam_key]
+    fam = _resolve_family(family)
+    fam_key = fam.name
     if cov_type not in ("unstructured", "diagonal", "identity"):
         raise ValueError(f"unknown cov_type {cov_type!r}")
     if isinstance(group, (list, tuple)):
@@ -678,8 +1041,18 @@ def meglm(
     if not isinstance(group, str):
         raise TypeError("`group` must be a column name string")
 
+    nAGQ = int(nAGQ)
+    if nAGQ < 1:
+        raise ValueError(f"nAGQ must be >= 1, got {nAGQ}")
+
     x_fixed = list(x_fixed)
     x_random_cols: List[str] = list(x_random) if x_random is not None else []
+    if nAGQ > 1 and len(x_random_cols) > 0:
+        raise ValueError(
+            "AGHQ (nAGQ > 1) currently supports only random-intercept models "
+            "(empty x_random).  Use nAGQ=1 (Laplace) for random-slope models."
+        )
+
     extra_cols = []
     if trials:
         extra_cols.append(trials)
@@ -700,8 +1073,6 @@ def meglm(
         sub_mask = df[group] == block.key
         if trials:
             w = df.loc[sub_mask, trials].to_numpy(dtype=float)
-        elif fam_key == "binomial":
-            w = np.ones(block.n)
         else:
             w = np.ones(block.n)
         if offset:
@@ -714,8 +1085,9 @@ def meglm(
     p_fixed = 1 + len(x_fixed)
     q_random = 1 + len(x_random_cols)
     n_cov_pars = _n_cov_params(q_random, cov_type)
+    n_disp = fam.n_disp_params
 
-    # Starting values for β: run a GLM (no random effects) via IRLS.
+    # GLM warm-start for β (no random effects, plain IRLS).
     X_all = np.vstack([b.X for b in blocks])
     y_all = np.concatenate([b.y for b in blocks])
     w_all = np.concatenate(weights_list)
@@ -723,45 +1095,53 @@ def meglm(
     beta0 = _irls_init(X_all, y_all, w_all, off_all, fam)
 
     theta_cov0 = _initial_theta(q_random, cov_type, s2_init=0.3)
-    theta0 = np.concatenate([beta0, theta_cov0])
+    theta_disp0 = fam.initial_dispersion()
+    theta0 = np.concatenate([beta0, theta_cov0, theta_disp0])
 
     u_cache = [np.zeros(q_random) for _ in blocks]
+    gh_nodes, gh_log_weights = (None, None)
+    if nAGQ > 1:
+        nodes, weights = _gh_nodes(nAGQ)
+        gh_nodes = nodes
+        gh_log_weights = np.log(weights)
 
     res = minimize(
-        _laplace_nll,
+        _glmm_nll,
         theta0,
-        args=(blocks, weights_list, offsets_list, p_fixed, q_random, cov_type, fam, u_cache),
+        args=(
+            blocks, weights_list, offsets_list,
+            p_fixed, q_random, cov_type, fam, u_cache,
+            nAGQ, gh_nodes, gh_log_weights,
+        ),
         method="L-BFGS-B",
         options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
     )
     outer_converged = bool(res.success)
 
     beta_hat = res.x[:p_fixed]
-    G_hat = _unpack_G(res.x[p_fixed:], q_random, cov_type)
+    cov_hat = res.x[p_fixed : p_fixed + n_cov_pars]
+    disp_hat_packed = res.x[p_fixed + n_cov_pars :]
+    G_hat = _unpack_G(cov_hat, q_random, cov_type)
     Ginv = np.linalg.inv(G_hat)
+    dispersion = fam.parse_dispersion(disp_hat_packed) if n_disp else None
 
-    # BLUPs and fixed-effect info matrix via mode-finding at the optimum.
+    # BLUPs and fixed-effect info matrix at the optimum.
     blup_rows: List[Dict[str, float]] = []
     blup_dict: Dict[Any, np.ndarray] = {}
-    keys = []
+    keys: List[Any] = []
 
     info = np.zeros((p_fixed, p_fixed))
     inner_failures = 0
     for j, (block, w, off) in enumerate(zip(blocks, weights_list, offsets_list)):
-        u0 = u_cache[j]  # warm-started cache from the last NLL evaluation
+        u0 = u_cache[j]
         u_hat, H_j, _, inner_ok = _find_mode(
-            block, beta_hat, G_hat, Ginv, fam, w, off, u0
+            block, beta_hat, G_hat, Ginv, fam, w, off, u0, dispersion
         )
         if not inner_ok:
             inner_failures += 1
         eta = block.X @ beta_hat + block.Z @ u_hat + off
         mu = fam.inv_link(eta)
-        if fam.name == "binomial":
-            W = w * mu * (1.0 - mu)
-        elif fam.name == "poisson":
-            W = mu
-        else:
-            W = w
+        W = fam.irls_weight(mu, w, dispersion)
         XtWX = block.X.T @ (W[:, None] * block.X)
         XtWZ = block.X.T @ (W[:, None] * block.Z)
         ZtWX = block.Z.T @ (W[:, None] * block.X)
@@ -780,7 +1160,7 @@ def meglm(
 
     if inner_failures > 0:
         warnings.warn(
-            f"GLMM Laplace inner Newton failed to converge for "
+            f"GLMM inner Newton failed to converge for "
             f"{inner_failures}/{len(blocks)} clusters; standard errors "
             "and log-likelihood may be unreliable for those groups.",
             RuntimeWarning,
@@ -790,7 +1170,6 @@ def meglm(
     random_effects_df = pd.DataFrame(blup_rows, index=keys)
     random_effects_df.index.name = group
 
-    # Variance components
     vc: Dict[str, float] = {}
     for i, name in enumerate(random_names):
         vc[f"var({name})"] = float(G_hat[i, i])
@@ -801,8 +1180,11 @@ def meglm(
                 corr = G_hat[i, j] / denom if denom > 0 else np.nan
                 vc[f"cov({random_names[j]},{random_names[i]})"] = float(G_hat[i, j])
                 vc[f"corr({random_names[j]},{random_names[i]})"] = float(corr)
+    if dispersion is not None:
+        disp_label = "phi" if fam_key == "gamma" else "alpha"
+        vc[f"dispersion({disp_label})"] = float(dispersion)
 
-    link = {"gaussian": "identity", "binomial": "logit", "poisson": "log"}[fam_key]
+    method = "laplace" if nAGQ == 1 else f"AGHQ(nAGQ={nAGQ})"
 
     return MEGLMResult(
         fixed_effects=pd.Series(beta_hat, index=fixed_names),
@@ -813,7 +1195,7 @@ def meglm(
         n_groups=len(blocks),
         log_likelihood=float(-res.fun),
         family=fam_key,
-        link=link,
+        link=fam.link,
         _se_fixed=pd.Series(se_beta, index=fixed_names),
         _cov_fixed=cov_beta,
         _G=G_hat,
@@ -824,12 +1206,18 @@ def meglm(
         _random_names=random_names,
         _y_name=y,
         _converged=outer_converged and inner_failures == 0,
-        _method="laplace",
+        _method=method,
         _cov_type=cov_type,
         _alpha=alpha,
         _n_cov_params=n_cov_pars,
         _offset_name=offset,
+        _dispersion=dispersion,
     )
+
+
+# ---------------------------------------------------------------------------
+# Convenience wrappers — keep parity with Stata command names
+# ---------------------------------------------------------------------------
 
 
 def melogit(
@@ -839,6 +1227,7 @@ def melogit(
     group: str,
     x_random: Optional[Sequence[str]] = None,
     trials: Optional[str] = None,
+    nAGQ: int = 1,
     **kw: Any,
 ) -> MEGLMResult:
     """Random-effects logistic regression (Stata ``melogit``)."""
@@ -847,6 +1236,7 @@ def melogit(
         family="binomial",
         x_random=x_random,
         trials=trials,
+        nAGQ=nAGQ,
         **kw,
     )
 
@@ -858,6 +1248,7 @@ def mepoisson(
     group: str,
     x_random: Optional[Sequence[str]] = None,
     offset: Optional[str] = None,
+    nAGQ: int = 1,
     **kw: Any,
 ) -> MEGLMResult:
     """Random-effects Poisson regression (Stata ``mepoisson``)."""
@@ -866,60 +1257,58 @@ def mepoisson(
         family="poisson",
         x_random=x_random,
         offset=offset,
+        nAGQ=nAGQ,
         **kw,
     )
 
 
-# ---------------------------------------------------------------------------
-# GLM-only IRLS to get warm-start β
-# ---------------------------------------------------------------------------
+def menbreg(
+    data: pd.DataFrame,
+    y: str,
+    x_fixed: Sequence[str],
+    group: str,
+    x_random: Optional[Sequence[str]] = None,
+    offset: Optional[str] = None,
+    nAGQ: int = 1,
+    **kw: Any,
+) -> MEGLMResult:
+    """Random-effects negative-binomial regression (Stata ``menbreg``)."""
+    return meglm(
+        data, y, x_fixed, group,
+        family="nbinomial",
+        x_random=x_random,
+        offset=offset,
+        nAGQ=nAGQ,
+        **kw,
+    )
 
 
-def _irls_init(
-    X: np.ndarray,
-    y: np.ndarray,
-    w: np.ndarray,
-    off: np.ndarray,
-    fam: _Family,
-    maxiter: int = 50,
-    tol: float = 1e-8,
-) -> np.ndarray:
-    """Plain GLM via Fisher scoring — used only to warm-start β."""
-    p = X.shape[1]
-    beta = np.zeros(p)
-    if fam.name == "binomial":
-        # Start mu at the overall success rate.
-        pbar = np.clip(np.sum(y) / max(np.sum(w), 1.0), 1e-3, 1 - 1e-3)
-        beta[0] = np.log(pbar / (1.0 - pbar))
-    elif fam.name == "poisson":
-        beta[0] = np.log(max(np.mean(y), 1e-6))
-
-    for _ in range(maxiter):
-        eta = X @ beta + off
-        mu = fam.inv_link(eta)
-        if fam.name == "binomial":
-            W = w * mu * (1.0 - mu)
-            grad = X.T @ (y - w * mu)
-        elif fam.name == "poisson":
-            W = mu
-            grad = X.T @ (y - mu)
-        else:
-            W = w
-            grad = X.T @ (w * (y - mu))
-        H = X.T @ (W[:, None] * X) + 1e-8 * np.eye(p)
-        try:
-            step = np.linalg.solve(H, grad)
-        except np.linalg.LinAlgError:
-            break
-        beta += step
-        if np.linalg.norm(step) < tol * (1 + np.linalg.norm(beta)):
-            break
-    return beta
+def megamma(
+    data: pd.DataFrame,
+    y: str,
+    x_fixed: Sequence[str],
+    group: str,
+    x_random: Optional[Sequence[str]] = None,
+    offset: Optional[str] = None,
+    nAGQ: int = 1,
+    **kw: Any,
+) -> MEGLMResult:
+    """Random-effects Gamma GLMM with log link (Stata ``meglm`` ``family(gamma)``)."""
+    return meglm(
+        data, y, x_fixed, group,
+        family="gamma",
+        x_random=x_random,
+        offset=offset,
+        nAGQ=nAGQ,
+        **kw,
+    )
 
 
 __all__ = [
     "meglm",
     "melogit",
     "mepoisson",
+    "menbreg",
+    "megamma",
     "MEGLMResult",
 ]

@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.3"
+__version__ = "0.9.4"
 __author__ = "Biaoyue Wang"
 __email__ = "bryce@copaper.ai"
 
@@ -249,6 +249,9 @@ from .multilevel import (
     meglm,
     melogit,
     mepoisson,
+    menbreg,
+    megamma,
+    meologit,
     MEGLMResult,
     icc,
     lrtest,
@@ -695,7 +698,7 @@ __all__ = [
     "panel_logit", "panel_probit",
     "panel_fgls",
     "mixed", "MixedResult",
-    "meglm", "melogit", "mepoisson", "MEGLMResult",
+    "meglm", "melogit", "mepoisson", "menbreg", "megamma", "meologit", "MEGLMResult",
     "icc", "lrtest",
     "frontier", "xtfrontier", "FrontierResult",
     "metafrontier", "MetafrontierResult",

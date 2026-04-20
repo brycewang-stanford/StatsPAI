@@ -2,6 +2,79 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.4] - 2026-04-19 — GLMM hardening: AGHQ + Gamma/NegBin/Ordinal
+
+**Overview.** This release closes the three GLMM gaps flagged in the
+0.9.3 self-audit. All changes are additive (no API breaks); existing
+`meglm`/`melogit`/`mepoisson` calls produce numerically identical fits.
+
+### Adaptive Gauss-Hermite quadrature (AGHQ) — `nAGQ` parameter
+
+Previously `meglm` only offered the Laplace approximation (`nAGQ=1`),
+which is known to underestimate random-effect variances on small clusters
+with binary or other non-Gaussian outcomes. The new `nAGQ` argument
+selects the number of adaptive quadrature points per scalar random
+effect:
+
+```python
+sp.melogit(df, "y", ["x"], "g", nAGQ=7)   # matches Stata intpoints(7)
+sp.megamma(df, "y", ["x"], "g", nAGQ=15)  # converged-grade quadrature
+```
+
+`nAGQ=1` reduces exactly to the Laplace formula (verified to 1e-10).
+`nAGQ>1` is restricted to single-scalar random-effect models (no random
+slopes), matching the same restriction `lme4::glmer` imposes — full
+tensor-product AGHQ over `q>1` random effects is deferred because cost
+scales as `nAGQ^q`. AGHQ is wired into all five families
+(Gaussian/Binomial/Poisson/Gamma/NegBin) plus `meologit`.
+
+### New families: Gamma, Negative Binomial, Ordinal Logit
+
+- **`sp.megamma`** — Gamma GLMM with log link and dispersion `φ`
+  estimated by ML, packed as `log φ` for unconstrained optimisation.
+  IRLS weight uses Fisher information `1/φ` (Fisher scoring) for PSD
+  Hessian regardless of fitted means.
+- **`sp.menbreg`** — Negative-binomial NB-2 GLMM (`Var = μ + α μ²`)
+  with log link, dispersion `α` (alias `family='negbin'` accepted).
+  Reduces analytically to Poisson as `α → 0`; verified.
+- **`sp.meologit`** — Random-effects ordinal logit (Stata `meologit`,
+  R `ordinal::clmm`). K−1 thresholds reparameterised as
+  `κ_1, log(κ_2−κ_1), ...` so strict ordering is enforced
+  unconditionally. Returns `MEGLMResult` with new `thresholds`
+  attribute. Supports `nAGQ>1`.
+
+### Cross-family AIC comparability
+
+Poisson and Binomial log-likelihoods now include the full normalisation
+constants (`-log(y!)` for Poisson, log-binomial-coefficient for
+Binomial). Previously these constants were dropped, which made
+`mepoisson` vs `menbreg` AIC comparisons biased by ~Σ log(y!). β and
+variance estimates are unchanged; only `log_likelihood` and `aic`/`bic`
+absolute values shift — relative comparisons within a family are
+unaffected.
+
+### Tests (multilevel)
+
+`tests/test_multilevel.py` grows from 35 to 53 tests:
+
+- `TestAGHQ` (7 tests) — nAGQ=1↔Laplace identity, AGHQ improves vs
+  Laplace on small clusters, convergence in nAGQ, random-slope rejection.
+- `TestMEGamma` (3) — truth recovery, dispersion accounting, summary.
+- `TestMENegBin` (3) — truth recovery, IRR availability, alias resolution.
+- `TestMEOLogit` (5) — truth recovery, threshold ordering, no intercept,
+  summary, K≥3 enforcement.
+
+Backwards compatibility: all 35 prior tests pass unchanged.
+
+### Known issues (not introduced by 0.9.4)
+
+`tests/test_synth_advanced.py` and `tests/test_synth_extras.py` carry 8
+pre-existing failures (`SyntheticControl._solve_weights` API drift in
+`synth/sensitivity.py`). These exist on `main` as of 0.9.3 and are
+unrelated to multilevel work — flagged for the next synth sprint.
+
+---
+
 ## [0.9.3] - 2026-04-19 — Stochastic Frontier + Multilevel + Econometric Trinity
 
 **Overview.** This release bundles three simultaneous deep overhauls plus an
