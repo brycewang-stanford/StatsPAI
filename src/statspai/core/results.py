@@ -134,6 +134,99 @@ class EconometricResults:
             f'{1-alpha/2:.3f}': upper
         }, index=self.params.index)
     
+    # ------------------------------------------------------------------
+    # Broom-style tidy interface (EconometricResults)
+    # ------------------------------------------------------------------
+
+    def tidy(self, conf_level: float = 0.95) -> pd.DataFrame:
+        """Return a long-format DataFrame of coefficients, broom-style.
+
+        Columns
+        -------
+        term : str
+            Variable / coefficient name.
+        estimate : float
+        std_error : float
+        statistic : float
+            t-statistic.
+        p_value : float
+        conf_low, conf_high : float
+            Two-sided conf_level CI.
+
+        Examples
+        --------
+        >>> result = sp.regress("y ~ x1 + x2", data=df)
+        >>> result.tidy()
+           term  estimate  std_error  statistic  p_value  conf_low  conf_high
+        0  Intercept     ...
+
+        See Also
+        --------
+        glance : 1-row model-level summary (R^2, F, N, AIC, BIC).
+        """
+        alpha = 1 - conf_level
+        df_resid = self.data_info.get('df_resid', np.inf)
+        t_crit = stats.t.ppf(1 - alpha/2, df_resid)
+        lo = self.params - t_crit * self.std_errors
+        hi = self.params + t_crit * self.std_errors
+
+        def _arr(x):
+            return x.values if hasattr(x, 'values') else np.asarray(x)
+
+        return pd.DataFrame({
+            'term': list(self.params.index),
+            'estimate': _arr(self.params),
+            'std_error': _arr(self.std_errors),
+            'statistic': _arr(self.tvalues),
+            'p_value': _arr(self.pvalues),
+            'conf_low': _arr(lo),
+            'conf_high': _arr(hi),
+        })
+
+    def glance(self) -> pd.DataFrame:
+        """Return a 1-row DataFrame of model-level statistics, broom-style.
+
+        Columns (present subset depends on the model type)
+        --------------------------------------------------
+        nobs : int
+        r_squared : float
+        adj_r_squared : float
+        f_statistic : float
+        f_p_value : float
+        aic, bic : float
+        df_resid, df_model : int
+        method : str
+            Estimation method label.
+
+        See Also
+        --------
+        tidy : long-format coefficient table.
+        """
+        g: Dict[str, Any] = {}
+        g['method'] = self.model_info.get('method', self.model_info.get('model_type', ''))
+        if 'nobs' in self.data_info:
+            g['nobs'] = int(self.data_info['nobs'])
+        key_map = {
+            'R-squared': 'r_squared',
+            'Adj R-squared': 'adj_r_squared',
+            'F-statistic': 'f_statistic',
+            'F p-value': 'f_p_value',
+            'Prob (F-statistic)': 'f_p_value',
+            'AIC': 'aic',
+            'BIC': 'bic',
+            'Log-Likelihood': 'log_likelihood',
+        }
+        for src, dst in key_map.items():
+            if src in self.diagnostics and dst not in g:
+                v = self.diagnostics[src]
+                if isinstance(v, (int, float, np.integer, np.floating)):
+                    g[dst] = float(v)
+        if 'df_resid' in self.data_info:
+            g['df_resid'] = int(self.data_info['df_resid'])
+        if 'df_model' in self.data_info:
+            g['df_model'] = int(self.data_info['df_model'])
+        return pd.DataFrame([g])
+
     def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
         """
         Generate predictions from the fitted model.
@@ -739,6 +832,128 @@ class CausalResult:
         lines.append("  * p<0.1, ** p<0.05, *** p<0.01")
 
         return "\n".join(lines)
+
+    # ------------------------------------------------------------------
+    # Broom-style tidy interface (CausalResult)
+    # ------------------------------------------------------------------
+
+    def tidy(self, conf_level: Optional[float] = None) -> pd.DataFrame:
+        """Long-format coefficient table, broom-compatible.
+
+        Primary row is the overall estimand (ATT / ATE / LATE).  If the
+        result carries ``detail`` with group-time ATTs (CS/SA) or event
+        study coefficients, those rows are appended with a ``type``
+        column distinguishing ``'main'``, ``'group_time'``, or
+        ``'event_study'``.
+
+        Columns
+        -------
+        term, estimate, std_error, statistic, p_value,
+        conf_low, conf_high, type
+
+        Examples
+        --------
+        >>> r = sp.callaway_santanna(df, y='y', g='g', t='t', i='i')
+        >>> r.tidy()                  # includes group-time ATTs
+        >>> r.tidy().query("type=='main'")
+        """
+        # Main row
+        alpha = 1 - conf_level if conf_level is not None else self.alpha
+        if conf_level is not None and abs(conf_level - (1 - self.alpha)) > 1e-9:
+            # Recompute CI at requested conf_level via normal approx
+            z = stats.norm.ppf(1 - alpha/2)
+            lo, hi = self.estimate - z * self.se, self.estimate + z * self.se
+        else:
+            lo, hi = self.ci
+        main_row = {
+            'term': self.estimand,
+            'estimate': self.estimate,
+            'std_error': self.se,
+            'statistic': self.estimate / self.se if self.se > 0 else np.nan,
+            'p_value': self.pvalue,
+            'conf_low': lo,
+            'conf_high': hi,
+            'type': 'main',
+        }
+        rows = [main_row]
+
+        # Event study coefficients
+        es = self.model_info.get('event_study')
+        if isinstance(es, pd.DataFrame) and len(es) > 0:
+            for _, r in es.iterrows():
+                e = r.get('relative_time')
+                att = r.get('att')
+                se = r.get('se')
+                pv = r.get('pvalue', np.nan)
+                lo_r = r.get('ci_lower', att - 1.96 * se if pd.notna(att) else np.nan)
+                hi_r = r.get('ci_upper', att + 1.96 * se if pd.notna(att) else np.nan)
+                rows.append({
+                    'term': f'event_{int(e):+d}' if pd.notna(e) else 'event',
+                    'estimate': att, 'std_error': se,
+                    'statistic': att / se if pd.notna(se) and se > 0 else np.nan,
+                    'p_value': pv,
+                    'conf_low': lo_r, 'conf_high': hi_r,
+                    'type': 'event_study',
+                })
+
+        # Group-time ATTs
+        if self.detail is not None and 'att' in getattr(self.detail, 'columns', []):
+            for _, r in self.detail.iterrows():
+                g = r.get('group', '')
+                t = r.get('time', '')
+                rows.append({
+                    'term': f'att(g={g},t={t})',
+                    'estimate': r.get('att'),
+                    'std_error': r.get('se'),
+                    'statistic': (r.get('att') / r.get('se')
+                                  if pd.notna(r.get('se')) and r.get('se', 0) > 0
+                                  else np.nan),
+                    'p_value': r.get('pvalue', np.nan),
+                    'conf_low': r.get('ci_lower', np.nan),
+                    'conf_high': r.get('ci_upper', np.nan),
+                    'type': 'group_time',
+                })
+
+        return pd.DataFrame(rows)
+
+    def glance(self) -> pd.DataFrame:
+        """1-row model-level summary, broom-compatible.
+
+        Columns
+        -------
+        method, estimand, estimate, std_error, p_value, nobs,
+        conf_low, conf_high, alpha, n_groups (if applicable),
+        n_periods (if applicable), pretrend_pvalue (if applicable).
+        """
+        g: Dict[str, Any] = {
+            'method': self.method,
+            'estimand': self.estimand,
+            'estimate': self.estimate,
+            'std_error': self.se,
+            'p_value': self.pvalue,
+            'conf_low': self.ci[0],
+            'conf_high': self.ci[1],
+            'nobs': int(self.n_obs) if pd.notna(self.n_obs) else np.nan,
+            'alpha': self.alpha,
+        }
+        # Method-specific extras
+        if 'n_groups' in self.model_info:
+            g['n_groups'] = int(self.model_info['n_groups'])
+        if 'n_periods' in self.model_info:
+            g['n_periods'] = int(self.model_info['n_periods'])
+        pt = self.model_info.get('pretrend_test')
+        if isinstance(pt, dict) and 'pvalue' in pt:
+            g['pretrend_pvalue'] = float(pt['pvalue'])
+        # SC-specific
+        if 'pre_treatment_rmse' in self.model_info:
+            g['pre_treatment_rmse'] = float(self.model_info['pre_treatment_rmse'])
+        # RD-specific
+        if 'bandwidth_h' in self.model_info:
+            try:
+                g['bandwidth'] = float(self.model_info['bandwidth_h'])
+            except (TypeError, ValueError):
+                pass
+        return pd.DataFrame([g])
 
     # ------------------------------------------------------------------
     # Plotting
