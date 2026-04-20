@@ -860,9 +860,17 @@ class CausalResult:
         # Main row
         alpha = 1 - conf_level if conf_level is not None else self.alpha
         if conf_level is not None and abs(conf_level - (1 - self.alpha)) > 1e-9:
-            # Recompute CI at requested conf_level via normal approx
-            z = stats.norm.ppf(1 - alpha/2)
-            lo, hi = self.estimate - z * self.se, self.estimate + z * self.se
+            # Recompute CI at requested conf_level. Prefer t-distribution
+            # when df_resid is recorded (small-sample correctness);
+            # fall back to normal only when no df is available (e.g. CS /
+            # synth results where influence-function SEs are asymptotic).
+            df_resid = self.model_info.get('df_resid', None)
+            if df_resid is not None and np.isfinite(df_resid) and df_resid > 0:
+                crit = stats.t.ppf(1 - alpha/2, df_resid)
+            else:
+                crit = stats.norm.ppf(1 - alpha/2)
+            lo, hi = (self.estimate - crit * self.se,
+                      self.estimate + crit * self.se)
         else:
             lo, hi = self.ci
         main_row = {
