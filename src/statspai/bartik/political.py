@@ -401,13 +401,14 @@ class ShiftSharePoliticalPanelResult:
 
     def summary(self) -> str:
         lo, hi = self.ci
+        cluster_label = self.diagnostics.get("cluster", "unit")
         lines = [
             "Shift-Share (Bartik) — Political Science, Panel (Park-Xu 2026 §4.2)",
             "-" * 70,
             f"  Units × periods         : {self.n_units} × {self.n_periods}",
             f"  Industries              : {self.n_industries}",
             f"  Pooled 2SLS estimate    : {self.estimate:+.6f}",
-            f"  SE (unit-clustered)     : {self.se:.6f}",
+            f"  SE ({cluster_label})     : {self.se:.6f}",
             f"  {int((1 - self.alpha) * 100)}% CI                 : "
             f"[{lo:+.6f}, {hi:+.6f}]",
             "",
@@ -588,8 +589,13 @@ def shift_share_political_panel(
     """
     if fe not in ("two-way", "unit", "time", "none"):
         raise ValueError(f"fe must be one of two-way/unit/time/none; got {fe!r}")
-    if cluster not in ("unit", "time", "twoway"):
-        raise ValueError(f"cluster must be unit/time/twoway; got {cluster!r}")
+    if cluster not in ("unit", "time", "twoway", "shock"):
+        raise ValueError(
+            f"cluster must be unit/time/twoway/shock; got {cluster!r}. "
+            "`'shock'` invokes the Adão-Kolesár-Morales (2019) "
+            "shock-clustered variance estimator — strongly recommended "
+            "by Park-Xu (2026) §4.2."
+        )
     for col in (unit, time, outcome, endog):
         if col not in data.columns:
             raise ValueError(f"column {col!r} not in data")
@@ -648,23 +654,75 @@ def shift_share_political_panel(
     S2_struct = np.column_stack([np.ones(len(Y)), D, X_cov])
     resid = Y - S2_struct @ b2
 
-    # Cluster-robust SE on stage-2 (sandwich)
-    cluster_col = (
-        df_iv[unit].to_numpy() if cluster == "unit"
-        else df_iv[time].to_numpy() if cluster == "time"
-        else df_iv[unit].astype(str) + "_" + df_iv[time].astype(str)
-    )
-    bread = np.linalg.pinv(S2.T @ S2)
-    meat = np.zeros_like(bread)
-    for g in np.unique(cluster_col):
-        idx = np.where(cluster_col == g)[0]
-        Sg = S2[idx]
-        rg = resid[idx]
-        scores = Sg * rg[:, None]
-        sg = scores.sum(axis=0)
-        meat += np.outer(sg, sg)
-    vcov = bread @ meat @ bread
-    se = float(np.sqrt(max(vcov[1, 1], 0.0)))
+    # --- Standard errors --------------------------------------------------
+    if cluster == "shock":
+        # Adão-Kolesár-Morales (2019) shock-clustered variance for panel
+        # shift-share.  For each shock k compute the stacked score
+        #   u_k = sum_{i, t} s_{ikt} * Z_tilde_{it} * eps_{it}
+        # and assemble var(beta) = (D_hat' D_tilde)^{-2} * sum_k u_k^2 in
+        # the demeaned (within-FE) space.  D_tilde, Z_tilde, and eps here
+        # are the FE-demeaned endogenous regressor, instrument, and 2SLS
+        # residuals respectively.
+        Z_tilde = df_demean["__bartik_iv__"].to_numpy(dtype=float)
+        D_tilde = df_demean[endog].to_numpy(dtype=float)
+        # Residuals of the structural equation in demeaned space (without
+        # the covariates, which are demeaned too and already inside S2_struct).
+        eps = resid
+        # Build the score per shock k across all (i, t).
+        u_k = np.zeros(len(industries), dtype=float)
+        # Align rows of df_iv with shares_by_t lookup.
+        unit_vals = df_iv[unit].to_numpy()
+        time_vals = df_iv[time].to_numpy()
+        for k_idx, ind in enumerate(industries):
+            contrib = 0.0
+            for t in times:
+                shares_t = shares_by_t[t]
+                if ind not in shares_t.columns:
+                    continue
+                mask = time_vals == t
+                if not mask.any():
+                    continue
+                # shares at (units_in_t, industry=ind).  Reindex by row's
+                # unit to align row-wise with Z_tilde / eps.
+                s_col = shares_t[ind].reindex(unit_vals[mask]).to_numpy(
+                    dtype=float, na_value=0.0,
+                )
+                contrib += float(np.sum(
+                    s_col * Z_tilde[mask] * eps[mask]
+                ))
+            u_k[k_idx] = contrib
+        # Denominator: (D_hat' D_tilde) under FE demeaning.
+        denom = float(np.dot(D_hat, D_tilde))
+        if abs(denom) < 1e-12:
+            raise RuntimeError(
+                "AKM shock-cluster SE: (D_hat' D_tilde) ≈ 0 — instrument "
+                "too weak after FE demeaning."
+            )
+        var_akm = float(np.sum(u_k ** 2) / denom ** 2)
+        se = float(np.sqrt(max(var_akm, 0.0)))
+        akm_se = se
+        cluster_label = "shock (AKM 2019)"
+    else:
+        # Unit / time / two-way cluster-robust sandwich on stage-2.
+        cluster_col = (
+            df_iv[unit].to_numpy() if cluster == "unit"
+            else df_iv[time].to_numpy() if cluster == "time"
+            else (df_iv[unit].astype(str) + "_" +
+                  df_iv[time].astype(str)).to_numpy()
+        )
+        bread = np.linalg.pinv(S2.T @ S2)
+        meat = np.zeros_like(bread)
+        for g in np.unique(cluster_col):
+            idx = np.where(cluster_col == g)[0]
+            Sg = S2[idx]
+            rg = resid[idx]
+            scores = Sg * rg[:, None]
+            sg = scores.sum(axis=0)
+            meat += np.outer(sg, sg)
+        vcov = bread @ meat @ bread
+        se = float(np.sqrt(max(vcov[1, 1], 0.0)))
+        akm_se = None
+        cluster_label = cluster
     from scipy.stats import norm as _norm
     z = _norm.ppf(1 - alpha / 2)
     ci = (beta - z * se, beta + z * se)
@@ -752,7 +810,8 @@ def shift_share_political_panel(
         method="shift_share_political_panel",
         diagnostics={
             "fe": fe,
-            "cluster": cluster,
+            "cluster": cluster_label,
+            "akm_se": akm_se,
             "n_obs": int(len(df_iv)),
             "first_stage_F": float(
                 (D_hat.var() / max(resid.var(), 1e-12))

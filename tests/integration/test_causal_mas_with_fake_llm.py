@@ -117,23 +117,12 @@ class TestDomainExpertBoost:
     def test_endorsement_lifts_confidence(self):
         # Proposer drops the edge from round 2 onwards; domain expert
         # never endorses.  With rounds=3 the confidence should be 1/3.
-        state = {"round": 0}
+        proposer_calls = {"n": 0}
 
         def script(role: str, prompt: str) -> str:
             if role == "proposer":
-                # First round: propose; subsequent rounds: silent.
-                if state["round"] == 0:
-                    out = "treatment -> outcome"
-                else:
-                    out = ""
-                state["round"] += 1 if role == "domain_expert" else 0
-                return out
-            if role == "critic":
-                return ""
-            if role == "domain_expert":
-                # Advance the counter once per round.
-                state["round"] += 0  # handled above
-                return ""
+                proposer_calls["n"] += 1
+                return "treatment -> outcome" if proposer_calls["n"] == 1 else ""
             return ""
 
         client = sp.causal_llm.echo_client(script)
@@ -220,6 +209,89 @@ class TestRoleOverrides:
 # ---------------------------------------------------------------------------
 
 
+class TestClaudeThinkingBlockParsing:
+    """Validate the Anthropic-client content-block splitter without requiring
+    the `anthropic` SDK to be installed.
+
+    Constructs fake response objects that mimic the Anthropic Messages API
+    shape so we can exercise the thinking / text block separation logic.
+    """
+
+    def _mock_block(self, block_type: str, payload: str):
+        # Minimal shape: an object with `.type` plus either `.text`
+        # or `.thinking` depending on the block type.
+        class _Block:
+            type = block_type
+        b = _Block()
+        if block_type == "thinking":
+            b.thinking = payload
+        elif block_type == "redacted_thinking":
+            pass  # no text attribute
+        else:
+            b.text = payload
+        return b
+
+    def _run_chat(self, blocks):
+        from statspai.causal_llm.llm_clients import _AnthropicClient
+
+        client = _AnthropicClient.__new__(_AnthropicClient)
+        client.model = "claude-opus-4-7"
+        client.max_tokens = 1024
+        client.temperature = 0.0
+        client.max_retries = 1
+        client.thinking_budget = 0
+        client.system_prompt = "test"
+        client.name = "anthropic"
+        client.history = []
+
+        class _FakeResp:
+            pass
+
+        resp = _FakeResp()
+        resp.content = blocks
+
+        class _FakeMessages:
+            def __init__(self, resp):
+                self._resp = resp
+
+            def create(self, **_):
+                return self._resp
+
+        class _FakeSDK:
+            def __init__(self, resp):
+                self.messages = _FakeMessages(resp)
+
+        client._client = _FakeSDK(resp)
+        text = client.chat("proposer", "hello")
+        return text, client.history[-1]
+
+    def test_text_only_response(self):
+        text, entry = self._run_chat([
+            self._mock_block("text", "treatment -> outcome"),
+        ])
+        assert text == "treatment -> outcome"
+        assert "thinking" not in entry
+
+    def test_thinking_then_text(self):
+        text, entry = self._run_chat([
+            self._mock_block("thinking", "I should consider the DAG..."),
+            self._mock_block("text", "age -> treatment"),
+        ])
+        # The returned text must NOT contain the thinking trace.
+        assert text == "age -> treatment"
+        assert "DAG" not in text
+        # But the reasoning trace IS stored in history for auditability.
+        assert entry.get("thinking") == "I should consider the DAG..."
+
+    def test_redacted_thinking_is_labelled(self):
+        text, entry = self._run_chat([
+            self._mock_block("redacted_thinking", ""),
+            self._mock_block("text", "a -> b"),
+        ])
+        assert text == "a -> b"
+        assert entry.get("thinking") == "<redacted>"
+
+
 class TestDagInterop:
 
     def test_output_consumable_by_sp_dag(self):
@@ -238,6 +310,7 @@ class TestDagInterop:
         # sp.dag accepts "A -> B; C -> D" style strings.
         dag = sp.dag(dag_str)
         # The DAG must contain the edges the MAS produced.
-        edge_set = set(dag.edges())
+        # ``DAG.edges`` is a list-of-tuples attribute (not a method).
+        edge_set = set(dag.edges)
         assert ("age", "treatment") in edge_set
         assert ("treatment", "outcome") in edge_set

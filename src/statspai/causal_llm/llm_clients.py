@@ -195,7 +195,15 @@ def openai_client(
 
 @dataclass
 class _AnthropicClient(LLMClient):
-    """Adapter on top of the ``anthropic>=0.30`` Messages API."""
+    """Adapter on top of the ``anthropic>=0.30`` Messages API.
+
+    Supports Claude's **extended thinking** mode on Claude 4.5 / Opus
+    4.7: set ``thinking_budget > 0`` to have the model reason
+    privately for up to that many tokens before answering.  The
+    reasoning text is returned on the :class:`LLMClient.history` entry
+    (``entry['thinking']``) for auditability but is *not* included in
+    the final answer string that :func:`causal_mas` parses.
+    """
 
     model: str = "claude-opus-4-7"
     api_key: Optional[str] = None
@@ -203,6 +211,7 @@ class _AnthropicClient(LLMClient):
     temperature: float = 0.0
     max_tokens: int = 1024
     max_retries: int = 3
+    thinking_budget: int = 0
     system_prompt: str = (
         "You are a careful scientific assistant helping with causal "
         "inference.  Respond concisely and in the exact format requested."
@@ -223,6 +232,17 @@ class _AnthropicClient(LLMClient):
                 "Anthropic API key missing — pass api_key=... or set "
                 "ANTHROPIC_API_KEY in the environment."
             )
+        if self.thinking_budget and self.thinking_budget < 1024:
+            raise ValueError(
+                "thinking_budget must be 0 (off) or >= 1024 "
+                "(Anthropic minimum for extended thinking)."
+            )
+        if self.thinking_budget and self.thinking_budget >= self.max_tokens:
+            raise ValueError(
+                f"thinking_budget ({self.thinking_budget}) must be "
+                f"strictly less than max_tokens ({self.max_tokens}) — "
+                "the thinking budget is consumed from the same pool."
+            )
         kwargs: Dict[str, Any] = {"api_key": key}
         if self.base_url:
             kwargs["base_url"] = self.base_url
@@ -232,7 +252,7 @@ class _AnthropicClient(LLMClient):
         err = None
         for attempt in range(self.max_retries):
             try:
-                resp = self._client.messages.create(
+                call_kwargs: Dict[str, Any] = dict(
                     model=self.model,
                     system=self.system_prompt,
                     messages=[{
@@ -242,14 +262,38 @@ class _AnthropicClient(LLMClient):
                     max_tokens=self.max_tokens,
                     temperature=self.temperature,
                 )
-                # Anthropic returns a list of content blocks; join text parts.
-                text = "".join(
-                    getattr(block, "text", "") for block in resp.content
-                )
-                self.history.append(
-                    {"role": role, "prompt": prompt, "response": text,
-                     "model": self.model}
-                )
+                if self.thinking_budget > 0:
+                    call_kwargs["thinking"] = {
+                        "type": "enabled",
+                        "budget_tokens": int(self.thinking_budget),
+                    }
+                resp = self._client.messages.create(**call_kwargs)
+                # Anthropic returns a list of content blocks.  In thinking
+                # mode the list includes ``thinking`` blocks *before* the
+                # final ``text`` blocks; the public answer is the
+                # concatenation of the text blocks only.
+                text_parts: List[str] = []
+                thinking_parts: List[str] = []
+                for block in resp.content:
+                    block_type = getattr(block, "type", None)
+                    if block_type == "thinking":
+                        thinking_parts.append(
+                            getattr(block, "thinking", "")
+                        )
+                    elif block_type == "redacted_thinking":
+                        thinking_parts.append("<redacted>")
+                    else:
+                        text_parts.append(getattr(block, "text", "") or "")
+                text = "".join(text_parts)
+                entry: Dict[str, Any] = {
+                    "role": role,
+                    "prompt": prompt,
+                    "response": text,
+                    "model": self.model,
+                }
+                if thinking_parts:
+                    entry["thinking"] = "\n".join(thinking_parts)
+                self.history.append(entry)
                 return text
             except Exception as e:  # pragma: no cover - network dependent
                 err = e
@@ -267,19 +311,33 @@ def anthropic_client(
     temperature: float = 0.0,
     max_tokens: int = 1024,
     max_retries: int = 3,
+    thinking_budget: int = 0,
     system_prompt: Optional[str] = None,
 ) -> LLMClient:
     """Construct an Anthropic-compatible :class:`LLMClient`.
 
     Requires the optional ``anthropic>=0.30`` extra.  Defaults to
     Claude Opus 4.7 (the latest generally-available model as of
-    StatsPAI v1.3).
+    StatsPAI v1.4).
+
+    Parameters
+    ----------
+    thinking_budget : int, default 0
+        Enable Claude **extended thinking** with this many reasoning
+        tokens.  Values ``>= 1024`` activate the feature; ``0`` disables
+        it (the legacy behaviour).  The budget is consumed from
+        ``max_tokens``, so set ``max_tokens`` comfortably above
+        ``thinking_budget + expected_answer_tokens``.  The reasoning
+        trace is captured on ``client.history[-1]['thinking']`` for
+        auditability but is *not* returned as part of the chat response.
 
     Examples
     --------
     >>> import statspai as sp
     >>> client = sp.causal_llm.anthropic_client(
-    ...     model="claude-sonnet-4-6", api_key="sk-ant-...",
+    ...     model="claude-opus-4-7",
+    ...     thinking_budget=4096,
+    ...     max_tokens=8192,
     ... )   # doctest: +SKIP
     """
     kwargs: Dict[str, Any] = dict(
@@ -289,6 +347,7 @@ def anthropic_client(
         temperature=temperature,
         max_tokens=max_tokens,
         max_retries=max_retries,
+        thinking_budget=thinking_budget,
     )
     if system_prompt is not None:
         kwargs["system_prompt"] = system_prompt

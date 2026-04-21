@@ -66,6 +66,8 @@ nav:
       - "v1.3 frontier: Synthetic controls for experimental design (Abadie-Zhao 2025/2026)": guides/synth_experimental.md
       - "v1.3 frontier: Harvesting DID + event-study designs (Borusyak et al. 2025)": guides/harvest_did.md
       - "v1.3 frontier: Assimilative causal inference (Nature Comms 2026)": guides/assimilative_ci.md
+      - "v1.4 panel shift-share IV for political science (Park-Xu 2026 §4.2 + AKM 2019)": guides/shift_share_political_panel.md
+      - "v1.4 Causal MAS — multi-agent LLM causal discovery (arXiv:2509.00987)": guides/causal_mas.md
   - Reference:
       - "Overview": reference/index.md
       - "Difference-in-differences": reference/did.md

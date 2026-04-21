@@ -9,18 +9,17 @@ mixed-effects, modern ML causal inference, the full three-school
 modules (bridging theorems, fairness, surrogates, PCMCI, TMLE survival,
 etc.), and publication-ready output in Word / Excel / LaTeX / HTML.
 
-> **Current release: v1.4.0 (2026-04-21)** — v3-frontier Sprint 2.
-> Closes the four Sprint-1 follow-ups: multi-period Park-Xu political
-> shift-share (`sp.shift_share_political_panel`), real OpenAI /
-> Anthropic adapters for the Causal MAS discovery agent
-> (`sp.causal_llm.openai_client`, `anthropic_client`, `echo_client`),
-> a particle-filter backend for `sp.assimilation` supporting
-> non-Gaussian priors and nonlinear dynamics, and three new MkDocs
-> guides (`synth_experimental`, `harvest_did`, `assimilative_ci`).
-> Plus a 20-item Sprint-1 unused-import cleanup and a CausalForest
-> parity-test de-flake via explicit `random_state`. 874+ registered
-> functions, 2 699+ tests passing across all OS × Python matrix
-> entries. See the [changelog](changelog.md) for detail.
+> **Current release: v1.4.1 (2026-04-21)** — v3-frontier Sprint 3.
+> Additive follow-up to v1.4.0: AKM shock-clustered SE for
+> `sp.shift_share_political_panel(cluster='shock')` (Park-Xu 2026 §4.2,
+> typically 3× tighter than unit-clustered SEs); Claude 4.5 / Opus 4.7
+> **extended-thinking** support via
+> `sp.causal_llm.anthropic_client(thinking_budget=N)`; a 10-check
+> assimilation parity suite plus an 11-test MAS integration suite with
+> 3 Claude thinking block-splitter tests; two new MkDocs guides
+> (`shift_share_political_panel`, `causal_mas`). All v1.4.0 APIs
+> stable; new surface is additive kwargs only. See the
+> [changelog](changelog.md) for detail.
 
 ```python
 import statspai as sp
@@ -33,10 +32,11 @@ rpt = sp.cs_report(data, y='y', g='g', t='t', i='id',
 
 ## What's inside
 
-### Release highlights (v0.9.17 → v1.4.0)
+### Release highlights (v0.9.17 → v1.4.1)
 
 | Release | Focus | Headline |
 | --- | --- | --- |
+| **v1.4.1** | v3-frontier Sprint 3 (AKM SE + Claude thinking + test suites + docs) | `sp.shift_share_political_panel(cluster='shock')` — panel-extended Adão-Kolesár-Morales (2019) shock-cluster variance (Park-Xu 2026 §4.2); `sp.causal_llm.anthropic_client(thinking_budget=N)` — Claude 4.5 / Opus 4.7 extended-thinking API; 10-check assimilation parity suite + 11-test MAS integration suite with 3 Claude thinking block-splitter tests; two new MkDocs guides (`shift_share_political_panel`, `causal_mas`). Strictly additive over v1.4.0. |
 | **v1.4.0** | v3-frontier Sprint 2 (extensions + LLM SDK + docs) | `shift_share_political_panel` (Park-Xu 2026 multi-period); real LLM adapters `openai_client` / `anthropic_client` / `echo_client` for Causal MAS; `particle_filter` backend for `assimilative_causal` (non-Gaussian / nonlinear); three new MkDocs guides (`synth_experimental`, `harvest_did`, `assimilative_ci`); 20 unused-import cleanups; CausalForest parity-test de-flake. |
 | **v1.3.0** | v3-frontier sprint (Sprint 1 of 知识地图 v3) | 11 frontier methods: Abadie-Zhao inverse synthetic experimental design, CJM RBC bootstrap for `rdrobust`, Kwak-Pleasants evidence-without-injustice fairness test, JAMA/BMJ TARGET manuscript renderer, Borusyak harvest-DiD, Zorzetto ordinal / factor-exposure BCF, multi-agent causal discovery (`causal_mas`), Park-Xu political shift-share IV, state-space `causal_kalman`. 35 new tests, 869 registered functions, zero regressions. `tabulate` promoted to core dep. |
 | **v1.0.1** | Post-review correctness + NEEDS_VERIFICATION closeout | All Critical / High / Medium findings from the independent code-review-expert pass on v1.0 frontier modules fixed and pinned by regression tests. Abadie κ-weighted complier QTE now implemented for `beyond_average_late`; `bridge.surrogate_pci` path B now a genuine dual-path (arm-specific counterfactual bridge), not OLS-tautology. 2 706+ tests passing. |
@@ -166,7 +166,7 @@ method that returns the correct BibTeX entry) and this package:
   title   = {StatsPAI: A Unified, Agent-Native Python Toolkit for
              Causal Inference and Applied Econometrics},
   year    = {2026},
-  version = {1.4.0},
+  version = {1.4.1},
   url     = {https://github.com/brycewang-stanford/StatsPAI}
 }
 ```

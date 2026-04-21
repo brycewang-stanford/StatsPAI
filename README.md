@@ -15,9 +15,20 @@ StatsPAI is the **agent-native** Python package for causal inference and applied
 
 It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 
-**🎉 NEW in v1.4.0 — v3-frontier Sprint 2: panel shift-share, real-LLM adapters, particle-filter assimilation, 3 new guides**
+**🎉 NEW in v1.4.1 — v3-frontier Sprint 3: AKM shock-clustered SE, Claude extended thinking, parity + integration suites, 2 new guides**
 
-StatsPAI 1.4 is Sprint 2 of the 知识地图 v3 roadmap. Closes the four secondary items flagged at the end of Sprint 1: multi-period Park-Xu political shift-share, real OpenAI / Anthropic LLM adapters for the Causal MAS discovery agent, a particle-filter backend for `causal_kalman` to handle non-Gaussian priors and nonlinear dynamics, and three new MkDocs guides covering the v3 frontier. 20 unused-import cleanups across Sprint 1 modules. One CI flake (CausalForest ATE parity test) deflaked by seeding the forest explicitly.
+StatsPAI 1.4.1 is an additive follow-up to 1.4.0 that closes the Sprint 3 items:
+
+- **AKM shock-clustered SE** — `sp.shift_share_political_panel(cluster='shock')` computes the panel-extended Adão-Kolesár-Morales (2019) variance estimator recommended by Park-Xu (2026) §4.2 — typically 3× tighter than unit-clustered SEs in settings with 10–100 industries. `diagnostics['akm_se']` and a human-readable `diagnostics['cluster']` label surface the result.
+- **Claude extended thinking for Causal MAS** — `sp.causal_llm.anthropic_client(thinking_budget=N)` opts into the Claude 4.5 / Opus 4.7 extended-thinking API. The reasoning trace is captured on `client.history[-1]['thinking']` for auditability but is not returned to `causal_mas`. Handles both `thinking` and `redacted_thinking` content blocks.
+- **Parity + integration test suites** — `tests/reference_parity/test_assimilation_parity.py` (10 checks on the Kalman / particle backends, incl. Kalman↔particle agreement and Student-t contamination robustness) and `tests/integration/test_causal_mas_with_fake_llm.py` (11 end-to-end MAS tests using `echo_client` + 3 Claude thinking block-splitter tests mocking the Anthropic SDK).
+- **Two new MkDocs guides** — `docs/guides/shift_share_political_panel.md` (full panel-IV recipe incl. AKM shock-cluster) and `docs/guides/causal_mas.md` (multi-agent LLM causal discovery walkthrough).
+
+All v1.4.0 APIs remain stable; the new surface is strictly additive kwargs.
+
+**Previously in v1.4.0 — v3-frontier Sprint 2: panel shift-share, real-LLM adapters, particle-filter assimilation, 3 new guides**
+
+StatsPAI 1.4.0 is Sprint 2 of the 知识地图 v3 roadmap. Closes the four secondary items flagged at the end of Sprint 1: multi-period Park-Xu political shift-share, real OpenAI / Anthropic LLM adapters for the Causal MAS discovery agent, a particle-filter backend for `causal_kalman` to handle non-Gaussian priors and nonlinear dynamics, and three new MkDocs guides covering the v3 frontier. 20 unused-import cleanups across Sprint 1 modules. One CI flake (CausalForest ATE parity test) deflaked by seeding the forest explicitly.
 
 | Area | v1.4 Highlights |
 | --- | --- |
@@ -970,7 +981,7 @@ pytest
   author={Wang, Biaoyue},
   year={2026},
   url={https://github.com/brycewang-stanford/statspai},
-  version={1.4.0}
+  version={1.4.1}
 }
 ```
 

@@ -2,6 +2,87 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.4.1] — 2026-04-21 — v3-frontier sprint 3 (AKM SE + Claude thinking + parity suites + docs)
+
+Additive follow-up to v1.4.0.  All v1.4.0 APIs remain stable; new
+functionality is exposed through additive kwargs on existing entry
+points.
+
+### Added — shock-clustered SE for panel shift-share
+
+- **`sp.shift_share_political_panel(..., cluster='shock')`** — new
+  option computes the panel-extended Adão-Kolesár-Morales (2019)
+  variance estimator recommended by Park-Xu (2026) §4.2:
+
+  ```text
+  u_k = Σ_{i, t} s_{ikt} · Z̃_{it} · ε̂_{it}
+  Var(β̂) = Σ_k u_k² / (D̂'_fit · D̃)²
+  ```
+
+  Typically 3× tighter than unit-clustered SEs in settings with 10–100
+  industries.  `diagnostics['akm_se']` exposes the value alongside the
+  chosen cluster type, and `diagnostics['cluster']` is now a
+  human-readable label (`"shock (AKM 2019)"` when the shock estimator
+  is active).
+  [`bartik/political.py`]
+
+### Added — Claude extended-thinking support for Causal MAS
+
+- **`sp.causal_llm.anthropic_client(..., thinking_budget=N)`** — opt
+  into the Claude 4.5 / Opus 4.7 **extended-thinking** API.  The
+  reasoning trace is captured on `client.history[-1]['thinking']` for
+  auditability but is NOT included in the public answer parsed by
+  `causal_mas`.  Compatible with Anthropic's `thinking` /
+  `redacted_thinking` content blocks; both are handled cleanly.
+  Validates `thinking_budget >= 1024` and `< max_tokens` eagerly, so
+  misconfiguration fails loudly before the first API call.
+  [`causal_llm/llm_clients.py`]
+
+### Added — parity + integration test suites
+
+- **`tests/reference_parity/test_assimilation_parity.py`** — 10 checks
+  on the Kalman / particle backends:
+  - static-effect posterior recovery (both backends)
+  - Kalman ↔ particle agreement on three seeds (point + SD within 15%)
+  - monotone posterior variance under `process_var = 0`
+  - particle-filter ESS stays above threshold after resampling
+  - Student-t particle beats Kalman on a contaminated stream
+  - drift tracking without variance blow-up
+  - `assimilative_causal(backend=...)` matches direct-backend calls
+
+- **`tests/integration/test_causal_mas_with_fake_llm.py`** — 11
+  end-to-end integration tests using the deterministic `echo_client`
+  to drive the proposer / critic / domain-expert / synthesiser loop:
+  proposer parsing (newlines + bullets), critic rejection,
+  domain-expert endorsement lifting confidence, transcript
+  auditability, confidence scaling with rounds, role overrides, DAG
+  interop via `sp.dag(...)`, plus three Claude-thinking content-block
+  splitter tests that mock Anthropic responses without requiring the
+  `anthropic` SDK at test time.
+
+### Documentation
+
+Two new MkDocs guides, wired into `mkdocs.yml` nav under
+*DID & Panel Methods* / guides:
+
+- `docs/guides/shift_share_political_panel.md` — full panel-IV recipe
+  including AKM shock-cluster guidance and pretrend workflow.
+- `docs/guides/causal_mas.md` — multi-agent LLM causal discovery,
+  real-SDK integration, Claude thinking-mode walkthrough, and
+  end-to-end pipe into `sp.dag` / `sp.identify`.
+
+### Fixed
+
+- Integration test used `dag.edges()` but `DAG.edges` is a list-of-
+  tuples **attribute** (not a method).  Corrected to `dag.edges`.
+
+### Backwards compatibility
+
+- All v1.4.0 APIs remain stable.  The only new surface is additive
+  kwargs:
+  - `sp.shift_share_political_panel(cluster='shock')`
+  - `sp.causal_llm.anthropic_client(thinking_budget=N)`
+
 ## [1.4.0] — 2026-04-21 — v3-frontier sprint 2 (extensions + LLM SDK + docs)
 
 Follow-up to v1.3.0 covering the four secondary items flagged at the
