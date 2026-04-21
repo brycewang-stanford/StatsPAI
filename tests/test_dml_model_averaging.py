@@ -76,3 +76,22 @@ def test_registered_in_public_api():
     fns = sp.list_functions()
     assert "dml_model_averaging" in fns
     assert "model_averaging_dml" in fns
+
+
+def test_se_on_correct_scale():
+    """Regression test for the v1.5.1 √n scaling bug.
+
+    Before the fix, the CI width was ~√n × too wide (≈4.2 for n=400 instead
+    of ~0.2). After the fix, on the canonical DGP with true θ=1.5 and
+    n=400, a single draw should give a CI width well under 1.0.
+    """
+    df = _synth_dml_data(seed=42, n=400)
+    r = sp.dml_model_averaging(
+        df, y="y", treat="d",
+        covariates=[f"x{j}" for j in range(8)],
+        n_folds=3, seed=42,
+    )
+    width = r.ci[1] - r.ci[0]
+    assert width < 1.0, f"CI width {width:.3f} suggests the √n scaling bug has regressed"
+    # Point estimate shouldn't have drifted wildly
+    assert abs(r.estimate - 1.5) < 0.5

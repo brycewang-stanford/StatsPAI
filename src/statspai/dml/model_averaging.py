@@ -217,13 +217,17 @@ def dml_model_averaging(
 
     theta_avg = float(np.sum(w * thetas))
 
-    # --- variance: covariance between candidate scores --------------- #
-    psi_matrix = np.zeros((n, len(thetas)))
+    # --- variance: cross-candidate influence-function covariance ------ #
+    # For DML-PLR each θ̂_k has influence function φ_k,i = ψ_k,i / J_k so
+    # Var(θ̂_avg) = (1/n²) · w^T (Φ^T Φ) w where Φ is the n × K matrix of
+    # influence functions.  We store φ/√n so Φ^T Φ already carries one
+    # factor of 1/n; dividing by n once more gives Var(θ̂_avg).
+    phi_matrix = np.zeros((n, len(thetas)))
     for k, (y_r, d_r, theta_k) in enumerate(resids):
         J_k = -np.mean(d_r ** 2)
-        psi_matrix[:, k] = (y_r - theta_k * d_r) * d_r / (J_k * np.sqrt(n))
-    cov = psi_matrix.T @ psi_matrix
-    var_avg = float(w @ cov @ w)
+        phi_matrix[:, k] = (y_r - theta_k * d_r) * d_r / (J_k * np.sqrt(n))
+    cov_scaled = phi_matrix.T @ phi_matrix            # ≈ (1/n) · Σ φ_k φ_l
+    var_avg = float(w @ cov_scaled @ w) / n           # = (1/n²) · Σ w_k w_l Σ φ_k φ_l
     se_avg = float(np.sqrt(max(var_avg, 0.0)))
 
     z = sp_stats.norm.ppf(1 - alpha / 2)
