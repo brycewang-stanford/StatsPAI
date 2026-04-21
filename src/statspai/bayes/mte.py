@@ -115,7 +115,7 @@ def bayes_mte(
     mte_method: str = 'polynomial',
     selection: str = 'uniform',
     u_grid: Optional[np.ndarray] = None,
-    poly_u: int = 2,
+    poly_u: Optional[int] = None,
     prior_coef_sigma: float = 10.0,
     prior_mte_sigma: float = 5.0,
     prior_noise: float = 5.0,
@@ -188,10 +188,15 @@ def bayes_mte(
     u_grid : np.ndarray, optional
         Grid of propensity-to-be-treated values on which to evaluate
         the MTE posterior. Default: ``np.linspace(0.05, 0.95, 19)``.
-    poly_u : int, default 2
+    poly_u : int, optional
         Polynomial order of the MTE in ``U_D``. ``poly_u=0`` reduces
         to a constant treatment effect; ``poly_u=2`` captures
-        U-shaped or inverted-U selection on gains.
+        U-shaped or inverted-U selection on gains. Default resolves
+        per ``mte_method``: 2 for ``'polynomial'`` / ``'hv_latent'``,
+        and 1 for ``'bivariate_normal'`` (the model is inherently
+        linear in ``V`` there and ignores any other value). Passing
+        an explicit non-1 value with ``mte_method='bivariate_normal'``
+        emits a UserWarning before the override.
     prior_mte_sigma : float, default 5.0
         SD on each MTE polynomial coefficient (Normal prior).
     prior_coef_sigma, prior_noise : float
@@ -257,6 +262,13 @@ def bayes_mte(
             f"selection must be 'uniform' or 'normal'; "
             f"got {selection!r}"
         )
+
+    # Resolve `poly_u=None` to the method-appropriate default so that
+    # the signature default no longer requires a fixed integer and
+    # 'bivariate_normal' stops emitting a spurious "poly_u=2 -> 1"
+    # warning on every default-arg call.
+    if poly_u is None:
+        poly_u = 1 if mte_method == 'bivariate_normal' else 2
 
     # Bivariate-normal HV is inherently a V-scale joint-first-stage
     # model; raise loudly instead of silently mis-specifying. The

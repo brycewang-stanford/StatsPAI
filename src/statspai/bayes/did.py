@@ -29,8 +29,19 @@ def _prepare_did_frame(
     unit: Optional[str],
     time: Optional[str],
     covariates: Optional[List[str]],
+    cohort: Optional[str] = None,
 ) -> dict:
-    """Validate, drop NA, and extract arrays for DID."""
+    """Validate, drop NA, and extract arrays for DID.
+
+    ``cohort`` is threaded through here (rather than being handled
+    separately in ``bayes_did``) so its NaN rows get dropped in the
+    same pass as ``y / treat / post / unit / time / covariates``.
+    Using two independent ``dropna`` calls — which is what v0.9.16's
+    first draft did — caused a silent row-alignment bug whenever
+    ``cohort`` had NaN rows that the other columns did not: the
+    cohort-codes array and ``DID`` array ended up with different
+    lengths (or same length but different rows).
+    """
     required = [y, treat, post]
     for c in required:
         if c not in data.columns:
@@ -50,6 +61,10 @@ def _prepare_did_frame(
             if c not in data.columns:
                 raise ValueError(f"Covariate '{c}' not found in data")
         cols.extend(covariates)
+    if cohort is not None:
+        if cohort not in data.columns:
+            raise ValueError(f"Column '{cohort}' (cohort) not found in data")
+        cols.append(cohort)
 
     clean = data[cols].dropna().reset_index(drop=True)
     n = len(clean)
@@ -94,6 +109,18 @@ def _prepare_did_frame(
                 "time random effect."
             )
 
+    cohort_codes: Optional[np.ndarray] = None
+    cohort_labels: list = []
+    if cohort is not None:
+        codes, uniques = pd.factorize(clean[cohort], sort=True)
+        cohort_codes = np.asarray(codes, dtype=np.int64)
+        cohort_labels = list(uniques)
+        if len(cohort_labels) < 2:
+            raise ValueError(
+                f"cohort column '{cohort}' has < 2 distinct values; "
+                "per-cohort ATT requires at least 2 cohorts."
+            )
+
     X: Optional[np.ndarray] = None
     if covariates:
         X = clean[covariates].to_numpy(dtype=float)
@@ -108,6 +135,8 @@ def _prepare_did_frame(
         'n_units': n_units,
         'time_idx': time_idx,
         'n_times': n_times,
+        'cohort_idx': cohort_codes,
+        'cohort_labels': cohort_labels,
         'X': X,
         'covariates': list(covariates) if covariates else [],
     }
@@ -207,7 +236,15 @@ def bayes_did(
     """
     pm, _ = _require_pymc()
 
-    prep = _prepare_did_frame(data, y, treat, post, unit, time, covariates)
+    # Thread `cohort` into `_prepare_did_frame` so every NaN gets
+    # dropped in a single pass and `cohort_codes` is guaranteed to
+    # align row-for-row with `DID`. A prior implementation did two
+    # independent dropna() calls and silently mis-aligned the two
+    # arrays whenever `cohort` had NaN rows the other columns did
+    # not (not caught by synthetic-data tests that have no NaN).
+    prep = _prepare_did_frame(
+        data, y, treat, post, unit, time, covariates, cohort=cohort,
+    )
     n = prep['n']
     Y = prep['Y']
     T = prep['T']
@@ -218,34 +255,8 @@ def bayes_did(
     use_unit_re = prep['unit_idx'] is not None
     use_time_re = prep['time_idx'] is not None
 
-    # Cohort wiring: factorise once so the model gets integer codes and
-    # the result carries back the user's original labels for tidy(). We
-    # factorise on the dropna'd frame to keep index alignment with DID.
-    cohort_codes: Optional[np.ndarray] = None
-    cohort_labels: list = []
-    if cohort is not None:
-        if cohort not in data.columns:
-            raise ValueError(f"Column '{cohort}' (cohort) not found in data")
-        cols_for_factor = [y, treat, post]
-        if unit is not None:
-            cols_for_factor.append(unit)
-        if time is not None:
-            cols_for_factor.append(time)
-        if covariates:
-            cols_for_factor.extend(covariates)
-        cols_for_factor.append(cohort)
-        clean_for_cohort = (
-            data[cols_for_factor].dropna().reset_index(drop=True)
-        )
-        codes, uniques = pd.factorize(clean_for_cohort[cohort], sort=True)
-        cohort_codes = np.asarray(codes, dtype=np.int64)
-        cohort_labels = list(uniques)
-        n_cohorts = len(cohort_labels)
-        if n_cohorts < 2:
-            raise ValueError(
-                f"cohort column '{cohort}' has < 2 distinct values; "
-                "per-cohort ATT requires at least 2 cohorts."
-            )
+    cohort_codes = prep['cohort_idx']
+    cohort_labels = prep['cohort_labels']
 
     mu_ate, sigma_ate = prior_ate
 

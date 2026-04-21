@@ -178,3 +178,43 @@ def test_cohort_weight_recorded_in_model_info(staggered_did_data):
     # treated cohorts; control cohort gets weight 0).
     assert all(wi >= 0 for wi in w)
     assert abs(sum(w) - 1.0) < 1e-9
+
+
+def test_cohort_nan_rows_dropped_consistently(staggered_did_data):
+    """Regression test for a row-alignment bug caught in self-review:
+    if ``cohort`` has NaN rows that ``y/treat/post`` do not, the
+    cohort-codes array and DID array must still be length-aligned.
+    Both are produced by a single ``dropna()`` pass inside
+    ``_prepare_did_frame``, so any extra NaN in the cohort column
+    removes the row for ALL arrays uniformly."""
+    df = staggered_did_data.copy()
+    # Poison 15 rows' cohort values with NaN while leaving y/treat/post
+    # intact. If dropna were handled separately for cohort vs DID, this
+    # would desynchronise the arrays and either (a) error with a
+    # length-mismatch from PyMC or (b) silently fit with shuffled cohorts.
+    rng = np.random.default_rng(77)
+    poison_idx = rng.choice(df.index, size=15, replace=False)
+    df.loc[poison_idx, 'cohort'] = np.nan
+
+    r = bayes_did(df, y='y', treat='treat', post='post',
+                  cohort='cohort',
+                  draws=150, tune=150, chains=2, progressbar=False,
+                  random_state=78)
+    # Sanity: the model fits without shape errors (the bug manifested
+    # as a PyMC shape-mismatch exception).
+    assert len(r.cohort_labels) == 3
+    # Setting a cell to NaN promotes the whole column from int64 to
+    # float64 in pandas, so cohort labels become floats (-1.0, 2019.0,
+    # 2020.0). The tidy infrastructure stringifies them consistently —
+    # look up posteriors via whatever stringification the result uses.
+    summaries = r.cohort_summaries
+    label_2019 = next(
+        k for k in summaries if str(k) in ('2019', '2019.0')
+    )
+    label_2020 = next(
+        k for k in summaries if str(k) in ('2020', '2020.0')
+    )
+    m_2019 = summaries[label_2019]['posterior_mean']
+    m_2020 = summaries[label_2020]['posterior_mean']
+    # Ordering (2.0 > 0.5) is preserved after dropping 15 rows.
+    assert m_2019 > m_2020
