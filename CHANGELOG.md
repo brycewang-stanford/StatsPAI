@@ -2,6 +2,55 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.14] - 2026-04-20 — Summary rendering completes v0.9.13 spec §3.3
+
+Tiny patch release. Completes the "ATT/ATU in `summary()`" promise
+from v0.9.13 spec §3.3 that was not actually wired at ship time
+(the six uncertainty fields landed but `summary()` never printed
+them).
+
+### Added (0.9.14)
+
+- **`BayesianMTEResult.summary()`** override. Extends
+  `BayesianCausalResult.summary` with a `Population-integrated effects`
+  block:
+
+      ATT: 0.2407 (sd 0.0370, 95% HDI [0.1693, 0.3136])
+      ATU: 0.2147 (sd 0.0435, 95% HDI [0.1341, 0.2947])
+
+  Rendered inside the framing `=` ruler for visual coherence.
+  Silently skipped when either SD is NaN (empty subpopulation or
+  pre-v0.9.13 deserialised result).
+
+### Round-B review: no blockers
+
+Reviewer confirmed:
+1. `base.endswith('=' * 70)` is exact — parent `summary()` returns
+   `'\n'.join(lines)` with the rule as the final element.
+2. Block splicing preserves the closing ruler visually.
+3. NaN stub path is safe; fallback branch is defensive.
+4. `'ATT:'` / `'ATU:'` are unique substrings — no collision with
+   parent output.
+5. Pure reader; thread-safe.
+
+### Tests (0.9.14)
+
+- `tests/test_bayes_mte_uncertainty.py` now has:
+  - `test_summary_shows_att_atu_uncertainty` — after fit, string
+    contains `'ATT:'`, `'ATU:'`, `'sd '`, `'HDI ['`.
+  - `test_summary_skips_att_atu_when_nan` — NaN-SD stub → no
+    `'ATT:'` / `'ATU:'` in output.
+- Full Bayesian suite: 88/88 focused MTE + sibling green in 1:55.
+
+### Non-goals (0.9.14)
+
+- `.tidy()` multi-row variant with ATE/ATT/ATU as separate rows
+  — queued for v0.9.15+.
+- Full bivariate-normal HV model.
+- Rust Phase 2.
+
+---
+
 ## [0.9.13] - 2026-04-20 — ArviZ HDI compat shim + ATT/ATU uncertainty
 
 Small-but-load-bearing cleanup release. Closes two items deferred

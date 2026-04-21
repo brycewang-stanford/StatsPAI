@@ -83,3 +83,42 @@ def test_bayes_mte_att_atu_both_finite_on_realistic_dgp():
     assert np.isfinite(r.atu)
     assert np.isfinite(r.att_sd)
     assert np.isfinite(r.atu_sd)
+
+
+def test_summary_shows_att_atu_uncertainty():
+    """summary() must print an ATT / ATU block with sd + HDI once
+    the SD fields are finite (spec §3.3)."""
+    df = _hv_dgp(300, slope=1.0, seed=23)
+    r = bayes_mte(df, y='y', treat='d', instrument='z', poly_u=1,
+                  draws=200, tune=200, chains=2, progressbar=False)
+    s = r.summary()
+    assert 'ATT:' in s
+    assert 'ATU:' in s
+    # sd is lower-case in the spec-mandated format
+    assert 'sd ' in s
+    assert 'HDI [' in s
+
+
+def test_summary_skips_att_atu_when_nan():
+    """If ATT/ATU SDs are NaN (e.g. deserialised pre-v0.9.13 result),
+    summary() must silently omit the block rather than printing
+    ``sd nan`` garbage."""
+    from statspai.bayes._base import BayesianMTEResult
+    stub = BayesianMTEResult(
+        method='bayes_mte',
+        estimand='ATE',
+        posterior_mean=0.5,
+        posterior_median=0.5,
+        posterior_sd=0.1,
+        hdi_lower=0.3,
+        hdi_upper=0.7,
+        prob_positive=0.99,
+        rhat=1.0,
+        ess=400.0,
+        n_obs=100,
+        hdi_prob=0.95,
+        model_info={'inference': 'nuts', 'chains': 2, 'draws': 100},
+    )
+    out = stub.summary()
+    assert 'ATT:' not in out
+    assert 'ATU:' not in out

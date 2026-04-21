@@ -426,6 +426,38 @@ class BayesianMTEResult(BayesianCausalResult):
     atu_hdi_lower: float = float('nan')
     atu_hdi_upper: float = float('nan')
 
+    def summary(self) -> str:
+        """Printable summary with ATT/ATU uncertainty appended.
+
+        Extends ``BayesianCausalResult.summary`` with a block printing
+        ``ATT`` / ``ATU`` posterior mean, SD and HDI when the SD
+        fields are finite. Silently skipped (parent summary only) when
+        either side of the population is empty or the result was
+        deserialised from a pre-v0.9.13 snapshot (fields default NaN).
+        """
+        base = super().summary()
+        extra: list[str] = []
+        pct = int(self.hdi_prob * 100)
+        if np.isfinite(self.att_sd):
+            extra.append(
+                f'  ATT: {self.att:.4f} (sd {self.att_sd:.4f}, '
+                f'{pct}% HDI [{self.att_hdi_lower:.4f}, '
+                f'{self.att_hdi_upper:.4f}])'
+            )
+        if np.isfinite(self.atu_sd):
+            extra.append(
+                f'  ATU: {self.atu:.4f} (sd {self.atu_sd:.4f}, '
+                f'{pct}% HDI [{self.atu_hdi_lower:.4f}, '
+                f'{self.atu_hdi_upper:.4f}])'
+            )
+        if not extra:
+            return base
+        block = '\n'.join(['-' * 70, 'Population-integrated effects', *extra])
+        closing = '=' * 70
+        if base.endswith(closing):
+            return base[: -len(closing)] + block + '\n' + closing
+        return base + '\n' + block
+
     def policy_effect(
         self,
         weight_fn,

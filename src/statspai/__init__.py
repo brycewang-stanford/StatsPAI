@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.13"
+__version__ = "0.9.14"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -96,7 +96,7 @@ from .output.estimates import eststo, estclear, esttab
 from .output.regression_table import regtable, RegtableResult, mean_comparison, MeanComparisonResult
 from .output.paper_tables import paper_tables, PaperTables, TEMPLATES as PAPER_TABLE_TEMPLATES
 from .postestimation import margins, marginsplot, margins_at, margins_at_plot, contrast, pwcompare, test, lincom
-from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, effective_f_test, tF_critical_value, evalue, evalue_from_result, diagnose_result, estat, kitagawa_test, KitagawaResult
+from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, effective_f_test, tF_critical_value, evalue, evalue_from_result, diagnose_result, estat, kitagawa_test, KitagawaResult, rosenbaum_bounds, rosenbaum_gamma, RosenbaumResult
 from .inference import (
     wild_cluster_bootstrap, aipw, ri_test, ipw, bootstrap, BootstrapResult,
     twoway_cluster, conley, pate, PATEEstimator, fisher_exact, FisherResult,
@@ -106,7 +106,11 @@ from .inference import (
     g_computation, front_door,
 )
 from .msm import msm, MarginalStructuralModel, stabilized_weights
-from .proximal import proximal, ProximalCausalInference
+from .proximal import (
+    proximal, ProximalCausalInference,
+    negative_control_outcome, negative_control_exposure,
+    double_negative_control, NegativeControlResult,
+)
 from .principal_strat import (
     principal_strat, PrincipalStratResult, survivor_average_causal_effect,
 )
@@ -156,7 +160,7 @@ from .regression.logit_probit import logit, probit, cloglog
 from .regression.glm import glm, GLMRegression, GLMEstimator
 from .regression.count import poisson, nbreg, ppmlhdfe
 from .neural_causal import tarnet, cfrnet, dragonnet, TARNet, CFRNet, DragonNet
-from .causal_discovery import notears, NOTEARS, pc_algorithm, PCAlgorithm, lingam, LiNGAMResult, ges, GESResult
+from .causal_discovery import notears, NOTEARS, pc_algorithm, PCAlgorithm, lingam, LiNGAMResult, ges, GESResult, fci, FCIResult
 from .tmle import tmle, TMLE, super_learner, SuperLearner
 from .policy_learning import policy_tree, PolicyTree, policy_value
 from .conformal_causal import conformal_cate, ConformalCATE
