@@ -884,6 +884,246 @@ def _build_registry():
         reference="Frangakis & Rubin (2002); Zhang & Rubin (2003); Ding & Lu (2017)",
     ))
 
+    # -- v0.9.16 breadth-expansion: Target Trial Emulation ----------- #
+    register(FunctionSpec(
+        name="target_trial_protocol",
+        category="target_trial",
+        description=(
+            "Create a 7-component target trial protocol (Hernan-Robins / "
+            "JAMA 2022 framework). Formalizes eligibility, treatment "
+            "strategies, time zero, follow-up, outcome, causal contrast, "
+            "and analysis plan before any estimation."
+        ),
+        params=[
+            ParamSpec("eligibility", "str | list | callable", True),
+            ParamSpec("treatment_strategies", "list", True),
+            ParamSpec("assignment", "str", True,
+                      description="'randomization' or 'observational emulation'"),
+            ParamSpec("time_zero", "str", True),
+            ParamSpec("followup_end", "str", True),
+            ParamSpec("outcome", "str", True),
+            ParamSpec("causal_contrast", "str", False, "ITT",
+                      enum=["ITT", "per-protocol", "as-treated", "observational-analogue"]),
+            ParamSpec("analysis_plan", "str", False),
+            ParamSpec("baseline_covariates", "list", False),
+            ParamSpec("time_varying_covariates", "list", False),
+        ],
+        returns="TargetTrialProtocol",
+        example='proto = sp.target_trial_protocol(eligibility="age >= 50", ...)',
+        tags=["target_trial", "epidemiology", "observational", "JAMA"],
+        reference="Hernan & Robins (2016); JAMA (2022)",
+    ))
+    register(FunctionSpec(
+        name="clone_censor_weight",
+        category="target_trial",
+        description=(
+            "Clone-Censor-Weight (CCW) for sustained-treatment target "
+            "trials. Clones each subject per strategy, artificially "
+            "censors on deviation, and re-weights via IPCW."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("id_col", "str", True),
+            ParamSpec("time_col", "str", True),
+            ParamSpec("treatment_col", "str", True),
+            ParamSpec("strategies", "dict[str, callable]", True),
+            ParamSpec("censor_covariates", "list", False),
+            ParamSpec("stabilize", "bool", False, True),
+        ],
+        returns="CloneCensorWeightResult",
+        tags=["target_trial", "ccw", "longitudinal", "dynamic_strategy"],
+        reference="Cain et al. 2010; Hernan et al. 2016",
+    ))
+    register(FunctionSpec(
+        name="ipcw",
+        category="censoring",
+        description=(
+            "Inverse Probability of Censoring Weights -- corrects for "
+            "informative censoring under conditional independent "
+            "censoring given covariates."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("event", "str", True),
+            ParamSpec("censor_covariates", "list", True),
+            ParamSpec("treatment_covariates", "list", False),
+            ParamSpec("stabilize", "bool", False, True),
+            ParamSpec("method", "str", False, "pooled_logistic",
+                      enum=["pooled_logistic", "cox_ph"]),
+            ParamSpec("truncate", "tuple", False, (0.01, 0.99)),
+        ],
+        returns="IPCWResult",
+        tags=["censoring", "weighting", "survival", "What If"],
+        reference="Robins & Finkelstein (2000); Cole & Hernan (2008)",
+    ))
+
+    # -- v0.9.16 breadth-expansion: DAG / SCM -------------------------- #
+    register(FunctionSpec(
+        name="identify",
+        category="dag",
+        description=(
+            "Shpitser-Pearl ID algorithm: decide if P(Y | do(X)) is "
+            "non-parametrically identifiable on a semi-Markovian DAG, "
+            "return the do-free estimand or a witness hedge."
+        ),
+        params=[
+            ParamSpec("dag", "DAG", True),
+            ParamSpec("treatment", "str | set", True),
+            ParamSpec("outcome", "str | set", True),
+        ],
+        returns="IdentificationResult",
+        example='sp.identify(sp.dag("Z->X;Z->Y;X->Y"), treatment="X", outcome="Y")',
+        tags=["dag", "identification", "scm", "pearl"],
+        reference="Shpitser & Pearl (2006); Tian & Pearl (2002)",
+    ))
+    register(FunctionSpec(
+        name="swig",
+        category="dag",
+        description=(
+            "Build a Single-World Intervention Graph (SWIG) by "
+            "node-splitting intervened variables. Bridges Pearl's SCM "
+            "and Hernan-Robins potential-outcome languages."
+        ),
+        params=[
+            ParamSpec("dag", "DAG", True),
+            ParamSpec("intervention", "dict | list", True),
+        ],
+        returns="SWIGGraph",
+        tags=["dag", "swig", "counterfactual"],
+        reference="Richardson & Robins (2013)",
+    ))
+
+    # -- v0.9.16 breadth-expansion: Causal Discovery (ICP) ----------- #
+    register(FunctionSpec(
+        name="icp",
+        category="causal_discovery",
+        description=(
+            "Invariant Causal Prediction: infer direct parents of Y by "
+            "testing invariance of P(Y | X_S) across environments."
+        ),
+        params=[
+            ParamSpec("X", "DataFrame", True),
+            ParamSpec("y", "ndarray", True),
+            ParamSpec("environment", "ndarray", True),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("method", "str", False, "linear",
+                      enum=["linear", "nonlinear"]),
+            ParamSpec("max_subset_size", "int", False),
+        ],
+        returns="ICPResult",
+        tags=["causal_discovery", "invariance", "icp"],
+        reference="Peters, Bühlmann & Meinshausen (2016)",
+    ))
+
+    # -- v0.9.16 breadth-expansion: Transportability ------------------ #
+    register(FunctionSpec(
+        name="transport_weights_fn",
+        category="transport",
+        description=(
+            "Density-ratio (inverse odds of sampling) weighting to "
+            "transport an effect estimated in the source population to "
+            "a named target population."
+        ),
+        params=[
+            ParamSpec("source", "DataFrame", True),
+            ParamSpec("target", "DataFrame", True),
+            ParamSpec("features", "list", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("outcome", "str", True),
+            ParamSpec("truncate", "tuple", False, (0.01, 0.99)),
+        ],
+        returns="TransportWeightResult",
+        tags=["transport", "external_validity", "weighting"],
+        reference="Stuart et al. (2011); Dahabreh et al. (2020)",
+    ))
+    register(FunctionSpec(
+        name="identify_transport",
+        category="transport",
+        description=(
+            "Pearl-Bareinboim transportability: enumerate s-admissible "
+            "adjustment sets on a selection diagram; returns the "
+            "transport formula or NOT identifiable."
+        ),
+        params=[
+            ParamSpec("dag", "DAG", True),
+            ParamSpec("treatment", "str | set", True),
+            ParamSpec("outcome", "str | set", True),
+            ParamSpec("selection_nodes", "set", True),
+        ],
+        returns="TransportIdentificationResult",
+        tags=["transport", "selection_diagram", "bareinboim"],
+        reference="Bareinboim & Pearl (2013)",
+    ))
+
+    # -- v0.9.16 breadth-expansion: Off-Policy Evaluation ------------- #
+    register(FunctionSpec(
+        name="OPEResult",
+        category="ope",
+        description=(
+            "Container returned by sp.ope.* estimators (IPS, SNIPS, DR, "
+            "Switch-DR, DM). Reports value, SE, CI, importance-ratio "
+            "diagnostics."
+        ),
+        params=[],
+        returns="OPEResult",
+        tags=["ope", "contextual_bandits", "rl"],
+        reference="Dudik, Langford & Li (2011); Swaminathan & Joachims (2015)",
+    ))
+
+    # -- v0.9.16 breadth-expansion: CEVAE ---------------------------- #
+    register(FunctionSpec(
+        name="cevae",
+        category="neural_causal",
+        description=(
+            "Causal Effect Variational Auto-Encoder: infer a latent "
+            "confounder Z from noisy proxies X, then estimate ITE via "
+            "counterfactual decoding. Uses PyTorch when available, "
+            "else a numpy linear-variational fallback."
+        ),
+        params=[
+            ParamSpec("X", "ndarray", True),
+            ParamSpec("treatment", "ndarray", True),
+            ParamSpec("outcome", "ndarray", True),
+            ParamSpec("z_dim", "int", False, 4),
+            ParamSpec("hidden", "int", False, 32),
+            ParamSpec("lr", "float", False, 1e-2),
+            ParamSpec("n_epochs", "int", False, 200),
+            ParamSpec("seed", "int", False, 0),
+        ],
+        returns="CEVAEResult",
+        tags=["neural_causal", "vae", "latent_confounder"],
+        reference="Louizos et al. (2017)",
+    ))
+
+    # -- v0.9.16 breadth-expansion: Parametric g-formula ------------- #
+    register(FunctionSpec(
+        name="gformula_ice_fn",
+        category="g-formula",
+        description=(
+            "Parametric g-formula via Iterative Conditional Expectation "
+            "(ICE) -- sequential regression of the outcome on treatment "
+            "and time-varying confounders, with recursive plug-in of "
+            "the target strategy. Consistent under correctly-specified "
+            "nuisance models; handles time-varying confounding that "
+            "vanilla adjustment cannot."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("id_col", "str", True),
+            ParamSpec("time_col", "str", True),
+            ParamSpec("treatment_cols", "list", True),
+            ParamSpec("confounder_cols", "list | list[list]", True),
+            ParamSpec("outcome_col", "str", True),
+            ParamSpec("treatment_strategy", "list | callable", True),
+            ParamSpec("bootstrap", "int", False, 0),
+        ],
+        returns="ICEResult",
+        tags=["g-formula", "longitudinal", "time_varying_confounding",
+              "What If", "bang_robins"],
+        reference="Robins (1986); Bang & Robins (2005)",
+    ))
+
 
 # ====================================================================== #
 #  Auto-registration from statspai.__all__

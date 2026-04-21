@@ -153,7 +153,8 @@ from .metalearners import auto_cate_tuned
 from .bayes import (
     bayes_did, bayes_rd, bayes_iv, bayes_fuzzy_rd, bayes_hte_iv,
     bayes_mte,
-    BayesianCausalResult, BayesianHTEIVResult, BayesianMTEResult,
+    BayesianCausalResult, BayesianDIDResult, BayesianHTEIVResult,
+    BayesianIVResult, BayesianMTEResult,
     policy_weight_ate, policy_weight_subsidy,
     policy_weight_prte, policy_weight_marginal,
     policy_weight_observed_prte,
@@ -192,6 +193,8 @@ from .dag import (
 # === Transportability (Pearl-Bareinboim + Dahabreh-Stuart) ===
 from . import transport
 from .transport import (
+    weights as transport_weights_fn,
+    generalize as transport_generalize,
     TransportWeightResult,
     identify_transport, TransportIdentificationResult,
 )
@@ -683,7 +686,9 @@ __all__ = [
     "bayes_hte_iv",
     "bayes_mte",
     "BayesianCausalResult",
+    "BayesianDIDResult",
     "BayesianHTEIVResult",
+    "BayesianIVResult",
     "BayesianMTEResult",
     "policy_weight_ate",
     "policy_weight_subsidy",
@@ -961,6 +966,20 @@ __all__ = [
     "causal_discovery",
     "mediation",
     "evalue_rr",
+    # === v0.9.16 breadth-expansion API (Sprint 1-6) ===
+    "ipcw", "IPCWResult",
+    "icp", "nonlinear_icp", "ICPResult",
+    "identify", "IdentificationResult",
+    "do_rule1", "do_rule2", "do_rule3", "do_calculus_apply", "RuleCheck",
+    "swig", "SWIGGraph", "SCM",
+    "cevae", "CEVAE", "CEVAEResult",
+    "TargetTrialProtocol", "TargetTrialResult", "CloneCensorWeightResult",
+    "target_trial_protocol", "target_trial_emulate",
+    "clone_censor_weight", "immortal_time_check",
+    "TransportWeightResult", "TransportIdentificationResult",
+    "transport_generalize", "transport_weights_fn", "identify_transport",
+    "OPEResult",
+    "gformula_ice_fn", "ICEResult",
 ]
 
 
