@@ -79,6 +79,7 @@ import pandas as pd
 from ._base import (
     BayesianMTEResult,
     PROBIT_CLIP,
+    _az_hdi_compat,
     _require_pymc,
     _sample_model,
     _summarise_posterior,
@@ -432,7 +433,7 @@ def bayes_mte(
         v_grid_out = None
     for k, u in enumerate(u_grid):
         col = mte_samples[:, k]
-        hdi = np.asarray(az.hdi(col, hdi_prob=hdi_prob)).ravel()
+        hdi = _az_hdi_compat(col, hdi_prob=hdi_prob)
         row = {
             'u': float(u),
             'posterior_mean': float(np.mean(col)),
@@ -480,35 +481,41 @@ def bayes_mte(
     U_untreated = U_pop[untreated_mask] if untreated_mask.sum() > 0 else np.array([])
 
     def _integrated_effect(U_population):
+        """Posterior summary of the MTE integrated over a subpopulation.
+
+        Returns (mean, sd, hdi_lower, hdi_high). All NaN when the
+        subpopulation is empty (e.g. all units treated ⇒ no ATU).
+        """
         if U_population.size == 0:
-            return float('nan'), float('nan')
-        # For each posterior draw, evaluate MTE at each population
-        # unit's *abscissa*. Under `selection='normal'` the polynomial
-        # is in V = Φ^{-1}(U_D), so we must transform U_population
-        # before raising to powers — otherwise ATT/ATU evaluate
-        # `b_0 + b_1·u + …` on unit-level U_D ∈ [0,1] while the
-        # posterior `b_mte` describes `b_0 + b_1·v + …` on v ∈ ℝ.
-        # That was the BLOCKER found in v0.9.12 round-B review.
+            return (float('nan'),) * 4
         if selection == 'normal':
             from scipy.stats import norm as _norm_dist
-            pop_abscissa = _norm_dist.ppf(np.clip(U_population, PROBIT_CLIP, 1 - PROBIT_CLIP))
+            pop_abscissa = _norm_dist.ppf(
+                np.clip(U_population, PROBIT_CLIP, 1 - PROBIT_CLIP)
+            )
         else:
             pop_abscissa = U_population
         u_pow_pop = np.column_stack(
             [pop_abscissa ** k for k in range(poly_u + 1)]
         )
-        samples = b_mte_post @ u_pow_pop.T  # (S, n_pop)
+        samples = b_mte_post @ u_pow_pop.T   # (S, n_pop)
         per_draw_mean = samples.mean(axis=1)  # integrated over population
-        return float(per_draw_mean.mean()), float(per_draw_mean.std(ddof=1))
+        hdi = _az_hdi_compat(per_draw_mean, hdi_prob=hdi_prob)
+        return (
+            float(per_draw_mean.mean()),
+            float(per_draw_mean.std(ddof=1)),
+            float(hdi[0]),
+            float(hdi[1]),
+        )
 
-    att_mean, _ = _integrated_effect(U_treated)
-    atu_mean, _ = _integrated_effect(U_untreated)
+    att_mean, att_sd, att_hdi_lo, att_hdi_hi = _integrated_effect(U_treated)
+    atu_mean, atu_sd, atu_hdi_lo, atu_hdi_hi = _integrated_effect(U_untreated)
 
     # Primary estimand: average MTE (ATE integral)
     ate_mean = float(ate_samples.mean())
     ate_median = float(np.median(ate_samples))
     ate_sd = float(ate_samples.std(ddof=1))
-    ate_hdi = np.asarray(az.hdi(ate_samples, hdi_prob=hdi_prob)).ravel()
+    ate_hdi = _az_hdi_compat(ate_samples, hdi_prob=hdi_prob)
     prob_pos_ate = float(np.mean(ate_samples > 0))
 
     # R-hat / ESS on the average-MTE derived quantity — not perfect
@@ -587,4 +594,10 @@ def bayes_mte(
         att=att_mean,
         atu=atu_mean,
         selection=selection,
+        att_sd=att_sd,
+        att_hdi_lower=att_hdi_lo,
+        att_hdi_upper=att_hdi_hi,
+        atu_sd=atu_sd,
+        atu_hdi_lower=atu_hdi_lo,
+        atu_hdi_upper=atu_hdi_hi,
     )

@@ -22,6 +22,7 @@ import pandas as pd
 
 from ._base import (
     BayesianHTEIVResult,
+    _az_hdi_compat,
     _require_pymc,
     _sample_model,
     _summarise_posterior,
@@ -225,7 +226,7 @@ def bayes_hte_iv(
     _, az = _require_pymc()
     for k, name in enumerate(mod_cols):
         col = flat[:, k]
-        hdi = np.asarray(az.hdi(col, hdi_prob=hdi_prob)).ravel()
+        hdi = _az_hdi_compat(col, hdi_prob=hdi_prob)
         slope_rows.append({
             'term': name,
             'estimate': float(np.mean(col)),

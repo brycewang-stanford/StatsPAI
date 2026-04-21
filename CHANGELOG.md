@@ -2,6 +2,84 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.13] - 2026-04-20 — ArviZ HDI compat shim + ATT/ATU uncertainty
+
+Small-but-load-bearing cleanup release. Closes two items deferred
+across the v0.9.10 / v0.9.11 / v0.9.12 code reviews.
+
+### Added (0.9.13)
+
+- **`_az_hdi_compat(samples, hdi_prob)`** in `statspai.bayes._base`
+  — calls `az.hdi(samples, hdi_prob=...)` first, falls back to
+  `az.hdi(samples, prob=...)` on `TypeError`. Routes **every**
+  `az.hdi(...)` call site in the Bayesian sub-package through one
+  place so the inevitable arviz ≥ 0.18 kwarg rename is a one-line
+  change. Previously identified as time-bomb by v0.9.12 round-C
+  review.
+
+- **ATT / ATU uncertainty** on `BayesianMTEResult`:
+  - `att_sd`, `att_hdi_lower`, `att_hdi_upper`
+  - `atu_sd`, `atu_hdi_lower`, `atu_hdi_upper`
+
+  `_integrated_effect` now returns `(mean, sd, hdi_lower,
+  hdi_upper)` instead of `(mean, sd)`. `posterior_sd` on the parent
+  result already covers ATE uncertainty — no redundant `ate_sd`.
+
+- **Appended-at-end field order** on `BayesianMTEResult` — all six
+  new fields are NaN-defaulted and positioned after the v0.9.12
+  schema (`selection`). Serialised results from earlier releases
+  deserialise cleanly.
+
+### Round-B code review found no blockers
+
+Reviewer confirmed:
+1. `_az_hdi_compat` fallback shape correct for any future arviz
+   kwarg rename.
+2. Dataclass field order verified via live introspection.
+3. No `__hash__` risk on NaN fields; broom-style `.tidy()` /
+   `.glance()` intentionally do not surface the new SD/HDI fields
+   (opt-in access).
+4. Imports clean in `mte.py` + `hte_iv.py`.
+5. Empty-population NaN guardrail is defensive-only; unreachable
+   from `bayes_mte` because `_logit_propensity` enforces 2-class
+   requirement upstream. Test renamed to reflect this honestly.
+
+One MEDIUM item (test-docstring mislabel) fixed inline.
+
+### Incident log
+
+A mass `regex` rewrite from `az.hdi(...)` to `_az_hdi_compat(...)`
+accidentally matched the helper's own body, creating a
+`_az_hdi_compat → _az_hdi_compat` self-recursion. Caught by running
+the Bayesian focused suite (would have been a stack-overflow the
+moment any Bayesian estimator shipped). Reverted + re-applied
+manually in the same session before tests ever ran outside dev.
+
+### Tests (0.9.13)
+
+- `tests/test_bayes_hdi_compat.py` (4 tests) — forwards on current
+  arviz, falls back on monkey-patched future arviz, returns length-2
+  array, propagates `TypeError` when both kwargs rejected (no silent
+  success).
+- `tests/test_bayes_mte_uncertainty.py` (4 tests) — ATT/ATU SD
+  populated + > 0, HDI brackets mean, no redundant `ate_sd`, realistic-
+  DGP both-finite.
+- Bayesian family suite: 145/145 focused MTE + sibling tests green.
+
+### Design spec
+
+- `docs/superpowers/specs/2026-04-20-v0913-hdi-compat-and-att-sd.md`
+
+### Non-goals (0.9.13)
+
+- Full bivariate-normal HV `(U_0, U_1, V) ~ N(0, Σ)` — stays queued.
+- Rust Phase 2.
+- Expose ATT/ATU HDI on `.tidy()` — today `.tidy()` describes the
+  primary estimand (ATE); adding a multi-row variant for ATT/ATU is
+  a v0.9.14+ API question.
+
+---
+
 ## [0.9.12] - 2026-04-20 — Probit-scale MTE (Heckman selection frame)
 
 Adds the third orthogonal axis to `sp.bayes_mte`: the MTE polynomial

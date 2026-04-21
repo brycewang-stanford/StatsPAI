@@ -46,6 +46,25 @@ def _require_pymc():
     return pm, az
 
 
+def _az_hdi_compat(samples, hdi_prob: float = 0.95) -> np.ndarray:
+    """Call ``arviz.hdi`` with the correct kwarg regardless of version.
+
+    arviz < 0.18 accepts ``hdi_prob=...``; arviz ≥ 0.18 renamed it to
+    ``prob=...``. Everything else downstream expects a length-2 numpy
+    array (``[lower, upper]``), so we normalise the output too.
+
+    Code-review history: the v0.9.12 round-C review flagged the
+    direct ``az.hdi(..., hdi_prob=...)`` calls as a time-bomb for
+    arviz ≥ 0.18 upgrades. This shim routes all calls through one
+    place so a future arviz rename only touches this function.
+    """
+    _, az = _require_pymc()
+    try:
+        return np.asarray(az.hdi(samples, hdi_prob=hdi_prob)).ravel()
+    except TypeError:
+        return np.asarray(az.hdi(samples, prob=hdi_prob)).ravel()
+
+
 # ---------------------------------------------------------------------------
 # Result type
 # ---------------------------------------------------------------------------
@@ -365,7 +384,7 @@ class BayesianHTEIVResult(BayesianCausalResult):
             m_vec[i] = v - self._modifier_means[i]
 
         cate_samples = tau0 + tau_hte @ m_vec
-        hdi = np.asarray(az.hdi(cate_samples, hdi_prob=self.hdi_prob)).ravel()
+        hdi = _az_hdi_compat(cate_samples, hdi_prob=self.hdi_prob)
         return {
             'mean': float(np.mean(cate_samples)),
             'median': float(np.median(cate_samples)),
@@ -396,6 +415,16 @@ class BayesianMTEResult(BayesianCausalResult):
     # remembers this so `policy_effect` can transform the abscissa
     # before integrating against the user's weight_fn.
     selection: str = 'uniform'
+    # v0.9.13: ATT / ATU uncertainty triplets. Default NaN so
+    # pre-v0.9.13 serialised results back-compat. ``posterior_sd`` on
+    # the parent already covers ATE uncertainty (ATE is the primary
+    # estimand) so there is no ``ate_sd`` field.
+    att_sd: float = float('nan')
+    att_hdi_lower: float = float('nan')
+    att_hdi_upper: float = float('nan')
+    atu_sd: float = float('nan')
+    atu_hdi_lower: float = float('nan')
+    atu_hdi_upper: float = float('nan')
 
     def policy_effect(
         self,
@@ -478,7 +507,7 @@ class BayesianMTEResult(BayesianCausalResult):
         numer_samples = np.trapezoid(mte_samples * weights, x=u, axis=1)
         policy_samples = numer_samples / denom
 
-        hdi = np.asarray(az.hdi(policy_samples, hdi_prob=self.hdi_prob)).ravel()
+        hdi = _az_hdi_compat(policy_samples, hdi_prob=self.hdi_prob)
         summary = {
             'label': label,
             'estimate': float(np.mean(policy_samples)),
@@ -548,9 +577,7 @@ def _summarise_posterior(
     mean = float(np.mean(posterior))
     median = float(np.median(posterior))
     sd = float(np.std(posterior, ddof=1))
-    hdi = az.hdi(posterior, hdi_prob=hdi_prob)
-    # az.hdi may return a numpy array (older arviz) or DataArray
-    hdi_arr = np.asarray(hdi).ravel()
+    hdi_arr = _az_hdi_compat(posterior, hdi_prob=hdi_prob)
     hdi_lower = float(hdi_arr[0])
     hdi_upper = float(hdi_arr[1])
     prob_positive = float(np.mean(posterior > 0))
