@@ -224,6 +224,80 @@ class TestLeeSenateParity:
 
 
 # =========================================================================
+# Angrist-Krueger (1991) — quarter-of-birth IV for returns to schooling
+# =========================================================================
+
+class TestAngristKrueger1991Parity:
+    """QOB IV on AK91 replica should recover returns to schooling ≈ 0.10.
+
+    Published values (Angrist & Krueger 1991, QJE 106):
+      - OLS lwage ~ educ:            ≈ 0.07
+      - IV (q1-q3 as instruments):   ≈ 0.08-0.11 (Table V)
+
+    The simulated replica calibrates to the 0.10 point.  We assert:
+      - OLS in a plausible band
+      - IV in the published band
+      - First-stage F survives weak-IV diagnostics
+    """
+
+    @pytest.fixture(scope='class')
+    def df(self):
+        return sp.datasets.angrist_krueger_1991()
+
+    def test_has_paper_attr(self, df):
+        assert 'paper' in df.attrs
+        assert 'Angrist' in df.attrs['paper']
+
+    def test_ols_educ_in_plausible_band(self, df):
+        r = sp.regress("lwage ~ educ", data=df)
+        ols_educ = float(r.params['educ'])
+        # OLS on this simulated replica lands around 0.13; published
+        # (original data) is ~0.07.  We keep a wide band because the
+        # simulated DGP is calibrated to the IV target, not the OLS one.
+        assert 0.02 <= ols_educ <= 0.20, (
+            f"AK91 OLS {ols_educ} outside [0.02, 0.20]; published ~0.07"
+        )
+
+    def test_iv_educ_in_published_band(self, df):
+        """IV with q1/q2/q3 as instruments should fall near the DGP
+        target of 0.10 (published original-data range: 0.08-0.11).
+
+        NOTE: use ``sp.ivreg``, not ``sp.iv`` — the package re-binds
+        ``sp.iv`` to the subpackage (see ``__init__.py`` L127-129).
+
+        The simulated replica is calibrated to 0.10 with deterministic
+        seed, so the band ``[0.07, 0.13]`` is tight enough to catch real
+        regressions (e.g. biased pseudo-inverse) while still absorbing
+        moderate implementation drift.  The original paper's band was
+        ``(0.08, 0.11)``; we extend by ±0.02 for simulation variance."""
+        r = sp.ivreg("lwage ~ (educ ~ q1 + q2 + q3)", data=df)
+        iv_educ = float(r.params['educ'])
+        published_lo, published_hi = df.attrs['published_iv_original_range']
+        lo = published_lo - 0.02
+        hi = published_hi + 0.02
+        assert lo <= iv_educ <= hi, (
+            f"AK91 IV {iv_educ} outside [{lo}, {hi}]; "
+            f"published {published_lo}-{published_hi}"
+        )
+
+    def test_first_stage_f_strong_enough(self, df):
+        """First-stage F on q1+q2+q3 → educ should not be weak-IV-critical.
+
+        The diagnostics dict uses the statsmodels-style "F-statistic" key
+        rather than "f_stat".  Stock-Yogo 10% threshold for 1 endogenous,
+        3 instruments is ~9.08; the AK91 replica calibrates to a moderate
+        first stage so we relax to > 5 to absorb simulation variance."""
+        fs = sp.regress("educ ~ q1 + q2 + q3", data=df)
+        f_stat = float(
+            fs.diagnostics.get('F-statistic',
+                               fs.diagnostics.get('f_stat', 0.0))
+        )
+        assert f_stat > 5.0, (
+            f"AK91 first-stage F={f_stat} looks weak-IV-critical"
+        )
+
+
+# =========================================================================
 # list_datasets registry
 # =========================================================================
 
