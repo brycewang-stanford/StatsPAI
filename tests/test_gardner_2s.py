@@ -53,11 +53,11 @@ def test_gardner_event_study_support():
     assert set(es["horizon"]) == {"D_k-2", "D_k-1", "D_k+0", "D_k+1", "D_k+2"}
     # Post-treatment coefs should be ≈ 2.0, pre-treatment ≈ 0
     post = [es["coef"][k] for k in ("D_k+0", "D_k+1", "D_k+2")]
-    # Event-study coefs may shift because Stage-1 fit depends on which cohorts
-    # are still untreated at each horizon.  Demand only the right sign + scale.
-    assert np.mean(post) > 1.0
+    # After the v1.5.1 reference-category fix, pre-trend should be ~0 and
+    # post-treatment should closely track the truth.
+    assert np.mean(post) > 1.6
     for k in ("D_k-2", "D_k-1"):
-        assert abs(es["coef"][k]) < 0.8  # pre-trend small relative to ATT
+        assert abs(es["coef"][k]) < 0.3  # pre-trend tight relative to ATT
 
 
 def test_gardner_alias_did_2stage():

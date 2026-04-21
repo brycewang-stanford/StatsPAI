@@ -220,7 +220,16 @@ def gardner_did(
     y_hat_0 = A_full @ coefs
     y_tilde = y_all_arr - y_hat_0
 
-    # ── Stage 2: regress residualised outcome on treatment ──────── #
+    # ── Stage 2: recover treatment effects from the imputed gap ──── #
+    # Overall ATT: clustered OLS of ỹ on the treatment indicator, with
+    # an intercept to absorb any mean residual in the untreated rows.
+    # Event study: direct within-(cohort × relative-time) averaging of ỹ
+    # — the Borusyak-Jaravel-Spiess style — to avoid the reference-
+    # category contamination bias that a Stage-2 dummy regression would
+    # introduce (the "baseline" in a dummy regression lumps never-treated
+    # units together with treated units outside the event-study horizon,
+    # pulling every coefficient toward the residual mean).
+    cl = df[cluster].to_numpy()
     if event_study:
         rel_time = np.where(
             np.isfinite(ft) & (ft > 0),
@@ -234,28 +243,51 @@ def gardner_did(
                 horizon.append(0)
             horizon = sorted(set(horizon))
 
-        reg_cols = {}
+        names, est_list, se_list = [], [], []
         for k in horizon:
-            reg_cols[f"D_k{int(k):+d}"] = (rel_time == k).astype(float)
-        X2 = np.column_stack(list(reg_cols.values()))
-        names = list(reg_cols.keys())
+            key = f"D_k{int(k):+d}"
+            names.append(key)
+            mask = rel_time == k
+            if mask.sum() == 0:
+                est_list.append(float("nan"))
+                se_list.append(float("nan"))
+                continue
+            y_k = y_tilde[mask]
+            coef_k = float(np.mean(y_k))
+            # Cluster-robust SE of the within-bin mean
+            cl_k = cl[mask]
+            uniq = np.unique(cl_k)
+            G = len(uniq)
+            if G > 1:
+                group_means = np.array([y_k[cl_k == g].mean() for g in uniq])
+                # SE of the unweighted mean over n rows, allowing cluster
+                # correlation: Var(mean) ≈ (1/n²) Σ_g (Σ_{i∈g} (y_ki - coef))²
+                sq = 0.0
+                for g in uniq:
+                    idx = cl_k == g
+                    sq += float(np.sum(y_k[idx] - coef_k)) ** 2
+                var_k = sq / (len(y_k) ** 2)
+                se_k = float(np.sqrt(max(var_k, 0.0)))
+            else:
+                se_k = float(np.std(y_k, ddof=1) / np.sqrt(len(y_k)))
+            est_list.append(coef_k)
+            se_list.append(se_k)
+        est = np.array(est_list)
+        se = np.array(se_list)
+        coef_dict = dict(zip(names, est))
+        se_dict = dict(zip(names, se))
     else:
         X2 = df["_D"].to_numpy(dtype=float).reshape(-1, 1)
         names = ["ATT"]
-
-    # Stage-2 includes intercept (absorbs any post-residualisation mean shift)
-    design2 = np.column_stack([np.ones(len(y_tilde)), X2])
-    cl = df[cluster].to_numpy()
-
-    coef2, *_ = np.linalg.lstsq(design2, y_tilde, rcond=None)
-    resid2 = y_tilde - design2 @ coef2
-    V = _cluster_vcov(design2, resid2, cl)
-    se_full = np.sqrt(np.clip(np.diag(V), 0, None))
-    # Slice off intercept
-    est = coef2[1:]
-    se = se_full[1:]
-    coef_dict = dict(zip(names, est))
-    se_dict = dict(zip(names, se))
+        design2 = np.column_stack([np.ones(len(y_tilde)), X2])
+        coef2, *_ = np.linalg.lstsq(design2, y_tilde, rcond=None)
+        resid2 = y_tilde - design2 @ coef2
+        V = _cluster_vcov(design2, resid2, cl)
+        se_full = np.sqrt(np.clip(np.diag(V), 0, None))
+        est = coef2[1:]
+        se = se_full[1:]
+        coef_dict = dict(zip(names, est))
+        se_dict = dict(zip(names, se))
 
     z = sp_stats.norm.ppf(1 - alpha / 2)
     ci = {
