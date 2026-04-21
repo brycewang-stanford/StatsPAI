@@ -39,6 +39,7 @@ def mediate(
     covariates: Optional[List[str]] = None,
     n_boot: int = 1000,
     alpha: float = 0.05,
+    pvalue_method: str = 'bootstrap_sign',
     seed: int = 42,
 ) -> CausalResult:
     """
@@ -60,6 +61,24 @@ def mediate(
         Number of bootstrap replications for inference.
     alpha : float, default 0.05
         Significance level.
+    pvalue_method : {'bootstrap_sign', 'wald'}, default 'bootstrap_sign'
+        How each effect's p-value is computed:
+
+        - ``'bootstrap_sign'`` (default, preserves v0.9.x behaviour):
+          twice the fraction of bootstrap replications that fall on
+          the side of zero opposite to the **bootstrap mean**. For
+          well-behaved (symmetric) bootstrap distributions the mean
+          and the point estimate coincide, but under skew this is the
+          self-consistent "is the bootstrap distribution straddling
+          zero?" test and is robust to skew.
+        - ``'wald'``: conventional 2·(1−Φ(|θ̂/ŝe|)), using the
+          bootstrap SE. Consistent with the Wald convention used
+          across the rest of the causal-inference surface
+          (:func:`sp.aipw`, :func:`sp.dml`, etc.).
+
+        The matching kwarg is also accepted by
+        :func:`sp.mediate_interventional`; pass the same value to
+        keep reporting conventions aligned across a mediation study.
     seed : int, default 42
         Random seed for reproducibility.
 
@@ -74,10 +93,20 @@ def mediate(
     >>> result = mediate(df, y='wage', treat='training',
     ...                  mediator='skills', covariates=['age', 'edu'])
     >>> print(result.summary())
+
+    >>> # Wald p-values — align with sp.aipw / sp.dml convention
+    >>> result = mediate(df, y='wage', treat='training',
+    ...                  mediator='skills', pvalue_method='wald')
     """
+    if pvalue_method not in ('bootstrap_sign', 'wald'):
+        raise ValueError(
+            f"pvalue_method must be 'bootstrap_sign' or 'wald'; "
+            f"got {pvalue_method!r}"
+        )
     analysis = MediationAnalysis(
         data=data, y=y, treat=treat, mediator=mediator,
-        covariates=covariates, n_boot=n_boot, alpha=alpha, seed=seed,
+        covariates=covariates, n_boot=n_boot, alpha=alpha,
+        pvalue_method=pvalue_method, seed=seed,
     )
     return analysis.fit()
 
@@ -96,13 +125,20 @@ class MediationAnalysis:
         covariates: Optional[List[str]] = None,
         n_boot: int = 1000,
         alpha: float = 0.05,
+        pvalue_method: str = 'bootstrap_sign',
         seed: int = 42,
     ):
+        if pvalue_method not in ('bootstrap_sign', 'wald'):
+            raise ValueError(
+                f"pvalue_method must be 'bootstrap_sign' or 'wald'; "
+                f"got {pvalue_method!r}"
+            )
         self.data = data
         self.y = y
         self.treat = treat
         self.mediator = mediator
         self.covariates = covariates or []
+        self.pvalue_method = pvalue_method
         self.n_boot = n_boot
         self.alpha = alpha
         self.seed = seed
@@ -168,10 +204,12 @@ class MediationAnalysis:
         ci_total = (float(np.percentile(boot_total, lo * 100)),
                     float(np.percentile(boot_total, hi * 100)))
 
-        # P-values (proportion of bootstrap under null)
-        pv_acme = self._boot_pvalue(boot_acme)
-        pv_ade = self._boot_pvalue(boot_ade)
-        pv_total = self._boot_pvalue(boot_total)
+        # P-values. Dispatch on the user's declared convention so a
+        # single mediate()/mediate_interventional() study can report
+        # consistent p-values regardless of which family member is used.
+        pv_acme = self._pvalue(boot_acme, acme, se_acme)
+        pv_ade = self._pvalue(boot_ade, ade, se_ade)
+        pv_total = self._pvalue(boot_total, total, se_total)
 
         # Detail table
         detail = pd.DataFrame({
@@ -194,6 +232,7 @@ class MediationAnalysis:
             'ci_acme': ci_acme,
             'ci_ade': ci_ade,
             'ci_total': ci_total,
+            'pvalue_method': self.pvalue_method,
         }
 
         return CausalResult(
@@ -253,9 +292,18 @@ class MediationAnalysis:
 
         return float(acme), float(ade), float(total)
 
+    def _pvalue(self, boot_samples, point, se):
+        """Per-effect p-value using the convention declared by self.pvalue_method."""
+        if self.pvalue_method == 'wald':
+            if se and se > 0 and np.isfinite(point):
+                z = point / se
+                return float(2 * (1 - stats.norm.cdf(abs(z))))
+            return float('nan')
+        return self._boot_pvalue(boot_samples)
+
     @staticmethod
     def _boot_pvalue(boot_samples):
-        """Two-sided p-value from bootstrap distribution."""
+        """Two-sided bootstrap-CI-inversion p-value."""
         n = len(boot_samples)
         # Proportion of bootstrap samples with sign opposite to point estimate
         mean = np.mean(boot_samples)

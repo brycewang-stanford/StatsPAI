@@ -149,8 +149,25 @@ class CausalWorkflow:
                 )
                 self._mark('estimate')
                 return self.result
-            except Exception:
-                pass  # fall through to the normal recommendation path
+            except Exception as _exc:
+                # IMPORTANT: never swallow the failure silently.
+                # The user asked for a specific Sprint-B estimator
+                # (proximal / msm / principal_strat / mediation) by
+                # passing the matching hint; if it blew up, they need
+                # to see the reason before the recommender silently
+                # hands back an OLS regression instead.
+                import warnings as _warnings
+                _warnings.warn(
+                    f"Sprint-B causal-method hint failed to execute "
+                    f"({type(_exc).__name__}: {_exc}); falling back to "
+                    f"the design-based top recommendation. Check the "
+                    f"corresponding hint args (proxy_z/proxy_w, "
+                    f"tv_confounders, post_treat_strata, mediator) and "
+                    f"the data columns they reference.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                # fall through to the normal recommendation path
 
         top = (self.recommendation.recommendations[0]
                if self.recommendation.recommendations else None)

@@ -286,3 +286,66 @@ def test_modelsummary_works_on_proximal_result(proximal_dgp):
     assert isinstance(out, str)
     # Point estimate should appear in the table to at least 2 dps
     assert f'{r.estimate:.2f}'[:3] in out or f'{r.estimate:.3f}'[:4] in out
+
+
+# ---------------------------------------------------------------------
+# Review fix: Sprint-B early-return must NOT silently swallow exceptions
+# ---------------------------------------------------------------------
+
+def test_sprint_b_hint_failure_warns_before_falling_back():
+    """
+    When a user passes a Sprint-B hint (e.g. proxy_z/proxy_w) but the
+    corresponding estimator raises, the workflow must emit a
+    RuntimeWarning explaining why the hint was ignored — never fall
+    back to OLS silently. Previously `except Exception: pass` hid
+    real bugs.
+    """
+    import warnings
+    rng = np.random.default_rng(0)
+    n = 300
+    # Missing required column referenced in the hint — forces
+    # proximal() to raise ValueError inside _fallback_estimate.
+    df = pd.DataFrame({
+        'y': rng.normal(0, 1, n),
+        'd': rng.normal(0, 1, n),
+        'z': rng.normal(0, 1, n),
+        # NOTE: no 'w' column — the proxy_w hint references a
+        # non-existent column so the Sprint-B route fails.
+    })
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        w = sp.causal(
+            data=df, y='y', treatment='d',
+            proxy_z=['z'], proxy_w=['w_missing'],
+            design='observational',
+        )
+    hint_warnings = [
+        wx for wx in caught
+        if 'Sprint-B causal-method hint' in str(wx.message)
+    ]
+    assert len(hint_warnings) >= 1, (
+        'Sprint-B hint failure must emit a RuntimeWarning; got '
+        f'{[str(wx.message)[:80] for wx in caught]}'
+    )
+    # The workflow must still produce SOME result (the design-based
+    # fallback kicks in); it just warns rather than silently swallowing.
+    assert w.result is not None
+
+
+# ---------------------------------------------------------------------
+# Review fix: mediate pvalue_method docstring honesty
+# ---------------------------------------------------------------------
+
+def test_mediate_bootstrap_sign_docstring_matches_behaviour():
+    """
+    Regression guard: ``pvalue_method='bootstrap_sign'`` uses the
+    bootstrap mean as the sign anchor (per the pre-existing
+    ``_boot_pvalue`` implementation); the docstring must say so
+    rather than claim it uses the point estimate.
+    """
+    doc = sp.mediate.__doc__
+    assert 'bootstrap mean' in doc.lower(), (
+        'bootstrap_sign docstring must document the bootstrap-mean '
+        'sign anchor (not "point estimate"), because the underlying '
+        '_boot_pvalue uses np.mean(boot_samples) as the anchor.'
+    )
