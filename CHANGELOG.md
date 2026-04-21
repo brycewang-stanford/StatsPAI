@@ -2,6 +2,167 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.10] - 2026-04-20 — HV-latent MTE (textbook Heckman-Vytlacil via latent U_D)
+
+Closes the semantic debt v0.9.9 flagged but did not pay: the
+previous releases fitted a polynomial in the propensity `p_i`
+(`g(p)` = LATE-at-propensity), which coincides with the textbook
+MTE only under HV-2005 linear-separable + bivariate-normal errors.
+v0.9.10 adds an opt-in **fully HV-faithful** model that samples a
+latent `U_D_i ~ Uniform(0, 1)` per unit via the truncated-uniform
+reparameterisation trick, making the fitted polynomial a genuine
+posterior over `tau(u) = E[Y_1 - Y_0 | U_D = u]`.
+
+### Added (0.9.10)
+
+- **`sp.bayes_mte(..., mte_method='polynomial' | 'hv_latent')`** —
+  new kwarg, orthogonal to the existing `first_stage` kwarg.
+  - `'polynomial'` (default) — v0.9.9 behaviour; polynomial in
+    propensity.
+  - `'hv_latent'` — textbook HV. For each unit, sample
+    `raw_U_i ~ Uniform(0, 1)`, then transform deterministically:
+
+        D_i = 1 ⇒ U_D_i = raw_U_i · p_i            ∈ [0, p_i]
+        D_i = 0 ⇒ U_D_i = p_i + raw_U_i·(1 - p_i)  ∈ [p_i, 1]
+
+    The polynomial is then evaluated at `U_D_i` (not `p_i`).
+    Structural equation:
+    `Y_i = α + β_X' X_i + D_i · τ(U_D_i) + ε_i`.
+
+  Orthogonal to `first_stage`: all four
+  `(plugin|joint) × (polynomial|hv_latent)` combinations run.
+
+- **Memory-warning guard** — `hv_latent` registers a shape-(n,)
+  latent stored as `(chains, draws, n)` in the posterior. The
+  function emits a `UserWarning` when
+  `n × draws × chains > 50,000,000` (~400 MB at f64), mentioning
+  `draws`, `chains`, and `mte_method='polynomial'` as mitigations.
+
+### HV-augmentation factorisation (documented in docstring)
+
+`bayes_mte` uses the standard Form-2 data-augmentation
+factorisation:
+
+    p(Y, D, U_D | p, θ) = p(Y | U_D, D, θ) · p(U_D | D, p) · p(D | p)
+
+where the truncated-uniform transform gives `p(U_D | D, p)` and
+`pm.Bernoulli(D | p)` gives the marginal `p(D | p)`. Both are
+needed — dropping the Bernoulli in a counter-factual experiment
+made `piZ` flip sign (true 0.8 → posterior -1.01) and biased the
+MTE polynomial to `[0.81, 1.25]` vs true `[2, -2]`. This test is
+documented in the v0.9.10 round-B code review.
+
+### Empirical recovery evidence
+
+Decreasing-MTE DGP with truth `(b_0, b_1) = (2.0, -2.0)`:
+
+| combo | b_0 posterior | b_1 posterior | recovers? |
+|---|---|---|---|
+| plugin × polynomial    | 1.73 | -0.43 | biased |
+| plugin × hv_latent     | 2.03 | -2.13 | ✓ |
+| joint  × polynomial    | 1.73 | -0.44 | biased |
+| joint  × hv_latent     | 2.05 | -2.16 | ✓ |
+
+The polynomial modes are systematically biased on HV DGPs — the
+honesty caveat v0.9.9 added is empirically validated; hv_latent
+is the mathematical fix.
+
+### Method label
+
+- `polynomial` → `"Bayesian treatment-effect-at-propensity (...)"`
+  (v0.9.9 label retained).
+- `hv_latent` → `"Bayesian HV-latent MTE (...)"`.
+
+### Tests (0.9.10)
+
+- **`tests/test_bayes_mte_hv_latent.py`** (10 tests) — API, recovery
+  of true `(b_0, b_1) = (2, -2)` on an HV DGP, disagreement with
+  polynomial mode on same DGP, orthogonality with
+  `first_stage='joint'`, input validation, memory-warning fires
+  above threshold (unittest.mock), memory-warning stays silent
+  below threshold, `policy_effect` still works on hv_latent
+  results.
+
+### Code review (two rounds)
+
+- **Round B** (agent) raised 3 HIGH items:
+  1. "Double-counting Bernoulli" — **rejected after math + counter-
+     factual**. Form-2 factorisation is correct; dropping Bernoulli
+     wildly biased the result. Defended in docstring.
+  2. "Marginal U_D not Uniform(0,1)" — **rejected after algebra**.
+     `p(U_D|p) = p·U(0,p) + (1-p)·U(p,1) = Uniform(0,1)` holds.
+  3. "Memory blow-up" — **accepted**; added `UserWarning`.
+- **Round C** (agent) on the round-B resolutions: **no ship-blockers**.
+  One cosmetic nit on the integration notation in the docstring
+  fixed inline.
+
+### Design spec
+
+- `docs/superpowers/specs/2026-04-20-v0910-hv-latent-mte.md`
+
+### Non-goals (0.9.10)
+
+- Full bivariate-normal error structure on `(U_0, U_1, U_D)` —
+  linear-separable only. Natural 0.9.11+ extension.
+- Multi-instrument HV MTE.
+- GP over `u` (still polynomial of order `poly_u`).
+- Rust Phase 2 — branch work.
+
+### Article-surface round-2: namespace fixes + kwarg alignment
+
+Completes the API-cleanup thread started by v0.9.9's first alias pass.
+The 2026-04-20 survey post advertises `sp.matrix_completion`,
+`sp.causal_discovery`, `sp.mediation`, `sp.evalue_rr`, plus
+article-style kwargs on `sp.policy_tree` / `sp.dml` — all of which
+either resolved to the *submodule* or rejected the blog-post kwargs
+before this round.
+
+#### Added — article-facing aliases
+
+- `sp.matrix_completion(df, y, d, unit, time)` — thin wrapper over
+  `sp.mc_panel`, renames `d → treat`. Shadows the former module binding.
+- `sp.causal_discovery(df, method='notears'|'pc'|'ges'|'lingam',
+  variables=None)` — dispatcher. Handles each backend's native
+  signature (notears/pc accept `variables=`; ges/lingam do not, so
+  the dispatcher subsets the frame upfront).
+- `sp.mediation(df, y, d, m, X)` — article wrapper over `sp.mediate`;
+  shadows the former module binding.
+- `sp.evalue_rr(rr, rr_lower=None, rr_upper=None)` — risk-ratio
+  convenience for the shape documented in the blog post.
+- `sp.policy_tree` accepts either `d=/treat=`, `X=/covariates=`,
+  and `depth=/max_depth=`. Conflicting values raise `TypeError`.
+- `sp.dml` accepts `model_y=` / `model_d=` as aliases for `ml_g` /
+  `ml_m`, and the same dual-convention naming.
+
+#### Hardened
+
+- `sp.auto_did` now fails fast with `TypeError` when `g` is a
+  non-numeric cohort label (BJS branch silently misbehaves otherwise).
+- `AutoDIDResult.__repr__` / `AutoIVResult.__repr__` now return a
+  one-line summary (Jupyter list-of-results display); call
+  `.summary()` for the full leaderboard.
+- `statspai.agent.tools._default_serializer` is now scalar-safe
+  (new `_scalar_or_none` helper) — handles Series-valued result
+  fields without crashing JSON serialisation.
+
+#### Reverted — deliberate non-goal
+
+- An experimental addition of `.estimate` / `.se` / `.pvalue` / `.ci`
+  properties to `EconometricResults` was *reverted* when regression
+  testing showed it broke `agent/tools.py` and `causal_workflow.py`
+  which use `hasattr(r, 'estimate')` to dispatch between scalar
+  `CausalResult` and multi-coef `EconometricResults`. A NOTE in
+  `core/results.py` documents why the aliases are intentionally
+  absent; use `.tidy()` for cross-estimator code.
+
+#### Tests (article-surface round-2)
+
+`tests/test_article_aliases_round2.py` adds 25 tests covering all of
+the above, including the conflict-detection and backend-signature
+branches flagged by the round-2 code review.
+
+---
+
 ## [0.9.9] - 2026-04-20 — Joint first-stage MTE + policy-relevant weights + honesty pass
 
 Closes v0.9.8's two explicit follow-ons (joint first stage,

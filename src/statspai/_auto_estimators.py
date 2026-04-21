@@ -87,7 +87,14 @@ class AutoDIDResult:
         return "<unresolved>"
 
     def __repr__(self) -> str:
-        return self.summary()
+        # Terse repr for list-of-results / Jupyter cell display.
+        # Call `.summary()` explicitly for the full leaderboard.
+        n_ok = sum(1 for v in self.candidates.values()
+                   if not isinstance(v, Exception))
+        return (
+            f"<AutoDIDResult: {n_ok}/{len(self.candidates)} ok, "
+            f"winner={self._winner_method()} (rule={self.selection_rule})>"
+        )
 
 
 def auto_did(
@@ -140,6 +147,20 @@ def auto_did(
             f"auto_did: unknown methods {bad}; valid = {sorted(valid)}"
         )
 
+    # BJS (did_imputation) interprets `g` as the first-treatment timing
+    # (integer period, NaN for never-treated) — not a cohort label.
+    # Fail fast if the column clearly doesn't look like a timing column
+    # so users don't silently get wrong BJS answers on cohort-coded data.
+    if "bjs" in methods and g in data.columns:
+        g_vals = data[g].dropna().unique()
+        if len(g_vals) > 0 and not pd.api.types.is_numeric_dtype(data[g]):
+            raise TypeError(
+                f"auto_did: BJS branch requires column {g!r} to be a "
+                "numeric first-treatment timing (not a cohort label). "
+                "Either convert to the period of first treatment or drop "
+                "'bjs' from `methods`."
+            )
+
     candidates: Dict[str, Any] = {}
     rows: List[Tuple[str, float, float, float, float, int, str]] = []
 
@@ -180,7 +201,9 @@ def auto_did(
                 int(getattr(r, "n_obs", 0) or 0),
                 "ok",
             ))
-        except Exception as e:  # pragma: no cover — exercised by test_auto_did_degrades
+        except Exception as e:
+            # Candidate failure is first-class; see
+            # test_auto_did_degrades_when_one_candidate_fails.
             candidates[m] = e
             rows.append((
                 m.upper(), np.nan, np.nan, np.nan, np.nan, 0,
@@ -268,7 +291,12 @@ class AutoIVResult:
         return "<unresolved>"
 
     def __repr__(self) -> str:
-        return self.summary()
+        n_ok = sum(1 for v in self.candidates.values()
+                   if not isinstance(v, Exception))
+        return (
+            f"<AutoIVResult: {n_ok}/{len(self.candidates)} ok, "
+            f"winner={self._winner_method()} (rule={self.selection_rule})>"
+        )
 
 
 def _coef(result, name: str) -> Optional[float]:
@@ -400,7 +428,8 @@ def auto_iv(
                 n_obs,
                 "ok",
             ))
-        except Exception as e:  # pragma: no cover — exercised via degradation test
+        except Exception as e:
+            # Candidate failure is first-class for the IV race as well.
             candidates[m] = e
             rows.append((
                 m.upper(), np.nan, np.nan, np.nan, np.nan, 0,

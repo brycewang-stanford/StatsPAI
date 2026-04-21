@@ -9,7 +9,43 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
+
+
+def _scalar_or_none(v) -> Optional[float]:
+    """Return ``float(v)`` when ``v`` represents a single scalar value.
+
+    Handles 0-d arrays, length-1 Series/arrays, and Python numeric
+    scalars.  Multi-element Series/DataFrames return ``None`` so callers
+    can safely drop those fields from a JSON payload instead of crashing
+    ``float(...)``.
+    """
+    if v is None:
+        return None
+    if isinstance(v, pd.DataFrame):
+        return None
+    if isinstance(v, pd.Series):
+        # A genuinely single-coefficient Series (size 1) is still a
+        # scalar; anything wider is not serialisable to a single float.
+        if v.size != 1:
+            return None
+        try:
+            return float(v.iloc[0])
+        except (TypeError, ValueError):
+            return None
+    try:
+        arr = np.asarray(v)
+        if arr.ndim == 0:
+            return float(arr.item())
+        if arr.size == 1:
+            return float(arr.ravel()[0])
+    except Exception:
+        pass
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -28,17 +64,44 @@ def _default_serializer(r) -> Dict[str, Any]:
 
     LLM tool-use protocol requires JSON-serialisable return values,
     so convert floats / arrays / DataFrames to primitives.
+
+    ``CausalResult.estimate`` is a scalar (single ATE) while
+    ``EconometricResults.estimate`` is a Series of coefficients (via the
+    cross-estimator tidy alias).  We detect scalar semantics before
+    calling ``float(...)`` so regressions don't fail JSON serialisation.
     """
+    import pandas as _pd
+
+    def _is_scalar(v) -> bool:
+        # A scalar estimate is neither a pandas Series nor a multi-element
+        # numpy array; ``float(...)`` only makes sense in that case.
+        if isinstance(v, (_pd.Series, _pd.DataFrame)):
+            return False
+        try:
+            import numpy as _np
+            arr = _np.asarray(v)
+            return arr.ndim == 0 or arr.size == 1
+        except Exception:
+            return True
+
     out: Dict[str, Any] = {}
-    if hasattr(r, 'estimate'):
+    if hasattr(r, 'estimate') and _is_scalar(r.estimate):
         out['estimate'] = float(r.estimate)
-    if hasattr(r, 'se'):
+    if hasattr(r, 'se') and _is_scalar(r.se):
         out['std_error'] = float(r.se)
-    if hasattr(r, 'pvalue'):
+    if hasattr(r, 'pvalue') and _is_scalar(r.pvalue):
         out['p_value'] = float(r.pvalue)
     if hasattr(r, 'ci') and r.ci is not None:
-        out['conf_low'] = float(r.ci[0])
-        out['conf_high'] = float(r.ci[1])
+        # CausalResult.ci is a (lower, upper) tuple; EconometricResults.ci
+        # is a DataFrame — only the tuple form is meaningful here.
+        ci = r.ci
+        if (not isinstance(ci, (_pd.DataFrame, _pd.Series))
+                and hasattr(ci, '__len__') and len(ci) == 2):
+            try:
+                out['conf_low'] = float(ci[0])
+                out['conf_high'] = float(ci[1])
+            except (TypeError, ValueError):
+                pass
     if hasattr(r, 'estimand'):
         out['estimand'] = str(r.estimand)
     if hasattr(r, 'method'):
@@ -390,22 +453,30 @@ TOOL_REGISTRY: List[Dict[str, Any]] = [
                 if (w.recommendation and w.recommendation.recommendations)
                 else None
             ),
-            'estimate': (float(w.result.estimate)
-                         if w.result is not None
-                            and hasattr(w.result, 'estimate')
-                         else None),
-            'std_error': (float(w.result.se)
-                          if w.result is not None
-                             and hasattr(w.result, 'se')
-                          else None),
-            'conf_low': (float(w.result.ci[0])
-                         if w.result is not None
-                            and hasattr(w.result, 'ci')
-                         else None),
-            'conf_high': (float(w.result.ci[1])
-                          if w.result is not None
-                             and hasattr(w.result, 'ci')
-                          else None),
+            # Guard against non-scalar `.estimate` / `.se` (e.g.
+            # EconometricResults exposes Series-valued tidy aliases).
+            'estimate': _scalar_or_none(
+                w.result.estimate if (w.result is not None and hasattr(w.result, 'estimate')) else None
+            ),
+            'std_error': _scalar_or_none(
+                w.result.se if (w.result is not None and hasattr(w.result, 'se')) else None
+            ),
+            'conf_low': (
+                _scalar_or_none(w.result.ci[0])
+                if (w.result is not None and hasattr(w.result, 'ci')
+                    and w.result.ci is not None
+                    and not isinstance(w.result.ci, (pd.DataFrame, pd.Series))
+                    and hasattr(w.result.ci, '__len__') and len(w.result.ci) == 2)
+                else None
+            ),
+            'conf_high': (
+                _scalar_or_none(w.result.ci[1])
+                if (w.result is not None and hasattr(w.result, 'ci')
+                    and w.result.ci is not None
+                    and not isinstance(w.result.ci, (pd.DataFrame, pd.Series))
+                    and hasattr(w.result.ci, '__len__') and len(w.result.ci) == 2)
+                else None
+            ),
             'robustness': {
                 k: v for k, v in w.robustness_findings.items()
                 if isinstance(v, (int, float, str))

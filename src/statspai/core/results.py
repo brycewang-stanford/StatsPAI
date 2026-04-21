@@ -135,6 +135,23 @@ class EconometricResults:
         }, index=self.params.index)
     
     # ------------------------------------------------------------------
+    # NOTE on cross-estimator tidy surface
+    # ------------------------------------------------------------------
+    # We intentionally do NOT add ``.estimate`` / ``.se`` / ``.pvalue`` /
+    # ``.ci`` aliases to ``EconometricResults``: those names mean "the
+    # single treatment effect" on :class:`CausalResult` (scalar) but would
+    # have to mean "the coefficient vector" on multi-coef estimators
+    # (Series) — and downstream code like ``if hasattr(r, 'estimate'):
+    # est = r.estimate`` (workflow dispatch, agent serialisers) relies on
+    # their absence to distinguish the two result types.  Adding the
+    # aliases broke that dispatch in round-1 and is not worth the
+    # ambiguity.
+    #
+    # The correct cross-estimator tidy surface is :meth:`tidy` (defined
+    # below), which returns a long-format DataFrame on BOTH result types.
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
     # Broom-style tidy interface (EconometricResults)
     # ------------------------------------------------------------------
 

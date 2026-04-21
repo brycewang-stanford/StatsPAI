@@ -394,7 +394,10 @@ def causal_discovery(
     ``method='ges'``      → :func:`statspai.causal_discovery.ges`
     ``method='lingam'``   → :func:`statspai.causal_discovery.lingam`
 
-    All backends take ``(data, variables=None)`` plus method-specific kwargs.
+    The four backends have slightly different signatures — notably,
+    ``ges`` and ``lingam`` do not accept a ``variables`` kwarg — so this
+    dispatcher subsets the DataFrame up front rather than forwarding
+    ``variables=`` to every backend.
     """
     # Same late-bind shadowing trick — use importlib to reach the
     # subpackage explicitly rather than the now-shadowed attribute.
@@ -402,18 +405,27 @@ def causal_discovery(
     _cd = importlib.import_module("statspai.causal_discovery")
 
     method = method.lower()
-    runners = {
-        "notears": _cd.notears,
-        "pc": _cd.pc_algorithm,
-        "ges": _cd.ges,
-        "lingam": _cd.lingam,
-    }
-    if method not in runners:
+    valid = {"notears", "pc", "ges", "lingam"}
+    if method not in valid:
         raise ValueError(
             f"Unknown causal_discovery method {method!r}. "
-            f"Expected one of: {sorted(runners)}."
+            f"Expected one of: {sorted(valid)}."
         )
-    return runners[method](data=data, variables=variables, **kwargs)
+
+    # Normalise the data at the dispatcher level so the per-backend
+    # kwargs stay clean.  Only notears / pc support a `variables=`
+    # kwarg natively; ges / lingam just take the whole frame.
+    if variables is not None:
+        data = data[list(variables)]
+
+    if method == "notears":
+        return _cd.notears(data=data, **kwargs)
+    if method == "pc":
+        return _cd.pc_algorithm(data=data, **kwargs)
+    if method == "ges":
+        return _cd.ges(data=data, **kwargs)
+    # method == "lingam"
+    return _cd.lingam(data=data, **kwargs)
 
 
 def mediation(
@@ -510,7 +522,14 @@ def policy_tree(
     Passing conflicting names raises ``TypeError``.  Delegates to
     :func:`statspai.policy_learning.policy_tree`.
     """
-    # Resolve treat / d
+    # Resolve treat / d — refuse silent loss when both given with
+    # different values (reviewer flagged the old "treat wins, d ignored"
+    # behaviour as a silent-wrong-pick foot-gun).
+    if d is not None and treat is not None and d != treat:
+        raise TypeError(
+            f"policy_tree: conflicting treatment columns "
+            f"d={d!r} vs treat={treat!r}. Pass only one."
+        )
     treat_final = treat if treat is not None else d
     if treat_final is None:
         raise TypeError(
@@ -519,6 +538,11 @@ def policy_tree(
         )
 
     # Resolve X / covariates
+    if X is not None and covariates is not None and list(X) != list(covariates):
+        raise TypeError(
+            "policy_tree: conflicting covariate lists — `X` and "
+            "`covariates` must agree if both are given."
+        )
     cov_final = covariates if covariates is not None else X
     if cov_final is None:
         raise TypeError(
@@ -573,9 +597,19 @@ def dml(
     from .dml import dml as _dml
 
     # Resolve treatment / covariates from either naming convention.
-    # Explicit keyword wins over positional if both are given; positional
-    # is the documented article form so it's the default fallback.
+    # Refuse silent loss when both are given with conflicting values —
+    # matches the same safety rule added in `policy_tree`.
+    if d is not None and treat is not None and d != treat:
+        raise TypeError(
+            f"dml: conflicting treatment columns d={d!r} vs "
+            f"treat={treat!r}. Pass only one."
+        )
     treat_final = treat if treat is not None else d
+    if X is not None and covariates is not None and list(X) != list(covariates):
+        raise TypeError(
+            "dml: conflicting covariate lists — `X` and `covariates` "
+            "must agree if both are given."
+        )
     cov_final = covariates if covariates is not None else X
     if treat_final is None:
         raise TypeError(

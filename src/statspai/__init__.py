@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.9"
+__version__ = "0.9.10"
 __author__ = "Biaoyue Wang"
 __email__ = "bryce@copaper.ai"
 
@@ -209,6 +209,7 @@ from ._article_aliases import (
     anderson_rubin_ci,
     conditional_lr_ci,
     tF_adjustment,
+    evalue_rr,
 )
 # === Auto-race estimators (CS/SA/BJS DiD + 2SLS/LIML/JIVE IV) ===
 from ._auto_estimators import (
@@ -899,7 +900,35 @@ __all__ = [
     "AutoDIDResult",
     "auto_iv",
     "AutoIVResult",
+    # === Namespace-collision fixes + kwarg-alignment wrappers ===
+    # These names shadow earlier bindings (submodules / functions with
+    # mismatched kwargs) — see the `# Late-bind shadowing` block below.
+    "matrix_completion",
+    "causal_discovery",
+    "mediation",
+    "evalue_rr",
 ]
+
+
+# ---------------------------------------------------------------------
+# Late-bind shadowing
+# ---------------------------------------------------------------------
+# `sp.matrix_completion`, `sp.causal_discovery`, `sp.mediation` are
+# bound to submodules earlier in this file; `sp.policy_tree` and
+# `sp.dml` are bound to functions with different kwargs than the blog
+# post advertises.  Importing the article-facing wrappers HERE (after
+# all earlier bindings) is what actually makes `sp.mediation(df, ...)`
+# callable, and what normalises policy_tree's `depth=` / dml's
+# `model_y=` kwargs.  Same trick the package already uses on L127-129
+# to re-bind `sp.iv` to the submodule.
+# ---------------------------------------------------------------------
+from ._article_aliases import (
+    matrix_completion,
+    causal_discovery,
+    mediation,
+    policy_tree,
+    dml,
+)
 
 
 def __getattr__(name):
