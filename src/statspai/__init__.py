@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.17"
+__version__ = "1.0.0"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -58,6 +58,11 @@ from .rd import (
     rdhte, rdbwhte, rdhte_lincom,
     rd_forest, rd_boost, rd_lasso, rd_cate_summary,
     rd_extrapolate, rd_multi_extrapolate, rd_external_validity,
+    rd_interference, RDInterferenceResult,
+    rd_multi_score, MultiScoreRDResult,
+    rd_distribution, DistRDResult,
+    rd_bayes_hte, BayesRDHTEResult,
+    rd_distributional_design, DDDResult,
 )
 from .synth import (
     synth, SyntheticControl, synthplot, sdid, augsynth,
@@ -158,7 +163,7 @@ from .metalearners import auto_cate, AutoCATEResult
 from .metalearners import auto_cate_tuned
 from .bayes import (
     bayes_did, bayes_rd, bayes_iv, bayes_fuzzy_rd, bayes_hte_iv,
-    bayes_mte,
+    bayes_mte, bayes_dml, BayesianDMLResult,
     BayesianCausalResult, BayesianDIDResult, BayesianHTEIVResult,
     BayesianIVResult, BayesianMTEResult,
     policy_weight_ate, policy_weight_subsidy,
@@ -185,16 +190,18 @@ from .conformal_causal import (
     conformal_ite_multidp, MultiDPConformalResult,
     conformal_debiased_ml, DebiasedConformalResult,
     conformal_fair_ite, FairConformalResult,
+    conformal_continuous, conformal_interference,
+    ContinuousConformalResult, InterferenceConformalResult,
 )
 from .bcf import bcf, BayesianCausalForest, bcf_longitudinal, BCFLongResult
 from .bunching import bunching, BunchingEstimator, notch, NotchResult
 from .matrix_completion import mc_panel, MCPanel
 from .dose_response import dose_response, DoseResponse, vcnet, scigan, VCNetResult
 from .bounds import lee_bounds, manski_bounds, BoundsResult, horowitz_manski, iv_bounds, oster_delta, selection_bounds, breakdown_frontier, balke_pearl, BalkePearlResult, ml_bounds, MLBoundsResult
-from .interference import spillover, SpilloverEstimator, network_exposure, NetworkExposureResult, peer_effects, PeerEffectsResult
+from .interference import spillover, SpilloverEstimator, network_exposure, NetworkExposureResult, peer_effects, PeerEffectsResult, network_hte, inward_outward_spillover, NetworkHTEResult, InwardOutwardResult
 from .dtr import g_estimation, GEstimation, q_learning, QLearningResult, a_learning, ALearningResult, snmm, SNMMResult
 from .multi_treatment import multi_treatment, MultiTreatment
-from .robustness import spec_curve, SpecCurveResult, robustness_report, RobustnessResult, subgroup_analysis, SubgroupResult
+from .robustness import spec_curve, SpecCurveResult, robustness_report, RobustnessResult, subgroup_analysis, SubgroupResult, copula_sensitivity, survival_sensitivity, calibrate_confounding_strength, FrontierSensitivityResult
 from .survey import svydesign, SurveyDesign, svymean, svytotal, svyglm, rake, linear_calibration
 from .dag import (
     dag, DAG, dag_example, dag_examples, dag_example_positions, dag_simulate,
@@ -208,6 +215,22 @@ from .dag import (
 # === Bridging theorems (DiD≡SC, EWM≡CATE, CB≡IPW, Kink≡RDD,
 #     DR-Calib, Surrogate≡PCI) ===
 from .bridge import bridge, BridgeResult
+
+# === LLM × Causal (DAG / E-value / sensitivity priors) ===
+from . import causal_llm
+from .causal_llm import (
+    llm_dag_propose, LLMDAGProposal,
+    llm_unobserved_confounders, UnobservedConfounderProposal,
+    llm_sensitivity_priors, SensitivityPriorProposal,
+)
+
+# === Causal RL (Causal-DQN, benchmarks, offline-safe) ===
+from . import causal_rl
+from .causal_rl import (
+    causal_dqn, CausalDQNResult,
+    causal_rl_benchmark, BanditBenchmarkResult,
+    offline_safe_policy, OfflineSafeResult,
+)
 
 # === Long-term effects via surrogate indices ===
 from . import surrogate
@@ -390,6 +413,8 @@ from .mendelian import (
     SteigerResult, MRPressoResult, RadialResult,
     mr_mode, mr_f_statistic, mr_funnel_plot, mr_scatter_plot,
     ModeBasedResult, FStatisticResult,
+    mr_multivariable, mr_mediation, mr_bma,
+    MVMRResult, MediationMRResult, MRBMAResult,
 )
 # Expose recommend_estimator at top level too
 from .dag import recommend_estimator as dag_recommend_estimator
@@ -1110,6 +1135,39 @@ __all__ = [
     "unified_sensitivity", "SensitivityDashboard",
     # v0.9.17 additions (DAG UX)
     "dag_recommend_estimator",
+    # v1.0 — bridging theorems
+    "bridge", "BridgeResult",
+    # v1.0 — DiD frontiers (scaffolded)
+    "did_bcf", "cohort_anchored_event_study",
+    "design_robust_event_study", "did_misclassified",
+    # v1.0 — conformal frontiers
+    "conformal_debiased_ml", "DebiasedConformalResult",
+    "conformal_density_ite", "ConformalDensityResult",
+    "conformal_fair_ite", "FairConformalResult",
+    "conformal_ite_multidp", "MultiDPConformalResult",
+    # v1.0 — proximal frontiers
+    "fortified_pci", "bidirectional_pci", "pci_mtp",
+    "select_pci_proxies", "ProxyScoreResult",
+    # v1.0 — QTE / RD frontiers
+    "beyond_average_late", "BeyondAverageResult",
+    "qte_hd_panel", "HDPanelQTEResult",
+    "rd_distribution", "DistRDResult",
+    "rd_interference", "RDInterferenceResult",
+    "rd_multi_score", "MultiScoreRDResult",
+    # v1.0 — time-series causal discovery
+    "pcmci", "PCMCIResult", "lpcmci", "LPCMCIResult",
+    "dynotears", "DYNOTEARSResult", "partial_corr_pvalue",
+    # v1.0 — LTMLE survival + BCF longitudinal
+    "ltmle_survival", "LTMLESurvivalResult",
+    # v1.0 — sequential SDID
+    "sequential_sdid", "SequentialSDIDResult",
+    # v1.0 — ML bounds
+    "ml_bounds",
+    # v1.0 — TARGET Statement 2025
+    "target_trial_checklist",
+    # v1.0 — frontier sensitivity
+    "copula_sensitivity", "survival_sensitivity",
+    "calibrate_confounding_strength", "FrontierSensitivityResult",
 ]
 
 

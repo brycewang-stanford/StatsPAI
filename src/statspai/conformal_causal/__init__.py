@@ -30,6 +30,12 @@ from .conformal_multidp import conformal_ite_multidp, MultiDPConformalResult
 from .conformal_debiased import conformal_debiased_ml, DebiasedConformalResult
 from .conformal_fair import conformal_fair_ite, FairConformalResult
 
+# v1.0 conformal frontier: continuous-treatment + interference
+from .extended import (
+    conformal_continuous, conformal_interference,
+    ContinuousConformalResult, InterferenceConformalResult,
+)
+
 __all__ = [
     'conformal_cate', 'ConformalCATE',
     'weighted_conformal_prediction',
@@ -39,4 +45,6 @@ __all__ = [
     'conformal_ite_multidp', 'MultiDPConformalResult',
     'conformal_debiased_ml', 'DebiasedConformalResult',
     'conformal_fair_ite', 'FairConformalResult',
+    'conformal_continuous', 'conformal_interference',
+    'ContinuousConformalResult', 'InterferenceConformalResult',
 ]

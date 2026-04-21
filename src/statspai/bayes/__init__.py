@@ -33,6 +33,7 @@ from .iv import bayes_iv
 from .fuzzy_rd import bayes_fuzzy_rd
 from .hte_iv import bayes_hte_iv
 from .mte import bayes_mte
+from .dml import bayes_dml, BayesianDMLResult
 from .policy_weights import (
     policy_weight_ate,
     policy_weight_subsidy,
@@ -48,6 +49,8 @@ __all__ = [
     'bayes_fuzzy_rd',
     'bayes_hte_iv',
     'bayes_mte',
+    'bayes_dml',
+    'BayesianDMLResult',
     'BayesianCausalResult',
     'BayesianDIDResult',
     'BayesianHTEIVResult',

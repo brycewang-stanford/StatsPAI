@@ -114,8 +114,11 @@ def rd_bayes_hte(
             chol = np.linalg.cholesky(
                 post_cov_full + 1e-8 * np.eye(post_cov_full.shape[0])
             )
-            draws = post_mean + chol @ rng.standard_normal(
-                (post_cov_full.shape[0], n_draws)
+            draws = (
+                post_mean[:, None]
+                + chol @ rng.standard_normal(
+                    (post_cov_full.shape[0], n_draws)
+                )
             )
         except np.linalg.LinAlgError:
             draws = np.tile(post_mean.reshape(-1, 1), n_draws)
@@ -128,10 +131,10 @@ def rd_bayes_hte(
         cate = cate_draws.mean(axis=1)
         cate_sd = cate_draws.std(axis=1, ddof=1)
 
-        # ATT posterior = average CATE over treated mass
+        # ATT posterior = average CATE over treated units (in-window only)
         treated_idx = mask & (treat == 1)
         if treated_idx.sum() > 0:
-            att_post = cate_draws[treated_idx[mask], :].mean(axis=0)
+            att_post = cate_draws[treated_idx, :].mean(axis=0)
         else:
             att_post = beta_treat
         post_mean_att = float(att_post.mean())

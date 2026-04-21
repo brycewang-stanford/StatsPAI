@@ -1831,6 +1831,100 @@ def _build_registry():
         reference="Ghassami, Yang, Shpitser, Tchetgen Tchetgen (arXiv:2311.08527, 2024).",
     ))
 
+    # -- Bayesian Double Machine Learning ---------------------------- #
+    register(FunctionSpec(
+        name="bayes_dml",
+        category="bayes",
+        description=(
+            "Bayesian Double Machine Learning (Chernozhukov et al. 2025): "
+            "Normal-Normal conjugate update on a DML point estimate, with "
+            "optional full PyMC MCMC over the orthogonal moment equation."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("covariates", "list", True),
+            ParamSpec("model", "str", False, "plr",
+                      enum=["plr", "irm", "pliv"]),
+            ParamSpec("prior_mean", "float", False, 0.0),
+            ParamSpec("prior_sd", "float", False, 10.0),
+            ParamSpec("mode", "str", False, "conjugate",
+                      enum=["conjugate", "full"]),
+        ],
+        returns="BayesianDMLResult",
+        example=(
+            "sp.bayes_dml(df, y='y', treatment='d', "
+            "covariates=['x1','x2'])"
+        ),
+        tags=["bayes", "dml", "double_ml", "posterior"],
+        reference="Chernozhukov et al. (arXiv:2508.12688, 2025).",
+    ))
+
+    # -- Multivariable / mediation / BMA MR -------------------------- #
+    register(FunctionSpec(
+        name="mr_multivariable",
+        category="mendelian",
+        description=(
+            "Multivariable Mendelian randomization (Sanderson-Windmeijer "
+            "2019): direct causal effects of multiple correlated exposures "
+            "via weighted least-squares on SNP-summary data, with "
+            "conditional F-statistics for instrument strength."
+        ),
+        params=[
+            ParamSpec("snp_associations", "DataFrame", True),
+            ParamSpec("outcome", "str", False, "beta_y"),
+            ParamSpec("outcome_se", "str", False, "se_y"),
+            ParamSpec("exposures", "list", False),
+        ],
+        returns="MVMRResult",
+        example=(
+            "sp.mr_multivariable(df, outcome='beta_y', se_outcome='se_y', "
+            "exposures=['beta_ldl','beta_hdl'])"
+        ),
+        tags=["mr", "mvmr", "multivariable", "mendelian"],
+        reference="Sanderson et al. (IJE 2019); Yao et al. (arXiv:2509.11519).",
+    ))
+
+    register(FunctionSpec(
+        name="mr_mediation",
+        category="mendelian",
+        description=(
+            "Two-step (network) MR: decompose the total causal effect of "
+            "an exposure on an outcome into direct + indirect (mediated) "
+            "components."
+        ),
+        params=[
+            ParamSpec("snp_associations", "DataFrame", True),
+            ParamSpec("beta_exposure", "str", False, "beta_x"),
+            ParamSpec("beta_mediator", "str", False, "beta_m"),
+            ParamSpec("beta_outcome", "str", False, "beta_y"),
+        ],
+        returns="MediationMRResult",
+        tags=["mr", "mediation", "two_step"],
+        reference="Burgess, Daniel, Butterworth, Thompson (IJE 2015).",
+    ))
+
+    register(FunctionSpec(
+        name="mr_bma",
+        category="mendelian",
+        description=(
+            "MR Bayesian model averaging over exposure subsets (Zuber et "
+            "al. 2020). Outputs marginal inclusion probabilities and top "
+            "posterior models."
+        ),
+        params=[
+            ParamSpec("snp_associations", "DataFrame", True),
+            ParamSpec("outcome", "str", False, "beta_y"),
+            ParamSpec("outcome_se", "str", False, "se_y"),
+            ParamSpec("exposures", "list", False),
+            ParamSpec("max_model_size", "int", False, None),
+        ],
+        returns="MRBMAResult",
+        tags=["mr", "bma", "bayesian", "model_averaging"],
+        reference="Zuber, Colijn, Staley, Burgess (Nat Comm 2020).",
+    ))
+
     # -- TARGET 21-item checklist ------------------------------------ #
     register(FunctionSpec(
         name="target_trial_checklist",

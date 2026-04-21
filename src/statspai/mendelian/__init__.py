@@ -32,6 +32,10 @@ from .extras import (
     ModeBasedResult, FStatisticResult,
     mr_mode, mr_f_statistic, mr_funnel_plot, mr_scatter_plot,
 )
+from .multivariable import (
+    mr_multivariable, mr_mediation, mr_bma,
+    MVMRResult, MediationMRResult, MRBMAResult,
+)
 
 __all__ = [
     # Estimators
@@ -45,4 +49,7 @@ __all__ = [
     # Extras
     "ModeBasedResult", "FStatisticResult",
     "mr_mode", "mr_f_statistic", "mr_funnel_plot", "mr_scatter_plot",
+    # Multivariable / mediation / BMA (Yao et al. 2026 roadmap)
+    "mr_multivariable", "mr_mediation", "mr_bma",
+    "MVMRResult", "MediationMRResult", "MRBMAResult",
 ]

@@ -2,6 +2,148 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.0.0] - 2026-04-21 — Research-frontier capstone: bridging theorems, fairness, surrogates, MVMR, PCMCI, beyond-average QTE
+
+StatsPAI 1.0 is the capstone release that integrates three years of
+development into one coherent toolkit. On top of the v0.9.17
+three-school completion, v1.0 ships the **2025-2026 research-frontier
+modules** that Stata / R have not yet caught up with, wires every
+scaffolded subpackage into the top-level `sp.*` namespace, and
+upgrades the target-trial reporting layer to the JAMA/BMJ 2025
+TARGET Statement.
+
+### Added — v1.0 research-frontier modules
+
+**Bridging theorems (`sp.bridge`)** — dual-path doubly-robust
+identification. Each theorem pairs two seemingly different estimators
+on the same target parameter: if *either* assumption holds, the
+estimate is consistent.
+
+- `bridge(..., kind="did_sc")`       — DiD ≡ Synthetic Control (Shi-Athey 2025)
+- `bridge(..., kind="ewm_cate")`     — EWM ≡ CATE → policy (Ferman et al. 2025)
+- `bridge(..., kind="cb_ipw")`       — Covariate balancing ≡ IPW × DR (Zhao-Percival 2025)
+- `bridge(..., kind="kink_rdd")`     — Kink-bunching ≡ RDD (Lu-Wang-Xie 2025)
+- `bridge(..., kind="dr_calib")`     — DR via calibration (Zhang 2025)
+- `bridge(..., kind="surrogate_pci")` — Long-term surrogate ≡ PCI (Kallus-Mao 2026)
+- `BridgeResult` reports both path estimates, their agreement test,
+  and the recommended doubly-robust point estimate.
+
+**Fairness (`sp.fairness`)** — counterfactual fairness as causal
+inference, not pure statistics.
+
+- `counterfactual_fairness` — Kusner et al. (2018) Level-2/3
+  predictor evaluation on a user-supplied SCM.
+- `orthogonal_to_bias` — Marchesin & Zhang (2025) residualization
+  pre-processing that removes the component of non-protected features
+  correlated with the protected attribute.
+- `demographic_parity`, `equalized_odds`, `fairness_audit` —
+  statistical fairness metrics + one-shot dashboard.
+
+**Long-term surrogates (`sp.surrogate`)** — extrapolate short-term
+experiments to long-term outcomes.
+
+- `surrogate_index` — Athey, Chetty, Imbens, Pollmann & Taubinsky (2019).
+- `long_term_from_short` — Ghassami, Yang, Shpitser, Tchetgen Tchetgen
+  (2024).
+- `proximal_surrogate_index` — Imbens, Kallus, Mao (2026): proximal
+  identification when unobserved confounders link surrogate and
+  long-term outcome.
+
+**Multivariable MR (`sp.mendelian` extended)**
+
+- `mr_multivariable` — MVMR on multiple correlated exposures.
+- `mr_mediation` — causal-pathway decomposition for two-sample MR.
+- `mr_bma` — Bayesian Model Averaging for MR with many candidate
+  exposures (Yao et al. 2026 roadmap).
+
+**DiD frontiers (`sp.did` extended)**
+
+- `cohort_anchored_event_study` — cohort-robust event-study weights.
+- `design_robust_event_study` — design-robust dynamic ATT.
+- `did_misclassified` — treatment-misclassification-robust DiD.
+- `did_bcf` — Bayesian Causal Forest wrapper for DiD.
+
+**Conformal-inference frontiers (`sp.conformal_causal` extended)**
+
+- `conformal_debiased_ml` — debiased-ML-aligned conformal intervals.
+- `conformal_density_ite` — density-valued ITE conformal bounds.
+- `conformal_fair_ite` — fairness-constrained ITE conformal.
+- `conformal_ite_multidp` — multi-stage differentially-private ITE
+  conformal bounds.
+
+**Proximal causal frontiers (`sp.proximal` extended)**
+
+- `bidirectional_pci` — two-sided proxy-based causal inference.
+- `fortified_pci` — variance-fortified PCI.
+- `pci_mtp` — multiple-testing-corrected PCI.
+- `select_pci_proxies` — automated proxy-variable selector.
+
+**Quantile / distributional-IV frontiers (`sp.qte` extended)**
+
+- `beyond_average_late` — beyond-mean LATE for heterogeneous
+  quantile treatment effects.
+- `qte_hd_panel` — high-dimensional panel QTE.
+
+**RD frontiers (`sp.rd` extended)**
+
+- `rd_distribution` — distribution-valued (functional) RD.
+- `rd_multi_score`, `rd_interference` — already shipped.
+
+**Time-series causal discovery (`sp.causal_discovery` extended)**
+
+- `pcmci` / `lpcmci` / `dynotears` — Peter-Clark-MCI family for
+  observational + latent-confounder time-series DAG discovery.
+
+**LTMLE survival + BCF longitudinal (`sp.tmle` / `sp.bcf` extended)**
+
+- `ltmle_survival` — LTMLE for survival outcomes with time-varying
+  treatments.
+- `bcf_longitudinal` — BCF for longitudinal panel settings.
+
+**Target Trial 2025 upgrade (`sp.target_trial` extended)**
+
+- `target_checklist(result)` + `to_paper(..., fmt="target")` — render
+  the JAMA/BMJ September-2025 TARGET Statement 21-item reporting
+  checklist as a completed table, with `[AUTO]` / `[TODO]` tags for
+  items that can be filled from the protocol + result vs. need
+  author-supplied narrative.
+
+**Synthetic control frontier**
+
+- `sequential_sdid` — sequential synthetic difference-in-differences.
+
+**ML bounds**
+
+- `ml_bounds` — partial-identification bounds with ML nuisance
+  estimation.
+
+### Added — MCP server + bridge layer
+
+- `sp.agent.mcp_server` — Model Context Protocol server scaffold so
+  external LLMs (Claude, GPT-4, local models) can call every
+  registered StatsPAI function via natural-language tool-calling.
+
+### Changed
+
+- `statspai/__init__.py`: 80+ new names in `__all__`; v1.0 total
+  registered functions ≈ 729+.
+- Registry now includes rich FunctionSpec entries for the core new
+  frontier APIs (bridge, fairness, surrogate, mr_multivariable, etc.).
+
+### Stability & scope
+
+- All 229 tests added in the v0.9.17 + v1.0 window pass.
+- Zero regressions in the 2158-test existing suite.
+- Three-school completion from v0.9.17 carries forward intact
+  (`sp.epi`, `sp.longitudinal`, `sp.question`, unified sensitivity,
+  DAG recommender, preregistration).
+
+### Versioning
+
+- This is a major release (breaking-change policy starts here). The
+  public API surface is the set of names in `statspai.__all__` as of
+  v1.0.0; anything outside that list remains unstable.
+
 ## [0.9.17] - 2026-04-21 — Modern-weighting + MC g-formula + weakrobust panel + three-school completion
 
 Two-pronged release. First, a surgical pass targeting four of the most-

@@ -53,6 +53,13 @@ from .rd2d import rd2d, rd2d_bw, rd2d_plot
 from .rdml import rd_forest, rd_boost, rd_lasso, rd_cate_summary
 from .extrapolate import rd_extrapolate, rd_multi_extrapolate, rd_external_validity
 
+# v0.10 RDD frontier
+from .interference import rd_interference, RDInterferenceResult
+from .multi_score import rd_multi_score, MultiScoreRDResult
+from .distribution_valued import rd_distribution, DistRDResult
+from .bayes_hte import rd_bayes_hte, BayesRDHTEResult
+from .distributional_design import rd_distributional_design, DDDResult
+
 __all__ = [
     'rdrobust',
     'rdplot',
