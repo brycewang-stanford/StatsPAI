@@ -2,6 +2,118 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.3.0] — 2026-04-21 — v3-frontier sprint (Sprint 1 of the 知识地图 v3 roadmap)
+
+Builds on top of the v1.2.0 doc-alignment work by implementing the
+eleven highest-leverage frontier methods identified in the 2026-04-20
+*Causal-Inference Method Family 万字剖析 v3* gap analysis.  Every new
+public function is wired into the registry + agent schema so it
+surfaces through `sp.list_functions`, `sp.describe_function`, and
+`sp.all_schemas` for LLM agents.
+
+### Added — P0 frontier (4 methods, within-sprint week 1)
+
+- **`sp.synth_experimental_design`** — Abadie & Zhao (2025/2026)
+  inverse synthetic controls: picks the best ``k`` candidate units to
+  treat by minimising the sum of per-unit pre-period SC MSPEs.
+  Produces a ranking table, recommended treatment assignment, and a
+  variance-gain benchmark against random allocation.
+  [`synth/experimental_design.py`]
+
+- **`sp.rdrobust(..., bootstrap='rbc', n_boot=999, random_state=...)`**
+  — Cattaneo, Jansson & Ma (arXiv:2512.00566, 2026) robust-bias-corrected
+  studentised percentile bootstrap.  Empirically delivers CIs ~3–15%
+  shorter than the analytic robust CI without sacrificing coverage.
+  New ``model_info['rbc_bootstrap']`` block exposes the CI, p-value,
+  length-ratio, and effective replicate count.
+
+- **`sp.fairness.evidence_without_injustice`** — Kwak & Pleasants
+  (arXiv:2510.12822, 2025) counterfactual-fairness test that freezes
+  admissible-evidence features at their factual values and tests
+  whether predictions still change under ``do(A = a')``.  Returns a
+  bootstrap CI, p-value, and per-alternative breakdown.
+  [`fairness/evidence_test.py`]
+
+- **`sp.target_trial.to_paper(..., fmt='jama' | 'bmj')`** — renders a
+  JAMA / BMJ-ready manuscript with all 21 TARGET Statement (JAMA/BMJ
+  2025-09) items auto-filled where derivable plus `(supply text)`
+  placeholders elsewhere.  Supports `authors`, `funding`,
+  `registration`, `data_availability`, `background`, `limitations`
+  keyword arguments.
+
+### Added — P1 frontier (4 methods, within-sprint week 2)
+
+- **`sp.harvest_did`** — Borusyak et al. MIT/NBER WP 34550 (2025)
+  Harvesting DID + event-study framework: extracts every valid 2×2
+  DID comparison from a staggered panel, combines them via
+  inverse-variance weights, and reports event-study + pretrend Wald
+  tests.  Uses a not-yet-treated-at-max(t₁, t₂) clean-control filter
+  that correctly handles placebo horizons.  [`did/harvest.py`]
+
+- **`sp.bcf_ordinal`** — Zorzetto et al. (2026) BCF for ordered / dose
+  treatments.  Chains pairwise binary BCF between consecutive levels
+  to yield cumulative dose-response CATEs with per-level ATEs.
+  [`bcf/ordinal.py`]
+
+- **`sp.bcf_factor_exposure`** — arXiv:2601.16595 (2026) BCF on
+  PCA-factor scores of a high-dimensional exposure vector.  SVD or
+  user-supplied loadings compress the exposure to ``K`` factors; one
+  BCF is fit per factor.  Returns per-factor ATEs, loadings, scores,
+  and an aggregate mixture-ATE with CI.  [`bcf/factor_exposure.py`]
+
+- **`sp.causal_llm.causal_mas`** — arXiv:2509.00987 (2025/09) multi-
+  agent causal discovery framework.  Runs proposer / critic /
+  domain-expert / synthesiser agents over several debate rounds with
+  per-edge confidence scores and a full auditable transcript.
+  Offline heuristic backend by default; accepts any
+  ``chat(role, prompt)`` / ``complete(prompt)`` LLM client.
+  [`causal_llm/causal_mas.py`]
+
+- **`sp.shift_share_political`** — Park & Xu (arXiv:2603.00135, 2026)
+  political-science variant of the Bartik IV.  Long-difference 2SLS
+  with AKM shock-cluster SEs, Rotemberg top-K diagnostic, and
+  share-balance F-test against pre-treatment covariates.
+  [`bartik/political.py`]
+
+### Added — P2 frontier + testing (2 methods + 2 test suites)
+
+- **`sp.assimilation.causal_kalman`**,
+  **`sp.assimilation.assimilative_causal`** —
+  *Assimilative Causal Inference* (Nature Communications 2026): a
+  Kalman filter over streaming causal-effect estimates.  Produces a
+  running posterior with effective-sample-size diagnostics, pluggable
+  dynamics (static or random-walk), and an end-to-end wrapper that
+  runs a user-supplied per-batch estimator.  New subpackage
+  [`assimilation/`].
+
+- **`tests/reference_parity/test_mr_parity.py`** — 7 analytic-truth
+  checks over the MR suite (IVW consistency, Egger intercept under
+  balanced pleiotropy, Egger directional-pleiotropy detection,
+  weighted-median robustness, PRESSO outlier flag, LOO stability,
+  Radial-Wald exact agreement).  All 7 pass.
+
+- **`tests/external_parity/test_causalml_book.py`** — 7 CausalMLBook
+  (Chernozhukov et al. 2024–2025) canonical-DGP checks: DML-PLR,
+  Causal Forest, T-learner, 2SLS, Callaway–Sant'Anna DID, rdrobust,
+  and rbc-bootstrap vs analytic parity.  All 7 pass.
+
+### Registry + agent schema
+
+- 9 hand-written `FunctionSpec` entries for every new public function:
+  `synth_experimental_design`, `evidence_without_injustice`,
+  `harvest_did`, `bcf_ordinal`, `bcf_factor_exposure`, `causal_mas`,
+  `shift_share_political`, `causal_kalman`, `assimilative_causal`.
+  Each entry ships with NumPy-style parameter docs, examples, tags,
+  and paper references for LLM-agent consumption.
+
+### Backwards compatibility
+
+- All v1.2.x public APIs remain stable.  The only changes to existing
+  signatures are additive kwargs:
+  - `sp.rdrobust` — `bootstrap`, `n_boot`, `random_state`
+  - `sp.target_trial.to_paper` — `journal`, `authors`, `funding`,
+    `registration`, `data_availability`, `background`, `limitations`
+
 ## [1.2.0] — 2026-04-21 — Doc-alignment sprint (v3 reference document)
 
 Closes the remaining gaps between the *Causal-Inference Method Family
@@ -89,6 +201,14 @@ parameter docs, examples, references, and tags.
   being multiplied 42× by an implicit string-concat × `"=" * 42`
   precedence bug (`"title\n" "=" * 42` parsed as
   `("title\n" + "=") * 42`). Replaced with explicit f-string concatenation.
+- `question.CausalQuestion.save` — added `TYPE_CHECKING` import for
+  `pathlib.Path` so the stringified return annotation stops tripping
+  `flake8 F821` in CI.
+- Added `tabulate>=0.9.0` to core dependencies. `pandas.to_markdown()`
+  dispatches to `tabulate`, which was previously a pandas-optional
+  dep; user-facing `sp.causal(...).report('markdown' | 'html')`
+  triggered an `ImportError` on systems (Windows, fresh envs) that
+  didn't happen to transitively install `tabulate`.
 
 ### Test coverage
 
