@@ -15,7 +15,18 @@ StatsPAI is the **agent-native** Python package for causal inference and applied
 
 It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 
-**🎉 NEW in v1.4.1 — v3-frontier Sprint 3: AKM shock-clustered SE, Claude extended thinking, parity + integration suites, 2 new guides**
+**🎉 NEW in v1.4.2 — correctness patches + Proximal / QTE / Causal-RL family guides**
+
+StatsPAI 1.4.2 is a patch release.  No breaking changes, no new public signatures — just two silent-wrong-numbers fixes and three family guides closing the last gaps between the v3 reference and the published documentation.
+
+- **⚠️ correctness fix — `sp.dml_model_averaging` √n SE scaling bug.** The cross-candidate variance aggregator treated the sample-mean influence-function outer product as `Var(θ̂_avg)` directly, missing a final `/ n`. Reported SEs were `√n` times too large; on the canonical n=400 DGP the 95% CI width was 4.20 (nominal ≈ 0.21) and empirical coverage was 100%. After the fix, CI width is 0.21 and coverage is ≈ nominal. Regression guard: `tests/test_dml_model_averaging.py::test_se_on_correct_scale`.
+- **⚠️ correctness fix — `sp.gardner_did` event-study reference-category contamination.** Stage-2 dummy regression pooled never-treated units *and* treated units outside the event-study horizon into a single baseline, dragging every event-time coefficient toward the mean of that pool. On a synthetic panel with true τ=2 and strict parallel trends, pre-trends came out ≈ -0.30 (should be 0) and post ≈ +1.72 (should be 2.0). Replaced the Stage-2 regression in event-study mode with direct Borusyak-Jaravel-Spiess-style within-(cohort × relative-time) averaging of the imputed gap. After the fix: pre-trends ≈ +0.01, post ≈ +2.02. Non-event-study single-ATT path was already correct and is unchanged.
+- **New family guides** — `docs/guides/proximal_family.md` (full Proximal Causal Inference walkthrough covering `sp.proximal`, `sp.fortified_pci`, `sp.bidirectional_pci`, `sp.pci_mtp`, `sp.double_negative_control`, `sp.proximal_surrogate_index`, `sp.select_pci_proxies` with a decision tree + 4 diagnostics every PCI analysis should report), `docs/guides/qte_family.md` (mean → quantile → distribution with cross-section / DiD / IV / panel decision paths across `sp.qte`, `sp.qdid`, `sp.cic`, `sp.distributional_te`, `sp.dist_iv`, `sp.kan_dlate`, `sp.beyond_average_late`, `sp.qte_hd_panel`), `docs/guides/causal_rl_family.md` (when to use causal RL vs classical CI, covering `sp.causal_bandit`, `sp.causal_dqn`, `sp.offline_safe_policy`, `sp.counterfactual_policy_optimization`, `sp.structural_mdp`, `sp.causal_rl_benchmark` + 4 causal-RL-specific sanity checks).
+- **Formally shipped from v1.4.1 cherry-picks** — `tests/test_bridge_full.py` (10 end-to-end tests for `sp.bridge(kind=...)` bridging theorems) and `docs/guides/bridging_theorems.md`.
+
+Every public signature is byte-for-byte identical to v1.4.1.  Upgrading reveals narrower CIs for `dml_model_averaging` and cleaner event-study coefficients for `gardner_did`.
+
+**Previously in v1.4.1 — v3-frontier Sprint 3: AKM shock-clustered SE, Claude extended thinking, parity + integration suites, 2 new guides**
 
 StatsPAI 1.4.1 is an additive follow-up to 1.4.0 that closes the Sprint 3 items:
 
@@ -981,7 +992,7 @@ pytest
   author={Wang, Biaoyue},
   year={2026},
   url={https://github.com/brycewang-stanford/statspai},
-  version={1.4.1}
+  version={1.4.2}
 }
 ```
 
