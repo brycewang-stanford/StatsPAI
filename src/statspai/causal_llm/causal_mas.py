@@ -28,16 +28,10 @@ preserved for auditability.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from .llm_dag import (
-    _classify_variable,
-    _TREATMENT_KEYWORDS,
-    _OUTCOME_KEYWORDS,
-    _CONFOUNDER_KEYWORDS,
-    _INSTRUMENT_KEYWORDS,
-)
+from .llm_dag import _classify_variable
 
 
 __all__ = ["causal_mas", "CausalMASResult"]
@@ -370,7 +364,14 @@ def causal_mas(
     }
     final_edges = [e for e, c in confidence.items() if c >= final_threshold]
 
-    backend = "heuristic" if client is None else repr(client)
+    if client is None:
+        backend = "heuristic"
+    else:
+        # Prefer a short `name` attribute (set by the shipped adapters)
+        # over repr() for readability.
+        backend = str(
+            getattr(client, "name", None) or type(client).__name__
+        )
     return CausalMASResult(
         edges=sorted(set(final_edges)),
         confidence=confidence,

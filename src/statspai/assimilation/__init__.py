@@ -39,9 +39,15 @@ from .kalman import (
     causal_kalman,
     AssimilationResult,
 )
+from .particle import (
+    particle_filter,
+    assimilative_causal_particle,
+)
 
 __all__ = [
     "assimilative_causal",
     "causal_kalman",
     "AssimilationResult",
+    "particle_filter",
+    "assimilative_causal_particle",
 ]

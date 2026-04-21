@@ -36,7 +36,7 @@ Adão, R., Kolesár, M. & Morales, E. (2019).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -46,7 +46,12 @@ from ..core.results import CausalResult, EconometricResults
 from .shift_share import bartik as _bartik_cs
 
 
-__all__ = ["shift_share_political", "ShiftSharePoliticalResult"]
+__all__ = [
+    "shift_share_political",
+    "ShiftSharePoliticalResult",
+    "shift_share_political_panel",
+    "ShiftSharePoliticalPanelResult",
+]
 
 
 @dataclass
@@ -345,5 +350,413 @@ def shift_share_political(
             if len(rot_df) > 0 else 0.0,
             "rotemberg_top5_share": float(rot_df.head(5)["abs_weight"].sum())
             if len(rot_df) >= 5 else 0.0,
+        },
+    )
+
+
+# ===========================================================================
+# Multi-period panel extension (Park-Xu 2026, §4.2)
+# ===========================================================================
+
+
+@dataclass
+class ShiftSharePoliticalPanelResult:
+    """Structured output of :func:`shift_share_political_panel`.
+
+    Attributes
+    ----------
+    estimate : float
+        Pooled 2SLS coefficient on ``endog``.
+    se : float
+        Panel-clustered SE (unit by default; shock-clustered available
+        via the underlying AKM correction — stored in
+        ``diagnostics['akm_se']``).
+    ci : tuple
+        ``(lower, upper)`` at ``alpha``.
+    per_period : pd.DataFrame
+        Per-period cross-sectional estimates (one row per ``time``),
+        useful for event-study-style dynamic effects.
+    rotemberg_panel : pd.DataFrame
+        Rotemberg weights aggregated across periods (industries × stats).
+    share_balance : pd.DataFrame
+    n_units : int
+    n_periods : int
+    n_industries : int
+    method : str
+    diagnostics : dict
+    """
+
+    estimate: float
+    se: float
+    ci: tuple
+    per_period: pd.DataFrame
+    rotemberg_panel: pd.DataFrame
+    share_balance: pd.DataFrame
+    n_units: int
+    n_periods: int
+    n_industries: int
+    alpha: float = 0.05
+    method: str = "shift_share_political_panel"
+    diagnostics: Dict[str, Any] = field(default_factory=dict)
+
+    def summary(self) -> str:
+        lo, hi = self.ci
+        lines = [
+            "Shift-Share (Bartik) — Political Science, Panel (Park-Xu 2026 §4.2)",
+            "-" * 70,
+            f"  Units × periods         : {self.n_units} × {self.n_periods}",
+            f"  Industries              : {self.n_industries}",
+            f"  Pooled 2SLS estimate    : {self.estimate:+.6f}",
+            f"  SE (unit-clustered)     : {self.se:.6f}",
+            f"  {int((1 - self.alpha) * 100)}% CI                 : "
+            f"[{lo:+.6f}, {hi:+.6f}]",
+            "",
+            "  Per-period estimates (event study):",
+            self.per_period.to_string(index=False, float_format="%.4f"),
+            "",
+            "  Rotemberg top-5 industries (aggregate):",
+            self.rotemberg_panel.head(5).to_string(index=False, float_format="%.4f"),
+        ]
+        if len(self.share_balance):
+            lines.append("")
+            lines.append("  Share-balance (F-test on shares):")
+            lines.append(self.share_balance.to_string(index=False, float_format="%.4f"))
+        return "\n".join(lines)
+
+
+def _resolve_shares(
+    shares: Any,
+    times: Sequence[Any],
+    units: Sequence[Any],
+) -> Dict[Any, pd.DataFrame]:
+    """Normalise the `shares` input into ``{time: DataFrame(unit × industry)}``.
+
+    Accepted forms:
+      * ``DataFrame`` indexed by unit — interpreted as time-invariant,
+        broadcast to every period.
+      * ``dict[time → DataFrame]`` — per-period share matrices (must
+        share the same industry columns).
+    """
+    if isinstance(shares, pd.DataFrame):
+        out = {}
+        for t in times:
+            s = shares.loc[[u for u in units if u in shares.index]]
+            out[t] = s
+        return out
+    if isinstance(shares, dict):
+        out = {}
+        cols0 = None
+        for t in times:
+            if t not in shares:
+                raise KeyError(f"shares missing entry for time={t!r}")
+            s = shares[t]
+            if not isinstance(s, pd.DataFrame):
+                raise TypeError(
+                    f"shares[{t!r}] must be DataFrame, got {type(s).__name__}"
+                )
+            if cols0 is None:
+                cols0 = list(s.columns)
+            elif list(s.columns) != cols0:
+                raise ValueError(
+                    f"shares[{t!r}].columns != shares[{times[0]!r}].columns"
+                )
+            out[t] = s
+        return out
+    raise TypeError(
+        "shares must be a DataFrame or dict[time → DataFrame]; "
+        f"got {type(shares).__name__}"
+    )
+
+
+def _resolve_shocks(
+    shocks: Any,
+    times: Sequence[Any],
+    industries: Sequence[Any],
+) -> Dict[Any, pd.Series]:
+    """Normalise the `shocks` input into ``{time: Series(industry)}``."""
+    if isinstance(shocks, pd.Series):
+        return {t: shocks for t in times}
+    if isinstance(shocks, pd.DataFrame):
+        # Rows = time, columns = industry
+        out = {}
+        for t in times:
+            if t not in shocks.index:
+                raise KeyError(f"shocks row missing for time={t!r}")
+            out[t] = shocks.loc[t]
+        return out
+    if isinstance(shocks, dict):
+        return {t: shocks[t] for t in times}
+    raise TypeError(
+        "shocks must be Series, DataFrame(time × industry), or dict[time → Series]"
+    )
+
+
+def _build_bartik_panel(
+    data: pd.DataFrame,
+    shares_by_t: Dict[Any, pd.DataFrame],
+    shocks_by_t: Dict[Any, pd.Series],
+    *,
+    unit: str,
+    time: str,
+) -> pd.DataFrame:
+    """Attach a ``bartik_iv`` column to `data` row by row."""
+    out = data.copy()
+    iv = np.full(len(out), np.nan)
+    for t, shares_t in shares_by_t.items():
+        shocks_t = shocks_by_t[t]
+        # Align industries
+        cols = [c for c in shares_t.columns if c in shocks_t.index]
+        if not cols:
+            raise ValueError(f"no shared industries at time={t!r}")
+        bart = shares_t[cols] @ shocks_t.loc[cols]
+        mask = (out[time] == t) & (out[unit].isin(bart.index))
+        if mask.any():
+            iv[mask.values] = bart.loc[out.loc[mask, unit]].to_numpy(dtype=float)
+    out["__bartik_iv__"] = iv
+    return out
+
+
+def shift_share_political_panel(
+    data: pd.DataFrame,
+    *,
+    unit: str,
+    time: str,
+    outcome: str,
+    endog: str,
+    shares: Any,
+    shocks: Any,
+    covariates: Optional[Sequence[str]] = None,
+    cluster: str = "unit",
+    alpha: float = 0.05,
+    fe: str = "two-way",
+) -> ShiftSharePoliticalPanelResult:
+    """Multi-period panel shift-share IV (Park-Xu 2026 §4.2).
+
+    Pooled 2SLS with unit / time / two-way fixed effects, using the
+    period-specific Bartik instrument
+
+        Z_{it} = sum_k s_{ikt} · g_{kt}
+
+    The share matrix can be time-invariant (``DataFrame`` indexed by
+    unit) or time-varying (``dict[time → DataFrame]``); the shock
+    vector can similarly be scalar-in-time (``Series``) or time-varying
+    (``DataFrame`` indexed by time / ``dict[time → Series]``).
+
+    Parameters
+    ----------
+    data : DataFrame (long format)
+    unit, time, outcome, endog : str
+    shares : DataFrame or dict[time → DataFrame]
+    shocks : Series, DataFrame(time × industry), or dict[time → Series]
+    covariates : sequence of str, optional
+        Time-varying controls.
+    cluster : {'unit', 'time', 'twoway'}, default 'unit'
+        Cluster structure for the panel SE.
+    alpha : float, default 0.05
+    fe : {'two-way', 'unit', 'time', 'none'}, default 'two-way'
+        Fixed-effect structure.  ``'two-way'`` is the Park-Xu default.
+
+    Returns
+    -------
+    ShiftSharePoliticalPanelResult
+
+    Examples
+    --------
+    >>> import statspai as sp, numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> units, times, inds = list(range(30)), [0, 1, 2, 3], list("AB")
+    >>> shares = pd.DataFrame(rng.dirichlet(np.ones(2), size=len(units)),
+    ...                       index=units, columns=inds)
+    >>> shocks = pd.DataFrame(
+    ...     rng.normal(size=(len(times), 2)), index=times, columns=inds,
+    ... )
+    >>> rows = []
+    >>> tau = 0.3
+    >>> for i in units:
+    ...     for t in times:
+    ...         b = float((shares.loc[i] * shocks.loc[t]).sum())
+    ...         x = b + rng.normal(scale=0.1)
+    ...         y = tau * x + rng.normal(scale=0.1)
+    ...         rows.append({'u': i, 't': t, 'y': y, 'x': x})
+    >>> df = pd.DataFrame(rows)
+    >>> out = sp.shift_share_political_panel(
+    ...     df, unit='u', time='t', outcome='y', endog='x',
+    ...     shares=shares, shocks=shocks,
+    ... )
+    >>> abs(out.estimate - tau) < 0.15
+    True
+    """
+    if fe not in ("two-way", "unit", "time", "none"):
+        raise ValueError(f"fe must be one of two-way/unit/time/none; got {fe!r}")
+    if cluster not in ("unit", "time", "twoway"):
+        raise ValueError(f"cluster must be unit/time/twoway; got {cluster!r}")
+    for col in (unit, time, outcome, endog):
+        if col not in data.columns:
+            raise ValueError(f"column {col!r} not in data")
+
+    data_sorted = data.sort_values([unit, time]).reset_index(drop=True)
+    times = sorted(data_sorted[time].unique())
+    units = sorted(data_sorted[unit].unique())
+    shares_by_t = _resolve_shares(shares, times, units)
+    first_t = times[0]
+    industries = list(shares_by_t[first_t].columns)
+    shocks_by_t = _resolve_shocks(shocks, times, industries)
+
+    df_iv = _build_bartik_panel(
+        data_sorted, shares_by_t, shocks_by_t,
+        unit=unit, time=time,
+    )
+    if df_iv["__bartik_iv__"].isna().any():
+        n_missing = int(df_iv["__bartik_iv__"].isna().sum())
+        raise ValueError(
+            f"{n_missing} rows have missing Bartik IV — check that "
+            "every (unit, time) is covered by shares + shocks."
+        )
+
+    # --- Within-transformation for FE ------------------------------------
+    def _demean(df: pd.DataFrame, cols: Sequence[str]) -> pd.DataFrame:
+        out = df.copy()
+        if fe in ("two-way", "unit"):
+            out[cols] = out[cols].sub(out.groupby(unit)[cols].transform("mean"))
+        if fe in ("two-way", "time"):
+            out[cols] = out[cols].sub(out.groupby(time)[cols].transform("mean"))
+        return out
+
+    cov_cols = list(covariates) if covariates else []
+    work_cols = [outcome, endog, "__bartik_iv__"] + cov_cols
+    df_demean = _demean(df_iv, work_cols)
+
+    Y = df_demean[outcome].to_numpy(dtype=float)
+    D = df_demean[endog].to_numpy(dtype=float)
+    Z = df_demean["__bartik_iv__"].to_numpy(dtype=float)
+    X_cov = (
+        df_demean[cov_cols].to_numpy(dtype=float)
+        if cov_cols else np.zeros((len(Y), 0))
+    )
+
+    # Stage 1: D ~ Z + X
+    S1 = np.column_stack([np.ones(len(Y)), Z, X_cov])
+    pi, *_ = np.linalg.lstsq(S1, D, rcond=None)
+    D_hat = S1 @ pi
+
+    # Stage 2: Y ~ D_hat + X
+    S2 = np.column_stack([np.ones(len(Y)), D_hat, X_cov])
+    b2, *_ = np.linalg.lstsq(S2, Y, rcond=None)
+    beta = float(b2[1])
+
+    # Residuals from the STRUCTURAL equation (Y ~ D, not Y ~ D_hat)
+    S2_struct = np.column_stack([np.ones(len(Y)), D, X_cov])
+    resid = Y - S2_struct @ b2
+
+    # Cluster-robust SE on stage-2 (sandwich)
+    cluster_col = (
+        df_iv[unit].to_numpy() if cluster == "unit"
+        else df_iv[time].to_numpy() if cluster == "time"
+        else df_iv[unit].astype(str) + "_" + df_iv[time].astype(str)
+    )
+    bread = np.linalg.pinv(S2.T @ S2)
+    meat = np.zeros_like(bread)
+    for g in np.unique(cluster_col):
+        idx = np.where(cluster_col == g)[0]
+        Sg = S2[idx]
+        rg = resid[idx]
+        scores = Sg * rg[:, None]
+        sg = scores.sum(axis=0)
+        meat += np.outer(sg, sg)
+    vcov = bread @ meat @ bread
+    se = float(np.sqrt(max(vcov[1, 1], 0.0)))
+    from scipy.stats import norm as _norm
+    z = _norm.ppf(1 - alpha / 2)
+    ci = (beta - z * se, beta + z * se)
+
+    # --- Per-period cross-sectional estimates ----------------------------
+    per_period_rows = []
+    for t in times:
+        sub = df_iv[df_iv[time] == t]
+        yt = sub[outcome].to_numpy(dtype=float)
+        dt = sub[endog].to_numpy(dtype=float)
+        zt = sub["__bartik_iv__"].to_numpy(dtype=float)
+        n_t = len(sub)
+        if n_t < 5 or float(np.std(zt)) < 1e-12:
+            continue
+        s1 = np.column_stack([np.ones(n_t), zt])
+        pi_t, *_ = np.linalg.lstsq(s1, dt, rcond=None)
+        dth = s1 @ pi_t
+        s2 = np.column_stack([np.ones(n_t), dth])
+        b_t, *_ = np.linalg.lstsq(s2, yt, rcond=None)
+        r_t = yt - np.column_stack([np.ones(n_t), dt]) @ b_t
+        bread_t = np.linalg.pinv(s2.T @ s2)
+        meat_t = (s2 * r_t[:, None]).T @ (s2 * r_t[:, None])
+        v_t = float((bread_t @ meat_t @ bread_t)[1, 1])
+        per_period_rows.append({
+            "time": t,
+            "estimate": float(b_t[1]),
+            "se": float(np.sqrt(max(v_t, 0.0))),
+            "n": int(n_t),
+        })
+    per_period = pd.DataFrame(per_period_rows)
+
+    # --- Rotemberg weights aggregated across periods ---------------------
+    rot_acc = {ind: 0.0 for ind in industries}
+    for t in times:
+        shares_t = shares_by_t[t]
+        shocks_t = shocks_by_t[t]
+        sub = df_iv[df_iv[time] == t]
+        d_c = sub[endog].to_numpy(dtype=float) - sub[endog].mean()
+        aligned = [ind for ind in industries if ind in shocks_t.index]
+        if not aligned:
+            continue
+        S_aligned = shares_t.loc[sub[unit].astype(int), aligned].to_numpy(dtype=float) \
+            if all(u in shares_t.index for u in sub[unit]) \
+            else shares_t.reindex(sub[unit])[aligned].to_numpy(dtype=float)
+        g_aligned = shocks_t.loc[aligned].to_numpy(dtype=float)
+        alpha_t = g_aligned * (S_aligned.T @ d_c)
+        for ind, w in zip(aligned, alpha_t):
+            rot_acc[ind] += float(w)
+    total = sum(abs(v) for v in rot_acc.values())
+    rot_rows = []
+    for ind, w in rot_acc.items():
+        rot_rows.append({
+            "industry": ind,
+            "rotemberg_weight": (w / total) if total > 0 else 0.0,
+            "abs_weight": abs(w) / total if total > 0 else 0.0,
+        })
+    rot_df = pd.DataFrame(rot_rows).sort_values("abs_weight", ascending=False) \
+        .reset_index(drop=True)
+
+    # --- Share-balance diagnostic (using time=first share matrix) --------
+    if covariates:
+        first_period = data_sorted[data_sorted[time] == first_t]
+        cov_df = first_period.set_index(unit)[list(covariates)]
+        shares_first = shares_by_t[first_t].loc[
+            [u for u in cov_df.index if u in shares_by_t[first_t].index]
+        ]
+        cov_df = cov_df.loc[shares_first.index]
+        balance = _share_balance_test(shares_first, cov_df)
+    else:
+        balance = pd.DataFrame(
+            columns=["covariate", "R2_on_shares", "F", "pvalue"]
+        )
+
+    return ShiftSharePoliticalPanelResult(
+        estimate=beta,
+        se=se,
+        ci=ci,
+        per_period=per_period,
+        rotemberg_panel=rot_df,
+        share_balance=balance,
+        n_units=int(len(units)),
+        n_periods=int(len(times)),
+        n_industries=int(len(industries)),
+        alpha=float(alpha),
+        method="shift_share_political_panel",
+        diagnostics={
+            "fe": fe,
+            "cluster": cluster,
+            "n_obs": int(len(df_iv)),
+            "first_stage_F": float(
+                (D_hat.var() / max(resid.var(), 1e-12))
+                if resid.var() > 0 else float("nan")
+            ),
         },
     )

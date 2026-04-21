@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -113,6 +113,7 @@ from .mediation import mediate, MediationAnalysis, mediate_sensitivity, mediate_
 from .bartik import (
     bartik, BartikIV, ssaggregate, shift_share_se,
     shift_share_political, ShiftSharePoliticalResult,
+    shift_share_political_panel, ShiftSharePoliticalPanelResult,
 )
 from .output.outreg2 import OutReg2, outreg2
 from .output.modelsummary import modelsummary, coefplot

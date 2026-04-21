@@ -9,14 +9,18 @@ mixed-effects, modern ML causal inference, the full three-school
 modules (bridging theorems, fairness, surrogates, PCMCI, TMLE survival,
 etc.), and publication-ready output in Word / Excel / LaTeX / HTML.
 
-> **Current release: v1.0.1 (2026-04-21)** — Stable API release:
-> research-frontier capstone + independent code-review correctness
-> pass. Semantic versioning starts here. Every Critical / High / Medium
-> finding from the independent code-review-expert audit of the v1.0
-> frontier modules has been fixed and pinned by regression tests, and
-> both `NEEDS_VERIFICATION` items (Abadie κ-weighted complier QTE +
-> real dual-path PCI bridge) are now closed. **2 706+ tests passing,
-> zero regressions.** See the [changelog](changelog.md) for detail.
+> **Current release: v1.4.0 (2026-04-21)** — v3-frontier Sprint 2.
+> Closes the four Sprint-1 follow-ups: multi-period Park-Xu political
+> shift-share (`sp.shift_share_political_panel`), real OpenAI /
+> Anthropic adapters for the Causal MAS discovery agent
+> (`sp.causal_llm.openai_client`, `anthropic_client`, `echo_client`),
+> a particle-filter backend for `sp.assimilation` supporting
+> non-Gaussian priors and nonlinear dynamics, and three new MkDocs
+> guides (`synth_experimental`, `harvest_did`, `assimilative_ci`).
+> Plus a 20-item Sprint-1 unused-import cleanup and a CausalForest
+> parity-test de-flake via explicit `random_state`. 874+ registered
+> functions, 2 699+ tests passing across all OS × Python matrix
+> entries. See the [changelog](changelog.md) for detail.
 
 ```python
 import statspai as sp
@@ -29,10 +33,12 @@ rpt = sp.cs_report(data, y='y', g='g', t='t', i='id',
 
 ## What's inside
 
-### Release highlights (v0.9.17 → v1.0.1)
+### Release highlights (v0.9.17 → v1.4.0)
 
 | Release | Focus | Headline |
 | --- | --- | --- |
+| **v1.4.0** | v3-frontier Sprint 2 (extensions + LLM SDK + docs) | `shift_share_political_panel` (Park-Xu 2026 multi-period); real LLM adapters `openai_client` / `anthropic_client` / `echo_client` for Causal MAS; `particle_filter` backend for `assimilative_causal` (non-Gaussian / nonlinear); three new MkDocs guides (`synth_experimental`, `harvest_did`, `assimilative_ci`); 20 unused-import cleanups; CausalForest parity-test de-flake. |
+| **v1.3.0** | v3-frontier sprint (Sprint 1 of 知识地图 v3) | 11 frontier methods: Abadie-Zhao inverse synthetic experimental design, CJM RBC bootstrap for `rdrobust`, Kwak-Pleasants evidence-without-injustice fairness test, JAMA/BMJ TARGET manuscript renderer, Borusyak harvest-DiD, Zorzetto ordinal / factor-exposure BCF, multi-agent causal discovery (`causal_mas`), Park-Xu political shift-share IV, state-space `causal_kalman`. 35 new tests, 869 registered functions, zero regressions. `tabulate` promoted to core dep. |
 | **v1.0.1** | Post-review correctness + NEEDS_VERIFICATION closeout | All Critical / High / Medium findings from the independent code-review-expert pass on v1.0 frontier modules fixed and pinned by regression tests. Abadie κ-weighted complier QTE now implemented for `beyond_average_late`; `bridge.surrogate_pci` path B now a genuine dual-path (arm-specific counterfactual bridge), not OLS-tautology. 2 706+ tests passing. |
 | **v1.0.0** | Research-frontier capstone | `sp.bridge` (6 bridging theorems), `sp.fairness`, `sp.surrogate`, `mr_multivariable`/`mr_mediation`/`mr_bma`, PCMCI/LPCMCI/DYNOTEARS, conformal frontiers (debiased/density/fair/multi-DP), proximal frontiers, sequential SDID, BCF longitudinal, LTMLE survival, ML bounds, JAMA/BMJ 2025 TARGET Statement 21-item reporting checklist. |
 | **v0.9.17** | Three-school completion | `sp.epi` (OR/RR/MH/standardization/Bradford-Hill/ROC/kappa), `sp.longitudinal` (MSM/g-formula/IPW unified + safe regime DSL), `sp.question` (estimand-first DSL), full MR diagnostic suite, DAG `recommend_estimator()`, unified `result.sensitivity()`, `preregister()` + `load_preregister()`. |
@@ -160,7 +166,7 @@ method that returns the correct BibTeX entry) and this package:
   title   = {StatsPAI: A Unified, Agent-Native Python Toolkit for
              Causal Inference and Applied Econometrics},
   year    = {2026},
-  version = {1.0.1},
+  version = {1.4.0},
   url     = {https://github.com/brycewang-stanford/StatsPAI}
 }
 ```

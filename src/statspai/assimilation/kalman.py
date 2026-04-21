@@ -31,7 +31,7 @@ Communications 2026.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -285,10 +285,13 @@ def assimilative_causal(
         ``.se``.
     prior_mean, prior_var, process_var, alpha
         Forwarded to :func:`causal_kalman`.
-    backend : {'kalman'}, default 'kalman'
-        Only the exact Kalman path is implemented at the moment.  A
-        particle-filter backend is planned for nonlinear / non-Gaussian
-        observation models and will share the same call signature.
+    backend : {'kalman', 'particle'}, default 'kalman'
+        ``'kalman'`` uses the exact closed form.  ``'particle'`` routes
+        to :func:`sp.assimilation.particle_filter` — a bootstrap-SIR
+        filter with systematic resampling that handles non-Gaussian
+        priors, non-Gaussian observation noise, or nonlinear dynamics.
+        Under Gaussian DGPs the two backends agree to within
+        Monte-Carlo noise.
 
     Returns
     -------
@@ -321,10 +324,9 @@ def assimilative_causal(
     >>> abs(res.final_mean - 0.5) < 0.1
     True
     """
-    if backend != "kalman":
-        raise NotImplementedError(
-            f"Only backend='kalman' is implemented; particle filter is "
-            f"planned.  Got backend={backend!r}."
+    if backend not in ("kalman", "particle"):
+        raise ValueError(
+            f"backend must be 'kalman' or 'particle'; got {backend!r}."
         )
     estimates: List[float] = []
     ses: List[float] = []
@@ -332,6 +334,15 @@ def assimilative_causal(
         theta, se = estimator(b)
         estimates.append(float(theta))
         ses.append(float(se))
+    if backend == "particle":
+        from .particle import particle_filter
+        return particle_filter(
+            estimates, ses,
+            prior_mean=prior_mean,
+            prior_var=prior_var,
+            process_sd=float(np.sqrt(max(process_var, 0.0))),
+            alpha=alpha,
+        )
     return causal_kalman(
         estimates, ses,
         prior_mean=prior_mean,

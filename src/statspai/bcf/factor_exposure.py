@@ -27,12 +27,11 @@ causal forest (working paper).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
 
-from ..core.results import CausalResult
 from .bcf import bcf as _bcf_binary
 
 

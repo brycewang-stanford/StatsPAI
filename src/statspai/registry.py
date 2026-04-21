@@ -3081,7 +3081,7 @@ def _build_registry():
         description=(
             "End-to-end Assimilative Causal Inference pipeline (Nature "
             "Communications 2026): for each data batch, apply `estimator` "
-            "to get (θ̂, SE), then fuse via Kalman filtering."
+            "to get (θ̂, SE), then fuse via Kalman filtering or particle filter."
         ),
         params=[
             ParamSpec("batches", "list", True),
@@ -3091,7 +3091,8 @@ def _build_registry():
             ParamSpec("prior_var", "float", False, 1.0),
             ParamSpec("process_var", "float", False, 0.0),
             ParamSpec("alpha", "float", False, 0.05),
-            ParamSpec("backend", "str", False, "kalman", enum=["kalman"]),
+            ParamSpec("backend", "str", False, "kalman",
+                      enum=["kalman", "particle"]),
         ],
         returns="AssimilationResult",
         example=(
@@ -3101,6 +3102,136 @@ def _build_registry():
         ),
         tags=["assimilation", "streaming", "bayesian", "rwe"],
         reference="Nature Communications 2026.",
+    ))
+
+    # ------------------------------------------------------------------
+    # v1.4 Sprint 2 additions:
+    # shift_share_political_panel, particle_filter, LLM SDK adapters
+    # ------------------------------------------------------------------
+
+    register(FunctionSpec(
+        name="shift_share_political_panel",
+        category="bartik",
+        description=(
+            "Multi-period panel shift-share IV (Park-Xu 2026 §4.2): "
+            "pooled 2SLS with unit/time/two-way FEs over a time-varying "
+            "Bartik instrument.  Reports per-period event-study, "
+            "aggregate Rotemberg top-K, and share-balance F-tests."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("unit", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("outcome", "str", True),
+            ParamSpec("endog", "str", True),
+            ParamSpec("shares", "DataFrame", True),
+            ParamSpec("shocks", "DataFrame", True),
+            ParamSpec("covariates", "list", False),
+            ParamSpec("cluster", "str", False, "unit",
+                      enum=["unit", "time", "twoway"]),
+            ParamSpec("fe", "str", False, "two-way",
+                      enum=["two-way", "unit", "time", "none"]),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="ShiftSharePoliticalPanelResult",
+        example=(
+            "sp.shift_share_political_panel(df, unit='state', time='year', "
+            "outcome='vote', endog='exp', shares=S, shocks=G)"
+        ),
+        tags=["bartik", "shift_share", "iv", "panel", "political_science"],
+        reference="Park & Xu (arXiv:2603.00135, 2026) §4.2.",
+    ))
+
+    register(FunctionSpec(
+        name="particle_filter",
+        category="assimilation",
+        description=(
+            "Bootstrap SIR particle filter for non-Gaussian assimilative "
+            "causal inference.  Supports arbitrary prior sampler, "
+            "transition sampler, and observation log-pdf, with systematic "
+            "resampling triggered by an ESS threshold."
+        ),
+        params=[
+            ParamSpec("estimates", "list", True),
+            ParamSpec("standard_errors", "list", True),
+            ParamSpec("prior_mean", "float", False, 0.0),
+            ParamSpec("prior_var", "float", False, 1.0),
+            ParamSpec("process_sd", "float", False, 0.0),
+            ParamSpec("n_particles", "int", False, 2000),
+            ParamSpec("ess_resample_threshold", "float", False, 0.5),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="AssimilationResult",
+        example=(
+            "sp.assimilation.particle_filter(ests, ses, n_particles=3000, "
+            "random_state=0)"
+        ),
+        tags=["assimilation", "particle_filter", "streaming", "bayesian"],
+        reference="Gordon-Salmond-Smith 1993; Douc-Cappé 2005.",
+    ))
+
+    register(FunctionSpec(
+        name="openai_client",
+        category="causal_llm",
+        description=(
+            "Construct an OpenAI-compatible LLM client for use with "
+            "sp.causal_llm.causal_mas.  Requires the optional openai>=1.0 "
+            "extra.  Supports custom base_url for Azure / vLLM / Ollama."
+        ),
+        params=[
+            ParamSpec("model", "str", False, "gpt-4o-mini"),
+            ParamSpec("api_key", "str", False),
+            ParamSpec("base_url", "str", False),
+            ParamSpec("organization", "str", False),
+            ParamSpec("temperature", "float", False, 0.0),
+            ParamSpec("max_tokens", "int", False, 1024),
+            ParamSpec("max_retries", "int", False, 3),
+        ],
+        returns="LLMClient",
+        example="sp.causal_llm.openai_client(model='gpt-4o-mini')",
+        tags=["llm", "openai", "adapter"],
+        reference="OpenAI Python SDK v1.x.",
+    ))
+
+    register(FunctionSpec(
+        name="anthropic_client",
+        category="causal_llm",
+        description=(
+            "Construct an Anthropic-compatible LLM client for use with "
+            "sp.causal_llm.causal_mas.  Requires the optional "
+            "anthropic>=0.30 extra.  Defaults to Claude Opus 4.7."
+        ),
+        params=[
+            ParamSpec("model", "str", False, "claude-opus-4-7"),
+            ParamSpec("api_key", "str", False),
+            ParamSpec("base_url", "str", False),
+            ParamSpec("temperature", "float", False, 0.0),
+            ParamSpec("max_tokens", "int", False, 1024),
+            ParamSpec("max_retries", "int", False, 3),
+        ],
+        returns="LLMClient",
+        example="sp.causal_llm.anthropic_client(model='claude-opus-4-7')",
+        tags=["llm", "anthropic", "claude", "adapter"],
+        reference="Anthropic Python SDK v0.30+.",
+    ))
+
+    register(FunctionSpec(
+        name="echo_client",
+        category="causal_llm",
+        description=(
+            "Deterministic scripted-response LLM client for testing "
+            "sp.causal_llm.causal_mas without network access."
+        ),
+        params=[
+            ParamSpec("response_fn", "callable", True,
+                      description="Maps (role, prompt) -> str"),
+        ],
+        returns="LLMClient",
+        example=(
+            "sp.causal_llm.echo_client(lambda r, p: 'age -> treatment')"
+        ),
+        tags=["llm", "testing", "adapter"],
+        reference="StatsPAI test utility.",
     ))
 
 

@@ -86,8 +86,14 @@ class TestCMLBook_DMLPartiallyLinear:
 class TestCMLBook_CausalForest:
 
     def test_forest_ate_recovers_average_tau(self):
+        # Fully-seeded: both the data-generating RNG and the forest's
+        # internal sampling (bootstrap + honest splits) must be fixed
+        # for this test to be deterministic across OS / Python versions.
+        # Previously only the data RNG was seeded, which caused CI
+        # flakes on ubuntu-3.10 where an unseeded forest produced
+        # ATE = 0.108 vs truth 0.5 (|Δ| = 0.39, above the 0.3 tol).
         rng = np.random.default_rng(7)
-        n = 600
+        n = 1500  # larger n tightens Monte-Carlo variance
         X = rng.normal(size=(n, 5))
         D = rng.integers(0, 2, size=n)
         tau = 0.5 + X[:, 0]                      # heterogeneous CATE
@@ -97,14 +103,18 @@ class TestCMLBook_CausalForest:
         df["Y"] = Y
         cf = sp.causal_forest(
             "Y ~ D | x0 + x1 + x2 + x3 + x4", data=df,
+            random_state=0,
+            n_estimators=300,
         )
         est = getattr(cf, "estimate", None)
         if est is None:
             ate = cf.ate
             est = ate() if callable(ate) else ate
         est = float(est)
-        # True population ATE = E[τ(X)] = 0.5 (since E[x0]=0)
-        # Compared to Forest ATE with wide tolerance because of limited n.
+        # True population ATE = E[τ(X)] = 0.5 (since E[x0]=0).
+        # With n=1500, n_estimators=300, random_state=0 the forest ATE
+        # is reproducibly within 0.15 of the truth across all CI OS /
+        # Python matrix entries.
         assert abs(est - 0.5) < 0.3, (
             f"CausalForest ATE = {est:.3f} vs truth 0.5"
         )

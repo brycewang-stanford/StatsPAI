@@ -28,12 +28,11 @@ Hahn, Murray, Carvalho (2020). Bayesian Analysis, 15(3).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Sequence
 
 import numpy as np
 import pandas as pd
 
-from ..core.results import CausalResult
 from .bcf import bcf as _bcf_binary
 
 
@@ -78,7 +77,7 @@ class BCFOrdinalResult:
             "-" * 68,
             f"  Dose levels           : {self.levels}",
             f"  Units                 : {len(self.cate)}",
-            f"  ATE(k)  [vs baseline k=0]:",
+            "  ATE(k)  [vs baseline k=0]:",
         ]
         for k in self.ate.index:
             lo = self.ate_ci.loc[k, "lower"]

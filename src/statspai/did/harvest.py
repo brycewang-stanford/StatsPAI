@@ -146,8 +146,6 @@ def _harvest_comparisons(
     records: List[Dict[str, Any]] = []
     # Index by (unit, time) for fast lookup via pivot tables.
     pivot_y = means.pivot(index=unit, columns=time, values="ybar")
-    pivot_v = means.pivot(index=unit, columns=time, values="yvar")
-    pivot_n = means.pivot(index=unit, columns=time, values="n")
     all_times = sorted(pivot_y.columns.tolist())
     cohorts = cohort_map.set_index(unit)["__g__"]
     unique_gs = sorted(
@@ -173,14 +171,6 @@ def _harvest_comparisons(
                 yT_t1 = pivot_y.loc[treated_units, t1].to_numpy(dtype=float)
                 yC_t2 = pivot_y.loc[control_units, t2].to_numpy(dtype=float)
                 yC_t1 = pivot_y.loc[control_units, t1].to_numpy(dtype=float)
-                vT_t2 = pivot_v.loc[treated_units, t2].to_numpy(dtype=float)
-                vT_t1 = pivot_v.loc[treated_units, t1].to_numpy(dtype=float)
-                vC_t2 = pivot_v.loc[control_units, t2].to_numpy(dtype=float)
-                vC_t1 = pivot_v.loc[control_units, t1].to_numpy(dtype=float)
-                nT_t2 = pivot_n.loc[treated_units, t2].to_numpy(dtype=float)
-                nT_t1 = pivot_n.loc[treated_units, t1].to_numpy(dtype=float)
-                nC_t2 = pivot_n.loc[control_units, t2].to_numpy(dtype=float)
-                nC_t1 = pivot_n.loc[control_units, t1].to_numpy(dtype=float)
             except KeyError:
                 continue
             # Drop units missing any of the four cells.

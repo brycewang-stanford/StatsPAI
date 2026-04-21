@@ -459,8 +459,8 @@ def _render_jama(
     )
     lines.append("")
     lines.append(
-        f"Outcome counts and person-time by strategy are reported in "
-        f"eTable 2 (TARGET #17)."
+        "Outcome counts and person-time by strategy are reported in "
+        "eTable 2 (TARGET #17)."
     )
     lines.append("")
     lines.append(

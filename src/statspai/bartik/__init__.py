@@ -18,9 +18,13 @@ Borusyak, K., Hull, P., and Jaravel, X. (2022).
 
 from .shift_share import bartik, BartikIV
 from .adao_correction import ssaggregate, shift_share_se
-from .political import shift_share_political, ShiftSharePoliticalResult
+from .political import (
+    shift_share_political, ShiftSharePoliticalResult,
+    shift_share_political_panel, ShiftSharePoliticalPanelResult,
+)
 
 __all__ = [
     'bartik', 'BartikIV', 'ssaggregate', 'shift_share_se',
     'shift_share_political', 'ShiftSharePoliticalResult',
+    'shift_share_political_panel', 'ShiftSharePoliticalPanelResult',
 ]

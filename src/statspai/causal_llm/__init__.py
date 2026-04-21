@@ -30,10 +30,14 @@ from .llm_sensitivity import (
     llm_sensitivity_priors, SensitivityPriorProposal,
 )
 from .causal_mas import causal_mas, CausalMASResult
+from .llm_clients import (
+    LLMClient, openai_client, anthropic_client, echo_client,
+)
 
 __all__ = [
     'llm_dag_propose', 'LLMDAGProposal',
     'llm_unobserved_confounders', 'UnobservedConfounderProposal',
     'llm_sensitivity_priors', 'SensitivityPriorProposal',
     'causal_mas', 'CausalMASResult',
+    'LLMClient', 'openai_client', 'anthropic_client', 'echo_client',
 ]

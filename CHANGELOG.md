@@ -2,6 +2,86 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.4.0] — 2026-04-21 — v3-frontier sprint 2 (extensions + LLM SDK + docs)
+
+Follow-up to v1.3.0 covering the four secondary items flagged at the
+end of Sprint 1.
+
+### Added — panel-shift-share extension
+
+- **`sp.shift_share_political_panel`** — multi-period extension of
+  `sp.shift_share_political` per Park & Xu (2026) §4.2.  Handles
+  time-varying shares **and** time-varying shocks, runs pooled 2SLS
+  with unit / time / two-way fixed effects, and reports a per-period
+  event-study table plus aggregate Rotemberg top-K weights.  Recovers
+  τ = 0.30 within 0.003 on a 30 × 4 synthetic panel.
+  [`bartik/political.py`]
+
+### Added — real-LLM adapters for Causal MAS
+
+- **`sp.causal_llm.openai_client`** — adapter over the `openai>=1.0`
+  Python SDK; supports custom `base_url` for Azure / vLLM / Ollama.
+- **`sp.causal_llm.anthropic_client`** — adapter over the
+  `anthropic>=0.30` Messages API; defaults to `claude-opus-4-7`.
+- **`sp.causal_llm.echo_client`** — deterministic scripted-response
+  client for offline unit testing.
+- All three implement a single-method `LLMClient` protocol and
+  integrate with `sp.causal_llm.causal_mas(client=...)` via the
+  existing `chat(role, prompt)` interface.  Lazy-imports the SDKs so
+  the core package has zero new runtime dependencies.
+  [`causal_llm/llm_clients.py`]
+
+### Added — particle-filter assimilation backend
+
+- **`sp.assimilation.particle_filter`** — bootstrap-SIR particle
+  filter with systematic resampling (Gordon-Salmond-Smith 1993;
+  Douc-Cappé 2005).  Handles non-Gaussian priors, heavy-tailed
+  observation noise, and nonlinear dynamics via pluggable
+  `prior_sampler` / `transition_sampler` / `observation_log_pdf`
+  callbacks.  Agrees with the exact Kalman filter to ~0.003 under
+  Gaussian DGPs.
+- **`sp.assimilative_causal(..., backend='particle')`** — the
+  end-to-end wrapper now routes to the particle filter when
+  `backend='particle'`.
+  [`assimilation/particle.py`]
+
+### Documentation
+
+Three new MkDocs guides covering the v3-frontier estimators:
+
+- `docs/guides/synth_experimental.md` — Abadie-Zhao inverse-SC workflow.
+- `docs/guides/harvest_did.md` — Borusyak-Hull-Jaravel harvesting DID.
+- `docs/guides/assimilative_ci.md` — Nature Comms 2026 streaming CI
+  with both Kalman and particle backends.
+
+All three are wired into `mkdocs.yml` nav under the *DID & Panel
+Methods* / guides section.
+
+### Registry + agent schema
+
+- 5 new hand-written `FunctionSpec` entries:
+  `shift_share_political_panel`, `particle_filter`, `openai_client`,
+  `anthropic_client`, `echo_client`.
+
+### Code-quality pass (Sprint 1 audit)
+
+- Removed 20 unused imports / shadow variables across the Sprint 1
+  modules identified by `pyflakes` (`did/harvest.py`,
+  `bcf/ordinal.py`, `bcf/factor_exposure.py`,
+  `causal_llm/causal_mas.py`, `bartik/political.py`,
+  `assimilation/kalman.py`, `target_trial/report.py`).
+
+### Fixed
+
+- `tests/external_parity/test_causalml_book.py::test_forest_ate_recovers_average_tau`
+  was flaking on `ubuntu-latest + Python 3.10` because only the
+  data-generating RNG was seeded — the causal forest's bootstrap +
+  honest-split sampling was unseeded, so the ATE estimate varied
+  by ±0.3 between OS / Python matrix entries and the
+  `|ATE - 0.5| < 0.3` tolerance occasionally failed. Fixed by
+  passing `random_state=0` + `n_estimators=300` + bumping `n` to
+  1 500 so the test is fully deterministic across the matrix.
+
 ## [1.3.0] — 2026-04-21 — v3-frontier sprint (Sprint 1 of the 知识地图 v3 roadmap)
 
 Builds on top of the v1.2.0 doc-alignment work by implementing the
