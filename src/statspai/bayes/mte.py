@@ -71,7 +71,7 @@ References:
 """
 from __future__ import annotations
 
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -106,7 +106,7 @@ def bayes_mte(
     data: pd.DataFrame,
     y: str,
     treat: str,
-    instrument: str,
+    instrument: Union[str, Sequence[str]],
     covariates: Optional[List[str]] = None,
     *,
     first_stage: str = 'plugin',
@@ -190,12 +190,22 @@ def bayes_mte(
     """
     pm, _ = _require_pymc()
 
-    for c in [y, treat, instrument] + (list(covariates) if covariates else []):
+    # Normalise instrument to a list so scalar and list-of-instruments
+    # paths share the same downstream code. Back-compat: passing a
+    # single string still works and returns the same posterior.
+    if isinstance(instrument, str):
+        iv_cols: List[str] = [instrument]
+    else:
+        iv_cols = list(instrument)
+    if len(iv_cols) == 0:
+        raise ValueError("instrument must name at least one column.")
+
+    for c in [y, treat] + iv_cols + (list(covariates) if covariates else []):
         if c not in data.columns:
             raise ValueError(f"Column '{c}' not found in data")
 
     cov_cols = list(covariates) if covariates else []
-    clean = data[[y, treat, instrument] + cov_cols].dropna().reset_index(drop=True)
+    clean = data[[y, treat] + iv_cols + cov_cols].dropna().reset_index(drop=True)
     n = len(clean)
     if n < 50:
         raise ValueError(
@@ -204,7 +214,8 @@ def bayes_mte(
 
     Y = clean[y].to_numpy(dtype=float)
     D = clean[treat].to_numpy(dtype=float)
-    Z = clean[instrument].to_numpy(dtype=float)
+    # 2-D Z of shape (n, k_iv). k_iv=1 recovers the scalar case.
+    Z = clean[iv_cols].to_numpy(dtype=float)
     X = clean[cov_cols].to_numpy(dtype=float) if cov_cols else None
     uniq_D = np.unique(D)
     if not set(uniq_D).issubset({0.0, 1.0}):
@@ -274,8 +285,14 @@ def bayes_mte(
             pi_intercept = pm.Normal(
                 'pi_intercept', mu=0.0, sigma=prior_coef_sigma,
             )
-            pi_Z = pm.Normal('pi_Z', mu=0.0, sigma=prior_coef_sigma)
-            logit = pi_intercept + pi_Z * Z
+            # pi_Z is a vector of length k_iv. For back-compat with
+            # the scalar case, shape=(1,) broadcasts against a (n, 1)
+            # Z matrix via pm.math.dot.
+            k_iv = Z.shape[1]
+            pi_Z = pm.Normal(
+                'pi_Z', mu=0.0, sigma=prior_coef_sigma, shape=k_iv,
+            )
+            logit = pi_intercept + pm.math.dot(Z, pi_Z)
             if X is not None:
                 pi_X = pm.Normal(
                     'pi_X', mu=0.0, sigma=prior_coef_sigma,
@@ -384,8 +401,12 @@ def bayes_mte(
     #   the coefficients is a natural point summary.
     if first_stage == 'joint':
         pi0_mean = float(trace.posterior['pi_intercept'].values.mean())
-        piZ_mean = float(trace.posterior['pi_Z'].values.mean())
-        lin = pi0_mean + piZ_mean * Z
+        # pi_Z is shape (k_iv,). Collapse (chains, draws, k_iv) to
+        # posterior-mean vector of length k_iv.
+        piZ_mean = trace.posterior['pi_Z'].values.reshape(
+            -1, Z.shape[1]
+        ).mean(axis=0)
+        lin = pi0_mean + Z @ piZ_mean
         if X is not None and 'pi_X' in trace.posterior:
             piX_mean = trace.posterior['pi_X'].values.reshape(
                 -1, X.shape[1]
@@ -443,7 +464,11 @@ def bayes_mte(
         'target_accept': target_accept,
         'poly_u': poly_u,
         'u_grid': u_grid.tolist(),
-        'instrument': instrument,
+        # `instruments` is always a list regardless of whether the
+        # user passed a scalar or list to keep downstream code from
+        # branching on type (cf. v0.9.11 round-B review).
+        'instruments': iv_cols,
+        'n_instruments': len(iv_cols),
         'covariates': cov_cols,
         'prior_mte_sigma': prior_mte_sigma,
         'prior_coef_sigma': prior_coef_sigma,

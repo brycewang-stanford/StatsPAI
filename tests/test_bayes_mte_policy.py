@@ -231,3 +231,99 @@ def test_policy_weight_helpers_at_top_level():
     assert sp.policy_weight_subsidy is policy_weight_subsidy
     assert sp.policy_weight_prte is policy_weight_prte
     assert sp.policy_weight_marginal is policy_weight_marginal
+    # v0.9.11 addition
+    from statspai.bayes import policy_weight_observed_prte
+    assert sp.policy_weight_observed_prte is policy_weight_observed_prte
+
+
+# ---------------------------------------------------------------------------
+# v0.9.11: CHV-2011 observed-propensity PRTE
+# ---------------------------------------------------------------------------
+
+
+def test_policy_weight_observed_prte_returns_callable():
+    rng = np.random.default_rng(0)
+    p_sample = rng.uniform(0, 1, 100)
+    w_fn = sp.policy_weight_observed_prte(p_sample, shift=0.2)
+    assert callable(w_fn)
+    weights = w_fn(np.linspace(0, 1, 11))
+    assert weights.shape == (11,)
+    assert (weights >= 0).all()     # clipped at 0
+
+
+def test_policy_weight_observed_prte_uniform_sample_is_approximately_flat():
+    """CHV-2011 weight on uniform propensity + positive shift=0.2:
+    the correct formula ``[F_P(u) - F_P(u-Δ)]/Δ`` on ``Uniform(0,1)``
+    gives ``min(u, Δ)/Δ`` on ``[0, Δ]`` (linearly ramping 0→1) and
+    ``1`` on ``[Δ, 1]`` — a trapezoid-on-the-left with a long flat
+    plateau. The KDE smooths the ramp slightly but the plateau on
+    ``[Δ, 1]`` should be close to 1.
+
+    This test guards against the common confusion where the
+    *density-difference* formula ``(f(u) - f(u-Δ))/Δ`` is used
+    instead — that would give ≈ 0 on the plateau and spikes at the
+    support boundary (derivative of density)."""
+    rng = np.random.default_rng(1)
+    p_sample = rng.uniform(0, 1, 2000)   # large sample → smooth KDE
+    w_fn = sp.policy_weight_observed_prte(p_sample, shift=0.2)
+    # Plateau region: u ∈ [0.3, 0.8], well inside [Δ=0.2, 1.0]
+    plateau_u = np.linspace(0.3, 0.8, 11)
+    plateau_w = w_fn(plateau_u)
+    # On the plateau, correct CHV weight ≈ 1.0 (with KDE smoothing)
+    assert np.all(plateau_w > 0.7), (
+        f"Plateau weights should be ≈ 1.0; got min={plateau_w.min():.3f}"
+    )
+    assert np.all(plateau_w < 1.3), (
+        f"Plateau weights should be ≈ 1.0; got max={plateau_w.max():.3f}"
+    )
+
+
+def test_policy_weight_observed_prte_negative_shift_yields_negative_weights():
+    """Under a policy that *reduces* treatment (shift < 0), the CHV
+    weight is signed negative to reflect reversers (previously
+    treated units who lose treatment). We keep the sign — dropping
+    it would silently change the estimand."""
+    rng = np.random.default_rng(10)
+    p_sample = rng.uniform(0, 1, 1000)
+    w_fn = sp.policy_weight_observed_prte(p_sample, shift=-0.2)
+    grid = np.linspace(0.3, 0.8, 11)    # plateau region
+    w = w_fn(grid)
+    # Most values should be negative (true CHV under contraction).
+    assert (w < 0).sum() > len(w) // 2, (
+        f"Negative-shift weights should be negative on the plateau; "
+        f"got {w}"
+    )
+
+
+def test_policy_weight_observed_prte_rejects_out_of_bounds_sample():
+    with pytest.raises(ValueError, match=r'\[0, 1\]'):
+        sp.policy_weight_observed_prte(np.array([0.5, 1.5]), shift=0.1)
+    with pytest.raises(ValueError, match=r'\[0, 1\]'):
+        sp.policy_weight_observed_prte(np.array([-0.1, 0.5]), shift=0.1)
+
+
+def test_policy_weight_observed_prte_rejects_tiny_sample():
+    with pytest.raises(ValueError, match='at least 2'):
+        sp.policy_weight_observed_prte(np.array([0.5]), shift=0.1)
+
+
+@pytest.mark.parametrize("shift", [-2.0, -1.0, 0.0, 1.0, 2.0])
+def test_policy_weight_observed_prte_rejects_bad_shift(shift):
+    rng = np.random.default_rng(2)
+    p_sample = rng.uniform(0, 1, 50)
+    with pytest.raises(ValueError, match='shift'):
+        sp.policy_weight_observed_prte(p_sample, shift=shift)
+
+
+def test_policy_weight_observed_prte_integrates_with_policy_effect(mte_result):
+    """End-to-end: build a KDE weight on a synthetic propensity
+    sample, feed into `policy_effect`, verify it returns a finite
+    posterior summary."""
+    rng = np.random.default_rng(3)
+    # Fake propensity sample (unrelated to the fit; we're only
+    # testing that the plumbing works end-to-end)
+    p_sample = rng.uniform(0.1, 0.9, 200)
+    w_fn = sp.policy_weight_observed_prte(p_sample, shift=0.1)
+    pe = mte_result.policy_effect(w_fn, label='chv_prte')
+    assert np.isfinite(pe['estimate'])
+    assert pe['hdi_low'] <= pe['estimate'] <= pe['hdi_high']

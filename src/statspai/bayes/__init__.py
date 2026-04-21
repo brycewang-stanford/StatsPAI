@@ -36,6 +36,7 @@ from .policy_weights import (
     policy_weight_subsidy,
     policy_weight_prte,
     policy_weight_marginal,
+    policy_weight_observed_prte,
 )
 
 __all__ = [
@@ -52,4 +53,5 @@ __all__ = [
     'policy_weight_subsidy',
     'policy_weight_prte',
     'policy_weight_marginal',
+    'policy_weight_observed_prte',
 ]

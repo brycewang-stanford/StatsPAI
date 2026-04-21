@@ -2,6 +2,58 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.11] - 2026-04-20 — Multi-instrument MTE + true CHV-2011 PRTE weights
+
+Closes two long-standing API gaps plus an empirical math debt.
+
+### Added (0.9.11)
+
+- **`sp.bayes_mte(instrument: str | Sequence[str], ...)`** — MTE
+  now accepts multiple instruments, matching `sp.bayes_iv` /
+  `sp.bayes_hte_iv`. Scalar calls unchanged.
+- **`sp.policy_weight_observed_prte(propensity_sample, shift)`** —
+  true Carneiro-Heckman-Vytlacil (2011) PRTE weights from the
+  observed propensity distribution via
+  `kde.integrate_box_1d(u-Δ, u) / Δ` (CDF difference). Closes the
+  v0.9.9 docstring gap where `policy_weight_prte` was flagged
+  stylised.
+
+### Round-B review found 2 HIGH + 3 MEDIUM; all fixed
+
+1. **CHV sign bug** — my original `(kde(u) - kde(u-Δ))/Δ` AND the
+   reviewer's proposed swap were both wrong (both compute
+   derivative of density, not CDF difference). Self-sweep verified
+   CHV-2011 Theorem 1 is a CDF difference. Fixed via
+   `integrate_box_1d`. Empirical: uniform propensity + Δ=0.2 now
+   gives the textbook trapezoid; previously gave a spurious
+   boundary spike.
+2. **Unconditional `np.clip(w, 0, None)`** silently altered the
+   estimand. Dropped — contraction policies now yield signed
+   negative weights, matching CHV convention.
+3. **`gaussian_kde` thread safety** — forced covariance
+   precomputation inside the builder.
+4. **`model_info['instrument']` type varied** — dropped the raw
+   key; only `instruments` (list) + `n_instruments` remain.
+5. **Back-compat test** uses relative-to-posterior-SD tolerance.
+
+### Tests (0.9.11)
+
+- `tests/test_bayes_mte_multi_iv.py` (9 tests).
+- `tests/test_bayes_mte_policy.py` (+7 tests).
+- 61 focused MTE tests green.
+
+### Code review
+
+- Round B agent: 5 items. Self-sweep caught one HIGH the agent
+  got wrong. All 5 fixed.
+- Round C agent: zero ship-blockers.
+
+### Design spec (0.9.11)
+
+- `docs/superpowers/specs/2026-04-20-v0911-multi-iv-mte-observed-prte.md`
+
+---
+
 ## [0.9.10] - 2026-04-20 — HV-latent MTE (textbook Heckman-Vytlacil via latent U_D)
 
 Closes the semantic debt v0.9.9 flagged but did not pay: the

@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.10"
+__version__ = "0.9.11"
 __author__ = "Biaoyue Wang"
 __email__ = "bryce@copaper.ai"
 
@@ -147,6 +147,7 @@ from .bayes import (
     BayesianCausalResult, BayesianHTEIVResult, BayesianMTEResult,
     policy_weight_ate, policy_weight_subsidy,
     policy_weight_prte, policy_weight_marginal,
+    policy_weight_observed_prte,
 )
 from .regression.heckman import heckman
 from .regression.quantile import qreg, sqreg
@@ -196,6 +197,8 @@ from .selection import stepwise, lasso_select, SelectionResult
 from .qte import qdid, qte, QTEResult
 from .mht import romano_wolf, RomanoWolfResult, adjust_pvalues, bonferroni, holm, benjamini_hochberg
 from .registry import list_functions, describe_function, function_schema, search_functions, all_schemas
+# Unified help entry point (aggregates registry + docstring + category + search)
+from .help import help, HelpResult
 
 # === Article-facing aliases (sp.rdd / sp.frontdoor / sp.xlearner / ...) ===
 # Thin wrappers around existing implementations; see _article_aliases.py
@@ -638,6 +641,7 @@ __all__ = [
     "policy_weight_subsidy",
     "policy_weight_prte",
     "policy_weight_marginal",
+    "policy_weight_observed_prte",
     # Neural Causal Models
     "tarnet",
     "cfrnet",
@@ -750,6 +754,8 @@ __all__ = [
     "function_schema",
     "search_functions",
     "all_schemas",
+    "help",
+    "HelpResult",
     # Data Generating Processes
     "dgp_did",
     "dgp_rd",
