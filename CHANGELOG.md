@@ -2,6 +2,77 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.4.2] — 2026-04-21 — correctness patches + family guides
+
+Patch release.  No breaking changes; two silent-wrong-numbers bug
+fixes in `dml_model_averaging` and `gardner_did`, plus three new
+family guides (Proximal / QTE / Causal RL) closing the last gaps
+between the v3 reference document and the documentation.
+
+### Fixed — silent wrong numbers
+
+- **`sp.dml_model_averaging` — √n SE scaling bug.** The cross-candidate
+  variance aggregator treated the sample-mean influence-function outer
+  product as `Var(θ̂_avg)` directly, missing a final `/ n`.  Net effect:
+  reported SEs were `√n` times too large; on the canonical n=400 DGP the
+  95% CI width was 4.20 (nominal ≈ 0.21) and empirical coverage was
+  100% (nominal 95%).  After the fix, CI width is 0.21 and coverage is
+  82% (≈ nominal, with the remaining gap explained by a 4% small-sample
+  bias in the point estimate — a nuisance-tuning issue, not a
+  variance-formula issue).  Regression guard added to
+  `tests/test_dml_model_averaging.py::test_se_on_correct_scale`.
+- **`sp.gardner_did` — event-study reference-category contamination.**
+  The Stage-2 dummy regression pooled never-treated units *and* treated
+  units outside the event-study horizon into a single baseline,
+  dragging every event-time coefficient toward the mean of that pool.
+  On a synthetic panel with true τ=2 and strict parallel trends, pre-
+  trends came out ≈ -0.30 (should be 0) and post ≈ +1.72 (should be 2.0).
+  Replaced the Stage-2 regression in event-study mode with direct
+  Borusyak-Jaravel-Spiess-style within-(cohort × relative-time)
+  averaging of the imputed gap.  After the fix: pre-trends ≈ +0.01,
+  post ≈ +2.02.  Non-event-study path (single ATT) was already correct
+  and is unchanged.
+
+### Added — family guides
+
+- `docs/guides/proximal_family.md` — complete walkthrough of the
+  Proximal Causal Inference family: `sp.proximal`,
+  `sp.fortified_pci`, `sp.bidirectional_pci`, `sp.pci_mtp`,
+  `sp.double_negative_control`, `sp.proximal_surrogate_index`,
+  `sp.select_pci_proxies`.  Includes a decision tree ("got 1 Z + 1 W /
+  bridges sensitive to spec / unsure which is Z vs W / continuous
+  treatment + shift policy / only have negative controls / want
+  long-term from short-term experiment / have candidate proxies") and
+  the four diagnostics every PCI analysis should report.
+- `docs/guides/qte_family.md` — the three granularity levels (mean →
+  quantile → whole distribution), with cross-sectional / DiD / IV /
+  panel-with-many-controls decision paths covering `sp.qte`,
+  `sp.qdid`, `sp.cic`, `sp.distributional_te`, `sp.dist_iv`,
+  `sp.kan_dlate`, `sp.beyond_average_late`, and `sp.qte_hd_panel`.
+- `docs/guides/causal_rl_family.md` — when to use causal RL vs
+  classical causal inference, with `sp.causal_bandit`, `sp.causal_dqn`,
+  `sp.offline_safe_policy`, `sp.counterfactual_policy_optimization`,
+  `sp.structural_mdp`, `sp.causal_rl_benchmark`.  Ships the 4
+  causal-RL-specific sanity checks.
+
+Each guide is linked from `mkdocs.yml` under Guides and surfaces via
+`sp.search_functions()` since all referenced functions have
+hand-written registry specs.
+
+### Added — tests + docs hooks (from v1.4.1 cherry-picks now formally shipped)
+
+- `tests/test_bridge_full.py`: 10 end-to-end smoke + correctness tests
+  for the six `sp.bridge(kind=...)` bridging theorems — dispatches,
+  finite outputs, agreement property on correctly-specified DGPs.
+- `docs/guides/bridging_theorems.md`: full walkthrough of the six
+  bridges with when-to-use and how-to-read-disagreement.
+
+### No API changes
+
+Every public signature is byte-for-byte identical to v1.4.1.  Existing
+user code keeps working; upgrades reveal narrower CIs for
+`dml_model_averaging` and cleaner event-study coefs for `gardner_did`.
+
 ## [1.4.1] — 2026-04-21 — v3-frontier sprint 3 (AKM SE + Claude thinking + parity suites + docs)
 
 Additive follow-up to v1.4.0.  All v1.4.0 APIs remain stable; new

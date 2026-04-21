@@ -68,6 +68,9 @@ nav:
       - "v1.3 frontier: Assimilative causal inference (Nature Comms 2026)": guides/assimilative_ci.md
       - "v1.4 panel shift-share IV for political science (Park-Xu 2026 §4.2 + AKM 2019)": guides/shift_share_political_panel.md
       - "v1.4 Causal MAS — multi-agent LLM causal discovery (arXiv:2509.00987)": guides/causal_mas.md
+      - "Family guide: Proximal causal inference (fortified / bidirectional / MTP / DNC / surrogate-PCI)": guides/proximal_family.md
+      - "Family guide: Quantile & distributional treatment effects (QTE / dist-IV / beyond-avg LATE / HD panel)": guides/qte_family.md
+      - "Family guide: Causal reinforcement learning (bandit / DQN / offline-safe / OPE)": guides/causal_rl_family.md
   - Reference:
       - "Overview": reference/index.md
       - "Difference-in-differences": reference/did.md
