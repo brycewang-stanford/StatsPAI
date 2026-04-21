@@ -23,6 +23,7 @@ Super Learner. Statistical Applications in Genetics and Molecular Biology, 6(1).
 from .tmle import tmle, TMLE
 from .super_learner import super_learner, SuperLearner
 from .ltmle import ltmle, LTMLEResult
+from .ltmle_survival import ltmle_survival, LTMLESurvivalResult
 
 __all__ = [
     'tmle',
@@ -31,4 +32,6 @@ __all__ = [
     'SuperLearner',
     'ltmle',
     'LTMLEResult',
+    'ltmle_survival',
+    'LTMLESurvivalResult',
 ]

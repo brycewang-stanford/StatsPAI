@@ -1124,6 +1124,972 @@ def _build_registry():
         reference="Robins (1986); Bang & Robins (2005)",
     ))
 
+    # -- v0.9.17 three-school completion: Epidemiology primitives ---- #
+    register(FunctionSpec(
+        name="odds_ratio",
+        category="epi",
+        description=(
+            "Odds ratio from a 2x2 table with Woolf (asymptotic) or "
+            "Fisher-exact CI. Haldane-Anscombe correction for zero cells."
+        ),
+        params=[
+            ParamSpec("a", "float | 2x2 array", True,
+                      description="a (exposed, outcome+) count or 2x2 array"),
+            ParamSpec("b", "float", False,
+                      description="b (exposed, outcome-) count"),
+            ParamSpec("c", "float", False,
+                      description="c (unexposed, outcome+) count"),
+            ParamSpec("d", "float", False,
+                      description="d (unexposed, outcome-) count"),
+            ParamSpec("method", "str", False, "woolf",
+                      description="CI method",
+                      enum=["woolf", "exact"]),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="OR2x2Result",
+        example="sp.epi.odds_ratio(50, 20, 30, 40)",
+        tags=["epidemiology", "odds_ratio", "2x2", "contingency"],
+        reference="Woolf (1955); Rothman, Greenland & Lash (2008)",
+    ))
+    register(FunctionSpec(
+        name="relative_risk",
+        category="epi",
+        description=(
+            "Relative risk (risk ratio) from a 2x2 table with Katz "
+            "log-RR CI. Haldane correction for zero cells."
+        ),
+        params=[
+            ParamSpec("a", "float | 2x2 array", True),
+            ParamSpec("b", "float", False),
+            ParamSpec("c", "float", False),
+            ParamSpec("d", "float", False),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="RR2x2Result",
+        example="sp.epi.relative_risk(50, 950, 10, 990)",
+        tags=["epidemiology", "relative_risk", "risk_ratio"],
+        reference="Katz (1978); Rothman, Greenland & Lash (2008)",
+    ))
+    register(FunctionSpec(
+        name="risk_difference",
+        category="epi",
+        description=(
+            "Risk difference (absolute risk reduction) with Wald or "
+            "Newcombe hybrid-score CI."
+        ),
+        params=[
+            ParamSpec("a", "float | 2x2 array", True),
+            ParamSpec("b", "float", False),
+            ParamSpec("c", "float", False),
+            ParamSpec("d", "float", False),
+            ParamSpec("method", "str", False, "wald",
+                      enum=["wald", "newcombe"]),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="RD2x2Result",
+        tags=["epidemiology", "risk_difference", "absolute_risk"],
+        reference="Newcombe (1998)",
+    ))
+    register(FunctionSpec(
+        name="attributable_risk",
+        category="epi",
+        description=(
+            "Attributable fractions in the exposed (AF) and in the "
+            "population (Levin PAF) with delta-method CI."
+        ),
+        params=[
+            ParamSpec("a", "float | 2x2 array", True),
+            ParamSpec("b", "float", False),
+            ParamSpec("c", "float", False),
+            ParamSpec("d", "float", False),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="ARResult",
+        tags=["epidemiology", "PAF", "attributable_fraction", "Levin"],
+        reference="Levin (1953); Greenland (2001)",
+    ))
+    register(FunctionSpec(
+        name="incidence_rate_ratio",
+        category="epi",
+        description=(
+            "Person-time incidence rate ratio with exact Poisson CI "
+            "(Clopper-Pearson on conditional binomial)."
+        ),
+        params=[
+            ParamSpec("events_exposed", "float", True),
+            ParamSpec("pt_exposed", "float", True,
+                      description="Person-time at risk (exposed)"),
+            ParamSpec("events_unexposed", "float", True),
+            ParamSpec("pt_unexposed", "float", True),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("method", "str", False, "exact",
+                      enum=["exact", "wald"]),
+        ],
+        returns="IRRResult",
+        tags=["epidemiology", "incidence_rate", "person_time", "poisson"],
+        reference="Breslow & Day (1987)",
+    ))
+    register(FunctionSpec(
+        name="mantel_haenszel",
+        category="epi",
+        description=(
+            "Mantel-Haenszel pooled OR or RR across K strata, with "
+            "Robins-Breslow-Greenland variance and Cochran's Q "
+            "homogeneity check."
+        ),
+        params=[
+            ParamSpec("tables", "array (K, 2, 2)", True,
+                      description="Stack of K per-stratum 2x2 tables"),
+            ParamSpec("measure", "str", False, "OR", enum=["OR", "RR"]),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="MantelHaenszelResult",
+        tags=["epidemiology", "stratification", "mantel_haenszel",
+              "confounding"],
+        reference="Mantel & Haenszel (1959); Robins, Breslow & Greenland (1986)",
+    ))
+    register(FunctionSpec(
+        name="breslow_day_test",
+        category="epi",
+        description=(
+            "Breslow-Day test for homogeneity of the odds ratio across "
+            "strata, with Tarone correction."
+        ),
+        params=[
+            ParamSpec("tables", "array (K, 2, 2)", True),
+            ParamSpec("tarone_correction", "bool", False, True),
+        ],
+        returns="tuple (chi2, p_value)",
+        tags=["epidemiology", "homogeneity", "stratification"],
+        reference="Breslow & Day (1980); Tarone (1985)",
+    ))
+    register(FunctionSpec(
+        name="direct_standardize",
+        category="epi",
+        description=(
+            "Direct age/covariate standardization of a rate using "
+            "external standard-population weights."
+        ),
+        params=[
+            ParamSpec("events", "list | ndarray", True),
+            ParamSpec("population", "list | ndarray", True),
+            ParamSpec("standard_weights", "list | ndarray", True),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="StandardizedRateResult",
+        tags=["epidemiology", "standardization", "age_adjustment"],
+        reference="Rothman, Greenland & Lash (2008) ch. 3",
+    ))
+    register(FunctionSpec(
+        name="indirect_standardize",
+        category="epi",
+        description=(
+            "Indirect standardization -> SMR (standardized morbidity / "
+            "mortality ratio) with Garwood exact Poisson CI."
+        ),
+        params=[
+            ParamSpec("observed", "float", True),
+            ParamSpec("events_reference", "list | ndarray", True),
+            ParamSpec("population_reference", "list | ndarray", True),
+            ParamSpec("population_study", "list | ndarray", True),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="SMRResult",
+        tags=["epidemiology", "SMR", "standardization"],
+        reference="Breslow & Day (1987) Vol. II",
+    ))
+    register(FunctionSpec(
+        name="bradford_hill",
+        category="epi",
+        description=(
+            "Structured 9-viewpoint Bradford-Hill causal-assessment "
+            "rubric with prerequisite check (temporality required) and "
+            "narrative verdict."
+        ),
+        params=[
+            ParamSpec("evidence", "dict", False,
+                      description="Optional dict mapping viewpoint -> [0,1] score"),
+            ParamSpec("strength", "float", False),
+            ParamSpec("consistency", "float", False),
+            ParamSpec("specificity", "float", False),
+            ParamSpec("temporality", "float", False),
+            ParamSpec("biological_gradient", "float", False),
+            ParamSpec("plausibility", "float", False),
+            ParamSpec("coherence", "float", False),
+            ParamSpec("experiment", "float", False),
+            ParamSpec("analogy", "float", False),
+            ParamSpec("notes", "dict", False),
+        ],
+        returns="BradfordHillResult",
+        tags=["epidemiology", "causal_assessment", "bradford_hill"],
+        reference="Hill (1965)",
+    ))
+
+    # -- v0.9.17: Mendelian randomization diagnostics ---------------- #
+    register(FunctionSpec(
+        name="mr_heterogeneity",
+        category="mendelian",
+        description=(
+            "Cochran's Q (IVW) or Ruecker's Q' (Egger) heterogeneity "
+            "statistic with I^2, used to detect horizontal pleiotropy."
+        ),
+        params=[
+            ParamSpec("beta_exposure", "ndarray", True),
+            ParamSpec("beta_outcome", "ndarray", True),
+            ParamSpec("se_outcome", "ndarray", True),
+            ParamSpec("method", "str", False, "ivw", enum=["ivw", "egger"]),
+        ],
+        returns="HeterogeneityResult",
+        tags=["mendelian_randomization", "heterogeneity", "pleiotropy"],
+        reference="Bowden et al. (2017)",
+    ))
+    register(FunctionSpec(
+        name="mr_pleiotropy_egger",
+        category="mendelian",
+        description=(
+            "Formal MR-Egger intercept test for directional "
+            "(unbalanced) horizontal pleiotropy."
+        ),
+        params=[
+            ParamSpec("beta_exposure", "ndarray", True),
+            ParamSpec("beta_outcome", "ndarray", True),
+            ParamSpec("se_outcome", "ndarray", True),
+        ],
+        returns="PleiotropyResult",
+        tags=["mendelian_randomization", "egger", "pleiotropy"],
+        reference="Bowden et al. (2015)",
+    ))
+    register(FunctionSpec(
+        name="mr_leave_one_out",
+        category="mendelian",
+        description=(
+            "Drop-one IVW sensitivity — per-SNP table of estimates when "
+            "each SNP is removed in turn."
+        ),
+        params=[
+            ParamSpec("beta_exposure", "ndarray", True),
+            ParamSpec("beta_outcome", "ndarray", True),
+            ParamSpec("se_outcome", "ndarray", True),
+            ParamSpec("snp_ids", "list", False),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="LeaveOneOutResult",
+        tags=["mendelian_randomization", "sensitivity", "leave_one_out"],
+    ))
+    register(FunctionSpec(
+        name="mr_steiger",
+        category="mendelian",
+        description=(
+            "Steiger directionality test — verifies that the SNPs "
+            "explain more variance in the exposure than the outcome, "
+            "supporting the assumed causal direction."
+        ),
+        params=[
+            ParamSpec("beta_exposure", "ndarray", True),
+            ParamSpec("se_exposure", "ndarray", True),
+            ParamSpec("n_exposure", "int | ndarray", True),
+            ParamSpec("beta_outcome", "ndarray", True),
+            ParamSpec("se_outcome", "ndarray", True),
+            ParamSpec("n_outcome", "int | ndarray", True),
+            ParamSpec("eaf", "ndarray", False,
+                      description="Effect-allele frequencies"),
+        ],
+        returns="SteigerResult",
+        tags=["mendelian_randomization", "directionality", "steiger"],
+        reference="Hemani et al. (2017)",
+    ))
+    register(FunctionSpec(
+        name="mr_presso",
+        category="mendelian",
+        description=(
+            "MR-PRESSO global test + per-SNP outlier detection + "
+            "outlier-corrected IVW estimate + distortion test."
+        ),
+        params=[
+            ParamSpec("beta_exposure", "ndarray", True),
+            ParamSpec("beta_outcome", "ndarray", True),
+            ParamSpec("se_exposure", "ndarray", True),
+            ParamSpec("se_outcome", "ndarray", True),
+            ParamSpec("n_boot", "int", False, 1000),
+            ParamSpec("sig_threshold", "float", False, 0.05),
+            ParamSpec("seed", "int", False),
+        ],
+        returns="MRPressoResult",
+        tags=["mendelian_randomization", "outlier_detection", "presso"],
+        reference="Verbanck et al. (2018)",
+    ))
+    register(FunctionSpec(
+        name="mr_radial",
+        category="mendelian",
+        description=(
+            "Radial IVW MR (Bowden 2018) with per-SNP Bonferroni-"
+            "thresholded outlier flagging."
+        ),
+        params=[
+            ParamSpec("beta_exposure", "ndarray", True),
+            ParamSpec("beta_outcome", "ndarray", True),
+            ParamSpec("se_outcome", "ndarray", True),
+            ParamSpec("snp_ids", "list", False),
+        ],
+        returns="RadialResult",
+        tags=["mendelian_randomization", "radial", "outlier_detection"],
+        reference="Bowden et al. (2018)",
+    ))
+
+    # -- v0.9.17: Longitudinal dispatcher ---------------------------- #
+    register(FunctionSpec(
+        name="longitudinal_analyze",
+        category="longitudinal",
+        description=(
+            "Unified longitudinal causal-effect estimator. Auto-routes "
+            "to IPW (no time-varying confounders) / MSM (dynamic regime "
+            "with time-varying confounders) / parametric g-formula ICE "
+            "(static regime). Accepts a string DSL or callable for the "
+            "treatment regime."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("id", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("outcome", "str", True),
+            ParamSpec("time_varying", "list", False),
+            ParamSpec("baseline", "list", False),
+            ParamSpec("regime", "str | Regime | list | callable", False,
+                      "always_treat"),
+            ParamSpec("method", "str", False, "auto",
+                      enum=["auto", "msm", "g-formula", "ipw"]),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("trim", "float", False, 0.01),
+        ],
+        returns="LongitudinalResult",
+        example=(
+            "sp.longitudinal_analyze(df, id='pid', time='visit', "
+            "treatment='drug', outcome='cd4', "
+            "time_varying=['cd4_lag'], "
+            "regime='if cd4_lag < 200 then 1 else 0')"
+        ),
+        tags=["longitudinal", "what_if", "g_methods", "msm", "ipw",
+              "dynamic_regime"],
+        reference="Hernan & Robins (2020) Causal Inference: What If",
+    ))
+    register(FunctionSpec(
+        name="longitudinal_contrast",
+        category="longitudinal",
+        description=(
+            "Plug-in estimator of E[Y(regime_a)] - E[Y(regime_b)] with "
+            "delta-method SE."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("id", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("outcome", "str", True),
+            ParamSpec("regime_a", "str | Regime", True),
+            ParamSpec("regime_b", "str | Regime", True),
+        ],
+        returns="dict",
+        tags=["longitudinal", "regime_contrast", "g_methods"],
+    ))
+    register(FunctionSpec(
+        name="regime",
+        category="longitudinal",
+        description=(
+            "Build a dynamic or static treatment regime from a string "
+            "DSL, list, callable, or scalar. Supports "
+            "'if <cond> then <a> else <b>', 'always_treat', "
+            "'never_treat', and arbitrary safe expressions. Parsed via "
+            "a whitelisted AST walker — no dynamic code execution."
+        ),
+        params=[
+            ParamSpec("rule", "str | list | callable | scalar", True),
+            ParamSpec("name", "str", False),
+            ParamSpec("K", "int", False, 1),
+        ],
+        returns="Regime",
+        example=(
+            'sp.regime("if cd4 < 200 then 1 else 0")'
+        ),
+        tags=["longitudinal", "regime", "DSL", "what_if"],
+    ))
+
+    # -- v0.9.17: Target-trial publication report ------------------- #
+    register(FunctionSpec(
+        name="target_trial_report",
+        category="target_trial",
+        description=(
+            "Render a target-trial emulation result as a publication-"
+            "ready Methods + Results block (Markdown / LaTeX / plain "
+            "text), tracking the JAMA 2022 7-component spec."
+        ),
+        params=[
+            ParamSpec("result", "TargetTrialResult", True),
+            ParamSpec("fmt", "str", False, "markdown",
+                      enum=["markdown", "latex", "text"]),
+            ParamSpec("title", "str", False),
+        ],
+        returns="str",
+        tags=["target_trial", "reporting", "publication"],
+        reference="Hernan, Wang & Leaf (JAMA 2022)",
+    ))
+
+    # -- v0.9.17: DAG -> estimator recommender ----------------------- #
+    register(FunctionSpec(
+        name="dag_recommend_estimator",
+        category="dag",
+        description=(
+            "Inspect a declared DAG and recommend a StatsPAI estimator "
+            "for (exposure, outcome) with a plain-English identification "
+            "story. Priority: backdoor adjustment -> IV -> frontdoor -> "
+            "not-identifiable. Also available as DAG.recommend_estimator()."
+        ),
+        params=[
+            ParamSpec("dag", "DAG", True),
+            ParamSpec("exposure", "str", True),
+            ParamSpec("outcome", "str", True),
+            ParamSpec("candidate_instruments", "list[str]", False),
+        ],
+        returns="EstimatorRecommendation",
+        example="sp.dag('X -> Y; Z -> X; Z -> Y').recommend_estimator('X', 'Y')",
+        tags=["dag", "identification", "estimator_recommendation"],
+        reference="Pearl (2009); Greenland, Pearl & Robins (1999)",
+    ))
+
+    # -- v0.9.17: Estimand-first DSL -------------------------------- #
+    register(FunctionSpec(
+        name="causal_question",
+        category="workflow",
+        description=(
+            "Declare a causal question up front (estimand-first). "
+            ".identify() picks an estimator and lists identifying "
+            "assumptions; .estimate() runs the analysis; .report() "
+            "produces a Markdown Methods + Results paragraph. Auto-"
+            "routes to IV / RD / DiD / longitudinal / selection-on-"
+            "observables based on supplied fields."
+        ),
+        params=[
+            ParamSpec("treatment", "str", True),
+            ParamSpec("outcome", "str", True),
+            ParamSpec("data", "DataFrame", False),
+            ParamSpec("population", "str", False),
+            ParamSpec("estimand", "str", False, "ATE",
+                      enum=["ATE", "ATT", "ATU", "LATE", "CATE", "ITT"]),
+            ParamSpec("design", "str", False, "auto",
+                      enum=["auto", "rct", "selection_on_observables",
+                            "iv", "natural_experiment", "policy_shock",
+                            "regression_discontinuity",
+                            "synthetic_control", "did", "event_study",
+                            "longitudinal_observational"]),
+            ParamSpec("time_structure", "str", False, "cross_section",
+                      enum=["cross_section", "panel",
+                            "repeated_cross_section", "longitudinal",
+                            "time_series", "pre_post"]),
+            ParamSpec("time", "str", False),
+            ParamSpec("id", "str", False),
+            ParamSpec("covariates", "list[str]", False),
+            ParamSpec("instruments", "list[str]", False),
+            ParamSpec("running_variable", "str", False),
+            ParamSpec("cutoff", "float", False),
+        ],
+        returns="CausalQuestion",
+        example=(
+            "q = sp.causal_question(treatment='D', outcome='Y', "
+            "design='did', time='year', id='unit', data=df); "
+            "q.identify(); q.estimate(); q.report()"
+        ),
+        tags=["workflow", "estimand", "DSL", "target_trial",
+              "identification"],
+        reference="Hernan (2016); Angrist & Pischke (2008)",
+    ))
+
+    # -- v0.9.17: MR deepening (mode + F-stat) ---------------------- #
+    register(FunctionSpec(
+        name="mr_mode",
+        category="mendelian",
+        description=(
+            "Weighted or simple mode-based MR estimator (Hartwig 2017). "
+            "Consistent under the ZEMPA (zero-mode pleiotropy) "
+            "assumption — more permissive than the median's 50% rule."
+        ),
+        params=[
+            ParamSpec("beta_exposure", "ndarray", True),
+            ParamSpec("beta_outcome", "ndarray", True),
+            ParamSpec("se_exposure", "ndarray", True),
+            ParamSpec("se_outcome", "ndarray", True),
+            ParamSpec("method", "str", False, "weighted",
+                      enum=["weighted", "simple"]),
+            ParamSpec("n_boot", "int", False, 1000),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("seed", "int", False),
+        ],
+        returns="ModeBasedResult",
+        tags=["mendelian_randomization", "mode", "hartwig",
+              "zempa", "robust"],
+        reference="Hartwig, Davey Smith & Bowden (2017)",
+    ))
+    register(FunctionSpec(
+        name="mr_f_statistic",
+        category="mendelian",
+        description=(
+            "Per-SNP F-statistic summary for instrument strength. "
+            "Flags weak-instrument risk when any F < 10 (Staiger-Stock)."
+        ),
+        params=[
+            ParamSpec("beta_exposure", "ndarray", True),
+            ParamSpec("se_exposure", "ndarray", True),
+            ParamSpec("n_samples", "int", False),
+        ],
+        returns="FStatisticResult",
+        tags=["mendelian_randomization", "instrument_strength",
+              "f_statistic", "weak_iv"],
+        reference="Staiger & Stock (1997)",
+    ))
+
+    # -- v0.9.17: Clinical diagnostics ------------------------------ #
+    register(FunctionSpec(
+        name="sensitivity_specificity",
+        category="epi",
+        description=(
+            "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson "
+            "score CIs.  Accepts either raw binary labels or "
+            "pre-computed confusion counts."
+        ),
+        params=[
+            ParamSpec("y_true", "array", False),
+            ParamSpec("y_pred", "array", False),
+            ParamSpec("tp", "int", False),
+            ParamSpec("fn", "int", False),
+            ParamSpec("fp", "int", False),
+            ParamSpec("tn", "int", False),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="DiagnosticTestResult",
+        tags=["epidemiology", "clinical", "diagnostic_test",
+              "sensitivity", "specificity"],
+        reference="Altman & Bland (1994)",
+    ))
+    register(FunctionSpec(
+        name="roc_curve",
+        category="epi",
+        description=(
+            "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) "
+            "standard error."
+        ),
+        params=[
+            ParamSpec("y_true", "array", True),
+            ParamSpec("scores", "array", True),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="ROCResult",
+        tags=["epidemiology", "ROC", "AUC", "binary_classification"],
+        reference="Hanley & McNeil (1982)",
+    ))
+    register(FunctionSpec(
+        name="cohen_kappa",
+        category="epi",
+        description=(
+            "Cohen's kappa for inter-rater agreement on nominal or "
+            "ordinal scales. Supports linear / quadratic weighting."
+        ),
+        params=[
+            ParamSpec("rater_a", "array", True),
+            ParamSpec("rater_b", "array", True),
+            ParamSpec("weights", "str", False, "unweighted",
+                      enum=["unweighted", "linear", "quadratic"]),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="KappaResult",
+        tags=["epidemiology", "agreement", "kappa",
+              "inter_rater_reliability"],
+        reference="Cohen (1960); Landis & Koch (1977)",
+    ))
+
+    # -- v0.9.17: Pre-registration ---------------------------------- #
+    register(FunctionSpec(
+        name="preregister",
+        category="workflow",
+        description=(
+            "Write a pre-analysis plan (CausalQuestion) to YAML / JSON "
+            "for OSF, AEA RCT Registry, or a repo-local PAP.  Includes "
+            "a metadata block with timestamp and statspai version."
+        ),
+        params=[
+            ParamSpec("question", "CausalQuestion | dict", True),
+            ParamSpec("filename", "str | Path", True),
+            ParamSpec("fmt", "str", False, "auto",
+                      enum=["auto", "yaml", "json"]),
+            ParamSpec("registry_url", "str", False),
+            ParamSpec("note", "str", False),
+        ],
+        returns="Path",
+        tags=["workflow", "preregistration", "reproducibility",
+              "analysis_plan"],
+        reference="Nosek et al. (2018) PNAS",
+    ))
+    register(FunctionSpec(
+        name="load_preregister",
+        category="workflow",
+        description=(
+            "Load a pre-registration file back into a CausalQuestion."
+        ),
+        params=[
+            ParamSpec("filename", "str | Path", True),
+        ],
+        returns="CausalQuestion",
+        tags=["workflow", "preregistration", "reproducibility"],
+    ))
+
+    # -- v0.9.17: Unified sensitivity dashboard --------------------- #
+    register(FunctionSpec(
+        name="unified_sensitivity",
+        category="robustness",
+        description=(
+            "Run every applicable sensitivity analysis in one shot: "
+            "E-value, Oster delta (when R^2 inputs given), Rosenbaum "
+            "Gamma (when matched structure exposed), Sensemakr "
+            "(regression models), and a breakdown-frontier bias "
+            "estimate. Also available as result.sensitivity()."
+        ),
+        params=[
+            ParamSpec("result", "CausalResult | EconometricResults", True),
+            ParamSpec("r2_treated", "float", False),
+            ParamSpec("r2_controlled", "float", False),
+            ParamSpec("rho_max", "float", False, 1.0),
+            ParamSpec("include_oster", "bool", False, True),
+            ParamSpec("include_rosenbaum", "bool", False, True),
+            ParamSpec("include_sensemakr", "bool", False, True),
+        ],
+        returns="SensitivityDashboard",
+        example="sp.did(df, ...).sensitivity()",
+        tags=["sensitivity", "robustness", "evalue", "oster",
+              "rosenbaum"],
+        reference=(
+            "VanderWeele & Ding (2017); Oster (2019); "
+            "Rosenbaum (2002); Cinelli & Hazlett (2020)"
+        ),
+    ))
+
+    # -- Long-term effects via surrogate indices ---------------------- #
+    register(FunctionSpec(
+        name="surrogate_index",
+        category="surrogate",
+        description=(
+            "Athey-Chetty-Imbens surrogate-index estimator for the "
+            "long-term ATE: combines an experimental sample (treatment + "
+            "short-term surrogate) with an observational sample "
+            "(surrogate + long-term outcome) to extrapolate the effect on "
+            "the long-term outcome."
+        ),
+        params=[
+            ParamSpec("experimental", "DataFrame", True),
+            ParamSpec("observational", "DataFrame", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("surrogates", "list", True),
+            ParamSpec("long_term_outcome", "str", True),
+            ParamSpec("covariates", "list", False),
+            ParamSpec("model", "str", False, "ols"),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("n_boot", "int", False, 0,
+                      "Bootstrap replicates (0 = analytic delta-method SE)"),
+        ],
+        returns="CausalResult",
+        example=(
+            "sp.surrogate_index(exp, obs, treatment='T', "
+            "surrogates=['s1','s2'], long_term_outcome='Y')"
+        ),
+        tags=["surrogate", "long_term", "causal", "ate"],
+        reference=(
+            "Athey, Chetty, Imbens, Pollmann, Taubinsky (2019). NBER WP 26463."
+        ),
+    ))
+
+    register(FunctionSpec(
+        name="long_term_from_short",
+        category="surrogate",
+        description=(
+            "Long-term ATE under multi-wave short-term surrogates; extends "
+            "the classical surrogate index to sustained treatments via "
+            "iterated conditional expectations (Ghassami et al. 2024)."
+        ),
+        params=[
+            ParamSpec("experimental", "DataFrame", True),
+            ParamSpec("observational", "DataFrame", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("surrogates_waves", "list", True,
+                      description="List of wave column lists"),
+            ParamSpec("long_term_outcome", "str", True),
+            ParamSpec("covariates", "list", False),
+            ParamSpec("n_boot", "int", False, 200),
+        ],
+        returns="CausalResult",
+        example=(
+            "sp.long_term_from_short(exp, obs, treatment='T', "
+            "surrogates_waves=[['s1'],['s2','s3']], long_term_outcome='Y')"
+        ),
+        tags=["surrogate", "long_term", "multi_wave"],
+        reference="Ghassami, Yang, Shpitser, Tchetgen Tchetgen (arXiv:2311.08527, 2024).",
+    ))
+
+    # -- TARGET 21-item checklist ------------------------------------ #
+    register(FunctionSpec(
+        name="target_trial_checklist",
+        category="target_trial",
+        description=(
+            "Render the JAMA/BMJ 2025 TARGET Statement 21-item reporting "
+            "checklist as a completed Markdown table, auto-filled from a "
+            "TargetTrialResult and flagged for any remaining TODO items."
+        ),
+        params=[
+            ParamSpec("result", "TargetTrialResult", True),
+            ParamSpec("fmt", "str", False, "markdown",
+                      enum=["markdown", "text"]),
+        ],
+        returns="str",
+        example="sp.target_trial_checklist(res, fmt='markdown')",
+        tags=["target_trial", "reporting", "tte", "checklist"],
+        reference=(
+            "Hernán et al. (2025). TARGET Statement. "
+            "JAMA/BMJ Sept 2025."
+        ),
+    ))
+
+    # -- Longitudinal Bayesian Causal Forest ------------------------ #
+    register(FunctionSpec(
+        name="bcf_longitudinal",
+        category="causal",
+        description=(
+            "Hierarchical Bayesian Causal Forest for longitudinal data "
+            "(BCFLong) — allows mu_t(X), tau_t(X) to evolve across time "
+            "with unit-level random intercepts."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("outcome", "str", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("unit", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("covariates", "list", True),
+            ParamSpec("n_trees_mu", "int", False, 200),
+            ParamSpec("n_trees_tau", "int", False, 50),
+            ParamSpec("n_bootstrap", "int", False, 100),
+        ],
+        returns="BCFLongResult",
+        example=(
+            "sp.bcf_longitudinal(df, outcome='y', treatment='d', "
+            "unit='id', time='t', covariates=['x1','x2'])"
+        ),
+        tags=["bcf", "longitudinal", "panel", "hte"],
+        reference="Alessi, Zorzetto et al. (arXiv:2508.08418, 2025).",
+    ))
+
+    # -- Time-series causal discovery extensions --------------------- #
+    register(FunctionSpec(
+        name="lpcmci",
+        category="causal_discovery",
+        description=(
+            "Latent-PCMCI: time-series causal discovery allowing hidden "
+            "common causes. Outputs a lag-specific adjacency tensor with "
+            "typed edges (directed, bidirected, uncertain)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("variables", "list", False),
+            ParamSpec("tau_max", "int", False, 3),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="LPCMCIResult",
+        example="sp.lpcmci(df, variables=['gdp','inflation'], tau_max=4)",
+        tags=["causal_discovery", "time_series", "latent", "lpcmci"],
+        reference="Gerhardus & Runge (NeurIPS 2020).",
+    ))
+    register(FunctionSpec(
+        name="dynotears",
+        category="causal_discovery",
+        description=(
+            "DYNOTEARS: continuous-optimisation structure learning for "
+            "structural VARs. Returns contemporaneous (W) and lagged (A) "
+            "adjacency matrices with the contemporaneous part enforced "
+            "to be acyclic via the NOTEARS h(W) penalty."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("variables", "list", False),
+            ParamSpec("lag", "int", False, 1),
+            ParamSpec("lambda_w", "float", False, 0.05),
+            ParamSpec("lambda_a", "float", False, 0.05),
+            ParamSpec("threshold", "float", False, 0.1),
+        ],
+        returns="DYNOTEARSResult",
+        example="sp.dynotears(df, lag=2)",
+        tags=["causal_discovery", "time_series", "notears", "svar"],
+        reference="Pamfil et al. (AISTATS 2020).",
+    ))
+
+    # -- Sequential SDID (Arkhangelsky-Samkov 2024) ------------------ #
+    register(FunctionSpec(
+        name="sequential_sdid",
+        category="causal",
+        description=(
+            "Sequential Synthetic DID for staggered-adoption panels "
+            "(Arkhangelsky & Samkov 2024): processes cohorts in adoption "
+            "order using not-yet-treated donors, avoiding TWFE negative "
+            "weights and SDID overlap failures."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("outcome", "str", True),
+            ParamSpec("unit", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("cohort", "str", True,
+                      description="First-treated period column; never-treated = 0"),
+            ParamSpec("never_treated_value", "Any", False, 0),
+            ParamSpec("se_method", "str", False, "placebo",
+                      enum=["placebo", "bootstrap", "jackknife"]),
+            ParamSpec("n_reps", "int", False, 200),
+            ParamSpec("cohort_weights", "str", False, "size",
+                      enum=["size", "equal"]),
+        ],
+        returns="CausalResult",
+        example=(
+            "sp.sequential_sdid(df, outcome='y', unit='id', time='t', "
+            "cohort='first_treat')"
+        ),
+        tags=["sdid", "synth", "staggered", "sequential"],
+        reference="Arkhangelsky & Samkov (arXiv:2404.00164, 2024).",
+    ))
+
+    # -- Algorithmic fairness diagnostics ----------------------------- #
+    register(FunctionSpec(
+        name="counterfactual_fairness",
+        category="fairness",
+        description=(
+            "Kusner-Loftus-Russell-Silva (2018) counterfactual-fairness "
+            "test: compares factual vs. SCM-intervened predictions to "
+            "measure path-specific dependence of a classifier on the "
+            "protected attribute."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("predictor", "callable", True,
+                      description="Callable(DataFrame) -> predictions"),
+            ParamSpec("protected", "str", True),
+            ParamSpec("scm_intervention", "callable", True),
+            ParamSpec("threshold", "float", False, 0.05),
+        ],
+        returns="FairnessResult",
+        example=(
+            "sp.counterfactual_fairness(df, predictor=model.predict_proba, "
+            "protected='gender', scm_intervention=scm_fn)"
+        ),
+        tags=["fairness", "counterfactual", "causal"],
+        reference="Kusner, Loftus, Russell, Silva (2018), NeurIPS.",
+    ))
+
+    register(FunctionSpec(
+        name="orthogonal_to_bias",
+        category="fairness",
+        description=(
+            "Residualize features against the protected attribute as a "
+            "pre-processing step toward counterfactual fairness."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("features", "list", True),
+            ParamSpec("protected", "str", True),
+        ],
+        returns="DataFrame",
+        example=(
+            "sp.orthogonal_to_bias(df, features=['income','edu'], "
+            "protected='gender')"
+        ),
+        tags=["fairness", "preprocessing", "residualize"],
+        reference="Marchesin et al. (arXiv:2403.17852v3, 2025).",
+    ))
+
+    register(FunctionSpec(
+        name="demographic_parity",
+        category="fairness",
+        description=(
+            "Demographic-parity gap between groups defined by the "
+            "protected attribute."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("predictions", "str", True),
+            ParamSpec("protected", "str", True),
+            ParamSpec("threshold", "float", False, 0.1),
+        ],
+        returns="FairnessResult",
+        tags=["fairness", "parity", "audit"],
+        reference="EEOC 80%-rule; Dwork et al. (2012).",
+    ))
+
+    register(FunctionSpec(
+        name="equalized_odds",
+        category="fairness",
+        description=(
+            "Hardt-Price-Srebro equalized-odds gap — max of TPR and FPR "
+            "group differences."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("predictions", "str", True),
+            ParamSpec("labels", "str", True),
+            ParamSpec("protected", "str", True),
+            ParamSpec("threshold", "float", False, 0.1),
+        ],
+        returns="FairnessResult",
+        tags=["fairness", "equalized_odds", "audit"],
+        reference="Hardt, Price, Srebro (2016), NeurIPS.",
+    ))
+
+    register(FunctionSpec(
+        name="fairness_audit",
+        category="fairness",
+        description=(
+            "One-shot dashboard combining demographic parity, equalized "
+            "odds, and (optionally) counterfactual fairness."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("predictions", "str", True),
+            ParamSpec("protected", "str", True),
+            ParamSpec("labels", "str", False),
+            ParamSpec("predictor", "callable", False),
+            ParamSpec("scm_intervention", "callable", False),
+        ],
+        returns="FairnessAudit",
+        tags=["fairness", "audit", "dashboard"],
+    ))
+
+    register(FunctionSpec(
+        name="proximal_surrogate_index",
+        category="surrogate",
+        description=(
+            "Proximal surrogate-index estimator: long-term ATE when an "
+            "unobserved U confounds S→Y, using a proxy W and 2SLS-style "
+            "bridge-function identification (Imbens-Kallus-Mao 2026)."
+        ),
+        params=[
+            ParamSpec("experimental", "DataFrame", True),
+            ParamSpec("observational", "DataFrame", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("surrogates", "list", True),
+            ParamSpec("proxies", "list", True),
+            ParamSpec("long_term_outcome", "str", True),
+            ParamSpec("covariates", "list", False),
+            ParamSpec("n_boot", "int", False, 200),
+        ],
+        returns="CausalResult",
+        example=(
+            "sp.proximal_surrogate_index(exp, obs, treatment='T', "
+            "surrogates=['s'], proxies=['w'], long_term_outcome='Y')"
+        ),
+        tags=["surrogate", "long_term", "proximal", "unobserved_confounding"],
+        reference="Imbens, Kallus, Mao (arXiv:2601.17712, 2026).",
+    ))
+
 
 # ====================================================================== #
 #  Auto-registration from statspai.__all__

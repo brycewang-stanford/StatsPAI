@@ -54,6 +54,14 @@ class TargetTrialResult:
             f"  Method: {self.method}"
         )
 
+    def to_paper(self, fmt: str = "markdown", title: str | None = None) -> str:
+        """Render a publication-ready Methods/Results block.
+
+        See :func:`statspai.target_trial.to_paper` for details.
+        """
+        from .report import to_paper as _to_paper
+        return _to_paper(self, fmt=fmt, title=title)
+
 
 def emulate(
     protocol: TargetTrialProtocol,

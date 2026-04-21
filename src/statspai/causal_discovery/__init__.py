@@ -27,6 +27,9 @@ from .lingam import lingam, LiNGAMResult
 from .ges import ges, GESResult
 from .fci import fci, FCIResult
 from .icp import icp, nonlinear_icp, ICPResult
+from .pcmci import pcmci, PCMCIResult, partial_corr_pvalue
+from .lpcmci import lpcmci, LPCMCIResult
+from .dynotears import dynotears, DYNOTEARSResult
 
 __all__ = [
     'notears',
@@ -42,4 +45,11 @@ __all__ = [
     'icp',
     'nonlinear_icp',
     'ICPResult',
+    'pcmci',
+    'PCMCIResult',
+    'partial_corr_pvalue',
+    'lpcmci',
+    'LPCMCIResult',
+    'dynotears',
+    'DYNOTEARSResult',
 ]

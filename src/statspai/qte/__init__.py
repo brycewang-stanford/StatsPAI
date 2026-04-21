@@ -20,4 +20,15 @@ Firpo, S. (2007).
 from .qte import qdid, qte, QTEResult
 from .distributional import distributional_te, DTEResult
 
-__all__ = ["qdid", "qte", "QTEResult", "distributional_te", "DTEResult"]
+# v0.10 distributional / panel QTE frontier
+from .dist_iv import dist_iv, kan_dlate, DistIVResult
+from .hd_panel import qte_hd_panel, HDPanelQTEResult
+from .beyond_average import beyond_average_late, BeyondAverageResult
+
+__all__ = [
+    "qdid", "qte", "QTEResult",
+    "distributional_te", "DTEResult",
+    "dist_iv", "kan_dlate", "DistIVResult",
+    "qte_hd_panel", "HDPanelQTEResult",
+    "beyond_average_late", "BeyondAverageResult",
+]

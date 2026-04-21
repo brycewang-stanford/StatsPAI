@@ -19,6 +19,12 @@ from .negative_controls import (
 )
 from .pci_regression import proximal_regression, ProximalRegResult
 
+# v0.10 PCI frontier
+from .fortified import fortified_pci
+from .bidirectional import bidirectional_pci
+from .mtp import pci_mtp
+from .proxy_selector import select_pci_proxies, ProxyScoreResult
+
 __all__ = [
     'proximal',
     'ProximalCausalInference',
@@ -28,4 +34,9 @@ __all__ = [
     'NegativeControlResult',
     'proximal_regression',
     'ProximalRegResult',
+    'fortified_pci',
+    'bidirectional_pci',
+    'pci_mtp',
+    'select_pci_proxies',
+    'ProxyScoreResult',
 ]

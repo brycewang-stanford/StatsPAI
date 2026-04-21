@@ -2,16 +2,18 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [0.9.17] - 2026-04-21 — Modern-weighting + MC g-formula + weakrobust panel + end-to-end workflow
+## [0.9.17] - 2026-04-21 — Modern-weighting + MC g-formula + weakrobust panel + three-school completion
 
-Surgical release targeting four of the most-requested gaps identified
-in the v1.0 gap-analysis pass: a Stata-style unified weak-IV-robust
-diagnostic panel, the Zubizarreta (2015) stable-balancing-weights
-estimator, the Robins (1986) Monte-Carlo g-formula (complementing the
-existing Bang-Robins ICE), and a truly end-to-end `sp.causal()`
-orchestrator that auto-runs multi-estimator comparison + sensitivity
-triad + CATE heterogeneity on top of the existing diagnose/recommend/
-estimate/robustness stages.
+Two-pronged release. First, a surgical pass targeting four of the most-
+requested gaps from the v1.0 gap-analysis: a Stata-style unified
+weak-IV-robust diagnostic panel, the Zubizarreta (2015) stable-balancing-
+weights estimator, the Robins (1986) Monte-Carlo g-formula (complementing
+the existing Bang-Robins ICE), and a truly end-to-end `sp.causal()`
+orchestrator. Second, a three-school completion pass mapping the
+*Econometrics ↔ Epidemiology ↔ ML* knowledge-map article onto StatsPAI:
+epidemiology primitives, MR full suite, longitudinal dispatcher, DAG-to-
+estimator recommender, estimand-first DSL, and a unified sensitivity
+dashboard attached to every `Result` object.
 
 ### Added
 
@@ -74,6 +76,106 @@ censoring, Conformal counterfactual / weighted variants, PCMCI
 time-series causal discovery, Partial-ID + ML bounds, and the
 Agent-MCP server integration. Each is substantial enough to warrant
 its own focused sprint rather than being shipped half-finished here.
+
+### Added — three-school completion (2026-04-21 sub-release)
+
+Driven by a cross-reference audit against the article
+"Causal Inference Knowledge Map — Econometrics, Epidemiology, ML",
+which pinpointed Layer-4 (*What If* longitudinal), epidemiology
+entry-level primitives, Mendelian randomization diagnostic depth,
+DAG-to-estimator UX, and estimand-first workflow as the remaining
+gaps vs. Stata / R dominance.
+
+**Epidemiology primitives (`sp.epi`) — NEW subpackage**
+
+- `odds_ratio`, `relative_risk`, `risk_difference`,
+  `attributable_risk` (Levin PAF), `incidence_rate_ratio` (exact
+  Poisson CI via Clopper-Pearson), `number_needed_to_treat`,
+  `prevalence_ratio` — Woolf / Fisher-exact / Katz / Wald / Newcombe
+  intervals; Haldane-Anscombe correction for zero cells.
+- `mantel_haenszel` (OR / RR with Robins-Breslow-Greenland variance),
+  `breslow_day_test` (homogeneity of OR with Tarone correction).
+- `direct_standardize`, `indirect_standardize` — direct-standardized
+  rates + SMR with Garwood exact Poisson CI.
+- `bradford_hill` — structured 9-viewpoint causal-assessment rubric
+  with prerequisite check (no causality claim without temporality).
+
+**Mendelian randomization full suite (`sp.mr` / `sp.mendelian`)**
+
+- `mr_heterogeneity` — Cochran's Q (IVW) or Rücker's Q' (Egger) + I².
+- `mr_pleiotropy_egger` — formal MR-Egger intercept test for
+  directional horizontal pleiotropy (Bowden 2015).
+- `mr_leave_one_out` — per-SNP drop-one IVW sensitivity.
+- `mr_steiger` — Hemani (2017) directionality test using Fisher-z of
+  per-trait R² contributions.
+- `mr_presso` — Verbanck (2018) global outlier test + per-SNP outlier
+  detection + distortion test for raw-vs-corrected comparison.
+- `mr_radial` — Bowden (2018) radial reparameterization + Bonferroni-
+  thresholded outlier flagging.
+
+**Target trial emulation — publication-ready report**
+
+- `TargetTrialResult.to_paper(fmt=...)` / `sp.target_trial.to_paper` —
+  render STROBE-compatible Methods + Results block in Markdown /
+  LaTeX / plain-text for direct inclusion in manuscripts.  Table
+  structure tracks the JAMA 2022 7-component TTE spec exactly.
+
+**Longitudinal causal dispatcher (`sp.longitudinal`) — NEW subpackage**
+
+- `sp.longitudinal.analyze` — unified entry point that auto-routes
+  to IPW (no time-varying confounders) / MSM (dynamic regime with
+  time-varying confounders) / parametric g-formula ICE (static
+  regime) based on data shape and the supplied regime object.
+- `sp.longitudinal.contrast` — plug-in estimator of
+  `E[Y(regime_a)] - E[Y(regime_b)]` with delta-method SE.
+- `sp.regime`, `sp.always_treat`, `sp.never_treat` — dynamic-treatment-
+  regime DSL supporting static sequences, callables, and a safe
+  `"if cd4 < 200 then 1 else 0"` string DSL. The string DSL is parsed
+  into a whitelisted AST and interpreted by a tiny tree-walker — no
+  dynamic code execution is ever invoked, and disallowed constructs
+  are rejected at regime-construction time.
+
+**Estimand-first causal-question DSL (`sp.causal_question`) — NEW subpackage**
+
+- `sp.causal_question(treatment=, outcome=, estimand=, design=, ...)`
+  declares a causal question up front.  `.identify()` picks an
+  estimator + lists the identifying assumptions the user must defend;
+  `.estimate()` runs the analysis; `.report()` produces a Markdown
+  Methods + Results paragraph.
+- Auto-design selects IV when instruments are present, RD when running
+  variable + cutoff given, DiD when panel + time, longitudinal when
+  repeated measures, else selection-on-observables.
+- Dispatches internally to `sp.regress` / `sp.aipw` / `sp.iv` /
+  `sp.did` / `sp.rdrobust` / `sp.synth` / `sp.longitudinal.analyze` /
+  `sp.event_study`.
+
+**DAG → estimator recommender (`sp.dag.recommend_estimator`)**
+
+- `DAG.recommend_estimator(exposure, outcome)` — inspects the declared
+  graph and suggests a StatsPAI estimator with a plain-English
+  identification story. Priority order: backdoor adjustment (OLS /
+  IPW / matching) → IV (heuristic relevance + exclusion check) →
+  frontdoor → not-identifiable (with sensitivity-analysis fallbacks).
+- Detects mediators on the causal path automatically.
+
+**Unified sensitivity dashboard (`sp.unified_sensitivity`)**
+
+- `result.sensitivity()` — method added to both `CausalResult` and
+  `EconometricResults`. Single call runs E-value (always), Oster δ
+  (when R² inputs supplied), Rosenbaum Γ (when a matched structure is
+  exposed), Sensemakr (regression models), and a breakdown-frontier
+  bias estimate.
+
+### Changed (three-school completion)
+
+- `__init__.py`: 40+ new names exposed at top level including `sp.epi`,
+  `sp.longitudinal`, `sp.question`, `sp.tte` / `sp.mr` short aliases.
+
+### Fixed (three-school completion)
+
+- Regime DSL: AST validation moved from evaluate-time to compile-time
+  so unsafe expressions are rejected immediately at `sp.regime(...)`
+  construction, before any history is supplied.
 
 ## [0.9.16] - 2026-04-20 — v1.0 breadth expansion + Bayesian family polish + Rust Phase-2 CI
 

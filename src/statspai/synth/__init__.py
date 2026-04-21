@@ -103,6 +103,9 @@ from .sensitivity import (
     synth_sensitivity_plot,
 )
 
+# Sequential SDID (Arkhangelsky & Samkov 2024)
+from .sequential_sdid import sequential_sdid, SequentialSDIDResult
+
 # SDID framework
 from .sdid import (
     sdid,
@@ -156,6 +159,9 @@ __all__ = [
     'sparse_synth',
     'kernel_synth',
     'kernel_ridge_synth',
+    # Sequential SDID
+    'sequential_sdid',
+    'SequentialSDIDResult',
     # SDID framework
     'sdid',
     'synthdid_estimate',

@@ -40,6 +40,8 @@ from .did import (
     bacon_decomposition, honest_did, breakdown_m, event_study,
     did_analysis, DIDAnalysis, did_multiplegt, did_imputation, stacked_did, cic,
     wooldridge_did, etwfe, etwfe_emfx, drdid, twfe_decomposition,
+    did_bcf, cohort_anchored_event_study, design_robust_event_study,
+    did_misclassified,
     did_summary, did_summary_to_markdown, did_summary_to_latex, did_report,
     pretrends_test, pretrends_power, sensitivity_rr, SensitivityResult, pretrends_summary,
     parallel_trends_plot, bacon_plot, group_time_plot, did_plot,
@@ -73,6 +75,7 @@ from .synth import (
     synthdid_placebo, synthdid_plot, synthdid_units_plot, synthdid_rmse_plot,
     california_prop99,
 )
+from .synth.sequential_sdid import sequential_sdid, SequentialSDIDResult
 from .matching import (
     match, MatchEstimator, ebalance, balanceplot, psplot,
     propensity_score, overlap_plot, trimming, love_plot,
@@ -115,6 +118,8 @@ from .proximal import (
     negative_control_outcome, negative_control_exposure,
     double_negative_control, NegativeControlResult,
     proximal_regression, ProximalRegResult,
+    fortified_pci, bidirectional_pci, pci_mtp,
+    select_pci_proxies, ProxyScoreResult,
 )
 from .principal_strat import (
     principal_strat, PrincipalStratResult, survivor_average_causal_effect,
@@ -168,15 +173,24 @@ from .regression.glm import glm, GLMRegression, GLMEstimator
 from .regression.count import poisson, nbreg, ppmlhdfe
 from .neural_causal import tarnet, cfrnet, dragonnet, TARNet, CFRNet, DragonNet, gnn_causal, GNNCausalResult
 from .neural_causal.cevae import cevae, CEVAE, CEVAEResult
-from .causal_discovery import notears, NOTEARS, pc_algorithm, PCAlgorithm, lingam, LiNGAMResult, ges, GESResult, fci, FCIResult, icp, nonlinear_icp, ICPResult
-from .tmle import tmle, TMLE, super_learner, SuperLearner, ltmle, LTMLEResult
+from .causal_discovery import notears, NOTEARS, pc_algorithm, PCAlgorithm, lingam, LiNGAMResult, ges, GESResult, fci, FCIResult, icp, nonlinear_icp, ICPResult, pcmci, PCMCIResult, partial_corr_pvalue, lpcmci, LPCMCIResult, dynotears, DYNOTEARSResult
+from .tmle import tmle, TMLE, super_learner, SuperLearner, ltmle, LTMLEResult, ltmle_survival, LTMLESurvivalResult
 from .policy_learning import policy_tree, PolicyTree, policy_value, direct_method, ips, snips, doubly_robust, OPEResult
-from .conformal_causal import conformal_cate, ConformalCATE
-from .bcf import bcf, BayesianCausalForest
+from .conformal_causal import (
+    conformal_cate, ConformalCATE,
+    weighted_conformal_prediction,
+    conformal_counterfactual, ConformalCounterfactualResult,
+    conformal_ite_interval, ConformalITEResult,
+    conformal_density_ite, ConformalDensityResult,
+    conformal_ite_multidp, MultiDPConformalResult,
+    conformal_debiased_ml, DebiasedConformalResult,
+    conformal_fair_ite, FairConformalResult,
+)
+from .bcf import bcf, BayesianCausalForest, bcf_longitudinal, BCFLongResult
 from .bunching import bunching, BunchingEstimator, notch, NotchResult
 from .matrix_completion import mc_panel, MCPanel
 from .dose_response import dose_response, DoseResponse, vcnet, scigan, VCNetResult
-from .bounds import lee_bounds, manski_bounds, BoundsResult, horowitz_manski, iv_bounds, oster_delta, selection_bounds, breakdown_frontier, balke_pearl, BalkePearlResult
+from .bounds import lee_bounds, manski_bounds, BoundsResult, horowitz_manski, iv_bounds, oster_delta, selection_bounds, breakdown_frontier, balke_pearl, BalkePearlResult, ml_bounds, MLBoundsResult
 from .interference import spillover, SpilloverEstimator, network_exposure, NetworkExposureResult, peer_effects, PeerEffectsResult
 from .dtr import g_estimation, GEstimation, q_learning, QLearningResult, a_learning, ALearningResult, snmm, SNMMResult
 from .multi_treatment import multi_treatment, MultiTreatment
@@ -189,6 +203,25 @@ from .dag import (
     apply_rules as do_calculus_apply, RuleCheck,
     swig, SWIGGraph, SCM,
     llm_dag, LLMDAGResult,
+)
+
+# === Bridging theorems (DiD≡SC, EWM≡CATE, CB≡IPW, Kink≡RDD,
+#     DR-Calib, Surrogate≡PCI) ===
+from .bridge import bridge, BridgeResult
+
+# === Long-term effects via surrogate indices ===
+from . import surrogate
+from .surrogate import (
+    surrogate_index, long_term_from_short, proximal_surrogate_index,
+    SurrogateResult,
+)
+
+# === Counterfactual fairness / algorithmic-bias diagnostics ===
+from . import fairness
+from .fairness import (
+    counterfactual_fairness, orthogonal_to_bias,
+    demographic_parity, equalized_odds, fairness_audit,
+    FairnessResult, FairnessAudit,
 )
 
 # === Transportability (Pearl-Bareinboim + Dahabreh-Stuart) ===
@@ -216,6 +249,8 @@ from .target_trial import (
     protocol as target_trial_protocol,
     emulate as target_trial_emulate,
     to_paper as target_trial_report,
+    target_checklist as target_trial_checklist,
+    TARGET_ITEMS,
     clone_censor_weight,
     immortal_time_check,
     TargetTrialProtocol,
@@ -234,6 +269,9 @@ from .epi import (
     mantel_haenszel, breslow_day_test,
     direct_standardize, indirect_standardize,
     bradford_hill,
+    diagnostic_test, sensitivity_specificity,
+    roc_curve, auc, cohen_kappa,
+    DiagnosticTestResult, ROCResult, KappaResult,
 )
 
 # === Longitudinal causal inference (What If Layer 4) ===
@@ -250,6 +288,7 @@ from . import question
 from .question import (
     causal_question, CausalQuestion,
     IdentificationPlan, EstimationResult,
+    preregister, load_preregister,
 )
 
 # === Unified sensitivity dashboard ===
@@ -349,6 +388,8 @@ from .mendelian import (
     mr_steiger, mr_presso, mr_radial,
     HeterogeneityResult, PleiotropyResult, LeaveOneOutResult,
     SteigerResult, MRPressoResult, RadialResult,
+    mr_mode, mr_f_statistic, mr_funnel_plot, mr_scatter_plot,
+    ModeBasedResult, FStatisticResult,
 )
 # Expose recommend_estimator at top level too
 from .dag import recommend_estimator as dag_recommend_estimator
@@ -372,6 +413,11 @@ from .regression.fracreg import fracreg, betareg
 from .regression.selection import biprobit, etregress
 # Distributional Treatment Effects
 from .qte import distributional_te, DTEResult
+from .qte import (
+    dist_iv, kan_dlate, DistIVResult,
+    qte_hd_panel, HDPanelQTEResult,
+    beyond_average_late, BeyondAverageResult,
+)
 # Structural Estimation (BLP)
 from .structural import blp, BLPResult
 
@@ -1039,19 +1085,27 @@ __all__ = [
     "number_needed_to_treat", "prevalence_ratio",
     "mantel_haenszel", "breslow_day_test",
     "direct_standardize", "indirect_standardize", "bradford_hill",
+    # v0.9.17 additions (epi clinical diagnostics)
+    "diagnostic_test", "sensitivity_specificity",
+    "roc_curve", "auc", "cohen_kappa",
+    "DiagnosticTestResult", "ROCResult", "KappaResult",
     # v0.9.17 additions (MR full suite)
     "mr", "mendelian",
     "mr_heterogeneity", "mr_pleiotropy_egger", "mr_leave_one_out",
     "mr_steiger", "mr_presso", "mr_radial",
     "HeterogeneityResult", "PleiotropyResult", "LeaveOneOutResult",
     "SteigerResult", "MRPressoResult", "RadialResult",
+    # v0.9.17 additions (MR deepening)
+    "mr_mode", "mr_f_statistic", "mr_funnel_plot", "mr_scatter_plot",
+    "ModeBasedResult", "FStatisticResult",
     # v0.9.17 additions (longitudinal unified)
     "longitudinal", "longitudinal_analyze", "longitudinal_contrast",
     "regime", "always_treat", "never_treat",
     "LongitudinalResult", "Regime",
-    # v0.9.17 additions (causal-question DSL)
+    # v0.9.17 additions (causal-question DSL + pre-registration)
     "question", "causal_question", "CausalQuestion",
     "IdentificationPlan", "EstimationResult",
+    "preregister", "load_preregister",
     # v0.9.17 additions (unified sensitivity)
     "unified_sensitivity", "SensitivityDashboard",
     # v0.9.17 additions (DAG UX)

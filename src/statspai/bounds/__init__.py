@@ -51,6 +51,7 @@ from .partial_id import (
     breakdown_frontier,
 )
 from .balke_pearl import balke_pearl, BalkePearlResult
+from .ml_bounds import ml_bounds, MLBoundsResult
 
 __all__ = [
     'lee_bounds',
@@ -62,4 +63,5 @@ __all__ = [
     'selection_bounds',
     'breakdown_frontier',
     'balke_pearl', 'BalkePearlResult',
+    'ml_bounds', 'MLBoundsResult',
 ]

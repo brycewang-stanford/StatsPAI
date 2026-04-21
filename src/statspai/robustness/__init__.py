@@ -9,9 +9,14 @@ Robustness analysis tools.
 from .spec_curve import spec_curve, SpecCurveResult
 from .robustness_report import robustness_report, RobustnessResult
 from .subgroup import subgroup_analysis, SubgroupResult
+from .unified_sensitivity import (
+    SensitivityDashboard,
+    unified_sensitivity,
+)
 
 __all__ = [
     "spec_curve", "SpecCurveResult",
     "robustness_report", "RobustnessResult",
     "subgroup_analysis", "SubgroupResult",
+    "SensitivityDashboard", "unified_sensitivity",
 ]

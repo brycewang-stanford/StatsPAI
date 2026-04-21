@@ -18,5 +18,6 @@ Bayesian Analysis, 15(3), 965-1056.
 """
 
 from .bcf import bcf, BayesianCausalForest
+from .longitudinal import bcf_longitudinal, BCFLongResult
 
-__all__ = ['bcf', 'BayesianCausalForest']
+__all__ = ['bcf', 'BayesianCausalForest', 'bcf_longitudinal', 'BCFLongResult']

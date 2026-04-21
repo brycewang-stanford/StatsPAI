@@ -178,4 +178,4 @@ test-notebooks/demo_causal_inference.ipynb
 
 # Claude Code session state (local only)
 .claude/
-
+CLAUDE.md

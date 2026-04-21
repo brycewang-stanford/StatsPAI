@@ -26,6 +26,7 @@ from .protocol import TargetTrialProtocol, protocol
 from .emulate import emulate, TargetTrialResult
 from .ccw import clone_censor_weight, CloneCensorWeightResult
 from .diagnostics import immortal_time_check, ImmortalTimeDiagnostic
+from .report import to_paper, target_checklist, TARGET_ITEMS
 
 __all__ = [
     "TargetTrialProtocol",
@@ -36,4 +37,7 @@ __all__ = [
     "CloneCensorWeightResult",
     "immortal_time_check",
     "ImmortalTimeDiagnostic",
+    "to_paper",
+    "target_checklist",
+    "TARGET_ITEMS",
 ]

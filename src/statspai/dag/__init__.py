@@ -22,6 +22,20 @@ from .do_calculus import rule1, rule2, rule3, apply_rules, RuleCheck
 from .swig import swig, SWIGGraph
 from .counterfactual import SCM
 from .llm_dag import llm_dag, LLMDAGResult
+from .recommend import recommend_estimator, EstimatorRecommendation
+
+
+# Attach recommend_estimator as a DAG method for the fluent API.
+def _dag_recommend_estimator(self, exposure, outcome,
+                             candidate_instruments=None):
+    """See :func:`statspai.dag.recommend_estimator`."""
+    return recommend_estimator(
+        self, exposure, outcome,
+        candidate_instruments=candidate_instruments,
+    )
+
+
+DAG.recommend_estimator = _dag_recommend_estimator
 
 __all__ = [
     "DAG", "dag", "dag_example", "dag_examples",
@@ -31,4 +45,5 @@ __all__ = [
     "swig", "SWIGGraph",
     "SCM",
     "llm_dag", "LLMDAGResult",
+    "recommend_estimator", "EstimatorRecommendation",
 ]

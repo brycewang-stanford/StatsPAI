@@ -54,7 +54,7 @@ ltmle: Longitudinal Targeted Maximum Likelihood Estimation (R package).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Tuple, Any
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union, Any
 
 import numpy as np
 import pandas as pd
@@ -62,6 +62,14 @@ from scipy import stats
 from scipy.special import expit, logit
 
 from sklearn.linear_model import LogisticRegression, LinearRegression
+
+
+# Type alias for regime specification: either a static sequence of 0/1
+# or a callable that takes (k, history_dict) and returns a length-n
+# vector of 0/1. The history dict contains, at call time, all
+# baseline/time-varying covariates plus any treatments already assigned
+# by the regime at earlier time points.
+Regime = Union[Sequence[int], Callable[[int, Dict[str, np.ndarray]], np.ndarray]]
 
 
 @dataclass
@@ -146,8 +154,8 @@ def ltmle(
     covariates_time: Sequence[Sequence[str]],
     baseline: Optional[Sequence[str]] = None,
     censoring: Optional[Sequence[str]] = None,
-    regime_treated: Optional[Sequence[int]] = None,
-    regime_control: Optional[Sequence[int]] = None,
+    regime_treated: Optional[Regime] = None,
+    regime_control: Optional[Regime] = None,
     propensity_bounds: Tuple[float, float] = (0.01, 0.99),
     outcome_type: str = "auto",
     alpha: float = 0.05,
@@ -171,8 +179,21 @@ def ltmle(
     censoring : sequence of str, optional
         Censoring indicator column per time point (``1=observed``,
         ``0=censored``). If None, no censoring is modeled.
-    regime_treated, regime_control : sequences of {0,1}, length K
+    regime_treated, regime_control : sequence of {0,1} OR callable
         Regimes to contrast. Default: all-1 vs all-0.
+
+        A regime may also be a **callable** ``regime(k, history)`` for
+        *dynamic regimes* that depend on the simulated / observed
+        history of baseline and time-varying covariates. The callable
+        receives ``k`` (int 0..K-1) and ``history`` — a dict mapping
+        column name to the length-``n`` numpy array observed up to
+        that timepoint — and must return a length-``n`` numpy array
+        of 0/1 treatment assignments.
+
+        Example (treat when a biomarker L exceeds its baseline):
+
+        >>> def dynamic(k, hist):
+        ...     return (hist[f"L{k}"] > hist["L_baseline"]).astype(int)
     propensity_bounds : tuple, default (0.01, 0.99)
         Clip propensity to this range for stability.
     outcome_type : {"auto", "binary", "continuous"}
@@ -200,8 +221,12 @@ def ltmle(
         regime_treated = [1] * K
     if regime_control is None:
         regime_control = [0] * K
-    if len(regime_treated) != K or len(regime_control) != K:
-        raise ValueError("regimes must have length K")
+    # Validate shape only for static (non-callable) regimes. Callable
+    # dynamic regimes are evaluated lazily at each time step.
+    if not callable(regime_treated) and len(regime_treated) != K:
+        raise ValueError("regime_treated must have length K or be callable")
+    if not callable(regime_control) and len(regime_control) != K:
+        raise ValueError("regime_control must have length K or be callable")
 
     df = data.copy().reset_index(drop=True)
     n = len(df)
@@ -251,13 +276,47 @@ def ltmle(
         p_c = np.clip(p_c, *propensity_bounds)
         cens_probs.append(p_c)
 
+    # Precompute the full regime matrix. For static regimes this is
+    # trivial; for dynamic regimes we evaluate the callable forward in
+    # time on the OBSERVED history (NOT on a simulated counterfactual
+    # history — LTMLE's targeting step handles the causal counterfactual
+    # mapping; we need the regime value at each k evaluated on the data
+    # covariates at that k, which is what a data-dependent policy
+    # g(L_k) depends on anyway).
+    def _materialise_regime(regime: Regime) -> np.ndarray:
+        """Return an (n × K) 0/1 matrix for the regime."""
+        if not callable(regime):
+            arr = np.asarray(list(regime), dtype=int)
+            return np.tile(arr, (n, 1))
+        mat = np.zeros((n, K), dtype=int)
+        history: Dict[str, np.ndarray] = {}
+        for c in baseline:
+            history[c] = df[c].to_numpy(dtype=float)
+        for k in range(K):
+            for c in covariates_time[k]:
+                history[c] = df[c].to_numpy(dtype=float)
+            a_k = np.asarray(regime(k, history), dtype=int).reshape(-1)
+            if a_k.size != n:
+                raise ValueError(
+                    f"Dynamic regime at k={k} returned length "
+                    f"{a_k.size}, expected {n}."
+                )
+            if not set(np.unique(a_k)).issubset({0, 1}):
+                raise ValueError(
+                    f"Dynamic regime at k={k} produced non-binary values."
+                )
+            mat[:, k] = a_k
+            # Expose the regime's own past assignments to subsequent calls.
+            history[f"__regime_A_{k}"] = a_k.astype(float)
+        return mat
+
     # Helper: target Q at each step given regime
-    def _run_regime(regime: Sequence[int]) -> Tuple[float, np.ndarray]:
+    def _run_regime(regime: Regime) -> Tuple[float, np.ndarray]:
         """Returns ψ and individual influence-function contributions."""
         # Cumulative regime-following indicator and cumulative weights
         cum_follow = np.ones(n, dtype=bool)
         cum_weight = np.ones(n)
-        regime = np.asarray(regime, dtype=int)
+        regime_mat = _materialise_regime(regime)  # (n, K)
 
         # Start Q at the final outcome
         Q = df[y].to_numpy(dtype=float).copy()
@@ -277,30 +336,48 @@ def ltmle(
             A_k = df[treatments[k]].to_numpy(dtype=int)
             X_q = np.column_stack([X_k_hist, A_k])
 
-            # Fit Q_k
-            if outcome_type == "binary":
-                Y_scaled = np.clip(Q, 1e-6, 1 - 1e-6)
-                m = _fit_logit(X_q, (Y_scaled > 0.5).astype(int))
-                # use linear logistic to predict continuous Q
+            a_target = regime_mat[:, k]
+
+            # Fit Q_k. For binary outcomes we ONLY run the logistic
+            # regression at the terminal step k=K-1 where Q is the
+            # observed 0/1 outcome. At earlier steps Q is a continuous
+            # pseudo-outcome in [0,1] carried back from the targeted
+            # update; thresholding it at 0.5 to refit a binary logit
+            # collapses the bounded-Q recursion (van der Laan-Gruber
+            # 2012 run a quasi-logit on the continuous pseudo-outcome).
+            # We fall through to a linear regression at earlier steps
+            # and clip predictions into (0,1) before the targeting
+            # step applies its logit update.
+            at_terminal = (k == K - 1)
+            if outcome_type == "binary" and at_terminal:
+                m = _fit_logit(X_q, Q.astype(int))
                 Q_hat_raw = _predict_proba(m, X_q)
-                # counterfactual at regime[k]
-                X_q_regime = np.column_stack([X_k_hist, np.full(n, regime[k])])
+                X_q_regime = np.column_stack([X_k_hist, a_target])
                 Q_hat_regime = _predict_proba(m, X_q_regime)
+            elif outcome_type == "binary":
+                # Linear model on the continuous pseudo-outcome, then
+                # clip into (ε, 1-ε) so the downstream logit update
+                # stays well-defined.
+                m = _fit_linear(X_q, Q)
+                Q_hat_raw = np.clip(m.predict(X_q), 1e-6, 1 - 1e-6)
+                X_q_regime = np.column_stack([X_k_hist, a_target])
+                Q_hat_regime = np.clip(m.predict(X_q_regime), 1e-6, 1 - 1e-6)
             else:
                 m = _fit_linear(X_q, Q)
                 Q_hat_raw = m.predict(X_q)
-                X_q_regime = np.column_stack([X_k_hist, np.full(n, regime[k])])
+                X_q_regime = np.column_stack([X_k_hist, a_target])
                 Q_hat_regime = m.predict(X_q_regime)
 
             # --- Targeting step -------------------------------------
             # Clever covariate H_k = I(A_1:k = regime_1:k)/prod g_k * 1/prod p_c
-            indicator = cum_follow & (A_k == regime[k])
+            indicator = cum_follow & (A_k == a_target)
             # update cum_follow to include current
             next_follow = indicator
 
             # cumulative weight: product of 1/g_k along regime path
             g_k = propensities[k]
-            g_regime = np.where(regime[k] == 1, g_k, 1 - g_k)
+            # g under the (unit-specific) target assignment
+            g_regime = np.where(a_target == 1, g_k, 1 - g_k)
             p_c = cens_probs[k]
             inc = 1.0 / np.maximum(g_regime, 1e-6) / np.maximum(p_c, 1e-6)
             new_cum_weight = cum_weight * inc
@@ -361,6 +438,9 @@ def ltmle(
     crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (ate - crit * se, ate + crit * se)
 
+    def _serialise_regime(r: Regime) -> Any:
+        return "dynamic-callable" if callable(r) else tuple(r)
+
     return LTMLEResult(
         psi_treated=psi1,
         psi_control=psi0,
@@ -370,10 +450,12 @@ def ltmle(
         pvalue=pval,
         K=K,
         n_obs=n,
-        regime_treated=tuple(regime_treated),
-        regime_control=tuple(regime_control),
+        regime_treated=_serialise_regime(regime_treated),
+        regime_control=_serialise_regime(regime_control),
         detail={
             "propensity_summary": [(float(p.min()), float(p.max())) for p in propensities],
+            "regime_treated_callable": callable(regime_treated),
+            "regime_control_callable": callable(regime_control),
         },
     )
 

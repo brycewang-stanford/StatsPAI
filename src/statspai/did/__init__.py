@@ -46,6 +46,10 @@ from .pretrends import (
     pretrends_summary,
 )
 from .wooldridge_did import wooldridge_did, etwfe, etwfe_emfx, drdid, twfe_decomposition
+from .did_bcf import did_bcf
+from .cohort_anchored import cohort_anchored_event_study
+from .design_robust import design_robust_event_study
+from .misclassified import did_misclassified
 from .summary import did_summary, did_summary_to_markdown, did_summary_to_latex, did_report
 from .continuous_did import continuous_did
 from .plots import (
@@ -413,6 +417,11 @@ __all__ = [
     'did_report',
     'drdid',
     'twfe_decomposition',
+    # v0.10 staggered DiD frontier
+    'did_bcf',
+    'cohort_anchored_event_study',
+    'design_robust_event_study',
+    'did_misclassified',
     # Pre-trends
     'pretrends_test',
     'pretrends_power',
