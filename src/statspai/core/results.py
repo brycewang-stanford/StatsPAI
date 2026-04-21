@@ -498,6 +498,24 @@ class EconometricResults:
         n_obs = self.data_info.get('nobs', 'Unknown')
         return f"<EconometricResults: {model_type}, {n_params} parameters, {n_obs} observations>"
 
+    def sensitivity(self, **kwargs):
+        """Run the unified sensitivity dashboard on this result.
+
+        See :func:`statspai.robustness.unified_sensitivity`.
+        """
+        from ..robustness.unified_sensitivity import unified_sensitivity
+        # Expose a 1-entry "estimate" view for compatibility
+        class _View:
+            pass
+        view = _View()
+        view.estimate = float(self.params.iloc[0])
+        view.se = float(self.std_errors.iloc[0])
+        view.ci = (float(self.conf_int_lower.iloc[0]),
+                   float(self.conf_int_upper.iloc[0]))
+        view.params = self.params
+        view.std_errors = self.std_errors
+        return unified_sensitivity(view, **kwargs)
+
 
 class CausalResult:
     """
@@ -581,6 +599,20 @@ class CausalResult:
             "  pages={2295--2326},\n"
             "  year={2014},\n"
             "  publisher={Wiley}\n"
+            "}"
+        ),
+        'zubizarreta_2015_sbw': (
+            "@article{zubizarreta2015stable,\n"
+            "  title={Stable weights that balance covariates for "
+            "estimation with incomplete outcome data},\n"
+            "  author={Zubizarreta, Jos{\\'e} R},\n"
+            "  journal={Journal of the American Statistical "
+            "Association},\n"
+            "  volume={110},\n"
+            "  number={511},\n"
+            "  pages={910--922},\n"
+            "  year={2015},\n"
+            "  publisher={Taylor \\& Francis}\n"
             "}"
         ),
         'bacon_decomposition': (
@@ -1631,6 +1663,14 @@ class CausalResult:
 
     def __str__(self) -> str:
         return self.summary()
+
+    def sensitivity(self, **kwargs):
+        """Run the unified sensitivity dashboard on this result.
+
+        See :func:`statspai.robustness.unified_sensitivity`.
+        """
+        from ..robustness.unified_sensitivity import unified_sensitivity
+        return unified_sensitivity(self, **kwargs)
 
 
 # ======================================================================

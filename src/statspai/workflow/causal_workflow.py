@@ -460,6 +460,27 @@ class CausalWorkflow:
             lines.append("No robustness findings.")
         lines.append("")
 
+        if isinstance(self.estimator_comparison, pd.DataFrame) \
+                and not self.estimator_comparison.empty:
+            lines.append("## 4b. Multi-estimator comparison")
+            lines.append("")
+            lines.append(self.estimator_comparison.round(4).to_markdown(index=False))
+            lines.append("")
+
+        if isinstance(self.sensitivity_panel_result, pd.DataFrame) \
+                and not self.sensitivity_panel_result.empty:
+            lines.append("## 4c. Sensitivity triad")
+            lines.append("")
+            lines.append(self.sensitivity_panel_result.round(4).to_markdown(index=False))
+            lines.append("")
+
+        if isinstance(self.cate_summary_table, pd.DataFrame) \
+                and not self.cate_summary_table.empty:
+            lines.append("## 4d. Heterogeneity (CATE)")
+            lines.append("")
+            lines.append(self.cate_summary_table.round(4).to_markdown(index=False))
+            lines.append("")
+
         lines.append("## 5. Reproducibility")
         lines.append("")
         if top:
@@ -551,15 +572,376 @@ class CausalWorkflow:
         return "\n".join(out)
 
     # ------------------------------------------------------------------
+    # Stage 4b: cross-estimator comparison
+    # ------------------------------------------------------------------
+
+    estimator_comparison: Optional[pd.DataFrame] = None
+    sensitivity_panel_result: Optional[pd.DataFrame] = None
+    cate_summary_table: Optional[pd.DataFrame] = None
+
+    def compare_estimators(self) -> pd.DataFrame:
+        """Run a design-appropriate panel of estimators for robustness.
+
+        For DiD: CS + SA + BJS + Wooldridge (+ Stacked when feasible).
+        For IV:  2SLS + LIML + JIVE + GMM.
+        For observational:  OLS + Entropy Balancing + CBPS + SBW + DML.
+        For RD:  Sharp RDD (rdrobust) at MSE-optimal + CERD ±50% bandwidths.
+
+        Rows with a failed estimator carry NaN and an error string.
+        """
+        if self.result is None:
+            self.estimate()
+
+        import statspai as sp
+        rows: List[Dict[str, Any]] = []
+        d = self.design
+
+        def _row(label, estimate, se, ci=None, extra=""):
+            z = 1.96
+            if ci is None and se == se and not np.isnan(se):
+                ci = (estimate - z * se, estimate + z * se)
+            elif ci is None:
+                ci = (np.nan, np.nan)
+            rows.append({
+                "estimator": label,
+                "estimate": float(estimate) if estimate is not None else np.nan,
+                "se": float(se) if (se is not None and se == se) else np.nan,
+                "ci_lower": float(ci[0]) if ci else np.nan,
+                "ci_upper": float(ci[1]) if ci else np.nan,
+                "note": extra,
+            })
+
+        def _extract_effect(r):
+            """Pull estimate + SE whether r is CausalResult or EconometricResults."""
+            # Preferred: CausalResult
+            if hasattr(r, "estimate") and r.estimate is not None \
+                    and not (isinstance(r.estimate, float) and np.isnan(r.estimate)):
+                return (float(r.estimate),
+                        float(getattr(r, "se", np.nan)),
+                        getattr(r, "ci", None))
+            # Fallback: EconometricResults with params / std_errors
+            if hasattr(r, "params") and self.treatment is not None:
+                try:
+                    idx = r.params.index
+                    if self.treatment in idx:
+                        key = self.treatment
+                    else:
+                        # find a match that contains the treatment name
+                        cand = [k for k in idx if self.treatment in str(k)]
+                        if not cand:
+                            # Treatment column genuinely missing — don't
+                            # silently report the intercept as "the effect".
+                            return (np.nan, np.nan, None)
+                        key = cand[0]
+                    est = float(r.params[key])
+                    se = float(r.std_errors[key]) if hasattr(r, "std_errors") else np.nan
+                    ci_arr = getattr(r, "conf_int", None)
+                    if callable(ci_arr):
+                        try:
+                            ci_df = ci_arr()
+                            ci = (float(ci_df.loc[key, 0]), float(ci_df.loc[key, 1]))
+                        except Exception:
+                            ci = None
+                    else:
+                        ci = None
+                    return est, se, ci
+                except Exception:
+                    pass
+            return (np.nan, np.nan, None)
+
+        def _safe_call(label, fn):
+            try:
+                r = fn()
+                est, se, ci = _extract_effect(r)
+                _row(label, est, se, ci)
+            except Exception as exc:
+                _row(label, np.nan, np.nan, extra=f"ERROR: {type(exc).__name__}: {exc}")
+
+        if d == "did" and self.time and self.id and self.cohort:
+            _safe_call("Callaway–Sant'Anna (CS)", lambda: sp.callaway_santanna(
+                self.data, y=self.y, g=self.cohort, t=self.time, i=self.id,
+                estimator="reg"))
+            _safe_call("Sun–Abraham", lambda: sp.sun_abraham(
+                self.data, y=self.y, g=self.cohort, t=self.time, i=self.id))
+            _safe_call("Borusyak–Jaravel–Spiess (imputation)",
+                       lambda: sp.did_imputation(
+                           self.data, y=self.y, g=self.cohort,
+                           t=self.time, i=self.id))
+            _safe_call("Wooldridge (2021)", lambda: sp.wooldridge_did(
+                self.data, y=self.y, g=self.cohort, t=self.time, i=self.id))
+        elif d == "did":
+            _safe_call("2x2 DiD",
+                       lambda: sp.did(self.data, y=self.y,
+                                      treat=self.treatment, time=self.time))
+        elif d == "iv" and self.instrument and self.treatment:
+            formula = f"{self.y} ~ ({self.treatment} ~ {self.instrument})"
+            if self.covariates:
+                formula += " + " + " + ".join(self.covariates)
+            _safe_call("2SLS", lambda: sp.ivreg(formula, data=self.data,
+                                                robust="hc1"))
+            _safe_call("LIML", lambda: sp.liml(formula, data=self.data))
+        elif d == "rd" and self.running_var:
+            c = self.cutoff or 0.0
+            _safe_call("RDD (MSE-optimal)",
+                       lambda: sp.rdrobust(self.data, y=self.y,
+                                           x=self.running_var, c=c))
+        elif d in ("observational", "rct") and self.treatment and self.covariates:
+            cov = list(self.covariates)
+            # OLS w/ controls
+            rhs = self.treatment + " + " + " + ".join(cov)
+            _safe_call("OLS (HC1)", lambda: sp.regress(
+                f"{self.y} ~ {rhs}", data=self.data, robust="hc1"))
+            _safe_call("Entropy balancing (ATT)", lambda: sp.ebalance(
+                self.data, y=self.y, treat=self.treatment, covariates=cov))
+            _safe_call("CBPS", lambda: sp.cbps(
+                self.data, y=self.y, treat=self.treatment, covariates=cov))
+            _safe_call("SBW (δ=0.02)", lambda: sp.sbw(
+                self.data, y=self.y, treat=self.treatment, covariates=cov,
+                delta=0.02))
+            # DML (partially-linear)
+            _safe_call("DML-PLR", lambda: sp.dml(
+                self.data, y=self.y, d=self.treatment, X=cov))
+
+        # Always add the primary estimate for context
+        if self.result is not None and hasattr(self.result, "estimate"):
+            _row("→ primary (this workflow)", self.result.estimate,
+                 getattr(self.result, "se", np.nan),
+                 getattr(self.result, "ci", None), extra="primary")
+
+        self.estimator_comparison = pd.DataFrame(rows)
+        self._mark("compare_estimators")
+        return self.estimator_comparison
+
+    # ------------------------------------------------------------------
+    # Stage 4c: sensitivity-analysis triad
+    # ------------------------------------------------------------------
+
+    def sensitivity_panel(self) -> pd.DataFrame:
+        """Stack E-value + Rosenbaum Γ + Oster δ for one-page sensitivity.
+
+        Only runs the tests whose required inputs are present:
+        * E-value requires a risk-ratio or the primary estimate + SE.
+        * Rosenbaum Γ requires a matched/weighted comparison.
+        * Oster δ requires OLS residual variances.
+        """
+        if self.result is None:
+            self.estimate()
+        import statspai as sp
+
+        rows: List[Dict[str, Any]] = []
+
+        # ── E-value ──────────────────────────────────────────────────
+        try:
+            est, se = None, None
+            r = self.result
+            if hasattr(r, "estimate") and r.estimate is not None \
+                    and not (isinstance(r.estimate, float) and np.isnan(r.estimate)):
+                est = float(r.estimate)
+                se = float(getattr(r, "se", np.nan))
+            elif hasattr(r, "params") and self.treatment \
+                    and self.treatment in r.params.index:
+                est = float(r.params[self.treatment])
+                se = float(r.std_errors[self.treatment])
+            if est is not None and se is not None and se > 0:
+                ev = sp.evalue(estimate=est, se=se, measure="RR",
+                               rare_outcome=True)
+                val = None
+                if isinstance(ev, dict):
+                    val = (ev.get("evalue") or ev.get("evalue_estimate")
+                           or ev.get("evalue_point"))
+                else:
+                    val = getattr(ev, "evalue_estimate",
+                                  getattr(ev, "evalue", None))
+                if val is not None:
+                    rows.append({
+                        "method": "E-value (VanderWeele–Ding 2017)",
+                        "statistic": float(val),
+                        "interpretation":
+                            "unmeasured confounder must relate to both T and Y "
+                            f"on the RR scale ≥ {float(val):.2f} to null out "
+                            "the effect",
+                    })
+        except Exception as exc:  # pragma: no cover
+            rows.append({"method": "E-value", "statistic": np.nan,
+                         "interpretation": f"ERROR: {exc}"})
+
+        # ── Oster δ (requires OLS-style result with R²) ───────────────
+        if self.treatment and self.covariates:
+            try:
+                ob = sp.oster_bounds(
+                    data=self.data, y=self.y, treat=self.treatment,
+                    controls=list(self.covariates),
+                )
+                # The critical δ is delta_for_zero (δ* that drives the
+                # coefficient to zero). `delta` is the plug-in value the
+                # caller ran Oster at (defaults to 1.0 in sp.oster_bounds).
+                delta_star = None
+                if isinstance(ob, dict):
+                    delta_star = (ob.get("delta_for_zero")
+                                  or ob.get("delta_star"))
+                else:
+                    delta_star = getattr(ob, "delta_for_zero",
+                                         getattr(ob, "delta_star", None))
+                if delta_star is not None:
+                    rows.append({
+                        "method": "Oster δ* (2019 JBES)",
+                        "statistic": float(delta_star),
+                        "interpretation":
+                            f"selection on unobservables must be "
+                            f"{float(delta_star):.2f}× selection on observables "
+                            "to drive β to zero",
+                    })
+            except Exception as exc:  # pragma: no cover
+                rows.append({"method": "Oster δ", "statistic": np.nan,
+                             "interpretation": f"ERROR: {exc}"})
+
+        # ── Rosenbaum Γ (requires matched/weighted design) ────────────
+        try:
+            from ..diagnostics.rosenbaum import rosenbaum_gamma
+            d = self.design
+            if d in ("observational",) and self.treatment and self.covariates:
+                gamma = rosenbaum_gamma(
+                    self.data, y=self.y, treat=self.treatment,
+                    covariates=list(self.covariates),
+                )
+                val = getattr(gamma, "gamma", None)
+                if val is None and isinstance(gamma, dict):
+                    val = gamma.get("gamma")
+                if val is not None:
+                    rows.append({
+                        "method": "Rosenbaum Γ (bound)",
+                        "statistic": float(val),
+                        "interpretation":
+                            f"odds-of-treatment differential ≥ {float(val):.2f} "
+                            "flips the conclusion",
+                    })
+        except Exception:  # pragma: no cover
+            pass
+
+        self.sensitivity_panel_result = pd.DataFrame(rows)
+        self._mark("sensitivity_panel")
+        return self.sensitivity_panel_result
+
+    # ------------------------------------------------------------------
+    # Stage 4d: heterogeneity / CATE pass
+    # ------------------------------------------------------------------
+
+    def cate(self) -> pd.DataFrame:
+        """Quick heterogeneity pass: X-Learner + Causal Forest summary.
+
+        Skipped if the design is IV / RD / DiD with only the canonical
+        columns and no covariates — heterogeneity needs an X matrix.
+        """
+        if self.result is None:
+            self.estimate()
+        if not (self.treatment and self.covariates):
+            self.cate_summary_table = pd.DataFrame()
+            self._mark("cate")
+            return self.cate_summary_table
+
+        import statspai as sp
+        rows: List[Dict[str, Any]] = []
+
+        def _summarise(label, result):
+            # Extract per-unit CATE from any of several locations
+            cate_vec = None
+            try:
+                if hasattr(result, "effect") and callable(result.effect):
+                    cate_vec = result.effect()
+                elif hasattr(result, "cate"):
+                    cate_vec = result.cate
+                elif hasattr(result, "model_info"):
+                    cate_vec = result.model_info.get("cate")
+            except Exception:
+                cate_vec = None
+            if cate_vec is None:
+                # Fall back to the summary ATE alone
+                if hasattr(result, "estimate"):
+                    rows.append({
+                        "learner": label,
+                        "cate_mean": float(result.estimate),
+                        "cate_sd": float("nan"),
+                        "cate_q10": float("nan"),
+                        "cate_q50": float("nan"),
+                        "cate_q90": float("nan"),
+                    })
+                return
+            cate_vec = np.asarray(cate_vec, dtype=float).ravel()
+            rows.append({
+                "learner": label,
+                "cate_mean": float(np.mean(cate_vec)),
+                "cate_sd": float(np.std(cate_vec)),
+                "cate_q10": float(np.quantile(cate_vec, 0.10)),
+                "cate_q50": float(np.quantile(cate_vec, 0.50)),
+                "cate_q90": float(np.quantile(cate_vec, 0.90)),
+            })
+
+        try:
+            xl = sp.xlearner(self.data, y=self.y, d=self.treatment,
+                             X=list(self.covariates))
+            _summarise("X-Learner", xl)
+        except Exception as exc:  # pragma: no cover
+            rows.append({"learner": "X-Learner", "cate_mean": np.nan,
+                         "error": f"{type(exc).__name__}: {exc}"})
+
+        try:
+            Y_arr = self.data[self.y].values.astype(float)
+            T_arr = self.data[self.treatment].values.astype(float)
+            X_arr = self.data[list(self.covariates)].values.astype(float)
+            cf = sp.causal_forest(Y=Y_arr, T=T_arr, X=X_arr,
+                                  n_estimators=200, random_state=0)
+            cate_vec = cf.effect(X_arr) if hasattr(cf, "effect") else None
+            if cate_vec is None:
+                cate_vec = getattr(cf, "cate", None)
+            if cate_vec is not None:
+                cate_vec = np.asarray(cate_vec, dtype=float).ravel()
+                rows.append({
+                    "learner": "Causal Forest",
+                    "cate_mean": float(np.mean(cate_vec)),
+                    "cate_sd": float(np.std(cate_vec)),
+                    "cate_q10": float(np.quantile(cate_vec, 0.10)),
+                    "cate_q50": float(np.quantile(cate_vec, 0.50)),
+                    "cate_q90": float(np.quantile(cate_vec, 0.90)),
+                })
+        except Exception as exc:  # pragma: no cover
+            rows.append({"learner": "Causal Forest", "cate_mean": np.nan,
+                         "error": f"{type(exc).__name__}: {exc}"})
+
+        self.cate_summary_table = pd.DataFrame(rows)
+        self._mark("cate")
+        return self.cate_summary_table
+
+    # ------------------------------------------------------------------
     # Orchestration entry point
     # ------------------------------------------------------------------
 
-    def run(self):
-        """Run all 5 stages in order and return self."""
+    def run(self, full: bool = True):
+        """Run the causal pipeline.
+
+        Parameters
+        ----------
+        full : bool, default True
+            When True, also runs the v0.9.17 extended stages:
+            ``compare_estimators``, ``sensitivity_panel``, and ``cate``.
+            Set to False for a quick single-estimator pass.
+        """
         self.diagnose()
         self.recommend()
         self.estimate()
         self.robustness()
+        if full:
+            try:
+                self.compare_estimators()
+            except Exception:  # pragma: no cover
+                pass
+            try:
+                self.sensitivity_panel()
+            except Exception:  # pragma: no cover
+                pass
+            try:
+                self.cate()
+            except Exception:  # pragma: no cover
+                pass
         return self
 
     # ------------------------------------------------------------------

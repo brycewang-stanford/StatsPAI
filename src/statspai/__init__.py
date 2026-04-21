@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.16"
+__version__ = "0.9.17"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -81,6 +81,7 @@ from .matching import (
     OptimalMatchResult, CardinalityMatchResult,
     overlap_weights, cbps,
     genmatch, GenMatchResult,
+    sbw, SBWResult,
 )
 from .dml import dml, DoubleML, DoubleMLPLR, DoubleMLIRM, DoubleMLPLIV, DoubleMLIIVM
 from .deepiv import deepiv, DeepIV
@@ -99,7 +100,7 @@ from .output.estimates import eststo, estclear, esttab
 from .output.regression_table import regtable, RegtableResult, mean_comparison, MeanComparisonResult
 from .output.paper_tables import paper_tables, PaperTables, TEMPLATES as PAPER_TABLE_TEMPLATES
 from .postestimation import margins, marginsplot, margins_at, margins_at_plot, contrast, pwcompare, test, lincom
-from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, effective_f_test, tF_critical_value, evalue, evalue_from_result, diagnose_result, estat, kitagawa_test, KitagawaResult, rosenbaum_bounds, rosenbaum_gamma, RosenbaumResult
+from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, effective_f_test, tF_critical_value, evalue, evalue_from_result, diagnose_result, estat, kitagawa_test, KitagawaResult, rosenbaum_bounds, rosenbaum_gamma, RosenbaumResult, weakrobust, WeakRobustResult
 from .inference import (
     wild_cluster_bootstrap, aipw, ri_test, ipw, bootstrap, BootstrapResult,
     twoway_cluster, conley, pate, PATEEstimator, fisher_exact, FisherResult,
@@ -206,12 +207,15 @@ from .ope import OPEResult
 # === Parametric g-formula (iterative conditional expectation) ===
 from . import gformula
 from .gformula import ice as gformula_ice_fn, ICEResult
+from .gformula import gformula_mc, MCGFormulaResult
 
 # === Target Trial Emulation (JAMA 2022 framework) ===
 from . import target_trial
+from . import target_trial as tte   # short alias
 from .target_trial import (
     protocol as target_trial_protocol,
     emulate as target_trial_emulate,
+    to_paper as target_trial_report,
     clone_censor_weight,
     immortal_time_check,
     TargetTrialProtocol,
@@ -221,6 +225,37 @@ from .target_trial import (
 # === Inverse probability of censoring weights ===
 from . import censoring
 from .censoring import ipcw, IPCWResult
+
+# === Epidemiology primitives (OR / RR / MH / standardization / BH) ===
+from . import epi
+from .epi import (
+    odds_ratio, relative_risk, risk_difference, attributable_risk,
+    incidence_rate_ratio, number_needed_to_treat, prevalence_ratio,
+    mantel_haenszel, breslow_day_test,
+    direct_standardize, indirect_standardize,
+    bradford_hill,
+)
+
+# === Longitudinal causal inference (What If Layer 4) ===
+from . import longitudinal
+from .longitudinal import (
+    analyze as longitudinal_analyze,
+    contrast as longitudinal_contrast,
+    regime, always_treat, never_treat,
+    LongitudinalResult, Regime,
+)
+
+# === Causal-question DSL (estimand-first workflow) ===
+from . import question
+from .question import (
+    causal_question, CausalQuestion,
+    IdentificationPlan, EstimationResult,
+)
+
+# === Unified sensitivity dashboard ===
+from .robustness import (
+    unified_sensitivity, SensitivityDashboard,
+)
 
 # === Canonical datasets (consolidated facade) ===
 from . import datasets
@@ -305,7 +340,18 @@ from .experimental import randomize, RandomizationResult, balance_check, Balance
 # Missing Data / Imputation
 from .imputation import mice, MICEResult, mi_estimate
 # Mendelian Randomization
-from .mendelian import mendelian_randomization, MRResult, mr_egger, mr_ivw, mr_median
+from . import mendelian
+from . import mendelian as mr   # short alias
+from .mendelian import (
+    mendelian_randomization, MRResult,
+    mr_egger, mr_ivw, mr_median,
+    mr_heterogeneity, mr_pleiotropy_egger, mr_leave_one_out,
+    mr_steiger, mr_presso, mr_radial,
+    HeterogeneityResult, PleiotropyResult, LeaveOneOutResult,
+    SteigerResult, MRPressoResult, RadialResult,
+)
+# Expose recommend_estimator at top level too
+from .dag import recommend_estimator as dag_recommend_estimator
 # Multi-cutoff / Geographic RD
 from .rd import rdmc, rdms, RDMultiResult
 # 2D Boundary RD (Cattaneo, Titiunik, Yu 2025)
@@ -526,6 +572,10 @@ __all__ = [
     # Matching extensions
     "overlap_weights",
     "cbps",
+    "sbw",
+    "SBWResult",
+    "genmatch",
+    "GenMatchResult",
     # Inference primitives
     "subcluster_wild_bootstrap",
     "wild_cluster_ci_inv",
@@ -618,6 +668,8 @@ __all__ = [
     "anderson_rubin_test",
     "effective_f_test",
     "tF_critical_value",
+    "weakrobust",
+    "WeakRobustResult",
     "evalue",
     "evalue_from_result",
     "diagnose_result",
@@ -974,12 +1026,36 @@ __all__ = [
     "swig", "SWIGGraph", "SCM",
     "cevae", "CEVAE", "CEVAEResult",
     "TargetTrialProtocol", "TargetTrialResult", "CloneCensorWeightResult",
-    "target_trial_protocol", "target_trial_emulate",
-    "clone_censor_weight", "immortal_time_check",
+    "target_trial_protocol", "target_trial_emulate", "target_trial_report",
+    "clone_censor_weight", "immortal_time_check", "tte",
     "TransportWeightResult", "TransportIdentificationResult",
     "transport_generalize", "transport_weights_fn", "identify_transport",
     "OPEResult",
     "gformula_ice_fn", "ICEResult",
+    "gformula_mc", "MCGFormulaResult",
+    # v0.9.17 additions (epi primitives)
+    "epi", "odds_ratio", "relative_risk", "risk_difference",
+    "attributable_risk", "incidence_rate_ratio",
+    "number_needed_to_treat", "prevalence_ratio",
+    "mantel_haenszel", "breslow_day_test",
+    "direct_standardize", "indirect_standardize", "bradford_hill",
+    # v0.9.17 additions (MR full suite)
+    "mr", "mendelian",
+    "mr_heterogeneity", "mr_pleiotropy_egger", "mr_leave_one_out",
+    "mr_steiger", "mr_presso", "mr_radial",
+    "HeterogeneityResult", "PleiotropyResult", "LeaveOneOutResult",
+    "SteigerResult", "MRPressoResult", "RadialResult",
+    # v0.9.17 additions (longitudinal unified)
+    "longitudinal", "longitudinal_analyze", "longitudinal_contrast",
+    "regime", "always_treat", "never_treat",
+    "LongitudinalResult", "Regime",
+    # v0.9.17 additions (causal-question DSL)
+    "question", "causal_question", "CausalQuestion",
+    "IdentificationPlan", "EstimationResult",
+    # v0.9.17 additions (unified sensitivity)
+    "unified_sensitivity", "SensitivityDashboard",
+    # v0.9.17 additions (DAG UX)
+    "dag_recommend_estimator",
 ]
 
 

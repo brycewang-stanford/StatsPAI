@@ -2,6 +2,79 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.17] - 2026-04-21 — Modern-weighting + MC g-formula + weakrobust panel + end-to-end workflow
+
+Surgical release targeting four of the most-requested gaps identified
+in the v1.0 gap-analysis pass: a Stata-style unified weak-IV-robust
+diagnostic panel, the Zubizarreta (2015) stable-balancing-weights
+estimator, the Robins (1986) Monte-Carlo g-formula (complementing the
+existing Bang-Robins ICE), and a truly end-to-end `sp.causal()`
+orchestrator that auto-runs multi-estimator comparison + sensitivity
+triad + CATE heterogeneity on top of the existing diagnose/recommend/
+estimate/robustness stages.
+
+### Added
+
+- `sp.weakrobust(data, y, endog, instruments, exog)` — one-call
+  diagnostic panel that bundles Anderson-Rubin (1949), Moreira (2003)
+  Conditional LR, Kleibergen (2002) K score test, Kleibergen-Paap
+  (2006) rk LM + Wald F, Olea-Pflueger (2013) effective F, and
+  Lee-McCrary-Moreira-Porter (2022) tF critical values. `WeakRobustResult`
+  exposes `.summary()`, `.to_frame()`, and dict-style lookup. This is
+  the Python analogue of Stata 19's `estat weakrobust`, unifying
+  functionality scattered across `ivmodel` (R), `linearmodels`
+  (Python), and the Stata user-written `weakiv` / `rivtest` packages.
+
+- `sp.sbw(data, treat, covariates, y=..., estimand='att')` — Stable
+  Balancing Weights (Zubizarreta 2015 JASA). Minimises variance (or
+  KL) of the weights subject to per-covariate SMD balance tolerances
+  solved via SLSQP. Supports ATT / ATC / ATE. Reports an effective
+  sample size and before/after balance table. Complements `sp.ebalance`
+  (exact balance) and `sp.cbps` (CBPS).
+
+- `sp.gformula_mc(data, treatment_cols, confounder_cols, outcome_col)`
+  — Monte-Carlo parametric g-formula (Robins 1986). Fits per-timepoint
+  conditional models for confounders (binary logit / Gaussian OLS) and
+  simulates counterfactual trajectories under user-supplied static or
+  **dynamic** (callable) treatment strategies. Non-parametric bootstrap
+  CI. Complements the existing `sp.gformula.ice` (Bang-Robins 2005 ICE).
+
+- **Enhanced `sp.causal()` workflow** — three new stages auto-run
+  after `estimate` / `robustness`:
+  - `.compare_estimators()` — design-aware multi-estimator panel:
+    CS + SA + BJS + Wooldridge for staggered DiD; 2SLS + LIML for IV;
+    OLS + EB + CBPS + SBW + DML-PLR for observational.
+  - `.sensitivity_panel()` — E-value + Oster δ* + Rosenbaum Γ in one
+    DataFrame, matching the modern "sensitivity triad" expected by
+    top-5 econ journals.
+  - `.cate()` — X-Learner and Causal Forest heterogeneity summary
+    (per-unit CATE mean, SD, q10/q50/q90).
+  - Report output gains sections 4b / 4c / 4d.
+  - Opt-out via `CausalWorkflow.run(full=False)`; `_extract_effect`
+    helper unifies `CausalResult` and `EconometricResults` extraction.
+
+### Reviewer-identified fixes (v0.9.17 internal review)
+
+- `SBWResult.__init__` now forwards `model_info` + `_citation_key` to
+  the `CausalResult` parent, wiring it into the citation registry.
+- `MCGFormulaResult._is_binary` now requires **both** 0 and 1 levels
+  present — a degenerate column (all-0 or all-1) no longer triggers
+  the logistic Newton-Raphson loop.
+- `_extract_effect` in `CausalWorkflow` now returns NaN when the
+  treatment column is missing from the fitted params, rather than
+  silently surfacing the intercept coefficient.
+- SBW docstring clarified: reported SE is conditional-on-weights;
+  users who need full parameter-uncertainty propagation should
+  bootstrap `sp.sbw` externally.
+
+### Deferred to a separate sprint
+
+The original gap analysis also flagged TMLE dynamic regimes +
+censoring, Conformal counterfactual / weighted variants, PCMCI
+time-series causal discovery, Partial-ID + ML bounds, and the
+Agent-MCP server integration. Each is substantial enough to warrant
+its own focused sprint rather than being shipped half-finished here.
+
 ## [0.9.16] - 2026-04-20 — v1.0 breadth expansion + Bayesian family polish + Rust Phase-2 CI
 
 The largest release since the v1.0 breadth pass. Maps StatsPAI onto

@@ -66,8 +66,14 @@ class TestDIDWorkflow:
     def test_auto_run_completes_all_stages(self, did_panel):
         w = causal(did_panel, y='y', treatment='treat',
                    id='i', time='t', cohort='g', design='did')
-        assert w.stages_completed == ['diagnose', 'recommend',
-                                      'estimate', 'robustness']
+        # All the original core stages must have run. Since v0.9.17
+        # `causal()` also triggers the extended stages
+        # (compare_estimators / sensitivity_panel / cate) — we assert
+        # superset rather than exact equality so the test stays robust
+        # to additions.
+        assert set(w.stages_completed) >= {
+            'diagnose', 'recommend', 'estimate', 'robustness',
+        }
 
     def test_diagnostics_verdict_ok_on_clean_dgp(self, did_panel):
         w = causal(did_panel, y='y', treatment='treat',
@@ -106,8 +112,9 @@ class TestRDWorkflow:
     def test_rd_full_pipeline(self, rd_data):
         w = causal(rd_data, y='y', running_var='x', cutoff=0.0,
                    design='rd')
-        assert w.stages_completed == ['diagnose', 'recommend',
-                                      'estimate', 'robustness']
+        assert set(w.stages_completed) >= {
+            'diagnose', 'recommend', 'estimate', 'robustness',
+        }
         # Jump should be near 1.0
         assert abs(w.result.estimate - 1.0) < 0.3
 

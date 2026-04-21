@@ -494,3 +494,331 @@ def anderson_rubin_test(
                f"(vs. naive 1.96)." if tF_c is not None else "")
         ),
     }
+
+
+def _kstat_and_pvalue_at(k_cs, h0: float) -> Tuple[float, float]:
+    """Pick the K-statistic and chi2(1) p-value at (nearest-grid) β=h0."""
+    grid = np.asarray(k_cs.beta_grid)
+    if grid.size == 0:
+        return (np.nan, np.nan)
+    idx = int(np.argmin(np.abs(grid - h0)))
+    stat = float(k_cs.statistic[idx])
+    p = float(1.0 - stats.chi2.cdf(stat, df=1))
+    return stat, p
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  4. Unified weak-IV-robust panel — Stata `estat weakrobust` equivalent
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class WeakRobustResult:
+    """Container holding the unified weak-IV-robust panel."""
+
+    def __init__(
+        self,
+        data: Dict[str, Any],
+        endog: str,
+        instruments: List[str],
+        n: int,
+        h0: float,
+        alpha: float,
+    ):
+        self._data = data
+        self.endog = endog
+        self.instruments = list(instruments)
+        self.n = int(n)
+        self.h0 = float(h0)
+        self.alpha = float(alpha)
+
+    def __getitem__(self, key: str) -> Any:
+        return self._data[key]
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._data.get(key, default)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return dict(self._data)
+
+    def to_frame(self) -> pd.DataFrame:
+        """Return the Stata-style single-table summary."""
+        rows = []
+        d = self._data
+        # Strength diagnostics
+        rows.append(("First-stage F (classical)",
+                     d["first_stage_F"], None, None))
+        rows.append(("Olea–Pflueger effective F",
+                     d["effective_F"], None, None))
+        if d.get("kp_rk_lm") is not None:
+            rows.append(("Kleibergen–Paap rk LM",
+                         d["kp_rk_lm"], d["kp_rk_lm_pvalue"], None))
+            rows.append(("Kleibergen–Paap rk Wald F",
+                         d["kp_rk_f"], None, None))
+        # Weak-IV-robust inference under H0
+        rows.append((f"Anderson–Rubin at β={self.h0:g}",
+                     d["ar_stat"], d["ar_pvalue"], d["ar_ci"]))
+        if d.get("clr_stat") is not None:
+            rows.append((f"Moreira CLR at β={self.h0:g}",
+                         d["clr_stat"], d["clr_pvalue"], d.get("clr_ci")))
+        if d.get("k_stat") is not None:
+            rows.append((f"Kleibergen K at β={self.h0:g}",
+                         d["k_stat"], d["k_pvalue"], d.get("k_ci")))
+        return pd.DataFrame(rows, columns=["statistic", "value", "p_value", "CI"])
+
+    def summary(self) -> str:
+        d = self._data
+        lines = [
+            "Weak-IV-robust diagnostic panel  (sp.weakrobust)",
+            "=" * 60,
+            f"  endog        : {self.endog}",
+            f"  instruments  : {', '.join(self.instruments)}",
+            f"  N            : {self.n}",
+            f"  H0: β        : {self.h0:g}",
+            f"  α            : {self.alpha}",
+            "-" * 60,
+            "Strength:",
+            f"  First-stage F (classical)   : {d['first_stage_F']:10.4f}",
+            f"  Olea–Pflueger effective F   : {d['effective_F']:10.4f}",
+        ]
+        if d.get("kp_rk_lm") is not None:
+            lines += [
+                f"  Kleibergen–Paap rk LM       : {d['kp_rk_lm']:10.4f}"
+                f"   p = {d['kp_rk_lm_pvalue']:.4f}",
+                f"  Kleibergen–Paap rk Wald F   : {d['kp_rk_f']:10.4f}",
+            ]
+        lines += [
+            "Weak-IV-robust tests under H0:",
+            f"  Anderson–Rubin F            : {d['ar_stat']:10.4f}"
+            f"   p = {d['ar_pvalue']:.4f}",
+            f"  AR  {100*(1-self.alpha):.0f}% CI                  : "
+            f"[{d['ar_ci'][0]:.4f}, {d['ar_ci'][1]:.4f}]",
+        ]
+        if d.get("clr_stat") is not None:
+            lines.append(
+                f"  Moreira CLR                 : {d['clr_stat']:10.4f}"
+                f"   p = {d['clr_pvalue']:.4f}"
+            )
+            if d.get("clr_ci") is not None:
+                lines.append(
+                    f"  CLR {100*(1-self.alpha):.0f}% CI                  : "
+                    f"[{d['clr_ci'][0]:.4f}, {d['clr_ci'][1]:.4f}]"
+                )
+        if d.get("k_stat") is not None:
+            lines.append(
+                f"  Kleibergen K                : {d['k_stat']:10.4f}"
+                f"   p = {d['k_pvalue']:.4f}"
+            )
+            if d.get("k_ci") is not None:
+                lines.append(
+                    f"  K   {100*(1-self.alpha):.0f}% CI                  : "
+                    f"[{d['k_ci'][0]:.4f}, {d['k_ci'][1]:.4f}]"
+                )
+        if d.get("tF_critical_value") is not None:
+            lines.append(
+                f"  Lee-McCrary-Moreira-Porter tF crit. value    : "
+                f"{d['tF_critical_value']:.4f}"
+            )
+        lines.append("=" * 60)
+        return "\n".join(lines)
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return self.summary()
+
+
+def weakrobust(
+    data: pd.DataFrame,
+    y: str,
+    endog: str,
+    instruments: List[str],
+    exog: Optional[List[str]] = None,
+    *,
+    h0: float = 0.0,
+    alpha: float = 0.05,
+    vcov: str = "HC1",
+    include_clr: bool = True,
+    include_k: bool = True,
+    clr_simulations: int = 20_000,
+    grid_size: int = 401,
+    random_state: Optional[int] = None,
+) -> "WeakRobustResult":
+    """
+    Stata-style unified weak-instrument-robust diagnostic panel.
+
+    Bundles in a single call:
+
+    1. **Classical first-stage F** and **Olea–Pflueger (2013) effective F**
+       — instrument-strength pre-tests.
+    2. **Kleibergen–Paap (2006) rk LM and Wald F** — rank test of the
+       reduced form, heteroskedasticity-robust Cragg-Donald analogue.
+    3. **Anderson–Rubin (1949)** F test of ``H0: β_endog = h0`` and its
+       weak-IV-robust confidence set.
+    4. **Moreira (2003) Conditional LR (CLR)** test and CLR confidence
+       set by grid inversion (uniformly most powerful invariant for a
+       single endogenous regressor).
+    5. **Kleibergen (2002) K** score test and K confidence set.
+    6. **Lee–McCrary–Moreira–Porter (2022) tF** adjusted critical value.
+
+    This entry point is the Python analogue of Stata 19's
+    ``ivregress 2sls; estat weakrobust`` and ``weakiv`` / ``ivreg2`` in
+    Stata 17+, unifying tools that are scattered across ``ivmodel`` (R),
+    ``linearmodels`` (Python), and the user-written packages ``weakiv``,
+    ``rivtest`` (Stata).
+
+    Parameters
+    ----------
+    data : DataFrame
+    y, endog : str
+        Outcome and single endogenous regressor (column names in ``data``).
+    instruments : list of str
+        Excluded instruments.
+    exog : list of str, optional
+        Included exogenous controls. An intercept is always added.
+    h0 : float, default 0.0
+        Null value for the endogenous coefficient. All under-H0 tests
+        (AR, CLR, K) are evaluated at ``β = h0``.
+    alpha : float, default 0.05
+        Significance level for the robust confidence sets.
+    vcov : {'HC0', 'HC1', 'classic'}, default 'HC1'
+        Used by the Olea–Pflueger effective F.
+    include_clr : bool, default True
+        Also run the CLR test and invert it for a CLR confidence set.
+    include_k : bool, default True
+        Also run the Kleibergen K score test and K confidence set.
+    clr_simulations : int, default 20 000
+        Monte-Carlo draws for the CLR null distribution.
+    grid_size : int, default 401
+        Grid resolution used by AR/CLR/K confidence-set inversion.
+    random_state : int, optional
+
+    Returns
+    -------
+    WeakRobustResult
+        Accepts ``.summary()``, ``.to_frame()`` and dict-style lookup.
+
+    Examples
+    --------
+    >>> panel = sp.weakrobust(df, y='wage', endog='educ',
+    ...                       instruments=['nearc2','nearc4'],
+    ...                       exog=['age','exper'])
+    >>> print(panel.summary())
+    >>> panel.to_frame()
+
+    References
+    ----------
+    Anderson–Rubin (1949) Ann. Math. Stat. 20, 46-63.
+    Kleibergen (2002) Econometrica 70, 1781-1803.
+    Moreira (2003) Econometrica 71, 1027-1048.
+    Kleibergen–Paap (2006) J. Econom. 133, 97-126.
+    Olea–Pflueger (2013) JBES 31, 358-369.
+    Lee–McCrary–Moreira–Porter (2022) AER 112, 3260-3290.
+    """
+    if isinstance(instruments, str):
+        instruments = [instruments]
+    if exog is not None and isinstance(exog, str):
+        exog = [exog]
+
+    ar = anderson_rubin_test(
+        data=data, y=y, endog=endog, instruments=instruments, exog=exog,
+        h0=h0, alpha=alpha, vcov=vcov,
+    )
+
+    out: Dict[str, Any] = {
+        "first_stage_F": ar["first_stage_F"],
+        "effective_F": ar["effective_F"],
+        "beta_2sls": ar["beta_2sls"],
+        "ar_stat": ar["ar_stat"],
+        "ar_pvalue": ar["ar_pvalue"],
+        "ar_ci": ar["ar_ci"],
+        "tF_critical_value": ar["tF_critical_value"],
+        "n_instruments": ar["n_instruments"],
+        "strength": ar["strength"],
+    }
+
+    # ── KP rk LM / Wald F (robust rank test) ──────────────────────────
+    try:
+        from ..iv.weak_identification import kleibergen_paap_rk
+        Y, D, Z, W, n_obs = _prep_matrices(
+            data, y, endog, instruments, exog,
+        )
+        W_exog = W[:, 1:] if W.shape[1] > 1 else None
+        kp = kleibergen_paap_rk(
+            endog=D.reshape(-1, 1),
+            instruments=Z,
+            exog=W_exog,
+            add_const=True,
+            cov_type="robust",
+        )
+        out["kp_rk_lm"] = kp.rk_lm
+        out["kp_rk_lm_pvalue"] = kp.rk_lm_pvalue
+        out["kp_rk_f"] = kp.rk_f
+    except Exception as exc:  # pragma: no cover
+        out["kp_error"] = str(exc)
+        n_obs = len(data.dropna(subset=[y, endog] + list(instruments)
+                                + list(exog or [])))
+
+    # ── CLR statistic + p-value at H0 (exact via Monte-Carlo) ─────────
+    if include_clr:
+        try:
+            from ..iv.weak_identification import conditional_lr_test
+            clr_res = conditional_lr_test(
+                y=y, endog=endog, instruments=list(instruments),
+                exog=list(exog) if exog else None,
+                data=data, beta0=h0,
+                n_simulations=clr_simulations,
+                random_state=random_state,
+            )
+            out["clr_stat"] = clr_res.statistic
+            out["clr_pvalue"] = clr_res.pvalue
+        except Exception as exc:  # pragma: no cover
+            out["clr_error"] = str(exc)
+
+    # ── CLR + K confidence sets via grid inversion ────────────────────
+    if include_clr or include_k:
+        try:
+            from ..iv.weak_iv_ci import conditional_lr_ci, k_test_ci
+            level = 1.0 - alpha
+            exog_arg = list(exog) if exog else None
+            if include_clr:
+                clr_cs = conditional_lr_ci(
+                    y=y, endog=endog, instruments=list(instruments),
+                    exog=exog_arg, data=data, level=level,
+                    n_grid=grid_size, n_sim=max(clr_simulations // 4, 2000),
+                    random_state=random_state,
+                )
+                lo, hi = float(clr_cs.lower), float(clr_cs.upper)
+                out["clr_ci"] = (lo, hi)
+                out["clr_is_empty"] = bool(clr_cs.is_empty)
+                out["clr_is_unbounded"] = bool(clr_cs.is_unbounded)
+            if include_k:
+                k_cs = k_test_ci(
+                    y=y, endog=endog, instruments=list(instruments),
+                    exog=exog_arg, data=data, level=level,
+                    n_grid=grid_size,
+                )
+                out["k_ci"] = (float(k_cs.lower), float(k_cs.upper))
+                out["k_is_empty"] = bool(k_cs.is_empty)
+                out["k_is_unbounded"] = bool(k_cs.is_unbounded)
+                # K stat and p at h0 — read from nearest-grid point
+                _k_stat, _k_p = _kstat_and_pvalue_at(k_cs, h0)
+                out["k_stat"] = _k_stat
+                out["k_pvalue"] = _k_p
+        except Exception as exc:  # pragma: no cover
+            out["weak_iv_ci_error"] = str(exc)
+
+    return WeakRobustResult(
+        data=out,
+        endog=endog,
+        instruments=list(instruments),
+        n=int(n_obs),
+        h0=h0,
+        alpha=alpha,
+    )
+
+
+__all__ = [
+    "effective_f_test",
+    "tF_critical_value",
+    "anderson_rubin_test",
+    "weakrobust",
+    "WeakRobustResult",
+]
