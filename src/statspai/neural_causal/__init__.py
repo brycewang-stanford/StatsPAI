@@ -33,6 +33,7 @@ from .models import (
     CFRNet,
     DragonNet,
 )
+from .gnn_causal import gnn_causal, GNNCausalResult
 
 __all__ = [
     'tarnet',
@@ -41,4 +42,5 @@ __all__ = [
     'TARNet',
     'CFRNet',
     'DragonNet',
+    'gnn_causal', 'GNNCausalResult',
 ]

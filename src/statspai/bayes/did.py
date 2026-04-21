@@ -13,6 +13,8 @@ import pandas as pd
 
 from ._base import (
     BayesianCausalResult,
+    BayesianDIDResult,
+    _az_hdi_compat,
     _require_pymc,
     _sample_model,
     _summarise_posterior,
@@ -120,6 +122,7 @@ def bayes_did(
     time: Optional[str] = None,
     covariates: Optional[List[str]] = None,
     *,
+    cohort: Optional[str] = None,
     prior_ate: Tuple[float, float] = (0.0, 10.0),
     prior_unit_sigma: float = 5.0,
     prior_time_sigma: float = 5.0,
@@ -135,7 +138,7 @@ def bayes_did(
     target_accept: float = 0.9,
     random_state: int = 42,
     progressbar: bool = False,
-) -> BayesianCausalResult:
+) -> BayesianDIDResult:
     """Bayesian difference-in-differences via PyMC.
 
     Two model shapes:
@@ -163,6 +166,20 @@ def bayes_did(
     covariates : list of str, optional
         Additional time-varying regressors. Standardised inside PyMC
         via Normal(0, ``prior_covariate_sigma``) priors.
+    cohort : str, optional
+        Column name identifying each treated unit's cohort (typically
+        the first-treatment period in a staggered design). When
+        supplied, the coefficient on ``treat*post`` is replaced by a
+        per-cohort vector ``tau_c`` with a shared ``Normal(prior_ate)``
+        prior; the result populates
+        :attr:`BayesianDIDResult.cohort_summaries` so
+        ``tidy(terms='per_cohort')`` returns one row per cohort.
+        Untreated / never-treated units should carry a sentinel
+        cohort value (e.g. ``-1``, ``'never'``) — they are grouped
+        into a single cohort whose τ is still estimated but typically
+        shrinks toward zero because their ``treat*post`` is
+        identically zero. The top-level posterior ATT is the
+        size-weighted mean of the cohort τ's over **treated units**.
     prior_ate : (float, float), default ``(0.0, 10.0)``
         Mean and SD of the Normal prior on ``tau``.
     prior_unit_sigma, prior_time_sigma : float
@@ -200,6 +217,35 @@ def bayes_did(
 
     use_unit_re = prep['unit_idx'] is not None
     use_time_re = prep['time_idx'] is not None
+
+    # Cohort wiring: factorise once so the model gets integer codes and
+    # the result carries back the user's original labels for tidy(). We
+    # factorise on the dropna'd frame to keep index alignment with DID.
+    cohort_codes: Optional[np.ndarray] = None
+    cohort_labels: list = []
+    if cohort is not None:
+        if cohort not in data.columns:
+            raise ValueError(f"Column '{cohort}' (cohort) not found in data")
+        cols_for_factor = [y, treat, post]
+        if unit is not None:
+            cols_for_factor.append(unit)
+        if time is not None:
+            cols_for_factor.append(time)
+        if covariates:
+            cols_for_factor.extend(covariates)
+        cols_for_factor.append(cohort)
+        clean_for_cohort = (
+            data[cols_for_factor].dropna().reset_index(drop=True)
+        )
+        codes, uniques = pd.factorize(clean_for_cohort[cohort], sort=True)
+        cohort_codes = np.asarray(codes, dtype=np.int64)
+        cohort_labels = list(uniques)
+        n_cohorts = len(cohort_labels)
+        if n_cohorts < 2:
+            raise ValueError(
+                f"cohort column '{cohort}' has < 2 distinct values; "
+                "per-cohort ATT requires at least 2 cohorts."
+            )
 
     mu_ate, sigma_ate = prior_ate
 
@@ -248,8 +294,24 @@ def bayes_did(
             post_main = beta_post * P
             time_effect = 0.0
 
-        # The causal parameter
-        tau = pm.Normal('tau', mu=mu_ate, sigma=sigma_ate)
+        # The causal parameter. Two parameterisations:
+        #   - scalar `tau` (single-τ model, v0.9.15 behaviour)
+        #   - vector `tau_cohort` of length n_cohorts when `cohort` is
+        #     supplied; per-unit contribution is tau_cohort[c_i] * DID_i
+        if cohort_codes is None:
+            tau = pm.Normal('tau', mu=mu_ate, sigma=sigma_ate)
+            did_contribution = tau * DID
+        else:
+            tau_cohort = pm.Normal(
+                'tau_cohort',
+                mu=mu_ate,
+                sigma=sigma_ate,
+                shape=len(cohort_labels),
+            )
+            # Row i's DID contribution uses its cohort's τ. Casting to
+            # PyMC via fancy-indexing on a numpy int64 array is the
+            # idiomatic pattern in this module (cf. `alpha_unit[unit_idx]`).
+            did_contribution = tau_cohort[cohort_codes] * DID
 
         linpred = (
             intercept
@@ -257,7 +319,7 @@ def bayes_did(
             + post_main
             + unit_effect
             + time_effect
-            + tau * DID
+            + did_contribution
         )
 
         if X is not None:

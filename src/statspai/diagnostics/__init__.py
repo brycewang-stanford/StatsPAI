@@ -16,6 +16,7 @@ from .evalue import evalue, evalue_from_result
 from .battery import diagnose_result
 from .estat import estat
 from .late_test import kitagawa_test, KitagawaResult
+from .rosenbaum import rosenbaum_bounds, rosenbaum_gamma, RosenbaumResult
 
 __all__ = [
     'oster_bounds',
@@ -36,4 +37,7 @@ __all__ = [
     'estat',
     'kitagawa_test',
     'KitagawaResult',
+    'rosenbaum_bounds',
+    'rosenbaum_gamma',
+    'RosenbaumResult',
 ]

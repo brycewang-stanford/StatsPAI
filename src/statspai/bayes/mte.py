@@ -151,7 +151,7 @@ def bayes_mte(
           polynomial sees it directly, so first-stage uncertainty
           propagates into the MTE curve. 2-4× slower than plugin but
           honest about uncertainty.
-    mte_method : {'polynomial', 'hv_latent'}, default ``'polynomial'``
+    mte_method : {'polynomial', 'hv_latent', 'bivariate_normal'}, default ``'polynomial'``
         MTE parameterisation.
 
         - ``'polynomial'`` : fit a polynomial in the propensity
@@ -168,6 +168,23 @@ def bayes_mte(
           (adds shape-n latent; ``O(n·draws·chains)`` memory) but
           mathematically faithful. A UserWarning is emitted if the
           expected latent storage exceeds ~50M floats.
+        - ``'bivariate_normal'`` : full textbook Heckman-Vytlacil
+          trivariate-normal model ``(U_0, U_1, V) ~ N(0, Σ)`` with
+          ``D = 1{Z'π > V}``. Identifies the structural intercept
+          ``β_D = μ_1 - μ_0`` and the two error covariances
+          ``σ_0V, σ_1V``, so ``MTE(v) = β_D + (σ_1V - σ_0V)·v`` is
+          closed-form linear (no user polynomial choice). Requires
+          ``selection='normal'`` (V-scale is the natural fit scale)
+          and ``first_stage='joint'`` (to identify V). The structural
+          equation gets inverse-Mills-ratio correction terms
+          ``-D·σ_1V·λ_1(p) + (1-D)·σ_0V·λ_0(p)`` with
+          ``λ_1(p) = φ(Φ^{-1}(p))/p`` and
+          ``λ_0(p) = φ(Φ^{-1}(p))/(1-p)``.
+          ``poly_u`` is ignored (the model is inherently linear in V).
+          Exposes ``b_mte`` as a 2-vector Deterministic
+          ``[β_D, σ_1V - σ_0V]`` so downstream ``mte_curve``,
+          ``ATT/ATU`` and ``policy_effect`` code paths work without
+          change.
     u_grid : np.ndarray, optional
         Grid of propensity-to-be-treated values on which to evaluate
         the MTE posterior. Default: ``np.linspace(0.05, 0.95, 19)``.
@@ -230,16 +247,42 @@ def bayes_mte(
         raise ValueError(
             f"first_stage must be 'plugin' or 'joint'; got {first_stage!r}"
         )
-    if mte_method not in ('polynomial', 'hv_latent'):
+    if mte_method not in ('polynomial', 'hv_latent', 'bivariate_normal'):
         raise ValueError(
-            f"mte_method must be 'polynomial' or 'hv_latent'; "
-            f"got {mte_method!r}"
+            f"mte_method must be 'polynomial', 'hv_latent' or "
+            f"'bivariate_normal'; got {mte_method!r}"
         )
     if selection not in ('uniform', 'normal'):
         raise ValueError(
             f"selection must be 'uniform' or 'normal'; "
             f"got {selection!r}"
         )
+
+    # Bivariate-normal HV is inherently a V-scale joint-first-stage
+    # model; raise loudly instead of silently mis-specifying. The
+    # model also fixes poly_u=1 because MTE(v) is closed-form linear
+    # in v under the trivariate-normal assumption; we accept any
+    # user-supplied poly_u but override it so `b_mte` stays shape (2,).
+    if mte_method == 'bivariate_normal':
+        if selection != 'normal':
+            raise ValueError(
+                "mte_method='bivariate_normal' requires selection='normal' "
+                "(the HV trivariate-normal model is on the probit V scale)."
+            )
+        if first_stage != 'joint':
+            raise ValueError(
+                "mte_method='bivariate_normal' requires first_stage='joint' "
+                "so the selection latent V is identified."
+            )
+        if poly_u != 1:
+            import warnings
+            warnings.warn(
+                f"mte_method='bivariate_normal' is inherently linear in V; "
+                f"overriding poly_u={poly_u} -> poly_u=1.",
+                UserWarning,
+                stacklevel=2,
+            )
+            poly_u = 1
 
     # hv_latent adds a shape-(n,) latent ``raw_U`` whose posterior
     # is stored as (chains, draws, n). Warn the user before they
@@ -293,9 +336,15 @@ def bayes_mte(
 
     with pm.Model() as model:
         alpha = pm.Normal('alpha', mu=0.0, sigma=prior_coef_sigma)
-        b_mte = pm.Normal(
-            'b_mte', mu=0.0, sigma=prior_mte_sigma, shape=poly_u + 1,
-        )
+        # For 'polynomial' and 'hv_latent' modes `b_mte` is the direct
+        # polynomial-coefficient latent. For 'bivariate_normal' mode we
+        # parameterise with (β_D, σ_0V, σ_1V) and expose `b_mte` as a
+        # Deterministic of shape (2,) below so all downstream
+        # posterior-summary code paths are untouched.
+        if mte_method != 'bivariate_normal':
+            b_mte = pm.Normal(
+                'b_mte', mu=0.0, sigma=prior_mte_sigma, shape=poly_u + 1,
+            )
 
         # ------------------------------------------------------------------
         # First stage: produce a propensity expression ``p_expr`` that
@@ -372,6 +421,44 @@ def bayes_mte(
                     b_mte[k] * u_powers[k] for k in range(poly_u + 1)
                 )
                 mte_contribution = D * mte_i
+        elif mte_method == 'bivariate_normal':
+            # Full trivariate-normal HV:
+            #   Y_1 = μ_1 + U_1,  Y_0 = μ_0 + U_0,  D = 1{Z'π > V}
+            #   (U_0, U_1, V) ~ N(0, Σ)
+            # Under joint normality, conditional on D and p_i = Φ(Z'π):
+            #   E[Y|D=1, p] = μ_1 - σ_1V · φ(Φ^{-1}(p))/p
+            #              = μ_1 - σ_1V · λ_1(p)
+            #   E[Y|D=0, p] = μ_0 + σ_0V · φ(Φ^{-1}(p))/(1-p)
+            #              = μ_0 + σ_0V · λ_0(p)
+            # so the structural equation gains inverse-Mills-ratio
+            # correction terms. MTE on V scale is closed-form linear:
+            #   MTE(v) = β_D + (σ_1V - σ_0V) · v   where β_D = μ_1 - μ_0
+            import pytensor.tensor as pt
+            beta_D = pm.Normal('beta_D', mu=0.0, sigma=prior_mte_sigma)
+            sigma_0V = pm.Normal('sigma_0V', mu=0.0, sigma=prior_mte_sigma)
+            sigma_1V = pm.Normal('sigma_1V', mu=0.0, sigma=prior_mte_sigma)
+
+            # Expose b_mte as Deterministic for downstream (mte_curve,
+            # ATT/ATU, policy_effect) — they only read b_mte from the
+            # posterior and never care that it's derived rather than
+            # sampled. Shape (2,) matches poly_u=1.
+            b_mte = pm.Deterministic(
+                'b_mte', pt.stack([beta_D, sigma_1V - sigma_0V])
+            )
+
+            # Build IMRs from the joint-first-stage p_expr (PyMC tensor).
+            p_safe = pm.math.clip(p_expr, PROBIT_CLIP, 1 - PROBIT_CLIP)
+            v_i = pt.sqrt(2.0) * pt.erfinv(2.0 * p_safe - 1.0)  # Φ^{-1}(p)
+            phi_v = pt.exp(-0.5 * v_i * v_i) / pt.sqrt(2.0 * np.pi)
+            lam1 = phi_v / p_safe           # λ_1(p) = φ(v)/p
+            lam0 = phi_v / (1.0 - p_safe)   # λ_0(p) = φ(v)/(1-p)
+
+            D_float = D.astype(float)
+            mte_contribution = (
+                D_float * beta_D
+                - D_float * sigma_1V * lam1
+                + (1.0 - D_float) * sigma_0V * lam0
+            )
         else:  # 'hv_latent' — sample U_D_i per unit from the truncated
                # uniform induced by D_i and the current p_i estimate.
                # Reparameterisation keeps NUTS applicable:
@@ -573,6 +660,15 @@ def bayes_mte(
         method_label = (
             f'Bayesian HV-latent MTE on {scale_label} '
             f'(poly_u={poly_u}, {fs_label} first stage)'
+        )
+    elif mte_method == 'bivariate_normal':
+        # Textbook Heckman-Vytlacil: full trivariate-normal structural
+        # model with closed-form linear MTE on V scale. The method
+        # label explicitly says "trivariate-normal" so users reading
+        # tables know which structural assumption backs the posterior.
+        method_label = (
+            f'Bayesian HV trivariate-normal MTE on {scale_label} '
+            f'(closed-form linear, {fs_label} first stage)'
         )
     else:
         method_label = (

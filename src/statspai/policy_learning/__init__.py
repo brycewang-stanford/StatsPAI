@@ -24,9 +24,11 @@ Operations Research, 71(1), 148-183.
 """
 
 from .policy_tree import policy_tree, PolicyTree, policy_value
+from .ope import direct_method, ips, snips, doubly_robust, OPEResult
 
 __all__ = [
     'policy_tree',
     'PolicyTree',
     'policy_value',
+    'direct_method', 'ips', 'snips', 'doubly_robust', 'OPEResult',
 ]

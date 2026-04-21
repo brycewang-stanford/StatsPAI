@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.15"
+__version__ = "0.9.16"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -89,7 +89,7 @@ from .panel import (
     Absorber, demean, absorb_ols, hdfe_ols, FEOLSResult,
 )
 from .causal_impact import causal_impact, CausalImpactEstimator, impactplot
-from .mediation import mediate, MediationAnalysis, mediate_sensitivity, mediate_interventional
+from .mediation import mediate, MediationAnalysis, mediate_sensitivity, mediate_interventional, four_way_decomposition, FourWayResult
 from .bartik import bartik, BartikIV, ssaggregate, shift_share_se
 from .output.outreg2 import OutReg2, outreg2
 from .output.modelsummary import modelsummary, coefplot
@@ -164,8 +164,9 @@ from .regression.tobit import tobit
 from .regression.logit_probit import logit, probit, cloglog
 from .regression.glm import glm, GLMRegression, GLMEstimator
 from .regression.count import poisson, nbreg, ppmlhdfe
-from .neural_causal import tarnet, cfrnet, dragonnet, TARNet, CFRNet, DragonNet
-from .causal_discovery import notears, NOTEARS, pc_algorithm, PCAlgorithm, lingam, LiNGAMResult, ges, GESResult, fci, FCIResult
+from .neural_causal import tarnet, cfrnet, dragonnet, TARNet, CFRNet, DragonNet, gnn_causal, GNNCausalResult
+from .neural_causal.cevae import cevae, CEVAE, CEVAEResult
+from .causal_discovery import notears, NOTEARS, pc_algorithm, PCAlgorithm, lingam, LiNGAMResult, ges, GESResult, fci, FCIResult, icp, nonlinear_icp, ICPResult
 from .tmle import tmle, TMLE, super_learner, SuperLearner, ltmle, LTMLEResult
 from .policy_learning import policy_tree, PolicyTree, policy_value, direct_method, ips, snips, doubly_robust, OPEResult
 from .conformal_causal import conformal_cate, ConformalCATE
@@ -174,7 +175,7 @@ from .bunching import bunching, BunchingEstimator, notch, NotchResult
 from .matrix_completion import mc_panel, MCPanel
 from .dose_response import dose_response, DoseResponse, vcnet, scigan, VCNetResult
 from .bounds import lee_bounds, manski_bounds, BoundsResult, horowitz_manski, iv_bounds, oster_delta, selection_bounds, breakdown_frontier, balke_pearl, BalkePearlResult
-from .interference import spillover, SpilloverEstimator, network_exposure, NetworkExposureResult
+from .interference import spillover, SpilloverEstimator, network_exposure, NetworkExposureResult, peer_effects, PeerEffectsResult
 from .dtr import g_estimation, GEstimation, q_learning, QLearningResult, a_learning, ALearningResult, snmm, SNMMResult
 from .multi_treatment import multi_treatment, MultiTreatment
 from .robustness import spec_curve, SpecCurveResult, robustness_report, RobustnessResult, subgroup_analysis, SubgroupResult
@@ -185,7 +186,23 @@ from .dag import (
     rule1 as do_rule1, rule2 as do_rule2, rule3 as do_rule3,
     apply_rules as do_calculus_apply, RuleCheck,
     swig, SWIGGraph, SCM,
+    llm_dag, LLMDAGResult,
 )
+
+# === Transportability (Pearl-Bareinboim + Dahabreh-Stuart) ===
+from . import transport
+from .transport import (
+    TransportWeightResult,
+    identify_transport, TransportIdentificationResult,
+)
+
+# === Off-Policy Evaluation (contextual bandits) ===
+from . import ope
+from .ope import OPEResult
+
+# === Parametric g-formula (iterative conditional expectation) ===
+from . import gformula
+from .gformula import ice as gformula_ice_fn, ICEResult
 
 # === Target Trial Emulation (JAMA 2022 framework) ===
 from . import target_trial

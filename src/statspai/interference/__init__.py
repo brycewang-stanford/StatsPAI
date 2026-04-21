@@ -17,5 +17,11 @@ Annals of Applied Statistics, 11(4), 1912-1947.
 """
 
 from .spillover import spillover, SpilloverEstimator
+from .network_exposure import network_exposure, NetworkExposureResult
+from .peer_effects import peer_effects, PeerEffectsResult
 
-__all__ = ['spillover', 'SpilloverEstimator']
+__all__ = [
+    'spillover', 'SpilloverEstimator',
+    'network_exposure', 'NetworkExposureResult',
+    'peer_effects', 'PeerEffectsResult',
+]

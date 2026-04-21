@@ -112,6 +112,9 @@ from .bayesian_iv import bayesian_iv, BayesianIVResult
 # ─── Non-parametric IV (Newey-Powell 2003) ───────────────────────────────
 from .npiv import npiv, NPIVResult
 
+# ─── Many-weak-instrument inference (Mikusheva-Sun 2024) ────────────────
+from .many_weak import jive as jive_mw, many_weak_ar, ManyWeakIVResult
+
 # ─── Shift-share / DeepIV re-exports ────────────────────────────────────
 try:
     from ..bartik import bartik, shift_share_se, BartikIV, ssaggregate

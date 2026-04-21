@@ -25,6 +25,8 @@ from .notears import notears, NOTEARS
 from .pc import pc_algorithm, PCAlgorithm
 from .lingam import lingam, LiNGAMResult
 from .ges import ges, GESResult
+from .fci import fci, FCIResult
+from .icp import icp, nonlinear_icp, ICPResult
 
 __all__ = [
     'notears',
@@ -35,4 +37,9 @@ __all__ = [
     'LiNGAMResult',
     'ges',
     'GESResult',
+    'fci',
+    'FCIResult',
+    'icp',
+    'nonlinear_icp',
+    'ICPResult',
 ]

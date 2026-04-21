@@ -32,6 +32,7 @@ from .optimal import (
 )
 from .overlap_weights import overlap_weights
 from .cbps import cbps
+from .genmatch import genmatch, GenMatchResult
 
 __all__ = [
     'match', 'MatchEstimator', 'ebalance', 'balanceplot', 'psplot',
@@ -41,4 +42,5 @@ __all__ = [
     'OptimalMatchResult', 'CardinalityMatchResult',
     'overlap_weights',
     'cbps',
+    'genmatch', 'GenMatchResult',
 ]

@@ -21,5 +21,13 @@ JRSS-B, 65(2), 331-355.
 """
 
 from .g_estimation import g_estimation, GEstimation
+from .q_learning import q_learning, QLearningResult
+from .a_learning import a_learning, ALearningResult
+from .snmm import snmm, SNMMResult
 
-__all__ = ['g_estimation', 'GEstimation']
+__all__ = [
+    'g_estimation', 'GEstimation',
+    'q_learning', 'QLearningResult',
+    'a_learning', 'ALearningResult',
+    'snmm', 'SNMMResult',
+]

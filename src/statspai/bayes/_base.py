@@ -337,6 +337,212 @@ def _sample_model(
     return trace
 
 
+def _tidy_row_from_summary(
+    term_label: str,
+    summary: Dict[str, float],
+    hdi_prob: float,
+) -> Dict[str, Any]:
+    """Build a tidy-schema row from a per-subgroup summary dict.
+
+    Both :class:`BayesianDIDResult` and :class:`BayesianIVResult` use
+    the same multi-row tidy schema so downstream ``pd.concat`` /
+    ``modelsummary`` pipelines see a rectangular table even when
+    subgroups mix (e.g. one DID result with cohort splits alongside
+    one IV result with per-instrument LATEs).
+    """
+    est = summary.get('posterior_mean', float('nan'))
+    sd = summary.get('posterior_sd', float('nan'))
+    lo = summary.get('hdi_lower', float('nan'))
+    hi = summary.get('hdi_upper', float('nan'))
+    pp = summary.get('prob_positive', float('nan'))
+    stat = (est / sd) if (sd is not None and np.isfinite(sd) and sd > 0) else np.nan
+    return {
+        'term': term_label,
+        'estimate': est,
+        'std_error': sd,
+        'statistic': stat,
+        'p_value': np.nan,
+        'conf_low': lo,
+        'conf_high': hi,
+        'prob_positive': pp,
+        'hdi_prob': hdi_prob,
+    }
+
+
+@dataclass
+class BayesianDIDResult(BayesianCausalResult):
+    """Bayesian DID result with optional per-cohort ATT posteriors.
+
+    Extends :class:`BayesianCausalResult` with a
+    ``cohort_summaries`` mapping ``cohort-label -> summary-dict``
+    populated by :func:`bayes_did` when called with ``cohort=...``.
+    When the dict is empty (default), the result behaves exactly
+    like :class:`BayesianCausalResult` and ``tidy()`` produces the
+    same single-row DataFrame as before.
+
+    The ``cohort_labels`` field preserves the user's original cohort
+    values in the order the model sampled them; iteration order is
+    deterministic and matches the posterior variable axis.
+    """
+
+    cohort_summaries: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    cohort_labels: List[Any] = field(default_factory=list)
+
+    def tidy(
+        self,
+        conf_level: Optional[float] = None,
+        terms: Any = None,
+    ) -> pd.DataFrame:
+        """Tidy summary with optional per-cohort breakdown.
+
+        Parameters
+        ----------
+        conf_level : float, optional
+            Unused for Bayesian output; accepted for API parity with
+            :class:`CausalResult.tidy`.
+        terms : None | str | sequence of str, default ``None``
+            - ``None`` / ``'att'`` — single average-ATT row (v0.9.14
+              behaviour).
+            - ``'per_cohort'`` — one row per cohort (requires
+              ``cohort_summaries`` to be populated; otherwise raises).
+            - list like ``['att', 'cohort:2019', 'cohort:2020']`` —
+              explicit selection. Cohort labels use the prefix
+              ``'cohort:'`` followed by the user's original cohort
+              value coerced to string. Unknown cohort labels raise.
+        """
+        if terms is None or terms == 'att' or terms == [self.estimand.lower()]:
+            return super().tidy(conf_level=conf_level)
+
+        if isinstance(terms, str):
+            if terms == 'per_cohort':
+                if not self.cohort_summaries:
+                    raise ValueError(
+                        "terms='per_cohort' requires a fit with "
+                        "cohort=... populating cohort_summaries."
+                    )
+                term_list = [f'cohort:{c}' for c in self.cohort_labels]
+            else:
+                term_list = [terms]
+        else:
+            term_list = list(terms)
+
+        rows: List[Dict[str, Any]] = []
+        # Back-compat label for the average ATT so downstream concat
+        # pipelines can freely mix 'att' with 'cohort:*' rows.
+        known_avg = {'att', self.estimand.lower()}
+        cohort_keys = {f'cohort:{c}' for c in self.cohort_labels}
+        for term in term_list:
+            if term in known_avg:
+                rows.append(_tidy_row_from_summary(
+                    self.estimand.lower(),
+                    {
+                        'posterior_mean': self.posterior_mean,
+                        'posterior_sd': self.posterior_sd,
+                        'hdi_lower': self.hdi_lower,
+                        'hdi_upper': self.hdi_upper,
+                        'prob_positive': self.prob_positive,
+                    },
+                    self.hdi_prob,
+                ))
+            elif term in cohort_keys:
+                raw_label = term[len('cohort:'):]
+                # Map back to the user's original dict key: we stored
+                # it as str(label) in cohort_summaries.
+                summary = self.cohort_summaries[raw_label]
+                rows.append(_tidy_row_from_summary(
+                    term, summary, self.hdi_prob,
+                ))
+            else:
+                raise ValueError(
+                    f"Unknown term {term!r}. Valid options: "
+                    f"'att' (average), 'per_cohort', or a cohort label "
+                    f"in {sorted(cohort_keys)}."
+                )
+        return pd.DataFrame(rows)
+
+
+@dataclass
+class BayesianIVResult(BayesianCausalResult):
+    """Bayesian IV result with optional per-instrument LATE posteriors.
+
+    Extends :class:`BayesianCausalResult` with an
+    ``instrument_summaries`` mapping ``instrument-name -> summary-dict``
+    populated by :func:`bayes_iv` when called with
+    ``per_instrument=True``. When the dict is empty (default),
+    behaviour matches v0.9.15 exactly.
+    """
+
+    instrument_summaries: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    instrument_labels: List[str] = field(default_factory=list)
+
+    def tidy(
+        self,
+        conf_level: Optional[float] = None,
+        terms: Any = None,
+    ) -> pd.DataFrame:
+        """Tidy summary with optional per-instrument breakdown.
+
+        Parameters
+        ----------
+        terms : None | str | sequence of str, default ``None``
+            - ``None`` / ``'late'`` — single pooled-LATE row.
+            - ``'per_instrument'`` — one row per instrument (requires
+              a fit with ``per_instrument=True``).
+            - list like ``['late', 'instrument:z1', 'instrument:z2']`` —
+              explicit selection. Unknown labels raise.
+        """
+        if terms is None or terms == 'late' or terms == [self.estimand.lower()]:
+            return super().tidy(conf_level=conf_level)
+
+        if isinstance(terms, str):
+            if terms == 'per_instrument':
+                if not self.instrument_summaries:
+                    raise ValueError(
+                        "terms='per_instrument' requires a fit with "
+                        "per_instrument=True populating "
+                        "instrument_summaries."
+                    )
+                term_list = [
+                    f'instrument:{z}' for z in self.instrument_labels
+                ]
+            else:
+                term_list = [terms]
+        else:
+            term_list = list(terms)
+
+        rows: List[Dict[str, Any]] = []
+        known_avg = {'late', self.estimand.lower()}
+        instr_keys = {
+            f'instrument:{z}' for z in self.instrument_labels
+        }
+        for term in term_list:
+            if term in known_avg:
+                rows.append(_tidy_row_from_summary(
+                    self.estimand.lower(),
+                    {
+                        'posterior_mean': self.posterior_mean,
+                        'posterior_sd': self.posterior_sd,
+                        'hdi_lower': self.hdi_lower,
+                        'hdi_upper': self.hdi_upper,
+                        'prob_positive': self.prob_positive,
+                    },
+                    self.hdi_prob,
+                ))
+            elif term in instr_keys:
+                raw_label = term[len('instrument:'):]
+                summary = self.instrument_summaries[raw_label]
+                rows.append(_tidy_row_from_summary(
+                    term, summary, self.hdi_prob,
+                ))
+            else:
+                raise ValueError(
+                    f"Unknown term {term!r}. Valid options: "
+                    f"'late' (pooled), 'per_instrument', or an "
+                    f"instrument label in {sorted(instr_keys)}."
+                )
+        return pd.DataFrame(rows)
+
+
 @dataclass
 class BayesianHTEIVResult(BayesianCausalResult):
     """Extension of :class:`BayesianCausalResult` for heterogeneous-effect IV.

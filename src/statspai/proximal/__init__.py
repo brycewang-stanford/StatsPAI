@@ -11,5 +11,21 @@ plus measured covariates :math:`X`.
 """
 
 from .p2sls import proximal, ProximalCausalInference
+from .negative_controls import (
+    negative_control_outcome,
+    negative_control_exposure,
+    double_negative_control,
+    NegativeControlResult,
+)
+from .pci_regression import proximal_regression, ProximalRegResult
 
-__all__ = ['proximal', 'ProximalCausalInference']
+__all__ = [
+    'proximal',
+    'ProximalCausalInference',
+    'negative_control_outcome',
+    'negative_control_exposure',
+    'double_negative_control',
+    'NegativeControlResult',
+    'proximal_regression',
+    'ProximalRegResult',
+]

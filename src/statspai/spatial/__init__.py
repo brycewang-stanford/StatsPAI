@@ -46,6 +46,8 @@ from .esda import (
     moran, moran_local, geary, getis_ord_g, getis_ord_local, join_counts,
 )
 from .esda.plots import moran_plot, lisa_cluster_map
+from .did import spatial_did, SpatialDiDResult
+from .iv import spatial_iv, SpatialIVResult
 
 __all__ = [
     # weights
@@ -66,4 +68,7 @@ __all__ = [
     "gwr", "mgwr", "gwr_bandwidth", "GWRResult", "MGWRResult",
     # panel
     "spatial_panel", "SpatialPanelResult",
+    # DiD / IV
+    "spatial_did", "SpatialDiDResult",
+    "spatial_iv", "SpatialIVResult",
 ]

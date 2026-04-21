@@ -18,5 +18,9 @@ treatment effects. JRSS-B, 79(4), 1229-1245.
 """
 
 from .gps import dose_response, DoseResponse
+from .vcnet import vcnet, scigan, VCNetResult
 
-__all__ = ['dose_response', 'DoseResponse']
+__all__ = [
+    'dose_response', 'DoseResponse',
+    'vcnet', 'scigan', 'VCNetResult',
+]

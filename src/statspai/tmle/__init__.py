@@ -22,10 +22,13 @@ Super Learner. Statistical Applications in Genetics and Molecular Biology, 6(1).
 
 from .tmle import tmle, TMLE
 from .super_learner import super_learner, SuperLearner
+from .ltmle import ltmle, LTMLEResult
 
 __all__ = [
     'tmle',
     'TMLE',
     'super_learner',
     'SuperLearner',
+    'ltmle',
+    'LTMLEResult',
 ]

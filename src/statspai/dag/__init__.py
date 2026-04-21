@@ -17,5 +17,18 @@ the Python equivalent of R's ``dagitty`` and ``ggdag``.
 """
 
 from .graph import DAG, dag, dag_example, dag_examples, dag_example_positions, dag_simulate
+from .identification import identify, IdentificationResult
+from .do_calculus import rule1, rule2, rule3, apply_rules, RuleCheck
+from .swig import swig, SWIGGraph
+from .counterfactual import SCM
+from .llm_dag import llm_dag, LLMDAGResult
 
-__all__ = ["DAG", "dag", "dag_example", "dag_examples", "dag_example_positions", "dag_simulate"]
+__all__ = [
+    "DAG", "dag", "dag_example", "dag_examples",
+    "dag_example_positions", "dag_simulate",
+    "identify", "IdentificationResult",
+    "rule1", "rule2", "rule3", "apply_rules", "RuleCheck",
+    "swig", "SWIGGraph",
+    "SCM",
+    "llm_dag", "LLMDAGResult",
+]

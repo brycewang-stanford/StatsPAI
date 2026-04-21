@@ -21,6 +21,7 @@ Baron, R.M. and Kenny, D.A. (1986).
 
 from .mediate import mediate, MediationAnalysis, mediate_interventional
 from .sensitivity import mediate_sensitivity, MediateSensitivityResult
+from .four_way import four_way_decomposition, FourWayResult
 
 __all__ = [
     'mediate',
@@ -28,4 +29,5 @@ __all__ = [
     'mediate_interventional',
     'mediate_sensitivity',
     'MediateSensitivityResult',
+    'four_way_decomposition', 'FourWayResult',
 ]
