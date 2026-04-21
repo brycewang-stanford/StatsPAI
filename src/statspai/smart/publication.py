@@ -189,6 +189,20 @@ def pub_ready(
     checklist = _CHECKLISTS[venue]
     items = checklist['items']
 
+    # Accept either a single result or a list/tuple/ndarray/Series.
+    # Without this normalisation, ``sp.pub_ready(my_result)`` (a common
+    # call shape) crashes with "'CausalResult' object is not iterable"
+    # on the ``for r in results`` loop below.
+    # The negative guard includes ndarray and Series so that ``pub_ready(
+    # np.array([r1, r2]))`` iterates the array elements rather than
+    # wrapping the whole array as a single-element list.
+    if results is not None:
+        import numpy as _np
+        import pandas as _pd
+        iterable_types = (list, tuple, _np.ndarray, _pd.Series)
+        if not isinstance(results, iterable_types):
+            results = [results]
+
     # Auto-detect what's been done
     done_flags = {
         'balance': has_balance,
@@ -200,8 +214,10 @@ def pub_ready(
         'mht': has_mht,
     }
 
-    # Check results for what's been computed
-    if results:
+    # Check results for what's been computed.
+    # NOTE: bare ``if results:`` is ambiguous on numpy arrays; use an
+    # explicit length check so the ndarray / Series paths don't crash.
+    if results is not None and len(results) > 0:
         done_flags['main_results'] = True
         for r in results:
             mi = getattr(r, 'model_info', {})

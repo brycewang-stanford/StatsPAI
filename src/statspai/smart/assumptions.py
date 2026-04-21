@@ -136,41 +136,118 @@ def assumption_audit(
     """
     checks = []
 
-    # Detect method type
-    model_info = getattr(result, 'model_info', {})
-    method = model_info.get('model_type', '')
+    # Detect method type. CausalResult stores the human-readable method
+    # on ``.method`` (e.g. "Proximal Causal Inference (linear 2SLS)");
+    # legacy EconometricResults put it in ``model_info['model_type']``.
+    # Read both so Sprint-B modules actually match on their keyword
+    # rather than falling silently into the OLS branch (which triggers
+    # on the *empty string* under the old detection — the "''" kw list
+    # member always matched).
+    model_info = getattr(result, 'model_info', {}) or {}
+    method_str = ' '.join([
+        str(model_info.get('model_type', '') or ''),
+        str(getattr(result, 'method', '') or ''),
+        str(model_info.get('estimator', '') or ''),
+    ]).lower()
 
     # Try to get data from result
     if data is None:
         data = getattr(result, '_data', None) or getattr(result, 'data', None)
 
-    # ===== OLS / LINEAR REGRESSION =====
-    if any(kw in method.lower() for kw in ['ols', 'linear', 'regress', '']):
-        checks.extend(_audit_linear(result, data, alpha))
+    # ----- Sprint-B (0.9.6) methods: explicit match BEFORE the generic
+    # OLS branch so they don't fall through into "looks like
+    # regression → run RESET" by accident.
+    sprint_b_matched = False
+    if any(kw in method_str for kw in ('proximal',)):
+        checks.extend(_audit_proximal(result, data, alpha))
+        sprint_b_matched = True
+    if any(kw in method_str
+           for kw in ('marginal structural', 'iptw')):
+        checks.extend(_audit_msm(result, data, alpha))
+        sprint_b_matched = True
+    # PrincipalStratResult stores 'monotonicity' or 'principal_score' on
+    # .method (not a CausalResult label), so match both on the class name
+    # and on the Zhang-Rubin / Ding-Lu keywords.
+    if (type(result).__name__ == 'PrincipalStratResult'
+            or any(kw in method_str for kw in (
+                'principal stratif', 'zhang-rubin',
+                'principal score', 'monotonicity'))):
+        checks.extend(_audit_principal_strat(result, data, alpha))
+        sprint_b_matched = True
+    if any(kw in method_str
+           for kw in ('g-computation', 'g computation',
+                      'g-formula', 'g formula',
+                      'standardization', 'standardisation')):
+        checks.extend(_audit_g_computation(result, data, alpha))
+        sprint_b_matched = True
+    if any(kw in method_str
+           for kw in ('front-door', 'front door', 'front_door')):
+        checks.extend(_audit_front_door(result, data, alpha))
+        sprint_b_matched = True
+    if any(kw in method_str
+           for kw in ('interventional mediation', 'iie')):
+        checks.extend(_audit_mediation_interventional(result, data, alpha))
+        sprint_b_matched = True
+    # Natural mediation branch is guarded: if a future estimator labels
+    # itself "Causal Mediation Analysis (interventional)" the
+    # interventional branch above fires first and this `and not
+    # sprint_b_matched` prevents double-firing the natural-effects
+    # stub on the same result.
+    if (not sprint_b_matched
+            and 'causal mediation' in method_str):
+        checks.extend(_audit_mediation_natural(result, data, alpha))
+        sprint_b_matched = True
 
-    # ===== IV / 2SLS =====
-    if any(kw in method.lower() for kw in ['iv', '2sls', 'liml', 'jive', 'gmm']):
-        checks.extend(_audit_iv(result, data, alpha))
+    # Legacy keyword detection runs ONLY when no Sprint-B branch matched.
+    # The classical keywords are short substrings that leak into unrelated
+    # method strings (e.g. "fe" and "re" appear inside "causal infeRence",
+    # "iv" inside "interventional"). When the Sprint-B dispatcher has
+    # already classified the method, skip all of these outright.
+    if not sprint_b_matched:
+        # Use word-boundary tokens to avoid the short-substring trap.
+        def _has_token(*tokens):
+            import re
+            for tok in tokens:
+                if re.search(r'\b' + re.escape(tok) + r'\b', method_str):
+                    return True
+            return False
 
-    # ===== DID =====
-    if any(kw in method.lower() for kw in ['did', 'difference']):
-        checks.extend(_audit_did(result, data, alpha))
+        # ===== OLS / LINEAR REGRESSION =====
+        if _has_token('ols', 'linear', 'regress', 'regression'):
+            checks.extend(_audit_linear(result, data, alpha))
 
-    # ===== RD =====
-    if any(kw in method.lower() for kw in ['rd', 'regression discontinuity', 'rdrobust']):
-        checks.extend(_audit_rd(result, data, alpha))
+        # ===== IV / 2SLS =====
+        if _has_token('iv', '2sls', 'liml', 'jive', 'gmm'):
+            checks.extend(_audit_iv(result, data, alpha))
 
-    # ===== LOGIT/PROBIT =====
-    if any(kw in method.lower() for kw in ['logit', 'probit', 'binary']):
-        checks.extend(_audit_binary(result, data, alpha))
+        # ===== DID =====
+        if _has_token('did', 'difference') or 'diff-in-diff' in method_str:
+            checks.extend(_audit_did(result, data, alpha))
 
-    # ===== PANEL =====
-    if any(kw in method.lower() for kw in ['panel', 'fixed effect', 'fe', 're']):
-        checks.extend(_audit_panel(result, data, alpha))
+        # ===== RD =====
+        if (_has_token('rd', 'rdrobust')
+                or 'regression discontinuity' in method_str):
+            checks.extend(_audit_rd(result, data, alpha))
+
+        # ===== LOGIT/PROBIT =====
+        if _has_token('logit', 'probit', 'binary'):
+            checks.extend(_audit_binary(result, data, alpha))
+
+        # ===== PANEL =====
+        if (_has_token('panel', 'fe', 're')
+                or 'fixed effect' in method_str):
+            checks.extend(_audit_panel(result, data, alpha))
 
     # If no method-specific checks, run generic
     if not checks:
         checks.extend(_audit_generic(result, data, alpha))
+
+    # Method label surfaced on the report — use the richest available.
+    method = (
+        str(getattr(result, 'method', '') or '')
+        or str(model_info.get('model_type', '') or '')
+        or str(model_info.get('estimator', '') or '')
+    )
 
     # Compute grades
     n_pass = sum(1 for c in checks if c.passed is True)
@@ -523,4 +600,376 @@ def _audit_generic(result, data, alpha):
             remedy='Increase sample or reduce model complexity.',
         ))
 
+    return checks
+
+
+# ====================================================================== #
+#  Sprint-B (v0.9.6) method-aware audits                                 #
+# ====================================================================== #
+#
+#  Each of these functions mirrors an estimator in the Sprint-B causal-
+#  inference surface. They focus on the assumptions that are *specific*
+#  to the method — we don't duplicate the generic sample-size / overlap
+#  checks already in ``_audit_generic`` because ``assumption_audit``
+#  appends those only when *no* method-specific branch matched.
+#
+#  Every check's ``remedy`` points to a concrete StatsPAI function or
+#  a ROADMAP section so an agent consuming the report has an
+#  actionable next step.
+
+
+def _audit_proximal(result, data, alpha):
+    """Proximal causal inference: bridge + proxy rank + weak-instrument F."""
+    checks = []
+    info = getattr(result, 'model_info', {}) or {}
+
+    bridge = info.get('bridge', 'linear')
+    checks.append(AssumptionCheck(
+        assumption='Outcome bridge functional form',
+        test_name=f"bridge='{bridge}'",
+        passed=bridge == 'linear',
+        statistic=None,
+        p_value=None,
+        detail=('Linear bridge is the shipped option (Cui et al. 2024). '
+                'Kernel/sieve bridges are on the roadmap.'),
+        remedy=('See docs/ROADMAP.md §1 for non-linear bridge plans; '
+                'inspect residuals for obvious non-linearity.'),
+    ))
+
+    k_z = info.get('n_proxy_z')
+    k_w = info.get('n_proxy_w')
+    if k_z is not None and k_w is not None:
+        ok = int(k_z) >= int(k_w)
+        checks.append(AssumptionCheck(
+            assumption='Proxy order condition (k_z ≥ k_w)',
+            test_name=f'{k_z} Z vs {k_w} W proxies',
+            passed=ok,
+            statistic=int(k_z) - int(k_w),
+            p_value=None,
+            detail='Need at least one excluded Z per endogenous W.',
+            remedy='Add a treatment-side proxy or drop an outcome-side proxy.',
+        ))
+
+    fs_F = info.get('first_stage_F')
+    if fs_F is not None:
+        passed = float(fs_F) >= 10.0
+        checks.append(AssumptionCheck(
+            assumption='Proxy relevance (first-stage F)',
+            test_name=f'F = {float(fs_F):.2f}',
+            passed=passed,
+            statistic=float(fs_F),
+            p_value=None,
+            detail='F ≥ 10 is the standard weak-IV rule of thumb.',
+            remedy=('Find a stronger treatment-side proxy Z, or use '
+                    'weak-IV-robust inference (sp.anderson_rubin_test).'),
+        ))
+    elif k_w is not None and int(k_w) > 1:
+        checks.append(AssumptionCheck(
+            assumption='Proxy relevance (multi-W)',
+            test_name='Cragg-Donald / Kleibergen-Paap',
+            passed=None,
+            statistic=None,
+            p_value=None,
+            detail='Multi-W weak-IV statistic is not yet shipped.',
+            remedy='See docs/ROADMAP.md §2 for planned implementation.',
+        ))
+
+    return checks
+
+
+def _audit_msm(result, data, alpha):
+    """Marginal structural model: positivity + sequential exchangeability."""
+    checks = []
+    info = getattr(result, 'model_info', {}) or {}
+
+    sw_mean = info.get('sw_mean')
+    if sw_mean is not None:
+        deviation = abs(float(sw_mean) - 1.0)
+        checks.append(AssumptionCheck(
+            assumption='Stabilized-weight mean centred at 1',
+            test_name=f'sw_mean = {float(sw_mean):.3f}',
+            passed=deviation < 0.2,
+            statistic=float(sw_mean) - 1.0,
+            p_value=None,
+            detail=('Under correct nuisance specification, stabilized '
+                    'IPTW has mean ≈ 1. Drift flags model misspec.'),
+            remedy=('Refit the numerator / denominator nuisance with '
+                    'more flexible covariates, or use trim_per_period=True.'),
+        ))
+
+    sw_max = info.get('sw_max')
+    if sw_max is not None:
+        checks.append(AssumptionCheck(
+            assumption='Positivity (no extreme weights)',
+            test_name=f'max sw = {float(sw_max):.2f}',
+            passed=float(sw_max) < 50.0,
+            statistic=float(sw_max),
+            p_value=None,
+            detail=('Near-positivity-violation produces extreme weights '
+                    'which dominate the IPW fit.'),
+            remedy=('Enable trim_per_period=True or raise trim quantile; '
+                    'drop covariates that deterministically predict treatment.'),
+        ))
+
+    exposure = info.get('exposure_type')
+    if exposure:
+        checks.append(AssumptionCheck(
+            assumption='Exposure summary is the target estimand',
+            test_name=f"exposure='{exposure}'",
+            passed=True,
+            statistic=None,
+            p_value=None,
+            detail=('The reported coefficient is the marginal effect on '
+                    f'the {exposure} exposure.'),
+            remedy='If wrong target, rerun sp.msm with a different exposure=.',
+        ))
+
+    checks.append(AssumptionCheck(
+        assumption='Sequential exchangeability (identification)',
+        test_name='Design assumption (not testable from data)',
+        passed=None,
+        statistic=None,
+        p_value=None,
+        detail=('MSM requires no unmeasured time-varying confounders at '
+                'each period (Robins 1998).'),
+        remedy=('Document the DAG justifying inclusion of all '
+                'time-varying confounders; consider sensitivity analysis.'),
+    ))
+    return checks
+
+
+def _audit_principal_strat(result, data, alpha):
+    """Principal stratification: monotonicity + principal ignorability."""
+    checks = []
+    info = getattr(result, 'model_info', {}) or {}
+
+    viol = info.get('mono_violation_frac')
+    if viol is not None:
+        checks.append(AssumptionCheck(
+            assumption='Monotonicity S(1) ≥ S(0)',
+            test_name=(f'fitted p11(x) < p10(x) fraction '
+                       f'= {float(viol):.1%}'),
+            passed=float(viol) <= 0.05,
+            statistic=float(viol),
+            p_value=None,
+            detail=('Monotonicity is violated when the fitted cell '
+                    'probabilities imply defiers. Small drift (≤5%) is '
+                    'absorbed by clipping; larger is a red flag.'),
+            remedy=('Revisit the stratum definition and the population: '
+                    'monotonicity fails if some units systematically '
+                    'respond in opposition to treatment.'),
+        ))
+
+    # Stratum proportions sum to 1
+    strata = getattr(result, 'strata_proportions', None)
+    if strata:
+        total = sum(float(v) for v in strata.values())
+        checks.append(AssumptionCheck(
+            assumption='Stratum proportions sum to 1',
+            test_name=f'sum = {total:.3f}',
+            passed=abs(total - 1.0) < 0.05,
+            statistic=total,
+            p_value=None,
+            detail='Simplex check: strata partition the population.',
+            remedy='Re-examine stratum definition if the sum drifts far from 1.',
+        ))
+
+    # Principal ignorability is only needed for method='principal_score'
+    method = info.get('estimator', '')
+    if 'principal score' in method.lower():
+        checks.append(AssumptionCheck(
+            assumption='Principal ignorability (Y(d) ⊥ stratum | X, D=d)',
+            test_name='Design assumption (not testable from data)',
+            passed=None,
+            statistic=None,
+            p_value=None,
+            detail=('Ding & Lu (2017) point identification hinges on X '
+                    'absorbing all stratum-outcome dependence within '
+                    'each treatment arm.'),
+            remedy=('Pair the point estimate with a sensitivity analysis; '
+                    'or fall back to method="monotonicity" bounds.'),
+        ))
+    return checks
+
+
+def _audit_g_computation(result, data, alpha):
+    """G-computation: outcome model correctness + positivity + non-DR warning."""
+    checks = []
+    info = getattr(result, 'model_info', {}) or {}
+
+    estimand = info.get('estimand', 'ATE')
+    checks.append(AssumptionCheck(
+        assumption='Outcome model correctly specified',
+        test_name=f'ml_Q = {info.get("ml_Q", "OLS")}',
+        passed=None,
+        statistic=None,
+        p_value=None,
+        detail=('G-computation is consistent only if the outcome '
+                f'regression Q(D, X) is correctly specified. '
+                f'Not doubly robust — a misspecified model biases the '
+                f'{estimand}.'),
+        remedy=('Cross-check against sp.aipw or sp.tmle (doubly robust) '
+                'for coverage under misspecification.'),
+    ))
+
+    n_boot = info.get('n_boot', 0)
+    n_failed = info.get('n_boot_failed', 0)
+    if n_boot:
+        frac = n_failed / n_boot
+        checks.append(AssumptionCheck(
+            assumption='Bootstrap inference well-behaved',
+            test_name=f'{n_failed}/{n_boot} replications failed',
+            passed=frac < 0.1,
+            statistic=frac,
+            p_value=None,
+            detail='High bootstrap failure rate distorts SE and CI.',
+            remedy=('Increase sample or simplify the outcome model; '
+                    'investigate first_bootstrap_error in model_info.'),
+        ))
+    return checks
+
+
+def _audit_front_door(result, data, alpha):
+    """Front-door: mediator exhaustiveness + unmeasured confounding blocked."""
+    checks = []
+    info = getattr(result, 'model_info', {}) or {}
+
+    m_type = info.get('mediator_type')
+    if m_type:
+        checks.append(AssumptionCheck(
+            assumption='Mediator modelled with correct family',
+            test_name=f"mediator_type='{m_type}'",
+            passed=m_type in ('binary', 'continuous'),
+            statistic=None,
+            p_value=None,
+            detail='Binary uses closed-form sums; continuous uses MC Gaussian.',
+            remedy='If the mediator is categorical with >2 levels, not yet supported.',
+        ))
+
+    checks.append(AssumptionCheck(
+        assumption='No direct D→Y path (full mediation)',
+        test_name='Design assumption (verify with sp.dag)',
+        passed=None,
+        statistic=None,
+        p_value=None,
+        detail=('Pearl (1995) front-door identification requires that '
+                'M fully transmits the effect of D on Y.'),
+        remedy='Use sp.dag + .front_door_adjustment_sets() to verify.',
+    ))
+
+    checks.append(AssumptionCheck(
+        assumption='No unmeasured M-Y confounder',
+        test_name='Design assumption',
+        passed=None,
+        statistic=None,
+        p_value=None,
+        detail='Any unobserved path M←U→Y invalidates front-door.',
+        remedy=('Probe with sp.evalue / sp.sensemakr-style sensitivity '
+                'analysis (not yet wired to front-door — roadmap).'),
+    ))
+    return checks
+
+
+def _audit_mediation_interventional(result, data, alpha):
+    """Interventional (in)direct effects: decomposition identity + assumptions."""
+    checks = []
+    info = getattr(result, 'model_info', {}) or {}
+
+    iie = info.get('iie')
+    ide = info.get('ide')
+    total = info.get('total_effect')
+    if iie is not None and ide is not None and total is not None:
+        drift = abs(float(iie) + float(ide) - float(total))
+        checks.append(AssumptionCheck(
+            assumption='Decomposition identity IIE + IDE = Total',
+            test_name=f'residual = {drift:.2e}',
+            passed=drift < 1e-6,
+            statistic=drift,
+            p_value=None,
+            detail='Under OLS linearity the identity is algebraic.',
+            remedy='Non-zero drift indicates a numerical or code bug.',
+        ))
+    else:
+        # Explicit "can't verify" check rather than silent skip. Prevents
+        # a future estimator that stores different keys (e.g. 'acme'
+        # instead of 'iie') from producing an audit grade of 'A' with
+        # zero identity checks performed.
+        missing = [k for k in ('iie', 'ide', 'total_effect')
+                   if info.get(k) is None]
+        checks.append(AssumptionCheck(
+            assumption='Decomposition identity IIE + IDE = Total',
+            test_name='keys not found in model_info',
+            passed=None,
+            statistic=None,
+            p_value=None,
+            detail=f'Missing keys: {missing}. Identity check skipped.',
+            remedy=('Ensure the estimator populates iie / ide / '
+                    'total_effect in model_info for audit coverage.'),
+        ))
+
+    checks.append(AssumptionCheck(
+        assumption='No unmeasured baseline D–Y confounder',
+        test_name='Design assumption',
+        passed=None,
+        statistic=None,
+        p_value=None,
+        detail=('Interventional effects dodge cross-world independence '
+                'but still need baseline confounder control.'),
+        remedy='Verify with sp.dag; sensitivity analysis for omitted controls.',
+    ))
+
+    tv = info.get('tv_confounders')
+    if tv:
+        checks.append(AssumptionCheck(
+            assumption='Treatment-induced confounders listed',
+            test_name=f'{len(tv)} confounder(s): {list(tv)[:3]}',
+            passed=True,
+            statistic=len(tv),
+            p_value=None,
+            detail=('Interventional effects handle treatment-induced '
+                    'mediator-outcome confounders explicitly.'),
+            remedy='Confirm the list is exhaustive for the DGP.',
+        ))
+    return checks
+
+
+def _audit_mediation_natural(result, data, alpha):
+    """Classical natural (in)direct effects (Imai-Keele-Tingley)."""
+    checks = []
+
+    checks.append(AssumptionCheck(
+        assumption='Cross-world independence (natural effects)',
+        test_name='Design assumption — not testable from data',
+        passed=None,
+        statistic=None,
+        p_value=None,
+        detail=('Natural (in)direct effects are identified only if '
+                'there is no treatment-induced mediator-outcome '
+                'confounder. If that assumption is suspect, rerun '
+                'with sp.mediate_interventional.'),
+        remedy=('If treatment affects a mediator-outcome confounder, '
+                'switch to sp.mediate_interventional (interventional '
+                'effects).'),
+    ))
+
+    info = getattr(result, 'model_info', {}) or {}
+    n_boot = info.get('n_boot', 0)
+    if n_boot:
+        # Track failure rate the same way _audit_g_computation does —
+        # previously this check was vacuously ``passed=True`` which
+        # masked broken bootstraps.
+        n_failed = info.get('n_boot_failed', 0) or 0
+        frac = (n_failed / n_boot) if n_boot else 0.0
+        checks.append(AssumptionCheck(
+            assumption='Bootstrap inference well-behaved',
+            test_name=f'{n_failed}/{n_boot} replications failed',
+            passed=(frac < 0.1),
+            statistic=frac,
+            p_value=None,
+            detail=('Percentile CIs derived from the bootstrap; failure '
+                    'rate above 10% signals numerical instability.'),
+            remedy=('If skewed, consider pvalue_method="wald"; '
+                    'if failure_rate is high, increase sample or '
+                    'simplify the mediator/outcome model.'),
+        ))
     return checks

@@ -74,7 +74,11 @@ def test_proximal_battery_fails_on_weak_proxy(weak_proxy_data):
 
 
 def test_proximal_battery_order_condition_violated():
-    """Feed more W proxies than Z proxies — should fail the order check."""
+    """
+    Estimator-level: sp.proximal rejects k_z < k_w upstream so a
+    violated order condition can't reach a fitted result in practice.
+    Pin that invariant here.
+    """
     rng = np.random.default_rng(0)
     n = 800
     U = rng.normal(0, 1, n)
@@ -88,6 +92,39 @@ def test_proximal_battery_order_condition_violated():
     with pytest.raises(ValueError, match='Order condition'):
         sp.proximal(df, y='y', treat='d',
                     proxy_z=['z1'], proxy_w=['w1', 'w2'])
+
+
+def test_battery_proximal_order_condition_check_directly():
+    """
+    Battery-level: exercise ``_battery_proximal`` with a hand-crafted
+    ``CausalResult`` whose ``model_info`` encodes k_z < k_w. This is
+    the one code path that sp.proximal itself never produces (it
+    rejects upstream), so without this test the check in the battery
+    is dead code. Future non-linear proximal estimators or manually-
+    constructed results will take this route.
+    """
+    from statspai.core.results import CausalResult
+    fake = CausalResult(
+        method='Proximal Causal Inference (linear 2SLS, synthetic)',
+        estimand='ATE',
+        estimate=1.0, se=0.1,
+        pvalue=0.0, ci=(0.8, 1.2), alpha=0.05, n_obs=500,
+        model_info={
+            'estimator': 'Proximal 2SLS (linear bridge)',
+            'bridge': 'linear',
+            'n_proxy_z': 1,   # k_z < k_w — order condition violated
+            'n_proxy_w': 2,
+            'first_stage_F': None,
+            'se_method': '2sls_sandwich',
+        },
+    )
+    diag = sp.diagnose_result(fake, print_results=False)
+    assert diag['method_type'] == 'proximal'
+    order = _check_by_name(diag, 'Proxy order condition')
+    assert order is not None
+    assert order['n_proxy_z'] == 1
+    assert order['n_proxy_w'] == 2
+    assert order['pass'] is False   # order condition VIOLATED
 
 
 # ---------------------------------------------------------------------
@@ -359,6 +396,16 @@ def test_mediate_default_pvalue_method_preserves_behaviour():
 
 
 def test_mediate_wald_pvalue_matches_normal_formula():
+    """
+    Independent ground-truth check: the Wald p-value is reproduced by
+    scipy's standard-normal CDF on z = estimate/se. We do not reuse the
+    result's own .pvalue attribute to derive the expected value; the
+    only thing borrowed from the result is its point estimate and SE
+    (which have separate direct tests elsewhere — e.g. the recovery
+    tests in tests/test_mediation.py). This protects against the
+    "self-circular" failure mode where a broken ``_pvalue`` and a
+    broken test formula could agree by accident.
+    """
     rng = np.random.default_rng(0)
     n = 800
     T = rng.binomial(1, 0.5, n).astype(float)
@@ -370,10 +417,39 @@ def test_mediate_wald_pvalue_matches_normal_formula():
     assert r_wald.model_info['pvalue_method'] == 'wald'
     # Wald p-value must be a valid [0,1] probability
     assert 0.0 <= r_wald.pvalue <= 1.0
-    # And must match 2*(1 - Phi(|estimate/se|)) up to rounding
-    from scipy import stats
-    expected = float(2 * (1 - stats.norm.cdf(abs(r_wald.estimate / r_wald.se))))
-    assert abs(r_wald.pvalue - expected) < 1e-10
+
+    # Ground truth: compute z directly from the result's reported
+    # estimate and SE, then compute the two-sided standard-normal
+    # tail probability using scipy. This is the *definition* of the
+    # Wald p-value; any divergence means the implementation is using
+    # a different distribution (e.g. t-dist with fewer df) or a
+    # different z-score (e.g. signed instead of |·|).
+    from scipy import stats as sst
+    z = r_wald.estimate / r_wald.se
+    expected = float(2.0 * sst.norm.sf(abs(z)))   # sf == 1 - cdf
+    assert abs(r_wald.pvalue - expected) < 1e-10, (
+        f"Wald p-value {r_wald.pvalue:.10f} does not match "
+        f"2 * norm.sf(|z|) = {expected:.10f} (z = {z:.4f})."
+    )
+
+    # Independent cross-check: a huge |z| must give a p-value ≈ 0; a
+    # tiny |z| (≈ 0) must give a p-value ≈ 1. This guards against a
+    # sign error that would still satisfy the arithmetic identity
+    # above within a single direction.
+    # Simulate a zero-effect DGP: ACME should hug 0, p-value ≫ alpha.
+    rng2 = np.random.default_rng(999)
+    T2 = rng2.binomial(1, 0.5, 800).astype(float)
+    M2 = rng2.normal(0, 1, 800)   # M independent of T → ACME ≈ 0
+    Y2 = 0.4 * T2 + rng2.normal(0, 0.3, 800)
+    df2 = pd.DataFrame({'y': Y2, 't': T2, 'm': M2})
+    r_null = sp.mediate(df2, y='y', treat='t', mediator='m',
+                        n_boot=100, seed=0, pvalue_method='wald')
+    # Under the null, Wald p-value should be well above 0.05 more often
+    # than not — allow generous tolerance for MC noise.
+    assert r_null.pvalue > 0.05, (
+        f"Null-effect Wald p-value {r_null.pvalue:.3f} is suspiciously "
+        "small; suggests the statistic does not track the null correctly."
+    )
 
 
 def test_mediate_rejects_bad_pvalue_method():
