@@ -25,8 +25,42 @@ Model:
     # Selection (first stage)
     # 'plugin' mode: logit MLE gives fixed p_i
     # 'joint'  mode: pi ~ Normal priors, D_i ~ Bernoulli(sigmoid(pi'W_i))
-    g(p) = b_0 + b_1 p + b_2 p^2 + ...  (polynomial in propensity)
-    Y_i = alpha + beta_X' X_i + D_i * g(p_i) + eps_i
+
+    # MTE structural equation:
+    # 'polynomial' mode: g(p) = b_0 + b_1 p + ... (polynomial in propensity)
+    #                    Y_i = alpha + beta_X' X_i + D_i * g(p_i) + eps_i
+    # 'hv_latent'  mode: tau(u) = b_0 + b_1 u + ... (polynomial in latent U_D)
+    #                    raw_U_i ~ Uniform(0, 1)
+    #                    U_D_i = raw_U_i * p_i               if D_i = 1
+    #                          = p_i + raw_U_i * (1 - p_i)   if D_i = 0
+    #                    Y_i = alpha + beta_X' X_i + D_i * tau(U_D_i) + eps_i
+
+HV-augmentation factorisation (``hv_latent`` + ``joint``)
+---------------------------------------------------------
+This uses the *standard Form-2 data-augmentation factorisation*:
+
+    p(Y, D, U_D | p, θ) = p(Y | U_D, D, θ) · p(U_D | D, p) · p(D | p)
+
+    where p(U_D | D=1, p) = Uniform(0, p)
+          p(U_D | D=0, p) = Uniform(p, 1)
+          p(D=1 | p)       = p   (Bernoulli)
+
+The truncated-uniform augmentation enforces the HV indicator
+``D_i = 1{U_D_i < p_i}``, and the Bernoulli(D|p) term is the
+correct marginal selection likelihood. BOTH are needed: dropping
+the Bernoulli loses ~half the selection information and biases
+``pi`` (empirically verified — `piZ` flipped sign in a counter-
+factual test). Under this factorisation, marginalising out ``raw_U``
+exactly recovers the standard HV likelihood
+``p(Y, D | p, θ) = ∫ p(Y | U_D, D, θ) · p(U_D | D, p) dU_D · p(D|p)``
+where the integral runs over ``[0, p]`` (if D=1) or ``[p, 1]``
+(if D=0) against the truncated-uniform density.
+
+**Memory note**: ``hv_latent`` registers a latent ``raw_U`` of
+shape ``(n,)``, stored in the posterior as ``(chains, draws, n)``.
+For large ``n`` this can exceed hundreds of megabytes; the function
+emits a ``UserWarning`` when the product exceeds ~50M floats
+(~400MB at f64).
 
 References:
 - Heckman, J. J., & Vytlacil, E. J. (2005). Structural equations,
@@ -76,6 +110,7 @@ def bayes_mte(
     covariates: Optional[List[str]] = None,
     *,
     first_stage: str = 'plugin',
+    mte_method: str = 'polynomial',
     u_grid: Optional[np.ndarray] = None,
     poly_u: int = 2,
     prior_coef_sigma: float = 10.0,
@@ -113,6 +148,23 @@ def bayes_mte(
           polynomial sees it directly, so first-stage uncertainty
           propagates into the MTE curve. 2-4× slower than plugin but
           honest about uncertainty.
+    mte_method : {'polynomial', 'hv_latent'}, default ``'polynomial'``
+        MTE parameterisation.
+
+        - ``'polynomial'`` : fit a polynomial in the propensity
+          ``p_i`` (v0.9.9 behaviour). Under Heckman-Vytlacil 2005
+          linear-separable + bivariate-normal errors this equals
+          ``MTE(p)``; under arbitrary heterogeneity it is
+          ``LATE-at-propensity g(p)``, NOT the textbook
+          ``MTE(u) = E[Y_1 - Y_0 | U_D = u]``.
+        - ``'hv_latent'`` : sample a latent ``U_D_i`` per unit from
+          the HV-correct truncated uniform (via ``raw_U_i ~ U(0,1)``
+          and a deterministic reparameterisation), then evaluate
+          the polynomial at ``U_D_i``. This recovers the textbook
+          MTE polynomial under linear-separable HV. Slower
+          (adds shape-n latent; ``O(n·draws·chains)`` memory) but
+          mathematically faithful. A UserWarning is emitted if the
+          expected latent storage exceeds ~50M floats.
     u_grid : np.ndarray, optional
         Grid of propensity-to-be-treated values on which to evaluate
         the MTE posterior. Default: ``np.linspace(0.05, 0.95, 19)``.
@@ -164,6 +216,30 @@ def bayes_mte(
         raise ValueError(
             f"first_stage must be 'plugin' or 'joint'; got {first_stage!r}"
         )
+    if mte_method not in ('polynomial', 'hv_latent'):
+        raise ValueError(
+            f"mte_method must be 'polynomial' or 'hv_latent'; "
+            f"got {mte_method!r}"
+        )
+
+    # hv_latent adds a shape-(n,) latent ``raw_U`` whose posterior
+    # is stored as (chains, draws, n). Warn the user before they
+    # wait 20 minutes to discover it ate 2GB of RAM.
+    if mte_method == 'hv_latent':
+        expected_latent_floats = n * draws * chains
+        if expected_latent_floats > 50_000_000:
+            import warnings
+            approx_gb = expected_latent_floats * 8 / (1024 ** 3)
+            warnings.warn(
+                f"bayes_mte(mte_method='hv_latent') will register a "
+                f"latent of shape (n={n},) whose posterior storage is "
+                f"~{expected_latent_floats:,} floats "
+                f"(~{approx_gb:.1f} GB at f64). Consider reducing "
+                f"draws/chains or switching to mte_method='polynomial' "
+                f"for larger data.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     # Set up grid and grid-powers up-front (used for MTE curve regardless
     # of which first-stage we choose).
@@ -186,18 +262,15 @@ def bayes_mte(
             'b_mte', mu=0.0, sigma=prior_mte_sigma, shape=poly_u + 1,
         )
 
+        # ------------------------------------------------------------------
+        # First stage: produce a propensity expression ``p_expr`` that
+        # is either a plain numpy array (plugin) or a PyMC tensor
+        # (joint). In the joint path we also register the Bernoulli
+        # likelihood on observed D.
+        # ------------------------------------------------------------------
         if first_stage == 'plugin':
-            # Plug-in: use MLE propensity as a fixed constant in the
-            # MTE polynomial.
-            U_D = propensity_mle
-            U_powers = np.column_stack([U_D ** k for k in range(poly_u + 1)])
-            DU_powers = D[:, None] * U_powers  # (n, poly_u+1)
-            mte_contribution = pm.math.dot(DU_powers, b_mte)
+            p_expr = propensity_mle           # fixed numpy array
         else:
-            # Joint: model first-stage logit coefficients inside the
-            # graph. D_i ~ Bernoulli(p_i) where p_i is a Deterministic
-            # function of the coefficients; the MTE polynomial now
-            # sees p_i directly so first-stage uncertainty propagates.
             pi_intercept = pm.Normal(
                 'pi_intercept', mu=0.0, sigma=prior_coef_sigma,
             )
@@ -209,21 +282,51 @@ def bayes_mte(
                     shape=X.shape[1],
                 )
                 logit = logit + pm.math.dot(X, pi_X)
-            # NB: we deliberately do NOT wrap sigmoid(logit) in
-            # pm.Deterministic. That would add a per-unit, per-draw
-            # float to the trace (shape (chains, draws, n)) which
-            # blows up memory for large n. Propensity is recomputed
-            # post-hoc from the first-stage coefficient posterior when
-            # needed for ATT/ATU summaries.
-            p_model = pm.math.sigmoid(logit)
-            pm.Bernoulli('d_obs', p=p_model, observed=D.astype(int))
+            # Deliberately NOT a Deterministic — would add per-unit
+            # per-draw memory blow-up. Propensity is recomputed
+            # post-hoc from the coefficient posterior when needed for
+            # ATT/ATU summaries.
+            p_expr = pm.math.sigmoid(logit)
+            pm.Bernoulli('d_obs', p=p_expr, observed=D.astype(int))
 
-            # Build the structural g(p_i) = sum_k b_mte[k] * p_i ** k;
-            # the polynomial is evaluated at the random p_model so
-            # first-stage uncertainty propagates into the posterior.
-            u_powers_list = [p_model ** k for k in range(poly_u + 1)]
-            mte_i = sum(b_mte[k] * u_powers_list[k] for k in range(poly_u + 1))
-            mte_contribution = D * mte_i
+        # ------------------------------------------------------------------
+        # MTE contribution: evaluate the polynomial at either the
+        # propensity (polynomial mode: g(p_i)) or a latent U_D_i per
+        # unit (hv_latent mode: tau(U_D_i)).
+        # ------------------------------------------------------------------
+        if mte_method == 'polynomial':
+            if first_stage == 'plugin':
+                # Closed-form constant powers + dot product with b_mte
+                U_powers = np.column_stack(
+                    [p_expr ** k for k in range(poly_u + 1)]
+                )
+                DU_powers = D[:, None] * U_powers
+                mte_contribution = pm.math.dot(DU_powers, b_mte)
+            else:
+                u_powers = [p_expr ** k for k in range(poly_u + 1)]
+                mte_i = sum(
+                    b_mte[k] * u_powers[k] for k in range(poly_u + 1)
+                )
+                mte_contribution = D * mte_i
+        else:  # 'hv_latent' — sample U_D_i per unit from the truncated
+               # uniform induced by D_i and the current p_i estimate.
+               # Reparameterisation keeps NUTS applicable:
+               #   raw_U_i ~ Uniform(0, 1)
+               #   D_i = 1: U_D_i = raw_U_i * p_i      ∈ [0, p_i]
+               #   D_i = 0: U_D_i = p_i + raw_U_i*(1-p_i) ∈ [p_i, 1]
+               # This yields U_D_i | D_i distributed as the correct
+               # truncated uniform under the HV-2005 identification.
+            raw_U = pm.Uniform('raw_U', lower=0.0, upper=1.0, shape=n)
+            # Convert observed D into a float array usable in the
+            # element-wise expression below.
+            D_float = D.astype(float)
+            U_D_i = (
+                D_float * raw_U * p_expr
+                + (1.0 - D_float) * (p_expr + raw_U * (1.0 - p_expr))
+            )
+            u_powers = [U_D_i ** k for k in range(poly_u + 1)]
+            tau_i = sum(b_mte[k] * u_powers[k] for k in range(poly_u + 1))
+            mte_contribution = D_float * tau_i
 
         structural = alpha + mte_contribution
         if X is not None:
@@ -333,6 +436,7 @@ def bayes_mte(
     model_info = {
         'inference': inference,
         'first_stage': first_stage,
+        'mte_method': mte_method,
         'draws': draws,
         'tune': tune,
         'chains': chains,
@@ -346,15 +450,24 @@ def bayes_mte(
         'prior_noise': prior_noise,
     }
 
-    # Method label flags both `poly_u` and the first-stage mode, and
-    # explicitly calls out the "effect-at-propensity" parameterisation
-    # so users reading the summary don't confuse the polynomial in p
-    # with the textbook MTE(u) under arbitrary heterogeneity.
-    method_label = (
-        f'Bayesian treatment-effect-at-propensity '
-        f'(poly_u={poly_u}, '
-        f'{"joint" if first_stage == "joint" else "plug-in"} first stage)'
-    )
+    # Method label flags the MTE parameterisation up-front. For
+    # ``polynomial`` mode we continue to use "treatment-effect-at-
+    # propensity" to reflect that g(p) may only equal MTE(u) under
+    # the HV2005 linear-separable + bivariate-normal assumption. For
+    # ``hv_latent`` mode we explicitly say "MTE" because the model
+    # samples U_D_i per unit so the polynomial is evaluated at the
+    # textbook latent variable, not at the propensity.
+    fs_label = 'joint' if first_stage == 'joint' else 'plug-in'
+    if mte_method == 'hv_latent':
+        method_label = (
+            f'Bayesian HV-latent MTE '
+            f'(poly_u={poly_u}, {fs_label} first stage)'
+        )
+    else:
+        method_label = (
+            f'Bayesian treatment-effect-at-propensity '
+            f'(poly_u={poly_u}, {fs_label} first stage)'
+        )
     return BayesianMTEResult(
         method=method_label,
         estimand='ATE (integrated MTE)',

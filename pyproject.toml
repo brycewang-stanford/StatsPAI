@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "StatsPAI"
-version = "0.9.9"
+version = "0.9.10"
 description = "The Agent-Native Causal Inference & Econometrics Toolkit for Python"
 readme = "README.md"
 license = {text = "MIT"}
