@@ -78,6 +78,7 @@ import pandas as pd
 
 from ._base import (
     BayesianMTEResult,
+    PROBIT_CLIP,
     _require_pymc,
     _sample_model,
     _summarise_posterior,
@@ -111,6 +112,7 @@ def bayes_mte(
     *,
     first_stage: str = 'plugin',
     mte_method: str = 'polynomial',
+    selection: str = 'uniform',
     u_grid: Optional[np.ndarray] = None,
     poly_u: int = 2,
     prior_coef_sigma: float = 10.0,
@@ -232,6 +234,11 @@ def bayes_mte(
             f"mte_method must be 'polynomial' or 'hv_latent'; "
             f"got {mte_method!r}"
         )
+    if selection not in ('uniform', 'normal'):
+        raise ValueError(
+            f"selection must be 'uniform' or 'normal'; "
+            f"got {selection!r}"
+        )
 
     # hv_latent adds a shape-(n,) latent ``raw_U`` whose posterior
     # is stored as (chains, draws, n). Warn the user before they
@@ -258,7 +265,23 @@ def bayes_mte(
         u_grid = np.linspace(0.05, 0.95, 19)
     else:
         u_grid = np.asarray(u_grid, dtype=float)
-    u_grid_powers = np.column_stack([u_grid ** k for k in range(poly_u + 1)])
+
+    # Under `selection='normal'`, the MTE polynomial is parameterised
+    # on the probit-scale V = Φ^{-1}(U_D), not on U_D itself. The
+    # posterior coefficients `b_mte` describe MTE(v) = Σ_k b_k · v^k
+    # where v ∈ ℝ. We still report the curve indexed by `u` for user
+    # convenience (propensity is the natural scale) but the underlying
+    # powers sent to PyMC are built on v-space.
+    if selection == 'normal':
+        from scipy.stats import norm as _norm_dist
+        v_grid = _norm_dist.ppf(u_grid)              # shape (n_grid,)
+        u_grid_powers = np.column_stack(
+            [v_grid ** k for k in range(poly_u + 1)]
+        )
+    else:
+        u_grid_powers = np.column_stack(
+            [u_grid ** k for k in range(poly_u + 1)]
+        )
 
     # Unit-level propensity lookup for ATT / ATU integrals. In 'plugin'
     # mode we compute this once from a logit MLE. In 'joint' mode we
@@ -310,17 +333,40 @@ def bayes_mte(
         # MTE contribution: evaluate the polynomial at either the
         # propensity (polynomial mode: g(p_i)) or a latent U_D_i per
         # unit (hv_latent mode: tau(U_D_i)).
+        # ``selection='normal'`` reparameterises the abscissa from
+        # ``a ∈ [0, 1]`` (uniform scale) to ``v = Φ^{-1}(a) ∈ ℝ``
+        # (probit scale). Under the strict HV linear-separable +
+        # bivariate-normal assumption this is the frame where MTE
+        # is linear (``poly_u=1``), matching Heckman (1979) /
+        # HV 2005 exactly.
         # ------------------------------------------------------------------
+        def _abscissa(a_expr, is_numpy: bool):
+            """Transform a in [0,1] to v = Φ^{-1}(a) on the probit
+            scale when ``selection == 'normal'``; otherwise pass
+            through unchanged. Works on numpy arrays and PyMC
+            tensors via ``pt.erfinv``."""
+            if selection != 'normal':
+                return a_expr
+            if is_numpy:
+                from scipy.stats import norm as _norm_dist
+                return _norm_dist.ppf(np.clip(a_expr, PROBIT_CLIP, 1 - PROBIT_CLIP))
+            import pytensor.tensor as pt
+            a_safe = pm.math.clip(a_expr, PROBIT_CLIP, 1 - PROBIT_CLIP)
+            # Φ^{-1}(p) = √2 · erfinv(2p - 1)
+            return pt.sqrt(2.0) * pt.erfinv(2.0 * a_safe - 1.0)
+
         if mte_method == 'polynomial':
             if first_stage == 'plugin':
                 # Closed-form constant powers + dot product with b_mte
+                abscissa = _abscissa(p_expr, is_numpy=True)
                 U_powers = np.column_stack(
-                    [p_expr ** k for k in range(poly_u + 1)]
+                    [abscissa ** k for k in range(poly_u + 1)]
                 )
                 DU_powers = D[:, None] * U_powers
                 mte_contribution = pm.math.dot(DU_powers, b_mte)
             else:
-                u_powers = [p_expr ** k for k in range(poly_u + 1)]
+                abscissa = _abscissa(p_expr, is_numpy=False)
+                u_powers = [abscissa ** k for k in range(poly_u + 1)]
                 mte_i = sum(
                     b_mte[k] * u_powers[k] for k in range(poly_u + 1)
                 )
@@ -341,7 +387,8 @@ def bayes_mte(
                 D_float * raw_U * p_expr
                 + (1.0 - D_float) * (p_expr + raw_U * (1.0 - p_expr))
             )
-            u_powers = [U_D_i ** k for k in range(poly_u + 1)]
+            abscissa = _abscissa(U_D_i, is_numpy=False)
+            u_powers = [abscissa ** k for k in range(poly_u + 1)]
             tau_i = sum(b_mte[k] * u_powers[k] for k in range(poly_u + 1))
             mte_contribution = D_float * tau_i
 
@@ -374,17 +421,29 @@ def bayes_mte(
 
     _, az = _require_pymc()
     curve_rows = []
+    # Under `selection='normal'` we also expose the underlying
+    # probit-scale abscissa ``v = Φ^{-1}(u)`` so users who fit in V
+    # can plot their posterior on the scale it was fit on, without
+    # having to recompute the transform themselves.
+    if selection == 'normal':
+        from scipy.stats import norm as _norm_dist
+        v_grid_out = _norm_dist.ppf(np.clip(u_grid, PROBIT_CLIP, 1 - PROBIT_CLIP))
+    else:
+        v_grid_out = None
     for k, u in enumerate(u_grid):
         col = mte_samples[:, k]
         hdi = np.asarray(az.hdi(col, hdi_prob=hdi_prob)).ravel()
-        curve_rows.append({
+        row = {
             'u': float(u),
             'posterior_mean': float(np.mean(col)),
             'posterior_sd': float(np.std(col, ddof=1)),
             'hdi_low': float(hdi[0]),
             'hdi_high': float(hdi[1]),
             'prob_positive': float(np.mean(col > 0)),
-        })
+        }
+        if v_grid_out is not None:
+            row['v'] = float(v_grid_out[k])
+        curve_rows.append(row)
     mte_curve = pd.DataFrame(curve_rows)
 
     # Integrated summaries (trapezoidal integration over u_grid)
@@ -424,8 +483,20 @@ def bayes_mte(
         if U_population.size == 0:
             return float('nan'), float('nan')
         # For each posterior draw, evaluate MTE at each population
-        # unit's U_D and average
-        u_pow_pop = np.column_stack([U_population ** k for k in range(poly_u + 1)])
+        # unit's *abscissa*. Under `selection='normal'` the polynomial
+        # is in V = Φ^{-1}(U_D), so we must transform U_population
+        # before raising to powers — otherwise ATT/ATU evaluate
+        # `b_0 + b_1·u + …` on unit-level U_D ∈ [0,1] while the
+        # posterior `b_mte` describes `b_0 + b_1·v + …` on v ∈ ℝ.
+        # That was the BLOCKER found in v0.9.12 round-B review.
+        if selection == 'normal':
+            from scipy.stats import norm as _norm_dist
+            pop_abscissa = _norm_dist.ppf(np.clip(U_population, PROBIT_CLIP, 1 - PROBIT_CLIP))
+        else:
+            pop_abscissa = U_population
+        u_pow_pop = np.column_stack(
+            [pop_abscissa ** k for k in range(poly_u + 1)]
+        )
         samples = b_mte_post @ u_pow_pop.T  # (S, n_pop)
         per_draw_mean = samples.mean(axis=1)  # integrated over population
         return float(per_draw_mean.mean()), float(per_draw_mean.std(ddof=1))
@@ -458,6 +529,7 @@ def bayes_mte(
         'inference': inference,
         'first_stage': first_stage,
         'mte_method': mte_method,
+        'selection': selection,
         'draws': draws,
         'tune': tune,
         'chains': chains,
@@ -483,14 +555,15 @@ def bayes_mte(
     # samples U_D_i per unit so the polynomial is evaluated at the
     # textbook latent variable, not at the propensity.
     fs_label = 'joint' if first_stage == 'joint' else 'plug-in'
+    scale_label = 'V scale (probit)' if selection == 'normal' else 'U_D scale (uniform)'
     if mte_method == 'hv_latent':
         method_label = (
-            f'Bayesian HV-latent MTE '
+            f'Bayesian HV-latent MTE on {scale_label} '
             f'(poly_u={poly_u}, {fs_label} first stage)'
         )
     else:
         method_label = (
-            f'Bayesian treatment-effect-at-propensity '
+            f'Bayesian treatment-effect-at-propensity on {scale_label} '
             f'(poly_u={poly_u}, {fs_label} first stage)'
         )
     return BayesianMTEResult(
@@ -513,4 +586,5 @@ def bayes_mte(
         ate=ate_mean,
         att=att_mean,
         atu=atu_mean,
+        selection=selection,
     )

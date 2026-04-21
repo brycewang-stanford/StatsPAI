@@ -2,7 +2,7 @@
 name = "statspai_hdfe"
 version = "0.1.0-alpha.1"
 edition = "2021"
-authors = ["Bryce Wang <bryce@copaper.ai>"]
+authors = ["Bryce Wang <brycew6m@stanford.edu>"]
 description = "PyO3 + Rayon HDFE group-demean kernel for StatsPAI"
 license = "MIT"
 readme = "README.md"

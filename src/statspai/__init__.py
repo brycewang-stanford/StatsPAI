@@ -22,9 +22,9 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.11"
+__version__ = "0.9.12"
 __author__ = "Biaoyue Wang"
-__email__ = "bryce@copaper.ai"
+__email__ = "brycew6m@stanford.edu"
 
 from .core.results import EconometricResults, CausalResult
 from .regression.ols import regress

@@ -16,7 +16,7 @@ Usage
 
 from __future__ import annotations
 
-import json
+import inspect
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional
 
@@ -886,6 +886,129 @@ def _build_registry():
 
 
 # ====================================================================== #
+#  Auto-registration from statspai.__all__
+# ====================================================================== #
+#
+# Hand-written specs above cover ~41 canonical estimators.  The package
+# exposes several hundred more symbols via ``statspai.__all__``.  The
+# auto-registration pass below ensures sp.help() / sp.list_functions()
+# / sp.search_functions() can still surface those names, using
+# inspect.signature + docstring as a lightweight fallback spec.
+#
+# Design rules
+# ------------
+# * Never overwrite a hand-written entry.
+# * Extract params from ``inspect.signature``; default="required" when no
+#   default is set.  Type hints are stringified best-effort.
+# * First non-empty docstring line becomes the description; fall back to
+#   "(no description)".
+# * Category comes from the object's ``__module__`` via the help module's
+#   prefix table.
+# * Idempotent: a sentinel flag prevents re-scanning on repeat calls.
+
+_FULL_REGISTRY_BUILT = False
+
+
+def _stringify_annotation(ann: Any) -> str:
+    if ann is inspect._empty:
+        return "Any"
+    if isinstance(ann, str):
+        return ann
+    if hasattr(ann, "__name__"):
+        return ann.__name__
+    return str(ann).replace("typing.", "")
+
+
+def _first_doc_line(doc: Optional[str]) -> str:
+    if not doc:
+        return ""
+    for line in doc.strip().splitlines():
+        s = line.strip()
+        if s:
+            return s
+    return ""
+
+
+def _auto_spec_from_callable(name: str, obj: Any) -> Optional[FunctionSpec]:
+    """Build a minimal FunctionSpec by introspecting a callable.
+
+    Returns None if introspection fails (e.g. C-extension without sig).
+    """
+    from .help import _infer_category  # lazy to avoid cycle
+
+    try:
+        sig = inspect.signature(obj)
+    except (TypeError, ValueError):
+        sig = None
+
+    params: List[ParamSpec] = []
+    if sig is not None:
+        for p in sig.parameters.values():
+            if p.name == "self" or p.kind in (
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD,
+            ):
+                continue
+            required = p.default is inspect._empty
+            default = None if required else p.default
+            params.append(ParamSpec(
+                name=p.name,
+                type=_stringify_annotation(p.annotation),
+                required=required,
+                default=default,
+                description="",
+            ))
+
+    doc = inspect.getdoc(obj) or ""
+    desc = _first_doc_line(doc) or f"({name} — no description)"
+    category = _infer_category(obj)
+    return FunctionSpec(
+        name=name,
+        category=category,
+        description=desc,
+        params=params,
+        returns="",
+        example="",
+        tags=[],
+    )
+
+
+def _ensure_full_registry() -> None:
+    """Populate the registry with hand-written specs + auto-registered tail.
+
+    Idempotent.  Call this from any entry point that needs *complete*
+    coverage (sp.help(), sp.list_functions() without filter, etc.).
+    """
+    global _FULL_REGISTRY_BUILT
+    _build_registry()
+    if _FULL_REGISTRY_BUILT:
+        return
+
+    import statspai as _sp  # safe: called post-import from user code
+
+    exported = getattr(_sp, "__all__", None) or dir(_sp)
+    for name in exported:
+        if name in _REGISTRY:
+            continue
+        obj = getattr(_sp, name, None)
+        if obj is None:
+            continue
+        # Skip submodules — the help system treats those separately.
+        if inspect.ismodule(obj):
+            continue
+        # Skip non-callables that aren't classes (e.g. constants).
+        if not (inspect.isfunction(obj) or inspect.isclass(obj)
+                or inspect.isbuiltin(obj) or inspect.ismethod(obj)
+                or callable(obj)):
+            continue
+        spec = _auto_spec_from_callable(name, obj)
+        if spec is not None:
+            _REGISTRY[name] = spec
+
+    _FULL_REGISTRY_BUILT = True
+
+
+# ====================================================================== #
 #  Public query API
 # ====================================================================== #
 
@@ -893,9 +1016,11 @@ def list_functions(category: Optional[str] = None) -> List[str]:
     """
     List all registered StatsPAI functions, optionally filtered by category.
 
-    Categories: regression, causal, panel, survey, output, diagnostics, robustness.
+    Auto-registers every function in ``statspai.__all__`` on first call
+    (hand-written specs take precedence), so coverage is the full public
+    surface — not just the 41 canonical estimators.
     """
-    _build_registry()
+    _ensure_full_registry()
     if category:
         return [k for k, v in _REGISTRY.items() if v.category == category]
     return list(_REGISTRY.keys())
@@ -908,10 +1033,14 @@ def describe_function(name: str) -> Dict[str, Any]:
     >>> sp.describe_function('did')
     {'name': 'did', 'category': 'causal', ...}
     """
-    _build_registry()
+    _ensure_full_registry()
     if name not in _REGISTRY:
-        available = ", ".join(sorted(_REGISTRY.keys()))
-        raise KeyError(f"Unknown function '{name}'. Available: {available}")
+        # Keep error message compact — full registry may contain 200+ names.
+        hand_written = sorted(
+            k for k, v in _REGISTRY.items() if not getattr(v, "_auto", False)
+        )
+        hint = ", ".join(hand_written[:15]) + ", ..."
+        raise KeyError(f"Unknown function '{name}'. Examples: {hint}")
     return _REGISTRY[name].to_dict()
 
 
@@ -924,7 +1053,7 @@ def function_schema(name: str) -> Dict[str, Any]:
     >>> schema = sp.function_schema('regress')
     >>> # Feed to OpenAI's function_call or Anthropic's tool_use
     """
-    _build_registry()
+    _ensure_full_registry()
     if name not in _REGISTRY:
         raise KeyError(f"Unknown function '{name}'")
     return _REGISTRY[name].to_openai_schema()
@@ -944,7 +1073,7 @@ def search_functions(query: str) -> List[Dict[str, str]]:
     >>> sp.search_functions('treatment effect')
     [{'name': 'did', ...}, {'name': 'dml', ...}, ...]
     """
-    _build_registry()
+    _ensure_full_registry()
     words = query.lower().split()
     if not words:
         return []
@@ -974,5 +1103,5 @@ def all_schemas() -> List[Dict[str, Any]]:
     >>> schemas = sp.all_schemas()
     >>> # Register all as tools in your LLM framework
     """
-    _build_registry()
+    _ensure_full_registry()
     return [spec.to_openai_schema() for spec in _REGISTRY.values()]

@@ -2,6 +2,82 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.12] - 2026-04-20 — Probit-scale MTE (Heckman selection frame)
+
+Adds the third orthogonal axis to `sp.bayes_mte`: the MTE polynomial
+can now be fit on either the uniform scale `U_D ∈ [0, 1]`
+(v0.9.11 default) or the probit / V scale
+`V = Φ^{-1}(U_D) ∈ ℝ` — the conventional Heckman (1979) / HV 2005
+frame. All `(first_stage, mte_method, selection)` combinations fit.
+
+### Added (0.9.12)
+
+- **`sp.bayes_mte(..., selection='uniform' | 'normal')`** — new kwarg.
+  - `'uniform'` (default) preserves v0.9.11 behaviour: polynomial
+    in `U_D ∈ [0, 1]`.
+  - `'normal'` reinterprets the abscissa as `V = Φ^{-1}(U_D)` via
+    `pt.sqrt(2) * pt.erfinv(2a-1)` on the tensor side and
+    `scipy.stats.norm.ppf` on numpy side. Under strict HV + bivariate-
+    normal, `poly_u=1 + selection='normal' + mte_method='hv_latent'`
+    exactly recovers the linear Heckman MTE slope.
+
+- **`mte_curve` exposes `v` column** under `selection='normal'`
+  (empty otherwise) so users can plot on the scale their model
+  was fit on.
+
+- **Shared `PROBIT_CLIP` constant** in `statspai.bayes._base` —
+  fit-time, ATT/ATU integrator, and `policy_effect` all read the
+  same clip so the three paths stay numerically consistent.
+
+### Empirical recovery on Heckman DGP (true `(b_0, b_1) = (0.5, 1.5)`)
+
+| combo | `b_0` | `b_1` |
+|---|---|---|
+| plugin × polynomial × V | -0.73 | 0.82 |
+| plugin × hv_latent × V | 0.42 | 1.37 ✓ |
+| joint × polynomial × V | -0.73 | 0.81 |
+| joint × hv_latent × V | 0.46 | 1.40 ✓ |
+
+Same story as earlier releases: `hv_latent` recovers truth;
+`polynomial` fits `g(v)` not `MTE(v)` and is biased.
+
+### Round-B review found 2 BLOCKERS + 2 HIGHs; Round-C fixed all
+
+1. **BLOCKER-1**: `_integrated_effect` (ATT/ATU) was raising `U_population`
+   to polynomial powers directly, even under `'normal'` where the
+   posterior is on V scale. **Fixed** — transforms to
+   `Φ^{-1}(U_population)` first.
+2. **BLOCKER-2**: `BayesianMTEResult.policy_effect` computed
+   `u_pow = [u^k ...]` instead of `[v^k ...]` under `'normal'`,
+   silently integrating a V-scale polynomial against u-scale powers.
+   **Fixed** — `BayesianMTEResult` now carries a `selection` field,
+   and `policy_effect` transforms the grid to V scale when needed.
+   Regression test asserts `policy_effect(policy_weight_ate())`
+   matches `.ate` to 1e-8 under `'normal'`.
+3. **HIGH-1**: `mte_curve` lacked a `v` column — **added**.
+4. **Round-C follow-up**: extracted `PROBIT_CLIP = 1e-6` to a shared
+   module constant consumed by both `mte.py` and `_base.py` so the
+   three-site fit/summary/policy paths cannot drift.
+
+### Tests (0.9.12)
+
+- `tests/test_bayes_mte_selection.py` (NEW, 12 tests) — back-compat,
+  method-label, Heckman DGP recovery, all-8-combo orthogonality,
+  input validation, `v` column presence/absence, ATT/ATU V-scale
+  correctness (Round-C regression), `policy_effect` V-scale
+  parity with `.ate` (Round-C regression), uniform-vs-normal
+  non-trivial disagreement.
+- 78 focused MTE tests green.
+
+### Non-goals (0.9.12)
+
+- Full bivariate-normal error covariance `(U_0, U_1, V) ~ N(0, Σ)`
+  with free `ρ_{0V}`, `ρ_{1V}` — convergence-intensive MvNormal
+  mixture, queued for 0.9.13+.
+- Rust Phase 2 — separate branch.
+
+---
+
 ## [0.9.11] - 2026-04-20 — Multi-instrument MTE + true CHV-2011 PRTE weights
 
 Closes two long-standing API gaps plus an empirical math debt.

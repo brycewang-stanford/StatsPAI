@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "StatsPAI"
-version = "0.9.11"
+version = "0.9.12"
 description = "The Agent-Native Causal Inference & Econometrics Toolkit for Python"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Biaoyue Wang", email = "bryce@copaper.ai"}
+    {name = "Biaoyue Wang", email = "brycew6m@stanford.edu"}
 ]
 maintainers = [
-    {name = "Biaoyue Wang", email = "bryce@copaper.ai"}
+    {name = "Biaoyue Wang", email = "brycew6m@stanford.edu"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -88,6 +88,9 @@ bayes = [
 tune = [
     "optuna>=3.0",
 ]
+
+[project.scripts]
+statspai = "statspai.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/brycewang-stanford/statspai"

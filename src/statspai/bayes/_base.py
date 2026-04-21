@@ -26,6 +26,16 @@ _PYMC_INSTALL_HINT = (
 )
 
 
+# Shared clip constant for the probit-scale (``selection='normal'``)
+# transform. Any site computing ``Φ^{-1}(a)`` — the fit-time
+# polynomial powers, the post-hoc ATT/ATU integrator, and
+# ``policy_effect`` — MUST use this constant so the three paths stay
+# numerically consistent (cf. v0.9.12 round-C review HIGH on clip
+# drift between fit and policy_effect). Tightening requires
+# one-line change here; all callers pick it up automatically.
+PROBIT_CLIP: float = 1e-6
+
+
 def _require_pymc():
     """Import PyMC and ArviZ, or raise a clear ImportError."""
     try:
@@ -381,6 +391,11 @@ class BayesianMTEResult(BayesianCausalResult):
     ate: float = float('nan')
     att: float = float('nan')
     atu: float = float('nan')
+    # v0.9.12: `'uniform'` (default) fits MTE polynomial in U_D on
+    # [0,1]; `'normal'` fits in V = Φ^{-1}(U_D) on ℝ. The result
+    # remembers this so `policy_effect` can transform the abscissa
+    # before integrating against the user's weight_fn.
+    selection: str = 'uniform'
 
     def policy_effect(
         self,
@@ -422,7 +437,18 @@ class BayesianMTEResult(BayesianCausalResult):
         poly_u = b_mte_post.shape[-1] - 1
         flat = b_mte_post.reshape(-1, poly_u + 1)
         u = np.asarray(self.u_grid, dtype=float)
-        u_pow = np.column_stack([u ** k for k in range(poly_u + 1)])
+
+        # v0.9.12: respect the selection scale. Under
+        # ``selection='normal'`` the polynomial is in ``v = Φ^{-1}(u)``
+        # so the abscissa-powers must be built on v, not u. The
+        # weight_fn is still passed u (the natural scale for users)
+        # but we transform internally before dotting with b_mte.
+        if self.selection == 'normal':
+            from scipy.stats import norm as _norm_dist
+            abscissa = _norm_dist.ppf(np.clip(u, PROBIT_CLIP, 1 - PROBIT_CLIP))
+        else:
+            abscissa = u
+        u_pow = np.column_stack([abscissa ** k for k in range(poly_u + 1)])
         mte_samples = flat @ u_pow.T         # (S, n_grid)
         weights = np.asarray(weight_fn(u), dtype=float)
         if weights.shape != u.shape:
