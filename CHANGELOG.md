@@ -2,6 +2,64 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.15] - 2026-04-20 — Multi-term `tidy(terms=[...])` + ATT/ATU prob_positive
+
+Completes the broom-pipeline integration of v0.9.13's per-population
+ATT/ATU uncertainty. Users can now `pd.concat` ATE/ATT/ATU rows
+across fits in one call.
+
+### Added (0.9.15)
+
+- **`BayesianMTEResult.tidy(conf_level=None, terms=None)`** override:
+  - `terms=None` (default) — unchanged, single ATE row.
+  - `terms='ate' | 'att' | 'atu'` — single row of that term.
+  - `terms=['ate', 'att', 'atu']` — multi-row DataFrame.
+  - Invalid names → clear `ValueError`.
+
+- **Two new result fields**: `att_prob_positive`, `atu_prob_positive`
+  (NaN-defaulted for pre-v0.9.15 snapshot compatibility). Populated
+  by `_integrated_effect` from per-draw ATT/ATU posteriors.
+
+- **`_integrated_effect` returns 5-tuple** `(mean, sd, hdi_lower,
+  hdi_upper, prob_positive)`. Caller unpacks + passes to the result.
+
+### Round-B review found 1 HIGH; Round-C fixed
+
+- **HIGH-1** — label divergence: default `tidy()` emits
+  `term='ate (integrated mte)'` (via parent `estimand.lower()`),
+  but `tidy(terms='ate')` emitted the short literal `'ate'`. Byte-
+  compat broken when a user mixed both call styles inside
+  `pd.concat`. **Fixed** — `_row('ate')` now also uses
+  `self.estimand.lower()` so both paths produce identical rows.
+  ATT / ATU rows keep their short labels (no parent-default
+  precedent; short is the natural broom shape for new terms).
+
+- Round C: 0 blockers.
+
+### Tests (0.9.15)
+
+- `tests/test_bayes_mte_tidy.py` (13 tests) — back-compat default
+  schema, single-term paths for all three labels, multi-row order
+  preservation, concat workflow, invalid-term + mixed-valid
+  rejection, NaN prob_positive stub back-compat, prob_positive
+  scalars populated on real fits, **default-vs-explicit label
+  byte-parity** (Round-C regression).
+- Bayesian family suite: 101/101 focused tests green.
+
+### Design spec (0.9.15)
+
+- `docs/superpowers/specs/2026-04-20-v0915-tidy-multiterm.md`
+
+### Non-goals (0.9.15)
+
+- Multi-term `.tidy()` on other Bayesian estimators — DID/RD/IV
+  have no ATT/ATU concept; the primary-estimand row is already
+  what they emit.
+- Full bivariate-normal HV model.
+- Rust Phase 2.
+
+---
+
 ## [0.9.14] - 2026-04-20 — Summary rendering completes v0.9.13 spec §3.3
 
 Tiny patch release. Completes the "ATT/ATU in `summary()`" promise

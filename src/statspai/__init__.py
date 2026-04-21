@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "0.9.14"
+__version__ = "0.9.15"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -33,6 +33,8 @@ from .causal.causal_forest import CausalForest, causal_forest
 from .causal.forest_inference import (
     calibration_test, test_calibration, rate, honest_variance,
 )
+from .causal.multi_arm_forest import multi_arm_forest, MultiArmForestResult
+from .causal.iv_forest import iv_forest, IVForestResult
 from .did import (
     did, did_2x2, ddd, callaway_santanna, sun_abraham,
     bacon_decomposition, honest_did, breakdown_m, event_study,
@@ -78,6 +80,7 @@ from .matching import (
     optimal_match, cardinality_match,
     OptimalMatchResult, CardinalityMatchResult,
     overlap_weights, cbps,
+    genmatch, GenMatchResult,
 )
 from .dml import dml, DoubleML, DoubleMLPLR, DoubleMLIRM, DoubleMLPLIV, DoubleMLIIVM
 from .deepiv import deepiv, DeepIV
@@ -110,6 +113,7 @@ from .proximal import (
     proximal, ProximalCausalInference,
     negative_control_outcome, negative_control_exposure,
     double_negative_control, NegativeControlResult,
+    proximal_regression, ProximalRegResult,
 )
 from .principal_strat import (
     principal_strat, PrincipalStratResult, survivor_average_causal_effect,
@@ -124,6 +128,7 @@ from .spatial import (
     moran, moran_local, geary, getis_ord_g, getis_ord_local, join_counts,
     moran_plot, lisa_cluster_map,
     lm_tests, moran_residuals, impacts,
+    spatial_did, SpatialDiDResult, spatial_iv, SpatialIVResult,
 )
 from . import spatial
 # NOTE: `from . import iv` would be shadowed by the `iv` function imported
@@ -161,20 +166,41 @@ from .regression.glm import glm, GLMRegression, GLMEstimator
 from .regression.count import poisson, nbreg, ppmlhdfe
 from .neural_causal import tarnet, cfrnet, dragonnet, TARNet, CFRNet, DragonNet
 from .causal_discovery import notears, NOTEARS, pc_algorithm, PCAlgorithm, lingam, LiNGAMResult, ges, GESResult, fci, FCIResult
-from .tmle import tmle, TMLE, super_learner, SuperLearner
-from .policy_learning import policy_tree, PolicyTree, policy_value
+from .tmle import tmle, TMLE, super_learner, SuperLearner, ltmle, LTMLEResult
+from .policy_learning import policy_tree, PolicyTree, policy_value, direct_method, ips, snips, doubly_robust, OPEResult
 from .conformal_causal import conformal_cate, ConformalCATE
 from .bcf import bcf, BayesianCausalForest
 from .bunching import bunching, BunchingEstimator, notch, NotchResult
 from .matrix_completion import mc_panel, MCPanel
-from .dose_response import dose_response, DoseResponse
-from .bounds import lee_bounds, manski_bounds, BoundsResult, horowitz_manski, iv_bounds, oster_delta, selection_bounds, breakdown_frontier
-from .interference import spillover, SpilloverEstimator
-from .dtr import g_estimation, GEstimation
+from .dose_response import dose_response, DoseResponse, vcnet, scigan, VCNetResult
+from .bounds import lee_bounds, manski_bounds, BoundsResult, horowitz_manski, iv_bounds, oster_delta, selection_bounds, breakdown_frontier, balke_pearl, BalkePearlResult
+from .interference import spillover, SpilloverEstimator, network_exposure, NetworkExposureResult
+from .dtr import g_estimation, GEstimation, q_learning, QLearningResult, a_learning, ALearningResult, snmm, SNMMResult
 from .multi_treatment import multi_treatment, MultiTreatment
 from .robustness import spec_curve, SpecCurveResult, robustness_report, RobustnessResult, subgroup_analysis, SubgroupResult
 from .survey import svydesign, SurveyDesign, svymean, svytotal, svyglm, rake, linear_calibration
-from .dag import dag, DAG, dag_example, dag_examples, dag_example_positions, dag_simulate
+from .dag import (
+    dag, DAG, dag_example, dag_examples, dag_example_positions, dag_simulate,
+    identify, IdentificationResult,
+    rule1 as do_rule1, rule2 as do_rule2, rule3 as do_rule3,
+    apply_rules as do_calculus_apply, RuleCheck,
+    swig, SWIGGraph, SCM,
+)
+
+# === Target Trial Emulation (JAMA 2022 framework) ===
+from . import target_trial
+from .target_trial import (
+    protocol as target_trial_protocol,
+    emulate as target_trial_emulate,
+    clone_censor_weight,
+    immortal_time_check,
+    TargetTrialProtocol,
+    TargetTrialResult,
+    CloneCensorWeightResult,
+)
+# === Inverse probability of censoring weights ===
+from . import censoring
+from .censoring import ipcw, IPCWResult
 
 # === Canonical datasets (consolidated facade) ===
 from . import datasets
@@ -241,7 +267,7 @@ from .regression.advanced_iv import liml, jive, lasso_iv
 # via fixest.wrapper._check_pyfixest, so top-level import never fails.
 from .fixest import feols, fepois, feglm, etable
 # Survival / Duration
-from .survival import cox, kaplan_meier, survreg, CoxResult, KMResult, logrank_test, cox_frailty, aft
+from .survival import cox, kaplan_meier, survreg, CoxResult, KMResult, logrank_test, cox_frailty, aft, causal_survival_forest, causal_survival, CausalSurvivalForestResult
 # Nonparametric
 from .nonparametric import lpoly, LPolyResult, kdensity, KDensityResult
 # Time Series (for causal inference)
@@ -252,6 +278,7 @@ from .timeseries import (
     garch, GARCHResult,
     arima, ARIMAResult,
     bvar, BVARResult,
+    its, ITSResult,
 )
 # Experimental Design
 from .experimental import randomize, RandomizationResult, balance_check, BalanceResult, attrition_test, attrition_bounds, AttritionResult, optimal_design, OptimalDesignResult
