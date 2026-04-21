@@ -2013,6 +2013,47 @@ def _build_registry():
         reference="arXiv:2404.04794 (2024).",
     ))
 
+    # -- Continuous + interference conformal ------------------------ #
+    register(FunctionSpec(
+        name="conformal_continuous",
+        category="conformal_causal",
+        description=(
+            "Split-conformal prediction bands for continuous-treatment "
+            "dose-response curves (Kim, Jeong, Barber, Lee 2024)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("covariates", "list", True),
+            ParamSpec("test_data", "DataFrame", True),
+            ParamSpec("alpha", "float", False, 0.1),
+        ],
+        returns="ContinuousConformalResult",
+        tags=["conformal", "continuous_treatment", "dose_response"],
+        reference="arXiv:2407.03094 (2024).",
+    ))
+    register(FunctionSpec(
+        name="conformal_interference",
+        category="conformal_causal",
+        description=(
+            "Cluster-exchangeable split-conformal prediction under "
+            "network interference (2509.21660 systematic review)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("cluster", "str", True),
+            ParamSpec("covariates", "list", True),
+            ParamSpec("test_clusters", "list", True),
+            ParamSpec("alpha", "float", False, 0.1),
+        ],
+        returns="InterferenceConformalResult",
+        tags=["conformal", "interference", "cluster"],
+        reference="arXiv:2509.21660 (2025).",
+    ))
+
     # -- Sharp OPE + Causal-Policy Forest ---------------------------- #
     register(FunctionSpec(
         name="sharp_ope_unobserved",
