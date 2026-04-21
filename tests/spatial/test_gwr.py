@@ -17,7 +17,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "georgia_gwr_reference.json"
 
 @pytest.fixture(scope="module")
 def georgia():
-    ref = json.loads(FIXTURE.read_text())
+    ref = json.loads(FIXTURE.read_text(encoding='utf-8'))
     coords = np.array(list(zip(ref["coords_x"], ref["coords_y"])))
     y = np.array(ref["PctBach"])
     X = np.column_stack([ref["PctRural"], ref["PctPov"], ref["PctBlack"]])

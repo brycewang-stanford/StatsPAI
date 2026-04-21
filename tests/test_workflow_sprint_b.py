@@ -267,7 +267,7 @@ def test_diagnose_result_detects_mediation_interventional():
 
 def test_index_md_has_no_stale_did_guide_link():
     root = Path(__file__).resolve().parent.parent
-    idx = (root / 'docs' / 'index.md').read_text()
+    idx = (root / 'docs' / 'index.md').read_text(encoding='utf-8')
     assert 'guides/did.md' not in idx, (
         'docs/index.md still contains a link to the non-existent '
         'guides/did.md; update it to a real guide path '

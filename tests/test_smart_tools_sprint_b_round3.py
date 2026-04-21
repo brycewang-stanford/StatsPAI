@@ -186,7 +186,7 @@ def test_compare_estimators_g_computation_binary_guard_compact():
 
 def test_roadmap_documents_compare_estimators_sprint_b_gap():
     root = Path(__file__).resolve().parent.parent
-    roadmap = (root / 'docs' / 'ROADMAP.md').read_text()
+    roadmap = (root / 'docs' / 'ROADMAP.md').read_text(encoding='utf-8')
     # Section 6 heading present
     assert 'compare_estimators' in roadmap
     # The four hint-driven methods are called out

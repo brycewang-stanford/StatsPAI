@@ -17,7 +17,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "columbus_reference.json"
 
 @pytest.fixture(scope="module")
 def columbus():
-    ref = json.loads(FIXTURE.read_text())
+    ref = json.loads(FIXTURE.read_text(encoding='utf-8'))
     neighbors = {int(k): v for k, v in ref["neighbors"].items()}
     w = W(neighbors); w.transform = "R"
     df = pd.DataFrame({"CRIME": ref["y"], "INC": ref["INC"], "HOVAL": ref["HOVAL"]})

@@ -247,11 +247,11 @@ def test_save_to_files_contain_expected_content(tmp_path):
     cs_report(df, y='y', g='g', t='t', i='i',
               n_boot=50, random_state=0, verbose=False,
               save_to=prefix)
-    md = (tmp_path / "cs.md").read_text()
+    md = (tmp_path / "cs.md").read_text(encoding='utf-8')
     assert "Callaway" in md and "Event study" in md
-    tex = (tmp_path / "cs.tex").read_text()
+    tex = (tmp_path / "cs.tex").read_text(encoding='utf-8')
     assert "\\begin{table}" in tex and "\\bottomrule" in tex
-    txt = (tmp_path / "cs.txt").read_text()
+    txt = (tmp_path / "cs.txt").read_text(encoding='utf-8')
     assert "Overall ATT" in txt
 
 
