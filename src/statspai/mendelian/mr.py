@@ -159,19 +159,26 @@ def mr_egger(
     intercept = beta_hat[0]
     intercept_se = se_hat[0]
 
-    z_crit = stats.norm.ppf(1 - alpha / 2)
-    z_slope = estimate / se_est
-    z_intercept = intercept / intercept_se
+    # Egger σ² is plug-in estimated, so both slope and intercept
+    # inference follow t(n - 2), matching R's MendelianRandomization /
+    # TwoSampleMR packages and mr_pleiotropy_egger below.  Prior
+    # versions (< v1.5) used Normal for the slope and t for the
+    # intercept; the inconsistency produced anti-conservative slope CIs
+    # at small n_snps (e.g. n=5 gave p=7e-6 vs the correct p ~ 1e-3).
+    df = max(n - 2, 1)
+    t_crit = stats.t.ppf(1 - alpha / 2, df=df)
+    z_slope = estimate / se_est if se_est > 0 else 0.0
+    z_intercept = intercept / intercept_se if intercept_se > 0 else 0.0
 
     return {
         'estimate': estimate,
         'se': se_est,
-        'ci_lower': estimate - z_crit * se_est,
-        'ci_upper': estimate + z_crit * se_est,
-        'p_value': 2 * (1 - stats.norm.cdf(abs(z_slope))),
+        'ci_lower': estimate - t_crit * se_est,
+        'ci_upper': estimate + t_crit * se_est,
+        'p_value': float(2 * stats.t.sf(abs(z_slope), df=df)),
         'intercept': intercept,
         'intercept_se': intercept_se,
-        'intercept_p': 2 * (1 - stats.norm.cdf(abs(z_intercept))),
+        'intercept_p': float(2 * stats.t.sf(abs(z_intercept), df=df)),
     }
 
 

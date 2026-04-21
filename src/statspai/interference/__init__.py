@@ -30,6 +30,11 @@ from .cluster_cross import cluster_cross_interference, CrossClusterRCTResult
 from .cluster_staggered import cluster_staggered_rollout, StaggeredClusterRCTResult
 from .dnc_gnn_did import dnc_gnn_did, DNCGNNDiDResult
 
+# v1.5 unified dispatcher
+from .dispatcher import (
+    interference, available_designs as interference_available_designs,
+)
+
 __all__ = [
     'spillover', 'SpilloverEstimator',
     'network_exposure', 'NetworkExposureResult',
@@ -40,4 +45,6 @@ __all__ = [
     'cluster_cross_interference', 'CrossClusterRCTResult',
     'cluster_staggered_rollout', 'StaggeredClusterRCTResult',
     'dnc_gnn_did', 'DNCGNNDiDResult',
+    # v1.5 dispatcher
+    'interference', 'interference_available_designs',
 ]

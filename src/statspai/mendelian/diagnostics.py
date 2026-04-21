@@ -455,12 +455,19 @@ def mr_presso(
         null_components[b] = comps
         null_rss[b] = comps.sum()
 
-    p_global = float(np.mean(null_rss >= rss_obs))
-    # Per-SNP outlier test
-    per_snp_p = np.array(
-        [np.mean(null_components[:, i] >= obs_rss_components[i])
-         for i in range(n)]
-    )
+    # MC p-value convention: use (k + 1) / (B + 1) for both the global
+    # test and the per-SNP outlier test.  The raw ``mean(null >= obs)``
+    # form can return exactly 0 when the observed statistic exceeds
+    # every simulated null value, which is inadmissible as a p-value
+    # (the true tail probability is bounded below by 1 / (B + 1)).
+    # Matches the convention used by the R ``MR-PRESSO`` package and
+    # MCRATs 2003 §3.3.
+    p_global = float((np.sum(null_rss >= rss_obs) + 1) / (n_boot + 1))
+    per_snp_p = np.array([
+        (np.sum(null_components[:, i] >= obs_rss_components[i]) + 1)
+        / (n_boot + 1)
+        for i in range(n)
+    ])
     outliers = [int(i) for i in range(n) if per_snp_p[i] < sig_threshold]
 
     if not outliers:

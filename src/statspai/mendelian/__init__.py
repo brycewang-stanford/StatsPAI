@@ -36,6 +36,7 @@ from .multivariable import (
     mr_multivariable, mr_mediation, mr_bma,
     MVMRResult, MediationMRResult, MRBMAResult,
 )
+from .dispatcher import mr, available_methods as mr_available_methods
 
 __all__ = [
     # Estimators
@@ -52,4 +53,6 @@ __all__ = [
     # Multivariable / mediation / BMA (Yao et al. 2026 roadmap)
     "mr_multivariable", "mr_mediation", "mr_bma",
     "MVMRResult", "MediationMRResult", "MRBMAResult",
+    # v1.5 unified dispatcher
+    "mr", "mr_available_methods",
 ]

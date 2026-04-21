@@ -169,9 +169,11 @@ def _ht_estimate(
         ind = (exposures == lev).astype(float)
         weights = ind / pi
         mu = float(np.mean(weights * Y))
-        var = float(np.sum((Y * weights) ** 2) / n ** 2 -
-                    (1.0 / n ** 2) * np.sum(weights * Y) ** 2 / n)
-        # Conservative AS-bound:
+        # Conservative Aronow-Samii Theorem 1 bound:
+        #   V̂(μ̂(d)) = (1/N²) Σ_i Y_i² · (1 - π_i(d)) / π_i(d)²
+        # The prior ``var = ...`` line (pre-v1.5) was dead code — its
+        # own return value was overwritten by the next line and the
+        # formula itself was dimensionally inconsistent.  Removed.
         var_as = float(np.sum((Y ** 2) * (1 - pi) / np.maximum(pi ** 2, 1e-12)) / n ** 2)
         se = float(np.sqrt(max(var_as, 0.0)))
         ci_lo = mu - 1.96 * se

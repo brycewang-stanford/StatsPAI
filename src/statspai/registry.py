@@ -3234,6 +3234,125 @@ def _build_registry():
         reference="StatsPAI test utility.",
     ))
 
+    # =================================================================== #
+    #  v1.5 unified family dispatchers (mirror sp.synth / sp.decompose /  #
+    #  sp.dml): one entry per family with a method/kind/design switch.    #
+    # =================================================================== #
+
+    register(FunctionSpec(
+        name="mr",
+        category="causal",
+        description=(
+            "Unified Mendelian Randomization dispatcher. "
+            "method= selects the estimator: "
+            "'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / "
+            "'all' (runs IVW+Egger+Median together) / "
+            "'mvmr' / 'mediation' / 'bma' (multi-exposure) / "
+            "'presso' / 'radial' / 'leave_one_out' / 'steiger' / "
+            "'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' "
+            "(diagnostics).  Kwargs are passed through to the target "
+            "function unchanged; see sp.mendelian_family guide."
+        ),
+        params=[
+            ParamSpec("method", "str", False, "ivw",
+                      "MR estimator / diagnostic — call "
+                      "sp.mr_available_methods() for the full list."),
+        ],
+        returns="dict | MRResult | MVMRResult | MediationMRResult | MRBMAResult | MRPressoResult | RadialResult | LeaveOneOutResult | SteigerResult | HeterogeneityResult | PleiotropyResult | FStatisticResult | ModeBasedResult",
+        example=(
+            'sp.mr("ivw", beta_exposure=bx, beta_outcome=by, '
+            'se_exposure=sx, se_outcome=sy)'
+        ),
+        tags=["mr", "mendelian", "iv", "causal", "dispatcher",
+              "genetic", "two-sample"],
+        reference=(
+            "Burgess et al. 2013; Bowden et al. 2015/2016/2017/2018; "
+            "Verbanck et al. 2018; Hartwig et al. 2017; Sanderson et al. "
+            "2019; Zuber et al. 2020."
+        ),
+    ))
+
+    register(FunctionSpec(
+        name="conformal",
+        category="causal",
+        description=(
+            "Unified conformal causal inference dispatcher. "
+            "kind= selects the estimator: "
+            "'cate' / 'counterfactual' / 'ite' (Lei-Candès 2021 base) / "
+            "'weighted' (TBCR 2019 primitive) / "
+            "'density' / 'multidp' / 'debiased' / 'fair' "
+            "(2025-2026 frontier) / "
+            "'continuous' (dose-response) / "
+            "'interference' (cluster-exchangeable).  Kwargs pass through "
+            "to the target function; see sp.conformal_family guide."
+        ),
+        params=[
+            ParamSpec("kind", "str", False, "cate",
+                      "Conformal estimator — call "
+                      "sp.conformal_available_kinds() for the full list."),
+        ],
+        returns=(
+            "CausalResult | ConformalCounterfactualResult | "
+            "ConformalITEResult | ConformalDensityResult | "
+            "MultiDPConformalResult | DebiasedConformalResult | "
+            "FairConformalResult | ContinuousConformalResult | "
+            "InterferenceConformalResult | tuple"
+        ),
+        example=(
+            'sp.conformal("cate", data=df, y="y", treat="d", '
+            'covariates=["x1", "x2"], alpha=0.1)'
+        ),
+        tags=["conformal", "causal", "prediction_interval", "cate",
+              "ite", "dispatcher", "distribution-free", "coverage"],
+        reference=(
+            "Lei & Candès 2021 JRSS-B; Tibshirani et al. 2019 NeurIPS; "
+            "Kim-Jeong-Barber-Lee 2024; Romano et al. 2019."
+        ),
+    ))
+
+    register(FunctionSpec(
+        name="interference",
+        category="causal",
+        description=(
+            "Unified interference / spillover dispatcher. "
+            "design= selects the estimator: "
+            "'partial' (Hudgens-Halloran cluster) / "
+            "'network_exposure' (Aronow-Samii HT) / "
+            "'peer_effects' (Manski / Bramoullé linear-in-means) / "
+            "'network_hte' (Parmigiani et al. 2025 orthogonal) / "
+            "'inward_outward' (directed network Li-Ratkovic 2025) / "
+            "'cluster_matched_pair' (Bai 2022) / "
+            "'cluster_cross' (Ding et al. 2025) / "
+            "'cluster_staggered' (Zhou et al. 2025) / "
+            "'dnc_gnn' (Zhao et al. 2026).  Kwargs pass through "
+            "to the target function; see sp.interference_family guide."
+        ),
+        params=[
+            ParamSpec("design", "str", False, "partial",
+                      "Interference design — call "
+                      "sp.interference_available_designs() for the "
+                      "full list."),
+        ],
+        returns=(
+            "CausalResult | NetworkExposureResult | PeerEffectsResult | "
+            "NetworkHTEResult | InwardOutwardResult | MatchedPairResult "
+            "| CrossClusterRCTResult | StaggeredClusterRCTResult | "
+            "DNCGNNDiDResult"
+        ),
+        example=(
+            'sp.interference("partial", data=df, y="y", '
+            'treat="d", cluster="household")'
+        ),
+        tags=["interference", "spillover", "sutva", "network", "peer",
+              "cluster_rct", "dispatcher", "causal"],
+        reference=(
+            "Hudgens & Halloran 2008 JASA; Aronow & Samii 2017 AoAS; "
+            "Manski 1993; Bramoullé-Djebbari-Fortin 2009; "
+            "Parmigiani et al. 2025; Bai 2022; Ding et al. 2025; "
+            "Zhou et al. 2025; Zhao et al. 2026."
+        ),
+    ))
+
 
 # ====================================================================== #
 #  Auto-registration from statspai.__all__

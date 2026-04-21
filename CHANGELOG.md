@@ -2,6 +2,146 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.5.0] — 2026-04-21 — Interference / Conformal / Mendelian family consolidation
+
+Minor release.  Three concurrent improvements to the interference,
+conformal causal inference, and Mendelian Randomization families:
+full-family documentation guides, unified dispatchers matching the
+`sp.synth` / `sp.decompose` / `sp.dml` pattern, and a targeted
+correctness audit that surfaced and fixed two silent-wrong-numbers
+issues.
+
+### Added — three new family guides (interference / conformal / MR)
+
+- `docs/guides/interference_family.md` — complete walkthrough of
+  `sp.spillover`, `sp.network_exposure`, `sp.peer_effects`,
+  `sp.network_hte`, `sp.inward_outward_spillover`,
+  `sp.cluster_matched_pair`, `sp.cluster_cross_interference`,
+  `sp.cluster_staggered_rollout`, `sp.dnc_gnn_did`.  Decision tree
+  covering partial / network / cluster-RCT designs with the 5
+  diagnostics every interference analysis should report (exposure
+  balance, identification check for peer_effects, overlap for
+  network_hte, parallel trends for staggered-cluster, sensitivity to
+  exposure function).
+- `docs/guides/conformal_family.md` — complete walkthrough of
+  `sp.conformal_cate`, `sp.weighted_conformal_prediction`,
+  `sp.conformal_counterfactual`, `sp.conformal_ite_interval`,
+  `sp.conformal_density_ite`, `sp.conformal_ite_multidp`,
+  `sp.conformal_debiased_ml`, `sp.conformal_fair_ite`,
+  `sp.conformal_continuous`, `sp.conformal_interference`.  Clarifies
+  the distinction between marginal and conditional coverage, with
+  per-tool "when to use it" + how-to-read-disagreement guidance.
+- `docs/guides/mendelian_family.md` — complete walkthrough of all 17
+  MR functions (4 point estimators + 6 diagnostics + 3 multi-exposure
+  extensions + instrument-strength F + 2 plots), organised around the
+  IV1 / IV2 / IV3 assumption hierarchy.  Ships the 4 sanity checks every
+  MR analysis should report and a worked BMI → T2D example.
+
+Each guide is linked from `mkdocs.yml` under Guides and surfaces via
+`sp.search_functions()`.
+
+### Added — unified family dispatchers
+
+Three new top-level dispatchers mirroring the style of `sp.synth` /
+`sp.decompose` / `sp.dml`:
+
+- **`sp.mr(method=..., ...)`** — single entry point for the 17-function
+  Mendelian Randomization family.  Supports
+  `method ∈ {"ivw", "egger", "median", "penalized_median", "mode",
+  "simple_mode", "all", "mvmr", "mediation", "bma", "presso", "radial",
+  "leave_one_out", "steiger", "heterogeneity", "pleiotropy_egger",
+  "f_statistic", ...}` with aliases.  kwargs pass through to the target
+  function.  `sp.mr_available_methods()` lists all aliases.
+
+- **`sp.conformal(kind=..., ...)`** — single entry point for the
+  10-function conformal causal inference family.  Supports
+  `kind ∈ {"cate", "counterfactual", "ite", "weighted", "density",
+  "multidp", "debiased", "fair", "continuous", "interference", ...}`.
+  `sp.conformal_available_kinds()` lists all aliases.
+
+- **`sp.interference(design=..., ...)`** — single entry point for the
+  9-function interference / spillover family.  Supports
+  `design ∈ {"partial", "network_exposure", "peer_effects",
+  "network_hte", "inward_outward", "cluster_matched_pair",
+  "cluster_cross", "cluster_staggered", "dnc_gnn", ...}`.
+  `sp.interference_available_designs()` lists all aliases.
+
+All three dispatchers are registered with hand-written schemas so
+`sp.describe_function("mr")` / `"conformal"` / `"interference"` return
+agent-readable descriptions.  30 new tests in
+`tests/test_dispatchers_v150.py` guarantee the dispatcher path and the
+direct-call path produce byte-for-byte identical results.
+
+### ⚠️ Breaking — `sp.mr` is now a function, not a module alias
+
+Prior to v1.5.0 `sp.mr` was a reference to the `statspai.mendelian`
+submodule (`from . import mendelian as mr`), so `sp.mr.mr_ivw(...)`
+worked.  v1.5.0 replaces this with the new **dispatcher function**
+`sp.mr(method=..., ...)`.
+
+**Migration**: code that previously wrote `sp.mr.mr_ivw(bx, by, sx, sy)`
+should use the top-level `sp.mr_ivw(bx, by, sx, sy)` (already exported
+in every prior version) or the new `sp.mr("ivw", beta_exposure=bx, ...)`
+dispatcher.  The module is still accessible as `sp.mendelian` for users
+who were doing submodule-level introspection.
+
+Updated references: the only in-repo consumer of the old
+`sp.mr.mr_ivw` form was `tests/reference_parity/test_mr_parity.py`,
+which has been migrated to top-level calls.  All external user code
+that already uses `sp.mr_ivw` / `sp.mendelian_randomization` / etc
+continues to work unchanged.
+
+### Fixed — silent wrong numbers (correctness audit)
+
+- **`sp.mr_egger` — slope inference used Normal, not t(n−2).**  The
+  companion `sp.mr_pleiotropy_egger` correctly used `t(n−2)` for the
+  Egger intercept p-value, but `mr_egger` itself used `stats.norm.cdf`
+  for both the slope p-value and the slope CI's critical value.  This
+  was anti-conservative at small `n_snps`: e.g. for `n_snps = 5` and a
+  t-stat of 1.5, the Normal-based two-sided p is 0.134 whereas the
+  correct t(3)-based p is 0.231.  `mendelian_randomization(..., methods=["egger"])`
+  inherited the bug through its internal call.  The fix switches both the
+  p-value and the CI critical value to `t(n−2)`.  Regression guard in
+  `tests/test_correctness_v150.py::TestMREggerUsesTDistribution`.
+  For `n_snps ≥ 100` the change is numerically invisible (< 1e-3 in p).
+
+- **`sp.mr_presso` — MC p-value could equal exactly 0.**  Both the
+  global test p-value and the per-SNP outlier p-values used the raw
+  `mean(null >= obs)` form, which collapses to `0.0` when the observed
+  statistic exceeds every simulated null.  An MC-estimated p-value
+  cannot be zero — its true lower bound is `1 / (B + 1)`.  The fix
+  switches to the standard `(k + 1) / (B + 1)` convention (matching
+  R's `MR-PRESSO` package).  Downstream effect: reported p-values are
+  now always strictly positive and in `[1/(B+1), 1]`, which prevents
+  log-transforms and sensitivity analyses from silently producing
+  `-inf`.  Regression guard in
+  `tests/test_correctness_v150.py::TestMRPressoMCPvalueConvention`.
+
+### Fixed — dead code
+
+- **`sp.network_exposure._ht_estimate`** contained a dimensionally
+  inconsistent `var = ...` expression that was immediately overwritten
+  by the conservative Aronow-Samii Theorem 1 bound `var_as = ...`.  The
+  dead line is removed; the reported SE is unchanged.
+
+### Fixed — registry coverage
+
+Five previously-exposed-but-unregistered family functions now surface
+in `sp.list_functions()` and have agent-readable schemas via
+`sp.describe_function()`:
+
+- `sp.network_exposure` (Aronow-Samii HT)
+- `sp.peer_effects` (Bramoullé-Djebbari-Fortin 2SLS)
+- `sp.weighted_conformal_prediction` (TBCR 2019 primitive)
+- `sp.conformal_counterfactual` (Lei-Candès Theorem 1)
+- `sp.conformal_ite_interval` (Lei-Candès Eq. 3.4 nested bound)
+
+### No other API changes
+
+Every other public signature is byte-for-byte identical to v1.4.2.
+Existing user code keeps working; upgrades reveal slightly wider Egger
+CIs at small `n_snps` and strictly positive `mr_presso` p-values.
+
 ## [1.4.2] — 2026-04-21 — correctness patches + family guides
 
 Patch release.  No breaking changes; two silent-wrong-numbers bug

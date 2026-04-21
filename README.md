@@ -15,16 +15,27 @@ StatsPAI is the **agent-native** Python package for causal inference and applied
 
 It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 
-**🎉 NEW in v1.4.2 — correctness patches + Proximal / QTE / Causal-RL family guides**
+**🎉 NEW in v1.5.0 — Interference / Conformal / Mendelian family consolidation**
 
-StatsPAI 1.4.2 is a patch release.  No breaking changes, no new public signatures — just two silent-wrong-numbers fixes and three family guides closing the last gaps between the v3 reference and the published documentation.
+StatsPAI 1.5.0 is a minor release bundling three concurrent improvements to the interference, conformal causal inference, and Mendelian Randomization families: full-family documentation guides, unified dispatchers matching the `sp.synth` / `sp.decompose` / `sp.dml` pattern, and a targeted correctness audit that fixed two silent-wrong-numbers issues.
+
+- **Three new family guides** — `docs/guides/interference_family.md` (complete walkthrough of `sp.spillover`, `sp.network_exposure`, `sp.peer_effects`, `sp.network_hte`, `sp.inward_outward_spillover`, `sp.cluster_matched_pair`, `sp.cluster_cross_interference`, `sp.cluster_staggered_rollout`, `sp.dnc_gnn_did` with decision tree + 5 diagnostics every interference analysis should report), `docs/guides/conformal_family.md` (all 10 conformal estimators organised around what the marginal-coverage guarantee actually buys you), `docs/guides/mendelian_family.md` (all 17 MR functions structured around the IV1 / IV2 / IV3 assumption hierarchy + 4 sanity checks every MR analysis should report + a worked BMI → T2D example).
+- **Three new unified dispatchers** — `sp.mr(method=...)` (33 aliases covering IVW / Egger / median / mode / MVMR / mediation / BMA / PRESSO / radial / Steiger / F-stat / LOO / pleiotropy / heterogeneity), `sp.conformal(kind=...)` (29 aliases across CATE / counterfactual / ITE / density / multi-DP / debiased-ML / fair / continuous / interference), `sp.interference(design=...)` (29 aliases across partial / network-exposure / peer-effects / network-HTE / inward-outward / 4× cluster-RCT variants). Kwargs pass through unchanged; each dispatcher's output is byte-for-byte identical to the direct call (30 new tests guarantee this).
+- **⚠️ correctness fix — `sp.mr_egger` slope inference used Normal, not t(n−2).** The companion `sp.mr_pleiotropy_egger` correctly used `t(n−2)` for the Egger intercept p-value, but `mr_egger` itself used `stats.norm` for both the slope p-value and CI critical value. Anti-conservative at small `n_snps` — e.g. `n_snps = 5` and `t ≈ 1.5` gave `p = 0.134` instead of the correct `p = 0.231`. The fix switches both to `t(n − 2)`. For `n_snps ≥ ~100` the change is numerically invisible. Regression guard: `tests/test_correctness_v150.py::TestMREggerUsesTDistribution`.
+- **⚠️ correctness fix — `sp.mr_presso` MC p-value could equal 0.** Both the global test and the per-SNP outlier p-values used the raw `mean(null ≥ obs)` form, which collapses to `0.0` when the observed statistic exceeds every simulated null. An MC-estimated p-value cannot be zero — its true lower bound is `1 / (B + 1)`. Fix switches to the standard `(k + 1) / (B + 1)` convention (matching R's MR-PRESSO). Downstream effect: `log(p)` and sensitivity transforms no longer silently produce `-inf`. Regression guard: `tests/test_correctness_v150.py::TestMRPressoMCPvalueConvention`.
+- **⚠️ breaking — `sp.mr` is now a function, not a module alias.** Prior to v1.5.0 `sp.mr` was a module alias so `sp.mr.mr_ivw(...)` worked. v1.5.0 repurposes `sp.mr` as the new dispatcher. Migration: use the top-level `sp.mr_ivw(...)` (already exported in every prior version) or the new `sp.mr("ivw", ...)` dispatcher. Module access preserved under `sp.mendelian`. See [MIGRATION.md](MIGRATION.md#v14x--v150).
+- **Registry coverage fixes** — 5 previously-exposed-but-unregistered family functions now surface in `sp.list_functions()` and have agent-readable schemas via `sp.describe_function()`: `network_exposure`, `peer_effects`, `weighted_conformal_prediction`, `conformal_counterfactual`, `conformal_ite_interval`.
+
+Every public signature other than the `sp.mr` module-to-function change is byte-for-byte identical to v1.4.2.
+
+**Previously in v1.4.2 — correctness patches + Proximal / QTE / Causal-RL family guides**
+
+StatsPAI 1.4.2 was a patch release with two silent-wrong-numbers fixes and three family guides:
 
 - **⚠️ correctness fix — `sp.dml_model_averaging` √n SE scaling bug.** The cross-candidate variance aggregator treated the sample-mean influence-function outer product as `Var(θ̂_avg)` directly, missing a final `/ n`. Reported SEs were `√n` times too large; on the canonical n=400 DGP the 95% CI width was 4.20 (nominal ≈ 0.21) and empirical coverage was 100%. After the fix, CI width is 0.21 and coverage is ≈ nominal. Regression guard: `tests/test_dml_model_averaging.py::test_se_on_correct_scale`.
 - **⚠️ correctness fix — `sp.gardner_did` event-study reference-category contamination.** Stage-2 dummy regression pooled never-treated units *and* treated units outside the event-study horizon into a single baseline, dragging every event-time coefficient toward the mean of that pool. On a synthetic panel with true τ=2 and strict parallel trends, pre-trends came out ≈ -0.30 (should be 0) and post ≈ +1.72 (should be 2.0). Replaced the Stage-2 regression in event-study mode with direct Borusyak-Jaravel-Spiess-style within-(cohort × relative-time) averaging of the imputed gap. After the fix: pre-trends ≈ +0.01, post ≈ +2.02. Non-event-study single-ATT path was already correct and is unchanged.
-- **New family guides** — `docs/guides/proximal_family.md` (full Proximal Causal Inference walkthrough covering `sp.proximal`, `sp.fortified_pci`, `sp.bidirectional_pci`, `sp.pci_mtp`, `sp.double_negative_control`, `sp.proximal_surrogate_index`, `sp.select_pci_proxies` with a decision tree + 4 diagnostics every PCI analysis should report), `docs/guides/qte_family.md` (mean → quantile → distribution with cross-section / DiD / IV / panel decision paths across `sp.qte`, `sp.qdid`, `sp.cic`, `sp.distributional_te`, `sp.dist_iv`, `sp.kan_dlate`, `sp.beyond_average_late`, `sp.qte_hd_panel`), `docs/guides/causal_rl_family.md` (when to use causal RL vs classical CI, covering `sp.causal_bandit`, `sp.causal_dqn`, `sp.offline_safe_policy`, `sp.counterfactual_policy_optimization`, `sp.structural_mdp`, `sp.causal_rl_benchmark` + 4 causal-RL-specific sanity checks).
+- **Family guides** — `docs/guides/proximal_family.md` (full Proximal Causal Inference walkthrough), `docs/guides/qte_family.md` (mean → quantile → distribution), `docs/guides/causal_rl_family.md` (causal RL vs classical CI).
 - **Formally shipped from v1.4.1 cherry-picks** — `tests/test_bridge_full.py` (10 end-to-end tests for `sp.bridge(kind=...)` bridging theorems) and `docs/guides/bridging_theorems.md`.
-
-Every public signature is byte-for-byte identical to v1.4.1.  Upgrading reveals narrower CIs for `dml_model_averaging` and cleaner event-study coefficients for `gardner_did`.
 
 **Previously in v1.4.1 — v3-frontier Sprint 3: AKM shock-clustered SE, Claude extended thinking, parity + integration suites, 2 new guides**
 
@@ -992,7 +1003,7 @@ pytest
   author={Wang, Biaoyue},
   year={2026},
   url={https://github.com/brycewang-stanford/statspai},
-  version={1.4.2}
+  version={1.5.0}
 }
 ```
 

@@ -36,6 +36,9 @@ from .extended import (
     ContinuousConformalResult, InterferenceConformalResult,
 )
 
+# v1.5 unified dispatcher
+from .dispatcher import conformal, available_kinds as conformal_available_kinds
+
 __all__ = [
     'conformal_cate', 'ConformalCATE',
     'weighted_conformal_prediction',
@@ -47,4 +50,6 @@ __all__ = [
     'conformal_fair_ite', 'FairConformalResult',
     'conformal_continuous', 'conformal_interference',
     'ContinuousConformalResult', 'InterferenceConformalResult',
+    # v1.5 dispatcher
+    'conformal', 'conformal_available_kinds',
 ]

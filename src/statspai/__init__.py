@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "1.4.2"
+__version__ = "1.5.0"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -218,6 +218,7 @@ from .conformal_causal import (
     conformal_fair_ite, FairConformalResult,
     conformal_continuous, conformal_interference,
     ContinuousConformalResult, InterferenceConformalResult,
+    conformal, conformal_available_kinds,
 )
 from .bcf import (
     bcf, BayesianCausalForest, bcf_longitudinal, BCFLongResult,
@@ -238,6 +239,7 @@ from .interference import (
     cluster_cross_interference, CrossClusterRCTResult,
     cluster_staggered_rollout, StaggeredClusterRCTResult,
     dnc_gnn_did, DNCGNNDiDResult,
+    interference, interference_available_designs,
 )
 from .dtr import g_estimation, GEstimation, q_learning, QLearningResult, a_learning, ALearningResult, snmm, SNMMResult
 from .multi_treatment import multi_treatment, MultiTreatment
@@ -456,8 +458,10 @@ from .experimental import randomize, RandomizationResult, balance_check, Balance
 # Missing Data / Imputation
 from .imputation import mice, MICEResult, mi_estimate
 # Mendelian Randomization
+# NOTE: v1.5 replaces the `sp.mr` module alias with a dispatcher
+# function `sp.mr(method=..., ...)` mirroring sp.synth / sp.decompose /
+# sp.dml.  Use `sp.mendelian` for module-level access.
 from . import mendelian
-from . import mendelian as mr   # short alias
 from .mendelian import (
     mendelian_randomization, MRResult,
     mr_egger, mr_ivw, mr_median,
@@ -469,6 +473,8 @@ from .mendelian import (
     ModeBasedResult, FStatisticResult,
     mr_multivariable, mr_mediation, mr_bma,
     MVMRResult, MediationMRResult, MRBMAResult,
+    # v1.5 unified dispatcher (replaces the `sp.mr` module alias)
+    mr, mr_available_methods,
 )
 # Expose recommend_estimator at top level too
 from .dag import recommend_estimator as dag_recommend_estimator
@@ -1288,6 +1294,17 @@ __all__ = [
     # Bunching frontier
     "general_bunching", "GeneralBunchingResult",
     "kink_unified", "KinkUnifiedResult",
+    # v1.5 unified family dispatchers
+    "mr", "mr_available_methods",
+    "conformal", "conformal_available_kinds",
+    "interference", "interference_available_designs",
+    # v1.5 registry coverage fixes for previously-exposed-but-unregistered
+    # single-family functions (now reachable via sp.describe_function too)
+    "network_exposure", "NetworkExposureResult",
+    "peer_effects", "PeerEffectsResult",
+    "weighted_conformal_prediction",
+    "conformal_counterfactual", "ConformalCounterfactualResult",
+    "conformal_ite_interval", "ConformalITEResult",
 ]
 
 

@@ -80,7 +80,7 @@ class TestIVWBalancedPleiotropy:
 
     def test_ivw_recovers_truth(self):
         bx, by, se_x, se_y = _simulate_mr_twosample(seed=0)
-        r = sp.mr.mr_ivw(bx, by, se_x, se_y)
+        r = sp.mr_ivw(bx, by, se_x, se_y)
         truth = 0.30
         est = _estimate(r); se = _se(r)
         assert abs(est - truth) <= 4 * se, (
@@ -89,7 +89,7 @@ class TestIVWBalancedPleiotropy:
 
     def test_egger_intercept_near_zero_when_balanced(self):
         bx, by, se_x, se_y = _simulate_mr_twosample(seed=0)
-        r = sp.mr.mr_egger(bx, by, se_x, se_y)
+        r = sp.mr_egger(bx, by, se_x, se_y)
         intercept = r["intercept"]
         int_se = r["intercept_se"]
         assert abs(intercept) <= 3 * int_se, (
@@ -103,7 +103,7 @@ class TestMREggerDirectionalPleiotropy:
         bx, by, se_x, se_y = _simulate_mr_twosample(
             seed=1, pleiotropy_mean=0.04, pleiotropy_sd=0.003,
         )
-        r = sp.mr.mr_egger(bx, by, se_x, se_y)
+        r = sp.mr_egger(bx, by, se_x, se_y)
         intercept = r["intercept"]
         assert intercept > 0.01, (
             f"Egger intercept failed to detect +0.04 pleiotropic shift: {intercept}"
@@ -123,7 +123,7 @@ class TestWeightedMedianRobust:
         n_bad = int(0.3 * len(bx))
         by = by.copy()
         by[:n_bad] += 0.20
-        r = sp.mr.mr_median(bx, by, se_x, se_y, n_boot=200, seed=0)
+        r = sp.mr_median(bx, by, se_x, se_y, n_boot=200, seed=0)
         assert abs(r["estimate"] - 0.30) < 0.15, (
             f"Median broke on 30% outliers: {r['estimate']:.3f}"
         )
@@ -135,7 +135,7 @@ class TestMRPressoOutlierFlag:
         bx, by, se_x, se_y = _simulate_mr_twosample(seed=4)
         by = by.copy()
         by[0] += 0.5
-        r = sp.mr.mr_presso(bx, by, se_x, se_y, n_boot=100, seed=0)
+        r = sp.mr_presso(bx, by, se_x, se_y, n_boot=100, seed=0)
         outliers = list(getattr(r, "outliers", []) or [])
         # Either SNP 0 is flagged, or the corrected estimate moves closer to truth.
         corrected = float(getattr(r, "outlier_corrected_estimate", r.raw_estimate))
@@ -154,8 +154,8 @@ class TestLeaveOneOut:
 
     def test_loo_stable(self):
         bx, by, se_x, se_y = _simulate_mr_twosample(seed=5, pleiotropy_sd=0.002)
-        ivw_full = sp.mr.mr_ivw(bx, by, se_x, se_y)
-        loo = sp.mr.mr_leave_one_out(bx, by, se_y)
+        ivw_full = sp.mr_ivw(bx, by, se_x, se_y)
+        loo = sp.mr_leave_one_out(bx, by, se_y)
         table = getattr(loo, "table", None)
         if table is None:
             table = getattr(loo, "results", None)
@@ -187,7 +187,7 @@ class TestMRRadialBetaSNP:
 
     def test_radial_beta_matches_ratio(self):
         bx, by, se_x, se_y = _simulate_mr_twosample(seed=9)
-        r = sp.mr.mr_radial(bx, by, se_y)
+        r = sp.mr_radial(bx, by, se_y)
         table = getattr(r, "table", None)
         if table is None:
             table = getattr(r, "results", None)

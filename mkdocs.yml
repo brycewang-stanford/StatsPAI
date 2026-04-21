@@ -71,6 +71,9 @@ nav:
       - "Family guide: Proximal causal inference (fortified / bidirectional / MTP / DNC / surrogate-PCI)": guides/proximal_family.md
       - "Family guide: Quantile & distributional treatment effects (QTE / dist-IV / beyond-avg LATE / HD panel)": guides/qte_family.md
       - "Family guide: Causal reinforcement learning (bandit / DQN / offline-safe / OPE)": guides/causal_rl_family.md
+      - "Family guide: Interference & spillover (partial / network / cluster-RCT / HTE)": guides/interference_family.md
+      - "Family guide: Conformal causal inference (CATE / ITE / density / debiased-ML / fair / dose-response / cluster)": guides/conformal_family.md
+      - "Family guide: Mendelian Randomization (IVW / Egger / median / mode / MR-PRESSO / MVMR / BMA)": guides/mendelian_family.md
   - Reference:
       - "Overview": reference/index.md
       - "Difference-in-differences": reference/did.md
