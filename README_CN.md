@@ -9,25 +9,23 @@
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
 [![status](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332/status.svg)](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332)
 
-StatsPAI 是一个**面向 AI Agent** 的 Python 因果推断与应用计量经济学工具包。一个 `import`，**550+ 个函数**，覆盖从经典计量经济学到前沿 ML/AI 因果推断方法，再到论文级 Word、Excel、LaTeX 输出表格的完整实证研究流程。
+StatsPAI 是一个**面向 AI Agent** 的 Python 因果推断与应用计量经济学工具包。一个 `import`，**800+ 个函数**，覆盖从经典计量经济学到前沿 ML/AI 因果推断方法，再到论文级 Word、Excel、LaTeX 输出表格的完整实证研究流程。
 
 **为 AI Agent 而生**：每个函数都返回结构化结果对象，附带自描述 schema（`list_functions()`、`describe_function()`、`function_schema()`），使 StatsPAI 成为首个专为 LLM 驱动的研究流程设计的计量工具包——同时对人类研究者也完全友好。
 
 它将 R 的 [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html)（fixest、did、rdrobust、gsynth、DoubleML、MatchIt、CausalImpact、sfaR、lme4、oaxaca、ddecompose……）和 Stata 的核心计量命令（`frontier`、`xtfrontier`、`mixed`、`meglm`、`mixlogit`、`ivqreg`……），统一到一个一致的 Python API 中。
 
-**🎉 v0.9.3 新功能 — 计量经济学大升级：随机前沿 + 混合效应 + GLMM 硬化 + 三大因果新支柱**
+**🎉 v1.0.1 新版本 — 正式稳定版：研究前沿 capstone + 独立代码审查正确性修复**
 
-四项同时进行的深度重写，外加作者署名更正。**⚠️ 关键正确性修复**：`sp.frontier` 所有旧版本（≤ 0.9.2）存在 Jondrow 后验符号错误，导致效率分数系统性偏误；`dist='exponential'` 路径还会返回 NaN。**请重新估计此前任何前沿分析结果**。
+StatsPAI 1.0 是三年研发的 capstone 版本。语义化版本号从这里开始：公开 API 是 `statspai.__all__` 在此 tag 时点的符号集合。**独立 code-review-expert 审查发现的全部 Critical / High / Medium 问题已全部修复并由回归测试锁死**，包括 Katz RR 标准误、逆方差加权 Cochran Q、PCMCI Fisher-z 有效样本量、cluster-robust 队列锚定 DiD、TMLE regime-offset、真正的 HDR 条件密度 conformal、基于 IPW 的 EWM bridge、MVMR 条件 F 统计量、BCF 点估计/CI 对齐、fair-conformal 小群 fallback 以及 LLM prompt 注入清洗。v1.0.1 额外关闭了两项 `NEEDS_VERIFICATION` 标记的遗留项（Abadie κ-加权 complier QTE 与真正的对偶路径 PCI bridge）。
 
-| 模块 | 亮点 |
+| 模块 | v1.0 亮点 |
 | --- | --- |
-| **随机前沿** (`sp.frontier` / `sp.xtfrontier`) | Stata/R 对标并超越：异方差 `usigma` / `vsigma` / `emean`、Battese-Coelli (1988) TE、LR 混合-χ̄² 检验、bootstrap 单位效率 CI。面板：Pitt-Lee、BC92、BC95、Greene (2005) TFE/TRE + Dhaene-Jochmans (2015) jackknife 纠偏。`vce='opg' / 'robust' / 'cluster' / 'bootstrap'`、元前沿、条件 `predict()`、规模报酬。**新增：** `sp.zisf`（零无效率 SFA）、`sp.lcsf`（潜在类 SFA）、`sp.malmquist`（Malmquist TFP 指数，M = EC × TC）、`sp.translog_design`（translog 设计矩阵助手）。 |
-| **多层/混合效应** (`sp.multilevel`) | lme4/Stata `mixed` 对标：随机效应协方差非约束（新默认）、三层嵌套模型、BLUP 后验 SE、Nakagawa-Schielzeth R²。**新增：** `sp.melogit` / `sp.mepoisson` / `sp.meglm`（Laplace GLMM）、`sp.icc`（delta 法 CI）、`sp.lrtest`（Self-Liang χ̄² 边界校正）。 |
-| **GLMM 硬化**（AGHQ + 3 个新族） | 自适应高斯-埃尔米特积分，新增 `nAGQ` 参数：`nAGQ=1` 严格退化到 Laplace（1e-10 验证），`nAGQ>1` 在小簇二元结局下匹配 Stata `intpoints(7)` / R `lme4::glmer(nAGQ=7)` 精度。**新家族：** `sp.megamma`（Gamma GLMM，ML 估计离散度）、`sp.menbreg`（负二项 NB-2，α → 0 时退化到 Poisson）、`sp.meologit`（随机效应有序 logit，K−1 阈值重参数化保证严格排序）。跨族 AIC 可比：Poisson/Binomial 似然包含完整规范化常数，`mepoisson` vs `menbreg` AIC 比较不再有偏。 |
-| **计量三大新支柱**（P0） | **`sp.dml(model='pliv')`** — DML 部分线性 IV（Chernozhukov et al. 2018），交叉拟合 nuisance。**`sp.mixlogit`** — 随机系数多项 logit，Halton 模拟 ML（Python 首个完整实现）。**`sp.ivqreg`** — Chernozhukov-Hansen 工具变量分位数回归，inverse-QR profile。 |
-| **智能工作流** | **`sp.verify`** / **`sp.verify_benchmark`** — `sp.recommend()` 输出的后验验证引擎：聚合 bootstrap 稳定性 + 安慰剂通过率 + 子样本一致性，输出 `verify_score ∈ [0, 100]`。通过 `recommend(verify=True)` 开启。 |
-
-**先前版本亮点：** v0.9.2 分解分析（`sp.decompose` 18 方法统一入口）；v0.9.1 断点回归（18+ 估计量，14 模块）；v0.9.0 合成控制（20 估计量 + 6 推断策略 + 完整研究工作流）；v0.8.0 空间计量全栈（38 API 符号）。详见 [CHANGELOG](CHANGELOG.md)。
+| **三派融合** (v0.9.17 → v1.0) | `sp.epi`（OR / RR / Mantel-Haenszel / 标准化 / Bradford-Hill / ROC / kappa）、`sp.longitudinal`（MSM / g-formula / IPW 统一调度 + 安全 regime DSL）、`sp.question`（estimand-first `causal_question()` DSL，`identify → estimate → report` 三段式）、MR 全家桶（`mr_presso`、`mr_steiger`、`mr_radial`、`mr_mode`、`mr_f_statistic`、`mr_multivariable`、`mr_mediation`、`mr_bma`）、DAG `recommend_estimator()`、统一 `result.sensitivity()`、`preregister()` / `load_preregister()` 预注册。 |
+| **研究前沿 capstone** (v1.0) | **`sp.bridge`**（6 个 bridging theorem：DiD≡SC、EWM≡CATE、CB≡IPW、KinkRDD、DR-calib、Surrogate≡PCI）。**`sp.fairness`**（Kusner 反事实公平性 + demographic-parity / eq-odds / 审计）。**`sp.surrogate`**（Athey-Chetty 代理指数 + Ghassami 2024 + Imbens-Kallus-Mao 2026）。**时序因果发现**（`pcmci`、`lpcmci`、`dynotears`）。**conformal 前沿**（debiased / density-HDR / fair / multi-DP）。**proximal 前沿**（fortified / bidirectional / MTP / proxy selection）。**Sequential SDID**、**BCF 纵向**、**LTMLE 生存**、**ML bounds**。 |
+| **Target Trial Emulation flagship** | JAMA 2022 7-component protocol + **JAMA/BMJ 2025 TARGET Statement 21-item 报告清单**从 protocol+result 自动填充。`target_trial_report(result, fmt='markdown'/'latex'/'target')` 生成 STROBE 合规的论文 Methods + Results 段落。 |
+| **Agent-native 平台** | `sp.list_functions()` / `sp.describe_function()` / `sp.function_schema()` 为 785+ 个已注册的估计量提供 OpenAI/Anthropic tool-calling schema。`sp.agent.mcp_server` 提供 MCP 服务器脚手架，外部 LLM 可通过自然语言工具调用每个 StatsPAI 函数。 |
+| **独立审查透明度** | 3 Critical + 5 High + 6 Medium + 2 Low 全部记录并在 v1.0.0 + v1.0.1 commits 中闭环。**2 706+ 测试全部通过，已有测试零回归**。所有正确性修复均由 `tests/test_v100_review_fixes.py` 与 `tests/test_v101_verified_fixes.py` pinning 回归测试锁死。 |
 
 **v0.6 新功能**：`sp.interactive(fig)` —— 类似 Stata Graph Editor 的 WYSIWYG 图表编辑器，支持 29 种学术主题、实时预览、自动生成可复现代码。
 
@@ -364,7 +362,7 @@ pytest
   author={Wang, Biaoyue},
   year={2026},
   url={https://github.com/brycewang-stanford/statspai},
-  version={0.9.3}
+  version={1.0.1}
 }
 ```
 

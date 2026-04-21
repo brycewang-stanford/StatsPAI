@@ -1,19 +1,22 @@
 # StatsPAI
 
 **The agent-native Python toolkit for causal inference and applied
-econometrics.** One `import statspai as sp` exposes **550+ functions**
-spanning classical regression, ten+ DID variants, eighteen+ regression-
-discontinuity estimators, twenty synthetic-control estimators, eighteen
-decomposition methods, stochastic frontier analysis, multilevel/mixed-
-effects models, modern ML causal inference, and publication-ready
-output in Word / Excel / LaTeX / HTML.
+econometrics.** One `import statspai as sp` exposes **800+ functions**
+spanning classical regression, staggered DiD, regression discontinuity,
+synthetic control, decomposition, stochastic frontier, multilevel /
+mixed-effects, modern ML causal inference, the full three-school
+(Econometrics / Epidemiology / ML) toolkit, 2025-2026 research-frontier
+modules (bridging theorems, fairness, surrogates, PCMCI, TMLE survival,
+etc.), and publication-ready output in Word / Excel / LaTeX / HTML.
 
-> **Current release: v0.9.3 (2026-04-19)** — Stochastic Frontier +
-> Multilevel + GLMM + Econometric Trinity. **⚠️ Critical correctness
-> fix** in `sp.frontier`: all prior versions ($\leq 0.9.2$) carried a
-> Jondrow-posterior sign error that biased efficiency scores and caused
-> the exponential path to return NaN. **Re-run any prior frontier
-> analyses.** See the [changelog](changelog.md) for full detail.
+> **Current release: v1.0.1 (2026-04-21)** — Stable API release:
+> research-frontier capstone + independent code-review correctness
+> pass. Semantic versioning starts here. Every Critical / High / Medium
+> finding from the independent code-review-expert audit of the v1.0
+> frontier modules has been fixed and pinned by regression tests, and
+> both `NEEDS_VERIFICATION` items (Abadie κ-weighted complier QTE +
+> real dual-path PCI bridge) are now closed. **2 706+ tests passing,
+> zero regressions.** See the [changelog](changelog.md) for detail.
 
 ```python
 import statspai as sp
@@ -26,14 +29,17 @@ rpt = sp.cs_report(data, y='y', g='g', t='t', i='id',
 
 ## What's inside
 
-### Release highlights (v0.9.0 → v0.9.3)
+### Release highlights (v0.9.17 → v1.0.1)
 
 | Release | Focus | Headline |
 | --- | --- | --- |
-| **v0.9.3** | Frontier + Multilevel + GLMM + Trinity | `sp.frontier` / `sp.xtfrontier` full Stata/R parity; `sp.zisf`, `sp.lcsf`, `sp.malmquist`; `sp.mixed` lme4-grade with unstructured G, 3-level nested, BLUP SEs; GLMMs (`melogit`/`mepoisson`/`meglm`/`megamma`/`menbreg`/`meologit`) with AGHQ (`nAGQ>1`); `sp.dml(model='pliv')`, `sp.mixlogit`, `sp.ivqreg`; `sp.verify` posterior verification. |
-| **v0.9.2** | Decomposition | 18 methods under `sp.decompose(method=...)` — Oaxaca/Gelbach/Fairlie/FFL/DFL/Machado-Mata/Melly/CFM/Theil/Atkinson/Dagum/Shapley/Kitagawa/Das-Gupta/gap-closing/mediation/disparity. |
-| **v0.9.1** | Regression discontinuity | 18+ estimators across 14 modules — CCT sharp/fuzzy/kink, `rd2d`, RDIT, multi-cutoff, honest CIs, local randomization, CJM density tests, `rd_forest`/`rd_boost`/`rd_lasso`, Angrist-Rokkanen, `rdpower`/`rdsampsi`. |
-| **v0.9.0** | Synthetic control | 20 SCM estimators + 6 inference strategies — SCM, SDID, ASCM, Bayesian SCM, BSTS/CausalImpact, PenSCM, Forward-DID, cluster, sparse, kernel, `synth_compare` / `synth_recommend` / `synth_power` / `synth_sensitivity`. |
+| **v1.0.1** | Post-review correctness + NEEDS_VERIFICATION closeout | All Critical / High / Medium findings from the independent code-review-expert pass on v1.0 frontier modules fixed and pinned by regression tests. Abadie κ-weighted complier QTE now implemented for `beyond_average_late`; `bridge.surrogate_pci` path B now a genuine dual-path (arm-specific counterfactual bridge), not OLS-tautology. 2 706+ tests passing. |
+| **v1.0.0** | Research-frontier capstone | `sp.bridge` (6 bridging theorems), `sp.fairness`, `sp.surrogate`, `mr_multivariable`/`mr_mediation`/`mr_bma`, PCMCI/LPCMCI/DYNOTEARS, conformal frontiers (debiased/density/fair/multi-DP), proximal frontiers, sequential SDID, BCF longitudinal, LTMLE survival, ML bounds, JAMA/BMJ 2025 TARGET Statement 21-item reporting checklist. |
+| **v0.9.17** | Three-school completion | `sp.epi` (OR/RR/MH/standardization/Bradford-Hill/ROC/kappa), `sp.longitudinal` (MSM/g-formula/IPW unified + safe regime DSL), `sp.question` (estimand-first DSL), full MR diagnostic suite, DAG `recommend_estimator()`, unified `result.sensitivity()`, `preregister()` + `load_preregister()`. |
+| **v0.9.3** | Frontier + Multilevel + GLMM + Trinity | `sp.frontier` / `sp.xtfrontier` full Stata/R parity; `sp.zisf`, `sp.lcsf`, `sp.malmquist`; `sp.mixed` lme4-grade; GLMMs with AGHQ; `sp.dml(model='pliv')`, `sp.mixlogit`, `sp.ivqreg`; `sp.verify` posterior verification. |
+| **v0.9.2** | Decomposition | 18 methods under `sp.decompose(method=...)`. |
+| **v0.9.1** | Regression discontinuity | 18+ estimators across 14 modules. |
+| **v0.9.0** | Synthetic control | 20 SCM estimators + 6 inference strategies. |
 
 ### Methodological coverage
 
@@ -154,7 +160,7 @@ method that returns the correct BibTeX entry) and this package:
   title   = {StatsPAI: A Unified, Agent-Native Python Toolkit for
              Causal Inference and Applied Econometrics},
   year    = {2026},
-  version = {0.9.3},
+  version = {1.0.1},
   url     = {https://github.com/brycewang-stanford/StatsPAI}
 }
 ```

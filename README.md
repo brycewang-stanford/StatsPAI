@@ -9,25 +9,23 @@
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
 [![status](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332/status.svg)](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332)
 
-StatsPAI is the **agent-native** Python package for causal inference and applied econometrics. One `import`, **550+ functions**, covering the complete empirical research workflow — from classical econometrics to cutting-edge ML/AI causal methods to publication-ready tables in Word, Excel, and LaTeX.
+StatsPAI is the **agent-native** Python package for causal inference and applied econometrics. One `import`, **800+ functions**, covering the complete empirical research workflow — from classical econometrics to cutting-edge ML/AI causal methods to publication-ready tables in Word, Excel, and LaTeX.
 
 **Designed for AI agents**: every function returns structured result objects with self-describing schemas (`list_functions()`, `describe_function()`, `function_schema()`), making StatsPAI the first econometrics toolkit purpose-built for LLM-driven research workflows — while remaining fully ergonomic for human researchers.
 
 It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 
-**🎉 NEW in v0.9.3 — Econometric Overhaul: Stochastic Frontier + Mixed Models + GLMM Hardening + 3 New Causal Pillars**
+**🎉 NEW in v1.0.1 — Stable API release: research-frontier capstone + independent-review correctness pass**
 
-Four simultaneous deep overhauls plus author-attribution correction. **⚠️ Critical correctness fix** in `sp.frontier`: a latent Jondrow posterior sign error in all prior versions produced systematically biased efficiency scores; the `dist='exponential'` path additionally returned NaN for unit efficiency. **Re-run any prior frontier analyses.**
+StatsPAI 1.0 is the capstone of three years of development. Semantic-versioning starts here: the public API is the set of names in `statspai.__all__` as of this tag. **Every Critical / High / Medium finding from the independent code-review-expert pass has been fixed and pinned by regression tests** — including the Katz RR SE, inverse-variance Cochran Q, PCMCI Fisher-z effective-sample-size, cluster-robust cohort-anchored DiD, TMLE regime-offset, real HDR conformal density, IPW-based EWM bridge, MVMR conditional F, BCF point/CI alignment, conformal-fair small-group fallback, and the LLM-prompt sanitization. v1.0.1 additionally closes the two `NEEDS_VERIFICATION` items with paper-grounded implementations (Abadie κ-weighted complier QTE and a real dual-path PCI bridge).
 
-| Area | Highlights |
+| Area | v1.0 Highlights |
 | --- | --- |
-| **Stochastic Frontier** (`sp.frontier` / `sp.xtfrontier`) | Stata/R parity + more: heteroskedastic `usigma` / `vsigma` / `emean`, Battese-Coelli (1988) TE, LR mixed-χ̄² test, bootstrap unit-efficiency CIs. Panel: Pitt-Lee, BC92, BC95, Greene (2005) TFE/TRE with Dhaene-Jochmans (2015) jackknife bias correction. `vce='opg' / 'robust' / 'cluster' / 'bootstrap'`, metafrontier, conditional `predict()`, RTS. **New:** `sp.zisf` (Zero-Inefficiency SFA), `sp.lcsf` (Latent-Class SFA), `sp.malmquist` (Malmquist TFP index, M = EC × TC), `sp.translog_design` (translog helper). |
-| **Multilevel / Mixed-Effects** (`sp.multilevel`) | lme4/Stata `mixed` parity: unstructured random-effect covariance (new default), three-level nested models, BLUP posterior SEs, Nakagawa-Schielzeth R². **New:** `sp.melogit` / `sp.mepoisson` / `sp.meglm` (Laplace GLMMs), `sp.icc` (delta-method CI), `sp.lrtest` (Self-Liang χ̄² boundary correction). |
-| **GLMM hardening** (AGHQ + 3 new families) | Adaptive Gauss-Hermite quadrature via new `nAGQ` argument — `nAGQ=1` reduces exactly to Laplace (verified 1e-10), `nAGQ>1` matches Stata `intpoints(7)` / R `lme4::glmer(nAGQ=7)` accuracy on small clusters. **New families:** `sp.megamma` (Gamma GLMM with ML-estimated dispersion), `sp.menbreg` (Negative Binomial NB-2, reduces to Poisson as α → 0), `sp.meologit` (random-effects ordinal logit, Stata `meologit` / R `ordinal::clmm`). Cross-family AIC comparability: Poisson/Binomial log-likelihoods now include full normalisation constants so `mepoisson` vs `menbreg` AIC is unbiased. |
-| **Econometric Trinity** (P0 Pillars) | **`sp.dml(model='pliv')`** — DML Partially Linear IV (Chernozhukov et al. 2018) with cross-fitted nuisances. **`sp.mixlogit`** — Random-coefficient MNL via simulated ML with Halton draws (Python's first full implementation). **`sp.ivqreg`** — Chernozhukov-Hansen IV quantile regression via inverse-QR profile. |
-| **Smart workflow** | **`sp.verify`** / **`sp.verify_benchmark`** — posterior verification engine for `sp.recommend()` outputs. Aggregates bootstrap stability + placebo pass rate + subsample agreement into a `verify_score ∈ [0, 100]`. Opt-in via `recommend(verify=True)`. |
-
-Multilevel, frontier, and econ-trinity passed independent oracle + code-reviewer audits (multilevel: 4 BLOCKER + 5 HIGH fixed; econ-trinity: 4 BLOCKER + 7 HIGH fixed; frontier: self-audit fixed Mills-tail, TVD-loop, cost-panel, summary-dump). Author attribution corrected to **Biaoyue Wang**.
+| **Three-school completion** (v0.9.17 → v1.0) | `sp.epi` (OR / RR / Mantel-Haenszel / standardization / Bradford-Hill / ROC / kappa), `sp.longitudinal` (unified MSM / g-formula / IPW dispatcher + safe regime DSL), `sp.question` (estimand-first `causal_question()` DSL with `identify → estimate → report`), full MR suite (`mr_presso`, `mr_steiger`, `mr_radial`, `mr_mode`, `mr_f_statistic`, `mr_multivariable`, `mr_mediation`, `mr_bma`), DAG `recommend_estimator()`, unified `result.sensitivity()`, `preregister()` / `load_preregister()`. |
+| **Research-frontier capstone** (v1.0) | **`sp.bridge`** (6 bridging theorems: DiD≡SC, EWM≡CATE, CB≡IPW, KinkRDD, DR-calib, Surrogate≡PCI). **`sp.fairness`** (Kusner counterfactual fairness + demographic-parity / eq-odds / audit). **`sp.surrogate`** (Athey-Chetty surrogate index + Ghassami 2024 + Imbens-Kallus-Mao 2026). **Time-series causal discovery** (`pcmci`, `lpcmci`, `dynotears`). **Conformal frontiers** (debiased / density-HDR / fair / multi-DP). **Proximal frontiers** (fortified / bidirectional / MTP / proxy selection). **Sequential SDID**, **BCF longitudinal**, **LTMLE survival**, **ML bounds**. |
+| **Target Trial Emulation flagship** | JAMA 2022 7-component protocol + **JAMA/BMJ 2025 TARGET Statement 21-item reporting checklist** auto-filled from the protocol + result pair. `target_trial_report(result, fmt='markdown'/'latex'/'target')` renders a STROBE-compatible paper block. |
+| **Agent-native platform** | `sp.list_functions()` / `sp.describe_function()` / `sp.function_schema()` expose OpenAI/Anthropic tool-calling schemas for 785+ registered estimators. `sp.agent.mcp_server` ships a scaffold MCP server so external LLMs can call every StatsPAI function via natural-language tool invocation. |
+| **Independent review transparency** | 3 Critical + 5 High + 6 Medium + 2 Low findings from code-review-expert, documented and closed in the v1.0.0 + v1.0.1 commits. 2 706+ tests passing, zero regressions across the pre-existing suite. Pinning regression tests in `tests/test_v100_review_fixes.py` and `tests/test_v101_verified_fixes.py` lock every correctness fix. |
 
 **Previously in v0.9.2 — Decomposition Analysis**: **18 first-class decomposition methods across 13 modules (~6,200 LOC, 54 tests)**, unified under `sp.decompose(method=...)`. Mean (Blinder-Oaxaca/Gelbach/Fairlie/Bauer-Sinning/Yun), distributional (RIF/FFL/DFL/Machado-Mata/Melly/CFM), inequality (Theil/Atkinson/Dagum/Shapley/Lerman-Yitzhaki), demographic (Kitagawa/Das-Gupta), and causal (gap_closing/mediation_decompose/disparity_decompose). Closed-form influence functions for Theil/Atkinson, weighted O(n log n) Dagum Gini, cross-method consistency checks.
 
@@ -970,7 +968,7 @@ pytest
   author={Wang, Biaoyue},
   year={2026},
   url={https://github.com/brycewang-stanford/statspai},
-  version={0.9.3}
+  version={1.0.1}
 }
 ```
 
