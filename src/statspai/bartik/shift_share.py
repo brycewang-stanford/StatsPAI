@@ -16,6 +16,8 @@ Supports:
 """
 
 from typing import Optional, List, Dict, Any
+import warnings
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -31,6 +33,7 @@ def bartik(
     shocks: pd.Series,
     covariates: Optional[List[str]] = None,
     leave_one_out: bool = True,
+    regional_shocks: Optional[pd.DataFrame] = None,
     robust: str = 'hc1',
     alpha: float = 0.05,
 ) -> EconometricResults:
@@ -53,7 +56,23 @@ def bartik(
     covariates : list of str, optional
         Exogenous control variables.
     leave_one_out : bool, default True
-        Compute leave-one-out shocks (exclude own region from national average).
+        Compute leave-one-out shocks (exclude own region from national
+        average). Only takes effect when ``regional_shocks`` is also
+        supplied — without the per-region industry growth panel there
+        is not enough information to reconstruct ``g_k`` excluding
+        region ``i``. When ``leave_one_out=True`` but
+        ``regional_shocks`` is not provided, a ``UserWarning`` is
+        raised and the estimator falls back to the simple Bartik
+        instrument.
+    regional_shocks : pd.DataFrame, optional
+        Regional industry growth matrix (n_units x n_industries). Row
+        ``i``, column ``k`` is the realised growth of industry ``k``
+        in region ``i``. When provided with ``leave_one_out=True``,
+        the instrument uses
+        ``g_k^{-i} = (sum_j g_{jk} - g_{ik}) / (n - 1)`` (Borusyak-
+        Hull-Jaravel 2022-style exact leave-one-out). Row index must
+        align with ``shares``; columns must be a superset of
+        ``shocks.index``.
     robust : str, default 'hc1'
         Standard error type.
     alpha : float, default 0.05
@@ -74,6 +93,7 @@ def bartik(
     estimator = BartikIV(
         data=data, y=y, endog=endog, shares=shares, shocks=shocks,
         covariates=covariates, leave_one_out=leave_one_out,
+        regional_shocks=regional_shocks,
         robust=robust, alpha=alpha,
     )
     return estimator.fit()
@@ -93,6 +113,7 @@ class BartikIV:
         shocks: pd.Series,
         covariates: Optional[List[str]] = None,
         leave_one_out: bool = True,
+        regional_shocks: Optional[pd.DataFrame] = None,
         robust: str = 'hc1',
         alpha: float = 0.05,
     ):
@@ -103,6 +124,7 @@ class BartikIV:
         self.shocks = shocks
         self.covariates = covariates or []
         self.leave_one_out = leave_one_out
+        self.regional_shocks = regional_shocks
         self.robust = robust
         self.alpha = alpha
 
@@ -127,17 +149,66 @@ class BartikIV:
         self.shares = self.shares[common]
         self.shocks = self.shocks[common]
 
+        if self.regional_shocks is not None:
+            if self.regional_shocks.shape[0] != len(self.data):
+                raise ValueError(
+                    f"regional_shocks has {self.regional_shocks.shape[0]} "
+                    f"rows but data has {len(self.data)} rows"
+                )
+            missing = set(common) - set(self.regional_shocks.columns)
+            if missing:
+                raise ValueError(
+                    "regional_shocks is missing industries present in "
+                    f"shares/shocks: {sorted(missing)}"
+                )
+            self.regional_shocks = self.regional_shocks[common]
+
     def _construct_instrument(self) -> np.ndarray:
-        """Construct the Bartik instrument: B_i = sum_k(s_ik * g_k)."""
+        """Construct the Bartik instrument.
+
+        - ``B_i = sum_k s_ik * g_k`` (simple Bartik), or
+        - ``B_i = sum_k s_ik * g_k^{-i}`` (leave-one-out) when
+          ``leave_one_out=True`` and ``regional_shocks`` is provided,
+          where ``g_k^{-i} = (sum_j g_{jk} - g_{ik}) / (n - 1)`` is
+          the national industry growth rate computed excluding
+          region ``i`` (Borusyak-Hull-Jaravel 2022).
+
+        Silent-no-op guard: prior to v0.9.13 ``leave_one_out=True``
+        quietly fell through to simple Bartik because the LOO step
+        requires per-region industry growth data that the basic API
+        does not carry. We now warn loudly instead so users notice
+        the fallback.
+        """
         S = self.shares.values  # (n, K)
         g = self.shocks.values  # (K,)
 
-        if self.leave_one_out:
-            # TODO: proper leave-one-out requires additional data structure
-            # For now, use simple Bartik
-            pass
+        if not self.leave_one_out:
+            return S @ g  # (n,)
 
-        return S @ g  # (n,)
+        if self.regional_shocks is None:
+            warnings.warn(
+                "bartik(leave_one_out=True) requested but "
+                "`regional_shocks` was not supplied. Proper "
+                "leave-one-out requires per-region industry growth "
+                "(n_units x n_industries) to reconstruct g_k^{-i}. "
+                "Falling back to the simple Bartik instrument "
+                "B_i = sum_k s_ik * g_k; pass `regional_shocks=` or "
+                "set `leave_one_out=False` to silence this warning.",
+                UserWarning,
+                stacklevel=3,
+            )
+            return S @ g
+
+        G = self.regional_shocks.values.astype(float)  # (n, K)
+        n = G.shape[0]
+        if n < 2:
+            raise ValueError(
+                "leave-one-out requires at least 2 regions"
+            )
+        # g_k^{-i} = (col_sum_k - G[i,k]) / (n - 1)
+        col_sum = G.sum(axis=0, keepdims=True)        # (1, K)
+        g_loo = (col_sum - G) / (n - 1)                # (n, K)
+        return np.einsum('ij,ij->i', S, g_loo)         # (n,)
 
     def _rotemberg_weights(self, B, Y, X_endog, X_exog):
         """
