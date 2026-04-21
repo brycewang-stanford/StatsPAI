@@ -40,6 +40,7 @@ from .did import (
     ddd, callaway_santanna, sun_abraham,
     bacon_decomposition, honest_did, breakdown_m, event_study,
     did_analysis, DIDAnalysis, did_multiplegt, did_imputation, stacked_did, cic,
+    gardner_did, did_2stage,
     wooldridge_did, etwfe, etwfe_emfx, drdid, twfe_decomposition,
     did_bcf, cohort_anchored_event_study, design_robust_event_study,
     did_misclassified,
@@ -82,6 +83,10 @@ from .synth import (
     california_prop99,
 )
 from .synth.sequential_sdid import sequential_sdid, SequentialSDIDResult
+from .synth.experimental_design import (
+    synth_experimental_design,
+    SynthExperimentalDesignResult,
+)
 from .matching import (
     match, MatchEstimator, ebalance, balanceplot, psplot,
     propensity_score, overlap_plot, trimming, love_plot,
@@ -545,6 +550,8 @@ __all__ = [
     "did_multiplegt",
     "did_imputation",
     "stacked_did",
+    "gardner_did",
+    "did_2stage",
     "cic",
     "pretrends_test",
     "pretrends_power",
@@ -803,6 +810,10 @@ __all__ = [
     "sem",
     "sdm",
     "SpatialModel",
+    "spatial_did",
+    "SpatialDiDResult",
+    "spatial_iv",
+    "SpatialIVResult",
     # Meta-Learners (HTE)
     "metalearner",
     "SLearner",
@@ -1080,6 +1091,9 @@ __all__ = [
     "aft", "cox_frailty",
     # Causal discovery
     "lingam", "LiNGAMResult", "ges", "GESResult",
+    "fci", "FCIResult",
+    "notears", "NOTEARS",
+    "pc_algorithm", "PCAlgorithm",
     # Time series
     "arima", "ARIMAResult",
     "bvar", "BVARResult",

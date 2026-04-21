@@ -106,6 +106,12 @@ from .sensitivity import (
 # Sequential SDID (Arkhangelsky & Samkov 2024)
 from .sequential_sdid import sequential_sdid, SequentialSDIDResult
 
+# Experimental design via synthetic controls (Abadie & Zhao 2025/2026)
+from .experimental_design import (
+    synth_experimental_design,
+    SynthExperimentalDesignResult,
+)
+
 # SDID framework
 from .sdid import (
     sdid,
@@ -162,6 +168,9 @@ __all__ = [
     # Sequential SDID
     'sequential_sdid',
     'SequentialSDIDResult',
+    # Experimental design (Abadie-Zhao 2025/2026)
+    'synth_experimental_design',
+    'SynthExperimentalDesignResult',
     # SDID framework
     'sdid',
     'synthdid_estimate',

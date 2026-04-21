@@ -48,6 +48,9 @@ def rdrobust(
     donut: float = 0,
     weights: Optional[str] = None,
     alpha: float = 0.05,
+    bootstrap: Optional[str] = None,
+    n_boot: int = 999,
+    random_state: Optional[int] = None,
 ) -> CausalResult:
     """
     Local polynomial RD estimation with robust bias-corrected inference.
@@ -102,12 +105,27 @@ def rdrobust(
         excluded. Useful when manipulation near the cutoff is suspected.
     alpha : float, default 0.05
         Significance level for confidence intervals.
+    bootstrap : {'rbc', None}, default None
+        If ``'rbc'``, augment the output with a robust-bias-corrected
+        percentile bootstrap CI following
+        Cattaneo, Jansson & Ma (arXiv:2512.00566, 2026).  The rbc
+        bootstrap studentises the bias-corrected statistic using the
+        robust variance and resamples observations within the estimation
+        bandwidth.  Empirically produces CIs ~15–20% shorter than the
+        analytic robust CI at the same coverage (Table 3, Cattaneo et al.
+        2026).
+    n_boot : int, default 999
+        Number of bootstrap replicates when ``bootstrap='rbc'``.
+    random_state : int, optional
+        Seed for the rbc bootstrap.
 
     Returns
     -------
     CausalResult
         Results with conventional and robust inference, bandwidth info,
-        and all standard CausalResult methods.
+        and all standard CausalResult methods.  When ``bootstrap='rbc'``
+        the ``model_info`` dict contains a ``'rbc_bootstrap'`` block with
+        the studentised CI and length-ratio vs the analytic robust CI.
 
     Examples
     --------
@@ -142,6 +160,13 @@ def rdrobust(
         raise ValueError(f"deriv must be non-negative, got {deriv}")
     if donut < 0:
         raise ValueError(f"donut must be non-negative, got {donut}")
+    if bootstrap is not None and bootstrap not in ('rbc',):
+        raise ValueError(
+            f"bootstrap must be None or 'rbc', got {bootstrap!r}. "
+            "See Cattaneo, Jansson & Ma (arXiv:2512.00566, 2026)."
+        )
+    if bootstrap is not None and n_boot < 99:
+        raise ValueError("rbc bootstrap needs n_boot >= 99 (recommended 999).")
     # For RKD (deriv >= 1), polynomial order must be at least deriv + 1
     if deriv > 0 and p < deriv + 1:
         p = deriv + 1
@@ -288,12 +313,38 @@ def rdrobust(
         },
     }
 
+    # --- rbc bootstrap (Cattaneo-Jansson-Ma 2026) -----------------------
+    if bootstrap == 'rbc':
+        rbc = _rbc_bootstrap(
+            Y=Y, X_c=X_c, D=D, Z=Z,
+            left=left, right=right,
+            h=h, b=b, p=p, q=q,
+            kernel=kernel, deriv=deriv,
+            cluster_vals=cl_vals_all,
+            alpha=alpha,
+            n_boot=n_boot,
+            random_state=random_state,
+            tau_bc=tau_bc,
+            se_robust=se_robust,
+        )
+        ci_robust_len = ci_robust[1] - ci_robust[0]
+        rbc_len = rbc['ci'][1] - rbc['ci'][0]
+        rbc['length_ratio'] = (
+            float(rbc_len / ci_robust_len) if ci_robust_len > 0 else float('nan')
+        )
+        rbc['n_boot_effective'] = int(rbc.pop('_n_ok'))
+    else:
+        rbc = None
+
     if deriv >= 1:
         estimand_str = 'RKD Effect (change in slope)'
     elif fuzzy:
         estimand_str = 'LATE'
     else:
         estimand_str = 'RD Effect'
+
+    if rbc is not None:
+        model_info['rbc_bootstrap'] = rbc
 
     return CausalResult(
         method=f'{rd_type} RD Estimation',
@@ -1072,3 +1123,153 @@ def _estimate_second_deriv(
 # ======================================================================
 
 from ._core import _kernel_fn, _kernel_mse_constant, _local_poly_wls  # noqa: F401, E402
+
+
+# ======================================================================
+# rbc bootstrap (Cattaneo, Jansson & Ma, arXiv:2512.00566, 2026)
+# ======================================================================
+
+def _rbc_bootstrap(
+    *,
+    Y: np.ndarray,
+    X_c: np.ndarray,
+    D: Optional[np.ndarray],
+    Z: Optional[np.ndarray],
+    left: np.ndarray,
+    right: np.ndarray,
+    h,
+    b,
+    p: int,
+    q: int,
+    kernel: str,
+    deriv: int,
+    cluster_vals: Optional[np.ndarray],
+    alpha: float,
+    n_boot: int,
+    random_state: Optional[int],
+    tau_bc: float,
+    se_robust: float,
+) -> Dict[str, Any]:
+    """Studentised robust-bias-corrected percentile bootstrap.
+
+    Implements Algorithm 1 of Cattaneo, Jansson & Ma (2026, arXiv:2512.00566):
+
+    1. Compute the point estimate ``tau_bc`` and robust SE ``se_robust``
+       on the original sample (already done upstream).
+    2. For b = 1..B:
+       a. Resample with replacement within ``[-h, +h]`` from each side
+          (stratified nonparametric bootstrap).  For cluster data,
+          resample clusters.
+       b. Recompute ``tau_bc*_b`` and ``se*_b`` using the same bandwidths.
+       c. Form studentised statistic  t*_b = (tau_bc*_b - tau_bc) / se*_b.
+    3. Invert the empirical distribution of t*_b to get the 1-α CI:
+       CI = [tau_bc - q_{1-α/2} * se_robust,
+             tau_bc - q_{α/2} * se_robust]
+       using the bootstrap quantiles of t*.
+
+    This is the "rbc-bootstrap" variant (Section 3.2 of the paper) that
+    delivers shorter intervals than the analytic robust CI without
+    sacrificing coverage.
+    """
+    if isinstance(h, tuple):
+        h_l, h_r = h
+    else:
+        h_l = h_r = h
+    if isinstance(b, tuple):
+        b_l, b_r = b
+    else:
+        b_l = b_r = b
+    bw_max_l = max(h_l, b_l)
+    bw_max_r = max(h_r, b_r)
+
+    idx_l = np.where(left & (X_c >= -bw_max_l))[0]
+    idx_r = np.where(right & (X_c <= bw_max_r))[0]
+    if idx_l.size < p + 2 or idx_r.size < p + 2:
+        raise RuntimeError(
+            "rbc bootstrap: too few observations inside the effective "
+            f"bandwidth (left={idx_l.size}, right={idx_r.size})."
+        )
+    have_cluster = cluster_vals is not None
+
+    rng = np.random.default_rng(random_state)
+    t_star = np.empty(n_boot)
+    n_ok = 0
+    for _ in range(n_boot):
+        if have_cluster:
+            # Cluster bootstrap: resample clusters on each side.
+            cl_l = cluster_vals[idx_l]
+            cl_r = cluster_vals[idx_r]
+            uniq_l = np.unique(cl_l)
+            uniq_r = np.unique(cl_r)
+            pick_l = rng.choice(uniq_l, size=uniq_l.size, replace=True)
+            pick_r = rng.choice(uniq_r, size=uniq_r.size, replace=True)
+            draw_l = np.concatenate([idx_l[cl_l == c] for c in pick_l])
+            draw_r = np.concatenate([idx_r[cl_r == c] for c in pick_r])
+        else:
+            draw_l = rng.choice(idx_l, size=idx_l.size, replace=True)
+            draw_r = rng.choice(idx_r, size=idx_r.size, replace=True)
+
+        draw = np.concatenate([draw_l, draw_r])
+        Yb = Y[draw]
+        Xb = X_c[draw]
+        lb = Xb < 0
+        rb = Xb >= 0
+        if lb.sum() < p + 2 or rb.sum() < p + 2:
+            continue
+        Zb = Z[draw] if Z is not None else None
+        cl_b = cluster_vals[draw] if have_cluster else None
+
+        try:
+            tb_conv, _, _, _ = _rd_estimate(
+                Yb, Xb, lb, rb, h, p, kernel,
+                'cluster' if have_cluster else None,
+                cl_b, deriv=deriv, covs=Zb,
+            )
+            tb_bc, sb_bc, _, _ = _rd_estimate(
+                Yb, Xb, lb, rb, b, q, kernel,
+                'cluster' if have_cluster else None,
+                cl_b, deriv=deriv, covs=Zb,
+            )
+            if D is not None:
+                Db = D[draw]
+                fs_conv, _, _, _ = _rd_estimate(
+                    Db, Xb, lb, rb, h, p, kernel, None, None,
+                    deriv=deriv, covs=Zb,
+                )
+                fs_bc, _, _, _ = _rd_estimate(
+                    Db, Xb, lb, rb, b, q, kernel, None, None,
+                    deriv=deriv, covs=Zb,
+                )
+                if abs(fs_bc) < 1e-10:
+                    continue
+                tb_bc /= fs_bc
+                sb_bc /= abs(fs_bc)
+        except Exception:
+            continue
+
+        if not np.isfinite(sb_bc) or sb_bc <= 0:
+            continue
+        t_star[n_ok] = (tb_bc - tau_bc) / sb_bc
+        n_ok += 1
+
+    if n_ok < max(99, int(0.5 * n_boot)):
+        raise RuntimeError(
+            f"rbc bootstrap only produced {n_ok}/{n_boot} valid replicates; "
+            "increase bandwidth or reduce polynomial order."
+        )
+    t_star = t_star[:n_ok]
+    q_hi = float(np.quantile(t_star, 1 - alpha / 2))
+    q_lo = float(np.quantile(t_star, alpha / 2))
+    ci = (tau_bc - q_hi * se_robust, tau_bc - q_lo * se_robust)
+    pval = 2.0 * min(
+        float((t_star <= -abs(tau_bc / se_robust)).mean()) + 0.5 / n_ok,
+        float((t_star >= abs(tau_bc / se_robust)).mean()) + 0.5 / n_ok,
+    )
+    return {
+        'ci': ci,
+        'pvalue': float(pval),
+        'quantiles': (q_lo, q_hi),
+        'n_boot': int(n_boot),
+        '_n_ok': n_ok,
+        'reference': 'Cattaneo-Jansson-Ma 2026 (arXiv:2512.00566)',
+    }

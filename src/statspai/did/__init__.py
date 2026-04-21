@@ -38,6 +38,7 @@ from .analysis import did_analysis, DIDAnalysis
 from .did_multiplegt import did_multiplegt
 from .did_imputation import did_imputation
 from .stacked_did import stacked_did
+from .gardner_2s import gardner_did, did_2stage
 from .cic import cic
 from .pretrends import (
     pretrends_test,
@@ -409,6 +410,8 @@ __all__ = [
     'did_multiplegt',
     'did_imputation',
     'stacked_did',
+    'gardner_did',
+    'did_2stage',
     'cic',
     # Wooldridge / DR-DID / TWFE decomposition
     'wooldridge_did',

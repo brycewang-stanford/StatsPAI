@@ -7,9 +7,12 @@ See :mod:`statspai.question` for user-facing docstring.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, List, Optional, Sequence
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 __all__ = [
