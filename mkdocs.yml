@@ -51,6 +51,7 @@ extra_javascript:
 
 nav:
   - Home: index.md
+  - Ecosystem stats: stats.md
   - Guides:
       - "Staggered DiD (Callaway–Sant'Anna)": guides/callaway_santanna.md
       - "Report card: cs_report()": guides/cs_report.md

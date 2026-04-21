@@ -15,6 +15,36 @@ StatsPAI is the **agent-native** Python package for causal inference and applied
 
 It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 
+---
+
+## 📊 Causal Inference Coverage at a Glance
+
+StatsPAI's focus is **causal inference** — and on this axis we aim to be the most complete single package in any language. "Stata" = official + major SSC packages. "R" = CRAN. "sm+lm" = statsmodels + linearmodels.
+
+| Method family                                                 | Stata | R | sm+lm | DoubleML | **StatsPAI** |
+| ------------------------------------------------------------- | :---: | :---: | :---: | :---: | :---: |
+| DiD — staggered (CS/SA/BJS/dCdH/Gardner/Wooldridge ET) + event-study + honest CIs | ⚠️ | ✅ | ❌ | ❌ | 🏆 |
+| IV — classical (2SLS/LIML/GMM) + modern (Kernel IV / Deep IV / KAN-DeepIV) | ✅ classical only | ✅ classical only | ⚠️ classical | ⚠️ | 🏆 |
+| RD — CCT + 2D / boundary + multi-cutoff + honest CIs + ML-CATE (18+ estimators) | ⚠️ | ✅ (`rdrobust`) | ❌ | ❌ | 🏆 |
+| Synthetic Control — ADH / ASCM / gsynth / BSTS / Bayesian / PenSCM / FDID (20 methods) | ⚠️ | ⚠️ (7 pkgs) | ❌ | ❌ | 🏆 |
+| Double / Debiased ML                                          | ❌    | ✅   | ❌   | ✅   | ✅ |
+| Meta-Learners (S/T/X/R/DR) + Causal Forest / GRF              | ❌    | ✅   | ❌   | ❌   | ✅ |
+| TMLE / HAL-TMLE                                               | ❌    | ✅   | ❌   | ❌   | ✅ |
+| Neural causal (TARNet / CFRNet / DragonNet)                   | ❌    | ❌   | ❌   | ❌   | 🏆 |
+| Causal discovery (NOTEARS / PC / LiNGAM / GES)                | ❌    | ⚠️   | ❌   | ❌   | 🏆 |
+| Proximal CI (fortified / bidirectional / MTP / DNC)           | ❌    | ⚠️   | ❌   | ❌   | 🏆 |
+| QTE / distributional TE / CiC / dist-IV                       | ⚠️    | ⚠️   | ❌   | ❌   | ✅ |
+| Mendelian randomization (IVW/Egger/median/mode/PRESSO/MVMR/BMA) | ❌  | ✅   | ❌   | ❌   | ✅ |
+| Conformal causal inference                                    | ❌    | ❌   | ❌   | ❌   | 🏆 |
+| Bayesian Causal Forest (BCF / ordinal / factor-exposure)      | ❌    | ⚠️   | ❌   | ❌   | ✅ |
+| Spatial econometrics (weights → ESDA → ML/GMM → GWR/MGWR → panel) | ❌ | ⚠️ (5 pkgs) | ❌ | ❌ | 🏆 |
+
+**Legend**: 🏆 most complete across ecosystems · ✅ full coverage · ⚠️ partial / scattered / single algorithm · ❌ not available.
+
+**StatsPAI at a glance**: 889 registered functions · 78 modules · 188,244 LOC (core) + 42,768 LOC (tests). For the full coverage matrix (23 method families), per-module breakdown, and cross-ecosystem line-count comparison — see [`docs/stats.md`](docs/stats.md).
+
+---
+
 **🎉 NEW in v1.5.0 — Interference / Conformal / Mendelian family consolidation**
 
 StatsPAI 1.5.0 is a minor release bundling three concurrent improvements to the interference, conformal causal inference, and Mendelian Randomization families: full-family documentation guides, unified dispatchers matching the `sp.synth` / `sp.decompose` / `sp.dml` pattern, and a targeted correctness audit that fixed two silent-wrong-numbers issues.
