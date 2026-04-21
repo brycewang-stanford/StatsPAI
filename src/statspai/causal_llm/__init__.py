@@ -29,9 +29,11 @@ from .llm_evalue import (
 from .llm_sensitivity import (
     llm_sensitivity_priors, SensitivityPriorProposal,
 )
+from .causal_mas import causal_mas, CausalMASResult
 
 __all__ = [
     'llm_dag_propose', 'LLMDAGProposal',
     'llm_unobserved_confounders', 'UnobservedConfounderProposal',
     'llm_sensitivity_priors', 'SensitivityPriorProposal',
+    'causal_mas', 'CausalMASResult',
 ]

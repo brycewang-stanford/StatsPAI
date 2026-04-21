@@ -60,6 +60,11 @@ from .distribution_valued import rd_distribution, DistRDResult
 from .bayes_hte import rd_bayes_hte, BayesRDHTEResult
 from .distributional_design import rd_distributional_design, DDDResult
 
+# User-friendly aliases
+from ._aliases import (
+    multi_cutoff_rd, geographic_rd, boundary_rd, multi_score_rd,
+)
+
 __all__ = [
     'rdrobust',
     'rdplot',
@@ -96,4 +101,8 @@ __all__ = [
     'rd_extrapolate',
     'rd_multi_extrapolate',
     'rd_external_validity',
+    'multi_cutoff_rd',
+    'geographic_rd',
+    'boundary_rd',
+    'multi_score_rd',
 ]

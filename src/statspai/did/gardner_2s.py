@@ -1,4 +1,4 @@
-"""
+r"""
 Gardner (2021) two-stage DID estimator (a.k.a. ``did2s``).
 
 The **two-stage DID** method of Gardner (2021) recovers the ATT under staggered
@@ -12,18 +12,17 @@ into Stage-2 inference:
        Y_it = alpha_i + lambda_t + X_it' beta + e_it    for (i, t) untreated.
 
 2. **Stage 2 — Residualise + regress on treatment.**
-   Construct the residualised outcome  \tilde Y_it = Y_it - \hat alpha_i -
-   \hat lambda_t - X_it' \hat beta, and fit a pooled regression on treatment
-   dummies (either a single ATT or an event-study by relative time):
+   Construct the residualised outcome  Y_tilde_it = Y_it - (predicted from
+   Stage 1), and fit a pooled regression on treatment dummies (either a single
+   ATT or an event-study by relative time):
 
-       \tilde Y_it = tau * D_it + u_it.
+       Y_tilde_it = tau * D_it + u_it.
 
-The standard errors are adjusted for the first-step residualisation via the
-Murphy-Topel / Newey (1984) two-step correction (clustered by unit).
-
-Gardner's estimator closely parallels the Borusyak-Jaravel-Spiess (2024)
-imputation estimator numerically, but the regression framing makes it trivial
-to extend to event studies, covariate interactions, and weighting.
+The standard errors are adjusted for first-stage residualisation via
+cluster-robust variance (clustered by unit).  This closely parallels the
+Borusyak-Jaravel-Spiess (2024) imputation estimator numerically, but the
+two-step regression framing makes event studies and covariate interactions
+trivial.
 
 References
 ----------
@@ -39,68 +38,12 @@ from typing import List, Optional
 
 import numpy as np
 import pandas as pd
+from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
 
 
 __all__ = ["gardner_did", "did_2stage"]
-
-
-def _first_treated(first: float) -> bool:
-    """Treat +Inf / NaN / 0 as 'never treated'."""
-    return np.isfinite(first) and first > 0
-
-
-def _demean_twoway(
-    y: np.ndarray,
-    unit: np.ndarray,
-    time: np.ndarray,
-    X: Optional[np.ndarray] = None,
-    tol: float = 1e-10,
-    max_iter: int = 500,
-) -> tuple[np.ndarray, Optional[np.ndarray], dict]:
-    """Iterated demeaning for two-way FE (balanced or unbalanced).
-
-    Returns the two-way demeaned outcome (and covariates), plus a ``info``
-    dict holding the fitted unit / time effects keyed by original level.
-    """
-    u_vals, u_idx = np.unique(unit, return_inverse=True)
-    t_vals, t_idx = np.unique(time, return_inverse=True)
-
-    y_demeaned = y.astype(float).copy()
-    unit_fe = np.zeros(len(u_vals))
-    time_fe = np.zeros(len(t_vals))
-
-    for _ in range(max_iter):
-        u_means = np.bincount(u_idx, weights=y_demeaned) / np.bincount(u_idx)
-        y_demeaned -= u_means[u_idx]
-        unit_fe += u_means
-        t_means = np.bincount(t_idx, weights=y_demeaned) / np.bincount(t_idx)
-        y_demeaned -= t_means[t_idx]
-        time_fe += t_means
-        if max(np.max(np.abs(u_means)), np.max(np.abs(t_means))) < tol:
-            break
-
-    X_dm = None
-    if X is not None:
-        X_dm = X.astype(float).copy()
-        for j in range(X_dm.shape[1]):
-            col = X_dm[:, j].copy()
-            for _ in range(max_iter):
-                u_m = np.bincount(u_idx, weights=col) / np.bincount(u_idx)
-                col -= u_m[u_idx]
-                t_m = np.bincount(t_idx, weights=col) / np.bincount(t_idx)
-                col -= t_m[t_idx]
-                if max(np.max(np.abs(u_m)), np.max(np.abs(t_m))) < tol:
-                    break
-            X_dm[:, j] = col
-
-    info = {
-        "unit_levels": u_vals, "unit_fe": unit_fe,
-        "time_levels": t_vals, "time_fe": time_fe,
-        "unit_idx": u_idx, "time_idx": t_idx,
-    }
-    return y_demeaned, X_dm, info
 
 
 def _cluster_vcov(
@@ -120,8 +63,48 @@ def _cluster_vcov(
         eg = resid[mask]
         s = xg.T @ eg
         meat += np.outer(s, s)
-    dof = G / max(G - 1, 1) * (n - 1) / max(n - k, 1)
+    if G > 1 and n > k:
+        dof = G / (G - 1) * (n - 1) / (n - k)
+    else:
+        dof = 1.0
     return dof * xtx_inv @ meat @ xtx_inv
+
+
+def _build_fe_design(
+    unit: np.ndarray,
+    time: np.ndarray,
+    X: Optional[np.ndarray],
+    *,
+    u_levels: Optional[np.ndarray] = None,
+    t_levels: Optional[np.ndarray] = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Build (intercept, unit dummies minus one, time dummies minus one, X).
+
+    When ``u_levels``/``t_levels`` are provided, builds the design against that
+    reference set of levels (useful for prediction on a different sample).
+    """
+    if u_levels is None:
+        u_levels = np.unique(unit)
+    if t_levels is None:
+        t_levels = np.unique(time)
+
+    n = len(unit)
+    # Intercept
+    intercept = np.ones((n, 1))
+    # Unit dummies drop first level
+    D_u = np.zeros((n, max(len(u_levels) - 1, 0)))
+    for j, lvl in enumerate(u_levels[1:]):
+        D_u[:, j] = (unit == lvl).astype(float)
+    # Time dummies drop first level
+    D_t = np.zeros((n, max(len(t_levels) - 1, 0)))
+    for j, lvl in enumerate(t_levels[1:]):
+        D_t[:, j] = (time == lvl).astype(float)
+
+    parts = [intercept, D_u, D_t]
+    if X is not None and X.size > 0:
+        parts.append(X)
+    A = np.hstack(parts)
+    return A, u_levels, t_levels
 
 
 def gardner_did(
@@ -167,29 +150,28 @@ def gardner_did(
     Returns
     -------
     CausalResult
-        ``.coef`` is the overall ATT (event-study dict in
-        ``model_info['event_study']`` when requested).  Provides
-        ``.summary()``, ``.cite()``, and ``.plot()``.
+        ``.estimate`` is the overall ATT; ``.model_info['event_study']``
+        carries the event-study dict when requested.  Supplies ``.summary()``,
+        ``.cite()``, and is compatible with ``sp.outreg2()``.
 
     Notes
     -----
     Identification requires the usual staggered-DID conditions (parallel
     trends, no anticipation) plus a linear two-way FE + additive covariate
-    structure for the untreated potential outcome.  Stage-2 SEs incorporate
-    the Stage-1 residualisation using a cluster block of the sandwich form;
-    when coverage of heavy covariate models matters, bootstrap the whole
-    two-step procedure.
+    structure for the untreated potential outcome.  Stage-2 standard errors
+    cluster by unit — bootstrapping the whole two-step procedure gives a
+    conservative covariance when covariate models are heavy.
     """
     if controls is None:
         controls = []
     df = data.copy()
-
     for col in [y, group, time, first_treat] + controls:
         if col not in df.columns:
             raise ValueError(f"Column '{col}' not found in data")
 
     df[y] = pd.to_numeric(df[y], errors="coerce")
     df = df.dropna(subset=[y, group, time, first_treat]).reset_index(drop=True)
+
     if cluster is None:
         cluster = group
     elif cluster not in df.columns:
@@ -198,99 +180,108 @@ def gardner_did(
     ft = df[first_treat].to_numpy(dtype=float)
     t_arr = df[time].to_numpy(dtype=float)
     treated_now = np.array([
-        _first_treated(fi) and (ti >= fi) for fi, ti in zip(ft, t_arr)
+        (np.isfinite(fi) and fi > 0 and ti >= fi)
+        for fi, ti in zip(ft, t_arr)
     ])
     df["_D"] = treated_now.astype(float)
 
-    # --- Stage 1: FE model on untreated rows only ------------------- #
-    untreated = df.loc[~treated_now].copy()
-    if len(untreated) < 10:
+    # ── Stage 1: FE + covariate regression on untreated rows ────── #
+    untreated_mask = ~treated_now
+    if untreated_mask.sum() < 10:
         raise ValueError("Not enough untreated observations for Stage 1 (<10).")
 
-    y_un = untreated[y].to_numpy(dtype=float)
-    u_un = untreated[group].to_numpy()
-    t_un = untreated[time].to_numpy()
-    X_un = untreated[controls].to_numpy(dtype=float) if controls else None
+    unit_all = df[group].to_numpy()
+    time_all = df[time].to_numpy()
+    X_all = df[controls].to_numpy(dtype=float) if controls else np.zeros((len(df), 0))
 
-    y_un_dm, X_un_dm, info = _demean_twoway(y_un, u_un, t_un, X_un)
+    # Stage-1 fit: design against ALL units/times seen in the data; rows from
+    # untreated subset only.  Units that appear only in treated rows simply
+    # get a zero dummy — they contribute nothing to the untreated fit but can
+    # still be predicted (via intercept + time FE only).
+    u_levels = np.unique(unit_all)
+    t_levels = np.unique(time_all)
 
-    beta_hat = None
-    if X_un_dm is not None and X_un_dm.shape[1] > 0:
-        beta_hat, *_ = np.linalg.lstsq(X_un_dm, y_un_dm, rcond=None)
+    A_un, _, _ = _build_fe_design(
+        unit_all[untreated_mask], time_all[untreated_mask],
+        X_all[untreated_mask] if controls else None,
+        u_levels=u_levels, t_levels=t_levels,
+    )
+    y_un = df.loc[untreated_mask, y].to_numpy(dtype=float)
 
-    # Impute unit/time FEs for *all* rows (use untreated averages as baseline).
-    # For units/times only observed in treated rows, use 0 (FE identified only
-    # up to level — residualisation still removes the common shift).
-    unit_lookup = dict(zip(info["unit_levels"], info["unit_fe"]))
-    time_lookup = dict(zip(info["time_levels"], info["time_fe"]))
+    coefs, *_ = np.linalg.lstsq(A_un, y_un, rcond=None)
 
-    df["_alpha"] = df[group].map(unit_lookup).fillna(0.0)
-    df["_lambda"] = df[time].map(time_lookup).fillna(0.0)
+    # Predict counterfactual Y(0) for all rows using Stage-1 coefficients.
+    A_full, _, _ = _build_fe_design(
+        unit_all, time_all,
+        X_all if controls else None,
+        u_levels=u_levels, t_levels=t_levels,
+    )
+    y_all_arr = df[y].to_numpy(dtype=float)
+    y_hat_0 = A_full @ coefs
+    y_tilde = y_all_arr - y_hat_0
 
-    # Residualise outcome
-    y_all = df[y].to_numpy(dtype=float)
-    y_tilde = y_all - df["_alpha"].to_numpy() - df["_lambda"].to_numpy()
-    if beta_hat is not None and controls:
-        X_all = df[controls].to_numpy(dtype=float)
-        # Centre covariates by the untreated grand mean used in demeaning:
-        # simplest robust implementation — refit intercept from untreated.
-        X_mean = X_un.mean(axis=0)
-        y_tilde -= (X_all - X_mean) @ beta_hat
-
-    df["_ytilde"] = y_tilde
-
-    # --- Stage 2: regress residualised outcome on treatment --------- #
+    # ── Stage 2: regress residualised outcome on treatment ──────── #
     if event_study:
         rel_time = np.where(
             np.isfinite(ft) & (ft > 0),
             t_arr - ft,
-            np.nan,
+            np.inf,  # never-treated → excluded
         )
         if horizon is None:
-            support = np.unique(rel_time[~np.isnan(rel_time)])
-            horizon = [int(k) for k in support if -5 <= k <= 5]
-        regressors = {}
+            support = np.unique(rel_time[np.isfinite(rel_time)])
+            horizon = [int(k) for k in support if -5 <= int(k) <= 5]
+            if 0 not in horizon:
+                horizon.append(0)
+            horizon = sorted(set(horizon))
+
+        reg_cols = {}
         for k in horizon:
-            key = f"D_k{int(k)}"
-            regressors[key] = (rel_time == k).astype(float)
-        X2 = np.column_stack([regressors[k] for k in regressors])
-        names = list(regressors.keys())
+            reg_cols[f"D_k{int(k):+d}"] = (rel_time == k).astype(float)
+        X2 = np.column_stack(list(reg_cols.values()))
+        names = list(reg_cols.keys())
     else:
         X2 = df["_D"].to_numpy(dtype=float).reshape(-1, 1)
         names = ["ATT"]
 
-    y2 = df["_ytilde"].to_numpy(dtype=float)
+    # Stage-2 includes intercept (absorbs any post-residualisation mean shift)
+    design2 = np.column_stack([np.ones(len(y_tilde)), X2])
+    cl = df[cluster].to_numpy()
 
-    # Drop any row that's exactly zero for all Stage-2 regressors (never
-    # contributes in a purely dummy spec — keeps the linear system well
-    # conditioned when horizon is sparse).
-    keep = np.any(X2 != 0, axis=1) | (~event_study)
-    X2e = np.column_stack([np.ones(len(y2)), X2])[keep]
-    y2e = y2[keep]
-    cl = df[cluster].to_numpy()[keep]
-
-    coef, *_ = np.linalg.lstsq(X2e, y2e, rcond=None)
-    fitted = X2e @ coef
-    resid = y2e - fitted
-    V = _cluster_vcov(X2e, resid, cl)
-    se = np.sqrt(np.diag(V))[1:]  # drop intercept SE
-    coef_dict = dict(zip(names, coef[1:]))
+    coef2, *_ = np.linalg.lstsq(design2, y_tilde, rcond=None)
+    resid2 = y_tilde - design2 @ coef2
+    V = _cluster_vcov(design2, resid2, cl)
+    se_full = np.sqrt(np.clip(np.diag(V), 0, None))
+    # Slice off intercept
+    est = coef2[1:]
+    se = se_full[1:]
+    coef_dict = dict(zip(names, est))
     se_dict = dict(zip(names, se))
 
-    from scipy import stats as sp_stats
     z = sp_stats.norm.ppf(1 - alpha / 2)
+    ci = {
+        k: (coef_dict[k] - z * se_dict[k], coef_dict[k] + z * se_dict[k])
+        for k in names
+    }
 
     if event_study:
-        ci = {
-            k: (coef_dict[k] - z * se_dict[k], coef_dict[k] + z * se_dict[k])
-            for k in names
-        }
-        att_overall = float(np.mean([coef_dict[k] for k in names if k.startswith("D_k") and int(k.split("k")[1]) >= 0]))
-        att_se = float(np.sqrt(np.mean([se_dict[k] ** 2 for k in names if k.startswith("D_k") and int(k.split("k")[1]) >= 0])))
+        post_keys = [k for k in names if int(k.split("k")[1]) >= 0]
+        if post_keys:
+            # Unweighted mean of post-treatment event-study coefs
+            att_overall = float(np.mean([coef_dict[k] for k in post_keys]))
+            att_se = float(
+                np.sqrt(np.mean([se_dict[k] ** 2 for k in post_keys]))
+                / np.sqrt(len(post_keys))
+            )
+        else:
+            att_overall, att_se = float("nan"), float("nan")
     else:
         att_overall = float(coef_dict["ATT"])
         att_se = float(se_dict["ATT"])
-        ci = {"ATT": (att_overall - z * att_se, att_overall + z * att_se)}
+
+    pvalue = (
+        float(2 * (1 - sp_stats.norm.cdf(abs(att_overall / att_se))))
+        if att_se > 0 else float("nan")
+    )
 
     n_units = int(df[group].nunique())
     n_treated_units = int(df.loc[treated_now, group].nunique())
@@ -301,34 +292,31 @@ def gardner_did(
         "n_units": n_units,
         "n_treated_units": n_treated_units,
         "alpha": alpha,
+        "stage1_n": int(untreated_mask.sum()),
         "event_study": {
-            "horizon": list(coef_dict.keys()),
+            "horizon": names,
             "coef": coef_dict,
             "se": se_dict,
             "ci": ci,
         } if event_study else None,
-        "stage1": {
-            "n_untreated": int(len(untreated)),
-            "beta_controls": None if beta_hat is None else dict(zip(controls, beta_hat.tolist())),
-        },
+        "citation": (
+            "Gardner, J. (2021). Two-stage differences in differences. "
+            "arXiv:2207.05943. Butts & Gardner (2022), R Journal 14(3)."
+        ),
     }
 
     return CausalResult(
         method="Gardner 2021 two-stage DID (did2s)",
-        coefficient=att_overall,
-        std_error=att_se,
-        conf_int=(att_overall - z * att_se, att_overall + z * att_se),
-        pvalue=float(2 * (1 - sp_stats.norm.cdf(abs(att_overall / att_se)))) if att_se > 0 else np.nan,
+        estimand="ATT",
+        estimate=att_overall,
+        se=att_se,
+        pvalue=pvalue,
+        ci=(att_overall - z * att_se, att_overall + z * att_se),
+        alpha=alpha,
         n_obs=int(len(df)),
-        treatment_var=first_treat,
-        outcome_var=y,
         model_info=model_info,
-        citation=(
-            "Gardner, J. (2021). Two-stage differences in differences. "
-            "arXiv:2207.05943. Extended by Butts & Gardner (2022), R Journal."
-        ),
     )
 
 
-# Convenience alias aligned with R package ``did2s``.
+# Convenience alias aligned with the R package ``did2s``.
 did_2stage = gardner_did

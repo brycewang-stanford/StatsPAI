@@ -106,6 +106,9 @@ from .sensitivity import (
 # Sequential SDID (Arkhangelsky & Samkov 2024)
 from .sequential_sdid import sequential_sdid, SequentialSDIDResult
 
+# Synthetic Survival Control (Agarwal & Shah 2025)
+from .survival import synth_survival, SyntheticSurvivalResult
+
 # Experimental design via synthetic controls (Abadie & Zhao 2025/2026)
 from .experimental_design import (
     synth_experimental_design,
@@ -168,6 +171,8 @@ __all__ = [
     # Sequential SDID
     'sequential_sdid',
     'SequentialSDIDResult',
+    'synth_survival',
+    'SyntheticSurvivalResult',
     # Experimental design (Abadie-Zhao 2025/2026)
     'synth_experimental_design',
     'SynthExperimentalDesignResult',

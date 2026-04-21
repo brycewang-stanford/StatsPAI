@@ -38,6 +38,10 @@ from .core import (
     FairnessResult,
     FairnessAudit,
 )
+from .evidence_test import (
+    evidence_without_injustice,
+    EvidenceWithoutInjusticeResult,
+)
 
 __all__ = [
     "counterfactual_fairness",
@@ -47,4 +51,6 @@ __all__ = [
     "fairness_audit",
     "FairnessResult",
     "FairnessAudit",
+    "evidence_without_injustice",
+    "EvidenceWithoutInjusticeResult",
 ]

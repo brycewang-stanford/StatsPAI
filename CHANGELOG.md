@@ -2,6 +2,102 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.2.0] — 2026-04-21 — Doc-alignment sprint (v3 reference document)
+
+Closes the remaining gaps between the *Causal-Inference Method Family
+万字剖析 v3* (2026-04-20) reference document and the StatsPAI public API.
+Most v3 frontier methods were already implemented in v1.0.x but lived in
+sub-packages without top-level exposure or curated registry specs. This
+release wires them up, adds the eight genuinely missing classical/frontier
+methods, and upgrades 14 frontier estimators from auto-generated to
+hand-written registry specifications so that LLM agents see proper
+parameter docs, examples, references, and tags.
+
+### Added — new estimators
+
+**Staggered DID**
+
+- `sp.gardner_did` / `sp.did_2stage` — Gardner (2021) two-stage DID
+  estimator (the Stata `did2s` analogue). Stage-1 fits two-way fixed
+  effects on untreated rows; Stage-2 regresses the residualised outcome
+  on treatment dummies (overall ATT or event study) with cluster-robust
+  SEs. Numerically agrees with `did_imputation` to within ~2% on
+  synthetic staggered panels.
+
+**DML**
+
+- `sp.dml_model_averaging` / `sp.model_averaging_dml` — Ahrens, Hansen,
+  Kurz, Schaffer & Wiemann (2025, *JAE* 40(3):381-402) model-averaging
+  DML-PLR. Fits DML under multiple candidate nuisance learners and
+  reports a risk-weighted (or equal/single-best) average θ with a
+  cross-score-covariance-adjusted SE. Default candidate roster:
+  Lasso / Ridge / RandomForest / GradientBoosting.
+
+**IV**
+
+- `sp.kernel_iv` (top-level alias of `sp.iv.kernel_iv`) — Lob et al.
+  (2025, arXiv:2511.21603) kernel IV regression with wild-bootstrap
+  uniform confidence band over the structural function `h*(d)`.
+- `sp.continuous_iv_late` (top-level alias) — Xie et al. (2025,
+  arXiv:2504.03063) LATE on the maximal complier class for continuous
+  instruments via quantile-bin Wald estimator. (Also fixed a summary
+  formatting bug — see below.)
+
+**TMLE**
+
+- `sp.hal_tmle` + `sp.HALRegressor` / `sp.HALClassifier` — TMLE with
+  Highly Adaptive Lasso nuisance learners (Qian & van der Laan, 2025,
+  arXiv:2506.17214). Two variants: `"delta"` (plug HAL into standard
+  TMLE) and `"projection"` (apply tangent-space shrinkage to the
+  targeting epsilon). Recovers ATE within ~3% on n=400 with rich
+  nuisance.
+
+**Synthetic Control**
+
+- `sp.synth_survival` — Synthetic Survival Control (Agarwal & Shah,
+  2025, arXiv:2511.14133). Donor convex combination on the
+  complementary log-log scale matches the treated arm's pre-treatment
+  Kaplan-Meier, then projects forward and reports the survival gap
+  with a placebo-permutation uniform band. Pre-treat fit RMSE typically
+  < 0.01 on synthetic Cox data.
+
+**RDD aliases**
+
+- `sp.multi_cutoff_rd` (alias for `sp.rdmc`), `sp.geographic_rd`
+  (alias for `sp.rdms`), `sp.boundary_rd` (alias for `sp.rd2d`),
+  `sp.multi_score_rd` (alias for `sp.rd_multi_score`) — user-friendly
+  aliases mirroring the v3 document terminology.
+
+### Added — registry / agent surface
+
+- 14 frontier estimators promoted from auto-generated to **hand-written**
+  registry specs with curated parameter descriptions, examples, tags,
+  and references: `gardner_did`, `dml_model_averaging`, `kernel_iv`,
+  `continuous_iv_late`, `hal_tmle`, `synth_survival`, `bridge`,
+  `causal_dqn`, `fortified_pci`, `bidirectional_pci`, `pci_mtp`,
+  `cluster_cross_interference`, `beyond_average_late`,
+  `conformal_fair_ite`. This is what `sp.describe_function(...)` and
+  `sp.function_schema(...)` now return for these names.
+- Total registered functions: **836 → 860**.
+- `__all__` repaired so previously-imported-but-not-exported symbols
+  surface in `sp.list_functions()`: `fci` / `FCIResult`, `spatial_did`
+  / `SpatialDiDResult`, `spatial_iv`, `notears`, `pc_algorithm`.
+
+### Fixed
+
+- `iv.continuous_late.ContinuousLATEResult.summary` — header line was
+  being multiplied 42× by an implicit string-concat × `"=" * 42`
+  precedence bug (`"title\n" "=" * 42` parsed as
+  `("title\n" + "=") * 42`). Replaced with explicit f-string concatenation.
+
+### Test coverage
+
+35 new test cases across 7 new test modules:
+`test_gardner_2s.py` (7), `test_dml_model_averaging.py` (5),
+`test_kernel_iv.py` (5), `test_continuous_iv_late.py` (4),
+`test_hal_tmle.py` (5), `test_synth_survival.py` (6),
+`test_rd_aliases.py` (3). All pass on Python 3.13.
+
 ## [1.0.1] - 2026-04-21 — Post-review correctness pass + deferred-item closeout
 
 Bugfix release closing every Critical / High / Medium finding from the

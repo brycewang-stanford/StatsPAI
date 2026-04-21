@@ -19,5 +19,12 @@ Bayesian Analysis, 15(3), 965-1056.
 
 from .bcf import bcf, BayesianCausalForest
 from .longitudinal import bcf_longitudinal, BCFLongResult
+from .ordinal import bcf_ordinal, BCFOrdinalResult
+from .factor_exposure import bcf_factor_exposure, BCFFactorExposureResult
 
-__all__ = ['bcf', 'BayesianCausalForest', 'bcf_longitudinal', 'BCFLongResult']
+__all__ = [
+    'bcf', 'BayesianCausalForest',
+    'bcf_longitudinal', 'BCFLongResult',
+    'bcf_ordinal', 'BCFOrdinalResult',
+    'bcf_factor_exposure', 'BCFFactorExposureResult',
+]

@@ -24,6 +24,9 @@ from .plr import DoubleMLPLR
 from .irm import DoubleMLIRM
 from .pliv import DoubleMLPLIV
 from .iivm import DoubleMLIIVM
+from .model_averaging import (
+    dml_model_averaging, model_averaging_dml, DMLAveragingResult,
+)
 
 __all__ = [
     'dml',
@@ -32,4 +35,7 @@ __all__ = [
     'DoubleMLIRM',
     'DoubleMLPLIV',
     'DoubleMLIIVM',
+    'dml_model_averaging',
+    'model_averaging_dml',
+    'DMLAveragingResult',
 ]

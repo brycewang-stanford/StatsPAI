@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "1.0.1"
+__version__ = "1.3.0"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -41,6 +41,7 @@ from .did import (
     bacon_decomposition, honest_did, breakdown_m, event_study,
     did_analysis, DIDAnalysis, did_multiplegt, did_imputation, stacked_did, cic,
     gardner_did, did_2stage,
+    harvest_did, HarvestDIDResult,
     wooldridge_did, etwfe, etwfe_emfx, drdid, twfe_decomposition,
     did_bcf, cohort_anchored_event_study, design_robust_event_study,
     did_misclassified,
@@ -83,6 +84,7 @@ from .synth import (
     california_prop99,
 )
 from .synth.sequential_sdid import sequential_sdid, SequentialSDIDResult
+from .synth.survival import synth_survival, SyntheticSurvivalResult
 from .synth.experimental_design import (
     synth_experimental_design,
     SynthExperimentalDesignResult,
@@ -97,7 +99,10 @@ from .matching import (
     genmatch, GenMatchResult,
     sbw, SBWResult,
 )
-from .dml import dml, DoubleML, DoubleMLPLR, DoubleMLIRM, DoubleMLPLIV, DoubleMLIIVM
+from .dml import (
+    dml, DoubleML, DoubleMLPLR, DoubleMLIRM, DoubleMLPLIV, DoubleMLIIVM,
+    dml_model_averaging, model_averaging_dml, DMLAveragingResult,
+)
 from .deepiv import deepiv, DeepIV
 from .panel import (
     panel, panel_compare, balance_panel, PanelResults, PanelCompareResults, PanelRegression,
@@ -105,7 +110,10 @@ from .panel import (
 )
 from .causal_impact import causal_impact, CausalImpactEstimator, impactplot
 from .mediation import mediate, MediationAnalysis, mediate_sensitivity, mediate_interventional, four_way_decomposition, FourWayResult
-from .bartik import bartik, BartikIV, ssaggregate, shift_share_se
+from .bartik import (
+    bartik, BartikIV, ssaggregate, shift_share_se,
+    shift_share_political, ShiftSharePoliticalResult,
+)
 from .output.outreg2 import OutReg2, outreg2
 from .output.modelsummary import modelsummary, coefplot
 from .output.sumstats import sumstats, balance_table
@@ -153,6 +161,9 @@ from . import spatial
 import importlib as _importlib
 iv = _importlib.import_module(".iv", __name__)
 del _importlib
+# Expose Kernel IV / Continuous-LATE at top level for agent discoverability.
+from .iv.kernel_iv import kernel_iv, KernelIVResult
+from .iv.continuous_late import continuous_iv_late, ContinuousLATEResult
 from .plots import binscatter, set_theme, list_themes, use_chinese, interactive, get_code
 from .utils import (
     label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data,
@@ -189,7 +200,11 @@ from .regression.count import poisson, nbreg, ppmlhdfe
 from .neural_causal import tarnet, cfrnet, dragonnet, TARNet, CFRNet, DragonNet, gnn_causal, GNNCausalResult
 from .neural_causal.cevae import cevae, CEVAE, CEVAEResult
 from .causal_discovery import notears, NOTEARS, pc_algorithm, PCAlgorithm, lingam, LiNGAMResult, ges, GESResult, fci, FCIResult, icp, nonlinear_icp, ICPResult, pcmci, PCMCIResult, partial_corr_pvalue, lpcmci, LPCMCIResult, dynotears, DYNOTEARSResult
-from .tmle import tmle, TMLE, super_learner, SuperLearner, ltmle, LTMLEResult, ltmle_survival, LTMLESurvivalResult
+from .tmle import (
+    tmle, TMLE, super_learner, SuperLearner,
+    ltmle, LTMLEResult, ltmle_survival, LTMLESurvivalResult,
+    hal_tmle, HALRegressor, HALClassifier,
+)
 from .policy_learning import policy_tree, PolicyTree, policy_value, direct_method, ips, snips, doubly_robust, OPEResult
 from .conformal_causal import (
     conformal_cate, ConformalCATE,
@@ -203,7 +218,11 @@ from .conformal_causal import (
     conformal_continuous, conformal_interference,
     ContinuousConformalResult, InterferenceConformalResult,
 )
-from .bcf import bcf, BayesianCausalForest, bcf_longitudinal, BCFLongResult
+from .bcf import (
+    bcf, BayesianCausalForest, bcf_longitudinal, BCFLongResult,
+    bcf_ordinal, BCFOrdinalResult,
+    bcf_factor_exposure, BCFFactorExposureResult,
+)
 from .bunching import bunching, BunchingEstimator, notch, NotchResult
 from .bunching import (
     general_bunching, GeneralBunchingResult,
@@ -244,6 +263,7 @@ from .causal_llm import (
     llm_dag_propose, LLMDAGProposal,
     llm_unobserved_confounders, UnobservedConfounderProposal,
     llm_sensitivity_priors, SensitivityPriorProposal,
+    causal_mas, CausalMASResult,
 )
 
 # === Causal RL (Causal-DQN, benchmarks, offline-safe) ===
@@ -263,12 +283,19 @@ from .surrogate import (
     SurrogateResult,
 )
 
+# === Assimilative Causal Inference (Nature Communications 2026) ===
+from . import assimilation
+from .assimilation import (
+    assimilative_causal, causal_kalman, AssimilationResult,
+)
+
 # === Counterfactual fairness / algorithmic-bias diagnostics ===
 from . import fairness
 from .fairness import (
     counterfactual_fairness, orthogonal_to_bias,
     demographic_parity, equalized_odds, fairness_audit,
     FairnessResult, FairnessAudit,
+    evidence_without_injustice, EvidenceWithoutInjusticeResult,
 )
 
 # === Transportability (Pearl-Bareinboim + Dahabreh-Stuart) ===
@@ -446,6 +473,9 @@ from .mendelian import (
 from .dag import recommend_estimator as dag_recommend_estimator
 # Multi-cutoff / Geographic RD
 from .rd import rdmc, rdms, RDMultiResult
+from .rd import (
+    multi_cutoff_rd, geographic_rd, boundary_rd, multi_score_rd,
+)
 # 2D Boundary RD (Cattaneo, Titiunik, Yu 2025)
 from .rd import rd2d, rd2d_bw, rd2d_plot
 # Continuous Treatment DID
@@ -642,6 +672,9 @@ __all__ = [
     "DoubleMLIRM",
     "DoubleMLPLIV",
     "DoubleMLIIVM",
+    "dml_model_averaging",
+    "model_averaging_dml",
+    "DMLAveragingResult",
     # DeepIV
     "deepiv",
     "DeepIV",
@@ -867,6 +900,9 @@ __all__ = [
     "TMLE",
     "super_learner",
     "SuperLearner",
+    "hal_tmle",
+    "HALRegressor",
+    "HALClassifier",
     # Policy Learning
     "policy_tree",
     "PolicyTree",
@@ -1005,6 +1041,7 @@ __all__ = [
     "mendelian_randomization", "MRResult", "mr_egger", "mr_ivw", "mr_median",
     # Multi-Cutoff / Geographic RD
     "rdmc", "rdms", "RDMultiResult",
+    "multi_cutoff_rd", "geographic_rd", "boundary_rd", "multi_score_rd",
     # Continuous DID
     "continuous_did",
     # === v0.6 Round 2 ===
@@ -1100,6 +1137,9 @@ __all__ = [
     "garch", "GARCHResult",
     # Datasets
     "cps_wage", "mincer_wage_panel", "chilean_households",
+    # IV frontier (v1.1)
+    "kernel_iv", "KernelIVResult",
+    "continuous_iv_late", "ContinuousLATEResult",
     # Recommendations metadata
     "available_methods",
     # === Article-facing aliases (blog API sugar) ===
@@ -1196,6 +1236,7 @@ __all__ = [
     "ltmle_survival", "LTMLESurvivalResult",
     # v1.0 — sequential SDID
     "sequential_sdid", "SequentialSDIDResult",
+    "synth_survival", "SyntheticSurvivalResult",
     # v1.0 — ML bounds
     "ml_bounds",
     # v1.0 — TARGET Statement 2025

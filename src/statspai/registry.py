@@ -2488,6 +2488,621 @@ def _build_registry():
         reference="Imbens, Kallus, Mao (arXiv:2601.17712, 2026).",
     ))
 
+    # ------------------------------------------------------------------
+    # v1.1 additions (doc-alignment sprint — Gardner, Ahrens MA-DML,
+    # Kernel IV, Continuous LATE, HAL-TMLE, Synth Survival, RD aliases)
+    # ------------------------------------------------------------------
+
+    register(FunctionSpec(
+        name="gardner_did",
+        category="causal",
+        description=(
+            "Gardner (2021) two-stage DID. Stage-1 fits two-way FEs on "
+            "untreated observations; Stage-2 regresses the residualised "
+            "outcome on treatment dummies (ATT or event study). Numerically "
+            "close to Borusyak-Jaravel-Spiess imputation with unit-clustered SEs."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome column"),
+            ParamSpec("group", "str", True, description="Unit/panel-id column"),
+            ParamSpec("time", "str", True, description="Time column"),
+            ParamSpec("first_treat", "str", True,
+                      description="First-treatment-period column; 0/NaN/inf = never treated"),
+            ParamSpec("controls", "list", False, None, "Additional covariates"),
+            ParamSpec("event_study", "bool", False, False,
+                      "If True, report coefficients by relative time k = t - first_treat"),
+            ParamSpec("horizon", "list", False, None,
+                      "Relative-time leads/lags to report (default range(-5, 6))"),
+            ParamSpec("cluster", "str", False, None,
+                      "Cluster variable for Stage-2 SEs (defaults to group)"),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult",
+        example='sp.gardner_did(df, y="wage", group="county", time="year", first_treat="first_treat", event_study=True)',
+        tags=["did", "causal", "staggered", "two-stage", "did2s"],
+        reference="Gardner (2021), arXiv:2207.05943. Butts & Gardner (2022), R Journal 14(3).",
+    ))
+
+    register(FunctionSpec(
+        name="dml_model_averaging",
+        category="causal",
+        description=(
+            "Model-averaging DML (PLR) per Ahrens et al. (2025, JAE). Fits "
+            "DML-PLR under multiple candidate nuisance learners and reports "
+            "a risk-weighted (or equal/single-best) average of their θ "
+            "estimates with a covariance-adjusted SE."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome column"),
+            ParamSpec("treat", "str", True, description="Treatment column"),
+            ParamSpec("covariates", "list", True, description="Covariate columns X"),
+            ParamSpec("candidates", "list", False, None,
+                      "List of (ml_g, ml_m, label) sklearn triples; defaults to Lasso/Ridge/RF/GBM"),
+            ParamSpec("n_folds", "int", False, 5),
+            ParamSpec("seed", "int", False, 0),
+            ParamSpec("weight_rule", "str", False, "inverse_risk",
+                      "Weighting of candidate estimators",
+                      ["inverse_risk", "equal", "single_best"]),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="DMLAveragingResult",
+        example=('sp.dml_model_averaging(df, y="y", treat="d", '
+                 'covariates=[f"x{j}" for j in range(10)])'),
+        tags=["dml", "causal", "model_averaging", "ensemble", "plr"],
+        reference="Ahrens, Hansen, Kurz, Schaffer, Wiemann (2025). JAE 40(3):381-402. DOI 10.1002/jae.3103.",
+    ))
+
+    register(FunctionSpec(
+        name="kernel_iv",
+        category="causal",
+        description=(
+            "Kernel IV regression with uniform confidence bands (Lob et al. 2025). "
+            "Estimates the structural function h*(d) = E[Y | do(D=d)] via kernel-weighted "
+            "local averaging under a continuous instrument Z, with wild-bootstrap uniform SEs."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True, description="Continuous treatment D"),
+            ParamSpec("instrument", "str", True, description="Continuous instrument Z"),
+            ParamSpec("grid", "ndarray", False, None, "Grid of d-values (default 30 quantile-evenly spaced)"),
+            ParamSpec("bandwidth", "float", False, None, "Silverman default"),
+            ParamSpec("ridge", "float", False, 0.001, "Tikhonov regularisation"),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("n_boot", "int", False, 100),
+            ParamSpec("seed", "int", False, 0),
+        ],
+        returns="KernelIVResult",
+        example='sp.kernel_iv(df, y="wage", treat="schooling", instrument="compulsory")',
+        tags=["iv", "kernel", "non-parametric", "uniform-ci", "continuous"],
+        reference="Lob et al. (2025). arXiv:2511.21603.",
+    ))
+
+    register(FunctionSpec(
+        name="continuous_iv_late",
+        category="causal",
+        description=(
+            "LATE with a continuous instrument (Xie et al. 2025). Estimates the "
+            "LATE on the maximal complier class via quantile-bin Wald ratios, "
+            "weighted by the bin-pair with the largest first-stage response."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True),
+            ParamSpec("instrument", "str", True, description="Continuous instrument"),
+            ParamSpec("n_quantiles", "int", False, 4, "Number of instrument quantile bins"),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("n_boot", "int", False, 200),
+            ParamSpec("seed", "int", False, 0),
+        ],
+        returns="ContinuousLATEResult",
+        example='sp.continuous_iv_late(df, y="y", treat="d", instrument="z", n_quantiles=5)',
+        tags=["iv", "late", "continuous-instrument", "complier"],
+        reference="Xie et al. (2025). arXiv:2504.03063.",
+    ))
+
+    register(FunctionSpec(
+        name="hal_tmle",
+        category="causal",
+        description=(
+            "TMLE with Highly Adaptive Lasso (HAL) nuisance learners "
+            "(Qian & van der Laan 2025). Two variants: 'delta' plugs HAL into "
+            "standard TMLE; 'projection' shrinks the targeting step using "
+            "a tangent-space projection for reduced variance."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True, description="Binary treatment"),
+            ParamSpec("covariates", "list", True),
+            ParamSpec("variant", "str", False, "delta",
+                      "HAL-TMLE variant", ["delta", "projection"]),
+            ParamSpec("lambda_outcome", "float", False, None,
+                      "Outcome L1 penalty; None → 5-fold CV"),
+            ParamSpec("C_propensity", "float", False, 1.0,
+                      "Inverse L1 penalty for HAL propensity classifier"),
+            ParamSpec("max_anchors_per_col", "int", False, 40),
+            ParamSpec("n_folds", "int", False, 5),
+            ParamSpec("estimand", "str", False, "ATE", "Estimand", ["ATE", "ATT"]),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("random_state", "int", False, 42),
+        ],
+        returns="CausalResult",
+        example='sp.hal_tmle(df, y="y", treat="d", covariates=["x1","x2","x3"])',
+        tags=["tmle", "hal", "semiparametric", "causal", "double-robust"],
+        reference="Qian & van der Laan (2025). arXiv:2506.17214.",
+    ))
+
+    register(FunctionSpec(
+        name="synth_survival",
+        category="causal",
+        description=(
+            "Synthetic Survival Control (Agarwal & Shah 2025). Fits a convex "
+            "combination of donor Kaplan-Meier curves on the complementary "
+            "log-log scale to match the treated arm's pre-treatment survival, "
+            "then reports the post-treatment survival gap with placebo UCBs."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True,
+                      description="Long panel with one row per (unit, time) and a precomputed KM survival"),
+            ParamSpec("unit", "str", True, description="Unit/panel-id column"),
+            ParamSpec("time", "str", True),
+            ParamSpec("survival", "str", True,
+                      description="Column with survival probability S_i(t)"),
+            ParamSpec("treated", "str", True,
+                      description="Boolean column or name of the single treated unit"),
+            ParamSpec("treat_time", "float", True),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("n_placebos", "int", False, 100),
+            ParamSpec("seed", "int", False, 0),
+        ],
+        returns="SyntheticSurvivalResult",
+        example=('sp.synth_survival(df, unit="arm", time="month", '
+                 'survival="km", treated="tr", treat_time=6)'),
+        tags=["synth", "scm", "survival", "causal", "kaplan-meier"],
+        reference="Agarwal & Shah (2025). arXiv:2511.14133.",
+    ))
+
+    register(FunctionSpec(
+        name="bridge",
+        category="causal",
+        description=(
+            "Unified dispatcher for six causal-inference bridging theorems "
+            "(2025-2026): DiD≡SC (Shi-Athey), EWM≡CATE (Ferman), "
+            "IPW≡DR≡CB (Zhao-Percival), Bunching≡RDD (Lu-Wang-Xie), "
+            "DR-via-Calibration (Zhang), Long-term-surrogate≡PCI (Kallus-Mao). "
+            "Reports both path estimates + doubly-robust recommendation."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("kind", "str", True,
+                      "Which bridge to invoke",
+                      ["did_sc", "ewm_cate", "cb_ipw", "kink_rdd",
+                       "dr_calib", "surrogate_pci"]),
+        ],
+        returns="BridgeResult",
+        example='sp.bridge(df, kind="did_sc", y="wage", group="state", time="year", first_treat="g")',
+        tags=["bridge", "causal", "identification", "doubly-robust"],
+        reference=(
+            "Shi-Athey (2503.11375); Ferman et al. (2510.26723); "
+            "Zhao-Percival (2310.18563); Lu-Wang-Xie (2404.09117); "
+            "Zhang et al. (2411.02771); Kallus-Mao (2601.17712)."
+        ),
+    ))
+
+    register(FunctionSpec(
+        name="causal_dqn",
+        category="causal",
+        description=(
+            "Causal deep Q-network (Fu-Zhou 2025) for offline policy "
+            "learning under unobserved confounding. Learns a "
+            "confounding-robust Q-function via bootstrap data augmentation."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("states", "list", True),
+            ParamSpec("action", "str", True),
+            ParamSpec("reward", "str", True),
+            ParamSpec("next_states", "list", False, None),
+            ParamSpec("terminal", "str", False, None),
+            ParamSpec("gamma", "float", False, 0.95),
+            ParamSpec("n_episodes", "int", False, 50),
+        ],
+        returns="CausalDQNResult",
+        example='sp.causal_dqn(df, states=["s1","s2"], action="a", reward="r")',
+        tags=["rl", "causal", "policy", "offline"],
+        reference="Fu-Zhou (2025). arXiv:2510.21110. Zhou-Bareinboim (2512.18135).",
+    ))
+
+    register(FunctionSpec(
+        name="fortified_pci",
+        category="causal",
+        description=(
+            "Fortified proximal causal inference (Yang-Schwartz 2025). "
+            "Adds a bridge-function stability constraint that gives robust "
+            "ATT under mild misspecification of the outcome/treatment bridge."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True),
+            ParamSpec("proxy_z", "list", True, description="Treatment-side proxies"),
+            ParamSpec("proxy_w", "list", True, description="Outcome-side proxies"),
+            ParamSpec("covariates", "list", False, None),
+        ],
+        returns="CausalResult",
+        example='sp.fortified_pci(df, y="y", treat="d", proxy_z=["z"], proxy_w=["w"])',
+        tags=["proximal", "pci", "unobserved-confounding", "fortified"],
+        reference="Yang & Schwartz (2025). arXiv:2506.13152.",
+    ))
+
+    register(FunctionSpec(
+        name="bidirectional_pci",
+        category="causal",
+        description=(
+            "Bidirectional proximal causal inference (Shi-Miao-Tchetgen 2025). "
+            "Solves for both outcome and treatment bridges simultaneously "
+            "in a single two-way regression system."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True),
+            ParamSpec("proxy_z", "list", True),
+            ParamSpec("proxy_w", "list", True),
+            ParamSpec("covariates", "list", False, None),
+        ],
+        returns="CausalResult",
+        example='sp.bidirectional_pci(df, y="y", treat="d", proxy_z=["z"], proxy_w=["w"])',
+        tags=["proximal", "pci", "bidirectional"],
+        reference="Shi, Miao, Tchetgen (2025). arXiv:2507.13965.",
+    ))
+
+    register(FunctionSpec(
+        name="pci_mtp",
+        category="causal",
+        description=(
+            "Proximal causal inference for modified treatment policies "
+            "(Park & Ying 2025). Estimates the effect of a policy that "
+            "shifts the treatment distribution (e.g., raises the dose by 10%) "
+            "under unobserved confounding identified by PCI."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True),
+            ParamSpec("proxy_z", "list", True),
+            ParamSpec("proxy_w", "list", True),
+            ParamSpec("policy", "Callable", True, description="Function D → D_shifted"),
+        ],
+        returns="CausalResult",
+        example='sp.pci_mtp(df, y="y", treat="d", proxy_z=["z"], proxy_w=["w"], policy=lambda d: d+0.1)',
+        tags=["proximal", "mtp", "modified-treatment-policy", "pci"],
+        reference="Park & Ying (2025). arXiv:2512.12038.",
+    ))
+
+    register(FunctionSpec(
+        name="cluster_cross_interference",
+        category="causal",
+        description=(
+            "Cluster-randomised trial under cross-cluster interference "
+            "(Ding et al. 2025). Estimates direct + spillover effects when "
+            "treatment of one cluster affects outcomes in adjacent clusters."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("cluster", "str", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("exposure", "str", True,
+                      description="Column with neighbours' treatment share"),
+        ],
+        returns="CrossClusterRCTResult",
+        example='sp.cluster_cross_interference(df, y="y", cluster="city", treatment="d", exposure="neighbour_d")',
+        tags=["interference", "spillover", "cluster-rct", "sutva"],
+        reference="Ding et al. (2025). arXiv:2310.18836.",
+    ))
+
+    register(FunctionSpec(
+        name="beyond_average_late",
+        category="causal",
+        description=(
+            "Beyond-average LATE (Xie-Wu 2025). Identifies the entire "
+            "treatment-effect distribution among compliers under incomplete "
+            "compliance, not just its mean."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True),
+            ParamSpec("instrument", "str", True),
+            ParamSpec("quantiles", "list", False, None,
+                      "Quantiles τ at which to evaluate QTE (default 0.1..0.9 step 0.1)"),
+        ],
+        returns="BeyondAverageResult",
+        example='sp.beyond_average_late(df, y="y", treat="d", instrument="z")',
+        tags=["iv", "qte", "late", "complier", "distribution"],
+        reference="Xie & Wu (2025). arXiv:2509.15594.",
+    ))
+
+    register(FunctionSpec(
+        name="conformal_fair_ite",
+        category="causal",
+        description=(
+            "Counterfactual-fair conformal prediction for ITE (2025). "
+            "Wraps standard conformal ITE intervals with a demographic-parity "
+            "adjustment, giving distribution-free coverage under protected-attribute shifts."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True),
+            ParamSpec("covariates", "list", True),
+            ParamSpec("protected", "str", True, description="Protected-attribute column"),
+            ParamSpec("alpha", "float", False, 0.1),
+        ],
+        returns="FairConformalResult",
+        example='sp.conformal_fair_ite(df, y="y", treat="d", covariates=["x1","x2"], protected="race")',
+        tags=["conformal", "fairness", "ite", "counterfactual"],
+        reference="arXiv:2510.08724 / 2510.12822 (2025).",
+    ))
+
+    # ------------------------------------------------------------------
+    # v1.1 frontier sprint (v3-doc Sprint 1): Abadie-Zhao, rbc bootstrap,
+    # evidence-without-injustice, JAMA TARGET, harvest DID, BCF ordinal
+    # + factor exposure, causal MAS, shift-share political, assimilation.
+    # ------------------------------------------------------------------
+
+    register(FunctionSpec(
+        name="synth_experimental_design",
+        category="synth",
+        description=(
+            "Abadie-Zhao (2025/2026) experimental-design synthetic controls: "
+            "picks the best k candidate units to treat by minimising the "
+            "sum of per-unit pre-period synthetic-control MSPEs."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True, description="Long-format panel"),
+            ParamSpec("unit", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("outcome", "str", True),
+            ParamSpec("k", "int", True, description="Number of units to treat"),
+            ParamSpec("candidates", "list", False),
+            ParamSpec("donors", "list", False),
+            ParamSpec("risk", "str", False, "mspe", enum=["mspe", "rmse"]),
+            ParamSpec("concentration_weight", "float", False, 0.0),
+            ParamSpec("penalization", "float", False, 0.0),
+            ParamSpec("n_random", "int", False, 500),
+        ],
+        returns="SynthExperimentalDesignResult",
+        example="sp.synth_experimental_design(df, unit='u', time='t', outcome='y', k=5)",
+        tags=["synth", "experimental_design", "selection", "abadie"],
+        reference="Abadie & Zhao (2025/2026), MIT / Cambridge UP.",
+    ))
+
+    register(FunctionSpec(
+        name="evidence_without_injustice",
+        category="fairness",
+        description=(
+            "Kwak-Pleasants (2025) evidence-without-injustice counterfactual "
+            "fairness test.  Freezes admissible-evidence features at their "
+            "factual values and tests whether predictions still change under "
+            "do(A=a')."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("predictor", "callable", True),
+            ParamSpec("protected", "str", True),
+            ParamSpec("admissible_features", "list", True),
+            ParamSpec("scm_intervention", "callable", True),
+            ParamSpec("alternative_values", "list", False),
+            ParamSpec("threshold", "float", False, 0.05),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("n_boot", "int", False, 500),
+        ],
+        returns="EvidenceWithoutInjusticeResult",
+        example=(
+            "sp.fairness.evidence_without_injustice("
+            "df, predictor, protected='race', admissible_features=['credit'], "
+            "scm_intervention=fn)"
+        ),
+        tags=["fairness", "counterfactual", "algorithmic_bias", "kwak_pleasants"],
+        reference="Kwak & Pleasants (arXiv:2510.12822, 2025).",
+    ))
+
+    register(FunctionSpec(
+        name="harvest_did",
+        category="did",
+        description=(
+            "Harvesting DID / Event Study (Borusyak et al. MIT/NBER 34550, "
+            "2025).  Extracts every valid 2x2 DID comparison from a staggered "
+            "panel, combines them with inverse-variance weights, and reports "
+            "event-study + pretrend Wald tests."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("unit", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("outcome", "str", True),
+            ParamSpec("treat", "str", False),
+            ParamSpec("cohort", "str", False),
+            ParamSpec("horizons", "list", False),
+            ParamSpec("reference", "int", False, -1),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("weighting", "str", False, "precision",
+                      enum=["precision", "equal", "n_treated"]),
+        ],
+        returns="CausalResult",
+        example="sp.harvest_did(df, unit='u', time='t', outcome='y', treat='D')",
+        tags=["did", "event_study", "harvest", "staggered"],
+        reference="MIT / NBER WP 34550, 2025.",
+    ))
+
+    register(FunctionSpec(
+        name="bcf_ordinal",
+        category="causal",
+        description=(
+            "Bayesian Causal Forest for ordered / dose-level treatment "
+            "(Zorzetto et al. 2026).  Estimates cumulative dose-response "
+            "curves via chained BCF between consecutive levels."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True),
+            ParamSpec("covariates", "list", True),
+            ParamSpec("baseline", "str", False),
+            ParamSpec("n_trees_mu", "int", False, 200),
+            ParamSpec("n_trees_tau", "int", False, 50),
+            ParamSpec("n_bootstrap", "int", False, 100),
+            ParamSpec("n_folds", "int", False, 5),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("random_state", "int", False, 42),
+        ],
+        returns="BCFOrdinalResult",
+        example='sp.bcf_ordinal(df, y="Y", treat="dose", covariates=["x1","x2"])',
+        tags=["bcf", "ordinal", "dose_response", "bayesian"],
+        reference="Zorzetto et al. (2026) working paper.",
+    ))
+
+    register(FunctionSpec(
+        name="bcf_factor_exposure",
+        category="causal",
+        description=(
+            "BCF on PCA-factor scores of a high-dimensional exposure vector "
+            "(arXiv:2601.16595, 2026).  Compresses exposures via SVD or "
+            "user-supplied loadings, then fits one BCF per factor."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("exposures", "list", True),
+            ParamSpec("covariates", "list", True),
+            ParamSpec("n_factors", "int", False, 3),
+            ParamSpec("binarize", "str", False, "median",
+                      enum=["median", "zero", "none"]),
+            ParamSpec("loadings", "DataFrame", False),
+            ParamSpec("n_bootstrap", "int", False, 100),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="BCFFactorExposureResult",
+        example=(
+            'sp.bcf_factor_exposure(df, y="Y", exposures=["z1","z2","z3"], '
+            'covariates=["x1","x2"], n_factors=2)'
+        ),
+        tags=["bcf", "factor_analysis", "exposure_mixture", "bayesian"],
+        reference="arXiv:2601.16595 (2026).",
+    ))
+
+    register(FunctionSpec(
+        name="causal_mas",
+        category="causal_llm",
+        description=(
+            "Multi-agent LLM causal discovery (arXiv:2509.00987, 2025). "
+            "Runs proposer / critic / domain-expert / synthesiser agents "
+            "over several rounds, returns per-edge confidence + audit log."
+        ),
+        params=[
+            ParamSpec("variables", "list", True),
+            ParamSpec("domain", "str", False, ""),
+            ParamSpec("treatment", "str", False),
+            ParamSpec("outcome", "str", False),
+            ParamSpec("instruments", "list", False),
+            ParamSpec("confounders", "list", False),
+            ParamSpec("rounds", "int", False, 3),
+            ParamSpec("final_threshold", "float", False, 0.5),
+            ParamSpec("client", "object", False, description="LLM chat client"),
+        ],
+        returns="CausalMASResult",
+        example=(
+            "sp.causal_llm.causal_mas(variables=['age','sex','treatment','outcome'])"
+        ),
+        tags=["llm", "causal_discovery", "multi_agent", "dag"],
+        reference="arXiv:2509.00987 (2025).",
+    ))
+
+    register(FunctionSpec(
+        name="shift_share_political",
+        category="bartik",
+        description=(
+            "Park-Xu (2026) political-science shift-share IV: long-difference "
+            "Bartik IV with AKM shock-cluster SE, Rotemberg top-K, and "
+            "share-balance diagnostics."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("unit", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("outcome", "str", True),
+            ParamSpec("endog", "str", True),
+            ParamSpec("shares", "DataFrame", True),
+            ParamSpec("shocks", "Series", True),
+            ParamSpec("covariates", "list", False),
+            ParamSpec("leave_one_out", "bool", False, True),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="ShiftSharePoliticalResult",
+        example=(
+            "sp.shift_share_political(df, unit='state', time='year', "
+            "outcome='vote', endog='expo', shares=S, shocks=g)"
+        ),
+        tags=["bartik", "shift_share", "iv", "political_science"],
+        reference="Park & Xu (arXiv:2603.00135, 2026).",
+    ))
+
+    register(FunctionSpec(
+        name="causal_kalman",
+        category="assimilation",
+        description=(
+            "Closed-form Kalman filter over a stream of causal-effect "
+            "estimates + SEs.  Produces a running posterior over the "
+            "time-varying (or static) causal effect."
+        ),
+        params=[
+            ParamSpec("estimates", "list", True),
+            ParamSpec("standard_errors", "list", True),
+            ParamSpec("prior_mean", "float", False, 0.0),
+            ParamSpec("prior_var", "float", False, 1.0),
+            ParamSpec("process_var", "float", False, 0.0),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="AssimilationResult",
+        example="sp.causal_kalman(ests, ses, prior_mean=0.0, prior_var=1.0)",
+        tags=["assimilation", "kalman", "streaming", "bayesian"],
+        reference="Nature Communications 2026.",
+    ))
+
+    register(FunctionSpec(
+        name="assimilative_causal",
+        category="assimilation",
+        description=(
+            "End-to-end Assimilative Causal Inference pipeline (Nature "
+            "Communications 2026): for each data batch, apply `estimator` "
+            "to get (θ̂, SE), then fuse via Kalman filtering."
+        ),
+        params=[
+            ParamSpec("batches", "list", True),
+            ParamSpec("estimator", "callable", True,
+                      description="Maps a batch to (theta_hat, se)"),
+            ParamSpec("prior_mean", "float", False, 0.0),
+            ParamSpec("prior_var", "float", False, 1.0),
+            ParamSpec("process_var", "float", False, 0.0),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("backend", "str", False, "kalman", enum=["kalman"]),
+        ],
+        returns="AssimilationResult",
+        example=(
+            "sp.assimilative_causal(batches, "
+            "lambda df: (sp.regress('y~d', data=df).params['d'], "
+            "sp.regress('y~d', data=df).std_errors['d']))"
+        ),
+        tags=["assimilation", "streaming", "bayesian", "rwe"],
+        reference="Nature Communications 2026.",
+    ))
+
 
 # ====================================================================== #
 #  Auto-registration from statspai.__all__

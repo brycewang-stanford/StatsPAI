@@ -27,9 +27,11 @@ class ContinuousLATEResult:
     n_obs: int
 
     def summary(self) -> str:
+        header = "Continuous-Instrument LATE (Maximal Complier Class)"
+        bar = "=" * len(header)
         return (
-            "Continuous-Instrument LATE (Maximal Complier Class)\n"
-            "=" * 42 + "\n"
+            f"{header}\n"
+            f"{bar}\n"
             f"  N            : {self.n_obs}\n"
             f"  Complier sh. : {self.complier_share:.3f}\n"
             f"  LATE         : {self.estimate:+.4f} (SE {self.se:.4f})\n"

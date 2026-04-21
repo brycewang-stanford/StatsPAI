@@ -39,6 +39,7 @@ from .did_multiplegt import did_multiplegt
 from .did_imputation import did_imputation
 from .stacked_did import stacked_did
 from .gardner_2s import gardner_did, did_2stage
+from .harvest import harvest_did, HarvestDIDResult
 from .cic import cic
 from .pretrends import (
     pretrends_test,

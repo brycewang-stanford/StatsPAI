@@ -330,6 +330,10 @@ __all__ = [
     "bayesian_iv", "BayesianIVResult",
     # NPIV
     "npiv", "NPIVResult",
+    # Kernel IV with uniform inference (Lob et al. 2025)
+    "kernel_iv", "KernelIVResult",
+    # Continuous-instrument LATE (Xie et al. 2025)
+    "continuous_iv_late", "ContinuousLATEResult",
     # re-exports
     "bartik", "shift_share_se", "BartikIV", "ssaggregate",
     "deepiv", "DeepIV",

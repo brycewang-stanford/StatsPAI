@@ -24,6 +24,7 @@ from .tmle import tmle, TMLE
 from .super_learner import super_learner, SuperLearner
 from .ltmle import ltmle, LTMLEResult
 from .ltmle_survival import ltmle_survival, LTMLESurvivalResult
+from .hal_tmle import hal_tmle, HALRegressor, HALClassifier
 
 __all__ = [
     'tmle',
@@ -34,4 +35,7 @@ __all__ = [
     'LTMLEResult',
     'ltmle_survival',
     'LTMLESurvivalResult',
+    'hal_tmle',
+    'HALRegressor',
+    'HALClassifier',
 ]
