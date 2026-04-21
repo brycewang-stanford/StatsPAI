@@ -170,3 +170,44 @@ release that bumps to 1.0 (alignment is a 1.0 story).
 * Flip the default in the release after that.
 
 ---
+
+## 6 · `sp.compare_estimators` — hint-aware Sprint-B support
+
+**Shipped in 0.9.x**: ``sp.compare_estimators`` accepts ``methods=``
+from ``{'ols', 'matching', 'ipw', 'aipw', 'dml', 'g_computation',
+'causal_forest', 'did', 'panel_fe'}``. Each branch shares the same
+``(data, y, treatment, covariates, id, time, instrument)`` signature.
+
+**Deferred**: the four Sprint-B estimators that need extra arguments
+the shared signature does not expose — ``'proximal'`` (needs
+``proxy_z`` + ``proxy_w``), ``'msm'`` (needs ``time_varying``),
+``'principal_strat'`` (needs a post-treatment ``strata`` column), and
+the mediation family (needs ``mediator`` and optionally
+``tv_confounders``). Calling them requires bespoke args per method.
+
+**Why deferred**: bloating the shared signature with a dozen
+optional kwargs would regress the ergonomics for the common
+methods, while a hint-forwarding map (``method_hints={'proximal':
+{'proxy_z': [...], 'proxy_w': [...]}}``) needs design work to avoid
+confusing multi-method semantics.
+
+**Trigger**: a user request to compare proximal against DML / TMLE
+on the same data set.
+
+**Rough design**:
+
+* Add ``method_hints: Dict[str, Dict[str, Any]]`` parameter that
+  maps a method name to its per-method kwargs.
+* Dispatch each Sprint-B branch to the corresponding estimator using
+  both the shared args and the per-method hints.
+* Keep backward compatibility: callers who don't pass
+  ``method_hints`` get the existing behaviour.
+* **Collision rule**: per-method hints take precedence over the
+  shared kwargs for the method they name. If
+  ``covariates=['age']`` is the top-level shared arg and
+  ``method_hints={'proximal': {'covariates': ['age', 'educ']}}`` is
+  supplied, proximal uses ``['age', 'educ']`` and every other method
+  uses ``['age']``. Emit a ``UserWarning`` on conflict so the
+  override is visible in the log.
+
+---

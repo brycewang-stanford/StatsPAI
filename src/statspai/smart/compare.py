@@ -132,7 +132,15 @@ def compare_estimators(
     methods : list of str, optional
         Estimators to compare. Default auto-selects based on data.
         Options: 'ols', 'matching', 'ipw', 'aipw', 'dml',
-        'causal_forest', 'did', 'panel_fe'.
+        'g_computation', 'causal_forest', 'did', 'panel_fe'.
+
+        Not supported here (require extra arguments beyond the shared
+        signature): ``'proximal'`` (needs proxy_z / proxy_w),
+        ``'msm'`` (needs time_varying / id / time),
+        ``'principal_strat'`` (needs a post-treatment strata variable),
+        and the mediation family (needs a mediator). Call those
+        estimators directly; see docs/ROADMAP.md for the planned
+        hint-aware multi-method comparison surface.
     covariates : list of str, optional
     id : str, optional
         Panel unit ID.
@@ -210,6 +218,35 @@ def compare_estimators(
                 se = r.se if hasattr(r, 'se') else r.std_errors.iloc[0]
                 results['AIPW'] = r
                 name = 'Augmented IPW (DR)'
+
+            elif method == 'g_computation':
+                # sp.g_computation uses the 'treat=' kwarg (not
+                # 'treatment=') to match the rest of the Sprint-B
+                # causal-inference surface. Handle that mapping here
+                # so the shared ``treatment`` parameter works.
+                # Explicit binary guard: the default ATE path in
+                # g_computation rejects non-binary D. Without this
+                # guard the outer ``except Exception`` below would
+                # swallow the error in a 400-line ValueError dump of
+                # unique treatment values. Raising a clean
+                # ValueError here keeps the warning compact.
+                treat_vals = df[treatment].dropna().unique()
+                if not set(treat_vals).issubset({0, 1, 0.0, 1.0}):
+                    raise ValueError(
+                        f"g_computation requires a binary treatment "
+                        f"(0/1); '{treatment}' has "
+                        f"{len(treat_vals)} unique values "
+                        f"(first: {sorted(treat_vals)[:3]}). "
+                        f"Use estimand='dose_response' directly via "
+                        f"sp.g_computation() for continuous D."
+                    )
+                r = sp.g_computation(df, y=y, treat=treatment,
+                                     covariates=covariates[:10],
+                                     seed=0)
+                est = r.estimate
+                se = r.se
+                results['G-computation'] = r
+                name = 'G-computation (parametric g-formula)'
 
             elif method == 'dml':
                 r = sp.dml(df, y=y, treatment=treatment,

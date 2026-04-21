@@ -124,7 +124,18 @@ def sensitivity_dashboard(
         'significant': abs(baseline_est / baseline_se) > z_crit if baseline_se > 0 else False,
     }
 
-    method = getattr(result, 'model_info', {}).get('model_type', 'Unknown')
+    # Resolve a human-readable method label. Sprint-B CausalResult
+    # objects store the label on ``.method`` (e.g. "Proximal Causal
+    # Inference (linear 2SLS)"); older EconometricResults use
+    # ``model_info['model_type']``. Read both so the dashboard
+    # doesn't show "Unknown" on proximal / msm / g_computation / etc.
+    _model_info = getattr(result, 'model_info', {}) or {}
+    method = (
+        str(getattr(result, 'method', '') or '')
+        or str(_model_info.get('model_type', '') or '')
+        or str(_model_info.get('estimator', '') or '')
+        or 'Unknown'
+    )
     dim_results = []
 
     if dimensions is None:
