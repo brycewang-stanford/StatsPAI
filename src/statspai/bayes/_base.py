@@ -425,6 +425,13 @@ class BayesianMTEResult(BayesianCausalResult):
     atu_sd: float = float('nan')
     atu_hdi_lower: float = float('nan')
     atu_hdi_upper: float = float('nan')
+    # v0.9.15: posterior P(ATT > 0) / P(ATU > 0). NaN by default so
+    # results deserialised from earlier snapshots do not break; when
+    # v0.9.15+ bayes_mte fits, these scalars are populated from the
+    # per-draw ATT / ATU posterior and exposed via
+    # ``tidy(terms=['att', 'atu'])``.
+    att_prob_positive: float = float('nan')
+    atu_prob_positive: float = float('nan')
 
     def summary(self) -> str:
         """Printable summary with ATT/ATU uncertainty appended.
@@ -457,6 +464,101 @@ class BayesianMTEResult(BayesianCausalResult):
         if base.endswith(closing):
             return base[: -len(closing)] + block + '\n' + closing
         return base + '\n' + block
+
+    def tidy(
+        self,
+        conf_level: Optional[float] = None,
+        terms: Any = None,
+    ) -> pd.DataFrame:
+        """Broom-style tidy summary with optional multi-term output.
+
+        Extends :meth:`BayesianCausalResult.tidy` so a single fit can
+        emit a long-format DataFrame for ATE / ATT / ATU in one call,
+        which is what downstream meta-analysis pipelines (pd.concat
+        + modelsummary, gt, etc.) expect.
+
+        Parameters
+        ----------
+        conf_level : float, optional
+            Unused for Bayesian output; accepted for API parity with
+            :class:`CausalResult.tidy`.
+        terms : None | str | sequence of str, default ``None``
+            Which term(s) to include:
+
+            - ``None`` or ``'ate'`` — single ATE row (back-compat
+              with v0.9.14 default).
+            - ``'att'`` / ``'atu'`` — single row of that term.
+            - list like ``['ate', 'att', 'atu']`` — multi-row.
+
+            Unknown names raise :class:`ValueError`. When an ATT /
+            ATU term is requested but the corresponding SD field is
+            NaN (empty subpopulation, or result deserialised from
+            pre-v0.9.13), the row is still emitted with NaN
+            uncertainty columns — the schema stays rectangular so
+            downstream concat doesn't misalign columns.
+        """
+        # Default path stays byte-identical to the parent v0.9.14
+        # implementation.
+        if terms is None:
+            return super().tidy(conf_level=conf_level)
+
+        # Normalise to a list of requested term labels.
+        if isinstance(terms, str):
+            terms_list = [terms]
+        else:
+            terms_list = list(terms)
+
+        known = {'ate', 'att', 'atu'}
+        unknown = [t for t in terms_list if t not in known]
+        if unknown:
+            raise ValueError(
+                f"Unknown term(s) {unknown}; valid options are "
+                f"{sorted(known)}."
+            )
+
+        def _row(term: str) -> Dict[str, Any]:
+            # Round-B review-H1 fix: for ``term == 'ate'`` we use the
+            # same label the parent default path uses (``estimand.lower()``
+            # = ``'ate (integrated mte)'``) so ``tidy(terms='ate')`` and
+            # plain ``tidy()`` produce *byte-identical* rows for the
+            # ATE term. Mixing short/long labels inside the same concat
+            # pipeline was the original divergence concern.
+            if term == 'ate':
+                term_label = self.estimand.lower()
+                est = self.posterior_mean
+                sd = self.posterior_sd
+                lo = self.hdi_lower
+                hi = self.hdi_upper
+                pp = self.prob_positive
+            elif term == 'att':
+                term_label = 'att'
+                est = self.att
+                sd = self.att_sd
+                lo = self.att_hdi_lower
+                hi = self.att_hdi_upper
+                pp = self.att_prob_positive
+            else:  # 'atu'
+                term_label = 'atu'
+                est = self.atu
+                sd = self.atu_sd
+                lo = self.atu_hdi_lower
+                hi = self.atu_hdi_upper
+                pp = self.atu_prob_positive
+            stat = (est / sd) if (sd is not None
+                                   and np.isfinite(sd) and sd > 0) else np.nan
+            return {
+                'term': term_label,
+                'estimate': est,
+                'std_error': sd,
+                'statistic': stat,
+                'p_value': np.nan,
+                'conf_low': lo,
+                'conf_high': hi,
+                'prob_positive': pp,
+                'hdi_prob': self.hdi_prob,
+            }
+
+        return pd.DataFrame([_row(t) for t in terms_list])
 
     def policy_effect(
         self,

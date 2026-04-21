@@ -483,11 +483,14 @@ def bayes_mte(
     def _integrated_effect(U_population):
         """Posterior summary of the MTE integrated over a subpopulation.
 
-        Returns (mean, sd, hdi_lower, hdi_high). All NaN when the
-        subpopulation is empty (e.g. all units treated ⇒ no ATU).
+        Returns (mean, sd, hdi_lower, hdi_high, prob_positive). All
+        NaN when the subpopulation is empty (e.g. all units treated
+        ⇒ no ATU). The ``prob_positive`` slot is new in v0.9.15 and
+        feeds ``BayesianMTEResult.tidy(terms='att')`` /
+        ``tidy(terms='atu')``.
         """
         if U_population.size == 0:
-            return (float('nan'),) * 4
+            return (float('nan'),) * 5
         if selection == 'normal':
             from scipy.stats import norm as _norm_dist
             pop_abscissa = _norm_dist.ppf(
@@ -506,10 +509,13 @@ def bayes_mte(
             float(per_draw_mean.std(ddof=1)),
             float(hdi[0]),
             float(hdi[1]),
+            float(np.mean(per_draw_mean > 0)),
         )
 
-    att_mean, att_sd, att_hdi_lo, att_hdi_hi = _integrated_effect(U_treated)
-    atu_mean, atu_sd, atu_hdi_lo, atu_hdi_hi = _integrated_effect(U_untreated)
+    (att_mean, att_sd, att_hdi_lo, att_hdi_hi,
+     att_prob_pos) = _integrated_effect(U_treated)
+    (atu_mean, atu_sd, atu_hdi_lo, atu_hdi_hi,
+     atu_prob_pos) = _integrated_effect(U_untreated)
 
     # Primary estimand: average MTE (ATE integral)
     ate_mean = float(ate_samples.mean())
@@ -597,7 +603,9 @@ def bayes_mte(
         att_sd=att_sd,
         att_hdi_lower=att_hdi_lo,
         att_hdi_upper=att_hdi_hi,
+        att_prob_positive=att_prob_pos,
         atu_sd=atu_sd,
         atu_hdi_lower=atu_hdi_lo,
         atu_hdi_upper=atu_hdi_hi,
+        atu_prob_positive=atu_prob_pos,
     )
