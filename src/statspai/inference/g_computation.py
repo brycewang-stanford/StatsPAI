@@ -129,9 +129,25 @@ def g_computation(
     if estimand in ('ATE', 'ATT'):
         uniq = set(np.unique(D))
         if not uniq.issubset({0, 1}):
+            # Truncate the value dump: a continuous treatment can have
+            # hundreds of unique values and the full list turns the
+            # error message into a ~20 KB wall of floats — this
+            # explodes warning-message size when a caller (e.g. the
+            # compare_estimators batch loop) wraps the ValueError in
+            # a UserWarning. Filter NaNs before sorting (a lone NaN
+            # would sit in a non-deterministic position in Python's
+            # sort and omit real values from the preview).
+            finite = [v for v in uniq
+                      if not (isinstance(v, float) and np.isnan(v))]
+            has_nan = len(finite) < len(uniq)
+            vals = sorted(finite)
+            preview = ', '.join(f'{v:.4g}' for v in vals[:5])
+            tail = f', ... ({len(vals) - 5} more)' if len(vals) > 5 else ''
+            nan_note = ' (plus NaN values present)' if has_nan else ''
             raise ValueError(
                 f"estimand='{estimand}' requires binary treatment (0/1); "
-                f"found values {sorted(uniq)}. For multi-valued or "
+                f"treatment has {len(vals)} unique values "
+                f"[{preview}{tail}]{nan_note}. For multi-valued or "
                 f"continuous D, use estimand='dose_response'."
             )
         grid = np.array([0.0, 1.0])

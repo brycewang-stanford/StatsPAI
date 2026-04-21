@@ -115,6 +115,7 @@ def compare_estimators(
     time: str = None,
     instrument: str = None,
     alpha: float = 0.05,
+    method_hints: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> ComparisonResult:
     """
     Run multiple estimators on the same data and compare.
@@ -131,16 +132,31 @@ def compare_estimators(
         Treatment variable (binary).
     methods : list of str, optional
         Estimators to compare. Default auto-selects based on data.
-        Options: 'ols', 'matching', 'ipw', 'aipw', 'dml',
-        'g_computation', 'causal_forest', 'did', 'panel_fe'.
+        Classical options: ``'ols'``, ``'matching'``, ``'ipw'``,
+        ``'aipw'``, ``'dml'``, ``'g_computation'``,
+        ``'causal_forest'``, ``'did'``, ``'panel_fe'``.
 
-        Not supported here (require extra arguments beyond the shared
-        signature): ``'proximal'`` (needs proxy_z / proxy_w),
-        ``'msm'`` (needs time_varying / id / time),
-        ``'principal_strat'`` (needs a post-treatment strata variable),
-        and the mediation family (needs a mediator). Call those
-        estimators directly; see docs/ROADMAP.md for the planned
-        hint-aware multi-method comparison surface.
+        Hint-driven Sprint-B options (require ``method_hints``):
+        ``'proximal'``, ``'msm'``, ``'principal_strat'``, ``'mediate'``,
+        ``'mediate_interventional'``, ``'front_door'``. Each needs
+        method-specific kwargs the shared signature does not expose
+        (proxy_z/proxy_w, time_varying, strata, mediator, etc.) — pass
+        them through ``method_hints``.
+    method_hints : dict, optional
+        Per-method keyword overrides, merged with the shared kwargs
+        when dispatching each estimator. Structure::
+
+            {'proximal': {'proxy_z': ['z'], 'proxy_w': ['w']},
+             'msm':      {'time_varying': ['L_lag']},
+             'principal_strat': {'strata': 's'}}
+
+        **Collision rule** (docs/ROADMAP.md §6): per-method hints
+        take precedence over the shared kwargs for the method they
+        name. If the top-level ``covariates=['age']`` disagrees with
+        ``method_hints={'proximal': {'covariates': ['age', 'educ']}}``,
+        proximal uses the hint and every other method uses the
+        shared arg. A ``UserWarning`` fires on conflict so the
+        override is visible in the log.
     covariates : list of str, optional
     id : str, optional
         Panel unit ID.
@@ -180,6 +196,44 @@ def compare_estimators(
     df = data.dropna(subset=[y, treatment] + covariates)
     n = len(df)
     z_crit = stats.norm.ppf(1 - alpha / 2)
+
+    # Resolve per-method hints with the ROADMAP §6 collision rule:
+    # hint-supplied args win over shared args for the method they name,
+    # with a UserWarning on explicit conflict.
+    method_hints = method_hints or {}
+
+    def _values_differ(a, b):
+        """
+        Compare two hint values, with list equality being set-based so
+        that pure reordering (e.g. ``['x1','x2']`` vs ``['x2','x1']``)
+        does not trigger a spurious conflict warning. Tuple / set
+        callers get the same treatment; everything else falls back
+        to standard ``!=``.
+        """
+        if isinstance(a, (list, tuple, set)) and isinstance(b, (list, tuple, set)):
+            try:
+                return set(a) != set(b)
+            except TypeError:
+                # Unhashable elements (e.g. nested lists) — fall back
+                # to strict element-wise comparison, still
+                # order-sensitive, but better than crashing.
+                return list(a) != list(b)
+        return a != b
+
+    def _resolve_hints(method_name, shared_kwargs):
+        """Merge shared kwargs with per-method hints; hint wins on conflict."""
+        hint = method_hints.get(method_name, {}) or {}
+        merged = dict(shared_kwargs)
+        for k, v in hint.items():
+            if k in merged and _values_differ(merged[k], v):
+                warnings.warn(
+                    f"compare_estimators: method_hints['{method_name}']"
+                    f"['{k}'] overrides the shared {k}={shared_kwargs[k]!r} "
+                    f"with {v!r}.",
+                    UserWarning, stacklevel=2,
+                )
+            merged[k] = v
+        return merged
 
     results = {}
     rows = []
@@ -278,6 +332,137 @@ def compare_estimators(
                 se = r.se
                 results['DID'] = r
                 name = 'Difference-in-Differences'
+
+            # ----- Sprint-B hint-driven branches -------------------- #
+            # Each requires per-method kwargs supplied via
+            # method_hints[method]; we raise a clean ValueError if the
+            # mandatory hint is missing so the outer try/except turns
+            # it into a compact UserWarning rather than silent skip.
+
+            elif method == 'proximal':
+                hint = method_hints.get('proximal', {}) or {}
+                proxy_z = hint.get('proxy_z')
+                proxy_w = hint.get('proxy_w')
+                if not proxy_z or not proxy_w:
+                    raise ValueError(
+                        "method='proximal' requires "
+                        "method_hints['proximal']={'proxy_z': [...], "
+                        "'proxy_w': [...]}."
+                    )
+                merged = _resolve_hints('proximal', {
+                    'covariates': [c for c in covariates[:10]
+                                   if c not in proxy_z + proxy_w],
+                })
+                r = sp.proximal(df, y=y, treat=treatment,
+                                proxy_z=list(proxy_z),
+                                proxy_w=list(proxy_w),
+                                covariates=merged['covariates'])
+                est = r.estimate
+                se = r.se
+                results['Proximal'] = r
+                name = 'Proximal Causal Inference (bridge 2SLS)'
+
+            elif method == 'msm':
+                hint = method_hints.get('msm', {}) or {}
+                tv = hint.get('time_varying')
+                if not tv or not id or not time:
+                    raise ValueError(
+                        "method='msm' requires id + time + "
+                        "method_hints['msm']={'time_varying': [...]}."
+                    )
+                merged = _resolve_hints('msm', {
+                    'baseline': [c for c in covariates[:5] if c not in tv],
+                })
+                r = sp.msm(df, y=y, treat=treatment, id=id, time=time,
+                           time_varying=list(tv),
+                           baseline=merged.get('baseline'))
+                est = r.estimate
+                se = r.se
+                results['MSM'] = r
+                name = 'Marginal Structural Model (IPTW)'
+
+            elif method == 'principal_strat':
+                hint = method_hints.get('principal_strat', {}) or {}
+                strata = hint.get('strata')
+                if not strata:
+                    raise ValueError(
+                        "method='principal_strat' requires "
+                        "method_hints['principal_strat']={'strata': <col>}."
+                    )
+                merged = _resolve_hints('principal_strat', {
+                    'covariates': covariates[:10],
+                    'method': 'principal_score' if covariates else 'monotonicity',
+                })
+                r = sp.principal_strat(
+                    df, y=y, treat=treatment, strata=strata,
+                    covariates=merged['covariates'] if merged['method'] == 'principal_score' else None,
+                    method=merged['method'],
+                )
+                # PrincipalStratResult is not a CausalResult; pull
+                # the complier PCE (= LATE) by stratum NAME rather
+                # than .iloc[0] so an upstream reordering of the
+                # effects table can't silently make us report the
+                # always-taker effect instead.
+                effects = getattr(r, 'effects', None)
+                if effects is not None and len(effects):
+                    _complier = effects['stratum'].astype(str).str.lower().str.contains('complier')
+                    _row = effects[_complier].iloc[0] if _complier.any() else effects.iloc[0]
+                    est = float(_row['estimate'])
+                    se = float(_row['se']) if 'se' in effects.columns else 0.0
+                else:
+                    est, se = np.nan, np.nan
+                results['Principal Strat'] = r
+                name = 'Principal Stratification (complier PCE)'
+
+            elif method == 'front_door':
+                hint = method_hints.get('front_door', {}) or {}
+                mediator = hint.get('mediator')
+                if not mediator:
+                    raise ValueError(
+                        "method='front_door' requires "
+                        "method_hints['front_door']={'mediator': <col>}."
+                    )
+                merged = _resolve_hints('front_door', {
+                    'covariates': [c for c in covariates[:10] if c != mediator],
+                })
+                r = sp.front_door(df, y=y, treat=treatment,
+                                  mediator=mediator,
+                                  covariates=merged['covariates'])
+                est = r.estimate
+                se = r.se
+                results['Front-door'] = r
+                name = 'Front-door adjustment'
+
+            elif method in ('mediate', 'mediate_interventional'):
+                hint = method_hints.get(method, {}) or {}
+                mediator = hint.get('mediator')
+                if not mediator:
+                    raise ValueError(
+                        f"method='{method}' requires "
+                        f"method_hints['{method}']={{'mediator': <col>}}."
+                    )
+                merged = _resolve_hints(method, {
+                    'covariates': [c for c in covariates[:10] if c != mediator],
+                })
+                if method == 'mediate':
+                    r = sp.mediate(df, y=y, treat=treatment,
+                                   mediator=mediator,
+                                   covariates=merged['covariates'] or None)
+                    label = 'Causal Mediation (ACME)'
+                    key = 'Mediation (natural)'
+                else:
+                    tv_c = hint.get('tv_confounders')
+                    r = sp.mediate_interventional(
+                        df, y=y, treat=treatment, mediator=mediator,
+                        covariates=merged['covariates'] or None,
+                        tv_confounders=list(tv_c) if tv_c else None,
+                    )
+                    label = 'Interventional Mediation (IIE)'
+                    key = 'Mediation (interventional)'
+                est = r.estimate
+                se = r.se
+                results[key] = r
+                name = label
 
             else:
                 continue
