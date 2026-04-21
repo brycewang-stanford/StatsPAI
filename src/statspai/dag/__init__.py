@@ -22,6 +22,10 @@ from .do_calculus import rule1, rule2, rule3, apply_rules, RuleCheck
 from .swig import swig, SWIGGraph
 from .counterfactual import SCM
 from .llm_dag import llm_dag, LLMDAGResult
+from .llm_evaluator import (
+    llm_causal_assess, pairwise_causal_benchmark,
+    LLMCausalAssessResult, PairwiseBenchmarkResult,
+)
 from .recommend import recommend_estimator, EstimatorRecommendation
 
 
@@ -45,5 +49,7 @@ __all__ = [
     "swig", "SWIGGraph",
     "SCM",
     "llm_dag", "LLMDAGResult",
+    "llm_causal_assess", "pairwise_causal_benchmark",
+    "LLMCausalAssessResult", "PairwiseBenchmarkResult",
     "recommend_estimator", "EstimatorRecommendation",
 ]

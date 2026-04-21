@@ -343,19 +343,23 @@ def ltmle_survival(
             indicator = cum_follow & (A_k == a_tgt) & (C_k_obs == 1) & at_risk
             H = np.where(indicator, new_cum_weight, 0.0)
 
-            h_clipped = np.clip(h_hat, 1e-6, 1 - 1e-6)
-            offset = _safe_logit(h_clipped)
-            # linearised one-step update: resid = observed hazard - h_hat
+            # Targeting is a one-step logistic update applied to the
+            # *regime-counterfactual* hazard (the quantity whose
+            # survival curve we report), not the observed-arm hazard.
+            # The TMLE offset is therefore logit(h_hat_regime); the
+            # residual uses the observed-arm h_hat only to score
+            # epsilon against observed outcomes under the clever
+            # covariate.
             resid = np.where(mask, T_k.astype(float) - h_hat, 0.0)
             denom = float(np.sum(H[mask] ** 2))
             if denom > 1e-10:
                 eps = float(np.sum(H[mask] * resid[mask]) / denom)
             else:
                 eps = 0.0
-            h_star_regime = expit(
-                _safe_logit(np.clip(h_hat_regime, 1e-6, 1 - 1e-6))
-                + eps * new_cum_weight
+            offset_regime = _safe_logit(
+                np.clip(h_hat_regime, 1e-6, 1 - 1e-6)
             )
+            h_star_regime = expit(offset_regime + eps * new_cum_weight)
 
             # Survival update: S(k) = S(k-1) * (1 - h*)
             S_new = S_prev * (1.0 - h_star_regime)

@@ -18,5 +18,12 @@ Elasticities. QJE, 126(2), 749-804.
 
 from .bunching import bunching, BunchingEstimator
 from .notch import notch, NotchResult
+# v0.10 high-order + unified-with-RDD/RKD
+from .general import general_bunching, GeneralBunchingResult
+from .kink_unified import kink_unified, KinkUnifiedResult
 
-__all__ = ['bunching', 'BunchingEstimator', 'notch', 'NotchResult']
+__all__ = [
+    'bunching', 'BunchingEstimator', 'notch', 'NotchResult',
+    'general_bunching', 'GeneralBunchingResult',
+    'kink_unified', 'KinkUnifiedResult',
+]

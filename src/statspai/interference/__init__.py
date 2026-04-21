@@ -24,10 +24,20 @@ from .orthogonal import (
     NetworkHTEResult, InwardOutwardResult,
 )
 
+# v0.10 Cluster RCT × interference suite
+from .cluster_matched_pair import cluster_matched_pair, MatchedPairResult
+from .cluster_cross import cluster_cross_interference, CrossClusterRCTResult
+from .cluster_staggered import cluster_staggered_rollout, StaggeredClusterRCTResult
+from .dnc_gnn_did import dnc_gnn_did, DNCGNNDiDResult
+
 __all__ = [
     'spillover', 'SpilloverEstimator',
     'network_exposure', 'NetworkExposureResult',
     'peer_effects', 'PeerEffectsResult',
     'network_hte', 'inward_outward_spillover',
     'NetworkHTEResult', 'InwardOutwardResult',
+    'cluster_matched_pair', 'MatchedPairResult',
+    'cluster_cross_interference', 'CrossClusterRCTResult',
+    'cluster_staggered_rollout', 'StaggeredClusterRCTResult',
+    'dnc_gnn_did', 'DNCGNNDiDResult',
 ]

@@ -84,22 +84,31 @@ def ewm_cate_bridge(
     value_cate = float(np.mean(score_cate))
 
     # ---------- Path A: EWM (linear threshold over X) ---------- #
-    # Brute-force linear policy: π(x) = 1{x'β > 0}, β on the unit sphere.
-    # Pick a small grid of random β's; keep the one that maximises
-    # in-sample DR-policy value.
+    # Empirical Welfare Maximization directly scores a candidate policy
+    # by an IPW-only value estimate (Kitagawa-Tetenov 2018): the policy
+    # maximises E[(2π-1) · Y · 1{D=π}/p(D=π|X)].  Critically, this score
+    # does *not* reuse the T-learner CATE — otherwise Path A and Path B
+    # are evaluating two policies under the same (plug-in) score, which
+    # makes their agreement test tautological.  By using an independent
+    # IPW value here, a failure of the CATE specification on Path B
+    # leaves Path A unaffected (and vice versa), giving a genuine
+    # doubly-robust bridge.
     p = X.shape[1]
     n_dirs = 200 if p <= 10 else 100
     dirs = rng.standard_normal((n_dirs, p))
     dirs /= np.linalg.norm(dirs, axis=1, keepdims=True) + 1e-12
+
+    def _ipw_value(pi: np.ndarray) -> float:
+        """EWM IPW value (no outcome-model plug-in)."""
+        match = (D == pi).astype(float)
+        # (2π - 1) restores sign so that higher value is better
+        return float(np.mean((2 * pi - 1) * Y * match * weights))
+
     best_value = -np.inf
     best_pi = pi_cate
     for beta in dirs:
         pi = (X @ beta > 0).astype(int)
-        score = (
-            cate
-            + (Y - (D * cate)) * (2 * pi - 1) * weights * (D == pi)
-        )
-        v = float(np.mean(score))
+        v = _ipw_value(pi)
         if v > best_value:
             best_value = v
             best_pi = pi
@@ -120,13 +129,14 @@ def ewm_cate_bridge(
                 * wb * (D[idx] == pi_b)
             )
             boot_cate[b] = np.mean(sc_b)
-            # Use same best β found above for EWM path bootstrap
+            # EWM path bootstrap uses the IPW-only score (no CATE
+            # plug-in), mirroring the main estimator so the bootstrap
+            # SE tracks the correct sampling variance.
             pi_e = best_pi[idx]
-            sc_e = (
-                cb + (Y[idx] - (D[idx] * cb)) * (2 * pi_e - 1)
-                * wb * (D[idx] == pi_e)
-            )
-            boot_ewm[b] = np.mean(sc_e)
+            match_e = (D[idx] == pi_e).astype(float)
+            boot_ewm[b] = float(np.mean(
+                (2 * pi_e - 1) * Y[idx] * match_e * wb
+            ))
         except Exception:
             continue
     se_cate = float(np.nanstd(boot_cate, ddof=1)) or 1e-6

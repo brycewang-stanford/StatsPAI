@@ -2,6 +2,71 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.0.0+] - 2026-04-21 — v3 frontier sweep (12-module / 38-estimator pass)
+
+Round-out pass triggered by the v3 全景图 doc (2026-04-20), filling the
+remaining 2025-2026 frontier gaps that Stata / R / EconML / DoWhy /
+CausalML still lack. **38 new public estimators** across 12 modules,
+all routed through `sp.*` and registered in `sp.list_functions()`.
+
+### Added — v3 frontier estimators
+
+- **DiD frontier** (`sp.did_*`): `did_bcf` (Forests for Differences,
+  Wüthrich-Zhu 2025), `cohort_anchored_event_study` (arXiv 2509.01829),
+  `design_robust_event_study` (arXiv 2601.18801),
+  `did_misclassified` (arXiv 2507.20415).
+- **Conformal frontier** (`sp.conformal_*`): `conformal_density_ite`
+  (arXiv 2501.14933), `conformal_ite_multidp` (arXiv 2512.08828),
+  `conformal_debiased_ml` (arXiv 2604.03772),
+  `conformal_fair_ite` (arXiv 2510.08724).
+- **Proximal frontier** (`sp.fortified_pci`, `sp.bidirectional_pci`,
+  `sp.pci_mtp`, `sp.select_pci_proxies`): doubly-robust, bidirectional,
+  modified-treatment-policies, plus a heuristic proxy selector
+  (arXiv 2506.13152 / 2507.13965 / 2512.12038 / 2512.24413).
+- **Distributional / panel QTE** (`sp.dist_iv`, `sp.kan_dlate`,
+  `sp.qte_hd_panel`, `sp.beyond_average_late`): full distributional-
+  layer LATE + HD-panel QTE + complier-distribution LATE
+  (arXiv 2502.07641 / 2506.12765 / 2504.00785 / 2509.15594).
+- **RDD frontier** (`sp.rd_interference`, `sp.rd_multi_score`,
+  `sp.rd_distribution`, `sp.rd_bayes_hte`,
+  `sp.rd_distributional_design`): five new 2025–2026 supports
+  (arXiv 2410.02727 / 2508.15692 / 2504.03992 / 2504.10652 / 2602.19290).
+- **`sp.causal_llm`** (NEW namespace): `llm_dag_propose`,
+  `llm_unobserved_confounders`, `llm_sensitivity_priors` — all with
+  deterministic heuristic backends (no API key required); accept a
+  `client` arg for real LLM injection.
+- **`sp.causal_rl`** (NEW namespace): `causal_dqn` (Confounding-Robust
+  Deep Q, arXiv 2510.21110), `causal_rl_benchmark` (5 benchmarks per
+  arXiv 2512.18135), `offline_safe_policy` (arXiv 2510.22027).
+- **Cluster RCT × interference** (`sp.cluster_*`, `sp.dnc_gnn_did`):
+  matched-pair, cross-cluster, staggered-rollout, DNC+GNN+DiD
+  (arXiv 2211.14903 / 2310.18836 / 2502.10939 / 2601.00603).
+- **IV frontier** (`sp.iv.kernel_iv`, `sp.iv.continuous_iv_late`,
+  `sp.iv.ivdml`): kernel IV uniform CI + continuous-instrument
+  maximal-complier LATE + LASSO-efficient instrument × DML
+  (arXiv 2511.21603 / 2504.03063 / 2503.03530).
+- **Meta-learner frontier** (`sp.focal_cate`, `sp.cluster_cate`):
+  functional CATE (FOCaL, arXiv 2602.11118) + K-means cluster CATE
+  (arXiv 2409.08773).
+- **Bunching unification** (`sp.general_bunching`, `sp.kink_unified`):
+  high-order bias correction (Song 2025, arXiv 2411.03625) +
+  RDD/RKD/Bunching joint estimator (Lu-Wang-Xie 2025).
+
+### Tests (v3 sweep)
+
+- 55 new smoke tests added under `tests/test_*_frontiers.py`,
+  `tests/test_causal_llm.py`, `tests/test_causal_rl.py`,
+  `tests/test_cluster_rct.py`, `tests/test_metalearner_frontiers.py`,
+  `tests/test_bunching_unified.py`. All pass; no regressions in the
+  153 core tests for did / iv / rd / dml / proximal / metalearners.
+
+### Registry (v3 sweep)
+
+- Total registered functions: **794 → 831** (37 new symbols + 1 result
+  class auto-discovered).
+- All 38 surfaced via `sp.list_functions()`, `sp.help()`,
+  `sp.function_schema()`, and the OpenAI-compatible JSON schema export.
+
 ## [1.0.0] - 2026-04-21 — Research-frontier capstone: bridging theorems, fairness, surrogates, MVMR, PCMCI, beyond-average QTE
 
 StatsPAI 1.0 is the capstone release that integrates three years of

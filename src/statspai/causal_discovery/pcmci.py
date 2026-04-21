@@ -81,12 +81,14 @@ def partial_corr_pvalue(
         if np.std(rx) < 1e-12 or np.std(ry) < 1e-12:
             return 1.0
         r, _ = stats.pearsonr(rx, ry)
-    # Fisher-z
+    # Fisher-z — SE uses effective sample size (n - |Z| - 3), not df - 1.
+    # For partial correlation with k conditioning variables, the
+    # standard error of z = atanh(r) is 1 / sqrt(n - k - 3).
     r = np.clip(r, -0.999999, 0.999999)
-    df = n - k - 2
-    if df <= 0:
+    n_eff = n - k - 3
+    if n_eff <= 0:
         return 1.0
-    z = 0.5 * np.log((1 + r) / (1 - r)) * np.sqrt(df - 1)
+    z = 0.5 * np.log((1 + r) / (1 - r)) * np.sqrt(n_eff)
     p = float(2.0 * (1.0 - stats.norm.cdf(abs(z))))
     return p
 

@@ -128,15 +128,48 @@ def cohort_anchored_event_study(
         finite = sub['att'].dropna()
         weights = sub.loc[finite.index, 'cw']
         att_k = float(np.average(finite, weights=weights))
-        # Cluster-bootstrap SE via cohort-level resampling
+        # Cluster-bootstrap SE: resample clusters (user-specified
+        # ``cluster`` column, or the unit id by default) and recompute
+        # the ATT(c, k) from scratch for each draw. This honors a
+        # user-supplied cluster level (e.g. state, region, firm)
+        # instead of silently collapsing to cohort-level resampling.
         rng = np.random.default_rng(0)
+        cluster_ids = df[cluster_col].unique()
         boot = np.full(200, np.nan)
         for b in range(200):
-            idx = rng.choice(len(finite), size=len(finite), replace=True)
+            sampled = rng.choice(cluster_ids, size=len(cluster_ids), replace=True)
+            # Resample full observations belonging to sampled clusters
+            pieces = [df[df[cluster_col] == cid] for cid in sampled]
+            if not pieces:
+                continue
+            df_b = pd.concat(pieces, ignore_index=True)
             try:
-                boot[b] = float(np.average(
-                    finite.iloc[idx], weights=weights.iloc[idx]
-                ))
+                att_vals_b = []
+                w_vals_b = []
+                for c_b in cohorts:
+                    cohort_units_b = df_b.loc[df_b[treat] == c_b, id].unique()
+                    control_units_b = df_b.loc[df_b[treat] == 0, id].unique()
+                    if len(cohort_units_b) == 0 or len(control_units_b) == 0:
+                        continue
+                    sub_b = df_b[(df_b[time] == c_b + k)
+                                  & df_b[id].isin(np.concatenate([cohort_units_b, control_units_b]))]
+                    ref_b = df_b[(df_b[time] == c_b - 1)
+                                  & df_b[id].isin(np.concatenate([cohort_units_b, control_units_b]))]
+                    if len(sub_b) < 2 or len(ref_b) < 2:
+                        continue
+                    sub_b = sub_b.assign(_tr=sub_b[id].isin(cohort_units_b).astype(int))
+                    ref_b = ref_b.assign(_tr=ref_b[id].isin(cohort_units_b).astype(int))
+                    m_b = sub_b.groupby('_tr')[y].mean()
+                    mr_b = ref_b.groupby('_tr')[y].mean()
+                    att_b = (
+                        (m_b.get(1, np.nan) - m_b.get(0, np.nan))
+                        - (mr_b.get(1, np.nan) - mr_b.get(0, np.nan))
+                    )
+                    if np.isfinite(att_b):
+                        att_vals_b.append(att_b)
+                        w_vals_b.append(int((df_b[treat] == c_b).sum()))
+                if att_vals_b:
+                    boot[b] = float(np.average(att_vals_b, weights=w_vals_b))
             except Exception:
                 pass
         se_k = float(np.nanstd(boot, ddof=1)) or 1e-6

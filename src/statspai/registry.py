@@ -1831,6 +1831,269 @@ def _build_registry():
         reference="Ghassami, Yang, Shpitser, Tchetgen Tchetgen (arXiv:2311.08527, 2024).",
     ))
 
+    # -- Next-gen evidence synthesis (RCT + RWD + AI/ML) ------------ #
+    register(FunctionSpec(
+        name="synthesise_evidence",
+        category="transport",
+        description=(
+            "Inverse-variance pooling of an RCT and RWD estimate with "
+            "optional transport shift (Dahabreh et al. 2020; arXiv:2511.19735 2025)."
+        ),
+        params=[
+            ParamSpec("rct_estimate", "float", True),
+            ParamSpec("rct_se", "float", True),
+            ParamSpec("rwd_estimate", "float", True),
+            ParamSpec("rwd_se", "float", True),
+            ParamSpec("transport_shift", "float", False, 0.0),
+            ParamSpec("transport_shift_se", "float", False, 0.0),
+            ParamSpec("weight_mode", "str", False, "inverse_variance",
+                      enum=["inverse_variance", "rct_heavy"]),
+        ],
+        returns="EvidenceSynthesisResult",
+        tags=["transport", "rwe", "synthesis"],
+        reference="arXiv:2511.19735 (2025); Dahabreh et al. 2020.",
+    ))
+    register(FunctionSpec(
+        name="heterogeneity_of_effect",
+        category="transport",
+        description=(
+            "DerSimonian-Laird tau² / Q / I² heterogeneity statistics for "
+            "multi-study evidence synthesis."
+        ),
+        params=[
+            ParamSpec("estimates", "list", True),
+            ParamSpec("ses", "list", True),
+        ],
+        returns="HeterogeneityResult",
+        tags=["transport", "rwe", "heterogeneity"],
+    ))
+    register(FunctionSpec(
+        name="rwd_rct_concordance",
+        category="transport",
+        description=(
+            "Report-card: does the RWD estimate fall inside the RCT's 95% CI?"
+        ),
+        params=[
+            ParamSpec("rct_estimate", "float", True),
+            ParamSpec("rct_se", "float", True),
+            ParamSpec("rwd_estimate", "float", True),
+        ],
+        returns="ConcordanceResult",
+        tags=["transport", "rwe", "concordance"],
+    ))
+
+    # -- LLM causal-reasoning evaluator ----------------------------- #
+    register(FunctionSpec(
+        name="llm_causal_assess",
+        category="dag",
+        description=(
+            "Level-1 (knowledge) and Level-2 (deductive reasoning) "
+            "evaluation of an LLM's causal-reasoning ability."
+        ),
+        params=[
+            ParamSpec("level1_items", "DataFrame", False),
+            ParamSpec("level2_items", "DataFrame", False),
+            ParamSpec("llm_client", "callable", True),
+            ParamSpec("llm_identifier", "str", False, "llm"),
+        ],
+        returns="LLMCausalAssessResult",
+        tags=["llm", "causal", "benchmark"],
+        reference=(
+            "arXiv:2403.09606; 2409.09822; 2503.09326; 2509.00987."
+        ),
+    ))
+    register(FunctionSpec(
+        name="pairwise_causal_benchmark",
+        category="dag",
+        description=(
+            "Pairwise causal-direction discovery benchmark for an LLM."
+        ),
+        params=[
+            ParamSpec("ground_truth", "DataFrame", True),
+            ParamSpec("llm_client", "callable", True),
+        ],
+        returns="PairwiseBenchmarkResult",
+        tags=["llm", "causal_discovery", "benchmark", "pairwise"],
+        reference="Kıcıman et al. 2023; arXiv:2509.00987.",
+    ))
+
+    # -- Causal RL primitives ---------------------------------------- #
+    register(FunctionSpec(
+        name="causal_bandit",
+        category="causal_rl",
+        description=(
+            "Bareinboim-Pearl contextual causal bandit: pick the optimal "
+            "arm by Monte-Carlo estimation of E[Y(a) | context]."
+        ),
+        params=[
+            ParamSpec("arms", "list", True),
+            ParamSpec("reward_fn", "callable", True),
+            ParamSpec("context", "dict", False),
+            ParamSpec("n_samples", "int", False, 500),
+        ],
+        returns="CausalBanditResult",
+        tags=["causal_rl", "bandit", "pearl"],
+        reference="Bareinboim & Pearl (NIPS 2015).",
+    ))
+    register(FunctionSpec(
+        name="counterfactual_policy_optimization",
+        category="causal_rl",
+        description=(
+            "Counterfactual policy evaluation under a linear-Gaussian SCM "
+            "via noise inversion (Oberst-Sontag 2019, Buesing et al. 2019)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("state", "str", True),
+            ParamSpec("action", "str", True),
+            ParamSpec("reward", "str", True),
+            ParamSpec("target_policy", "callable", True),
+        ],
+        returns="CFPolicyResult",
+        tags=["causal_rl", "counterfactual", "scm"],
+        reference="Oberst & Sontag (ICML 2019); Buesing et al. 2019.",
+    ))
+    register(FunctionSpec(
+        name="structural_mdp",
+        category="causal_rl",
+        description=(
+            "Fit a linear SVAR for a Markov decision process and roll out "
+            "counterfactual trajectories under alternative policies."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("state_cols", "list", True),
+            ParamSpec("action_cols", "list", True),
+            ParamSpec("reward", "str", True),
+            ParamSpec("next_state_cols", "list", False),
+            ParamSpec("time", "str", False),
+            ParamSpec("trajectory", "str", False),
+        ],
+        returns="StructuralMDPResult",
+        tags=["causal_rl", "mdp", "svar", "counterfactual"],
+        reference="arXiv:2512.18135 (2025).",
+    ))
+
+    # -- Overlap-weighted DID + DL propensity ------------------------ #
+    register(FunctionSpec(
+        name="overlap_weighted_did",
+        category="causal",
+        description=(
+            "2x2 DID with overlap weights w=e(X)(1-e(X)), focusing the "
+            "ATT on the subpopulation where treatment assignment is most "
+            "ambiguous (Econ Letters 2025)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("covariates", "list", False),
+            ParamSpec("ps_model", "str", False, "logit",
+                      enum=["logit", "gbm", "dl"]),
+        ],
+        returns="CausalResult",
+        tags=["did", "overlap", "propensity", "causal"],
+        reference="Li, Morgan, Zaslavsky (JASA 2018); Econ Letters 2025.",
+    ))
+    register(FunctionSpec(
+        name="dl_propensity_score",
+        category="matching",
+        description=(
+            "Neural-net propensity score estimator (arXiv:2404.04794, 2024)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("covariates", "list", True),
+            ParamSpec("hidden_sizes", "list", False),
+        ],
+        returns="ndarray",
+        tags=["propensity", "neural_net", "matching"],
+        reference="arXiv:2404.04794 (2024).",
+    ))
+
+    # -- Sharp OPE + Causal-Policy Forest ---------------------------- #
+    register(FunctionSpec(
+        name="sharp_ope_unobserved",
+        category="ope",
+        description=(
+            "Sharp bounds on off-policy value under unobserved confounding "
+            "via the marginal-sensitivity Gamma-model (Kallus, Mao, Uehara 2025)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("actions", "str", True),
+            ParamSpec("rewards", "str", True),
+            ParamSpec("logging_prob", "str", True),
+            ParamSpec("target_prob", "str", True),
+            ParamSpec("gamma", "float", False, 1.5),
+        ],
+        returns="SharpOPEResult",
+        tags=["ope", "sensitivity", "sharp", "bandit"],
+        reference="Kallus, Mao, Uehara (arXiv:2502.13022, 2025).",
+    ))
+    register(FunctionSpec(
+        name="causal_policy_forest",
+        category="ope",
+        description=(
+            "Forest of doubly-robust policy trees: ensembles depth-limited "
+            "trees over AIPW-scored actions to reduce variance and give "
+            "honest policy-value SE (2025)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("actions", "str", True),
+            ParamSpec("rewards", "str", True),
+            ParamSpec("covariates", "list", True),
+            ParamSpec("n_trees", "int", False, 20),
+            ParamSpec("depth", "int", False, 3),
+        ],
+        returns="CausalPolicyForestResult",
+        tags=["ope", "policy_learning", "forest", "aipw"],
+        reference="arXiv:2512.22846 (2025).",
+    ))
+
+    # -- Orthogonal network HTE + inward/outward spillover ----------- #
+    register(FunctionSpec(
+        name="network_hte",
+        category="interference",
+        description=(
+            "Orthogonal learning of direct + spillover effects under "
+            "network interference via cross-fitted double-residualisation "
+            "(Parmigiani et al. 2025)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("neighbor_exposure", "str", True),
+            ParamSpec("covariates", "list", True),
+            ParamSpec("n_folds", "int", False, 5),
+        ],
+        returns="NetworkHTEResult",
+        tags=["interference", "network", "hte", "orthogonal"],
+        reference="Parmigiani et al. (arXiv:2509.18484, 2025).",
+    ))
+    register(FunctionSpec(
+        name="inward_outward_spillover",
+        category="interference",
+        description=(
+            "Decompose network spillover into inward (incoming edges to "
+            "unit i) and outward (from i to neighbours) components."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("inward_exposure", "str", True),
+            ParamSpec("outward_exposure", "str", True),
+        ],
+        returns="InwardOutwardResult",
+        tags=["interference", "spillover", "directional"],
+        reference="Li, Ratkovic et al. (arXiv:2506.06615, 2025).",
+    ))
+
     # -- Bayesian Double Machine Learning ---------------------------- #
     register(FunctionSpec(
         name="bayes_dml",

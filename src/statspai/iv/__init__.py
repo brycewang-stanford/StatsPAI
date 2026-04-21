@@ -115,6 +115,11 @@ from .npiv import npiv, NPIVResult
 # ─── Many-weak-instrument inference (Mikusheva-Sun 2024) ────────────────
 from .many_weak import jive as jive_mw, many_weak_ar, ManyWeakIVResult
 
+# ─── v0.10 IV frontier: Kernel IV / Continuous LATE / IVDML ─────────────
+from .kernel_iv import kernel_iv, KernelIVResult
+from .continuous_late import continuous_iv_late, ContinuousLATEResult
+from .ivdml import ivdml, IVDMLResult
+
 # ─── Shift-share / DeepIV re-exports ────────────────────────────────────
 try:
     from ..bartik import bartik, shift_share_se, BartikIV, ssaggregate

@@ -15,9 +15,15 @@ References
 from .causal_dqn import causal_dqn, CausalDQNResult
 from .benchmarks import causal_rl_benchmark, BanditBenchmarkResult
 from .offline_safe import offline_safe_policy, OfflineSafeResult
+from .core import (
+    causal_bandit, counterfactual_policy_optimization, structural_mdp,
+    CausalBanditResult, CFPolicyResult, StructuralMDPResult,
+)
 
 __all__ = [
     'causal_dqn', 'CausalDQNResult',
     'causal_rl_benchmark', 'BanditBenchmarkResult',
     'offline_safe_policy', 'OfflineSafeResult',
+    'causal_bandit', 'counterfactual_policy_optimization', 'structural_mdp',
+    'CausalBanditResult', 'CFPolicyResult', 'StructuralMDPResult',
 ]

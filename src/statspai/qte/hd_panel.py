@@ -85,7 +85,10 @@ def qte_hd_panel(
     D = df[treat].to_numpy(float)
     X = df[cov].to_numpy(float)
     n = len(df)
-    rng = np.random.default_rng(seed)
+    # Seed-controlled RNG reserved for the bootstrap-SE path below.
+    # Currently the QuantReg SE is primary; the bootstrap is a planned
+    # extension (see HDPanelQTEResult.se provenance in the docstring).
+    _ = np.random.default_rng(seed)
 
     # Step 1: LASSO to select controls (regress Y on X, keep non-zero)
     try:

@@ -37,6 +37,9 @@ from .diagnostics import (
 )
 from .auto_cate import auto_cate, AutoCATEResult
 from .auto_cate_tuned import auto_cate_tuned
+# v0.10 meta-learner frontier
+from .focal import focal_cate, FunctionalCATEResult
+from .cluster_cate import cluster_cate, ClusterCATEResult
 
 __all__ = [
     'metalearner',
@@ -56,4 +59,6 @@ __all__ = [
     'auto_cate',
     'AutoCATEResult',
     'auto_cate_tuned',
+    'focal_cate', 'FunctionalCATEResult',
+    'cluster_cate', 'ClusterCATEResult',
 ]

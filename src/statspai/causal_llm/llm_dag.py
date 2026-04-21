@@ -112,9 +112,22 @@ def llm_dag_propose(
     """
     if client is not None and hasattr(client, "complete"):
         try:
+            # Sanitize user inputs before interpolating into the LLM
+            # prompt to block prompt-injection via variable names or
+            # the domain string.  We strip control characters
+            # (newlines, carriage returns, null bytes) and cap length.
+            def _sanitize(s: str, max_len: int = 200) -> str:
+                cleaned = "".join(
+                    c for c in str(s)
+                    if c.isprintable() and c not in ("\n", "\r")
+                )
+                return cleaned[:max_len].strip()
+
+            safe_domain = _sanitize(domain, max_len=500)
+            safe_vars = [_sanitize(v, max_len=80) for v in variables]
             prompt = (
-                f"Domain: {domain}\n"
-                f"Variables: {', '.join(variables)}\n"
+                f"Domain: {safe_domain}\n"
+                f"Variables: {', '.join(safe_vars)}\n"
                 "Propose a DAG (parent -> child edges) consistent with "
                 "well-known causal relationships in this domain. Return "
                 "edges as a JSON list of [parent, child] pairs."

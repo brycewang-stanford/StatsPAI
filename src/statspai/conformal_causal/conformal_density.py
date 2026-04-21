@@ -121,21 +121,62 @@ def conformal_density_ite(
     mu0 = m0.predict(Xt)
     point = mu1 - mu0  # ITE point estimate
 
-    # Conformal quantile: compute |Y_cal - mu_d(X_cal)| absolute residuals
-    # then take ceil((n_cal+1)(1-α))-th quantile (split-conformal).
+    # Density-based highest-density region.  Build a KDE on the
+    # *ITE residual* distribution via the convolution of the two
+    # per-arm residual KDEs (the ITE = mu1 - mu0 residual is the
+    # difference of the two arm residuals, assumed conditionally
+    # independent under unconfoundedness).
+    #
+    # Concretely, take a grid over the joint residual range, evaluate
+    # the Gaussian kernel density for each arm, pair them up, and
+    # accumulate density mass over candidate (lower, upper) intervals
+    # until the covered probability reaches 1 - alpha.  The candidate
+    # that achieves that coverage with minimum width is the HDR.
     abs_resids = np.concatenate([np.abs(resid1), np.abs(resid0)])
     n_cal = len(abs_resids)
     if n_cal < 5:
+        # Fall back to Gaussian approximation for tiny calibration sets
         q = np.std(abs_resids) * stats.norm.ppf(1 - alpha / 2) if n_cal else 1.0
+        intervals = np.column_stack([point - q, point + q])
     else:
-        idx_q = int(np.ceil((n_cal + 1) * (1 - alpha)))
-        idx_q = min(idx_q, n_cal) - 1
-        q = float(np.sort(abs_resids)[idx_q])
-
-    # Density-based interval: ITE point ± q (the (1-α) highest density
-    # set under approximate Gaussian residuals; closed-form when KDE is
-    # locally Gaussian).
-    intervals = np.column_stack([point - q, point + q])
+        # Residual difference samples: r1_i - r0_j for all calibration
+        # pairs (Monte-Carlo approximation to the convolution).
+        n_mc = min(len(resid1) * len(resid0), 5000)
+        if len(resid1) * len(resid0) > n_mc:
+            # Random subsample of pairs to bound compute
+            i_idx = rng.integers(0, len(resid1), n_mc)
+            j_idx = rng.integers(0, len(resid0), n_mc)
+            diff = resid1[i_idx] - resid0[j_idx]
+        else:
+            # Full cross product
+            diff = (resid1[:, None] - resid0[None, :]).ravel()
+        # Smooth the empirical difference distribution by adding
+        # kernel noise with the chosen bandwidth (this is the KDE
+        # of the ITE-residual distribution).
+        diff_smoothed = diff + rng.normal(0.0, bandwidth, size=len(diff))
+        diff_sorted = np.sort(diff_smoothed)
+        # Conformal HDR: pick the (1 - alpha) shortest interval.
+        # Sweep a window of size ceil((1-alpha) * m) over sorted
+        # samples and pick the narrowest, following Hyndman (1996).
+        m = len(diff_sorted)
+        window = int(np.ceil((1.0 - alpha) * (m + 1)))
+        window = min(window, m)
+        if window < 2:
+            q = float(np.std(diff_smoothed) * stats.norm.ppf(1 - alpha / 2))
+            intervals = np.column_stack([point - q, point + q])
+        else:
+            best_width = np.inf
+            best_lo = diff_sorted[0]
+            best_hi = diff_sorted[-1]
+            for lo_i in range(m - window + 1):
+                hi_i = lo_i + window - 1
+                w = diff_sorted[hi_i] - diff_sorted[lo_i]
+                if w < best_width:
+                    best_width = w
+                    best_lo = diff_sorted[lo_i]
+                    best_hi = diff_sorted[hi_i]
+            # Apply the HDR offsets (around zero) to each test point
+            intervals = np.column_stack([point + best_lo, point + best_hi])
 
     return ConformalDensityResult(
         intervals=intervals,

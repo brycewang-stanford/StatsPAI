@@ -79,9 +79,10 @@ def design_robust_event_study(
     for k in rel_times:
         df[f'_es_{k}'] = ((df['_rel_time'] == k)).astype(int)
 
-    # OLS with id and time fixed effects, demeaned
+    # OLS with id and time fixed effects, demeaned.  The within-transform
+    # below uses ``id`` / ``time`` groupers directly, so we only keep
+    # the category-code columns for potential downstream reporting.
     df_demean = df.copy()
-    fe_cols = ['_id_fe', '_t_fe']
     df_demean['_id_fe'] = df[id].astype('category').cat.codes
     df_demean['_t_fe'] = df[time].astype('category').cat.codes
     # Within transform via mean-removal (id then time, alternating, 5 iters)

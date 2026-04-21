@@ -24,6 +24,7 @@ import pandas as pd
 
 from ..core.results import CausalResult
 from .did_2x2 import did_2x2
+from .overlap_did import overlap_weighted_did, dl_propensity_score
 from .ddd import ddd
 from .callaway_santanna import callaway_santanna
 from .aggte import aggte
@@ -390,6 +391,8 @@ def did(
 __all__ = [
     'did',
     'did_2x2',
+    'overlap_weighted_did',
+    'dl_propensity_score',
     'ddd',
     'callaway_santanna',
     'aggte',

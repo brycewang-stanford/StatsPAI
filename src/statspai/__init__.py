@@ -36,7 +36,8 @@ from .causal.forest_inference import (
 from .causal.multi_arm_forest import multi_arm_forest, MultiArmForestResult
 from .causal.iv_forest import iv_forest, IVForestResult
 from .did import (
-    did, did_2x2, ddd, callaway_santanna, sun_abraham,
+    did, did_2x2, overlap_weighted_did, dl_propensity_score,
+    ddd, callaway_santanna, sun_abraham,
     bacon_decomposition, honest_did, breakdown_m, event_study,
     did_analysis, DIDAnalysis, did_multiplegt, did_imputation, stacked_did, cic,
     wooldridge_did, etwfe, etwfe_emfx, drdid, twfe_decomposition,
@@ -161,6 +162,10 @@ from .metalearners import metalearner, SLearner, TLearner, XLearner, RLearner, D
 from .metalearners import cate_summary, cate_by_group, cate_plot, cate_group_plot, predict_cate, compare_metalearners, gate_test, blp_test
 from .metalearners import auto_cate, AutoCATEResult
 from .metalearners import auto_cate_tuned
+from .metalearners import (
+    focal_cate, FunctionalCATEResult,
+    cluster_cate, ClusterCATEResult,
+)
 from .bayes import (
     bayes_did, bayes_rd, bayes_iv, bayes_fuzzy_rd, bayes_hte_iv,
     bayes_mte, bayes_dml, BayesianDMLResult,
@@ -195,10 +200,20 @@ from .conformal_causal import (
 )
 from .bcf import bcf, BayesianCausalForest, bcf_longitudinal, BCFLongResult
 from .bunching import bunching, BunchingEstimator, notch, NotchResult
+from .bunching import (
+    general_bunching, GeneralBunchingResult,
+    kink_unified, KinkUnifiedResult,
+)
 from .matrix_completion import mc_panel, MCPanel
 from .dose_response import dose_response, DoseResponse, vcnet, scigan, VCNetResult
 from .bounds import lee_bounds, manski_bounds, BoundsResult, horowitz_manski, iv_bounds, oster_delta, selection_bounds, breakdown_frontier, balke_pearl, BalkePearlResult, ml_bounds, MLBoundsResult
 from .interference import spillover, SpilloverEstimator, network_exposure, NetworkExposureResult, peer_effects, PeerEffectsResult, network_hte, inward_outward_spillover, NetworkHTEResult, InwardOutwardResult
+from .interference import (
+    cluster_matched_pair, MatchedPairResult,
+    cluster_cross_interference, CrossClusterRCTResult,
+    cluster_staggered_rollout, StaggeredClusterRCTResult,
+    dnc_gnn_did, DNCGNNDiDResult,
+)
 from .dtr import g_estimation, GEstimation, q_learning, QLearningResult, a_learning, ALearningResult, snmm, SNMMResult
 from .multi_treatment import multi_treatment, MultiTreatment
 from .robustness import spec_curve, SpecCurveResult, robustness_report, RobustnessResult, subgroup_analysis, SubgroupResult, copula_sensitivity, survival_sensitivity, calibrate_confounding_strength, FrontierSensitivityResult
@@ -210,6 +225,8 @@ from .dag import (
     apply_rules as do_calculus_apply, RuleCheck,
     swig, SWIGGraph, SCM,
     llm_dag, LLMDAGResult,
+    llm_causal_assess, pairwise_causal_benchmark,
+    LLMCausalAssessResult, PairwiseBenchmarkResult,
 )
 
 # === Bridging theorems (DiD≡SC, EWM≡CATE, CB≡IPW, Kink≡RDD,
@@ -230,6 +247,8 @@ from .causal_rl import (
     causal_dqn, CausalDQNResult,
     causal_rl_benchmark, BanditBenchmarkResult,
     offline_safe_policy, OfflineSafeResult,
+    causal_bandit, counterfactual_policy_optimization, structural_mdp,
+    CausalBanditResult, CFPolicyResult, StructuralMDPResult,
 )
 
 # === Long-term effects via surrogate indices ===
@@ -254,11 +273,13 @@ from .transport import (
     generalize as transport_generalize,
     TransportWeightResult,
     identify_transport, TransportIdentificationResult,
+    synthesise_evidence, heterogeneity_of_effect, rwd_rct_concordance,
+    EvidenceSynthesisResult, HeterogeneityResult, ConcordanceResult,
 )
 
 # === Off-Policy Evaluation (contextual bandits) ===
 from . import ope
-from .ope import OPEResult
+from .ope import OPEResult, sharp_ope_unobserved, causal_policy_forest, SharpOPEResult, CausalPolicyForestResult
 
 # === Parametric g-formula (iterative conditional expectation) ===
 from . import gformula
@@ -1168,6 +1189,49 @@ __all__ = [
     # v1.0 — frontier sensitivity
     "copula_sensitivity", "survival_sensitivity",
     "calibrate_confounding_strength", "FrontierSensitivityResult",
+    # === v0.10 / v1.0 frontier additions ===
+    # Bridging theorems
+    "bridge", "BridgeResult",
+    # DiD frontier
+    "did_bcf", "cohort_anchored_event_study",
+    "design_robust_event_study", "did_misclassified",
+    # Conformal frontier
+    "conformal_density_ite", "ConformalDensityResult",
+    "conformal_ite_multidp", "MultiDPConformalResult",
+    "conformal_debiased_ml", "DebiasedConformalResult",
+    "conformal_fair_ite", "FairConformalResult",
+    # Proximal frontier
+    "fortified_pci", "bidirectional_pci", "pci_mtp",
+    "select_pci_proxies", "ProxyScoreResult",
+    # Distributional / panel QTE
+    "dist_iv", "kan_dlate", "DistIVResult",
+    "qte_hd_panel", "HDPanelQTEResult",
+    "beyond_average_late", "BeyondAverageResult",
+    # RDD frontier
+    "rd_interference", "RDInterferenceResult",
+    "rd_multi_score", "MultiScoreRDResult",
+    "rd_distribution", "DistRDResult",
+    "rd_bayes_hte", "BayesRDHTEResult",
+    "rd_distributional_design", "DDDResult",
+    # Causal × LLM
+    "llm_dag_propose", "LLMDAGProposal",
+    "llm_unobserved_confounders", "UnobservedConfounderProposal",
+    "llm_sensitivity_priors", "SensitivityPriorProposal",
+    # Causal RL
+    "causal_dqn", "CausalDQNResult",
+    "causal_rl_benchmark", "BanditBenchmarkResult",
+    "offline_safe_policy", "OfflineSafeResult",
+    # Cluster RCT × interference
+    "cluster_matched_pair", "MatchedPairResult",
+    "cluster_cross_interference", "CrossClusterRCTResult",
+    "cluster_staggered_rollout", "StaggeredClusterRCTResult",
+    "dnc_gnn_did", "DNCGNNDiDResult",
+    # Meta-learner frontier
+    "focal_cate", "FunctionalCATEResult",
+    "cluster_cate", "ClusterCATEResult",
+    # Bunching frontier
+    "general_bunching", "GeneralBunchingResult",
+    "kink_unified", "KinkUnifiedResult",
 ]
 
 

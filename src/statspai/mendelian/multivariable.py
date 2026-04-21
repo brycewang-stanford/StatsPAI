@@ -237,27 +237,46 @@ def mr_multivariable(
         })
     direct = pd.DataFrame(rows)
 
-    # Conditional F-stats (Sanderson-Windmeijer): for each exposure j,
-    # regress it on the others and compute F of the residual against 0.
+    # Conditional F-stats (Sanderson-Windmeijer 2016).  For exposure j,
+    # regress beta_Xj on the OTHER exposures (weighted by IVW weights).
+    # The F-stat is the SS explained by the residual exposure, divided
+    # by the SS unexplained, scaled by degrees of freedom.
+    #
+    # Correct partition uses *mean-centered* SS, not the raw SS of X[:,j].
+    # The numerator is the increment from adding X_j to a model that
+    # already contains the other exposures (SS_reg_full − SS_reg_others),
+    # which equals SS_resid_others − SS_resid_full.  We evaluate SS
+    # weighted by ``w`` to match the WLS framework used for ``direct``.
     f_stats: Dict[str, float] = {}
+    n_exp = len(exposures)
+    sqrt_w = np.sqrt(w)
     for j, exp in enumerate(exposures):
-        others = [k for k in range(len(exposures)) if k != j]
+        others = [k for k in range(n_exp) if k != j]
         if not others:
             f_stats[exp] = np.nan
             continue
-        X_o = X[:, others]
-        coef, *_ = np.linalg.lstsq(X_o, X[:, j], rcond=None)
+        # WLS: regress sqrt(w) * X[:, j] on sqrt(w) * X[:, others] (with
+        # intercept) so the F-stat matches the MVMR weighting scheme.
+        y_j = sqrt_w * X[:, j]
+        X_o = sqrt_w[:, None] * np.column_stack([
+            np.ones(n), X[:, others]
+        ])
+        coef, *_ = np.linalg.lstsq(X_o, y_j, rcond=None)
         pred = X_o @ coef
-        resid_j = X[:, j] - pred
-        # F = resid_j' resid_j / (sigma2_j * df)
+        resid_j = y_j - pred
+        # SS explained by full model (weighted): SS_total_centered − SS_resid
+        y_mean = float(np.mean(y_j))
+        ss_total = float(((y_j - y_mean) ** 2).sum())
         ss_resid = float((resid_j ** 2).sum())
-        ss_full = float((X[:, j] ** 2).sum())
+        # F-stat for "X_j has non-zero explanatory power given others":
+        #   F = (SS_total - SS_resid) / 1  ÷  (SS_resid / df2)
         df1 = 1
-        df2 = n - len(exposures)
+        df2 = max(n - n_exp, 1)
         if ss_resid < 1e-12 or df2 <= 0:
             f_stats[exp] = np.inf
         else:
-            f_stats[exp] = float((ss_full - ss_resid) / df1 / (ss_resid / df2))
+            ss_explained = max(ss_total - ss_resid, 0.0)
+            f_stats[exp] = float(ss_explained / df1 / (ss_resid / df2))
 
     return MVMRResult(
         exposures=exposures,
@@ -326,7 +345,8 @@ def mr_mediation(
         raise ValueError(f"Need >= 5 SNPs for two-step MR; got {n}.")
 
     bX = df[beta_exposure].to_numpy(dtype=float)
-    bM = df[beta_mediator].to_numpy(dtype=float)
+    # β_M enters the direct-effect MVMR via the dataframe columns
+    # below; no standalone ndarray needed here.
     bY = df[beta_outcome].to_numpy(dtype=float)
     seY = df[se_outcome].to_numpy(dtype=float)
 

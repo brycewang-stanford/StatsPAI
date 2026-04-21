@@ -321,16 +321,29 @@ def bcf_longitudinal(
     per_time_ate["ci_low"] = low_col
     per_time_ate["ci_high"] = high_col
 
-    avg = float(np.array([r for r in boot_point]).mean())
-    se = float(np.std(boot_point, ddof=1))
+    # Centre the point estimate on the bootstrap mean so the headline
+    # number and the reported CI are on the same scale.  Using
+    # per_time_ate["ate_point"].mean() for the point and boot_point
+    # quantiles for the CI creates a subtle mismatch when bootstrap
+    # resamples have different time-period composition.
+    boot_mean = float(np.mean(boot_point)) if len(boot_point) else np.nan
+    se = float(np.std(boot_point, ddof=1)) if len(boot_point) >= 2 else np.nan
     ci = (
         float(np.quantile(boot_point, alpha / 2)),
         float(np.quantile(boot_point, 1 - alpha / 2)),
     )
+    # Use the bootstrap mean as the headline average (not the
+    # per-time-point mean) so that average_ate and average_ci are
+    # centred on the same sampling distribution.
+    headline_avg = (
+        boot_mean
+        if np.isfinite(boot_mean)
+        else float(per_time_ate["ate_point"].mean())
+    )
 
     return BCFLongResult(
         per_time_ate=per_time_ate,
-        average_ate=float(per_time_ate["ate_point"].mean()),
+        average_ate=headline_avg,
         average_se=se,
         average_ci=ci,
         individual_cate=individual_cate,
