@@ -2,12 +2,95 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [0.9.16] - 2026-04-20 — Textbook Heckman HV + multi-term tidy() for DID/IV + Rust Phase-2 CI
+## [0.9.16] - 2026-04-20 — v1.0 breadth expansion + Bayesian family polish + Rust Phase-2 CI
 
-Three additions that close long-standing gaps in the Bayesian
-family, plus a CI scaffold for the Rust HDFE spike.
+The largest release since the v1.0 breadth pass. Maps StatsPAI onto
+the full Mixtape + What If + Elements of Causal Inference curriculum:
+Hernan-Robins target-trial emulation, Pearl-Bareinboim SCM machinery,
+modern off-policy / neural-causal estimators, plus three additions
+that close long-standing gaps in the Bayesian family, plus a CI
+scaffold for the Rust HDFE spike.
 
-### Added (0.9.16)
+### Added (0.9.16) — v1.0 breadth expansion (27+ new modules)
+
+**Target trial emulation & censoring (`sp.target_trial`, `sp.ipcw`)**
+
+- `target_trial_protocol`, `target_trial_emulate`, `clone_censor_weight`,
+  `immortal_time_check` — JAMA 2022 7-component TTE framework with
+  explicit eligibility / time-zero / per-protocol contrast support.
+- `ipcw` — Robins-Finkelstein inverse probability of censoring weights
+  (pooled-logistic or Cox hazard) with stabilization + truncation.
+
+**SCM / DAG machinery (`sp.dag` extended)**
+
+- `identify` — Shpitser-Pearl ID algorithm; returns do-free estimand
+  when identifiable, witness hedge `(F, F')` otherwise.
+- `do_rule1 / do_rule2 / do_rule3`, `do_calculus_apply` — mechanized
+  do-calculus with d-separation on mutilated graphs `G_{bar X}`,
+  `G_{underline Z}`, and `G_{bar Z(W)}`.
+- `swig` — Richardson-Robins Single-World Intervention Graphs via
+  node-splitting of intervened variables.
+- `SCM` — abduction-action-prediction counterfactual runner with
+  rejection sampling fallback for non-Gaussian structural equations.
+- `llm_dag` — LLM-backed DAG extraction from free-form descriptions.
+
+**Causal discovery with latents (`sp.causal_discovery`)**
+
+- `fci` — FCI for PAGs with unobserved confounders (Zhang 2008):
+  skeleton + v-structures + FCI rules R1-R4.
+- `icp`, `nonlinear_icp` — Peters-Bühlmann-Meinshausen invariant
+  causal prediction; linear F-test / K-S nonlinear invariance.
+
+**Transportability (`sp.transport`)**
+
+- `transport_weights_fn` / `transport_generalize` — Stuart / Dahabreh
+  density-ratio transport with inverse odds of sampling weighting.
+- `identify_transport` — Bareinboim-Pearl s-admissibility; enumerates
+  adjustment sets on selection diagrams, returns transport formula.
+
+**Off-policy evaluation (`sp.ope`)**
+
+- `ips`, `snips`, `doubly_robust`, `switch_dr`, `direct_method`,
+  `evaluate` — Dudik-Langford-Li DR family plus Swaminathan-Joachims
+  SNIPS and Wang-Agarwal-Dudík Switch-DR for bandits / RL.
+
+**Deep causal & latent-confounder models (`sp.neural_causal`)**
+
+- `cevae` — Louizos et al. CEVAE with PyTorch path + numpy
+  variational fallback so import never fails.
+
+**Longitudinal / G-methods (`sp.gformula`, `sp.tmle`, `sp.dtr`)**
+
+- `gformula_ice_fn` — Bang-Robins iterative conditional expectation
+  parametric g-formula; sequential backward regression with recursive
+  strategy plug-in. Supports static / scalar / callable strategies.
+- `ltmle` — van der Laan-Gruber longitudinal TMLE.
+- `q_learning`, `a_learning`, `snmm` — dynamic treatment regime
+  estimators.
+
+**Additional estimators across the stack**
+
+- Causal forests: `multi_arm_forest`, `iv_forest`,
+  `survival/causal_forest` (Cui-Kosorok 2023).
+- Proximal: `negative_controls`, `pci_regression` (Miao-Shi-Tchetgen).
+- Interference: `network_exposure` (Aronow-Samii 2017), `peer_effects`.
+- Dose-response: `vcnet` + `scigan` (Nie-Brunskill-Wager 2021).
+- Matching: `genmatch` (Diamond-Sekhon 2013).
+- Sensitivity: `rosenbaum_bounds`.
+- Spatial: `spatial_did`, `spatial_iv` (Kelejian-Prucha 1998).
+- Time series: `its` (interrupted time series).
+- Bounds: `balke_pearl`.
+- Mediation: `four_way_decomposition` (VanderWeele 2014).
+
+**Registry / agent surface**
+
+- 11 hand-written `FunctionSpec` entries for the new flagship APIs,
+  each with parameter schemas, tags, and canonical references.
+- `sp.list_functions()` now reports 664 entries.
+- `sp.search_functions("target trial")` / `"invariance"` /
+  `"transport"` all resolve correctly.
+
+### Added (0.9.16) — Bayesian family gap-closing
 
 - **`bayes_mte(mte_method='bivariate_normal')`** — full textbook
   Heckman-Vytlacil trivariate-normal model `(U_0, U_1, V) ~ N(0, Σ)`
