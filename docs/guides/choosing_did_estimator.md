@@ -60,17 +60,19 @@ TWFE over them.
 
 ### 2b. Staggered + heterogeneous effects
 
-| Scenario                                  | Pick                                              |
-|-------------------------------------------|---------------------------------------------------|
-| You want group-time ATT(g,t) + event study| `sp.callaway_santanna(df, y, g, t, i)`            |
-| Heavy-weight covariates                   | `sp.callaway_santanna(..., x=[...], estimator='dr')` |
-| Sun-Abraham interaction-weighted event   | `sp.sun_abraham(df, y, g, t, i)`                  |
-| Imputation-style (no TWFE needed)         | `sp.did_imputation(df, y, i, t, g)`               |
-| Two-way Mundlak / ETWFE                   | `sp.wooldridge_did(df, y, group, time, first_treat)` |
-| Always-treated + never-treated only       | `sp.stacked_did(df, y, g, t, i, event_window=6)`  |
-| Continuous / dose treatment               | `sp.continuous_did(df, y, d, t, i)`               |
-| Changes-in-changes (CIC, not DID-in-mean) | `sp.cic(df, y, g, t)`                             |
-| de Chaisemartin-D'Haultfoeuille           | `sp.did_multiplegt(df, y, treat, g, t, i)`        |
+| Scenario                                            | Pick                                                                                |
+|-----------------------------------------------------|-------------------------------------------------------------------------------------|
+| You want group-time ATT(g,t) + event study          | `sp.callaway_santanna(df, y, g, t, i)`                                              |
+| Heavy-weight covariates                             | `sp.callaway_santanna(..., x=[...], estimator='dr')`                                |
+| Sun-Abraham interaction-weighted event              | `sp.sun_abraham(df, y, g, t, i)`                                                    |
+| Imputation-style (no TWFE needed)                   | `sp.did_imputation(df, y, i, t, g)`                                                 |
+| Two-stage regression (event study + covariate ix)   | `sp.gardner_did(df, y=..., group=..., time=..., first_treat=..., event_study=True)` |
+| One-call harvesting + precision-weighted            | `sp.harvest_did(df, outcome=..., unit=..., time=..., cohort=...)`                   |
+| Two-way Mundlak / ETWFE                             | `sp.wooldridge_did(df, y, group, time, first_treat)`                                |
+| Always-treated + never-treated only                 | `sp.stacked_did(df, y, g, t, i, event_window=6)`                                    |
+| Continuous / dose treatment                         | `sp.continuous_did(df, y, d, t, i)`                                                 |
+| Changes-in-changes (CIC, not DID-in-mean)           | `sp.cic(df, y, g, t)`                                                               |
+| de Chaisemartin-D'Haultfoeuille                     | `sp.did_multiplegt(df, y, treat, g, t, i)`                                          |
 
 **Default recommendation when in doubt: `sp.callaway_santanna(..., estimator='dr')`.**
 Doubly-robust CS is the modern "no-regret" default — it's robust to both

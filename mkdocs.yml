@@ -61,6 +61,10 @@ nav:
       - "Choosing an IV estimator": guides/choosing_iv_estimator.md
       - "Choosing a matching estimator": guides/choosing_matching_estimator.md
       - "Robustness workflow": guides/robustness_workflow.md
+      - "v1.2 frontier estimators (Gardner / Model-Averaging DML / Kernel IV / HAL-TMLE / Synth Survival)": guides/v1_2_frontier.md
+      - "v1.3 frontier: Synthetic controls for experimental design (Abadie-Zhao 2025/2026)": guides/synth_experimental.md
+      - "v1.3 frontier: Harvesting DID + event-study designs (Borusyak et al. 2025)": guides/harvest_did.md
+      - "v1.3 frontier: Assimilative causal inference (Nature Comms 2026)": guides/assimilative_ci.md
   - Reference:
       - "Overview": reference/index.md
       - "Difference-in-differences": reference/did.md

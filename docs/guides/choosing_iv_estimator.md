@@ -132,7 +132,25 @@ r.glance()        # nobs, method, log_likelihood, first-stage F if computed
 r.predict(new_df) # Out-of-sample prediction
 ```
 
-## 9. Sanity checks
+## 9. Non-parametric IV (v1.2)
+
+For a **continuous treatment** where the linear `D ~ Z` first stage is
+too restrictive, v1.2 ships two non-parametric alternatives:
+
+| Goal                                                    | Call                                                             |
+|---------------------------------------------------------|------------------------------------------------------------------|
+| Structural function `h*(d)` + **uniform** bootstrap CI  | `sp.kernel_iv(df, y, treat, instrument, n_boot=200)`             |
+| LATE on the **maximal complier class** (continuous Z)   | `sp.continuous_iv_late(df, y, treat, instrument, n_quantiles=5)` |
+
+- `sp.kernel_iv` (Lob et al. 2025, arXiv:2511.21603) delivers a uniform
+  confidence band over the whole `D`-grid, not just pointwise.
+- `sp.continuous_iv_late` (Xie et al. 2025, arXiv:2504.03063) identifies
+  the LATE on the subpopulation most responsive to the instrument —
+  the natural generalisation of Angrist-Imbens LATE beyond binary `Z`.
+
+See [v1.2 frontier estimators](v1_2_frontier.md) for a detailed walkthrough.
+
+## 10. Sanity checks
 
 Every IV paper should include these:
 
