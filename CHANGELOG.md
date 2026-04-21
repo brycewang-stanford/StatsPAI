@@ -2,6 +2,86 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [0.9.16] - 2026-04-20 — Textbook Heckman HV + multi-term tidy() for DID/IV + Rust Phase-2 CI
+
+Three additions that close long-standing gaps in the Bayesian
+family, plus a CI scaffold for the Rust HDFE spike.
+
+### Added (0.9.16)
+
+- **`bayes_mte(mte_method='bivariate_normal')`** — full textbook
+  Heckman-Vytlacil trivariate-normal model `(U_0, U_1, V) ~ N(0, Σ)`
+  with `D = 1{Z'π > V}`. Identifies the structural gap
+  `β_D = μ_1 - μ_0` and the two selection covariances `σ_0V, σ_1V`
+  via inverse-Mills-ratio corrections in the structural equation, so
+  `MTE(v) = β_D + (σ_1V - σ_0V)·v` is closed-form linear on V scale.
+  Requires `selection='normal'` and `first_stage='joint'`; `poly_u`
+  is overridden to 1 with a `UserWarning` if the user set something
+  else. Exposes `b_mte` as a 2-vector Deterministic
+  `[β_D, σ_1V - σ_0V]` so every downstream code path
+  (`mte_curve`, ATT/ATU integrator, `policy_effect`) works unchanged.
+  This is the last missing piece of the Heckman-Vytlacil pipeline
+  that `selection='uniform'`/`'normal'` + `mte_method='polynomial'`/
+  `'hv_latent'` started.
+
+- **`bayes_did(cohort=...)` + `BayesianDIDResult`** — when the user
+  supplies a `cohort` column (typically first-treatment period in a
+  staggered design), the scalar `tau` is replaced with a vector
+  `tau_cohort` of length `n_cohorts` under the same
+  `Normal(prior_ate)` prior. The result carries
+  `cohort_summaries: Dict[str, dict]` and `cohort_labels`; the
+  top-level pooled ATT is the treated-size-weighted mean of the
+  per-cohort τ posteriors. `result.tidy(terms='per_cohort')`
+  returns one row per cohort with `term='cohort:<label>'`; explicit
+  `terms=['att', 'cohort:2019', ...]` selection is supported for
+  modelsummary / gt pipelines. **Back-compat:** calling without
+  `cohort=...` returns a `BayesianDIDResult` that behaves byte-
+  identically to the v0.9.15 `BayesianCausalResult`.
+
+- **`bayes_iv(per_instrument=True)` + `BayesianIVResult`** — on a
+  multi-instrument fit, additionally runs one just-identified
+  Bayesian IV sub-fit per `Z_j` and stores per-instrument posteriors
+  as `instrument_summaries: Dict[str, dict]`. Surface mirrors the
+  DID extension: `tidy(terms='per_instrument')` emits one row per
+  `Z` with `term='instrument:<name>'`. The top-level pooled LATE
+  remains the joint over-identified fit; per-instrument rows are an
+  add-on diagnostic. Sub-fit priors and sampler controls mirror the
+  pooled fit, so runtime scales roughly `(K+1)×`.
+
+- **`.github/workflows/build-wheels.yml`** — Rust Phase-2
+  cibuildwheel matrix workflow (macOS arm64 + x86_64,
+  manylinux_2_17 x86_64 + aarch64, musllinux_1_2 x86_64, Windows
+  x86_64) with a `check_rust_present` guard job that makes the
+  workflow a no-op when `rust/statspai_hdfe/Cargo.toml` is absent
+  (the state on `main`). The workflow activates automatically on
+  `feat/rust-hdfe`/`feat/rust-phase2` and on PRs touching
+  `rust/**`, so the Rust spike's CI lights up the moment the
+  branch is ready — no second PR for CI scaffolding.
+
+### Tests (0.9.16)
+
+- `tests/test_bayes_mte_bivariate_normal.py` — 7 tests covering
+  API validation (selection + first_stage gates, poly_u override),
+  structural-param presence in posterior, method label contents,
+  and slope recovery on a genuine trivariate-normal DGP at n=800.
+- `tests/test_bayes_did_cohort.py` — 9 tests covering back-compat
+  (no cohort → single-row tidy identical to v0.9.15), cohort fit
+  populates summaries, multi-row tidy via `per_cohort` + explicit
+  list, unknown-term raises, τ ordering recovered on a two-cohort
+  staggered DGP with heterogeneous true ATTs (2.0 vs 0.5), and
+  cohort weights recorded in model_info.
+- `tests/test_bayes_iv_per_instrument.py` — 8 tests covering
+  back-compat, per-instrument summary population, `per_instrument`
+  tidy, explicit-list tidy, unknown-term raises, error path when
+  asking for `per_instrument` tidy without the sub-fit, and each
+  sub-fit's HDI covers the true LATE on a two-Z DGP.
+
+### Not in this release
+
+- Round-trip testing of the cibuildwheel matrix on real runner
+  hardware — this must happen on `feat/rust-hdfe`, where the
+  crate lives. The workflow on `main` is inert by design.
+
 ## [0.9.15] - 2026-04-20 — Multi-term `tidy(terms=[...])` + ATT/ATU prob_positive
 
 Completes the broom-pipeline integration of v0.9.13's per-population

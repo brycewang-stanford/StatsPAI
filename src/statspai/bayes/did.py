@@ -346,12 +346,9 @@ def bayes_did(
         advi_iterations=advi_iterations,
     )
 
-    summary = _summarise_posterior(trace, 'tau', hdi_prob=hdi_prob, rope=rope)
-
     shape_label = (
         'panel' if (use_unit_re or use_time_re) else '2x2'
     )
-    method = f"Bayesian DID ({shape_label})"
     model_info = {
         'inference': inference,
         'draws': draws,
@@ -370,20 +367,115 @@ def bayes_did(
         'covariates': prep['covariates'],
     }
 
-    return BayesianCausalResult(
+    # Single-τ model: identical to v0.9.15 output.
+    if cohort_codes is None:
+        summary = _summarise_posterior(trace, 'tau', hdi_prob=hdi_prob, rope=rope)
+        method = f"Bayesian DID ({shape_label})"
+        return BayesianDIDResult(
+            method=method,
+            estimand='ATT',
+            posterior_mean=summary['posterior_mean'],
+            posterior_median=summary['posterior_median'],
+            posterior_sd=summary['posterior_sd'],
+            hdi_lower=summary['hdi_lower'],
+            hdi_upper=summary['hdi_upper'],
+            prob_positive=summary['prob_positive'],
+            prob_rope=summary.get('prob_rope'),
+            rhat=summary['rhat'],
+            ess=summary['ess'],
+            n_obs=n,
+            hdi_prob=hdi_prob,
+            trace=trace,
+            model_info=model_info,
+        )
+
+    # Per-cohort model: walk the posterior of `tau_cohort` (chains,
+    # draws, n_cohorts) to build per-cohort summaries AND a
+    # treated-size-weighted average as the top-level ATT.
+    _, az = _require_pymc()
+    tau_post = trace.posterior['tau_cohort'].values  # (chains, draws, n_c)
+    tau_flat = tau_post.reshape(-1, tau_post.shape[-1])   # (S, n_c)
+
+    # Per-cohort summaries keyed by str(label) so tidy() can match a
+    # 'cohort:2019' style label without caring about int vs. str.
+    cohort_summaries: dict = {}
+    treated_mask = prep['T'] * prep['P'] > 0  # DID==1 indicates treated-post
+    treated_counts_per_cohort = np.zeros(len(cohort_labels), dtype=float)
+    for idx, label in enumerate(cohort_labels):
+        col = tau_flat[:, idx]
+        hdi = _az_hdi_compat(col, hdi_prob=hdi_prob)
+        cohort_summaries[str(label)] = {
+            'posterior_mean': float(col.mean()),
+            'posterior_median': float(np.median(col)),
+            'posterior_sd': float(col.std(ddof=1)),
+            'hdi_lower': float(hdi[0]),
+            'hdi_upper': float(hdi[1]),
+            'prob_positive': float(np.mean(col > 0)),
+        }
+        # Count units in cohort idx that are treated-post. Gives the
+        # treated-unit weighting used for the pooled ATT below.
+        in_cohort = (cohort_codes == idx)
+        treated_counts_per_cohort[idx] = float(
+            (in_cohort & treated_mask).sum()
+        )
+
+    # Size-weighted pooled ATT posterior. When no treated-post rows
+    # exist (e.g. all cohorts are pure controls), fall back to equal
+    # weights so the pooled row is defined.
+    total_treated = float(treated_counts_per_cohort.sum())
+    if total_treated > 0:
+        w = treated_counts_per_cohort / total_treated
+    else:
+        w = np.full(len(cohort_labels), 1.0 / len(cohort_labels))
+    pooled_samples = tau_flat @ w        # (S,)
+    pooled_hdi = _az_hdi_compat(pooled_samples, hdi_prob=hdi_prob)
+    pooled_mean = float(pooled_samples.mean())
+    pooled_median = float(np.median(pooled_samples))
+    pooled_sd = float(pooled_samples.std(ddof=1))
+    prob_positive = float(np.mean(pooled_samples > 0))
+    prob_rope = None
+    if rope is not None:
+        lo, hi = rope
+        prob_rope = float(
+            np.mean((pooled_samples > lo) & (pooled_samples < hi))
+        )
+
+    # rhat/ess on the vector of per-cohort τ's; report the worst case.
+    try:
+        rhat_series = az.rhat(trace, var_names=['tau_cohort'])[
+            'tau_cohort'
+        ].values
+        rhat = float(np.nanmax(rhat_series))
+    except Exception:
+        rhat = float('nan')
+    try:
+        ess_series = az.ess(trace, var_names=['tau_cohort'])[
+            'tau_cohort'
+        ].values
+        ess = float(np.nanmin(ess_series))
+    except Exception:
+        ess = float('nan')
+
+    model_info['cohort_column'] = cohort
+    model_info['n_cohorts'] = len(cohort_labels)
+    model_info['cohort_weights'] = w.tolist()
+    method = f"Bayesian DID ({shape_label}, {len(cohort_labels)} cohorts)"
+    return BayesianDIDResult(
         method=method,
         estimand='ATT',
-        posterior_mean=summary['posterior_mean'],
-        posterior_median=summary['posterior_median'],
-        posterior_sd=summary['posterior_sd'],
-        hdi_lower=summary['hdi_lower'],
-        hdi_upper=summary['hdi_upper'],
-        prob_positive=summary['prob_positive'],
-        prob_rope=summary.get('prob_rope'),
-        rhat=summary['rhat'],
-        ess=summary['ess'],
+        posterior_mean=pooled_mean,
+        posterior_median=pooled_median,
+        posterior_sd=pooled_sd,
+        hdi_lower=float(pooled_hdi[0]),
+        hdi_upper=float(pooled_hdi[1]),
+        prob_positive=prob_positive,
+        prob_rope=prob_rope,
+        rhat=rhat,
+        ess=ess,
         n_obs=n,
         hdi_prob=hdi_prob,
         trace=trace,
         model_info=model_info,
+        cohort_summaries=cohort_summaries,
+        cohort_labels=list(cohort_labels),
     )

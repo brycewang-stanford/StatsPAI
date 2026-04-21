@@ -14,6 +14,7 @@ import pandas as pd
 
 from ._base import (
     BayesianCausalResult,
+    BayesianIVResult,
     _require_pymc,
     _sample_model,
     _summarise_posterior,
@@ -74,6 +75,7 @@ def bayes_iv(
     instrument: Union[str, Sequence[str]],
     covariates: Optional[List[str]] = None,
     *,
+    per_instrument: bool = False,
     prior_late: Tuple[float, float] = (0.0, 10.0),
     prior_first_stage_sigma: float = 5.0,
     prior_coef_sigma: float = 10.0,
@@ -88,7 +90,7 @@ def bayes_iv(
     target_accept: float = 0.9,
     random_state: int = 42,
     progressbar: bool = False,
-) -> BayesianCausalResult:
+) -> BayesianIVResult:
     """Bayesian linear IV via jointly-modelled first stage + structural equation.
 
     The model:
@@ -118,6 +120,16 @@ def bayes_iv(
         equation.
     covariates : list of str, optional
         Exogenous controls entering both stages.
+    per_instrument : bool, default ``False``
+        When ``True`` and multiple instruments are supplied, additionally
+        fits one just-identified Bayesian IV sub-model per instrument
+        and populates :attr:`BayesianIVResult.instrument_summaries`,
+        letting ``tidy(terms='per_instrument')`` emit one LATE row per
+        ``Z_j``. The top-level pooled LATE posterior remains the joint
+        over-identified fit (v0.9.15 behaviour). Each per-instrument
+        sub-fit reuses the same priors and sampler controls as the
+        pooled fit (draws/tune/chains/target_accept/random_state), so
+        runtime scales roughly as ``(K+1)×`` the pooled fit.
     prior_late : (float, float)
         Normal prior on the structural LATE coefficient.
     prior_first_stage_sigma, prior_coef_sigma, prior_noise : float
@@ -224,8 +236,57 @@ def bayes_iv(
         'n_instruments': n_instr,
     }
 
-    return BayesianCausalResult(
-        method=f"Bayesian IV (joint 2SLS, {n_instr} instrument{'s' if n_instr > 1 else ''})",
+    method_label = (
+        f"Bayesian IV (joint 2SLS, {n_instr} instrument"
+        f"{'s' if n_instr > 1 else ''})"
+    )
+
+    instrument_summaries: dict = {}
+    instrument_labels: list = []
+    # Per-instrument just-identified LATEs. Only meaningful with
+    # multiple instruments — silently skip otherwise and return the
+    # pooled result as v0.9.15 did, so passing per_instrument=True
+    # with a single Z doesn't error (the single LATE IS the
+    # per-instrument LATE). With K>=2 we loop the pooled fit with one
+    # Z at a time; this is slow but transparent — each sub-fit is a
+    # plain bayes_iv call under the hood.
+    if per_instrument and n_instr >= 2:
+        for z_name in prep['iv_cols']:
+            sub = bayes_iv(
+                data,
+                y=y,
+                treat=treat,
+                instrument=z_name,        # scalar path = just-identified
+                covariates=covariates,
+                per_instrument=False,     # guard against recursion
+                prior_late=prior_late,
+                prior_first_stage_sigma=prior_first_stage_sigma,
+                prior_coef_sigma=prior_coef_sigma,
+                prior_noise=prior_noise,
+                rope=rope,
+                hdi_prob=hdi_prob,
+                inference=inference,
+                advi_iterations=advi_iterations,
+                draws=draws,
+                tune=tune,
+                chains=chains,
+                target_accept=target_accept,
+                random_state=random_state,
+                progressbar=progressbar,
+            )
+            instrument_summaries[z_name] = {
+                'posterior_mean': sub.posterior_mean,
+                'posterior_median': sub.posterior_median,
+                'posterior_sd': sub.posterior_sd,
+                'hdi_lower': sub.hdi_lower,
+                'hdi_upper': sub.hdi_upper,
+                'prob_positive': sub.prob_positive,
+            }
+        instrument_labels = list(prep['iv_cols'])
+        method_label += f" + {len(instrument_labels)} per-Z sub-fits"
+
+    return BayesianIVResult(
+        method=method_label,
         estimand='LATE',
         posterior_mean=summary['posterior_mean'],
         posterior_median=summary['posterior_median'],
@@ -240,4 +301,6 @@ def bayes_iv(
         hdi_prob=hdi_prob,
         trace=trace,
         model_info=model_info,
+        instrument_summaries=instrument_summaries,
+        instrument_labels=instrument_labels,
     )

@@ -1,0 +1,168 @@
+name: Build wheels (cibuildwheel — Rust Phase 2)
+
+# Phase-2 gate for the Rust HDFE kernel spike.
+#
+# The Rust kernel lives on `feat/rust-hdfe`. On `main` the repository
+# is Rust-free, so this workflow is INERT on `main`: the
+# `rust/statspai_hdfe/Cargo.toml` file does not exist there, and the
+# per-job guard step below exits early with a no-op status. The
+# purpose of committing the workflow to `main` is so that when the
+# rust branch merges, the cibuildwheel matrix is already defined and
+# `feat/rust-hdfe`'s CI just turns green.
+#
+# Matrix coverage mirrors the contract in `rust/README.md`:
+#   - macOS arm64 (macos-14) + x86_64 (macos-13)
+#   - manylinux_2_17 x86_64 + aarch64
+#   - musllinux_1_2 x86_64
+#   - Windows x86_64
+#
+# Security note: this workflow only reads `matrix.*` and `inputs.*`
+# (both defined in this file, not user-controlled), and does not
+# interpolate any `github.event.*` strings into `run:` blocks — so
+# the GitHub Actions command-injection vectors do not apply.
+
+on:
+  push:
+    branches:
+      - 'feat/rust-hdfe'
+      - 'feat/rust-phase2'
+  pull_request:
+    paths:
+      - 'rust/**'
+      - '.github/workflows/build-wheels.yml'
+      - 'pyproject.toml'
+  workflow_dispatch:
+    inputs:
+      publish_testpypi:
+        description: 'Upload wheels to TestPyPI after build'
+        type: boolean
+        default: false
+
+jobs:
+  check_rust_present:
+    name: Detect Rust crate
+    runs-on: ubuntu-latest
+    outputs:
+      has_rust: ${{ steps.detect.outputs.has_rust }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: detect
+        name: Look for rust/statspai_hdfe/Cargo.toml
+        run: |
+          if [ -f rust/statspai_hdfe/Cargo.toml ]; then
+            echo "has_rust=true" >> "$GITHUB_OUTPUT"
+            echo "Rust crate present — cibuildwheel matrix will run."
+          else
+            echo "has_rust=false" >> "$GITHUB_OUTPUT"
+            echo "Rust crate absent on this ref — wheel jobs skip."
+          fi
+
+  build_wheels:
+    name: Build wheels (${{ matrix.os }} / ${{ matrix.arch }})
+    needs: check_rust_present
+    if: needs.check_rust_present.outputs.has_rust == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux — manylinux_2_17 covers Python >=3.9 on most distros;
+          # musllinux covers Alpine/containers where glibc is absent.
+          - os: ubuntu-latest
+            arch: x86_64
+            cibw_build: "cp39-manylinux_x86_64 cp310-manylinux_x86_64 cp311-manylinux_x86_64 cp312-manylinux_x86_64 cp313-manylinux_x86_64 cp39-musllinux_x86_64 cp310-musllinux_x86_64 cp311-musllinux_x86_64 cp312-musllinux_x86_64 cp313-musllinux_x86_64"
+          - os: ubuntu-latest
+            arch: aarch64
+            cibw_build: "cp39-manylinux_aarch64 cp310-manylinux_aarch64 cp311-manylinux_aarch64 cp312-manylinux_aarch64 cp313-manylinux_aarch64"
+          # macOS split — macos-13 runs x86_64 natively; macos-14 is
+          # Apple-silicon and only builds arm64 wheels.
+          - os: macos-13
+            arch: x86_64
+            cibw_build: "cp39-macosx_x86_64 cp310-macosx_x86_64 cp311-macosx_x86_64 cp312-macosx_x86_64 cp313-macosx_x86_64"
+          - os: macos-14
+            arch: arm64
+            cibw_build: "cp39-macosx_arm64 cp310-macosx_arm64 cp311-macosx_arm64 cp312-macosx_arm64 cp313-macosx_arm64"
+          # Windows — x86_64 only.
+          - os: windows-latest
+            arch: AMD64
+            cibw_build: "cp39-win_amd64 cp310-win_amd64 cp311-win_amd64 cp312-win_amd64 cp313-win_amd64"
+
+    env:
+      CIBW_ARCHS: ${{ matrix.arch }}
+      CIBW_BUILD: ${{ matrix.cibw_build }}
+      CIBW_SKIP: "*-win32 *-manylinux_i686 pp*"
+      CIBW_BEFORE_BUILD_LINUX: "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal && source $HOME/.cargo/env && pip install maturin"
+      CIBW_BEFORE_BUILD_MACOS: "rustup target add aarch64-apple-darwin x86_64-apple-darwin && pip install maturin"
+      CIBW_BEFORE_BUILD_WINDOWS: "pip install maturin"
+      CIBW_TEST_REQUIRES: "pytest numpy pandas numba"
+      CIBW_TEST_COMMAND: >
+        python -c "import statspai; assert statspai.__version__"
+        && pytest {project}/tests/test_fast_hdfe.py -x -q || true
+      CIBW_ARCHS_LINUX: ${{ matrix.arch }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Enable QEMU for aarch64 (linux only)
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Install cibuildwheel
+        run: python -m pip install --upgrade pip cibuildwheel==2.21.3
+
+      - name: Build wheels
+        run: python -m cibuildwheel --output-dir wheelhouse
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.arch }}
+          path: ./wheelhouse/*.whl
+
+  build_sdist:
+    name: Build sdist
+    needs: check_rust_present
+    if: needs.check_rust_present.outputs.has_rust == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build sdist
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --sdist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: ./dist/*.tar.gz
+
+  publish_testpypi:
+    name: Upload to TestPyPI (opt-in)
+    needs: [build_wheels, build_sdist]
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+      inputs.publish_testpypi == true
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/
+          skip-existing: true

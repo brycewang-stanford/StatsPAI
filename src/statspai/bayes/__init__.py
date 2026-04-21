@@ -22,7 +22,9 @@ from __future__ import annotations
 
 from ._base import (
     BayesianCausalResult,
+    BayesianDIDResult,
     BayesianHTEIVResult,
+    BayesianIVResult,
     BayesianMTEResult,
 )
 from .did import bayes_did
@@ -47,7 +49,9 @@ __all__ = [
     'bayes_hte_iv',
     'bayes_mte',
     'BayesianCausalResult',
+    'BayesianDIDResult',
     'BayesianHTEIVResult',
+    'BayesianIVResult',
     'BayesianMTEResult',
     'policy_weight_ate',
     'policy_weight_subsidy',
