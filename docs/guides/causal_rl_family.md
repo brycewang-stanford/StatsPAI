@@ -216,5 +216,5 @@ Benchmarking / compare algorithms:
 
 ---
 
-*Current for StatsPAI ≥ 1.4.2.  Full list via `sp.list_functions()` —
+*Current for StatsPAI ≥ 1.5.0.  Full list via `sp.list_functions()` —
 all causal-RL functions are tagged `rl` and `causal`.*

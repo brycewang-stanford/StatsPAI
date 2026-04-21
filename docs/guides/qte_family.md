@@ -236,5 +236,5 @@ Panel with many controls:
 
 ---
 
-*Current for StatsPAI ≥ 1.4.2.  All functions are registered; inspect
+*Current for StatsPAI ≥ 1.5.0.  All functions are registered; inspect
 with `sp.describe_function("beyond_average_late")`, etc.*

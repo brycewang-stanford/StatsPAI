@@ -255,5 +255,5 @@ Have a pile of candidate proxies, not sure which to use
 
 ---
 
-*This guide is current for StatsPAI ≥ 1.4.2.  All functions are stable
+*This guide is current for StatsPAI ≥ 1.5.0.  All functions are stable
 and registered in `sp.list_functions()`.*

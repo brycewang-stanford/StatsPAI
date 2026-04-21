@@ -9,17 +9,17 @@ mixed-effects, modern ML causal inference, the full three-school
 modules (bridging theorems, fairness, surrogates, PCMCI, TMLE survival,
 etc.), and publication-ready output in Word / Excel / LaTeX / HTML.
 
-> **Current release: v1.4.1 (2026-04-21)** — v3-frontier Sprint 3.
-> Additive follow-up to v1.4.0: AKM shock-clustered SE for
-> `sp.shift_share_political_panel(cluster='shock')` (Park-Xu 2026 §4.2,
-> typically 3× tighter than unit-clustered SEs); Claude 4.5 / Opus 4.7
-> **extended-thinking** support via
-> `sp.causal_llm.anthropic_client(thinking_budget=N)`; a 10-check
-> assimilation parity suite plus an 11-test MAS integration suite with
-> 3 Claude thinking block-splitter tests; two new MkDocs guides
-> (`shift_share_political_panel`, `causal_mas`). All v1.4.0 APIs
-> stable; new surface is additive kwargs only. See the
-> [changelog](changelog.md) for detail.
+> **Current release: v1.5.0 (2026-04-21)** — Interference / Conformal /
+> Mendelian family consolidation. Three family guides
+> (`interference_family`, `conformal_family`, `mendelian_family`)
+> covering all 36 functions across the three families; three unified
+> dispatchers (`sp.mr(method=...)` / `sp.conformal(kind=...)` /
+> `sp.interference(design=...)`) mirroring the
+> `sp.synth` / `sp.decompose` / `sp.dml` pattern; two silent-wrong-numbers
+> fixes (`mr_egger` slope t(n−2) parity with `mr_pleiotropy_egger`;
+> `mr_presso` MC p-value floor at `1/(B+1)`). Breaking: `sp.mr` is now a
+> function, not a module alias — module access moved to `sp.mendelian`.
+> See the [changelog](changelog.md) for detail.
 
 ```python
 import statspai as sp
@@ -32,10 +32,12 @@ rpt = sp.cs_report(data, y='y', g='g', t='t', i='id',
 
 ## What's inside
 
-### Release highlights (v0.9.17 → v1.4.1)
+### Release highlights (v0.9.17 → v1.5.0)
 
 | Release | Focus | Headline |
 | --- | --- | --- |
+| **v1.5.0** | Interference / Conformal / Mendelian family consolidation | Three family guides (`interference_family`, `conformal_family`, `mendelian_family`) covering all 36 functions; three unified dispatchers `sp.mr(method=...)` / `sp.conformal(kind=...)` / `sp.interference(design=...)` with 91 aliases in total; two silent-wrong-numbers fixes — `mr_egger` slope t(n−2) parity with `mr_pleiotropy_egger` (anti-conservative CIs at small `n_snps` before fix) and `mr_presso` MC p-value floor at `1/(B+1)` (no more `p = 0`). Breaking: `sp.mr` is now a dispatcher function, not a module alias. Registry coverage fixes for 5 previously-unregistered family functions. |
+| **v1.4.2** | Correctness patches + Proximal / QTE / Causal-RL family guides | `sp.dml_model_averaging` √n SE scaling bug (CIs were √n × too wide) + `sp.gardner_did` event-study reference-category contamination (pre-trend bias ~0.3). Three family guides. No breaking changes. |
 | **v1.4.1** | v3-frontier Sprint 3 (AKM SE + Claude thinking + test suites + docs) | `sp.shift_share_political_panel(cluster='shock')` — panel-extended Adão-Kolesár-Morales (2019) shock-cluster variance (Park-Xu 2026 §4.2); `sp.causal_llm.anthropic_client(thinking_budget=N)` — Claude 4.5 / Opus 4.7 extended-thinking API; 10-check assimilation parity suite + 11-test MAS integration suite with 3 Claude thinking block-splitter tests; two new MkDocs guides (`shift_share_political_panel`, `causal_mas`). Strictly additive over v1.4.0. |
 | **v1.4.0** | v3-frontier Sprint 2 (extensions + LLM SDK + docs) | `shift_share_political_panel` (Park-Xu 2026 multi-period); real LLM adapters `openai_client` / `anthropic_client` / `echo_client` for Causal MAS; `particle_filter` backend for `assimilative_causal` (non-Gaussian / nonlinear); three new MkDocs guides (`synth_experimental`, `harvest_did`, `assimilative_ci`); 20 unused-import cleanups; CausalForest parity-test de-flake. |
 | **v1.3.0** | v3-frontier sprint (Sprint 1 of 知识地图 v3) | 11 frontier methods: Abadie-Zhao inverse synthetic experimental design, CJM RBC bootstrap for `rdrobust`, Kwak-Pleasants evidence-without-injustice fairness test, JAMA/BMJ TARGET manuscript renderer, Borusyak harvest-DiD, Zorzetto ordinal / factor-exposure BCF, multi-agent causal discovery (`causal_mas`), Park-Xu political shift-share IV, state-space `causal_kalman`. 35 new tests, 869 registered functions, zero regressions. `tabulate` promoted to core dep. |
@@ -166,7 +168,7 @@ method that returns the correct BibTeX entry) and this package:
   title   = {StatsPAI: A Unified, Agent-Native Python Toolkit for
              Causal Inference and Applied Econometrics},
   year    = {2026},
-  version = {1.4.1},
+  version = {1.5.0},
   url     = {https://github.com/brycewang-stanford/StatsPAI}
 }
 ```
