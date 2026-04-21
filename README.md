@@ -37,7 +37,7 @@ Multilevel, frontier, and econ-trinity passed independent oracle + code-reviewer
 
 **Previously in v0.8.0**: **Spatial Econometrics Full-Stack** — 38 new API symbols covering weights, ESDA, ML/GMM regression, GWR/MGWR, and spatial panel. Plus: local projections, GARCH, ARIMA, BVAR, LiNGAM, GES, optimal matching, cardinality matching, RIF decomposition, mediation sensitivity, Cox frailty, AFT survival, rdpower, survey calibration. **60+ new functions across 10 domains.**
 
-![StatsPAI interactive plot editor](https://raw.githubusercontent.com/brycewang-stanford/statspai/main/image-1.png)
+![StatsPAI interactive plot editor](./image-1.png)
 
 > Built by the team behind [CoPaper.AI](https://copaper.ai) · Stanford REAP Program
 
