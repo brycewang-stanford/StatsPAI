@@ -60,6 +60,13 @@ def diagnose_result(
         "synth": _battery_synth,
         "matching": _battery_matching,
         "dml": _battery_dml,
+        # Sprint-B (0.9.6) causal-method batteries
+        "proximal": _battery_proximal,
+        "msm": _battery_msm,
+        "principal_strat": _battery_principal_strat,
+        "g_computation": _battery_g_computation,
+        "front_door": _battery_front_door,
+        "mediation_interventional": _battery_mediation_interventional,
     }
 
     fn = dispatch.get(method_type, _battery_generic)
@@ -78,6 +85,12 @@ def diagnose_result(
 
 def _detect_method(result) -> str:
     """Infer method family from result metadata."""
+    # PrincipalStratResult is its own dataclass (not CausalResult).
+    # Detect it via class name first — it does not have a .method attr.
+    cls_name = type(result).__name__
+    if cls_name == 'PrincipalStratResult':
+        return 'principal_strat'
+
     # CausalResult has a .method attribute
     method_str = ""
     if hasattr(result, "method"):
@@ -86,6 +99,26 @@ def _detect_method(result) -> str:
         mt = result.model_info.get("model_type", "").lower()
         method_str = f"{method_str} {mt}"
 
+    # Sprint-B (0.9.6) method family detection — check BEFORE the
+    # broader categories so e.g. an interventional-mediation result
+    # (which has 'mediation' in its name) doesn't fall into a vanilla
+    # 'mediation' catch-all.
+    if any(k in method_str for k in ("proximal",)):
+        return "proximal"
+    if any(k in method_str for k in ("marginal structural", "iptw")):
+        return "msm"
+    if any(k in method_str for k in ("principal stratif",)):
+        return "principal_strat"
+    if any(k in method_str for k in ("g-computation", "g computation",
+                                      "g-formula", "g formula",
+                                      "standardization", "standardisation")):
+        return "g_computation"
+    if any(k in method_str for k in ("front-door", "front door", "front_door")):
+        return "front_door"
+    if any(k in method_str for k in ("interventional mediation", "iie")):
+        return "mediation_interventional"
+
+    # Classical methods
     if any(k in method_str for k in ("did", "diff", "callaway", "sun_abraham", "stagger")):
         return "did"
     if any(k in method_str for k in ("rd", "discontinuity", "rdrobust")):
@@ -486,6 +519,408 @@ def _battery_generic(result, alpha: float = 0.05) -> Dict[str, Any]:
             "test": "Model parameters",
             "n_params": len(result.params),
             "pass": True,
+        })
+    return {"checks": checks}
+
+
+# ====================================================================== #
+#  Sprint-B (v0.9.6) batteries: proximal / msm / principal / g-formula  #
+# ====================================================================== #
+
+def _battery_proximal(result, alpha: float = 0.05) -> Dict[str, Any]:
+    """Proximal causal inference: bridge + proxy rank + weak-IV checks."""
+    checks = []
+    info = getattr(result, "model_info", {}) or {}
+
+    bridge = info.get("bridge", "linear")
+    checks.append({
+        "test": "Bridge function",
+        "bridge": bridge,
+        "pass": bridge == "linear",
+        "interpretation": (
+            f"Bridge='{bridge}'. Linear is the only shipped option; "
+            "non-linear bridges require Mastouri et al. 2021 / Deaner "
+            "2018 methodology (see docs/ROADMAP.md §1)."
+        ),
+    })
+
+    k_z = info.get("n_proxy_z")
+    k_w = info.get("n_proxy_w")
+    if k_z is not None and k_w is not None:
+        checks.append({
+            "test": "Proxy order condition (k_z >= k_w)",
+            "n_proxy_z": int(k_z),
+            "n_proxy_w": int(k_w),
+            "pass": int(k_z) >= int(k_w),
+            "interpretation": (
+                f"Order condition {'satisfied' if k_z >= k_w else 'VIOLATED'}: "
+                f"{k_z} treatment-side vs {k_w} outcome-side proxies."
+            ),
+        })
+
+    fs_F = info.get("first_stage_F")
+    if fs_F is not None:
+        checks.append({
+            "test": "First-stage F (Z on W)",
+            "F": round(float(fs_F), 4),
+            "pass": float(fs_F) >= 10.0,
+            "interpretation": (
+                f"F = {float(fs_F):.2f}"
+                + (" — adequate" if float(fs_F) >= 10 else " — WEAK proxy (< 10)")
+            ),
+        })
+    elif k_w is not None and int(k_w) > 1:
+        checks.append({
+            "test": "Multi-W weak-instrument diagnostic",
+            "pass": None,
+            "interpretation": (
+                "First-stage F not reported for k_w > 1. The correct "
+                "diagnostic is the Cragg-Donald / Kleibergen-Paap "
+                "minimum-eigenvalue statistic — not yet shipped (see "
+                "docs/ROADMAP.md §2)."
+            ),
+        })
+
+    estimate = getattr(result, "estimate", None)
+    if estimate is not None:
+        checks.append({
+            "test": "Proximal ATE",
+            "estimate": round(float(estimate), 4),
+            "se": round(float(getattr(result, "se", 0.0)), 4),
+            "pvalue": round(float(getattr(result, "pvalue", 1.0)), 4),
+            "pass": True,
+            "interpretation": f"ATE = {float(estimate):.4f} (bridge={bridge})",
+        })
+    return {"checks": checks}
+
+
+def _battery_msm(result, alpha: float = 0.05) -> Dict[str, Any]:
+    """Marginal Structural Model: weight diagnostics + positivity."""
+    checks = []
+    info = getattr(result, "model_info", {}) or {}
+
+    sw_mean = info.get("sw_mean")
+    sw_max = info.get("sw_max")
+    sw_min = info.get("sw_min")
+    if sw_mean is not None:
+        # Stabilised weights should have mean ≈ 1 under correct
+        # specification; large deviation flags model misspec.
+        deviation = abs(float(sw_mean) - 1.0)
+        checks.append({
+            "test": "Stabilized-weight mean (target ≈ 1)",
+            "sw_mean": round(float(sw_mean), 4),
+            "pass": deviation < 0.2,
+            "interpretation": (
+                f"sw mean = {float(sw_mean):.3f}"
+                + (" — centred" if deviation < 0.2
+                   else " — drift from 1 suggests nuisance misspec.")
+            ),
+        })
+    if sw_max is not None:
+        checks.append({
+            "test": "Max stabilized weight (positivity watchdog)",
+            "sw_max": round(float(sw_max), 4),
+            "pass": float(sw_max) < 50.0,
+            "interpretation": (
+                f"max sw = {float(sw_max):.2f}"
+                + (" — OK"
+                   if float(sw_max) < 50
+                   else " — extreme: consider trim_per_period=True.")
+            ),
+        })
+    if sw_min is not None:
+        checks.append({
+            "test": "Min stabilized weight",
+            "sw_min": round(float(sw_min), 4),
+            "pass": float(sw_min) > 1e-3,
+            "interpretation": f"min sw = {float(sw_min):.4f}",
+        })
+
+    exposure = info.get("exposure_type")
+    if exposure:
+        checks.append({
+            "test": "Exposure summary",
+            "exposure": exposure,
+            "pass": True,
+            "interpretation": f"Reported coefficient is the marginal "
+                              f"effect on the {exposure} exposure.",
+        })
+
+    n_units = info.get("n_units")
+    n_periods = info.get("n_periods")
+    if n_units is not None and n_periods is not None:
+        checks.append({
+            "test": "Panel dimensions",
+            "n_units": int(n_units),
+            "n_periods": int(n_periods),
+            "pass": int(n_units) >= 30 and int(n_periods) >= 2,
+            "interpretation": f"{n_units} units × {n_periods} periods.",
+        })
+
+    estimate = getattr(result, "estimate", None)
+    if estimate is not None:
+        checks.append({
+            "test": "Marginal causal effect",
+            "estimate": round(float(estimate), 4),
+            "se": round(float(getattr(result, "se", 0.0)), 4),
+            "pvalue": round(float(getattr(result, "pvalue", 1.0)), 4),
+            "pass": True,
+            "interpretation": f"MSM coefficient = {float(estimate):.4f}",
+        })
+    return {"checks": checks}
+
+
+def _battery_principal_strat(result, alpha: float = 0.05) -> Dict[str, Any]:
+    """Principal stratification: monotonicity + stratum balance."""
+    checks = []
+    info = getattr(result, "model_info", {}) or {}
+
+    # Monotonicity violation diagnostic (principal_score method)
+    viol = info.get("mono_violation_frac")
+    if viol is not None:
+        checks.append({
+            "test": "Monotonicity violation fraction (fitted p11 < p10)",
+            "mono_violation_frac": round(float(viol), 4),
+            "pass": float(viol) <= 0.05,
+            "interpretation": (
+                f"{float(viol):.1%} of units have fitted p11(x) < p10(x)"
+                + (" — within 5% tolerance"
+                   if float(viol) <= 0.05
+                   else " — MONOTONICITY CONCERN. Bounds / PCEs depend "
+                        "on S(1) ≥ S(0); pair with sensitivity analysis.")
+            ),
+        })
+
+    # Stratum proportions (from PrincipalStratResult)
+    props = getattr(result, "strata_proportions", None) or {}
+    if props:
+        summary = ", ".join(f"{k[:10]}={v:.2f}" for k, v in props.items())
+        checks.append({
+            "test": "Stratum proportions (sum ≈ 1)",
+            "proportions": {k: round(float(v), 4) for k, v in props.items()},
+            "pass": abs(sum(float(v) for v in props.values()) - 1.0) < 0.05,
+            "interpretation": summary,
+        })
+
+    # Effects table
+    eff = getattr(result, "effects", None)
+    if isinstance(eff, pd.DataFrame) and len(eff):
+        checks.append({
+            "test": "Principal causal effects",
+            "n_effects": int(len(eff)),
+            "pass": True,
+            "interpretation": (
+                "PCEs: "
+                + "; ".join(f"{r['stratum']}={r['estimate']:.3f}"
+                             for _, r in eff.iterrows())
+            ),
+        })
+
+    # Zhang-Rubin SACE bounds (monotonicity method)
+    bounds = getattr(result, "bounds", None)
+    if isinstance(bounds, pd.DataFrame) and len(bounds):
+        lo = float(bounds.iloc[0]["estimate"])
+        hi = float(bounds.iloc[-1]["estimate"])
+        valid = not (np.isnan(lo) or np.isnan(hi))
+        checks.append({
+            "test": "Zhang-Rubin SACE bounds",
+            "sace_lo": None if not valid else round(lo, 4),
+            "sace_hi": None if not valid else round(hi, 4),
+            "pass": valid and (lo <= hi),
+            "interpretation": (
+                f"SACE ∈ [{lo:.3f}, {hi:.3f}]"
+                if valid else "SACE bounds degenerate (no always-survivors)."
+            ),
+        })
+
+    return {"checks": checks}
+
+
+def _battery_g_computation(result, alpha: float = 0.05) -> Dict[str, Any]:
+    """G-computation: estimand + bootstrap failure rate."""
+    checks = []
+    info = getattr(result, "model_info", {}) or {}
+
+    estimand = info.get("estimand")
+    if estimand:
+        checks.append({
+            "test": "Estimand",
+            "estimand": estimand,
+            "pass": True,
+            "interpretation": (
+                f"Target estimand: {estimand}. Consistent when the "
+                "outcome model is correctly specified; not doubly "
+                "robust — consider sp.aipw / sp.tmle for DR coverage."
+            ),
+        })
+
+    ml_Q = info.get("ml_Q")
+    if ml_Q:
+        checks.append({
+            "test": "Outcome learner",
+            "ml_Q": ml_Q,
+            "pass": True,
+            "interpretation": f"Outcome model: {ml_Q}.",
+        })
+
+    n_boot = info.get("n_boot")
+    n_failed = info.get("n_boot_failed", 0)
+    if n_boot:
+        frac = (n_failed / n_boot) if n_boot else 0.0
+        checks.append({
+            "test": "Bootstrap health",
+            "n_boot": int(n_boot),
+            "n_boot_failed": int(n_failed),
+            "failure_frac": round(frac, 4),
+            "pass": frac < 0.1,
+            "interpretation": (
+                f"{n_failed}/{n_boot} bootstrap replications failed "
+                f"({frac:.1%})"
+                + (" — clean"
+                   if frac < 0.1 else
+                   " — high failure rate; SE may be unreliable.")
+            ),
+        })
+
+    estimate = getattr(result, "estimate", None)
+    if estimate is not None:
+        checks.append({
+            "test": "G-computation effect",
+            "estimate": round(float(estimate), 4),
+            "se": round(float(getattr(result, "se", 0.0)), 4),
+            "pvalue": round(float(getattr(result, "pvalue", 1.0)), 4),
+            "pass": True,
+            "interpretation": f"{estimand or 'Effect'} = {float(estimate):.4f}",
+        })
+    return {"checks": checks}
+
+
+def _battery_front_door(result, alpha: float = 0.05) -> Dict[str, Any]:
+    """Front-door adjustment diagnostics."""
+    checks = []
+    info = getattr(result, "model_info", {}) or {}
+
+    m_type = info.get("mediator_type")
+    if m_type:
+        checks.append({
+            "test": "Mediator type",
+            "mediator_type": m_type,
+            "pass": m_type in ("binary", "continuous"),
+            "interpretation": f"Mediator modelled as {m_type}.",
+        })
+
+    integrate = info.get("integrate_by_effective") or info.get("integrate_by")
+    if integrate:
+        checks.append({
+            "test": "Integration formulation",
+            "integrate_by": integrate,
+            "pass": True,
+            "interpretation": (
+                f"Integration: {integrate}. "
+                "'marginal' follows Pearl (1995), 'conditional' follows "
+                "Fulcher et al. (2020)."
+            ),
+        })
+
+    n_boot = info.get("n_boot")
+    n_failed = info.get("n_boot_failed", 0)
+    if n_boot:
+        frac = n_failed / n_boot if n_boot else 0.0
+        checks.append({
+            "test": "Bootstrap health",
+            "n_boot": int(n_boot),
+            "n_boot_failed": int(n_failed),
+            "pass": frac < 0.1,
+            "interpretation": (
+                f"{n_failed}/{n_boot} bootstrap replications failed "
+                f"({frac:.1%})"
+            ),
+        })
+
+    checks.append({
+        "test": "Front-door assumption",
+        "pass": None,
+        "interpretation": (
+            "Front-door identification requires: (1) no direct D→Y path "
+            "(all effect via M), (2) no unobserved M-Y confounder, "
+            "(3) positivity on M | D. These are DAG assumptions — "
+            "verify with sp.dag before trusting the estimate."
+        ),
+    })
+
+    estimate = getattr(result, "estimate", None)
+    if estimate is not None:
+        checks.append({
+            "test": "Front-door ATE",
+            "estimate": round(float(estimate), 4),
+            "se": round(float(getattr(result, "se", 0.0)), 4),
+            "pvalue": round(float(getattr(result, "pvalue", 1.0)), 4),
+            "pass": True,
+            "interpretation": f"ATE = {float(estimate):.4f}",
+        })
+    return {"checks": checks}
+
+
+def _battery_mediation_interventional(result, alpha: float = 0.05) -> Dict[str, Any]:
+    """Interventional (in)direct effects: IIE / IDE / Total consistency."""
+    checks = []
+    info = getattr(result, "model_info", {}) or {}
+
+    pv_method = info.get("pvalue_method")
+    if pv_method:
+        checks.append({
+            "test": "P-value convention",
+            "pvalue_method": pv_method,
+            "pass": pv_method in ("bootstrap_sign", "wald"),
+            "interpretation": (
+                f"Using {pv_method}; "
+                "bootstrap_sign keeps parity with sp.mediate(), wald "
+                "aligns with sp.aipw/sp.dml."
+            ),
+        })
+
+    iie = info.get("iie")
+    ide = info.get("ide")
+    total = info.get("total_effect")
+    if iie is not None and ide is not None and total is not None:
+        diff = abs((float(iie) + float(ide)) - float(total))
+        checks.append({
+            "test": "Decomposition additivity (IIE + IDE ≈ Total)",
+            "iie": round(float(iie), 4),
+            "ide": round(float(ide), 4),
+            "total": round(float(total), 4),
+            "residual": round(float(diff), 4),
+            "pass": diff < 1e-6,
+            "interpretation": (
+                f"IIE + IDE − Total = {diff:.2e} "
+                + ("(exact)" if diff < 1e-6 else "(drift — investigate)")
+            ),
+        })
+
+    tv = info.get("tv_confounders")
+    if tv:
+        checks.append({
+            "test": "Treatment-induced confounders",
+            "tv_confounders": list(tv),
+            "pass": True,
+            "interpretation": (
+                f"Interventional effects use {len(tv)} "
+                "treatment-induced confounder(s); natural effects would "
+                "not be identified here."
+            ),
+        })
+
+    n_boot = info.get("n_boot")
+    n_failed = info.get("n_boot_failed", 0)
+    if n_boot:
+        frac = n_failed / n_boot
+        checks.append({
+            "test": "Bootstrap health",
+            "n_boot": int(n_boot),
+            "n_boot_failed": int(n_failed),
+            "pass": frac < 0.1,
+            "interpretation": f"{n_failed}/{n_boot} replications failed "
+                              f"({frac:.1%}).",
         })
     return {"checks": checks}
 

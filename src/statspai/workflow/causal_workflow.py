@@ -53,6 +53,12 @@ class CausalWorkflow:
     design: Optional[str]
     dag: Optional[Any]
     strict: bool
+    # Sprint-B (0.9.6) causal-method context — opt-in.
+    mediator: Optional[str] = None
+    tv_confounders: Optional[List[str]] = None
+    proxy_z: Optional[List[str]] = None
+    proxy_w: Optional[List[str]] = None
+    post_treat_strata: Optional[str] = None
 
     # Outputs (filled as stages run)
     diagnostics: Optional[Any] = None           # IdentificationReport
@@ -96,6 +102,13 @@ class CausalWorkflow:
             covariates=self.covariates, id=self.id, time=self.time,
             running_var=self.running_var, instrument=self.instrument,
             cutoff=self.cutoff, design=self.design, dag=self.dag,
+            # Forward Sprint-B context so the recommender can surface
+            # MSM / proximal / principal-strat / mediation candidates.
+            mediator=self.mediator,
+            tv_confounders=self.tv_confounders,
+            proxy_z=self.proxy_z,
+            proxy_w=self.proxy_w,
+            post_treat_strata=self.post_treat_strata,
         )
         self._mark('recommend')
         return self.recommendation
@@ -113,9 +126,31 @@ class CausalWorkflow:
         enrich the formula with the user's covariates so confounders
         are actually adjusted for (sp.recommend by default leaves this
         to the caller; the workflow takes responsibility).
+
+        Sprint-B preference: when the caller supplied one of the new
+        causal-method hints (proxy_z/proxy_w, tv_confounders,
+        post_treat_strata, mediator), that hint wins over the
+        design-based default in the top recommendation — the user
+        signalled the estimand explicitly.
         """
         if self.recommendation is None:
             self.recommend()
+
+        # If the user passed a Sprint-B hint, route via the fallback
+        # which picks the matching Sprint-B estimator directly. This
+        # keeps the user's explicit estimand choice authoritative.
+        if any([self.proxy_z and self.proxy_w,
+                self.tv_confounders and self.id and self.time,
+                self.post_treat_strata,
+                self.mediator]):
+            try:
+                self.result = self._fallback_estimate(
+                    error="Sprint-B causal-method hint supplied"
+                )
+                self._mark('estimate')
+                return self.result
+            except Exception:
+                pass  # fall through to the normal recommendation path
 
         top = (self.recommendation.recommendations[0]
                if self.recommendation.recommendations else None)
@@ -151,6 +186,56 @@ class CausalWorkflow:
         """Direct fallback when recommendation.run() fails."""
         import statspai as sp
         d = self.design
+
+        # Sprint-B (0.9.6) fallbacks — triggered by the advanced kwargs.
+        # These run BEFORE the classical design branches so that e.g. a
+        # proxy-variable panel still gets proximal even if the detected
+        # design is 'observational'.
+        if self.proxy_z and self.proxy_w and self.treatment:
+            exog = [c for c in (self.covariates or [])
+                    if c not in self.proxy_z + self.proxy_w]
+            return sp.proximal(
+                self.data, y=self.y, treat=self.treatment,
+                proxy_z=list(self.proxy_z), proxy_w=list(self.proxy_w),
+                covariates=exog,
+            )
+        if self.tv_confounders and self.treatment and self.id and self.time:
+            baseline = [c for c in (self.covariates or [])
+                        if c not in self.tv_confounders]
+            return sp.msm(
+                self.data, y=self.y, treat=self.treatment,
+                id=self.id, time=self.time,
+                time_varying=list(self.tv_confounders),
+                baseline=baseline,
+            )
+        if self.post_treat_strata and self.treatment:
+            if self.covariates:
+                return sp.principal_strat(
+                    self.data, y=self.y, treat=self.treatment,
+                    strata=self.post_treat_strata,
+                    covariates=list(self.covariates),
+                    method='principal_score',
+                )
+            return sp.principal_strat(
+                self.data, y=self.y, treat=self.treatment,
+                strata=self.post_treat_strata,
+                method='monotonicity',
+            )
+        if self.mediator and self.treatment:
+            if self.tv_confounders:
+                return sp.mediate_interventional(
+                    self.data, y=self.y, treat=self.treatment,
+                    mediator=self.mediator,
+                    tv_confounders=list(self.tv_confounders),
+                    covariates=list(self.covariates or []) or None,
+                )
+            return sp.mediate(
+                self.data, y=self.y, treat=self.treatment,
+                mediator=self.mediator,
+                covariates=list(self.covariates or []) or None,
+            )
+
+        # Classical design-based fallbacks.
         if d == 'did':
             if self.time and self.id and self.cohort:
                 return sp.callaway_santanna(
@@ -512,6 +597,15 @@ def causal(
     dag=None,
     strict: bool = False,
     auto_run: bool = True,
+    # --- Sprint-B causal-method context (all opt-in). When supplied,
+    # these parameters extend the recommender's candidate set and
+    # the fallback-estimator dispatch to msm / proximal / principal_strat
+    # / mediate / mediate_interventional / front_door.
+    mediator: Optional[str] = None,
+    tv_confounders: Optional[List[str]] = None,
+    proxy_z: Optional[List[str]] = None,
+    proxy_w: Optional[List[str]] = None,
+    post_treat_strata: Optional[str] = None,
 ) -> CausalWorkflow:
     """End-to-end causal-inference workflow.
 
@@ -571,6 +665,11 @@ def causal(
         design=design,
         dag=dag,
         strict=strict,
+        mediator=mediator,
+        tv_confounders=list(tv_confounders) if tv_confounders else None,
+        proxy_z=list(proxy_z) if proxy_z else None,
+        proxy_w=list(proxy_w) if proxy_w else None,
+        post_treat_strata=post_treat_strata,
     )
     if auto_run:
         workflow.run()

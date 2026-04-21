@@ -379,6 +379,13 @@ def recommend(
     cutoff: float = None,
     design: str = None,
     dag=None,
+    # --- Sprint-B / 0.9.6 causal-method extensions (all opt-in) ---
+    mediator: str = None,
+    tv_confounders: List[str] = None,
+    proxy_z: List[str] = None,
+    proxy_w: List[str] = None,
+    post_treat_strata: str = None,
+    # --- verification (pre-existing) ---
     verify: bool = False,
     verify_B: int = 50,
     verify_budget_s: float = 30.0,
@@ -420,6 +427,23 @@ def recommend(
         'observational', 'panel', 'cross-section'.
     dag : DAG, optional
         Causal DAG for identification analysis.
+    mediator : str, optional
+        Mediator variable name. Triggers mediation / front-door
+        recommendations (Imai-Keele-Tingley 2010,
+        VanderWeele et al. 2014, Pearl 1995).
+    tv_confounders : list of str, optional
+        Time-varying confounders (must be pre-treatment at each period).
+        Triggers `sp.msm` — Marginal Structural Model via IPTW
+        (Robins, Hernán & Brumback 2000).
+    proxy_z : list of str, optional
+        Treatment-side proxy variables. Triggers `sp.proximal` when
+        `proxy_w` is also supplied (Tchetgen Tchetgen et al. 2020).
+    proxy_w : list of str, optional
+        Outcome-side proxy variables (see `proxy_z`).
+    post_treat_strata : str, optional
+        Binary post-treatment variable defining principal strata
+        (take-up, survival, employment, …). Triggers
+        `sp.principal_strat` (Frangakis & Rubin 2002).
     verify : bool, default False
         If True, run *resampling-stability* checks on the top-k
         recommendations (bootstrap CV, permutation placebo, 50%-subsample
@@ -677,6 +701,184 @@ def recommend(
             'reason': 'Cross-sectional data with continuous outcome.',
             'code': f"sp.regress('{y} ~ {ctrl_str or '...'}', data=df, robust='hc1')",
             'params': {'formula': formula, 'data': data, 'robust': 'hc1'},
+        })
+
+    # ====================================================================== #
+    #  Sprint-B causal extensions (0.9.6): opt-in via the new kwargs.        #
+    #  These append to the candidate list — primary design-based             #
+    #  recommendations still drive the top slot.                             #
+    # ====================================================================== #
+
+    # Proximal Causal Inference — unobserved confounding with twin proxies
+    if proxy_z and proxy_w and treatment:
+        exog = [c for c in (covariates or []) if c not in proxy_z + proxy_w]
+        recommendations.append({
+            'method': 'Proximal Causal Inference (linear bridge 2SLS)',
+            'function': 'proximal',
+            'reason': 'Unmeasured confounder U with a treatment-side '
+                      'proxy Z and outcome-side proxy W available; '
+                      'linear bridge 2SLS identifies ATE under the '
+                      'proxy completeness conditions.',
+            'assumptions': [
+                'Z ⊥ Y | (D, U, X)  — treatment proxy',
+                'W ⊥ D | (U, X)  — outcome proxy',
+                'Linear outcome bridge h(W, D, X) (current release)',
+            ],
+            'robustness': 'Inspect first_stage_F in r.model_info; '
+                          'compare to sp.dml/sp.aipw for sensitivity.',
+            'code': f"sp.proximal(df, y='{y}', treat='{treatment}', "
+                    f"proxy_z={proxy_z!r}, proxy_w={proxy_w!r})",
+            'params': {
+                'data': data, 'y': y, 'treat': treatment,
+                'proxy_z': list(proxy_z), 'proxy_w': list(proxy_w),
+                'covariates': exog,
+            },
+        })
+
+    # Marginal Structural Model — time-varying treatment + tv confounders
+    if tv_confounders and treatment and id and time:
+        baseline = [c for c in (covariates or []) if c not in tv_confounders]
+        recommendations.append({
+            'method': 'Marginal Structural Model (stabilized IPTW)',
+            'function': 'msm',
+            'reason': 'Time-varying treatment with time-varying confounders '
+                      'that are themselves affected by past treatment. '
+                      'Standard panel regression blocks a causal path and '
+                      'opens a collider; MSM with stabilized weights '
+                      'recovers the marginal causal parameter.',
+            'assumptions': ['Sequential exchangeability',
+                            'Positivity at every period',
+                            'Consistency / no interference'],
+            'robustness': 'Check sw_mean ≈ 1 and sw_max in model_info; '
+                          'try trim_per_period=True if weights blow up.',
+            'code': (f"sp.msm(panel, y='{y}', treat='{treatment}', "
+                     f"id='{id}', time='{time}', "
+                     f"time_varying={tv_confounders!r}, "
+                     f"baseline={baseline[:3]!r})"),
+            'params': {
+                'data': data, 'y': y, 'treat': treatment,
+                'id': id, 'time': time,
+                'time_varying': list(tv_confounders),
+                'baseline': baseline,
+            },
+        })
+
+    # Principal Stratification — post-treatment strata variable
+    if post_treat_strata and treatment:
+        assumps = ['Monotonicity S(1) ≥ S(0)', 'Exclusion restriction']
+        rec_args = {
+            'data': data, 'y': y, 'treat': treatment,
+            'strata': post_treat_strata,
+        }
+        if covariates:
+            rec_args['covariates'] = covariates
+            rec_args['method'] = 'principal_score'
+            method_label = 'Principal stratification (principal score weighting)'
+            function_reason = ('Covariates available — Ding & Lu (2017) '
+                               'principal score point-identifies '
+                               'always-taker / complier / never-taker PCEs '
+                               'under principal ignorability.')
+            assumps.append('Principal ignorability Y(d) ⊥ stratum | X within D=d')
+            code_tail = f", covariates={covariates[:3]!r}, method='principal_score'"
+        else:
+            rec_args['method'] = 'monotonicity'
+            method_label = 'Principal stratification (monotonicity + Zhang-Rubin bounds)'
+            function_reason = ('Post-treatment stratum variable present; '
+                               'monotonicity + Zhang-Rubin (2003) sharp '
+                               'bounds on SACE plus complier LATE.')
+            code_tail = ''
+        recommendations.append({
+            'method': method_label,
+            'function': 'principal_strat',
+            'reason': function_reason,
+            'assumptions': assumps,
+            'robustness': 'Inspect mono_violation_frac in model_info; '
+                          'pair with a sensitivity analysis.',
+            'code': (f"sp.principal_strat(df, y='{y}', treat='{treatment}', "
+                     f"strata='{post_treat_strata}'{code_tail})"),
+            'params': rec_args,
+        })
+
+    # Mediation recommendations (natural + interventional + front-door)
+    if mediator and treatment:
+        # Natural effects (Imai-Keele-Tingley)
+        recommendations.append({
+            'method': 'Causal mediation — natural direct/indirect effects',
+            'function': 'mediate',
+            'reason': 'Decomposes total effect into ACME (indirect via M) '
+                      'and ADE (direct). Uses the product / quasi-Bayesian '
+                      'simulation approach.',
+            'assumptions': ['No unobserved D-Y confounder',
+                            'No unobserved M-Y confounder',
+                            'No treatment-induced M-Y confounder',
+                            'Cross-world independence (natural effects)'],
+            'code': (f"sp.mediate(df, y='{y}', treat='{treatment}', "
+                     f"mediator='{mediator}')"),
+            'params': {'data': data, 'y': y, 'treat': treatment,
+                       'mediator': mediator, 'covariates': covariates},
+        })
+        # Interventional effects — appropriate when tv_confounders present
+        if tv_confounders:
+            recommendations.append({
+                'method': 'Interventional mediation (VanderWeele 2014)',
+                'function': 'mediate_interventional',
+                'reason': 'Treatment-induced mediator-outcome confounder '
+                          'present — natural effects are not identified; '
+                          'interventional effects are.',
+                'assumptions': ['No unobserved baseline D-Y confounder',
+                                'No unobserved M-Y confounder (given L)'],
+                'code': (f"sp.mediate_interventional(df, y='{y}', "
+                         f"treat='{treatment}', mediator='{mediator}', "
+                         f"tv_confounders={tv_confounders!r})"),
+                'params': {'data': data, 'y': y, 'treat': treatment,
+                           'mediator': mediator,
+                           'covariates': covariates,
+                           'tv_confounders': list(tv_confounders)},
+            })
+        # Front-door — when the mediator is claimed to fully transmit D→Y
+        recommendations.append({
+            'method': 'Front-door adjustment (Pearl 1995)',
+            'function': 'front_door',
+            'reason': 'If an unobserved back-door confounder U blocks the '
+                      'standard adjustment but the mediator M fully '
+                      'transmits D\'s effect on Y, Pearl\'s front-door '
+                      'formula identifies the ATE.',
+            'assumptions': ['No direct D→Y path (all effect via M)',
+                            'No unobserved M-Y confounder',
+                            'Positivity on M | D'],
+            'robustness': 'Verify the DAG assumption with sp.dag; '
+                          'compare to sp.mediate / sp.mediate_interventional.',
+            'code': (f"sp.front_door(df, y='{y}', treat='{treatment}', "
+                     f"mediator='{mediator}')"),
+            'params': {'data': data, 'y': y, 'treat': treatment,
+                       'mediator': mediator, 'covariates': covariates},
+        })
+
+    # G-computation as a baseline companion for observational designs
+    if design == 'observational' and treatment and profile['treat_type'] in ('binary', 'continuous'):
+        if profile['treat_type'] == 'binary':
+            estimand_kw = 'ATE'
+            gcomp_reason = ('Parametric g-formula (standardization) — '
+                            'complements matching/DML with a pure-outcome-'
+                            'model baseline; easy-to-audit dose-response '
+                            'slices.')
+        else:
+            estimand_kw = 'dose_response'
+            gcomp_reason = ('Continuous treatment → g-formula dose-response '
+                            'curve is a natural summary under '
+                            'unconfoundedness.')
+        recommendations.append({
+            'method': f'G-computation ({estimand_kw})',
+            'function': 'g_computation',
+            'reason': gcomp_reason,
+            'assumptions': ['Unconfoundedness (CIA)',
+                            'Correctly-specified outcome model'],
+            'code': (f"sp.g_computation(df, y='{y}', treat='{treatment}', "
+                     f"covariates={(covariates or [])[:3]!r}, "
+                     f"estimand={estimand_kw!r})"),
+            'params': {'data': data, 'y': y, 'treat': treatment,
+                       'covariates': covariates or [],
+                       'estimand': estimand_kw},
         })
 
     # Outcome-type-specific additions

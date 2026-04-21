@@ -163,8 +163,10 @@ method that returns the correct BibTeX entry) and this package:
 
 - [Changelog](changelog.md) — release history, including the critical
   frontier correctness fix in v0.9.3.
-- [DID guide](guides/did.md) — end-to-end staggered-DID tutorial with
-  sensitivity analysis.
+- [Choosing a DID estimator](guides/choosing_did_estimator.md) — how
+  to pick between TWFE / CS / Sun-Abraham / BJS / multiple-groups DID.
+- [Callaway–Sant'Anna staggered DID](guides/callaway_santanna.md) —
+  end-to-end tutorial with `cs_report()` and honest sensitivity.
 - [Synth guide](guides/synth.md) — synthetic control with inference
   and research workflow.
 - [GitHub](https://github.com/brycewang-stanford/StatsPAI) —
