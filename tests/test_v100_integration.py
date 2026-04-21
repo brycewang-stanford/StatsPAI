@@ -20,7 +20,9 @@ import statspai as sp
 
 
 def test_v1_version():
-    assert sp.__version__ == "1.0.0"
+    # Accept any v1.x.y — this integration smoke should track the
+    # public API stability contract, not the patch-level digit.
+    assert sp.__version__.startswith("1.")
 
 
 def test_v1_registry_size_grew():

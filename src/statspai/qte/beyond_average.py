@@ -91,22 +91,73 @@ def beyond_average_late(
             "Estimated complier share ≤ 0 — instrument fails monotonicity."
         )
 
-    def _late_q(Yi, Di, Zi, q):
-        # Imbens-Rubin (1997) distributional LATE on compliers:
-        # Pr(Y_{1,c} ≤ y) and Pr(Y_{0,c} ≤ y) recovered via Abadie's
-        # κ-weighting; here use Wald-on-indicator variant.
-        try:
-            num = (np.mean((Yi <= np.quantile(Yi, q))[Zi == 1])
-                   - np.mean((Yi <= np.quantile(Yi, q))[Zi == 0]))
-            denom = (Di[Zi == 1].mean() - Di[Zi == 0].mean())
-            if abs(denom) < 1e-6:
-                return np.nan
-            cdf_diff = num / denom
-            # Translate CDF difference into quantile difference via local linear
-            # interpolation on the residual quantile function.
-            return float(cdf_diff * (np.quantile(Yi, 0.95) - np.quantile(Yi, 0.05)))
-        except Exception:
+    # ------------------------------------------------------------------ #
+    #  Abadie (2002) κ-weighted complier-subpopulation CDFs + quantile
+    #  inversion.  Without covariates, Abadie's κ reduces to the
+    #  Imbens-Angrist Wald identity per CDF:
+    #
+    #    F_{Y_1 | c}(y) = [P(Y <= y, D = 1 | Z = 1)
+    #                       - P(Y <= y, D = 1 | Z = 0)] / Δp
+    #    F_{Y_0 | c}(y) = [P(Y <= y, D = 0 | Z = 0)
+    #                       - P(Y <= y, D = 0 | Z = 1)] / (-Δp_0)
+    #
+    #  where Δp = P(D = 1 | Z = 1) - P(D = 1 | Z = 0) (complier share).
+    #  The complier QTE at level q is Q_{1,c}(q) - Q_{0,c}(q).
+    # ------------------------------------------------------------------ #
+
+    def _complier_cdfs(Yi: np.ndarray, Di: np.ndarray, Zi: np.ndarray):
+        """Return (grid, F1_c, F0_c) monotone CDFs on a shared y-grid."""
+        dp = (Di[Zi == 1].mean() - Di[Zi == 0].mean())
+        if abs(dp) < 1e-8:
+            return None
+        # Shared y-grid at unique observed values, sorted.
+        grid = np.sort(np.unique(Yi))
+        # Empirical joint CDFs: F^{z, d}(y) = P(Y <= y, D = d | Z = z)
+        p_z1 = float(np.mean(Zi == 1))
+        p_z0 = float(np.mean(Zi == 0))
+        if p_z1 < 1e-8 or p_z0 < 1e-8:
+            return None
+        # Build F1_c(y) = [sum(Y<=y, D=1, Z=1)/n_z1 - sum(Y<=y, D=1, Z=0)/n_z0] / dp
+        # by sorted cumsum over the y-grid.
+        order = np.argsort(Yi)
+        y_s = Yi[order]
+        d_s = Di[order]
+        z_s = Zi[order]
+        n_z1 = int(np.sum(Zi == 1))
+        n_z0 = int(np.sum(Zi == 0))
+        if n_z1 == 0 or n_z0 == 0:
+            return None
+        # Cumulative counts
+        cum_d1z1 = np.cumsum((d_s == 1) & (z_s == 1))
+        cum_d1z0 = np.cumsum((d_s == 1) & (z_s == 0))
+        cum_d0z0 = np.cumsum((d_s == 0) & (z_s == 0))
+        cum_d0z1 = np.cumsum((d_s == 0) & (z_s == 1))
+        # For each grid value, pick the last-y-index <= grid value
+        idxs = np.searchsorted(y_s, grid, side='right') - 1
+        idxs = np.clip(idxs, 0, len(y_s) - 1)
+        F1_c = (cum_d1z1[idxs] / n_z1 - cum_d1z0[idxs] / n_z0) / dp
+        F0_c = (cum_d0z0[idxs] / n_z0 - cum_d0z1[idxs] / n_z1) / dp
+        # Enforce monotonicity + [0, 1] bounds (isotonic clip).
+        F1_c = np.clip(np.maximum.accumulate(F1_c), 0.0, 1.0)
+        F0_c = np.clip(np.maximum.accumulate(F0_c), 0.0, 1.0)
+        return grid, F1_c, F0_c
+
+    def _invert_cdf(grid: np.ndarray, F: np.ndarray, q: float) -> float:
+        """Empirical quantile: smallest y such that F(y) >= q."""
+        if not len(grid):
             return np.nan
+        idx = np.searchsorted(F, q, side='left')
+        idx = min(int(idx), len(grid) - 1)
+        return float(grid[idx])
+
+    def _late_q(Yi, Di, Zi, q):
+        cdfs = _complier_cdfs(Yi, Di, Zi)
+        if cdfs is None:
+            return np.nan
+        grid, F1, F0 = cdfs
+        q1 = _invert_cdf(grid, F1, q)
+        q0 = _invert_cdf(grid, F0, q)
+        return float(q1 - q0)
 
     late_q = np.array([_late_q(Y, D, Z, q) for q in quantiles])
 

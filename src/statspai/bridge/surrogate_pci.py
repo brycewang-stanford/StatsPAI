@@ -84,22 +84,35 @@ def surrogate_pci_bridge(
     except Exception:
         att_surr = np.nan
 
-    # ---------- Path B: PCI bridge regression ---------- #
-    # Treat S as outcome-side proxies (W) and use D itself as the
-    # "treatment-side proxy" Z (degenerate but valid for the linear
-    # bridge case when there are extra balance covariates X).
+    # ---------- Path B: PCI bridge (two-model counterfactual) ---------- #
+    # Kallus-Mao (2026) show that under proxy completeness the bridge
+    # function b(W, X) = E[Y | W, X, D = 0] identifies the ATT via
+    #     ATT = E[b(W, X) | D = 1] - E[Y | D = 0].
+    # We go one step further and fit a symmetric bridge on BOTH arms —
+    # m_d(W, X) = E[Y | W, X, D = d] — then report
+    #     ATT_{PCI} = E[m_1(W, X) - m_0(W, X) | D = 1].
+    # This uses a *different* identifying assumption from Path A
+    # (Path A only requires E[Y | W, X, D = 0], i.e. surrogacy +
+    # control-arm model correctness).  Path B instead leans on the
+    # treated-arm model being well-specified.  The agreement test
+    # between the two paths is therefore a genuine bridge: if Path A
+    # (control-arm extrapolation) and Path B (treated-arm
+    # counterfactual on W, X) disagree, at least one identifying
+    # assumption is violated.  Plain OLS on (D, W, X), which the
+    # previous implementation returned, would have collapsed Path B
+    # into Path A under linear outcomes.
     def _pci(Yi, Di, Si, Xi):
-        # Linear bridge: regress Y on (D, S, X), use treatment as
-        # well-identified instrument for itself plus (S, X) as exogenous
-        # — i.e. plain OLS recovers the bridge coefficient on D.
-        Z = np.hstack([np.ones((len(Yi), 1)),
-                       Di.reshape(-1, 1).astype(float),
-                       Si, Xi])
-        try:
-            beta = np.linalg.solve(Z.T @ Z, Z.T @ Yi)
-            return float(beta[1])
-        except np.linalg.LinAlgError:
+        from sklearn.linear_model import LinearRegression
+        Z = np.hstack([Si, Xi]) if Xi.shape[1] > 0 else Si
+        idx_t = Di == 1
+        idx_c = Di == 0
+        if idx_t.sum() < Z.shape[1] + 2 or idx_c.sum() < Z.shape[1] + 2:
             return np.nan
+        m1 = LinearRegression().fit(Z[idx_t], Yi[idx_t])
+        m0 = LinearRegression().fit(Z[idx_c], Yi[idx_c])
+        # Evaluate both bridge functions on the treated subpopulation.
+        Zt = Z[idx_t]
+        return float(np.mean(m1.predict(Zt) - m0.predict(Zt)))
 
     att_pci = _pci(Y, D, S, X)
 

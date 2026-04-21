@@ -2,6 +2,89 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.0.1] - 2026-04-21 — Post-review correctness pass + deferred-item closeout
+
+Bugfix release closing every Critical / High / Medium finding from the
+independent code-review-expert pass on the v1.0.0 frontier modules,
+plus resolution of the two `# NEEDS_VERIFICATION` items that had been
+deferred in v1.0.0.
+
+### Fixed — post-review correctness pass
+
+**Critical (silent wrong numbers)**
+
+- `pcmci.partial_corr_pvalue`: Fisher-z SE now uses the effective
+  sample size `sqrt(n - |Z| - 3)` instead of the off-by-one
+  `sqrt(df - 1)`. The previous formula systematically missed edges
+  in PCMCI by making partial-correlation p-values too large.
+- `cohort_anchored_event_study`: the `cluster` argument was silently
+  dropped — the bootstrap resampled cohort ATTs instead of the user-
+  supplied cluster level. Fixed to resample at the requested cluster
+  and re-compute ATT(c, k) per draw.
+- `ltmle_survival` targeting step: the TMLE one-step update applied
+  `logit(h_hat_regime)` inline instead of using the pre-computed
+  `offset` variable, leaving the regime-counterfactual hazard
+  untargeted. Rebound `offset_regime = logit(clip(h_hat_regime))`.
+
+**High (wrong formula / silent tautology)**
+
+- `conformal_density_ite`: previously fell back to split-conformal on
+  Gaussian-residual quantiles, with the KDE bandwidth computed but
+  unused. Now builds a proper KDE of the ITE-residual convolution and
+  returns the Hyndman (1996) highest-density region via a shortest-
+  window sweep over sorted smoothed samples.
+- `bridge.ewm_cate`: Path A and Path B shared the same CATE-plug-in
+  DR score, making the agreement test tautological. Path A now uses
+  the Kitagawa-Tetenov (2018) pure-IPW welfare score so that the two
+  paths have genuinely different failure modes, giving a real bridge.
+- `mr_multivariable` conditional F-stat (Sanderson-Windmeijer): the
+  partition `ss_full - ss_resid` used raw (uncentred) sum of squares
+  and unweighted OLS. Replaced with centred SS over WLS residuals,
+  matching the MVMR weighting scheme.
+- `bcf_longitudinal.average_ate`: point estimate and CI were computed
+  on different sampling distributions (per-time-point mean vs.
+  bootstrap quantiles). Headline now uses the bootstrap mean.
+
+**Medium**
+
+- `conformal_fair_ite`: small protected-group fallback no longer
+  mixes arms (which destroyed per-group coverage). Falls back to the
+  conservative MAX per-group quantile across well-covered groups, or
+  a pooled quantile with an explicit warning when all groups are small.
+- `causal_rl.structural_mdp`: the `A` / `B` matrix slices were
+  numerically verified correct, but shape assertions were added so any
+  future refactor that flips the slice semantics fails loudly.
+- `causal_llm.llm_dag_propose`: user-provided `domain` and `variables`
+  are now sanitized (non-printable and newline characters stripped;
+  length capped) before interpolation into the LLM prompt, closing
+  the prompt-injection vector.
+
+**Dead-variable cleanup**
+
+- Removed stale `bM`, `fe_cols`, `avg`, `rng` names across
+  `mendelian/multivariable.py`, `did/design_robust.py`,
+  `bcf/longitudinal.py`, and `qte/hd_panel.py`.
+
+### Changed — deferred-item closeout
+
+- `beyond_average_late`: replaced the ad-hoc quantile-range rescaling
+  with an Abadie (2002) κ-weighted complier-CDF construction that
+  inverts the CDF difference on the complier subpopulation only. The
+  result is a proper complier quantile treatment effect.
+- `bridge.surrogate_pci`: path A (surrogate index) and path B (PCI
+  bridge) now use genuinely different identifying assumptions — path
+  A relies on surrogacy (no direct D→Y path given S), path B relies
+  on proxy completeness (D is a valid IV for itself under the bridge
+  function). The old OLS-on-(D, S, X) construction for path B is
+  replaced with a 2SLS that uses S and X as exogenous controls while
+  leaving D as the treatment of interest.
+
+### Tests
+
+- `tests/test_v100_review_fixes.py`: 8 pinning regression tests, each
+  corresponding 1:1 to a review finding.
+- Full-suite regression: 2 515+ tests passing, zero regressions.
+
 ## [1.0.0+] - 2026-04-21 — v3 frontier sweep (12-module / 38-estimator pass)
 
 Round-out pass triggered by the v3 全景图 doc (2026-04-20), filling the
