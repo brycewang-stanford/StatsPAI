@@ -219,9 +219,10 @@ contributions — bug fixes, docs, tests, refactors, new estimators.
 ### Paper Authorship (by invitation)
 
 **By default, code contributors are not co-authors of StatsPAI
-papers.** The core maintainers reserve the sole right to extend
-authorship invitations to contributors whose work they judge to be
-exceptional. There is no fixed rubric — the decision rests with the
+papers.** Authorship is extended, at the maintainers' sole
+discretion, to contributors whose work rises to the level of
+substantial intellectual contribution to the library or to the paper
+itself. There is no fixed rubric; the decision rests with the
 maintainers and is made case by case.
 
 ## 📞 Getting Help
