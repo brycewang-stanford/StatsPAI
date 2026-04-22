@@ -33,8 +33,39 @@ class ParamSpec:
 
 
 @dataclass
+class FailureMode:
+    """One failure mode for agent-native recovery.
+
+    Parameters
+    ----------
+    symptom : str
+        What the agent observes (exception class, warning text, pattern).
+    exception : str
+        Fully-qualified exception name (``"statspai.AssumptionViolation"``
+        or ``"ValueError"``). Agents should ``except`` on this.
+    remedy : str
+        One-sentence, actionable recovery hint.
+    alternative : str, optional
+        ``sp.xxx`` to try next when this failure mode triggers.
+    """
+    symptom: str
+    exception: str
+    remedy: str
+    alternative: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class FunctionSpec:
-    """Machine-readable specification for a StatsPAI function."""
+    """Machine-readable specification for a StatsPAI function.
+
+    Agent-native fields (``assumptions`` / ``failure_modes`` /
+    ``alternatives`` / ``typical_n_min`` / ``pre_conditions``) are
+    optional — any entry without them still renders correctly; only
+    the agent-card layer surfaces the extras.
+    """
     name: str
     category: str
     description: str
@@ -43,6 +74,19 @@ class FunctionSpec:
     example: str = ""
     tags: List[str] = field(default_factory=list)
     reference: str = ""  # paper / method reference
+    # ------------------------------------------------------------------ #
+    #  Agent-native metadata (all optional; populate per-estimator)
+    # ------------------------------------------------------------------ #
+    assumptions: List[str] = field(default_factory=list)
+    """Identifying / statistical assumptions, human-readable one-liners."""
+    pre_conditions: List[str] = field(default_factory=list)
+    """Data-shape preconditions the agent should verify before calling."""
+    failure_modes: List[FailureMode] = field(default_factory=list)
+    """Common failures + recovery paths (see :class:`FailureMode`)."""
+    alternatives: List[str] = field(default_factory=list)
+    """Ranked ``sp.xxx`` fallbacks when this estimator is a poor fit."""
+    typical_n_min: Optional[int] = None
+    """Rule-of-thumb minimum sample size; ``None`` if not applicable."""
 
     def to_openai_schema(self) -> Dict[str, Any]:
         """Export as OpenAI function-calling compatible JSON schema."""
@@ -82,6 +126,30 @@ class FunctionSpec:
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
+    def agent_card(self) -> Dict[str, Any]:
+        """Return the agent-native view of this function.
+
+        This is the structured payload rendered into guide
+        ``## For Agents`` sections, surfaced by :func:`sp.describe_function`
+        and consumed by :func:`sp.recommend` / agent code. It is a
+        superset of :meth:`to_openai_schema` plus the agent-native
+        fields (``assumptions`` / ``failure_modes`` / ``alternatives`` /
+        ``typical_n_min`` / ``pre_conditions``).
+        """
+        return {
+            "name": self.name,
+            "category": self.category,
+            "description": self.description,
+            "signature": self.to_openai_schema(),
+            "pre_conditions": list(self.pre_conditions),
+            "assumptions": list(self.assumptions),
+            "failure_modes": [fm.to_dict() for fm in self.failure_modes],
+            "alternatives": list(self.alternatives),
+            "typical_n_min": self.typical_n_min,
+            "reference": self.reference,
+            "example": self.example,
+        }
+
 
 # ====================================================================== #
 #  Registry
@@ -115,6 +183,39 @@ def _build_registry():
         returns="EconometricResults",
         example='sp.regress("wage ~ education + experience", data=df, robust="hc1")',
         tags=["regression", "ols", "linear", "robust"],
+        pre_conditions=[
+            "data is a pandas DataFrame with every variable in formula as a column",
+            "outcome is numeric; non-numeric regressors should be categorical (handled via patsy)",
+            "no perfect collinearity among regressors",
+        ],
+        assumptions=[
+            "Conditional mean independence: E[u|X] = 0",
+            "No perfect collinearity",
+            "For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3')",
+            "For cluster-robust SEs: enough clusters (≥ 30–50) and no cross-cluster dependence",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Singular design / LinAlgError",
+                exception="NumericalInstability",
+                remedy="Drop collinear regressors or check dummy-variable coding.",
+                alternative="sp.vif",
+            ),
+            FailureMode(
+                symptom="Heteroskedasticity test rejects (sp.het_test)",
+                exception="AssumptionWarning",
+                remedy="Re-estimate with robust='hc1' (or 'hc3' for n < 250).",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="Few clusters (< 30) with cluster-robust SEs",
+                exception="AssumptionWarning",
+                remedy="Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 adjustment.",
+                alternative="sp.wild_cluster_bootstrap",
+            ),
+        ],
+        alternatives=["iv", "heckman", "qreg", "tobit"],
+        typical_n_min=30,
     ))
 
     register(FunctionSpec(
@@ -133,6 +234,44 @@ def _build_registry():
         example='sp.iv("wage ~ (education ~ parent_edu + distance) + experience", data=df, method="liml")',
         tags=["iv", "2sls", "liml", "fuller", "gmm", "jive", "instrumental", "variable", "endogeneity", "weak-instruments"],
         reference="Wooldridge (2010); Stock & Yogo (2005); Fuller (1977); Hansen (1982)",
+        pre_conditions=[
+            "formula includes the (endog ~ instruments) parenthesised block",
+            "at least as many instruments as endogenous regressors (order condition)",
+            "instruments are not themselves endogenous in the outcome equation",
+        ],
+        assumptions=[
+            "Relevance: instruments predict the endogenous regressor (first-stage F ≥ 10 rule of thumb)",
+            "Exclusion: instruments affect outcome only through the endogenous regressor",
+            "Monotonicity (for LATE interpretation under heterogeneous effects)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="First-stage F < 10 (Stock-Yogo 5% bias)",
+                exception="AssumptionWarning",
+                remedy="Use weak-IV-robust inference (Anderson-Rubin) or LIML.",
+                alternative="sp.anderson_rubin_ci",
+            ),
+            FailureMode(
+                symptom="Over-identification test rejects (sp.estat 'overid')",
+                exception="AssumptionViolation",
+                remedy="At least one instrument is invalid; drop instruments or switch to just-identified LIML.",
+                alternative="sp.iv",
+            ),
+            FailureMode(
+                symptom="Hausman endogeneity test fails to reject",
+                exception="AssumptionWarning",
+                remedy="OLS may be consistent and more efficient; report both.",
+                alternative="sp.regress",
+            ),
+            FailureMode(
+                symptom="Many instruments (≥ 10) cause many-IV bias",
+                exception="NumericalInstability",
+                remedy="Use LIML or JIVE which are robust to many weak instruments.",
+                alternative="sp.iv",
+            ),
+        ],
+        alternatives=["deepiv", "bartik", "proximal", "regress"],
+        typical_n_min=100,
     ))
 
     register(FunctionSpec(
@@ -212,6 +351,53 @@ def _build_registry():
         returns="CausalResult",
         example='sp.did(df, y="wage", treat="treated", time="post")',
         tags=["did", "causal", "treatment", "panel", "staggered", "ddd", "sdid"],
+        reference="Roth et al. (2023); Callaway & Sant'Anna (2021); Goodman-Bacon (2021)",
+        pre_conditions=[
+            "data is panel or repeated cross-section with a time column",
+            "treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered",
+            "at least one pre-treatment period (≥ 2 periods for 2x2; ≥ 3 recommended for event study)",
+            "for staggered designs: id column identifying units across time",
+        ],
+        assumptions=[
+            "Parallel trends: treated and control groups would have followed the same trajectory absent treatment",
+            "No anticipation: outcomes in pre-treatment periods are unaffected by future treatment",
+            "SUTVA: no spillovers between units",
+            "For staggered / heterogeneous effects: use CS or SA — TWFE can produce negative weights (Goodman-Bacon)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Pre-trend joint test p < 0.05 (or underpowered at 0.10)",
+                exception="AssumptionViolation",
+                remedy="Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna.",
+                alternative="sp.sensitivity_rr",
+            ),
+            FailureMode(
+                symptom="Staggered treatment timing with TWFE method",
+                exception="AssumptionWarning",
+                remedy="TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation.",
+                alternative="sp.callaway_santanna",
+            ),
+            FailureMode(
+                symptom="Pre-trend test underpowered (Roth 2022)",
+                exception="AssumptionWarning",
+                remedy="Check sp.pretrends_power — if low, report honest CI via sp.sensitivity_rr.",
+                alternative="sp.sensitivity_rr",
+            ),
+            FailureMode(
+                symptom="Few clusters at unit level",
+                exception="AssumptionWarning",
+                remedy="Use wild cluster bootstrap (sp.wild_cluster_bootstrap).",
+                alternative="sp.wild_cluster_bootstrap",
+            ),
+        ],
+        alternatives=[
+            "callaway_santanna",
+            "sun_abraham",
+            "did_imputation",
+            "sdid",
+            "synth",
+        ],
+        typical_n_min=50,
     ))
 
     register(FunctionSpec(
@@ -254,6 +440,65 @@ def _build_registry():
     ))
 
     register(FunctionSpec(
+        name="callaway_santanna",
+        category="causal",
+        description="Callaway-Sant'Anna (2021) staggered DID with group-time ATTs. Robust to heterogeneous treatment effects and staggered adoption.",
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome variable"),
+            ParamSpec("g", "str", True, description="First-treatment-period column (0 = never-treated)"),
+            ParamSpec("t", "str", True, description="Time period column"),
+            ParamSpec("i", "str", True, description="Unit identifier"),
+            ParamSpec("control_group", "str", False, "nevertreated",
+                      "Control group", ["nevertreated", "notyettreated"]),
+            ParamSpec("anticipation", "int", False, 0, "Number of anticipation periods"),
+        ],
+        returns="CausalResult",
+        example='sp.callaway_santanna(df, y="earnings", g="first_treat", t="year", i="worker")',
+        tags=["did", "staggered", "causal", "cs", "group_time"],
+        reference="Callaway & Sant'Anna (2021) J. Econometrics",
+        pre_conditions=[
+            "panel data with unit × time × outcome",
+            "g column is integer: first-treated period or 0 for never-treated",
+            "at least one never-treated or late-treated control group",
+            "≥ 2 pre-treatment periods per cohort",
+        ],
+        assumptions=[
+            "Parallel trends conditional on X (if covariates supplied)",
+            "No anticipation (or adjust via anticipation= parameter)",
+            "Overlap: positive propensity for each cohort",
+            "SUTVA",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Pre-trend test on aggregated ATT(g,t) rejects",
+                exception="AssumptionViolation",
+                remedy="Use sp.sensitivity_rr for honest CI, or add covariates for conditional parallel trends.",
+                alternative="sp.sensitivity_rr",
+            ),
+            FailureMode(
+                symptom="Cohort with only one unit — insufficient variation",
+                exception="DataInsufficient",
+                remedy="Aggregate small cohorts or drop; check sp.diagnose_result.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="All units treated at the same time (no staggering)",
+                exception="MethodIncompatibility",
+                remedy="Fall back to 2x2 DID via sp.did(method='2x2').",
+                alternative="sp.did",
+            ),
+        ],
+        alternatives=[
+            "sun_abraham",
+            "did_imputation",
+            "sdid",
+            "did",
+        ],
+        typical_n_min=50,
+    ))
+
+    register(FunctionSpec(
         name="rdrobust",
         category="causal",
         description="RD estimation: sharp, fuzzy, kink, and donut-hole designs with robust inference.",
@@ -271,6 +516,45 @@ def _build_registry():
         example='sp.rdrobust(df, y="score", x="income", c=10000)',
         tags=["rd", "discontinuity", "causal", "bandwidth", "kink", "donut", "fuzzy"],
         reference="Calonico, Cattaneo, Titiunik (2014)",
+        pre_conditions=[
+            "running variable x is continuous with support on both sides of c",
+            "treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy)",
+            "sufficient mass of observations within the optimal bandwidth",
+        ],
+        assumptions=[
+            "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
+            "No manipulation of x at c (McCrary density test)",
+            "Local randomization only in a neighborhood of c — extrapolation away from c is not identified",
+            "Covariate balance at c (optional but recommended)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="McCrary density test p < 0.05",
+                exception="AssumptionViolation",
+                remedy="Use donut-hole RD (donut=<δ>) or partial-identification bounds.",
+                alternative="sp.rdrobust",
+            ),
+            FailureMode(
+                symptom="Covariate imbalance at cutoff (sp.rdbalance rejects)",
+                exception="AssumptionViolation",
+                remedy="Include covariates as controls, narrow bandwidth, or report as caveat.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="Effect unstable across bandwidth halvings",
+                exception="AssumptionWarning",
+                remedy="Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesár honest CI).",
+                alternative="sp.rd_honest",
+            ),
+            FailureMode(
+                symptom="Placebo cutoffs show significant 'effects'",
+                exception="AssumptionViolation",
+                remedy="The RD signal is noise; seek an alternative identification strategy.",
+                alternative="sp.bounds",
+            ),
+        ],
+        alternatives=["rd_honest", "rd_donut", "bounds"],
+        typical_n_min=500,
     ))
 
     register(FunctionSpec(
@@ -299,6 +583,46 @@ def _build_registry():
         example='sp.synth(data=df, outcome="gdp", unit="state", time="year", treated_unit="CA", treatment_time=1989, method="demeaned")',
         tags=["synth", "synthetic", "causal", "comparative", "scm", "factor", "staggered", "conformal"],
         reference="Abadie et al. (2010); Ferman & Pinto (2021); Doudchenko & Imbens (2016); Xu (2017); Ben-Michael et al. (2022); Chernozhukov et al. (2021)",
+        pre_conditions=[
+            "panel data in long form (unit × time × outcome)",
+            "single treated unit (classic) or a treatment-timing column (staggered)",
+            "≥ 10 donor (untreated) units with similar pre-treatment trajectories",
+            "≥ 10 pre-treatment periods (fewer → large weight on any one year)",
+        ],
+        assumptions=[
+            "Treatment effect on the treated is identified by the counterfactual implicit in the donor weights",
+            "No spillover from treated unit to donors (SUTVA)",
+            "Donor pool contains units whose outcomes plausibly track the treated counterfactual",
+            "Pre-treatment fit (RMSPE) is small relative to post-treatment effect for placebo inference",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Pre-treatment RMSPE > post-treatment effect",
+                exception="AssumptionWarning",
+                remedy="Poor pre-fit — switch to method='demeaned'/'augmented' or enlarge donor pool.",
+                alternative="sp.synth",
+            ),
+            FailureMode(
+                symptom="Placebo p-value ≥ 0.1 despite visible gap",
+                exception="AssumptionWarning",
+                remedy="Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic.",
+                alternative="sp.synth",
+            ),
+            FailureMode(
+                symptom="All weight concentrated on one donor",
+                exception="AssumptionWarning",
+                remedy="Interpolation bias risk — check method='elastic_net' or augmented SCM.",
+                alternative="sp.synth",
+            ),
+            FailureMode(
+                symptom="Treated unit outside donor convex hull",
+                exception="IdentificationFailure",
+                remedy="Extrapolation needed — use method='unconstrained' or 'augmented'.",
+                alternative="sp.synth",
+            ),
+        ],
+        alternatives=["sdid", "did", "matrix_completion", "causal_impact"],
+        typical_n_min=10,  # donors (units); time periods enforced separately
     ))
 
     register(FunctionSpec(
@@ -2229,6 +2553,110 @@ def _build_registry():
         reference="Zuber, Colijn, Staley, Burgess (Nat Comm 2020).",
     ))
 
+    # -- v1.6 MR Frontier: MR-Lap / MR-Clust / GRAPPLE / MR-cML ------ #
+    register(FunctionSpec(
+        name="mr_lap",
+        category="mendelian",
+        description=(
+            "Sample-overlap-corrected IVW MR (Burgess-Davies-Thompson "
+            "2016 closed-form correction). Removes first-order bias "
+            "when exposure and outcome GWAS share participants; "
+            "requires overlap_fraction and overlap_rho (e.g. from "
+            "LD-score regression)."
+        ),
+        params=[
+            ParamSpec("beta_exposure", "ndarray", True),
+            ParamSpec("beta_outcome", "ndarray", True),
+            ParamSpec("se_exposure", "ndarray", True),
+            ParamSpec("se_outcome", "ndarray", True),
+            ParamSpec("overlap_fraction", "float", False, 1.0),
+            ParamSpec("overlap_rho", "float", False, 0.0),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="MRLapResult",
+        tags=["mendelian_randomization", "mr_lap", "sample_overlap",
+              "bias_correction"],
+        reference=(
+            "Burgess, Davies & Thompson (2016) Genet Epidemiol 40(7); "
+            "Mounier & Kutalik (2023) Genet Epidemiol 47(4)."
+        ),
+    ))
+    register(FunctionSpec(
+        name="mr_clust",
+        category="mendelian",
+        description=(
+            "Clustered Mendelian randomization via finite Gaussian "
+            "mixture on Wald ratios (Foley et al. 2021). EM with "
+            "SNP-specific measurement SE; optional 'null' cluster at "
+            "theta=0; K selected by BIC. Returns per-cluster estimate, "
+            "SNP-to-cluster responsibilities, and the K-path."
+        ),
+        params=[
+            ParamSpec("beta_exposure", "ndarray", True),
+            ParamSpec("beta_outcome", "ndarray", True),
+            ParamSpec("se_exposure", "ndarray", True),
+            ParamSpec("se_outcome", "ndarray", True),
+            ParamSpec("K_range", "tuple", False, (1, 5)),
+            ParamSpec("include_null", "bool", False, True),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("seed", "int", False, 0),
+        ],
+        returns="MRClustResult",
+        tags=["mendelian_randomization", "mr_clust", "clustered_pleiotropy",
+              "mixture_model"],
+        reference=(
+            "Foley, Mason, Kirk & Burgess (2021) Bioinformatics 37(4)."
+        ),
+    ))
+    register(FunctionSpec(
+        name="grapple",
+        category="mendelian",
+        description=(
+            "GRAPPLE: profile-likelihood MR with joint weak-instrument "
+            "and balanced-pleiotropy robustness (Wang et al. 2021). "
+            "Model: beta_y = beta*beta_x + u, Var(u) = se_y^2 + "
+            "beta^2*se_x^2 + tau^2; jointly MLE over (beta, tau^2) via "
+            "L-BFGS-B; SE from observed Fisher info."
+        ),
+        params=[
+            ParamSpec("beta_exposure", "ndarray", True),
+            ParamSpec("beta_outcome", "ndarray", True),
+            ParamSpec("se_exposure", "ndarray", True),
+            ParamSpec("se_outcome", "ndarray", True),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("beta_init", "float", False),
+            ParamSpec("tau2_init", "float", False, 1e-4),
+        ],
+        returns="GrappleResult",
+        tags=["mendelian_randomization", "grapple", "profile_likelihood",
+              "weak_instruments", "pleiotropy"],
+        reference="Wang, Zhao, Bowden, Hemani et al. (2021) PLoS Genet 17(6).",
+    ))
+    register(FunctionSpec(
+        name="mr_cml",
+        category="mendelian",
+        description=(
+            "MR-cML-BIC: constrained maximum-likelihood MR with "
+            "L0-sparse pleiotropy (Xue, Shen & Pan 2021). Block-"
+            "coordinate descent jointly updates causal beta, true "
+            "exposure effects, and a K-sparse pleiotropy vector; K "
+            "selected by BIC. Robust to correlated + uncorrelated "
+            "pleiotropy simultaneously."
+        ),
+        params=[
+            ParamSpec("beta_exposure", "ndarray", True),
+            ParamSpec("beta_outcome", "ndarray", True),
+            ParamSpec("se_exposure", "ndarray", True),
+            ParamSpec("se_outcome", "ndarray", True),
+            ParamSpec("K_max", "int", False),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="MRcMLResult",
+        tags=["mendelian_randomization", "mr_cml", "constrained_ml",
+              "sparse_pleiotropy", "bic"],
+        reference="Xue, Shen & Pan (2021) AJHG 108(7).",
+    ))
+
     # -- TARGET 21-item checklist ------------------------------------ #
     register(FunctionSpec(
         name="target_trial_checklist",
@@ -3024,6 +3452,201 @@ def _build_registry():
         reference="arXiv:2509.00987 (2025).",
     ))
 
+    # ------------------------------------------------------------------
+    # P1-C: data → publication-draft pipeline (v1.6)
+    # ------------------------------------------------------------------
+    register(FunctionSpec(
+        name="paper",
+        category="workflow",
+        description=(
+            "End-to-end 'data + question -> publication draft' "
+            "pipeline. Parses a natural-language question, runs "
+            "sp.causal() (diagnose + recommend + estimate + robustness), "
+            "and assembles a Markdown / LaTeX / Word draft with EDA, "
+            "identification verdict, estimator rationale, results, and "
+            "robustness sections."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("question", "str", True,
+                      description="Natural-language causal question"),
+            ParamSpec("y", "str", False,
+                      description="Outcome column (overrides parser)"),
+            ParamSpec("treatment", "str", False),
+            ParamSpec("covariates", "list", False),
+            ParamSpec("id", "str", False),
+            ParamSpec("time", "str", False),
+            ParamSpec("running_var", "str", False),
+            ParamSpec("instrument", "str", False),
+            ParamSpec("cutoff", "float", False),
+            ParamSpec("cohort", "str", False),
+            ParamSpec("cluster", "str", False),
+            ParamSpec("design", "str", False,
+                      enum=["did", "rd", "iv", "rct", "observational",
+                            "synth"]),
+            ParamSpec("dag", "DAG", False),
+            ParamSpec("fmt", "str", False, "markdown",
+                      enum=["markdown", "tex", "docx"]),
+            ParamSpec("output_path", "str", False),
+            ParamSpec("include_eda", "bool", False, True),
+            ParamSpec("include_robustness", "bool", False, True),
+            ParamSpec("cite", "bool", False, True),
+            ParamSpec("strict", "bool", False, False),
+        ],
+        returns="PaperDraft",
+        example=(
+            "sp.paper(df, 'effect of training on wages', design='did', "
+            "treatment='trained', y='wage', time='year', id='worker_id')"
+        ),
+        tags=["workflow", "agent-native", "report", "publication",
+              "end_to_end"],
+        reference=(
+            "Workflow design 2026-04-21 P1 spec; builds on "
+            "sp.causal() (CausalWorkflow)."
+        ),
+        assumptions=[
+            "Question parser is heuristic — explicit kwargs always win",
+            "Underlying sp.causal() determines design when not specified",
+        ],
+        pre_conditions=[
+            "data must contain the outcome column (`y` or parsed)",
+            "If treatment given, it must be a column",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="ValueError 'Could not determine the outcome y'",
+                exception="ValueError",
+                remedy=(
+                    "Pass `y=...` explicitly or include 'effect of X "
+                    "on Y' in the question text"
+                ),
+            ),
+            FailureMode(
+                symptom="Pipeline notes section appears in draft",
+                exception="(none — informational)",
+                remedy=(
+                    "One pipeline stage failed; inspect "
+                    "`draft.workflow.diagnostics` and pipeline_errors"
+                ),
+            ),
+        ],
+        alternatives=[
+            "sp.causal: workflow without paper rendering",
+            "sp.recommend: estimator selection only",
+        ],
+    ))
+
+    # ------------------------------------------------------------------
+    # P1-A: closed-loop LLM-assisted causal discovery (v1.6)
+    # ------------------------------------------------------------------
+    register(FunctionSpec(
+        name="llm_dag_constrained",
+        category="dag",
+        description=(
+            "Closed-loop LLM-assisted DAG discovery: iterate "
+            "LLM-propose -> constrained PC -> CI-test validate -> demote, "
+            "until edge set converges or max_iter is hit. Returns a final "
+            "DAG with per-edge LLM confidence and CI-test p-value."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("variables", "list", False,
+                      description="Subset of columns to include"),
+            ParamSpec("descriptions", "dict", False,
+                      description="Variable -> human description"),
+            ParamSpec("oracle", "callable", False,
+                      description="LLM oracle f(vars, desc)->[(a,b[,conf])]"),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("ci_test", "str", False, "fisherz",
+                      enum=["fisherz"]),
+            ParamSpec("max_iter", "int", False, 3),
+            ParamSpec("high_conf_threshold", "float", False, 0.7),
+            ParamSpec("low_conf_threshold", "float", False, 0.3),
+            ParamSpec("forbid_low_conf", "bool", False, False),
+        ],
+        returns="LLMConstrainedDAGResult",
+        example=(
+            "sp.llm_dag_constrained(df, variables=['X','Y','Z'], "
+            "oracle=lambda v, d: [('X','Y',0.9)], max_iter=3)"
+        ),
+        tags=["llm", "causal_discovery", "dag", "background_knowledge",
+              "agent-native"],
+        reference=(
+            "Kıcıman et al. arXiv:2305.00050; Long et al. arXiv:2307.02390; "
+            "Vashishtha et al. arXiv:2402.01207."
+        ),
+        assumptions=[
+            "Faithfulness (PC's CI tests reflect d-separation)",
+            "Causal sufficiency (no unmeasured confounder among `variables`)",
+            "Linear/Gaussian relationships (Fisher-Z partial correlation)",
+        ],
+        pre_conditions=[
+            "data has at least 2 numeric columns intersecting `variables`",
+            "n_obs >> number of variables (PC unstable when p ~ n)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="ValueError 'Variable X not in data.columns'",
+                exception="ValueError",
+                remedy="Pass only column names that exist in data",
+            ),
+            FailureMode(
+                symptom="Loop never converges (max_iter reached)",
+                exception="(none — returns converged=False)",
+                remedy=(
+                    "Inspect iteration_log for oscillating edges; "
+                    "raise alpha or lower high_conf_threshold"
+                ),
+                alternative="sp.llm_dag_propose (single-shot)",
+            ),
+        ],
+        alternatives=[
+            "sp.llm_dag_propose: single-shot LLM proposal without CI loop",
+            "sp.pc_algorithm: data-only PC (no LLM)",
+            "sp.causal_mas: multi-agent LLM consensus",
+        ],
+        typical_n_min=200,
+    ))
+    register(FunctionSpec(
+        name="llm_dag_validate",
+        category="dag",
+        description=(
+            "Per-edge CI-test validation of a declared DAG. For each "
+            "directed edge a->b, run partial-correlation independence "
+            "test conditioning on parents(b)\\{a}. Edges with p>alpha "
+            "are flagged unsupported."
+        ),
+        params=[
+            ParamSpec("dag", "DAG", True),
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("ci_test", "str", False, "fisherz",
+                      enum=["fisherz"]),
+        ],
+        returns="DAGValidationResult",
+        example=(
+            "sp.llm_dag_validate(my_dag, df, alpha=0.05)"
+        ),
+        tags=["dag", "validation", "ci_test", "background_knowledge",
+              "agent-native"],
+        reference="Spirtes-Glymour-Scheines (2000); standard CI-test logic.",
+        assumptions=[
+            "Faithfulness", "Linear/Gaussian (Fisher-Z)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Many supported=False edges",
+                exception="(none — informational)",
+                remedy=(
+                    "DAG may be misspecified; rerun discovery or check "
+                    "for nonlinearity / unmeasured confounders"
+                ),
+                alternative="sp.llm_dag_constrained",
+            ),
+        ],
+        typical_n_min=200,
+    ))
+
     register(FunctionSpec(
         name="shift_share_political",
         category="bartik",
@@ -3574,3 +4197,46 @@ def all_schemas() -> List[Dict[str, Any]]:
     """
     _ensure_full_registry()
     return [spec.to_openai_schema() for spec in _REGISTRY.values()]
+
+
+def agent_card(name: str) -> Dict[str, Any]:
+    """Return the agent-native metadata card for a function.
+
+    Unlike :func:`function_schema` (OpenAI tool-call signature only),
+    this includes identifying assumptions, pre-conditions, failure
+    modes with recovery hints, ranked alternative functions, and
+    the typical minimum sample size. It's the payload an agent should
+    inspect *before* calling the function, and the payload rendered
+    into each guide's ``## For Agents`` block.
+
+    >>> card = sp.agent_card('did')
+    >>> [a for a in card['assumptions']]
+    ['Parallel trends', 'No anticipation', 'SUTVA', ...]
+    """
+    _ensure_full_registry()
+    if name not in _REGISTRY:
+        raise KeyError(f"Unknown function '{name}'")
+    return _REGISTRY[name].agent_card()
+
+
+def agent_cards(category: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Bulk export of agent cards, optionally filtered by category.
+
+    Only entries with at least one agent-native field populated are
+    returned — auto-registered specs without assumptions / failure
+    modes are skipped to keep the output signal-dense.
+
+    >>> cards = sp.agent_cards(category='causal')
+    >>> # Feed to an agent's tool catalog or doc generator
+    """
+    _ensure_full_registry()
+    out: List[Dict[str, Any]] = []
+    for spec in _REGISTRY.values():
+        if category and spec.category != category:
+            continue
+        if not (spec.assumptions or spec.failure_modes
+                or spec.alternatives or spec.pre_conditions
+                or spec.typical_n_min):
+            continue
+        out.append(spec.agent_card())
+    return out
