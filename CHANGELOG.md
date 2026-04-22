@@ -2,59 +2,247 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [1.5.1] — 2026-04-21 — PyPI readme hotfix + unshipped-import cleanup
+## [Unreleased] — v1.6 P1 Agent-Native × Frontier (MR + LLM-DAG + Paper + Causal-Text)
 
-Patch release.  No new features, no behaviour changes to any shipped
-estimator, no schema changes.  Every public signature present in v1.5.0
-is byte-for-byte identical in v1.5.1.
+Pure-additive release pushing two competitive axes:
 
-### Fixed
+- **Agent-native** — closed-loop LLM-DAG, end-to-end `sp.paper()`
+  pipeline, full registry/agent-card metadata for every new function.
+- **Methodological frontier** — four post-2020 Mendelian-randomization
+  estimators *and* two `causal_text` MVPs (text-as-treatment,
+  LLM-annotator measurement-error correction).
 
-- **PyPI project-page broken image.** The README's `interactive plot
-  editor` screenshot was referenced via a relative path
-  (`./image-1.png`), which GitHub resolves correctly but PyPI cannot.
-  The PyPI v1.5.0 page therefore showed a broken-image icon.  Both
-  `README.md` and `README_CN.md` now use the absolute
-  `https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/image-1.png`
-  URL so both renderers work.
-- **`import statspai` was broken on `main` between v1.5.0 and this
-  release.** Commit `8155ada` ("feat(agent): unified exception
-  taxonomy + per-function agent cards") pre-wired four in-progress
-  v1.6 symbols into the top-level package —
-  `llm_dag_constrained`, `llm_dag_validate`,
-  `LLMConstrainedDAGResult`, `DAGValidationResult` (closed-loop LLM-DAG),
-  `paper`, `PaperDraft` (data → publication-draft pipeline), and the
-  four MR-frontier estimators `mr_lap`, `mr_clust`, `grapple`,
-  `mr_cml` — before their implementations landed in the corresponding
-  sub-packages.  Any fresh `git clone` + `pip install -e .` would
-  raise `ImportError: cannot import name 'llm_dag_constrained' from
-  'statspai.causal_llm'`.  These premature imports are removed in
-  v1.5.1; they will be re-introduced in v1.6 alongside their
-  implementations.  **This bug did not affect the PyPI v1.5.0 wheel,
-  which pre-dates `8155ada` and has a clean import graph.**
+Together: one new top-level pipeline (`sp.paper`), four new LLM-aware
+dag/text estimators (`sp.llm_dag_constrained`, `sp.llm_dag_validate`,
+`sp.text_treatment_effect`, `sp.llm_annotator_correct`), constrained
+PC discovery (`sp.pc_algorithm(forbidden=, required=)`), and four MR
+frontier estimators (`sp.mr_lap` etc., described below).
 
-### Changed — README visual ordering
+### Added — P1-A: closed-loop LLM-assisted causal discovery
 
-- **v1.5 Highlights table.** v1.5.0's "NEW" section was a short
-  paragraph plus bullets, which was visually outweighed by the full
-  `v1.4 Highlights` table immediately below it.  v1.5.0's bullets are
-  now promoted into a parallel `v1.5 Highlights` table (family guides,
-  unified dispatchers, two ⚠️ correctness fixes, one ⚠️ breaking
-  change, registry coverage) so the current release is the README's
-  visual subject instead of being crowded out by the previous-version
-  section.  `README_CN.md` updated in lockstep.
+- **`sp.llm_dag_constrained`** — iterate **propose → constrained PC →
+  CI-test validate → demote** until convergence or `max_iter`.  Returns
+  per-edge `llm_score` + `ci_pvalue` + `source` (`required` /
+  `forbidden` / `demoted` / `ci-test`) so every kept edge is justified
+  by both the LLM prior and the data.  `result.to_dag()` round-trips
+  into `statspai.dag.DAG` for downstream `recommend_estimator()`.
+- **`sp.llm_dag_validate`** — per-edge CI-test audit of any declared
+  DAG; flags edges whose implied conditional independence is
+  consistent with the data (i.e. the edge looks spurious).
+- **`sp.pc_algorithm(forbidden=, required=)`** — background-knowledge
+  constraints injected into PC.  Default `None` preserves the prior
+  contract bit-for-bit.  Required edges win over forbidden when both
+  reference the same pair.
+- 18 new tests (`tests/test_llm_dag_loop.py`).
+- Family guide: `docs/guides/llm_dag_family.md`.
 
-### Upgrade notes
+### Added — P1-C: data → publication-draft pipeline
 
-If you installed v1.5.0 from PyPI: there is no functional reason to
-upgrade to v1.5.1.  The PyPI v1.5.0 wheel is not affected by the
-`import statspai` bug described above, which only existed on the
-`main` branch between v1.5.0 and v1.5.1.
+- **`sp.paper(data, question, ...)`** — orchestrator on top of
+  `sp.causal()` that parses a natural-language question, runs the full
+  `diagnose → recommend → estimate → robustness` pipeline, and
+  assembles a 7-section `PaperDraft` (Question / Data / Identification
+  / Estimator / Results / Robustness / References).
+- **`PaperDraft`** with `to_markdown()` / `to_tex()` / `to_docx()` /
+  `write(path)` / `to_dict()` / `summary()` and a `parsed_hints`
+  attribute exposing what the question parser extracted.
+- Lightweight question parser (`statspai.workflow.paper.parse_question`)
+  recognises "effect of X on Y", "Y ~ X", DiD / RD / IV / RCT design
+  hints, "instrument(ing) `Z`", "discontinuity at `c`", "running
+  variable `X`".  Explicit kwargs always win.
+- Per-section failure isolation: a failed estimator stage yields a
+  "Pipeline notes" section rather than crashing the draft.
+- 27 new tests (`tests/test_paper_pipeline.py`).
+- Family guide: `docs/guides/paper_pipeline.md`.
 
-If you installed from source off `main`: upgrading (or pulling v1.5.1)
-fixes the `ImportError`.
+### Added — P1-B: `sp.causal_text` (experimental MVP)
 
----
+- **`sp.text_treatment_effect`** — Veitch-Wang-Blei (2020 UAI, MVP)
+  text-as-treatment ATE via embedding-projected OLS with HC1 SEs.
+  Hash embedder default (deterministic, dependency-free); lazy `sbert`
+  optional via `pip install sentence-transformers`; custom callable
+  embedder also supported.
+- **`sp.llm_annotator_correct`** — Egami-Hinck-Stewart-Wei (2024)
+  measurement-error correction for binary LLM-derived treatments.
+  Hausman-style: estimate `p_01` / `p_10` on a hand-validated subset
+  (≥30 rows spanning both classes), divide naive coefficient by
+  `1 - p_01 - p_10`.  First-order SE correction; raises
+  `IdentificationFailure` when the LLM has no information.
+- Both methods subclass `CausalResult`, surface `status: "experimental"`
+  in `result.diagnostics`, and ship full agent-card metadata
+  (`assumptions` / `pre_conditions` / `failure_modes` / `alternatives`).
+- 20 new tests (`tests/test_causal_text.py`).
+- Family guide: `docs/guides/causal_text_family.md`.
+
+### Added — MR Frontier (`src/statspai/mendelian/frontier.py`)
+
+- **`sp.mr_lap`** — Sample-overlap-corrected IVW (Burgess, Davies &
+  Thompson 2016 closed-form bias correction; conceptually aligned with
+  the Mounier-Kutalik 2023 MR-Lap).  Required inputs: `overlap_fraction`
+  and `overlap_rho` (e.g. from LD-score regression).  `overlap=0`
+  exactly reproduces naive IVW.
+- **`sp.mr_clust`** — Clustered Mendelian randomization via finite
+  Gaussian mixture on Wald ratios (Foley, Mason, Kirk & Burgess 2021).
+  EM with SNP-specific measurement SE, optional null cluster at θ=0,
+  BIC-selected K.  Returns per-cluster estimates, SNP-to-cluster
+  responsibilities, and the BIC path.
+- **`sp.grapple`** — Profile-likelihood MR with joint weak-instrument
+  and balanced-pleiotropy robustness (Wang, Zhao, Bowden, Hemani et al.
+  2021, single-exposure variant).  Jointly MLE over causal β and
+  pleiotropy variance τ² via L-BFGS-B; SE from observed Fisher info.
+- **`sp.mr_cml`** — Constrained maximum-likelihood MR with L0-sparse
+  pleiotropy, MR-cML-BIC variant (Xue, Shen & Pan 2021).  Block-
+  coordinate descent jointly updates causal β, true exposure effects,
+  and a K-sparse pleiotropy vector; K selected by BIC.
+
+### Added — dispatcher + registry wiring
+
+- `sp.mr(method=...)` routes `mr_lap | lap | sample_overlap`,
+  `mr_clust | clust | clustered`, `grapple | profile_likelihood`,
+  `mr_cml | cml | constrained_ml` to the new estimators.
+- All four registered in `registry.py` with full `ParamSpec` metadata,
+  category `"mendelian"`, tags, and reference.  `sp.describe_function`,
+  `sp.function_schema`, and `sp.agent_card` now cover them.
+- `statspai.list_functions()` grows from 902 to 906 top-level entries
+  (+4 new MR frontier functions).
+
+### Added — tests (`tests/test_mr_frontier.py`)
+
+- 34 tests covering correctness, boundary validation, cross-method
+  consistency (`mr_lap` with `overlap=0` == IVW; `mr_cml` with `K=0`
+  ≈ IVW; `mr_clust` two-cluster DGP detection), dispatcher routing,
+  and registry/schema export.
+
+### Deferred (originally scoped for v1.6)
+
+- **CAUSE** (Morrison et al. 2020) — the full variational-Bayes
+  implementation is ~5000 LOC in the R reference and cannot be
+  reference-parity validated in-cycle.  **Replaced with `mr_cml`**
+  (same use-case: robust to correlated and uncorrelated pleiotropy).
+  CAUSE will land in a later release once reference-parity
+  infrastructure is in place.
+
+## [Prior-Unreleased] — Agent-native infrastructure
+
+Pure-additive release targeting agent-native adoption: every layer
+now speaks in structured data with recovery hints, not prose.
+
+### Added — agent-native exception taxonomy (`statspai.exceptions`)
+
+- `StatsPAIError` root + `AssumptionViolation` / `IdentificationFailure`
+  / `DataInsufficient` / `ConvergenceFailure` / `NumericalInstability` /
+  `MethodIncompatibility`, each carrying `recovery_hint`, machine-readable
+  `diagnostics`, and a ranked `alternative_functions` list.
+- Warning counterparts: `StatsPAIWarning` / `ConvergenceWarning` /
+  `AssumptionWarning` plus a rich-payload `sp.exceptions.warn()` helper.
+- Domain errors subclass `ValueError` / `RuntimeError` for backwards
+  compatibility with existing `except` blocks. No estimator behavior
+  changes — migration of existing `ValueError`/`RuntimeError` call
+  sites will follow incrementally.
+
+### Added — agent-native registry schema
+
+- `FunctionSpec` extended with `assumptions` / `pre_conditions` /
+  `failure_modes` / `alternatives` / `typical_n_min` (all optional).
+- New `FailureMode` dataclass: `(symptom, exception, remedy, alternative)`.
+- New public accessors `sp.agent_card(name)` and
+  `sp.agent_cards(category=None)` returning the superset of
+  `function_schema()` plus the agent-native fields.
+- Flagship families populated: `sp.regress`, `sp.iv`, `sp.did`,
+  `sp.callaway_santanna`, `sp.rdrobust`, `sp.synth` (was previously
+  auto-registered only).
+
+### Added — agent-native methods on result objects
+
+- `CausalResult.violations()` and `EconometricResults.violations()` —
+  inspect stored diagnostics (pre-trend p-value, first-stage F,
+  McCrary, rhat/ESS/divergences, overlap, SMD) and return flagged
+  items with `severity` / `recovery_hint` / `alternatives`.
+- `CausalResult.to_agent_summary()` and
+  `EconometricResults.to_agent_summary()` — JSON-ready structured
+  payload with point estimate, coefficients, scalar diagnostics,
+  violations, and next-steps. Sits alongside existing `summary()`
+  (prose) and `tidy()` (DataFrame).
+
+### Added — guide `## For Agents` sections
+
+- Auto-rendered from registry cards via `sp.render_agent_block(name)`
+  and `sp.render_agent_blocks(category=…, names=…)`.
+- `scripts/sync_agent_blocks.py` regenerates in-place between
+  `<!-- AGENT-BLOCK-START: <name> --> … <!-- AGENT-BLOCK-END -->`
+  markers; `--check` exits non-zero on drift (CI-friendly).
+- Wired into four flagship guides so far:
+  `choosing_did_estimator.md` (did + callaway_santanna),
+  `choosing_iv_estimator.md` (iv),
+  `choosing_rd_estimator.md` (rdrobust),
+  `synth.md` (synth).
+- Test guard `tests/test_agent_blocks_drift.py` fails CI if a doc
+  falls out of sync with the registry.
+
+### Tests — agent-native infrastructure
+
+- `tests/test_exceptions.py` — hierarchy, payload, raise/catch,
+  `warn()` helper, top-level exposure.
+- `tests/test_agent_schema.py` — schema mechanics, `agent_card` /
+  `agent_cards` APIs, `FailureMode`, parametrized flagship population.
+- `tests/test_agent_result_methods.py` — `violations()` /
+  `to_agent_summary()` on both result classes, JSON round-trip.
+- `tests/test_agent_docs.py` — renderer output, pipe escaping,
+  empty / non-empty cases.
+- `tests/test_agent_blocks_drift.py` — CI guard for doc/registry sync.
+
+### Added — agent-native follow-up sprint
+
+- **Eight more flagship agent cards populated**: `sp.dml`,
+  `sp.causal_forest`, `sp.metalearner`, `sp.match`, `sp.tmle`,
+  `sp.bayes_dml` (extended), `sp.bayes_did` (new hand-register),
+  `sp.bayes_iv` (new hand-register). Each carries pre-conditions,
+  identifying assumptions, 3–4 failure modes with recovery hints,
+  ranked alternatives, and a typical minimum-N rule of thumb.
+- **Seven more guide AGENT-BLOCKs** (13 total across 11 guides now):
+  `choosing_matching_estimator.md` (match),
+  `callaway_santanna.md` / `cs_report.md` / `mixtape_ch09_did.md`
+  (callaway_santanna), `honest_did.md` / `repeated_cross_sections.md`
+  (did), `synth_experimental.md` (synth).
+- **`sp.recommend` now consumes agent cards**: every recommendation
+  gets `agent_card` / `pre_conditions` / `failure_modes` /
+  `alternatives` / `typical_n_min` fields merged in from the registry.
+  When `n_obs < typical_n_min`, a dedicated warning lands in the
+  top-level `warnings` list pointing to `sp.agent_card(name)`.
+  Hand-coded `assumptions` / `reason` / `code` are never overwritten
+  — only empty fields are promoted from the card.
+- **First call-site migrations** to the typed taxonomy, with
+  `recovery_hint` + `diagnostics` + `alternative_functions` attached:
+  - `sp.did_2x2` treat/time cardinality → `MethodIncompatibility`
+  - `sp.did_analysis(method='cs'/'sa')` missing `id` →
+    `MethodIncompatibility`
+  - `sp.misclassified_did` no cohorts / no never-treated →
+    `DataInsufficient`
+  - IV under-identification (all 3 k-class paths) →
+    `MethodIncompatibility`
+  - IV singular k-class matrix → `NumericalInstability`
+  - `sp.bayes_dml` non-positive DML SE → `NumericalInstability`
+- **Latent registry bug fixed** — `_build_registry()` used
+  `if _REGISTRY: return` as its idempotence gate, which silently
+  skipped hand-written specs whenever any caller ran `register()`
+  first (e.g. test fixtures). Replaced with a dedicated
+  `_BASE_REGISTRY_BUILT` sentinel so flagship agent-native fields
+  survive arbitrary registration order.
+- **New tests**: `tests/test_recommend_agent_cards.py` (5 tests),
+  `tests/test_exception_migrations.py` (7 tests). All existing
+  registry / help / DID / IV / synth / matching / DML / meta-learner
+  / Bayesian-DID / TMLE / causal-forest / agent-native suites
+  continue to pass.
+
+### Migration notes
+
+This release is purely additive. Existing call sites that catch
+`ValueError` continue to catch `AssumptionViolation` and
+`DataInsufficient`; catching `RuntimeError` continues to catch
+`ConvergenceFailure` and `NumericalInstability`. New code in
+StatsPAI should prefer the specific subclasses and attach a
+`recovery_hint` so agents can act on failures without parsing
+error strings.
 
 ## [1.5.0] — 2026-04-21 — Interference / Conformal / Mendelian family consolidation
 

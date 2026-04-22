@@ -33,6 +33,10 @@ from .causal_mas import causal_mas, CausalMASResult
 from .llm_clients import (
     LLMClient, openai_client, anthropic_client, echo_client,
 )
+from .llm_dag_loop import (
+    llm_dag_constrained, llm_dag_validate,
+    LLMConstrainedDAGResult, DAGValidationResult,
+)
 
 __all__ = [
     'llm_dag_propose', 'LLMDAGProposal',
@@ -40,4 +44,6 @@ __all__ = [
     'llm_sensitivity_priors', 'SensitivityPriorProposal',
     'causal_mas', 'CausalMASResult',
     'LLMClient', 'openai_client', 'anthropic_client', 'echo_client',
+    'llm_dag_constrained', 'llm_dag_validate',
+    'LLMConstrainedDAGResult', 'DAGValidationResult',
 ]

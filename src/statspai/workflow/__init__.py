@@ -13,5 +13,7 @@ from .causal_workflow import (
     causal,
     CausalWorkflow,
 )
+from .paper import paper, PaperDraft, parse_question
 
-__all__ = ['causal', 'CausalWorkflow']
+__all__ = ['causal', 'CausalWorkflow', 'paper', 'PaperDraft',
+           'parse_question']

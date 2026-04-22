@@ -156,6 +156,7 @@ class FunctionSpec:
 # ====================================================================== #
 
 _REGISTRY: Dict[str, FunctionSpec] = {}
+_BASE_REGISTRY_BUILT = False
 
 
 def register(spec: FunctionSpec) -> FunctionSpec:
@@ -165,8 +166,16 @@ def register(spec: FunctionSpec) -> FunctionSpec:
 
 
 def _build_registry():
-    """Populate the registry with all public StatsPAI functions."""
-    if _REGISTRY:
+    """Populate the registry with all public StatsPAI functions.
+
+    Idempotent via the ``_BASE_REGISTRY_BUILT`` sentinel.  The older
+    ``if _REGISTRY: return`` gate was unsafe — any user or test that
+    called :func:`register` before the first ``_ensure_full_registry``
+    would cause the hand-written block below to be skipped, stripping
+    agent-native metadata from flagship families like ``regress``.
+    """
+    global _BASE_REGISTRY_BUILT
+    if _BASE_REGISTRY_BUILT:
         return  # already built
 
     # -- Regression ---------------------------------------------------- #
@@ -3537,6 +3546,145 @@ def _build_registry():
     ))
 
     # ------------------------------------------------------------------
+    # P1-B: causal_text MVP (v1.6 experimental)
+    # ------------------------------------------------------------------
+    register(FunctionSpec(
+        name="text_treatment_effect",
+        category="causal_text",
+        description=(
+            "[experimental] Veitch-Wang-Blei (2020) text-as-treatment "
+            "ATE estimation. Embeds a text column into n_components "
+            "features (default hash embedder, deterministic) and uses "
+            "them as confounder adjustment in OLS with HC1 SEs."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("text_col", "str", True),
+            ParamSpec("outcome", "str", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("covariates", "list", False),
+            ParamSpec("embedder", "str", False, "hash",
+                      enum=["hash", "sbert"]),
+            ParamSpec("n_components", "int", False, 20),
+            ParamSpec("seed", "int", False, 0),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="TextTreatmentResult",
+        example=(
+            "sp.text_treatment_effect(df, text_col='review', "
+            "outcome='revenue', treatment='positive_label', "
+            "n_components=20)"
+        ),
+        tags=["causal_text", "text_as_treatment", "embedding",
+              "experimental", "agent-native"],
+        reference="Veitch, Wang & Blei (UAI 2020); arXiv:1905.12741.",
+        assumptions=[
+            "All text-derived confounding is captured by the embedding",
+            "Treatment is conditionally exogenous given embedding+covariates",
+            "Linear outcome in treatment (HC1 OLS)",
+        ],
+        pre_conditions=[
+            "data has the text/outcome/treatment columns",
+            "n_obs >= max(20, n_components+4)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="DataInsufficient: 'Need at least N rows'",
+                exception="statspai.DataInsufficient",
+                remedy=(
+                    "Lower n_components or supply more data"
+                ),
+            ),
+            FailureMode(
+                symptom=(
+                    "ImportError on embedder='sbert'"
+                ),
+                exception="ImportError",
+                remedy=(
+                    "Install sentence-transformers: "
+                    "`pip install sentence-transformers` or use "
+                    "embedder='hash'"
+                ),
+                alternative="embedder='hash'",
+            ),
+        ],
+        alternatives=[
+            "sp.regress: plain OLS without text adjustment",
+            "sp.dml: double machine learning with manual text features",
+        ],
+        typical_n_min=200,
+    ))
+    register(FunctionSpec(
+        name="llm_annotator_correct",
+        category="causal_text",
+        description=(
+            "[experimental] Egami et al. (2024) measurement-error "
+            "correction for downstream OLS coefficients when the "
+            "treatment indicator was produced by an LLM (or any "
+            "imperfect classifier). Uses a small human-validated "
+            "subset to estimate p_01 and p_10, then corrects the "
+            "naive coefficient by 1/(1-p_01-p_10)."
+        ),
+        params=[
+            ParamSpec("annotations_llm", "Series", True),
+            ParamSpec("outcome", "Series", True),
+            ParamSpec("annotations_human", "Series", True,
+                      description="NaN where unavailable; >=30 valid rows"),
+            ParamSpec("covariates", "DataFrame", False),
+            ParamSpec("method", "str", False, "hausman",
+                      enum=["hausman"]),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="LLMAnnotatorResult",
+        example=(
+            "sp.llm_annotator_correct(annotations_llm=df.llm_label, "
+            "annotations_human=df.human_label, outcome=df.y)"
+        ),
+        tags=["causal_text", "measurement_error", "llm_annotator",
+              "hausman", "experimental", "agent-native"],
+        reference=(
+            "Egami, Hinck, Stewart & Wei (NeurIPS 2024); "
+            "arXiv:2306.04746. Hausman et al. (1998)."
+        ),
+        assumptions=[
+            "Binary treatment indicator",
+            "Misclassification is independent of outcome conditional on T",
+            "Validation subset is representative of the full sample",
+        ],
+        pre_conditions=[
+            "annotations_llm is binary (0/1)",
+            ">=30 rows with both LLM and human labels",
+            "Both T_human classes present in validation set",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom=(
+                    "DataInsufficient: 'At least 30 validation rows'"
+                ),
+                exception="statspai.DataInsufficient",
+                remedy=(
+                    "Hand-label more rows so that annotations_human has "
+                    ">=30 non-NaN entries spanning both classes"
+                ),
+            ),
+            FailureMode(
+                symptom=(
+                    "IdentificationFailure: '1-p_01-p_10 <= 0'"
+                ),
+                exception="statspai.IdentificationFailure",
+                remedy=(
+                    "Misclassification too severe — re-prompt the LLM "
+                    "or hand-label"
+                ),
+            ),
+        ],
+        alternatives=[
+            "sp.regress with raw LLM label (biased — for comparison only)",
+        ],
+        typical_n_min=300,
+    ))
+
+    # ------------------------------------------------------------------
     # P1-A: closed-loop LLM-assisted causal discovery (v1.6)
     # ------------------------------------------------------------------
     register(FunctionSpec(
@@ -3975,6 +4123,8 @@ def _build_registry():
             "Zhou et al. 2025; Zhao et al. 2026."
         ),
     ))
+
+    _BASE_REGISTRY_BUILT = True
 
 
 # ====================================================================== #

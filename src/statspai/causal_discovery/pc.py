@@ -41,6 +41,8 @@ def pc_algorithm(
     alpha: float = 0.05,
     max_cond_size: Optional[int] = None,
     ci_test: str = 'fisherz',
+    forbidden: Optional[List[Tuple[str, str]]] = None,
+    required: Optional[List[Tuple[str, str]]] = None,
 ) -> Dict[str, Any]:
     """
     Learn causal structure using the PC algorithm.
@@ -59,6 +61,15 @@ def pc_algorithm(
     ci_test : str, default 'fisherz'
         Conditional independence test: 'fisherz' (partial correlation)
         or 'hsic' (kernel-based, non-linear).
+    forbidden : list of (str, str), optional
+        Background knowledge: edges that must NOT appear in the final
+        graph (treated as undirected — both ``(a, b)`` and ``(b, a)`` are
+        forbidden when either is given). The skeleton phase keeps these
+        absent regardless of CI test outcomes.
+    required : list of (str, str), optional
+        Background knowledge: directed edges ``a -> b`` that must appear
+        in the CPDAG. The skeleton phase preserves them regardless of CI
+        rejection, and the orientation phase pins their direction.
 
     Returns
     -------
@@ -91,6 +102,7 @@ def pc_algorithm(
     est = PCAlgorithm(
         data=data, variables=variables, alpha=alpha,
         max_cond_size=max_cond_size, ci_test=ci_test,
+        forbidden=forbidden, required=required,
     )
     return est.fit()
 
@@ -119,12 +131,18 @@ class PCAlgorithm:
         alpha: float = 0.05,
         max_cond_size: Optional[int] = None,
         ci_test: str = 'fisherz',
+        forbidden: Optional[List[Tuple[str, str]]] = None,
+        required: Optional[List[Tuple[str, str]]] = None,
     ):
         self.data = data
         self.variables = variables
         self.alpha = alpha
         self.max_cond_size = max_cond_size
         self.ci_test = ci_test
+        # Background knowledge — pairs are stored as plain tuples and
+        # resolved to indices once ``var_names`` is known in fit().
+        self.forbidden = list(forbidden or [])
+        self.required = list(required or [])
 
     def fit(self) -> Dict[str, Any]:
         """Run the PC algorithm and return learned structure."""
@@ -145,6 +163,35 @@ class PCAlgorithm:
             raise ValueError("At least 2 variables are required")
 
         max_k = self.max_cond_size if self.max_cond_size is not None else d - 2
+
+        # Resolve background-knowledge name pairs to integer index pairs.
+        # Unknown names are silently ignored — callers may pass edges
+        # over a superset (e.g. an LLM-proposed edge involving a column
+        # the user excluded) and shouldn't get a hard error.
+        name_to_idx = {n: i for i, n in enumerate(var_names)}
+        forbidden_idx = set()
+        for a, b in self.forbidden:
+            ia = name_to_idx.get(a)
+            ib = name_to_idx.get(b)
+            if ia is None or ib is None or ia == ib:
+                continue
+            forbidden_idx.add((ia, ib))
+            forbidden_idx.add((ib, ia))
+        required_idx_directed = []
+        required_idx_undirected = set()
+        for a, b in self.required:
+            ia = name_to_idx.get(a)
+            ib = name_to_idx.get(b)
+            if ia is None or ib is None or ia == ib:
+                continue
+            required_idx_directed.append((ia, ib))
+            required_idx_undirected.add((ia, ib))
+            required_idx_undirected.add((ib, ia))
+        # Required edges must not also be forbidden — required wins.
+        forbidden_idx -= required_idx_undirected
+        self._forbidden_idx = forbidden_idx
+        self._required_idx_directed = required_idx_directed
+        self._required_idx_undirected = required_idx_undirected
 
         # Step 1: Learn skeleton
         adj, sep_sets = self._learn_skeleton(X, d, n, max_k)
@@ -208,6 +255,11 @@ class PCAlgorithm:
         adj = np.ones((d, d), dtype=int)
         np.fill_diagonal(adj, 0)
 
+        # Apply background-knowledge edge prohibitions up-front.
+        for ia, ib in getattr(self, '_forbidden_idx', set()):
+            adj[ia, ib] = 0
+            adj[ib, ia] = 0
+
         # Separating sets
         sep_sets: Dict[Tuple[int, int], set] = {}
 
@@ -236,6 +288,12 @@ class PCAlgorithm:
 
                 # Test all subsets of size k
                 found_independent = False
+                # Required edges are immune to skeleton-phase removal —
+                # background knowledge takes precedence over CI-test
+                # independence calls. We still skip the test loop so
+                # we don't waste compute on edges we won't drop.
+                if (i, j) in getattr(self, '_required_idx_undirected', set()):
+                    continue
                 for S in combinations(candidates, k):
                     S_set = set(S)
                     pval = self._ci_test_pval(X, i, j, list(S_set), n)
@@ -264,6 +322,14 @@ class PCAlgorithm:
         # Start with the skeleton as a directed graph
         # cpdag[i,j] = 1 means i -> j (or i -- j if cpdag[j,i] also 1)
         cpdag = adj.copy()
+
+        # Pin background-knowledge directed edges before v-structure
+        # orientation. Required edges become a -> b only (forbidden
+        # entries on the same pair already had skeleton-level removal
+        # rejected upstream because required wins).
+        for ia, ib in getattr(self, '_required_idx_directed', []):
+            cpdag[ia, ib] = 1
+            cpdag[ib, ia] = 0
 
         # Rule 1: Orient v-structures (colliders)
         for j in range(d):

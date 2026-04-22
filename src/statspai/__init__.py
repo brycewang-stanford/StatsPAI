@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "1.5.1"
+__version__ = "1.6.0"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -281,6 +281,16 @@ from .causal_llm import (
     llm_unobserved_confounders, UnobservedConfounderProposal,
     llm_sensitivity_priors, SensitivityPriorProposal,
     causal_mas, CausalMASResult,
+    # P1-A: closed-loop LLM-DAG (constrained discovery + CI validation)
+    llm_dag_constrained, llm_dag_validate,
+    LLMConstrainedDAGResult, DAGValidationResult,
+)
+
+# === Causal × Text (P1-B, v1.6 experimental) ===
+from . import causal_text
+from .causal_text import (
+    text_treatment_effect, TextTreatmentResult,
+    llm_annotator_correct, LLMAnnotatorResult,
 )
 
 # === Causal RL (Causal-DQN, benchmarks, offline-safe) ===
@@ -393,7 +403,7 @@ from .robustness import (
 from . import datasets
 
 # === End-to-end workflow orchestrator ===
-from .workflow import causal, CausalWorkflow
+from .workflow import causal, CausalWorkflow, paper, PaperDraft
 
 # === LLM agent tool-definition surface ===
 from . import agent
@@ -497,6 +507,10 @@ from .mendelian import (
     ModeBasedResult, FStatisticResult,
     mr_multivariable, mr_mediation, mr_bma,
     MVMRResult, MediationMRResult, MRBMAResult,
+    # v1.6 frontier (P1 bundle): sample-overlap correction, clustered
+    # pleiotropy, profile-likelihood MR, and constrained-MLE MR.
+    mr_lap, mr_clust, grapple, mr_cml,
+    MRLapResult, MRClustResult, GrappleResult, MRcMLResult,
     # v1.5 unified dispatcher (replaces the `sp.mr` module alias)
     mr, mr_available_methods,
 )
@@ -1320,6 +1334,11 @@ __all__ = [
     "llm_dag_propose", "LLMDAGProposal",
     "llm_unobserved_confounders", "UnobservedConfounderProposal",
     "llm_sensitivity_priors", "SensitivityPriorProposal",
+    "llm_dag_constrained", "llm_dag_validate",
+    "LLMConstrainedDAGResult", "DAGValidationResult",
+    # Causal × Text (P1-B v1.6 experimental)
+    "text_treatment_effect", "TextTreatmentResult",
+    "llm_annotator_correct", "LLMAnnotatorResult",
     # Causal RL
     "causal_dqn", "CausalDQNResult",
     "causal_rl_benchmark", "BanditBenchmarkResult",

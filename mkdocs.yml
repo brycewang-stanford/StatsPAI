@@ -75,6 +75,9 @@ nav:
       - "Family guide: Interference & spillover (partial / network / cluster-RCT / HTE)": guides/interference_family.md
       - "Family guide: Conformal causal inference (CATE / ITE / density / debiased-ML / fair / dose-response / cluster)": guides/conformal_family.md
       - "Family guide: Mendelian Randomization (IVW / Egger / median / mode / MR-PRESSO / MVMR / BMA)": guides/mendelian_family.md
+      - "v1.6 P1: LLM-assisted causal discovery — closed loop (constrained PC + CI validate)": guides/llm_dag_family.md
+      - "v1.6 P1: sp.paper() — data → publication-draft pipeline": guides/paper_pipeline.md
+      - "v1.6 P1: Causal text MVP (text-as-treatment / LLM-annotator MEC) — experimental": guides/causal_text_family.md
   - Reference:
       - "Overview": reference/index.md
       - "Difference-in-differences": reference/did.md

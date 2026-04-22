@@ -84,6 +84,22 @@ _REGISTRY: Dict[str, Tuple[str, str]] = {
                          "mr_pleiotropy_egger"),
     "f_statistic": ("statspai.mendelian.extras", "mr_f_statistic"),
     "f_stat": ("statspai.mendelian.extras", "mr_f_statistic"),
+
+    # -- v1.6 frontier: sample-overlap / clusters / profile LL / cML - #
+    "lap": ("statspai.mendelian.frontier", "mr_lap"),
+    "mr_lap": ("statspai.mendelian.frontier", "mr_lap"),
+    "sample_overlap": ("statspai.mendelian.frontier", "mr_lap"),
+
+    "clust": ("statspai.mendelian.frontier", "mr_clust"),
+    "mr_clust": ("statspai.mendelian.frontier", "mr_clust"),
+    "clustered": ("statspai.mendelian.frontier", "mr_clust"),
+
+    "grapple": ("statspai.mendelian.frontier", "grapple"),
+    "profile_likelihood": ("statspai.mendelian.frontier", "grapple"),
+
+    "cml": ("statspai.mendelian.frontier", "mr_cml"),
+    "mr_cml": ("statspai.mendelian.frontier", "mr_cml"),
+    "constrained_ml": ("statspai.mendelian.frontier", "mr_cml"),
 }
 
 

@@ -5,6 +5,64 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## v1.5.x → agent-native infrastructure (Unreleased)
+
+Pure-additive release. **No migration required** for existing code.
+New agent-native surface area documented here for adopters.
+
+### 1. Exception taxonomy (new public module)
+
+```python
+from statspai.exceptions import (
+    AssumptionViolation, IdentificationFailure,
+    DataInsufficient, ConvergenceFailure,
+    NumericalInstability, MethodIncompatibility,
+)
+```
+
+Domain errors subclass the right stdlib base (`ValueError` /
+`RuntimeError`), so existing `try / except ValueError` blocks still
+catch `AssumptionViolation` and `DataInsufficient`, and
+`except RuntimeError` still catches `ConvergenceFailure` and
+`NumericalInstability`. No call-site changes required.
+
+New code should prefer the specific subclass + attach a
+`recovery_hint`:
+
+```python
+raise AssumptionViolation(
+    "Parallel trends rejected at p=0.003",
+    recovery_hint="Run sp.sensitivity_rr for Rambachan-Roth honest CI.",
+    diagnostics={"test": "pretrends", "pvalue": 0.003},
+    alternative_functions=["sp.sensitivity_rr", "sp.callaway_santanna"],
+)
+```
+
+### 2. Agent-native result methods
+
+- `result.violations()` — structured list of assumption /
+  diagnostic issues with `severity` / `recovery_hint` / `alternatives`.
+- `result.to_agent_summary()` — JSON-ready structured payload.
+- Complement (do not replace) existing `summary()` / `tidy()` /
+  `next_steps()`.
+
+### 3. Registry agent cards
+
+- `sp.agent_card(name)` — full metadata including pre-conditions,
+  assumptions, failure modes with recovery hints, ranked
+  alternatives, typical minimum N.
+- `sp.agent_cards(category=None)` — bulk export of entries that
+  have at least one agent-native field populated (currently:
+  `regress`, `iv`, `did`, `callaway_santanna`, `rdrobust`, `synth`).
+
+### 4. Guide `## For Agents` blocks
+
+Run `python scripts/sync_agent_blocks.py` after any change to a
+registered spec's agent-native fields. The `--check` flag is
+CI-friendly and fails non-zero on drift.
+
+---
+
 ## v1.4.x → v1.5.0
 
 Minor release.  Only one change requires any migration:
