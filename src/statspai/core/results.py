@@ -8,6 +8,72 @@ import numpy as np
 from scipy import stats
 
 
+# ----------------------------------------------------------------------
+# JSON-safe coercion used by to_dict() / for_agent() on the result
+# classes below.  Agents consume these methods; the output MUST round-trip
+# through json.dumps without raising — numpy scalars, pandas objects,
+# tuples, and numpy arrays all need primitive-form conversion.
+# ----------------------------------------------------------------------
+
+def _to_jsonable(value: Any, *, _depth: int = 0, _max_depth: int = 6) -> Any:
+    """Return a JSON-safe representation of ``value``.
+
+    Handles numpy scalars/arrays, pandas Series/DataFrame, tuples/lists,
+    dicts, NaN/Inf (converted to None) and bails out gracefully on
+    anything exotic by falling back to ``str(value)``.
+    """
+    if _depth > _max_depth:
+        return str(value)
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return bool(value)
+    if isinstance(value, (int, np.integer)):
+        return int(value)
+    if isinstance(value, (float, np.floating)):
+        v = float(value)
+        if np.isnan(v) or np.isinf(v):
+            return None
+        return v
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [_to_jsonable(v, _depth=_depth + 1) for v in value]
+    if isinstance(value, dict):
+        return {str(k): _to_jsonable(v, _depth=_depth + 1)
+                for k, v in value.items()}
+    if isinstance(value, np.ndarray):
+        return _to_jsonable(value.tolist(), _depth=_depth + 1)
+    if isinstance(value, pd.Series):
+        return _to_jsonable(value.to_dict(), _depth=_depth + 1)
+    if isinstance(value, pd.DataFrame):
+        # Keep the payload bounded — agents don't need full detail tables.
+        head = value.head(20)
+        return _to_jsonable(head.to_dict(orient='records'),
+                            _depth=_depth + 1)
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    # Last resort: stringify so json.dumps doesn't blow up.
+    try:
+        return str(value)
+    except Exception:
+        return None
+
+
+def _filter_jsonable_scalars(d: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the subset of ``d`` whose values round-trip as JSON scalars.
+
+    Used for ``diagnostics`` payloads where agents want simple key/value
+    pairs — not nested frames.
+    """
+    out: Dict[str, Any] = {}
+    for k, v in (d or {}).items():
+        j = _to_jsonable(v)
+        if isinstance(j, (int, float, str, bool)) or j is None:
+            out[str(k)] = j
+    return out
+
+
 class EconometricResults:
     """
     Unified results class for econometric models
@@ -364,6 +430,55 @@ class EconometricResults:
         from .next_steps import econometric_next_steps, _steps_repr_html
         return _steps_repr_html(econometric_next_steps(self))
 
+    def violations(self) -> List[Dict[str, Any]]:
+        """
+        Agent-native structured list of assumption / diagnostic issues.
+
+        Inspects stored diagnostics (first-stage F, standard error
+        finiteness, …) and returns any flagged concerns as dicts with
+        keys ``kind``, ``severity``, ``test``, ``value``, ``threshold``,
+        ``message``, ``recovery_hint``, ``alternatives``.
+
+        Returns
+        -------
+        list of dict
+            Empty list if nothing flagged.
+
+        Examples
+        --------
+        >>> result = sp.iv("y ~ (x ~ z) + c", data=df)
+        >>> for v in result.violations():
+        ...     if v['severity'] == 'error':
+        ...         print(v['recovery_hint'])
+        """
+        from ._agent_summary import econometric_violations
+        return econometric_violations(self)
+
+    def to_agent_summary(self) -> Dict[str, Any]:
+        """
+        JSON-ready structured summary for agent consumption.
+
+        Unlike ``summary()`` (prose for humans) and ``tidy()`` (long-form
+        DataFrame), this returns a plain ``dict`` with coefficients,
+        scalar diagnostics, violations, and recommended next steps —
+        suitable for feeding into an LLM tool loop or logging.
+
+        Returns
+        -------
+        dict
+            Keys: ``kind``, ``model_type``, ``robust``, ``n_obs``,
+            ``df_resid``, ``dependent_var``, ``coefficients``,
+            ``diagnostics``, ``violations``, ``next_steps``.
+
+        Examples
+        --------
+        >>> result = sp.regress("y ~ x", data=df)
+        >>> import json
+        >>> agent_payload = json.dumps(result.to_agent_summary())
+        """
+        from ._agent_summary import econometric_agent_summary
+        return econometric_agent_summary(self)
+
     def to_docx(self, filename: str, title: Optional[str] = None):
         """
         Export results to a Word (.docx) document.
@@ -376,6 +491,129 @@ class EconometricResults:
             Table title. Defaults to model type.
         """
         _result_to_docx(self, filename, title)
+
+    # ------------------------------------------------------------------
+    # Agent-native serialisation
+    # ------------------------------------------------------------------
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return a JSON-safe dict representation of the regression result.
+
+        Keys
+        ----
+        method, model_type, dependent_var : str | None
+        n_obs : int | None
+        coefficients : dict[term, {estimate, std_error, t_statistic,
+                                   p_value, conf_low, conf_high}]
+        diagnostics : dict[str, scalar]  (R², F, AIC, BIC, …)
+        glance : dict                    (broom-style one-row model summary)
+
+        Notes
+        -----
+        Used by ``sp.agent.execute_tool`` to send results back to an LLM.
+        Also useful for caching / pickling-free persistence.
+        """
+        try:
+            glance_row = self.glance().iloc[0].to_dict()
+        except Exception:
+            glance_row = {}
+
+        coefs: Dict[str, Dict[str, Any]] = {}
+        try:
+            terms = list(self.params.index)
+
+            def _iget(x: Any, i: int) -> Any:
+                """Positional get for Series or numpy array."""
+                if x is None:
+                    return None
+                if isinstance(x, pd.Series):
+                    return x.iloc[i]
+                try:
+                    return x[i]
+                except (TypeError, IndexError, KeyError):
+                    return None
+
+            for i, term in enumerate(terms):
+                coefs[str(term)] = {
+                    'estimate': _to_jsonable(self.params.iloc[i]),
+                    'std_error': _to_jsonable(self.std_errors.iloc[i]),
+                    't_statistic': _to_jsonable(_iget(self.tvalues, i)),
+                    'p_value': _to_jsonable(_iget(self.pvalues, i)),
+                    'conf_low': _to_jsonable(self.conf_int_lower.iloc[i]),
+                    'conf_high': _to_jsonable(self.conf_int_upper.iloc[i]),
+                }
+        except Exception:
+            coefs = {}
+
+        return {
+            'method': str(self.model_info.get(
+                'method', self.model_info.get('model_type', ''))),
+            'model_type': str(self.model_info.get('model_type', '')),
+            'dependent_var': _to_jsonable(
+                self.data_info.get('dependent_var')),
+            'n_obs': _to_jsonable(self.data_info.get('nobs')),
+            'coefficients': coefs,
+            'diagnostics': _filter_jsonable_scalars(self.diagnostics),
+            'glance': _to_jsonable(glance_row),
+        }
+
+    def for_agent(self) -> Dict[str, Any]:
+        """Agent-ready payload: ``to_dict()`` plus violations + next steps.
+
+        Adds to :meth:`to_dict`:
+
+        - ``violations`` : list[dict]  — delegated to :meth:`violations`
+          so assumption-check logic stays in one place.
+        - ``warnings`` : list[str]     — human-readable messages flattened
+          out of ``violations`` for agents that don't parse the full
+          structured form.
+        - ``next_steps`` : list[dict]  — compact ``next_steps()`` output.
+        - ``suggested_functions`` : list[str] — ``sp.xxx`` hints deduped
+          from ``next_steps`` + ``violations.alternatives``.
+
+        The method delegates to :meth:`violations` and :meth:`next_steps`
+        rather than re-checking diagnostics inline, so the thresholds
+        defined in ``core/_agent_summary.py`` remain the single source
+        of truth.
+        """
+        base = self.to_dict()
+
+        try:
+            viols = self.violations() or []
+        except Exception:
+            viols = []
+        warnings: List[str] = [
+            v.get('message', '') for v in viols if v.get('message')
+        ]
+
+        try:
+            steps = self.next_steps(print_result=False) or []
+        except Exception:
+            steps = []
+
+        suggested: List[str] = []
+        for s in steps:
+            fn = s.get('suggest_function') or s.get('function')
+            if fn and fn not in suggested:
+                suggested.append(fn)
+        for v in viols:
+            for alt in v.get('alternatives', []) or []:
+                if alt and alt not in suggested:
+                    suggested.append(alt)
+
+        base.update({
+            'violations': _to_jsonable(viols),
+            'warnings': warnings,
+            'next_steps': steps[:8],
+            'suggested_functions': suggested,
+        })
+        return base
+
+    def to_json(self, indent: Optional[int] = None) -> str:
+        """Serialise :meth:`to_dict` via ``json.dumps``."""
+        import json
+        return json.dumps(self.to_dict(), indent=indent,
+                          default=_to_jsonable)
 
     def _repr_html_(self) -> str:
         """Rich HTML display for Jupyter notebooks."""
@@ -1349,6 +1587,174 @@ class CausalResult:
     def _next_steps_html(self) -> str:
         from .next_steps import causal_next_steps, _steps_repr_html
         return _steps_repr_html(causal_next_steps(self))
+
+    def violations(self) -> List[Dict[str, Any]]:
+        """
+        Agent-native structured list of assumption / diagnostic issues.
+
+        Inspects the diagnostics the estimator already stored on
+        ``model_info`` (pre-trend p-value, first-stage F, McCrary,
+        rhat / ESS / divergences, overlap, balance, …) and returns
+        flagged items as dicts with ``kind`` / ``severity`` / ``test``
+        / ``value`` / ``threshold`` / ``message`` / ``recovery_hint``
+        / ``alternatives``.
+
+        Returns
+        -------
+        list of dict
+            Empty list if nothing flagged. ``severity`` is one of
+            ``"error"`` / ``"warning"`` / ``"info"``.
+
+        Examples
+        --------
+        >>> r = sp.did(df, y='wage', treat='treated', time='post')
+        >>> [v['test'] for v in r.violations() if v['severity'] == 'error']
+        ['pretrend']
+        """
+        from ._agent_summary import causal_violations
+        return causal_violations(self)
+
+    def to_agent_summary(self) -> Dict[str, Any]:
+        """
+        JSON-ready structured summary for agent consumption.
+
+        Returns a plain dict with point estimate, CI, scalar diagnostics,
+        violations (via :meth:`violations`), and recommended next steps
+        (via :meth:`next_steps`) — everything an agent needs to decide
+        the next action without re-reading the prose summary.
+
+        Returns
+        -------
+        dict
+            Keys: ``kind``, ``method``, ``method_family``, ``estimand``,
+            ``point`` (``estimate``/``se``/``pvalue``/``ci``/``alpha``),
+            ``n_obs``, ``diagnostics``, ``violations``, ``next_steps``,
+            ``citation_key``.
+
+        Examples
+        --------
+        >>> r = sp.did(df, y='wage', treat='treated', time='post')
+        >>> import json
+        >>> print(json.dumps(r.to_agent_summary(), indent=2, default=str))
+        """
+        from ._agent_summary import causal_agent_summary
+        return causal_agent_summary(self)
+
+    def to_dict(self, detail_head: int = 5) -> Dict[str, Any]:
+        """Return a JSON-safe flat dict representation of the causal result.
+
+        Parameters
+        ----------
+        detail_head : int, default 5
+            Rows of ``self.detail`` to include (0 to omit). Payload must
+            stay LLM-tool-sized, so we expose only a head.
+
+        Returns
+        -------
+        dict
+            Flat keys: ``method``, ``estimand``, ``estimate``, ``se``,
+            ``pvalue``, ``ci``, ``alpha``, ``n_obs``, ``diagnostics``,
+            ``citation_key``, optionally ``detail_head``.
+
+        Notes
+        -----
+        Complementary to :meth:`to_agent_summary`, which returns a nested
+        payload (``point`` / ``violations`` / …).  ``to_dict`` is the
+        flatter form used by ``sp.agent.execute_tool`` — round-trips
+        through ``json.dumps`` by construction.
+        """
+        ci = self.ci
+        if (ci is not None
+                and not isinstance(ci, (pd.Series, pd.DataFrame))
+                and hasattr(ci, '__len__') and len(ci) == 2):
+            ci_out: Optional[List[Optional[float]]] = [
+                _to_jsonable(ci[0]),
+                _to_jsonable(ci[1]),
+            ]
+        else:
+            ci_out = None
+
+        out: Dict[str, Any] = {
+            'method': str(self.method),
+            'estimand': str(self.estimand),
+            'estimate': _to_jsonable(self.estimate),
+            'se': _to_jsonable(self.se),
+            'pvalue': _to_jsonable(self.pvalue),
+            'ci': ci_out,
+            'alpha': _to_jsonable(self.alpha),
+            'n_obs': _to_jsonable(self.n_obs),
+            'diagnostics': _filter_jsonable_scalars(self.model_info),
+            'citation_key': _to_jsonable(self._citation_key),
+        }
+
+        if detail_head and self.detail is not None:
+            try:
+                head = self.detail.head(int(detail_head))
+                out['detail_head'] = _to_jsonable(
+                    head.to_dict(orient='records'))
+            except Exception:
+                pass
+
+        return out
+
+    def for_agent(self, detail_head: int = 5) -> Dict[str, Any]:
+        """Agent-ready payload: ``to_dict()`` + violations + next-step hints.
+
+        Extends :meth:`to_dict` with:
+
+        - ``violations`` : list[dict]  — delegated to :meth:`violations`
+          (single source of truth for assumption checks, defined in
+          ``core/_agent_summary.py``).
+        - ``warnings`` : list[str]     — flattened violation messages.
+        - ``next_steps`` : list[dict]  — compact ``next_steps()`` output.
+        - ``suggested_functions`` : list[str] — ``sp.xxx`` hints deduped
+          from ``next_steps`` + ``violations.alternatives``.
+
+        The payload is JSON-safe and bounded — drop directly into an
+        agent's tool-result channel.
+        """
+        base = self.to_dict(detail_head=detail_head)
+
+        try:
+            viols = self.violations() or []
+        except Exception:
+            viols = []
+        warnings: List[str] = [
+            v.get('message', '') for v in viols if v.get('message')
+        ]
+
+        try:
+            steps = self.next_steps(print_result=False) or []
+        except Exception:
+            steps = []
+
+        suggested: List[str] = []
+        for s in steps:
+            fn = s.get('suggest_function') or s.get('function')
+            if fn and fn not in suggested:
+                suggested.append(fn)
+        for v in viols:
+            for alt in v.get('alternatives', []) or []:
+                if alt and alt not in suggested:
+                    suggested.append(alt)
+
+        base.update({
+            'violations': _to_jsonable(viols),
+            'warnings': warnings,
+            'next_steps': steps[:8],
+            'suggested_functions': suggested,
+        })
+        return base
+
+    def to_json(self, indent: Optional[int] = None,
+                 detail_head: int = 5) -> str:
+        """Serialise :meth:`to_dict` via ``json.dumps``."""
+        import json
+        return json.dumps(
+            self.to_dict(detail_head=detail_head),
+            indent=indent,
+            default=_to_jsonable,
+        )
 
     def to_docx(self, filename: str, title: Optional[str] = None):
         """
