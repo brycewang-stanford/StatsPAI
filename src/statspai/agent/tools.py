@@ -62,14 +62,26 @@ def _scalar_or_none(v) -> Optional[float]:
 def _default_serializer(r) -> Dict[str, Any]:
     """Serialise a ``CausalResult`` / ``EconometricResults`` to a JSON dict.
 
-    LLM tool-use protocol requires JSON-serialisable return values,
-    so convert floats / arrays / DataFrames to primitives.
-
-    ``CausalResult.estimate`` is a scalar (single ATE) while
-    ``EconometricResults.estimate`` is a Series of coefficients (via the
-    cross-estimator tidy alias).  We detect scalar semantics before
-    calling ``float(...)`` so regressions don't fail JSON serialisation.
+    LLM tool-use protocol requires JSON-serialisable return values.
+    Prefers ``result.to_dict()`` (defined on both result classes) so
+    serialisation logic lives in one place; falls back to the legacy
+    field-by-field extraction for any future result type that doesn't
+    implement ``to_dict``.
     """
+    # Canonical path: both CausalResult and EconometricResults now expose
+    # to_dict() — use it so the agent output matches result.to_dict()
+    # called directly by a user.
+    to_dict = getattr(r, 'to_dict', None)
+    if callable(to_dict):
+        try:
+            out = to_dict()
+            if isinstance(out, dict) and out:
+                return out
+        except Exception:
+            # Fall through to legacy path rather than leak an internal
+            # serialisation error back to the agent as a "tool error".
+            pass
+
     import pandas as _pd
 
     def _is_scalar(v) -> bool:
@@ -483,6 +495,224 @@ TOOL_REGISTRY: List[Dict[str, Any]] = [
             },
         },
     },
+
+    # --------------------------------------------------------------------
+    # Method advisor — one of the most valuable agent entry points
+    # --------------------------------------------------------------------
+    {
+        'name': 'recommend',
+        'description': (
+            "Method advisor: given a dataset + research question, "
+            "recommends a ranked list of estimators with reasoning, "
+            "precondition checks, and a full suggested workflow.  "
+            "This is the first call an agent should make if it "
+            "doesn't know which estimator to run. Supports DAG input, "
+            "mediator / proxy / principal-strata variables, and "
+            "optional resampling-stability verification."
+        ),
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'y': {'type': 'string', 'description': 'Outcome column.'},
+                'treatment': {
+                    'type': 'string',
+                    'description': 'Treatment / exposure column.',
+                },
+                'covariates': {
+                    'type': 'array',
+                    'items': {'type': 'string'},
+                    'description': 'Covariate columns.',
+                },
+                'id': {'type': 'string',
+                       'description': 'Unit identifier (panel).'},
+                'time': {'type': 'string',
+                         'description': 'Time column (panel / DID).'},
+                'running_var': {
+                    'type': 'string',
+                    'description': 'Running variable (RD).',
+                },
+                'instrument': {'type': 'string',
+                               'description': 'Instrumental variable.'},
+                'cutoff': {'type': 'number',
+                           'description': 'RD cutoff value.'},
+                'design': {
+                    'type': 'string',
+                    'enum': ['rct', 'did', 'rd', 'iv',
+                             'observational', 'panel', 'cross-section'],
+                    'description': 'Override auto-detected design.',
+                },
+                'verify': {
+                    'type': 'boolean',
+                    'default': False,
+                    'description': ('If True, run resampling-stability '
+                                    'checks on top recommendations.'),
+                },
+            },
+            'required': ['y'],
+        },
+        'statspai_fn': 'recommend',
+        'serializer': lambda r: {
+            'design': getattr(r, 'design', None),
+            'top_recommendations': [
+                {'method': x.get('method'),
+                 'reasoning': x.get('reasoning'),
+                 'score': x.get('score')}
+                for x in (getattr(r, 'recommendations', []) or [])[:5]
+            ],
+            'n_recommendations': len(getattr(r, 'recommendations', []) or []),
+        },
+    },
+
+    # --------------------------------------------------------------------
+    # Pre-trend sensitivity (Rambachan-Roth 2023)
+    # --------------------------------------------------------------------
+    {
+        'name': 'honest_did',
+        'description': (
+            "Rambachan-Roth (2023) 'honest' DID sensitivity analysis. "
+            "Takes an existing DID / event-study estimate and returns "
+            "honest confidence intervals under varying degrees of "
+            "parallel-trends violation (smoothness or relative-magnitude "
+            "restrictions).  Call this when a pre-trend test rejects "
+            "at low power instead of abandoning the design."
+        ),
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'betas': {
+                    'type': 'array',
+                    'items': {'type': 'number'},
+                    'description': 'Event-study coefficients.',
+                },
+                'sigma': {
+                    'type': 'array',
+                    'description': ('Covariance matrix of betas '
+                                     '(square 2-D array).'),
+                },
+                'num_pre_periods': {'type': 'integer'},
+                'num_post_periods': {'type': 'integer'},
+                'method': {
+                    'type': 'string',
+                    'enum': ['SD', 'RM'],
+                    'default': 'SD',
+                    'description': ('SD = smoothness deviation; '
+                                     'RM = relative magnitude.'),
+                },
+                'm_bar': {
+                    'type': 'number',
+                    'description': 'Bound on deviation magnitude.',
+                },
+            },
+            'required': ['betas', 'sigma',
+                         'num_pre_periods', 'num_post_periods'],
+        },
+        'statspai_fn': 'honest_did',
+        'serializer': _default_serializer,
+    },
+
+    # --------------------------------------------------------------------
+    # TWFE weight decomposition (Goodman-Bacon 2021)
+    # --------------------------------------------------------------------
+    {
+        'name': 'bacon_decomposition',
+        'description': (
+            "Goodman-Bacon (2021) decomposition: breaks the two-way "
+            "fixed-effects DID estimator into its 2x2 comparison "
+            "weights.  Reveals whether treated-vs-treated comparisons "
+            "(which can have negative weights) dominate the estimate. "
+            "Run this before trusting a TWFE-DID point estimate."
+        ),
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'y': {'type': 'string'},
+                'treat': {'type': 'string'},
+                'time': {'type': 'string'},
+                'id': {'type': 'string'},
+            },
+            'required': ['y', 'treat', 'time', 'id'],
+        },
+        'statspai_fn': 'bacon_decomposition',
+        'serializer': _default_serializer,
+    },
+
+    # --------------------------------------------------------------------
+    # Unconditional / conditional sensitivity (Oster / Cinelli-Hazlett)
+    # --------------------------------------------------------------------
+    {
+        'name': 'sensitivity',
+        'description': (
+            "Unified sensitivity analysis for observational causal "
+            "estimates — supports Oster (2019) delta/R-max, Cinelli-"
+            "Hazlett (2020) omitted-variable bias bounds, and E-values "
+            "(VanderWeele-Ding 2017).  Tells the agent how strong an "
+            "unobserved confounder would have to be to overturn the "
+            "result."
+        ),
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'result': {
+                    'type': 'string',
+                    'description': ('Fitted regression / causal result '
+                                     'handle (set by the caller).'),
+                },
+                'method': {
+                    'type': 'string',
+                    'enum': ['oster', 'cinelli_hazlett', 'evalue', 'auto'],
+                    'default': 'auto',
+                },
+                'treatment': {'type': 'string'},
+                'benchmark_covariate': {
+                    'type': 'string',
+                    'description': ('Covariate used as the benchmark '
+                                     'for unobserved-confounder strength.'),
+                },
+            },
+            'required': [],
+        },
+        'statspai_fn': 'sensitivity',
+        'serializer': _default_serializer,
+    },
+
+    # --------------------------------------------------------------------
+    # Specification-curve robustness
+    # --------------------------------------------------------------------
+    {
+        'name': 'spec_curve',
+        'description': (
+            "Specification-curve analysis (Simonsohn et al. 2020): "
+            "enumerates every combination of model choices the user "
+            "declares defensible, runs them all, and returns the sign/"
+            "magnitude distribution.  Use when an agent needs to report "
+            "robustness across a researcher-degree-of-freedom multiverse."
+        ),
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'y': {'type': 'string'},
+                'treatment': {'type': 'string'},
+                'covariates': {
+                    'type': 'array',
+                    'items': {'type': 'string'},
+                },
+                'model_family': {
+                    'type': 'string',
+                    'enum': ['ols', 'did', 'iv', 'panel'],
+                    'default': 'ols',
+                },
+                'subsample_vars': {
+                    'type': 'array',
+                    'items': {'type': 'string'},
+                    'description': ('Variables defining subsample splits '
+                                     'to include in the curve.'),
+                },
+            },
+            'required': ['y', 'treatment'],
+        },
+        'statspai_fn': 'spec_curve',
+        'serializer': _default_serializer,
+    },
 ]
 
 
@@ -490,7 +720,7 @@ TOOL_REGISTRY: List[Dict[str, Any]] = [
 # Public API
 # ---------------------------------------------------------------------------
 
-def tool_manifest() -> List[Dict[str, Any]]:
+def tool_manifest(*, curated_only: bool = False) -> List[Dict[str, Any]]:
     """Return the list of tool specifications for an LLM agent.
 
     Each spec conforms to the Anthropic / OpenAI tool-use JSON schema
@@ -498,12 +728,20 @@ def tool_manifest() -> List[Dict[str, Any]]:
     (Anthropic) or ``client.chat.completions.create(tools=[...])``
     (OpenAI).
 
+    Parameters
+    ----------
+    curated_only : bool, default False
+        If True, return only the 8 hand-curated flagship tools.  The
+        default merges hand-curated entries with an auto-generated
+        manifest covering every agent-safe registered function, so the
+        caller sees ~100+ tools instead of 8.
+
     Returns
     -------
     list of dict
         Each with keys ``'name'``, ``'description'``, ``'input_schema'``.
     """
-    return [
+    curated = [
         {
             'name': t['name'],
             'description': t['description'],
@@ -511,6 +749,17 @@ def tool_manifest() -> List[Dict[str, Any]]:
         }
         for t in TOOL_REGISTRY
     ]
+    if curated_only:
+        return curated
+    # Lazy import: auto_tools walks the registry, which can trigger
+    # submodule imports — best deferred until someone actually asks.
+    from .auto_tools import merged_tool_manifest
+    try:
+        return merged_tool_manifest(curated)
+    except Exception:
+        # Degrade gracefully to the curated-only list if registry
+        # introspection fails (e.g. partial environment install).
+        return curated
 
 
 def _resolve_fn(fn_name: str) -> Callable:
