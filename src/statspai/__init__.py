@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "1.5.0"
+__version__ = "1.5.1"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -281,9 +281,6 @@ from .causal_llm import (
     llm_unobserved_confounders, UnobservedConfounderProposal,
     llm_sensitivity_priors, SensitivityPriorProposal,
     causal_mas, CausalMASResult,
-    # P1-A: closed-loop LLM-DAG (constrained discovery + CI validation)
-    llm_dag_constrained, llm_dag_validate,
-    LLMConstrainedDAGResult, DAGValidationResult,
 )
 
 # === Causal RL (Causal-DQN, benchmarks, offline-safe) ===
@@ -396,7 +393,7 @@ from .robustness import (
 from . import datasets
 
 # === End-to-end workflow orchestrator ===
-from .workflow import causal, CausalWorkflow, paper, PaperDraft
+from .workflow import causal, CausalWorkflow
 
 # === LLM agent tool-definition surface ===
 from . import agent
@@ -500,9 +497,6 @@ from .mendelian import (
     ModeBasedResult, FStatisticResult,
     mr_multivariable, mr_mediation, mr_bma,
     MVMRResult, MediationMRResult, MRBMAResult,
-    # v1.6 frontier: MR-Lap / MR-Clust / GRAPPLE / MR-cML
-    mr_lap, mr_clust, grapple, mr_cml,
-    MRLapResult, MRClustResult, GrappleResult, MRcMLResult,
     # v1.5 unified dispatcher (replaces the `sp.mr` module alias)
     mr, mr_available_methods,
 )
@@ -1326,8 +1320,6 @@ __all__ = [
     "llm_dag_propose", "LLMDAGProposal",
     "llm_unobserved_confounders", "UnobservedConfounderProposal",
     "llm_sensitivity_priors", "SensitivityPriorProposal",
-    "llm_dag_constrained", "llm_dag_validate",
-    "LLMConstrainedDAGResult", "DAGValidationResult",
     # Causal RL
     "causal_dqn", "CausalDQNResult",
     "causal_rl_benchmark", "BanditBenchmarkResult",
@@ -1343,9 +1335,6 @@ __all__ = [
     # Bunching frontier
     "general_bunching", "GeneralBunchingResult",
     "kink_unified", "KinkUnifiedResult",
-    # v1.6 MR frontier: sample-overlap / clusters / profile-LL / cML
-    "mr_lap", "mr_clust", "grapple", "mr_cml",
-    "MRLapResult", "MRClustResult", "GrappleResult", "MRcMLResult",
     # v1.5 unified family dispatchers
     "mr", "mr_available_methods",
     "conformal", "conformal_available_kinds",

@@ -2,6 +2,60 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.5.1] — 2026-04-21 — PyPI readme hotfix + unshipped-import cleanup
+
+Patch release.  No new features, no behaviour changes to any shipped
+estimator, no schema changes.  Every public signature present in v1.5.0
+is byte-for-byte identical in v1.5.1.
+
+### Fixed
+
+- **PyPI project-page broken image.** The README's `interactive plot
+  editor` screenshot was referenced via a relative path
+  (`./image-1.png`), which GitHub resolves correctly but PyPI cannot.
+  The PyPI v1.5.0 page therefore showed a broken-image icon.  Both
+  `README.md` and `README_CN.md` now use the absolute
+  `https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/image-1.png`
+  URL so both renderers work.
+- **`import statspai` was broken on `main` between v1.5.0 and this
+  release.** Commit `8155ada` ("feat(agent): unified exception
+  taxonomy + per-function agent cards") pre-wired four in-progress
+  v1.6 symbols into the top-level package —
+  `llm_dag_constrained`, `llm_dag_validate`,
+  `LLMConstrainedDAGResult`, `DAGValidationResult` (closed-loop LLM-DAG),
+  `paper`, `PaperDraft` (data → publication-draft pipeline), and the
+  four MR-frontier estimators `mr_lap`, `mr_clust`, `grapple`,
+  `mr_cml` — before their implementations landed in the corresponding
+  sub-packages.  Any fresh `git clone` + `pip install -e .` would
+  raise `ImportError: cannot import name 'llm_dag_constrained' from
+  'statspai.causal_llm'`.  These premature imports are removed in
+  v1.5.1; they will be re-introduced in v1.6 alongside their
+  implementations.  **This bug did not affect the PyPI v1.5.0 wheel,
+  which pre-dates `8155ada` and has a clean import graph.**
+
+### Changed — README visual ordering
+
+- **v1.5 Highlights table.** v1.5.0's "NEW" section was a short
+  paragraph plus bullets, which was visually outweighed by the full
+  `v1.4 Highlights` table immediately below it.  v1.5.0's bullets are
+  now promoted into a parallel `v1.5 Highlights` table (family guides,
+  unified dispatchers, two ⚠️ correctness fixes, one ⚠️ breaking
+  change, registry coverage) so the current release is the README's
+  visual subject instead of being crowded out by the previous-version
+  section.  `README_CN.md` updated in lockstep.
+
+### Upgrade notes
+
+If you installed v1.5.0 from PyPI: there is no functional reason to
+upgrade to v1.5.1.  The PyPI v1.5.0 wheel is not affected by the
+`import statspai` bug described above, which only existed on the
+`main` branch between v1.5.0 and v1.5.1.
+
+If you installed from source off `main`: upgrading (or pulling v1.5.1)
+fixes the `ImportError`.
+
+---
+
 ## [1.5.0] — 2026-04-21 — Interference / Conformal / Mendelian family consolidation
 
 Minor release.  Three concurrent improvements to the interference,
