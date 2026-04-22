@@ -34,7 +34,7 @@ Chernozhukov, V., Demirer, M., Duflo, E., Fernández-Val, I. (2020).
 in Randomized Experiments, with an Application to Immunization in India."
 NBER WP 24678.
 
-Yadlowsky, S., Fleming, S., Shah, N., Tibshirani, R., Wager, S. (2023).
+Yadlowsky, S., Fleming, S., Shah, N., Brunskill, E., Wager, S. (2021).
 "Evaluating Treatment Prioritization Rules via Rank-Weighted Average
 Treatment Effects." arXiv:2111.07966.
 
@@ -274,8 +274,8 @@ def rate(
 
     References
     ----------
-    Yadlowsky, S., Fleming, S., Shah, N., Tibshirani, R., Wager, S.
-    (2023). "Evaluating Treatment Prioritization Rules via Rank-
+    Yadlowsky, S., Fleming, S., Shah, N., Brunskill, E., Wager, S.
+    (2021). "Evaluating Treatment Prioritization Rules via Rank-
     Weighted Average Treatment Effects." arXiv:2111.07966.
     """
     if not forest.fitted_:

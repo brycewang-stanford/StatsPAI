@@ -1,5 +1,5 @@
 """
-Conditional Density Conformal ITE (arXiv 2501.14933, 2025).
+Conditional Density Conformal ITE (Wang & Qiao 2025, arXiv 2501.14933).
 
 Extends Lei-Candès conformal ITE to operate on the *conditional
 density* of counterfactuals rather than the conditional mean. This

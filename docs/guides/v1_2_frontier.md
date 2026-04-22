@@ -80,7 +80,7 @@ print(r.model_info["theta_k"])
 
 Reach for this when your causal estimate swings a lot as you swap the
 nuisance learner and you'd rather have a principled ensemble than a
-coin flip. Citation: Ahrens, Hansen, Kurz, Schaffer & Wiemann (2025),
+coin flip. Citation: Ahrens, Hansen, Schaffer & Wiemann (2025),
 DOI `10.1002/jae.3103`.
 
 ---

@@ -11,7 +11,7 @@ change when the protected attribute is intervened on.
 
 Implements the procedure in
 
-    Kwak & Pleasants (arXiv:2510.12822, 2025).
+    Loi, Di Bello & Cangiotti (arXiv:2510.12822, 2025).
     "Evidence Without Injustice: A New Counterfactual Test for Fair
     Algorithms."
 

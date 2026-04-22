@@ -24,8 +24,8 @@ event-study aggregation, and (c) long-difference contrasts.
 
 References
 ----------
-Borusyak et al. (MIT / NBER WP 34550, 2025).
-"Harvesting Differences-in-Differences and Event-Study Designs."
+Abadie, Angrist, Frandsen & Pischke (NBER WP 34550, 2025).
+"Harvesting Differences-in-Differences and Event-Study Evidence."
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ class HarvestDIDResult:
     def summary(self) -> str:
         lo, hi = self.ci
         lines = [
-            "Harvesting DID / Event-Study (Borusyak et al. MIT/NBER 2025)",
+            "Harvesting DID / Event-Study (Abadie et al. NBER WP 34550, 2025)",
             "-" * 62,
             f"  Aggregate ATT          : {self.estimate:+.6f}",
             f"  Standard error         : {self.se:.6f}",

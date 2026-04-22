@@ -179,3 +179,11 @@ test-notebooks/demo_causal_inference.ipynb
 # Claude Code session state (local only)
 .claude/
 CLAUDE.md
+
+# Citation auditor artefacts (tools/audit_citations.py)
+tools/.citation_cache/
+audit_report.md
+audit_report.json
+
+# Ad-hoc citation-audit scratch (not from the tool)
+.citation_audit/

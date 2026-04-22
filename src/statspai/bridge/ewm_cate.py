@@ -1,5 +1,5 @@
 """
-Bridge: EWM ≡ CATE → policy (Ferman et al. 2025, arXiv 2510.26723).
+Bridge: EWM ≡ CATE → policy (Kato 2025, arXiv 2510.26723).
 
 Empirical Welfare Maximisation directly maximises a policy's utility
 in a reparameterised CATE space; CATE-then-threshold is the same
@@ -164,5 +164,5 @@ def ewm_cate_bridge(
         se_dr=se_dr,
         n_obs=n,
         detail={"policy_class": policy_class, "n_directions": n_dirs},
-        reference="Ferman et al. (2025), arXiv 2510.26723",
+        reference="Kato (2025), arXiv 2510.26723",
     )

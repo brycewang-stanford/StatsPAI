@@ -149,7 +149,7 @@ first-order nuisance misspecification. Requires a **pre-computed
 scalar neighbor exposure summary** — you control the mapping (share of
 treated neighbors is the usual choice). Needs `n ≥ 10 * n_folds`.
 
-Citation: Parmigiani et al. (arXiv:2509.18484, 2025).
+Citation: Wu & Yuan (arXiv:2509.18484, 2025).
 
 ### `sp.inward_outward_spillover` — directed networks
 
@@ -172,7 +172,7 @@ print(r.inward_effect, r.outward_effect, r.ratio_in_out)
 influence flow the same way both directions?"  A `ratio_in_out` far
 from 1 is the signal of directional asymmetry.
 
-Citation: Li, Ratkovic et al. (arXiv:2506.06615, 2025).
+Citation: Fang, Airoldi & Forastiere (arXiv:2506.06615, 2025).
 
 ---
 
@@ -218,9 +218,9 @@ print(r.spillover_effect, r.spillover_se)
 adjacent and leakage is plausible. The neighbor treatment share must
 be pre-computed from user-supplied adjacency.
 
-Reference: Ding et al. (2025), arXiv:2310.18836.
+Reference: Leung (2023), arXiv:2310.18836.
 
-### `sp.cluster_staggered_rollout` — Zhou et al. (2025)
+### `sp.cluster_staggered_rollout` — Chen & Li (2025)
 
 Cluster RCT with **staggered** treatment adoption — different clusters
 turn on at different calendar times. Produces a dynamic event-study
@@ -242,9 +242,9 @@ print(r.event_study)      # rel_time, att, ci_low, ci_high
 For individual-level staggered DiD without clustering, use
 `sp.callaway_santanna` instead.
 
-Reference: Zhou et al. (2025), arXiv:2502.10939.
+Reference: Chen & Li (2025), arXiv:2502.10939.
 
-### `sp.dnc_gnn_did` — double negative controls + GNN (Zhao et al. 2026)
+### `sp.dnc_gnn_did` — double negative controls + GNN (Zhang, Fu & Wang 2026)
 
 When you suspect **unmeasured** network confounding (e.g. latent
 homophily), combine double negative controls with a GNN embedding of
@@ -268,7 +268,7 @@ rooted in network structure (position, centrality, latent communities).
 Requires at least one valid negative-control outcome and one valid
 negative-control exposure — chosen from domain knowledge.
 
-Reference: Zhao et al. (2026), arXiv:2601.00603.
+Reference: Zhang, Fu & Wang (2026), arXiv:2601.00603.
 
 ---
 

@@ -1,5 +1,5 @@
 """
-Causal RL Benchmark Suite (Zhou-Bareinboim 2025, arXiv 2512.18135).
+Causal RL Benchmark Suite (Cunha, Liu, French & Mian 2025, arXiv 2512.18135).
 
 Five canonical benchmarks for evaluating causal RL algorithms under
 unobserved confounding:

@@ -1,6 +1,6 @@
 # Harvesting DID + Event-Study Designs
 
-> Borusyak, Hull & Jaravel (MIT/NBER WP 34550, 2025).
+> Abadie, Angrist, Frandsen & Pischke (NBER WP 34550, 2025).
 
 ## 1. What "harvesting" means
 
@@ -112,11 +112,11 @@ boot = bootstrap(df, stat, n_boot=500, cluster='unit', random_state=0)
 
 ## 7. References
 
-- Borusyak, Hull & Jaravel (MIT/NBER WP 34550, 2025).
-  "Harvesting Differences-in-Differences and Event-Study Designs."
+- Abadie, Angrist, Frandsen & Pischke (NBER WP 34550, 2025).
+  "Harvesting Differences-in-Differences and Event-Study Evidence."
 - Callaway & Sant'Anna (2021).  "Difference-in-Differences with
   multiple time periods."  *JoE* 225.
-- Roth, Sant'Anna, Bilinski & Poe (2025).
+- Baker, Callaway, Cunningham, Goodman-Bacon & Sant'Anna (2025).
   "Difference-in-Differences Designs: A Practitioner's Guide."
   arXiv:2503.13323.
 

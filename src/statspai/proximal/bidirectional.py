@@ -116,7 +116,7 @@ def bidirectional_pci(
         n_obs=n,
         model_info={
             'estimator': 'bidirectional_pci',
-            'reference': 'Shi-Miao-Tchetgen (2025), arXiv 2507.13965',
+            'reference': 'Min, Zhang & Luo (2025), arXiv 2507.13965',
         },
         _citation_key='bidirectional_pci',
     )

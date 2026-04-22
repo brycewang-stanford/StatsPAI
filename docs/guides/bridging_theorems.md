@@ -27,11 +27,11 @@ disagree beyond sampling error.
 
 | `kind`          | Theorem                                           | Reference                                                       |
 |-----------------|---------------------------------------------------|-----------------------------------------------------------------|
-| `did_sc`        | DiD ≡ Synthetic Control                           | Shi & Athey, arXiv:2503.11375 (2025)                            |
-| `ewm_cate`      | EWM ≡ CATE-max policy                             | Ferman et al., arXiv:2510.26723 (2025)                          |
-| `cb_ipw`        | Covariate Balancing ≡ IPW ≡ DR                    | Zhao & Percival, arXiv:2310.18563 v6 (2025)                     |
+| `did_sc`        | DiD ≡ Synthetic Control                           | Sun, Xie & Zhang, arXiv:2503.11375 (2025)                       |
+| `ewm_cate`      | EWM ≡ CATE-max policy                             | Kato, arXiv:2510.26723 (2025)                                   |
+| `cb_ipw`        | Covariate Balancing ≡ IPW ≡ DR                    | Słoczyński, Uysal & Wooldridge, arXiv:2310.18563 (2023)         |
 | `kink_rdd`      | Bunching ≡ Kink RDD first-order expansion         | Lu, Wang, Xie, arXiv:2404.09117 (2025)                          |
-| `dr_calib`      | Doubly-robust ≡ outcome + Riesz joint calibration | Zhang et al., arXiv:2411.02771 (2025)                           |
+| `dr_calib`      | Doubly-robust ≡ outcome + Riesz joint calibration | van der Laan, Luedtke & Carone, arXiv:2411.02771 (2024)         |
 | `surrogate_pci` | Long-term Surrogate Index ≡ PCI                   | Imbens, Kallus, Mao & Wang, JRSS-B 87(2) 2025; arXiv:2202.07234 |
 
 Each bridge is importable at top level as `sp.bridge(kind="..." ...)` or

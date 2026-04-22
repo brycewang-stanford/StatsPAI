@@ -169,7 +169,7 @@ and human labels exist, then divide:
 
 ## References
 
-- Veitch, V., Wang, Y., & Blei, D. M. (2020). "Adapting text embeddings for causal inference." *UAI*. [arXiv:1905.12741](https://arxiv.org/abs/1905.12741).
+- Veitch, V., Sridhar, D., & Blei, D. M. (2019). "Adapting text embeddings for causal inference." *UAI*. [arXiv:1905.12741](https://arxiv.org/abs/1905.12741).
 - Egami, N., Hinck, M., Stewart, B., & Wei, H. (2024). "Using imperfect surrogates for downstream inference: Design-based supervised learning for social science applications of large language models." *NeurIPS*. [arXiv:2306.04746](https://arxiv.org/abs/2306.04746).
 - Hausman, J., Abrevaya, J., & Scott-Morton, F. (1998). "Misclassification of the dependent variable in a discrete-response setting." *Journal of Econometrics*, 87, 239–269.
 - Aigner, D. J. (1973). "Regression with a binary independent variable subject to errors of observation." *Journal of Econometrics*, 1(1), 49–59.

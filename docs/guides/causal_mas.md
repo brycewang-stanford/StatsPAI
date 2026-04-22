@@ -193,7 +193,7 @@ Explicit kwargs always win over the name heuristic.
 - arXiv:2509.00987 (2025/09).
   *Causal MAS: A Survey of Large Language Model Architectures for
   Discovery and Effect Estimation.*
-- Kiciman, E. & Sharma, A. (2025).
-  *Causal Reasoning with Large Language Models.*  arXiv:2402.11068.
+- Wan, G., Lu, Y., Wu, Y., Hu, M. & Li, S. (2024).
+  *Enhancing Causal Discovery with Large Language Models.*  arXiv:2402.11068.
 - Anthropic (2025).
   *Extended Thinking in Claude 4.5 / Opus 4.7.*  Technical report.

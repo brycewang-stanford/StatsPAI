@@ -146,7 +146,7 @@ def kan_dlate(
     seed: int = 0,
 ) -> DistIVResult:
     """
-    KAN-Powered D-IV-LATE (Kennedy et al. 2025, arXiv 2506.12765).
+    KAN-Powered D-IV-LATE (Shaw 2025, arXiv 2506.12765).
 
     Same identification as :func:`dist_iv`; would normally model the
     bridge with a Kolmogorov-Arnold network. We currently fall back

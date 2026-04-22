@@ -47,8 +47,9 @@ Long, S., Piché, A., Zantedeschi, V., Schuster, T., & Drouin, A.
 (2023).  "Causal discovery with language models as imperfect experts."
 arXiv:2307.02390.
 
-Vashishtha, A., et al. (2024).  "Causal Inference Using LLM-Guided
-Discovery."  arXiv:2402.01207.
+Jiralerspong, T., Chen, X., More, Y., Shah, V., & Bengio, Y. (2024).
+"Efficient Causal Graph Discovery Using Large Language Models."
+arXiv:2402.01207.
 """
 from __future__ import annotations
 

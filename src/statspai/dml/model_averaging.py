@@ -6,7 +6,7 @@ wrong degrades the :math:`\sqrt n`-rate consistency of the target parameter
 :math:`\theta`, so in practice applied researchers run DML under several
 candidate learners and hope the estimates agree.
 
-Ahrens, Hansen, Kurz, Schaffer and Wiemann (2025, *JAE*) formalise this as
+Ahrens, Hansen, Schaffer and Wiemann (2025, *JAE*) formalise this as
 **model averaging**: fit DML with a *set* of candidate nuisance models, weight
 their :math:`\theta`-estimates by a cross-validated measure of nuisance risk,
 and report the weighted average with an appropriately adjusted sandwich
@@ -25,9 +25,9 @@ This module implements the partially-linear regression (PLR) version:
 
 References
 ----------
-Ahrens, A., Hansen, C.B., Kurz, M., Schaffer, M.E. and Wiemann, T. (2025).
-    "Model averaging for double machine learning."
-    *Journal of Applied Econometrics*, 40(3), 381-402.
+Ahrens, A., Hansen, C.B., Schaffer, M.E. and Wiemann, T. (2025).
+    "Model Averaging and Double Machine Learning."
+    *Journal of Applied Econometrics*, 40(3), 249-269.
     DOI 10.1002/jae.3103.
 """
 
@@ -249,9 +249,9 @@ def dml_model_averaging(
         "n_obs": int(n),
         "alpha": alpha,
         "citation": (
-            "Ahrens, A., Hansen, C.B., Kurz, M., Schaffer, M.E. and Wiemann, T. (2025). "
-            "Model averaging for double machine learning. "
-            "Journal of Applied Econometrics 40(3):381-402. DOI 10.1002/jae.3103."
+            "Ahrens, A., Hansen, C.B., Schaffer, M.E. and Wiemann, T. (2025). "
+            "Model Averaging and Double Machine Learning. "
+            "Journal of Applied Econometrics 40(3):249-269. DOI 10.1002/jae.3103."
         ),
     }
 

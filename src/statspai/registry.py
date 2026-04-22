@@ -2705,7 +2705,7 @@ def _build_registry():
             "surrogates_waves=[['s1'],['s2','s3']], long_term_outcome='Y')"
         ),
         tags=["surrogate", "long_term", "multi_wave"],
-        reference="Ghassami, Yang, Shpitser, Tchetgen Tchetgen (arXiv:2311.08527, 2024).",
+        reference="Tran, Bibaut & Kallus (arXiv:2311.08527, 2023).",
     ))
 
     # -- Next-gen evidence synthesis (RCT + RWD + AI/ML) ------------ #
@@ -2949,7 +2949,7 @@ def _build_registry():
         ],
         returns="SharpOPEResult",
         tags=["ope", "sensitivity", "sharp", "bandit"],
-        reference="Kallus, Mao, Uehara (arXiv:2502.13022, 2025).",
+        reference="Hess, Frauen, Melnychuk & Feuerriegel (arXiv:2502.13022, 2025).",
     ))
     register(FunctionSpec(
         name="causal_policy_forest",
@@ -2991,7 +2991,7 @@ def _build_registry():
         ],
         returns="NetworkHTEResult",
         tags=["interference", "network", "hte", "orthogonal"],
-        reference="Parmigiani et al. (arXiv:2509.18484, 2025).",
+        reference="Wu & Yuan (arXiv:2509.18484, 2025).",
     ))
     register(FunctionSpec(
         name="inward_outward_spillover",
@@ -3009,7 +3009,7 @@ def _build_registry():
         ],
         returns="InwardOutwardResult",
         tags=["interference", "spillover", "directional"],
-        reference="Li, Ratkovic et al. (arXiv:2506.06615, 2025).",
+        reference="Fang, Airoldi & Forastiere (arXiv:2506.06615, 2025).",
     ))
 
     # -- Bayesian Double Machine Learning ---------------------------- #
@@ -3567,7 +3567,7 @@ def _build_registry():
             "protected='gender')"
         ),
         tags=["fairness", "preprocessing", "residualize"],
-        reference="Marchesin et al. (arXiv:2403.17852v3, 2025).",
+        reference="Chen & Zhu (arXiv:2403.17852v3, 2024).",
     ))
 
     register(FunctionSpec(
@@ -3716,7 +3716,7 @@ def _build_registry():
         example=('sp.dml_model_averaging(df, y="y", treat="d", '
                  'covariates=[f"x{j}" for j in range(10)])'),
         tags=["dml", "causal", "model_averaging", "ensemble", "plr"],
-        reference="Ahrens, Hansen, Kurz, Schaffer, Wiemann (2025). JAE 40(3):381-402. DOI 10.1002/jae.3103.",
+        reference="Ahrens, Hansen, Schaffer & Wiemann (2025). JAE 40(3):249-269. DOI 10.1002/jae.3103.",
     ))
 
     # -- v1.7 long-panel DML (Semenova-Chernozhukov 2023) -------------- #
@@ -3852,7 +3852,7 @@ def _build_registry():
         returns="ContinuousLATEResult",
         example='sp.continuous_iv_late(df, y="y", treat="d", instrument="z", n_quantiles=5)',
         tags=["iv", "late", "continuous-instrument", "complier"],
-        reference="Xie et al. (2025). arXiv:2504.03063.",
+        reference="Zeng et al. (2025). arXiv:2504.03063.",
     ))
 
     register(FunctionSpec(
@@ -3884,7 +3884,7 @@ def _build_registry():
         returns="CausalResult",
         example='sp.hal_tmle(df, y="y", treat="d", covariates=["x1","x2","x3"])',
         tags=["tmle", "hal", "semiparametric", "causal", "double-robust"],
-        reference="Qian & van der Laan (2025). arXiv:2506.17214.",
+        reference="Li, Qiu, Wang & van der Laan (2025). arXiv:2506.17214.",
     ))
 
     register(FunctionSpec(
@@ -3914,7 +3914,7 @@ def _build_registry():
         example=('sp.synth_survival(df, unit="arm", time="month", '
                  'survival="km", treated="tr", treat_time=6)'),
         tags=["synth", "scm", "survival", "causal", "kaplan-meier"],
-        reference="Agarwal & Shah (2025). arXiv:2511.14133.",
+        reference="Han & Shah (2025). arXiv:2511.14133.",
     ))
 
     register(FunctionSpec(
@@ -3938,7 +3938,7 @@ def _build_registry():
         example='sp.bridge(df, kind="did_sc", y="wage", group="state", time="year", first_treat="g")',
         tags=["bridge", "causal", "identification", "doubly-robust"],
         reference=(
-            "Shi-Athey (2503.11375); Ferman et al. (2510.26723); "
+            "Sun-Xie-Zhang (2503.11375); Ferman et al. (2510.26723); "
             "Zhao-Percival (2310.18563); Lu-Wang-Xie (2404.09117); "
             "Zhang et al. (2411.02771); Imbens-Kallus-Mao-Wang (2202.07234, JRSS-B 2025)."
         ),
@@ -3965,7 +3965,7 @@ def _build_registry():
         returns="CausalDQNResult",
         example='sp.causal_dqn(df, states=["s1","s2"], action="a", reward="r")',
         tags=["rl", "causal", "policy", "offline"],
-        reference="Fu-Zhou (2025). arXiv:2510.21110. Zhou-Bareinboim (2512.18135).",
+        reference="Li, Zhang & Bareinboim (2025). arXiv:2510.21110. Cunha et al. (2512.18135).",
     ))
 
     register(FunctionSpec(
@@ -3987,7 +3987,7 @@ def _build_registry():
         returns="CausalResult",
         example='sp.fortified_pci(df, y="y", treat="d", proxy_z=["z"], proxy_w=["w"])',
         tags=["proximal", "pci", "unobserved-confounding", "fortified"],
-        reference="Yang & Schwartz (2025). arXiv:2506.13152.",
+        reference="Yu, Shi & Tchetgen Tchetgen (2025). arXiv:2506.13152.",
     ))
 
     register(FunctionSpec(
@@ -4009,7 +4009,7 @@ def _build_registry():
         returns="CausalResult",
         example='sp.bidirectional_pci(df, y="y", treat="d", proxy_z=["z"], proxy_w=["w"])',
         tags=["proximal", "pci", "bidirectional"],
-        reference="Shi, Miao, Tchetgen (2025). arXiv:2507.13965.",
+        reference="Min, Zhang & Luo (2025). arXiv:2507.13965.",
     ))
 
     register(FunctionSpec(
@@ -4032,7 +4032,7 @@ def _build_registry():
         returns="CausalResult",
         example='sp.pci_mtp(df, y="y", treat="d", proxy_z=["z"], proxy_w=["w"], policy=lambda d: d+0.1)',
         tags=["proximal", "mtp", "modified-treatment-policy", "pci"],
-        reference="Park & Ying (2025). arXiv:2512.12038.",
+        reference="Olivas-Martinez, Gilbert & Rotnitzky (2025). arXiv:2512.12038.",
     ))
 
     register(FunctionSpec(
@@ -4054,7 +4054,7 @@ def _build_registry():
         returns="CrossClusterRCTResult",
         example='sp.cluster_cross_interference(df, y="y", cluster="city", treatment="d", exposure="neighbour_d")',
         tags=["interference", "spillover", "cluster-rct", "sutva"],
-        reference="Ding et al. (2025). arXiv:2310.18836.",
+        reference="Leung (2023). arXiv:2310.18836.",
     ))
 
     register(FunctionSpec(
@@ -4076,7 +4076,7 @@ def _build_registry():
         returns="BeyondAverageResult",
         example='sp.beyond_average_late(df, y="y", treat="d", instrument="z")',
         tags=["iv", "qte", "late", "complier", "distribution"],
-        reference="Xie & Wu (2025). arXiv:2509.15594.",
+        reference="Byambadalai, Hirata, Oka & Yasui (2025). arXiv:2509.15594.",
     ))
 
     register(FunctionSpec(
@@ -4161,7 +4161,7 @@ def _build_registry():
             "scm_intervention=fn)"
         ),
         tags=["fairness", "counterfactual", "algorithmic_bias", "kwak_pleasants"],
-        reference="Kwak & Pleasants (arXiv:2510.12822, 2025).",
+        reference="Loi, Di Bello & Cangiotti (arXiv:2510.12822, 2025).",
     ))
 
     register(FunctionSpec(
@@ -4391,7 +4391,7 @@ def _build_registry():
         ),
         tags=["causal_text", "text_as_treatment", "embedding",
               "experimental", "agent-native"],
-        reference="Veitch, Wang & Blei (UAI 2020); arXiv:1905.12741.",
+        reference="Veitch, Sridhar & Blei (UAI 2019); arXiv:1905.12741.",
         assumptions=[
             "All text-derived confounding is captured by the embedding",
             "Treatment is conditionally exogenous given embedding+covariates",
@@ -4535,7 +4535,7 @@ def _build_registry():
               "agent-native"],
         reference=(
             "Kıcıman et al. arXiv:2305.00050; Long et al. arXiv:2307.02390; "
-            "Vashishtha et al. arXiv:2402.01207."
+            "Jiralerspong et al. arXiv:2402.01207."
         ),
         assumptions=[
             "Faithfulness (PC's CI tests reflect d-separation)",

@@ -11,9 +11,9 @@ Estimators
 ----------
 - :func:`surrogate_index` — Athey, Chetty, Imbens & Kang (2019).
   Classical single-wave surrogate index.
-- :func:`long_term_from_short` — Ghassami, Yang, Shpitser, Tchetgen Tchetgen
-  (arXiv:2311.08527, 2024). Long-term effect of long-term treatments from
-  short-term experiments.
+- :func:`long_term_from_short` — Tran, Bibaut & Kallus (arXiv:2311.08527,
+  2023). Long-term effect of long-term treatments from short-term
+  experiments.
 - :func:`proximal_surrogate_index` — Imbens, Kallus, Mao & Wang (2025, JRSS-B
   87(2); arXiv:2202.07234). Proximal identification when unobserved
   confounders link surrogate and long-term outcome.

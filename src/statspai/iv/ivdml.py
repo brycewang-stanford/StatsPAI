@@ -1,5 +1,5 @@
 """
-IVDML — Efficient IV × DML for HTE (Klaassen et al. 2025,
+IVDML — Efficient IV × DML for HTE (Scheidegger, Guo & Bühlmann 2025,
 arXiv 2503.03530, R package IVDML).
 
 Combines DML with an ML-selected efficient instrument (using the

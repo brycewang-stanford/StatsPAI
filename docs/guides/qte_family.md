@@ -129,7 +129,7 @@ continuous grid of τ with uniform-over-τ confidence coverage, which is
 what you need to report "schooling raises wages at every quantile" or
 "the top-decile return is twice the bottom-decile return."
 
-Citation: Sharma & Xue (2025), arXiv:2502.07641.
+Citation: Holovchak, Saengkyongam, Meinshausen & Shen (2025), arXiv:2502.07641.
 
 ---
 
@@ -148,7 +148,7 @@ r = sp.kan_dlate(
 )
 ```
 
-Citation: Kennedy et al. (2025), arXiv:2506.12765.
+Citation: Shaw (2025), arXiv:2506.12765.
 
 ---
 
@@ -172,7 +172,7 @@ effect distribution, the mean LATE hides heterogeneity that a decile or
 quantile summary reveals.  Classic example: schooling returns vary
 dramatically across compliers by ability.
 
-Citation: Xie & Wu (2025), arXiv:2509.15594.
+Citation: Byambadalai, Hirata, Oka & Yasui (2025), arXiv:2509.15594.
 
 ---
 
@@ -195,7 +195,7 @@ r = sp.qte_hd_panel(
 identification, and you care about the τ curve.  Honest post-Lasso
 inference follows Belloni-Chernozhukov-Fernández-Val (2017).
 
-Citation: Fan et al. (2025), arXiv:2504.00785.
+Citation: Xu & Zheng (2025), arXiv:2504.00785.
 
 ---
 

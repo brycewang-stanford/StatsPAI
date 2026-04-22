@@ -6,10 +6,11 @@ Two 2025 extensions to the off-policy evaluation toolbox:
 - :func:`sharp_ope_unobserved` — sharp (tightest-possible) bounds on the
   value of a target policy when the logged policy is subject to an
   unmeasured confounder, parametrised by a marginal-sensitivity
-  constant ``Gamma`` (Kallus, Mao, Uehara arXiv:2502.13022, 2025).
+  constant ``Gamma`` (Hess, Frauen, Melnychuk & Feuerriegel arXiv:2502.13022, 2025).
 - :func:`causal_policy_forest` — policy tree learned from doubly-robust
   scores with forest-style averaging over trees to reduce variance and
-  to provide honest variance estimates of policy value (arXiv:2512.22846,
+  to provide honest variance estimates of policy value (Kato 2025,
+  arXiv:2512.22846,
   2025).
 
 Both return structured results with point estimates, intervals, and
@@ -66,7 +67,7 @@ class CausalPolicyForestResult:
 
     def summary(self) -> str:
         return "\n".join([
-            "Causal-Policy Forest (arXiv:2512.22846, 2025)",
+            "Causal-Policy Forest (Kato 2025, arXiv:2512.22846)",
             "=" * 60,
             f"  Policy value       : {self.policy_value:+.6f}  (SE {self.policy_value_se:.6f})",
             f"  Trees              : {self.n_trees}",
@@ -160,7 +161,7 @@ def sharp_ope_unobserved(
 
 
 # ---------------------------------------------------------------------------
-# Causal-Policy Forest (arXiv:2512.22846)
+# Causal-Policy Forest (Kato 2025, arXiv:2512.22846)
 # ---------------------------------------------------------------------------
 
 

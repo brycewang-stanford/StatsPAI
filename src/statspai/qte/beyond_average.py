@@ -1,6 +1,6 @@
 """
 Beyond the Average: Distributional Effects under Imperfect Compliance
-(Xie-Wu 2025, arXiv 2509.15594).
+(Byambadalai, Hirata, Oka & Yasui 2025, arXiv 2509.15594).
 
 Estimates the distributional treatment effect on compliers when
 treatment is partially observed (imperfect compliance, à la LATE).

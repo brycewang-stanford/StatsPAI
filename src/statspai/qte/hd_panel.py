@@ -1,5 +1,5 @@
 """
-High-Dimensional Panel QTE (Fan et al. 2025, arXiv 2504.00785).
+High-Dimensional Panel QTE (Xu & Zheng 2025, arXiv 2504.00785).
 
 Quantile treatment effects in a panel setting with high-dimensional
 covariates, using a LASSO-penalised quantile regression to first

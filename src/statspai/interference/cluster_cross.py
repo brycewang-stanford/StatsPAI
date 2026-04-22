@@ -1,5 +1,5 @@
 """
-Cluster RCT with Cross-Cluster Interference (Ding et al. 2025,
+Cluster RCT with Cross-Cluster Interference (Leung 2023,
 arXiv 2310.18836).
 
 When clusters are not perfectly isolated — e.g. neighbouring villages

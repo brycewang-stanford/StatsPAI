@@ -4,7 +4,7 @@ Next-generation evidence synthesis: RCT + RWD + AI/ML.
 Integrates a randomised-controlled-trial (RCT) estimate with a real-world
 data (RWD) observational estimate via inverse-odds-of-sampling weights
 and a flexible ML outcome model (Dahabreh et al. 2020 framework,
-extended by arXiv:2511.19735 (2025) for the next-generation evidence
+extended by Yang, Gamalo & Fu (arXiv:2511.19735, 2025) for the next-generation evidence
 synthesis workflow advocated by FDA / EMA RWE guidance).
 
 Three primitives:

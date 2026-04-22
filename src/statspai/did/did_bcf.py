@@ -65,7 +65,7 @@ def did_bcf(
 
     References
     ----------
-    Wüthrich, Zhu (2025). Forests for Differences: Robust Causal
+    Souto & Neto (2025). Forests for Differences: Robust Causal
     Inference Beyond Parametric DiD. arXiv 2505.09706.
     """
     cov = list(covariates or [])
@@ -188,7 +188,7 @@ def did_bcf(
             'n_trees': n_trees,
             'n_covariates': len(cov),
             'catt_by_cohort': catt_by_cohort,
-            'reference': 'Wüthrich-Zhu (2025), arXiv 2505.09706',
+            'reference': 'Souto & Neto (2025), arXiv 2505.09706',
         },
         _citation_key='did_bcf',
     )

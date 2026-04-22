@@ -12,8 +12,8 @@ indicator basis functions.  With a finite sample :math:`n`, the basis has
 :math:`O(np)` columns — rich enough to approximate any càdlàg function of
 bounded variation, and regularised enough to stabilise TMLE.
 
-This module supplies two HAL-TMLE variants following Qian & van der Laan
-(2025, *arXiv:2506.17214*):
+This module supplies two HAL-TMLE variants following Li, Qiu, Wang &
+van der Laan (2025, *arXiv:2506.17214*):
 
 * ``variant="delta"`` — plug HAL into TMLE as-is (delta variant).  This is
   the most common implementation.
@@ -26,8 +26,9 @@ we pick it via 5-fold CV.
 
 References
 ----------
-Qian, Y. and van der Laan, M. J. (2025).  "HAL-TMLE: Two Variants for
-    Semiparametric Efficient Estimation."  arXiv:2506.17214.
+Li, Y., Qiu, S., Wang, Z. and van der Laan, M. J. (2025). "Regularized
+    Targeted Maximum Likelihood Estimation in Highly Adaptive Lasso
+    Implementations."  arXiv:2506.17214.
 van der Laan, M. J., Benkeser, D. and Cai, W. (2023).  "Efficient estimation
     of pathwise differentiable target parameters with the undersmoothed
     highly adaptive lasso."  *International Journal of Biostatistics*,
@@ -257,8 +258,9 @@ def hal_tmle(
         "variant": variant,
         "max_anchors_per_col": max_anchors_per_col,
         "citation": (
-            "Qian, Y. and van der Laan, M. J. (2025). HAL-TMLE: Two Variants "
-            "for Semiparametric Efficient Estimation. arXiv:2506.17214."
+            "Li, Y., Qiu, S., Wang, Z. and van der Laan, M. J. (2025). "
+            "Regularized Targeted MLE in HAL Implementations. "
+            "arXiv:2506.17214."
         ),
     })
 

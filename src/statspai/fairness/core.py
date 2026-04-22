@@ -377,7 +377,7 @@ def orthogonal_to_bias(
 
     References
     ----------
-    Marchesin et al. (arXiv:2403.17852v3, 2025).
+    Chen & Zhu (arXiv:2403.17852v3, 2024).
     """
     if method != "residualize":
         raise ValueError(f"Unknown method {method!r}; only 'residualize' supported.")

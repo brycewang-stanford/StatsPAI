@@ -108,12 +108,12 @@ def rdrobust(
     bootstrap : {'rbc', None}, default None
         If ``'rbc'``, augment the output with a robust-bias-corrected
         percentile bootstrap CI following
-        Cattaneo, Jansson & Ma (arXiv:2512.00566, 2026).  The rbc
+        Cavaliere, Gonçalves, Nielsen & Zanelli (arXiv:2512.00566, 2025).  The rbc
         bootstrap studentises the bias-corrected statistic using the
         robust variance and resamples observations within the estimation
         bandwidth.  Empirically produces CIs ~15–20% shorter than the
-        analytic robust CI at the same coverage (Table 3, Cattaneo et al.
-        2026).
+        analytic robust CI at the same coverage (Table 3, Cavaliere et
+        al. 2025).
     n_boot : int, default 999
         Number of bootstrap replicates when ``bootstrap='rbc'``.
     random_state : int, optional
@@ -163,7 +163,7 @@ def rdrobust(
     if bootstrap is not None and bootstrap not in ('rbc',):
         raise ValueError(
             f"bootstrap must be None or 'rbc', got {bootstrap!r}. "
-            "See Cattaneo, Jansson & Ma (arXiv:2512.00566, 2026)."
+            "See Cavaliere, Gonçalves, Nielsen & Zanelli (arXiv:2512.00566, 2025)."
         )
     if bootstrap is not None and n_boot < 99:
         raise ValueError("rbc bootstrap needs n_boot >= 99 (recommended 999).")

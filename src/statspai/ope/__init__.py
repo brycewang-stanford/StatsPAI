@@ -4,8 +4,8 @@ policy from data collected under a different behaviour policy. Covers
 contextual bandits and off-policy reinforcement learning evaluation.
 
 Implemented: DM, IPS, SNIPS, DR, Switch-DR, sharp OPE under
-unobserved confounding (Kallus-Mao-Uehara 2025), causal-policy forest
-(arXiv:2512.22846).
+unobserved confounding (Hess, Frauen, Melnychuk & Feuerriegel 2025,
+arXiv:2502.13022), causal-policy forest (Kato 2025, arXiv:2512.22846).
 """
 
 from .estimators import (

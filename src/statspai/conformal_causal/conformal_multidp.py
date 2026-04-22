@@ -1,5 +1,5 @@
 """
-Multiple Decision Point Conformal ITE (arXiv 2512.08828, 2025).
+Multiple Decision Point Conformal ITE (Bose & Dempsey 2025, arXiv 2512.08828).
 
 Extends conformal ITE to multi-stage / sequential decision settings
 (DTRs, dynamic treatment regimes), where the treatment effect at

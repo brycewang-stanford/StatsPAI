@@ -1,8 +1,8 @@
 """
-Bridge: Doubly Robust via Calibration (Zhang et al. 2025,
+Bridge: Doubly Robust via Calibration (van der Laan, Luedtke & Carone 2024,
 arXiv 2411.02771).
 
-Standard AIPW is asymptotically doubly robust. Zhang et al. show that
+Standard AIPW is asymptotically doubly robust. van der Laan et al. show that
 finite-sample double robustness requires *jointly calibrating* the
 outcome regression and the Riesz representer (propensity score). The
 "bridge" here is between vanilla AIPW (path A) and calibrated AIPW
@@ -117,5 +117,5 @@ def dr_calib_bridge(
         se_dr=se_dr,
         n_obs=n,
         detail={},
-        reference="Zhang et al. (2025), arXiv 2411.02771",
+        reference="van der Laan, Luedtke & Carone (2024), arXiv 2411.02771",
     )

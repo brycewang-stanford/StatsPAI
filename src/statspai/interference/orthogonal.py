@@ -4,14 +4,14 @@ Orthogonal learning of heterogeneous causal effects on networks.
 Implements two recent (2025) additions to network interference:
 
 - :func:`network_hte` — heterogeneous causal effects under network
-  interference via double-orthogonalization (Parmigiani et al.
+  interference via double-orthogonalization (Wu & Yuan
   arXiv:2509.18484, 2025). Estimates how the *direct* and *spillover*
   effects vary with covariates ``X`` using an orthogonal moment
   condition that cross-fits nuisance models for the exposure and
   neighbourhood propensities.
 - :func:`inward_outward_spillover` — partitioning of average spillover
   into "inward" (on-to-unit ``i``) and "outward" (from unit ``i`` on
-  neighbours). From Li, Ratkovic et al. (arXiv:2506.06615, 2025).
+  neighbours). From Fang, Airoldi & Forastiere (arXiv:2506.06615, 2025).
 
 Both functions accept a precomputed neighbourhood exposure vector
 ``neighbor_exposure`` (the share of neighbours treated) and a binary
@@ -133,7 +133,7 @@ def network_hte(
 
     References
     ----------
-    Parmigiani et al. (arXiv:2509.18484, 2025).
+    Wu & Yuan (arXiv:2509.18484, 2025).
     """
     cols = [y, treatment, neighbor_exposure, *covariates]
     missing = set(cols) - set(data.columns)
@@ -249,7 +249,7 @@ def inward_outward_spillover(
 
     References
     ----------
-    Li, Ratkovic et al. (arXiv:2506.06615, 2025).
+    Fang, Airoldi & Forastiere (arXiv:2506.06615, 2025).
     """
     cov_list = list(covariates) if covariates else []
     cols = [y, treatment, inward_exposure, outward_exposure, *cov_list]

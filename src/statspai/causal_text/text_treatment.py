@@ -26,7 +26,7 @@ captured by the projection.
 
 References
 ----------
-Veitch, V., Wang, Y., & Blei, D. M. (2020). "Adapting text embeddings
+Veitch, V., Sridhar, D., & Blei, D. M. (2019). "Adapting text embeddings
 for causal inference." *UAI*. arXiv:1905.12741.
 """
 from __future__ import annotations

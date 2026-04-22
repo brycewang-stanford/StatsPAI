@@ -1,5 +1,5 @@
 """
-Bridge: DiD ≡ Synthetic Control (Shi-Athey 2025, arXiv 2503.11375).
+Bridge: DiD ≡ Synthetic Control (Sun, Xie & Zhang 2025, arXiv 2503.11375).
 
 Identifies the ATT under either parallel trends (DiD) or the SC
 factor-model condition. Both paths target the same ATT; agreement
@@ -164,5 +164,5 @@ def did_sc_bridge(
         se_dr=se_dr,
         n_obs=len(df),
         detail=sc_detail,
-        reference="Shi, Athey et al. (2025), arXiv 2503.11375",
+        reference="Sun, Xie & Zhang (2025), arXiv 2503.11375",
     )

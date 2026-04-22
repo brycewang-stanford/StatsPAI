@@ -1,6 +1,6 @@
 """
-Regression Discontinuity Designs Under Interference (Cabrelli-Marconi
-2024, arXiv 2410.02727).
+Regression Discontinuity Designs Under Interference (Dal Torrione,
+Arduini & Forastiere 2024, arXiv 2410.02727).
 
 Standard RDD assumes SUTVA. When units are connected through a
 network, treatment of unit i can affect outcome of unit j. This

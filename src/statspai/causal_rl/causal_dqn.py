@@ -1,5 +1,5 @@
 """
-Confounding-Robust Deep Q-Learning (Fu-Zhou 2025, arXiv 2510.21110).
+Confounding-Robust Deep Q-Learning (Li, Zhang & Bareinboim 2025, arXiv 2510.21110).
 
 Standard offline Q-learning is biased when the behaviour policy
 depends on unmeasured confounders. Causal-DQN adjusts the Bellman

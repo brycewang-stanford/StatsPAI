@@ -1,5 +1,5 @@
 """
-Staggered-Rollout Cluster RCT (Zhou et al. 2025, arXiv 2502.10939).
+Staggered-Rollout Cluster RCT (Chen & Li 2025, arXiv 2502.10939).
 
 Cluster RCT where treatment is rolled out across clusters over time
 (staggered adoption). Estimates the dynamic ATT averaging over the

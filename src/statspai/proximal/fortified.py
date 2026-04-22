@@ -61,7 +61,7 @@ def fortified_pci(
 
     References
     ----------
-    Yang, Schwartz (2025). Fortified Proximal Causal Inference.
+    Yu, Shi & Tchetgen Tchetgen (2025). Fortified Proximal Causal Inference.
     arXiv 2506.13152.
     """
     cov = list(covariates or [])
@@ -136,7 +136,7 @@ def fortified_pci(
         n_obs=n,
         model_info={
             'estimator': 'fortified_pci',
-            'reference': 'Yang-Schwartz (2025), arXiv 2506.13152',
+            'reference': 'Yu, Shi & Tchetgen Tchetgen (2025), arXiv 2506.13152',
         },
         _citation_key='fortified_pci',
     )

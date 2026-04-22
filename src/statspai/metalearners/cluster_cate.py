@@ -1,5 +1,5 @@
 """
-Cluster-Based CATE (Hartford et al. 2025, arXiv 2409.08773).
+Cluster-Based CATE (Cerqua, Di Stefano & Mattera 2024, arXiv 2409.08773).
 
 Estimates conditional ATE by first clustering units in covariate
 space, then computing a within-cluster DIM (or DR-Learner). Returns

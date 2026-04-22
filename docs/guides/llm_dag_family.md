@@ -181,7 +181,7 @@ edge looks spurious.
 - Spirtes, Glymour & Scheines (2000). *Causation, Prediction, and Search.*
 - Kıcıman, Ness, Sharma & Tan (2023). "Causal reasoning and large language models." [arXiv:2305.00050](https://arxiv.org/abs/2305.00050).
 - Long, Piché, Zantedeschi, Schuster & Drouin (2023). "Causal discovery with language models as imperfect experts." [arXiv:2307.02390](https://arxiv.org/abs/2307.02390).
-- Vashishtha et al. (2024). "Causal Inference Using LLM-Guided Discovery." [arXiv:2402.01207](https://arxiv.org/abs/2402.01207).
+- Jiralerspong, Chen, More, Shah & Bengio (2024). "Efficient Causal Graph Discovery Using Large Language Models." [arXiv:2402.01207](https://arxiv.org/abs/2402.01207).
 
 <!-- AGENT-BLOCK-START: llm_dag_constrained -->
 

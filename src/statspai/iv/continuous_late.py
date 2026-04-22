@@ -1,5 +1,5 @@
 """
-Continuous-Instrument LATE (Xie et al. 2025, arXiv 2504.03063).
+Continuous-Instrument LATE (Zeng et al. 2025, arXiv 2504.03063).
 
 Generalises LATE identification to continuous instruments. The
 "maximal complier class" is the set of units whose treatment status

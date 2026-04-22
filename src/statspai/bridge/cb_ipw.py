@@ -1,5 +1,5 @@
 """
-Bridge: Covariate Balancing ≡ IPW × DR (Zhao-Percival 2025 v6,
+Bridge: Covariate Balancing ≡ IPW × DR (Słoczyński, Uysal & Wooldridge 2023,
 arXiv 2310.18563).
 
 Entropy Balancing / CBPS / IPW / AIPW share a common moment-equation
@@ -140,5 +140,5 @@ def cb_ipw_bridge(
         se_dr=se_dr,
         n_obs=n,
         detail={},
-        reference="Zhao-Percival (2025 v6), arXiv 2310.18563",
+        reference="Słoczyński, Uysal & Wooldridge (2023), arXiv 2310.18563",
     )

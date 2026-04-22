@@ -752,13 +752,13 @@ surfaces through `sp.list_functions`, `sp.describe_function`, and
   [`synth/experimental_design.py`]
 
 - **`sp.rdrobust(..., bootstrap='rbc', n_boot=999, random_state=...)`**
-  — Cattaneo, Jansson & Ma (arXiv:2512.00566, 2026) robust-bias-corrected
+  — Cavaliere, Gonçalves, Nielsen & Zanelli (arXiv:2512.00566, 2025) robust-bias-corrected
   studentised percentile bootstrap.  Empirically delivers CIs ~3–15%
   shorter than the analytic robust CI without sacrificing coverage.
   New ``model_info['rbc_bootstrap']`` block exposes the CI, p-value,
   length-ratio, and effective replicate count.
 
-- **`sp.fairness.evidence_without_injustice`** — Kwak & Pleasants
+- **`sp.fairness.evidence_without_injustice`** — Loi, Di Bello & Cangiotti
   (arXiv:2510.12822, 2025) counterfactual-fairness test that freezes
   admissible-evidence features at their factual values and tests
   whether predictions still change under ``do(A = a')``.  Returns a
@@ -774,7 +774,7 @@ surfaces through `sp.list_functions`, `sp.describe_function`, and
 
 ### Added — P1 frontier (4 methods, within-sprint week 2)
 
-- **`sp.harvest_did`** — Borusyak et al. MIT/NBER WP 34550 (2025)
+- **`sp.harvest_did`** — Abadie, Angrist, Frandsen & Pischke, NBER WP 34550 (2025)
   Harvesting DID + event-study framework: extracts every valid 2×2
   DID comparison from a staggered panel, combines them via
   inverse-variance weights, and reports event-study + pretrend Wald
@@ -881,7 +881,7 @@ parameter docs, examples, references, and tags.
 - `sp.kernel_iv` (top-level alias of `sp.iv.kernel_iv`) — Lob et al.
   (2025, arXiv:2511.21603) kernel IV regression with wild-bootstrap
   uniform confidence band over the structural function `h*(d)`.
-- `sp.continuous_iv_late` (top-level alias) — Xie et al. (2025,
+- `sp.continuous_iv_late` (top-level alias) — Zeng et al. (2025,
   arXiv:2504.03063) LATE on the maximal complier class for continuous
   instruments via quantile-bin Wald estimator. (Also fixed a summary
   formatting bug — see below.)
@@ -889,15 +889,15 @@ parameter docs, examples, references, and tags.
 **TMLE**
 
 - `sp.hal_tmle` + `sp.HALRegressor` / `sp.HALClassifier` — TMLE with
-  Highly Adaptive Lasso nuisance learners (Qian & van der Laan, 2025,
-  arXiv:2506.17214). Two variants: `"delta"` (plug HAL into standard
+  Highly Adaptive Lasso nuisance learners (Li, Qiu, Wang & van der
+  Laan, 2025, arXiv:2506.17214). Two variants: `"delta"` (plug HAL into standard
   TMLE) and `"projection"` (apply tangent-space shrinkage to the
   targeting epsilon). Recovers ATE within ~3% on n=400 with rich
   nuisance.
 
 **Synthetic Control**
 
-- `sp.synth_survival` — Synthetic Survival Control (Agarwal & Shah,
+- `sp.synth_survival` — Synthetic Survival Control (Han & Shah,
   2025, arXiv:2511.14133). Donor convex combination on the
   complementary log-log scale matches the treated arm's pre-treatment
   Kaplan-Meier, then projects forward and reports the survival gap
@@ -1065,9 +1065,10 @@ all routed through `sp.*` and registered in `sp.list_functions()`.
   `llm_unobserved_confounders`, `llm_sensitivity_priors` — all with
   deterministic heuristic backends (no API key required); accept a
   `client` arg for real LLM injection.
-- **`sp.causal_rl`** (NEW namespace): `causal_dqn` (Confounding-Robust
-  Deep Q, arXiv 2510.21110), `causal_rl_benchmark` (5 benchmarks per
-  arXiv 2512.18135), `offline_safe_policy` (arXiv 2510.22027).
+- **`sp.causal_rl`** (NEW namespace): `causal_dqn` (Li-Zhang-Bareinboim
+  confounding-robust Deep Q, arXiv 2510.21110), `causal_rl_benchmark`
+  (5 benchmarks per Cunha-Liu-French-Mian, arXiv 2512.18135),
+  `offline_safe_policy` (Chemingui et al., arXiv 2510.22027).
 - **Cluster RCT × interference** (`sp.cluster_*`, `sp.dnc_gnn_did`):
   matched-pair, cross-cluster, staggered-rollout, DNC+GNN+DiD
   (arXiv 2211.14903 / 2310.18836 / 2502.10939 / 2601.00603).

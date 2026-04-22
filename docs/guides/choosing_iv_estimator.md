@@ -144,7 +144,7 @@ too restrictive, v1.2 ships two non-parametric alternatives:
 
 - `sp.kernel_iv` (Lob et al. 2025, arXiv:2511.21603) delivers a uniform
   confidence band over the whole `D`-grid, not just pointwise.
-- `sp.continuous_iv_late` (Xie et al. 2025, arXiv:2504.03063) identifies
+- `sp.continuous_iv_late` (Zeng et al. 2025, arXiv:2504.03063) identifies
   the LATE on the subpopulation most responsive to the instrument —
   the natural generalisation of Angrist-Imbens LATE beyond binary `Z`.
 

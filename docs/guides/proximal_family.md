@@ -78,7 +78,7 @@ r = sp.fortified_pci(
 noticeably when you add/remove a single covariate, or when `bridge="linear"`
 vs `bridge="loglinear"` give very different answers.
 
-Citation: Yang & Schwartz (2025), arXiv:2506.13152.
+Citation: Yu, Shi & Tchetgen Tchetgen (2025), arXiv:2506.13152.
 
 ---
 
@@ -101,7 +101,7 @@ r = sp.bidirectional_pci(
 )
 ```
 
-Citation: Shi, Miao, Tchetgen Tchetgen (2025), arXiv:2507.13965.
+Citation: Min, Zhang & Luo (2025), arXiv:2507.13965.
 
 ---
 
@@ -127,7 +127,7 @@ r = sp.pci_mtp(
 answers the policy-relevant question "what happens if we nudge treatment
 a bit?" under unobserved confounding.
 
-Citation: Park & Ying (2025), arXiv:2512.12038.
+Citation: Olivas-Martinez, Gilbert & Rotnitzky (2025), arXiv:2512.12038.
 
 ---
 

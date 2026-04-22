@@ -1,6 +1,6 @@
 """
 DiD using Double Negative Controls and GNNs for Unmeasured Network
-Confounding (Zhao et al. 2026, arXiv 2601.00603).
+Confounding (Zhang, Fu & Wang 2026, arXiv 2601.00603).
 
 Combines double negative controls (DNC) with graph neural network
 features that summarise unit-level network position. The full
@@ -184,6 +184,6 @@ def dnc_gnn_did(
         diagnostics={
             'naive_dim': naive_dim,
             'embedding_used': embedding is not None,
-            'reference': 'Zhao et al. (2026), arXiv 2601.00603',
+            'reference': 'Zhang, Fu & Wang (2026), arXiv 2601.00603',
         },
     )

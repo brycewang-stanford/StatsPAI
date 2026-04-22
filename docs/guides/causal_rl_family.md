@@ -81,7 +81,7 @@ data will happily converge to a Q-function that is biased in the direction
 of the logging policy's mistakes.  `causal_dqn` explicitly caps how much
 the confounding can distort Q and returns a sensitivity range.
 
-Citation: Fu & Zhou (2025), arXiv:2510.21110.
+Citation: Li, Zhang & Bareinboim (2025), arXiv:2510.21110.
 
 ---
 
@@ -174,8 +174,8 @@ bench.regret_curves    # dict: algorithm → regret over time
 bench.best             # algorithm with lowest cumulative regret
 ```
 
-Reference: Zhou-Bareinboim (2025), arXiv:2512.18135 — the canonical
-unified causal-RL benchmark taxonomy.
+Reference: Cunha, Liu, French & Mian (2025), arXiv:2512.18135 — a
+canonical unified causal-RL benchmark taxonomy.
 
 ---
 

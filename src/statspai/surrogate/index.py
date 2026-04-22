@@ -11,9 +11,9 @@ Implements three closely-related identification strategies:
 
    where ``f`` is fit on the observational sample.
 
-2. **Long-term from short-term experiments** (Ghassami et al. arXiv:2311.08527,
-   2024) — iterates the above over multiple waves to handle long-term
-   *treatments*, not just long-term outcomes.
+2. **Long-term from short-term experiments** (Tran, Bibaut & Kallus
+   arXiv:2311.08527, 2023) — iterates the above over multiple waves to
+   handle long-term *treatments*, not just long-term outcomes.
 
 3. **Proximal surrogate index** (Imbens, Kallus, Mao & Wang 2025, JRSS-B
    87(2); arXiv:2202.07234) — relaxes surrogacy to allow an unobserved
@@ -375,7 +375,9 @@ def long_term_from_short(
 
     References
     ----------
-    Ghassami, Yang, Shpitser, Tchetgen Tchetgen (arXiv:2311.08527, 2024).
+    Tran, A., Bibaut, A., & Kallus, N. (2023). "Inferring the Long-Term
+    Causal Effects of Long-Term Treatments from Short-Term Experiments."
+    arXiv:2311.08527.
     """
     if not surrogates_waves:
         raise ValueError("`surrogates_waves` must contain at least one wave.")

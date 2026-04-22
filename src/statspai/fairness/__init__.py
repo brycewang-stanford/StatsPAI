@@ -10,7 +10,7 @@ Core tools
 ----------
 - :func:`counterfactual_fairness` — Kusner, Loftus, Russell, Silva (2018)
   Level-2/3 predictor evaluation on a user-supplied SCM.
-- :func:`orthogonal_to_bias` — Marchesin & Zhang (arXiv:2403.17852v3, 2025)
+- :func:`orthogonal_to_bias` — Chen & Zhu (arXiv:2403.17852v3, 2024)
   Data pre-processing that removes the part of non-protected features
   correlated with the protected attribute, via residualization.
 - :func:`demographic_parity` — P(Y_hat=1 | A=a) — A.
@@ -25,7 +25,7 @@ Counterfactual fairness. NeurIPS.
 Hardt, M., Price, E., & Srebro, N. (2016).
 Equality of opportunity in supervised learning. NeurIPS.
 
-Marchesin, S., et al. (2025).
+Chen, S., & Zhu, S. (2024).
 Counterfactual Fairness Through Orthogonal to Bias. arXiv:2403.17852v3.
 """
 

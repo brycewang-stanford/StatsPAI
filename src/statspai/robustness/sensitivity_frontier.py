@@ -6,16 +6,16 @@ Oster / Rosenbaum / Sensemakr dashboard in
 :mod:`statspai.robustness.unified_sensitivity`:
 
 1. :func:`copula_sensitivity` — Copula-based normalising-flow-style
-   sensitivity (Jesson et al. arXiv:2508.08752, 2025). Bounds the
+   sensitivity (Balgi, Braun, Peña & Daoud arXiv:2508.08752, 2025). Bounds the
    treatment-effect bias under a Gaussian-copula dependence between the
    unobserved ``U`` and the outcome ``Y``, parametrised by a correlation
    ``rho`` that the user varies on a grid.
 2. :func:`survival_sensitivity` — Nonparametric sensitivity for survival
-   outcomes (Martinussen et al. arXiv:2511.01412, 2025). Converts
+   outcomes (Hu & Westling arXiv:2511.01412, 2025). Converts
    hazard-ratio bounds into shifted Kaplan-Meier differences.
 3. :func:`calibrate_confounding_strength` — E-value-style calibration of
    the confounding strength required to explain the observed effect
-   (Zhang, Cinelli et al. arXiv:2510.16560, 2025 update of E-value to
+   (Baitairian et al. arXiv:2510.16560, 2025 update of E-value to
    ML-estimated effects).
 
 All three share a simple ``(estimate, se)`` interface: they take a
@@ -107,7 +107,7 @@ def copula_sensitivity(
 
     References
     ----------
-    Jesson et al. (arXiv:2508.08752, 2025).
+    Balgi, Braun, Peña & Daoud (arXiv:2508.08752, 2025).
     """
     if rho_grid is None:
         rho_grid = np.linspace(-0.5, 0.5, 21)
@@ -185,7 +185,7 @@ def survival_sensitivity(
 
     References
     ----------
-    Martinussen et al. (arXiv:2511.01412, 2025).
+    Hu & Westling (arXiv:2511.01412, 2025).
     """
     if se_log_hr <= 0:
         raise ValueError("`se_log_hr` must be > 0.")
@@ -267,7 +267,7 @@ def calibrate_confounding_strength(
 
     References
     ----------
-    Zhang, Cinelli et al. (arXiv:2510.16560, 2025).
+    Baitairian et al. (arXiv:2510.16560, 2025).
     Cinelli & Hazlett (JRSS-B 2020).
     """
     if not (0 < observed_r2_outcome < 1):

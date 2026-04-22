@@ -1,4 +1,4 @@
-r"""Synthetic Survival Control (Agarwal-Shah 2025, arXiv:2511.14133).
+r"""Synthetic Survival Control (Han & Shah 2025, arXiv:2511.14133).
 
 Estimates the **survival difference** caused by treatment for a single treated
 unit (or a small set thereof) by constructing a synthetic control on the
@@ -25,8 +25,8 @@ level.
 
 References
 ----------
-Agarwal, A. and Shah, D. (2025).  "Synthetic Survival Control."
-    arXiv:2511.14133.
+Han, J. X. and Shah, D. (2025).  "Synthetic Survival Control: Extending
+    Synthetic Controls for 'When-If' Decision-Making."  arXiv:2511.14133.
 Abadie, A., Diamond, A. and Hainmueller, J. (2010).  "Synthetic Control
     Methods for Comparative Case Studies: Estimating the Effect of
     California's Tobacco Control Program."  *JASA*, 105(490), 493-505.

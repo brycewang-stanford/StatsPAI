@@ -6,10 +6,10 @@ scenarios with unobserved confounding.
 
 References
 ----------
-* Fu-Zhou (2025), arXiv 2510.21110 — Confounding-Robust Deep RL.
-* Zhou-Bareinboim (2025), arXiv 2512.18135 — Unifying Causal RL.
-* Chemingui et al. (2025), arXiv 2510.22027 — Online Optimization
-  for Offline Safe RL.
+* Li, Zhang & Bareinboim (2025), arXiv 2510.21110 — Confounding-Robust Deep RL.
+* Cunha, Liu, French & Mian (2025), arXiv 2512.18135 — Unifying Causal RL.
+* Chemingui, Deshwal, Fern, Nguyen-Tang & Doppa (2025),
+  arXiv 2510.22027 — Online Optimization for Offline Safe RL.
 """
 
 from .causal_dqn import causal_dqn, CausalDQNResult

@@ -53,7 +53,7 @@ class BCFFactorExposureResult:
 
     def summary(self) -> str:
         lines = [
-            "BCF with Factor-based Exposure Mapping (arXiv:2601.16595, 2026)",
+            "BCF with Factor-based Exposure Mapping (Zorzetto et al. 2026, arXiv:2601.16595)",
             "-" * 68,
             f"  Exposures       : {len(self.factor_loadings.index)}",
             f"  Factors kept    : {len(self.factor_loadings.columns)}",

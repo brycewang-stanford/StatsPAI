@@ -7,7 +7,7 @@ procedures (arXiv:2509.21660):
 
 - :func:`conformal_continuous` — conformal prediction bands for a
   continuous-treatment dose-response function ``E[Y | T=t, X]``. Based
-  on Kim, Jeong, Barber, Lee (arXiv:2407.03094, 2024).
+  on Schröder et al. (arXiv:2407.03094, 2024).
 - :func:`conformal_interference` — cluster-exchangeable conformal
   intervals for individual treatment effects in networks where the
   spillover from neighbours violates standard exchangeability. Implements
@@ -123,7 +123,7 @@ def conformal_continuous(
 
     References
     ----------
-    Kim, Jeong, Barber, Lee (arXiv:2407.03094, 2024).
+    Schröder et al. (arXiv:2407.03094, 2024).
     """
     if estimator is None:
         from sklearn.ensemble import GradientBoostingRegressor
@@ -234,9 +234,9 @@ def conformal_interference(
 
     Notes
     -----
-    This is the cluster-exchangeable variant used in Lei, Sesia &
-    Candes (2021) and in the arXiv:2509.21660 systematic review as the
-    recommended default when SUTVA is violated within clusters.
+    This is the cluster-exchangeable variant used in the Memmesheimer,
+    Heuveline & Hesser (arXiv:2509.21660, 2025) systematic review as
+    the recommended default when SUTVA is violated within clusters.
     """
     if estimator is None:
         from sklearn.ensemble import GradientBoostingRegressor

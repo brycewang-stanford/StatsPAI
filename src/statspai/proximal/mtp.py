@@ -1,6 +1,6 @@
 """
 Proximal Causal Inference for Modified Treatment Policies
-(Park-Ying 2025, arXiv 2512.12038).
+(Olivas-Martinez, Gilbert & Rotnitzky 2025, arXiv 2512.12038).
 
 Standard PCI estimates the ATE between a treatment level and its
 reference. Modified Treatment Policies (MTP, Haneuse-Rotnitzky 2013)
@@ -112,16 +112,16 @@ def pci_mtp(
         model_info={
             'estimator': 'pci_mtp',
             'delta': delta,
-            'reference': 'Park-Ying (2025), arXiv 2512.12038',
+            'reference': 'Olivas-Martinez, Gilbert & Rotnitzky (2025), arXiv 2512.12038',
         },
         _citation_key='pci_mtp',
     )
 
 
 CausalResult._CITATIONS['pci_mtp'] = (
-    "@article{park2025proximal,\n"
+    "@article{olivas2025proximal,\n"
     "  title={Proximal Causal Inference for Modified Treatment Policies},\n"
-    "  author={Park, Junhyung and Ying, Andrew},\n"
+    "  author={Olivas-Martinez, Antonio and Gilbert, Peter B. and Rotnitzky, Andrea},\n"
     "  journal={arXiv preprint arXiv:2512.12038},\n"
     "  year={2025}\n"
     "}"
