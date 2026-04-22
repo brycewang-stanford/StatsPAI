@@ -56,7 +56,26 @@ from .tools import tool_manifest, execute_tool
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "statspai"
-SERVER_VERSION = "0.9.17"
+
+
+def _resolve_server_version() -> str:
+    """Pull the server version from ``statspai.__version__``.
+
+    Keeps the MCP server in lock-step with the package on every release
+    — avoids the drift we hit when ``SERVER_VERSION`` was a hand-edited
+    literal that fell behind the project version bump.
+    """
+    try:
+        import statspai as _sp
+        v = getattr(_sp, "__version__", None)
+        if isinstance(v, str) and v:
+            return v
+    except Exception:  # pragma: no cover — statspai must import
+        pass
+    return "0.0.0"
+
+
+SERVER_VERSION = _resolve_server_version()
 
 
 # ═══════════════════════════════════════════════════════════════════════
