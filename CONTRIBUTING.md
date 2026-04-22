@@ -13,8 +13,8 @@ We welcome contributions to StatsPAI! This document provides guidelines for cont
 5. **Testing**: Add test cases or improve test coverage
 
 > **On credit**: every merged PR is credited in `CONTRIBUTORS.md` and
-> the paper's Acknowledgments. Paper **authorship** is separate and
-> extended by invitation against objective criteria — see
+> the paper's Acknowledgments. Paper **authorship** is separate —
+> extended by invitation at the maintainers' discretion. See
 > [Authorship & Acknowledgments](#-authorship--acknowledgments) below.
 
 ### Getting Started
@@ -216,54 +216,13 @@ credited. Specifically:
 No invitation is needed. This is the default and applies to all merged
 contributions — bug fixes, docs, tests, refactors, new estimators.
 
-### Paper Authorship (by invitation, criteria-based)
+### Paper Authorship (by invitation)
 
 **By default, code contributors are not co-authors of StatsPAI
-papers.** The core development team extends authorship invitations to
-contributors who meet **at least one** of the following objective
-criteria, consistent with
-[ICMJE](https://www.icmje.org/recommendations/browse/roles-and-responsibilities/defining-the-role-of-authors-and-contributors.html)
-and [JOSS](https://joss.readthedocs.io/en/latest/submitting.html#authorship)
-authorship norms:
-
-1. **New estimator family** — independently designed and implemented a
-   first-class public function family exposed through `sp.*`
-   (e.g., a new `sp.xxx` or a new branch of an existing dispatcher
-   such as `sp.synth(method=...)` / `sp.decompose(method=...)` /
-   `sp.dml(model=...)`), including reference-parity tests.
-2. **Reference alignment ownership** — led the numerical alignment of
-   a non-trivial module against Stata / R / published paper numbers
-   (added tests under `tests/reference_parity/` or
-   `tests/external_parity/` that exercise real external output).
-3. **Sustained core contribution** — ≥ 10 merged PRs **and** ≥ 2,000
-   net lines of production code (excluding generated files, vendored
-   assets, and pure formatting) in core estimator modules (any module
-   listed under "因果 / 处理效应", "面板 / 结构", or "因果发现 / ML" in
-   `CLAUDE.md`).
-4. **Paper writing** — drafted or substantially revised sections of
-   the manuscript, participated in response-to-reviewers, and approved
-   the final submitted version.
-
-Meeting a criterion makes a contributor **eligible** for an
-invitation; the core team issues the invitation in writing and the
-contributor must accept explicitly. Invited authors are expected to
-also satisfy standard ICMJE responsibilities: review and approve the
-final manuscript, and be accountable for the accuracy of the portions
-they contributed.
-
-### What this means in practice
-
-- A one-off bug fix or docs PR → Acknowledgments + `CONTRIBUTORS.md`.
-- Implementing a new estimator with parity tests → eligible for
-  authorship invitation under criterion (1) or (2).
-- Large-scale code contribution across many PRs → eligible under
-  criterion (3).
-- Contributions to paper text or reviewer response → eligible under
-  criterion (4).
-
-If you are actively working toward authorship eligibility, feel free
-to open a discussion or email <brycew6m@stanford.edu> ahead of time so
-scope and criteria can be agreed upon before the work is done.
+papers.** The core maintainers reserve the sole right to extend
+authorship invitations to contributors whose work they judge to be
+exceptional. There is no fixed rubric — the decision rests with the
+maintainers and is made case by case.
 
 ## 📞 Getting Help
 

@@ -4,15 +4,15 @@ StatsPAI is built by the people listed here. Every merged pull request
 earns a line in this file and a slot in the Acknowledgments section of
 the project's JOSS paper.
 
-> Paper **authorship** is separate and extended by invitation against
-> objective criteria — see the "Authorship & Acknowledgments" section
-> of [`CONTRIBUTING.md`](CONTRIBUTING.md#-authorship--acknowledgments).
+> Paper **authorship** is separate — extended by invitation at the
+> maintainers' discretion. See the "Authorship & Acknowledgments"
+> section of [`CONTRIBUTING.md`](CONTRIBUTING.md#-authorship--acknowledgments).
 
 ## Core Maintainers
 
 - **Biaoyue (Bryce) Wang** ([@brycewang-stanford](https://github.com/brycewang-stanford)) — project lead, architecture, most estimator modules.
 
-## Contributors
+## Community Contributors
 
 <!--
 Format: - **Name** ([@handle](https://github.com/handle)) — area of contribution (e.g., "did module", "docs", "reference parity for sp.rd").
