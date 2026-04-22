@@ -135,3 +135,36 @@ r.plot()           # Falls back to coefplot; use sp.rdplot for binscatter
   Use `sp.bunching` instead.
 - **Running variable is choice variable**: identification fails.
   Use IV or DiD.
+
+<!-- AGENT-BLOCK-START: rdrobust -->
+
+## For Agents
+
+**Pre-conditions**
+- running variable x is continuous with support on both sides of c
+- treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy)
+- sufficient mass of observations within the optimal bandwidth
+
+**Identifying assumptions**
+- Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)
+- No manipulation of x at c (McCrary density test)
+- Local randomization only in a neighborhood of c — extrapolation away from c is not identified
+- Covariate balance at c (optional but recommended)
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| McCrary density test p < 0.05 | `AssumptionViolation` | Use donut-hole RD (donut=<δ>) or partial-identification bounds. | `sp.rdrobust` |
+| Covariate imbalance at cutoff (sp.rdbalance rejects) | `AssumptionViolation` | Include covariates as controls, narrow bandwidth, or report as caveat. |  |
+| Effect unstable across bandwidth halvings | `AssumptionWarning` | Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesár honest CI). | `sp.rd_honest` |
+| Placebo cutoffs show significant 'effects' | `AssumptionViolation` | The RD signal is noise; seek an alternative identification strategy. | `sp.bounds` |
+
+**Alternatives (ranked)**
+- `sp.rd_honest`
+- `sp.rd_donut`
+- `sp.bounds`
+
+**Typical minimum N**: 500
+
+<!-- AGENT-BLOCK-END -->

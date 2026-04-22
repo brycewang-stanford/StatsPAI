@@ -171,3 +171,36 @@ ols = sp.regress('y ~ d', data=df)
 iv = sp.ivreg('y ~ (d ~ z)', data=df)
 print(f"OLS: {ols.params['d']:.3f}  IV: {iv.params['d']:.3f}")
 ```
+
+<!-- AGENT-BLOCK-START: iv -->
+
+## For Agents
+
+**Pre-conditions**
+- formula includes the (endog ~ instruments) parenthesised block
+- at least as many instruments as endogenous regressors (order condition)
+- instruments are not themselves endogenous in the outcome equation
+
+**Identifying assumptions**
+- Relevance: instruments predict the endogenous regressor (first-stage F ≥ 10 rule of thumb)
+- Exclusion: instruments affect outcome only through the endogenous regressor
+- Monotonicity (for LATE interpretation under heterogeneous effects)
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| First-stage F < 10 (Stock-Yogo 5% bias) | `AssumptionWarning` | Use weak-IV-robust inference (Anderson-Rubin) or LIML. | `sp.anderson_rubin_ci` |
+| Over-identification test rejects (sp.estat 'overid') | `AssumptionViolation` | At least one instrument is invalid; drop instruments or switch to just-identified LIML. | `sp.iv` |
+| Hausman endogeneity test fails to reject | `AssumptionWarning` | OLS may be consistent and more efficient; report both. | `sp.regress` |
+| Many instruments (≥ 10) cause many-IV bias | `NumericalInstability` | Use LIML or JIVE which are robust to many weak instruments. | `sp.iv` |
+
+**Alternatives (ranked)**
+- `sp.deepiv`
+- `sp.bartik`
+- `sp.proximal`
+- `sp.regress`
+
+**Typical minimum N**: 100
+
+<!-- AGENT-BLOCK-END -->

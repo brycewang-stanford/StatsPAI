@@ -142,3 +142,73 @@ r.summary()   # Human-readable summary
 r.next_steps() # Prioritised robustness checklist
 r.cite()      # BibTeX for the underlying paper
 ```
+
+<!-- AGENT-BLOCK-START: did -->
+
+## For Agents
+
+**Pre-conditions**
+- data is panel or repeated cross-section with a time column
+- treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered
+- at least one pre-treatment period (≥ 2 periods for 2x2; ≥ 3 recommended for event study)
+- for staggered designs: id column identifying units across time
+
+**Identifying assumptions**
+- Parallel trends: treated and control groups would have followed the same trajectory absent treatment
+- No anticipation: outcomes in pre-treatment periods are unaffected by future treatment
+- SUTVA: no spillovers between units
+- For staggered / heterogeneous effects: use CS or SA — TWFE can produce negative weights (Goodman-Bacon)
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| Pre-trend joint test p < 0.05 (or underpowered at 0.10) | `AssumptionViolation` | Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna. | `sp.sensitivity_rr` |
+| Staggered treatment timing with TWFE method | `AssumptionWarning` | TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation. | `sp.callaway_santanna` |
+| Pre-trend test underpowered (Roth 2022) | `AssumptionWarning` | Check sp.pretrends_power — if low, report honest CI via sp.sensitivity_rr. | `sp.sensitivity_rr` |
+| Few clusters at unit level | `AssumptionWarning` | Use wild cluster bootstrap (sp.wild_cluster_bootstrap). | `sp.wild_cluster_bootstrap` |
+
+**Alternatives (ranked)**
+- `sp.callaway_santanna`
+- `sp.sun_abraham`
+- `sp.did_imputation`
+- `sp.sdid`
+- `sp.synth`
+
+**Typical minimum N**: 50
+
+<!-- AGENT-BLOCK-END -->
+
+<!-- AGENT-BLOCK-START: callaway_santanna -->
+
+## For Agents
+
+**Pre-conditions**
+- panel data with unit × time × outcome
+- g column is integer: first-treated period or 0 for never-treated
+- at least one never-treated or late-treated control group
+- ≥ 2 pre-treatment periods per cohort
+
+**Identifying assumptions**
+- Parallel trends conditional on X (if covariates supplied)
+- No anticipation (or adjust via anticipation= parameter)
+- Overlap: positive propensity for each cohort
+- SUTVA
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| Pre-trend test on aggregated ATT(g,t) rejects | `AssumptionViolation` | Use sp.sensitivity_rr for honest CI, or add covariates for conditional parallel trends. | `sp.sensitivity_rr` |
+| Cohort with only one unit — insufficient variation | `DataInsufficient` | Aggregate small cohorts or drop; check sp.diagnose_result. |  |
+| All units treated at the same time (no staggering) | `MethodIncompatibility` | Fall back to 2x2 DID via sp.did(method='2x2'). | `sp.did` |
+
+**Alternatives (ranked)**
+- `sp.sun_abraham`
+- `sp.did_imputation`
+- `sp.sdid`
+- `sp.did`
+
+**Typical minimum N**: 50
+
+<!-- AGENT-BLOCK-END -->

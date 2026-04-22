@@ -153,3 +153,38 @@ Then run `sp.synth_sensitivity(best)` to stress-test the winner.
 - Sun (2023). *ReStat* forthcoming.
 - Vives & Martinez (2024). *JCGS* forthcoming.
 - Xu (2017). *Political Analysis* 25(1).
+
+<!-- AGENT-BLOCK-START: synth -->
+
+## For Agents
+
+**Pre-conditions**
+- panel data in long form (unit × time × outcome)
+- single treated unit (classic) or a treatment-timing column (staggered)
+- ≥ 10 donor (untreated) units with similar pre-treatment trajectories
+- ≥ 10 pre-treatment periods (fewer → large weight on any one year)
+
+**Identifying assumptions**
+- Treatment effect on the treated is identified by the counterfactual implicit in the donor weights
+- No spillover from treated unit to donors (SUTVA)
+- Donor pool contains units whose outcomes plausibly track the treated counterfactual
+- Pre-treatment fit (RMSPE) is small relative to post-treatment effect for placebo inference
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| Pre-treatment RMSPE > post-treatment effect | `AssumptionWarning` | Poor pre-fit — switch to method='demeaned'/'augmented' or enlarge donor pool. | `sp.synth` |
+| Placebo p-value ≥ 0.1 despite visible gap | `AssumptionWarning` | Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic. | `sp.synth` |
+| All weight concentrated on one donor | `AssumptionWarning` | Interpolation bias risk — check method='elastic_net' or augmented SCM. | `sp.synth` |
+| Treated unit outside donor convex hull | `IdentificationFailure` | Extrapolation needed — use method='unconstrained' or 'augmented'. | `sp.synth` |
+
+**Alternatives (ranked)**
+- `sp.sdid`
+- `sp.did`
+- `sp.matrix_completion`
+- `sp.causal_impact`
+
+**Typical minimum N**: 10
+
+<!-- AGENT-BLOCK-END -->
