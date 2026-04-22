@@ -43,3 +43,39 @@ The [`cs_report`](cs_report.md) report card already runs
 `breakdown_m` at every post-treatment event time and stores the
 results in `rpt.breakdown`.  Column `robust_at_1_SE` flags whether
 the effect survives a violation equal to one pointwise standard error.
+
+<!-- AGENT-BLOCK-START: did -->
+
+## For Agents
+
+**Pre-conditions**
+- data is panel or repeated cross-section with a time column
+- treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered
+- at least one pre-treatment period (≥ 2 periods for 2x2; ≥ 3 recommended for event study)
+- for staggered designs: id column identifying units across time
+
+**Identifying assumptions**
+- Parallel trends: treated and control groups would have followed the same trajectory absent treatment
+- No anticipation: outcomes in pre-treatment periods are unaffected by future treatment
+- SUTVA: no spillovers between units
+- For staggered / heterogeneous effects: use CS or SA — TWFE can produce negative weights (Goodman-Bacon)
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| Pre-trend joint test p < 0.05 (or underpowered at 0.10) | `AssumptionViolation` | Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna. | `sp.sensitivity_rr` |
+| Staggered treatment timing with TWFE method | `AssumptionWarning` | TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation. | `sp.callaway_santanna` |
+| Pre-trend test underpowered (Roth 2022) | `AssumptionWarning` | Check sp.pretrends_power — if low, report honest CI via sp.sensitivity_rr. | `sp.sensitivity_rr` |
+| Few clusters at unit level | `AssumptionWarning` | Use wild cluster bootstrap (sp.wild_cluster_bootstrap). | `sp.wild_cluster_bootstrap` |
+
+**Alternatives (ranked)**
+- `sp.callaway_santanna`
+- `sp.sun_abraham`
+- `sp.did_imputation`
+- `sp.sdid`
+- `sp.synth`
+
+**Typical minimum N**: 50
+
+<!-- AGENT-BLOCK-END -->

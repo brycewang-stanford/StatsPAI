@@ -100,6 +100,10 @@ _REGISTRY: Dict[str, Tuple[str, str]] = {
     "cml": ("statspai.mendelian.frontier", "mr_cml"),
     "mr_cml": ("statspai.mendelian.frontier", "mr_cml"),
     "constrained_ml": ("statspai.mendelian.frontier", "mr_cml"),
+
+    "raps": ("statspai.mendelian.frontier", "mr_raps"),
+    "mr_raps": ("statspai.mendelian.frontier", "mr_raps"),
+    "robust_profile_score": ("statspai.mendelian.frontier", "mr_raps"),
 }
 
 

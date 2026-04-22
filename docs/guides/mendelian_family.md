@@ -480,3 +480,40 @@ median in the supplement.
 *Current for StatsPAI ≥ 1.5.0. All functions are registered; use
 `sp.describe_function("mr_presso")` or similar for schemas. For
 dispatcher-style access see `sp.mr(method=...)`.*
+
+<!-- AGENT-BLOCK-START: mr -->
+
+## For Agents
+
+**Pre-conditions**
+- SNP-summary statistics for exposure and outcome aligned by SNP
+- beta_exposure / beta_outcome / se_exposure / se_outcome arrays of equal length
+- ≥ 10 genetic instruments for reliable IVW/median/mode; ≥ 20 for robust Egger intercept
+- mvmr needs SNP × exposure associations matrix
+
+**Identifying assumptions**
+- Relevance: SNPs predict exposure (F-statistic ≥ 10 per SNP or set-F)
+- Independence: SNPs ⊥ confounders of exposure-outcome
+- Exclusion restriction: SNPs affect outcome only through exposure (InSIDE for Egger; ≥ 50% valid for median; modal for mode-based)
+- Monotonicity when interpreting LATE on genetically-shifted subpopulation
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| Egger intercept p < 0.05 — directional pleiotropy | `statspai.AssumptionViolation` | Use weighted-median or mode-based estimator; report Egger intercept + I² as pleiotropy diagnostic. | `sp.mr_median` |
+| Q-statistic rejects homogeneity (Cochran's Q p < 0.05) | `statspai.AssumptionWarning` | Heterogeneity across SNPs — run sp.mr_presso to detect/remove outliers. | `sp.mr_presso` |
+| Set-F < 10 (weak instruments in aggregate) | `statspai.AssumptionWarning` | Weak-IV bias in IVW — use debiased IVW or LAP-type estimator (sp.mr_lap). | `sp.mr_lap` |
+| Steiger test flags reverse causation | `statspai.IdentificationFailure` | SNPs explain more outcome variance than exposure — direction of effect questionable. |  |
+
+**Alternatives (ranked)**
+- `sp.mr_ivw`
+- `sp.mr_egger`
+- `sp.mr_median`
+- `sp.mr_presso`
+- `sp.mr_multivariable`
+- `sp.iv`
+
+**Typical minimum N**: 10
+
+<!-- AGENT-BLOCK-END -->

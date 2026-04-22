@@ -416,3 +416,36 @@ while coverage holds are a *good* sign.
 *Current for StatsPAI ≥ 1.5.0. All functions are registered;
 `sp.describe_function("conformal_ite_interval")` returns the hand-
 written schema. For dispatcher-style access see `sp.conformal(kind=...)`.*
+
+<!-- AGENT-BLOCK-START: conformal -->
+
+## For Agents
+
+**Pre-conditions**
+- calibration sample disjoint from training sample (auto-split or user-supplied)
+- exchangeability between calibration and test distributions (weighted variants for covariate shift)
+- for CATE / ITE variants: unconfoundedness + overlap on covariates
+- ≥ 500 calibration observations for reliable finite-sample coverage at alpha ≤ 0.1
+
+**Identifying assumptions**
+- Exchangeability of calibration and test points (base case)
+- For kind='weighted': known or estimable density ratio between calibration and test
+- For kind='cate' / 'ite': selection-on-observables with correct propensity / outcome model
+- For kind='interference': cluster-exchangeable exchangeability
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| Calibration and test distributions differ (covariate shift) | `statspai.AssumptionViolation` | Use kind='weighted' with estimated density ratios. |  |
+| Calibration set too small — intervals wide | `statspai.DataInsufficient` | Increase calibration sample or raise alpha; coverage gets loose below ~100. |  |
+| Miscalibrated nuisance (propensity / outcome) for CATE/ITE | `statspai.AssumptionWarning` | Use kind='debiased' which orthogonalises via DML-style nuisance handling. |  |
+
+**Alternatives (ranked)**
+- `sp.conformal_cate`
+- `sp.weighted_conformal_prediction`
+- `sp.conformal_counterfactual`
+
+**Typical minimum N**: 500
+
+<!-- AGENT-BLOCK-END -->

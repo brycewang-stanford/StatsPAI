@@ -162,3 +162,39 @@ r.detail             # If present: balance table with SMDs
 | ATC      | Average effect on the controls      | `match(estimand='ATC')`    |
 | CATE(x)  | Conditional on covariates X=x       | Meta-learners, causal forest |
 | LATE     | Effect on compliers                 | IV (not matching)          |
+
+<!-- AGENT-BLOCK-START: match -->
+
+## For Agents
+
+**Pre-conditions**
+- binary treatment 0/1
+- covariates are pre-treatment (temporally prior to D)
+- enough control units for each treated unit under the chosen method (k:1 matching)
+- covariates numeric; categoricals one-hot or handled by caliper/mahalanobis
+
+**Identifying assumptions**
+- Unconfoundedness / CIA: Y(d) ⊥ D | X
+- Overlap / common support: treated X-values are in the control X-support
+- SUTVA: no interference between matched units
+- Covariates are selected before looking at outcomes (no post-treatment conditioning)
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| Covariate imbalance after matching (max \|SMD\| > 0.1) | `statspai.AssumptionViolation` | Re-match with stricter caliper, add interactions, or switch to sp.ebalance (entropy balancing). | `sp.ebalance` |
+| Poor propensity score overlap (density plots, treated mass where controls are sparse) | `statspai.AssumptionViolation` | Apply sp.trimming (Crump 2009) or redefine the estimand to the overlap region. | `sp.trimming` |
+| Too few matched controls per treated unit | `statspai.DataInsufficient` | Relax caliper, allow with-replacement, or use entropy balancing / overlap weights. | `sp.ebalance` |
+| Results highly sensitive to match specification | `statspai.AssumptionWarning` | Report sp.rosenbaum_bounds (sensitivity to unobserved confounding) and compare multiple matching methods. | `sp.rosenbaum_bounds` |
+
+**Alternatives (ranked)**
+- `sp.ebalance`
+- `sp.cbps`
+- `sp.optimal_match`
+- `sp.sbw`
+- `sp.ipw`
+
+**Typical minimum N**: 200
+
+<!-- AGENT-BLOCK-END -->

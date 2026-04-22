@@ -257,3 +257,39 @@ Have a pile of candidate proxies, not sure which to use
 
 *This guide is current for StatsPAI ≥ 1.5.0.  All functions are stable
 and registered in `sp.list_functions()`.*
+
+<!-- AGENT-BLOCK-START: proximal -->
+
+## For Agents
+
+**Pre-conditions**
+- at least one treatment-side proxy Z (independent of outcome given U, X)
+- at least one outcome-side proxy W (independent of treatment given U, X)
+- proxy_z and proxy_w measure the same unmeasured confounder U from different angles
+- n ≥ 1000 — 2SLS on proxies is noisy
+
+**Identifying assumptions**
+- Existence of an outcome bridge function h(w, a, x) that recovers E[Y(a) | U, X]
+- Z and W are conditionally independent given U and (A, X)
+- Z ⊥ Y | U, A, X (exclusion on Z)
+- W ⊥ A | U, X (exclusion on W)
+- Z is relevant for W given A, X (bridge first stage)
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| First-stage (Z → W) too weak | `statspai.AssumptionWarning` | Try richer Z or more proxies; without first-stage strength the bridge is underidentified. | `sp.iv` |
+| Proxies collapse to nearly-constant | `statspai.DataInsufficient` | Proxy variation insufficient — redesign measurement or fall back to sensitivity (sp.sensemakr). | `sp.sensemakr` |
+| Estimate highly sensitive to bridge specification | `statspai.AssumptionWarning` | Report multiple bridge families; compare with sp.negative_control_outcome / _exposure. | `sp.negative_control_outcome` |
+
+**Alternatives (ranked)**
+- `sp.negative_control_outcome`
+- `sp.negative_control_exposure`
+- `sp.double_negative_control`
+- `sp.iv`
+- `sp.sensemakr`
+
+**Typical minimum N**: 1000
+
+<!-- AGENT-BLOCK-END -->

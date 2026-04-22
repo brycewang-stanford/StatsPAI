@@ -562,7 +562,7 @@ def _build_registry():
                 alternative="sp.bounds",
             ),
         ],
-        alternatives=["rd_honest", "rd_donut", "bounds"],
+        alternatives=["rd_honest", "rdrbounds", "bounds"],
         typical_n_min=500,
     ))
 
@@ -656,7 +656,47 @@ def _build_registry():
         returns="CausalResult",
         example='sp.dml(df, y="wage", treat="training", covariates=["age","edu"], model="plr")',
         tags=["dml", "ml", "causal", "semiparametric", "iivm", "plr", "irm", "pliv"],
-        reference="Chernozhukov et al. (2018)",
+        reference="Chernozhukov et al. (2018) Econometrics Journal",
+        pre_conditions=[
+            "data is tabular (DataFrame); covariates include all confounders conditional on which unconfoundedness holds",
+            "cross-fitting folds ≥ 2 (default 5) — more folds → lower variance, higher compute",
+            "for irm / iivm: treatment (and for iivm: instrument) is binary 0/1",
+            "for pliv / iivm: instrument column supplied",
+        ],
+        assumptions=[
+            "Unconfoundedness: Y(d) ⊥ D | X (conditional ignorability)",
+            "Overlap: 0 < P(D=1 | X) < 1 for the estimand support (strong for IRM)",
+            "Nuisance-function estimators converge at op(n^{-1/4}) — fast enough that orthogonal moments give √n CATE",
+            "For IV variants (PLIV/IIVM): relevance + exclusion + monotonicity",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Extreme propensity scores (≈ 0 or 1)",
+                exception="statspai.AssumptionViolation",
+                remedy="Trim sample to 0.05 < e(x) < 0.95 or use overlap weights (sp.overlap_weights).",
+                alternative="sp.overlap_weights",
+            ),
+            FailureMode(
+                symptom="Nuisance models cross-val R² near zero",
+                exception="statspai.AssumptionWarning",
+                remedy="Nuisances not learnable — DML bias guarantees don't apply; re-featurize or pick a different model family.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="Large Monte-Carlo variance across folds (n_rep > 1)",
+                exception="statspai.NumericalInstability",
+                remedy="Increase n_rep to 10+ and aggregate by median; check for leakage.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="IIVM first-stage compliance rate near zero",
+                exception="statspai.AssumptionWarning",
+                remedy="Instrument too weak for LATE; fall back to Anderson-Rubin inference.",
+                alternative="sp.anderson_rubin_ci",
+            ),
+        ],
+        alternatives=["metalearner", "causal_forest", "tmle", "aipw"],
+        typical_n_min=500,
     ))
 
     register(FunctionSpec(
@@ -671,7 +711,41 @@ def _build_registry():
         returns="CausalResult",
         example='sp.causal_forest("y ~ treat | x1 + x2 + x3", data=df)',
         tags=["forest", "cate", "heterogeneous", "ml"],
-        reference="Athey, Tibshirani, Wager (2019)",
+        reference="Athey, Tibshirani & Wager (2019) Annals of Statistics",
+        pre_conditions=[
+            "formula uses pipe separator: 'y ~ treatment | x_1 + x_2 + ...'",
+            "treatment is binary 0/1 (use sp.multi_arm_forest for multi-valued)",
+            "covariates are numeric; encode categoricals beforehand",
+            "n ≥ ~1000 for stable CATE — forests are data-hungry",
+        ],
+        assumptions=[
+            "Unconfoundedness: Y(d) ⊥ D | X",
+            "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
+            "Honest splitting: splits and estimates use disjoint samples (enforced by default)",
+            "Smoothness: CATE is Lipschitz in X (forests approximate smooth functions)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Calibration test (sp.calibration_test) rejects",
+                exception="statspai.AssumptionViolation",
+                remedy="CATE predictions are miscalibrated — increase n_trees, add variables, or switch to a DR-Learner.",
+                alternative="sp.metalearner",
+            ),
+            FailureMode(
+                symptom="Variance of CATE estimates too large to be useful",
+                exception="statspai.DataInsufficient",
+                remedy="Need more observations or narrower conditioning set; consider GATE on discrete subgroups.",
+                alternative="sp.gate_test",
+            ),
+            FailureMode(
+                symptom="Extreme propensity scores in part of the covariate space",
+                exception="statspai.AssumptionViolation",
+                remedy="Trim to overlap region via sp.trimming or restrict estimand to overlap support.",
+                alternative="sp.trimming",
+            ),
+        ],
+        alternatives=["metalearner", "dml", "multi_arm_forest", "iv_forest"],
+        typical_n_min=1000,
     ))
 
     register(FunctionSpec(
@@ -688,7 +762,41 @@ def _build_registry():
         returns="Meta-learner result with CATE predictions",
         example='sp.metalearner(df, y="outcome", treatment="treat", covariates=["x1","x2"], method="x")',
         tags=["metalearner", "cate", "heterogeneous", "s-learner", "t-learner", "x-learner"],
-        reference="Kunzel et al. (2019)",
+        reference="Künzel, Sekhon, Bickel & Yu (2019) PNAS; Nie & Wager (2021) Biometrika",
+        pre_conditions=[
+            "binary treatment (0/1)",
+            "covariates numeric; categoricals encoded",
+            "enough treated AND control to train separate outcome models (T/X/DR-Learner)",
+            "n ≥ 500 for S/T; n ≥ 1000 for X/R/DR (they do 2+ learning steps)",
+        ],
+        assumptions=[
+            "Unconfoundedness: Y(d) ⊥ D | X",
+            "Overlap: 0 < P(D=1 | X) < 1",
+            "For R-Learner / DR-Learner: orthogonality between treatment residual and outcome residual",
+            "Base learner expressivity adequate for the true CATE function",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Large divergence across learner types",
+                exception="statspai.AssumptionWarning",
+                remedy="Use sp.compare_metalearners to identify which learner is biased; DR-Learner is safest under model misspecification.",
+                alternative="sp.compare_metalearners",
+            ),
+            FailureMode(
+                symptom="S-Learner estimates near zero regardless of true effect",
+                exception="statspai.AssumptionWarning",
+                remedy="S-Learner regularization smooths treatment coefficient toward zero; use T/X/DR instead.",
+                alternative="sp.metalearner",
+            ),
+            FailureMode(
+                symptom="X-Learner fails when treated group is very small",
+                exception="statspai.DataInsufficient",
+                remedy="X-Learner needs well-identified control-outcome model; fall back to T-Learner or weighted T-Learner.",
+                alternative="sp.metalearner",
+            ),
+        ],
+        alternatives=["causal_forest", "dml", "tmle", "bcf"],
+        typical_n_min=500,
     ))
 
     register(FunctionSpec(
@@ -705,6 +813,47 @@ def _build_registry():
         returns="MatchEstimator result",
         example='sp.match(df, treatment="treat", outcome="y", covariates=["x1","x2"])',
         tags=["matching", "propensity", "psm", "treatment"],
+        reference="Rosenbaum & Rubin (1983); Ho et al. (2007) Political Analysis; Stuart (2010) Statistical Science",
+        pre_conditions=[
+            "binary treatment 0/1",
+            "covariates are pre-treatment (temporally prior to D)",
+            "enough control units for each treated unit under the chosen method (k:1 matching)",
+            "covariates numeric; categoricals one-hot or handled by caliper/mahalanobis",
+        ],
+        assumptions=[
+            "Unconfoundedness / CIA: Y(d) ⊥ D | X",
+            "Overlap / common support: treated X-values are in the control X-support",
+            "SUTVA: no interference between matched units",
+            "Covariates are selected before looking at outcomes (no post-treatment conditioning)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Covariate imbalance after matching (max |SMD| > 0.1)",
+                exception="statspai.AssumptionViolation",
+                remedy="Re-match with stricter caliper, add interactions, or switch to sp.ebalance (entropy balancing).",
+                alternative="sp.ebalance",
+            ),
+            FailureMode(
+                symptom="Poor propensity score overlap (density plots, treated mass where controls are sparse)",
+                exception="statspai.AssumptionViolation",
+                remedy="Apply sp.trimming (Crump 2009) or redefine the estimand to the overlap region.",
+                alternative="sp.trimming",
+            ),
+            FailureMode(
+                symptom="Too few matched controls per treated unit",
+                exception="statspai.DataInsufficient",
+                remedy="Relax caliper, allow with-replacement, or use entropy balancing / overlap weights.",
+                alternative="sp.ebalance",
+            ),
+            FailureMode(
+                symptom="Results highly sensitive to match specification",
+                exception="statspai.AssumptionWarning",
+                remedy="Report sp.rosenbaum_bounds (sensitivity to unobserved confounding) and compare multiple matching methods.",
+                alternative="sp.rosenbaum_bounds",
+            ),
+        ],
+        alternatives=["ebalance", "cbps", "optimal_match", "sbw", "ipw"],
+        typical_n_min=200,
     ))
 
     register(FunctionSpec(
@@ -720,7 +869,34 @@ def _build_registry():
         returns="TMLE result",
         example='sp.tmle(df, y="outcome", treatment="treat", covariates=["x1","x2","x3"])',
         tags=["tmle", "doubly-robust", "semiparametric"],
-        reference="van der Laan & Rose (2011)",
+        reference="van der Laan & Rose (2011) Targeted Learning",
+        pre_conditions=[
+            "binary treatment 0/1",
+            "covariates comprise the confounding set",
+            "n ≥ 500 for asymptotic efficiency",
+        ],
+        assumptions=[
+            "Unconfoundedness: Y(d) ⊥ D | X",
+            "Overlap: 0 < P(D=1 | X) < 1 on the estimand support",
+            "Consistent estimation of at least one of Q(a, x) = E[Y|A, X] or g(x) = P(A=1|X) (double robustness)",
+            "Super-learner candidates include reasonable approximations",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Extreme propensity scores (ATE IF denominator ≈ 0)",
+                exception="statspai.NumericalInstability",
+                remedy="Bound propensity scores away from 0/1 (e.g. 0.025 / 0.975) or trim.",
+                alternative="sp.trimming",
+            ),
+            FailureMode(
+                symptom="Super-learner cross-validated risk not improving over baseline",
+                exception="statspai.AssumptionWarning",
+                remedy="Nuisances not learnable; widen the candidate library or use stronger base learners.",
+                alternative="",
+            ),
+        ],
+        alternatives=["dml", "aipw", "metalearner", "ltmle"],
+        typical_n_min=500,
     ))
 
     # -- Panel / Time Series ------------------------------------------- #
@@ -1189,6 +1365,47 @@ def _build_registry():
         example='sp.proximal(df, y="y", treat="d", proxy_z=["z"], proxy_w=["w"])',
         tags=["proximal", "unobserved-confounding", "bridge", "causal", "2sls"],
         reference="Tchetgen Tchetgen et al. (2020); Miao, Geng & Tchetgen Tchetgen (2018)",
+        pre_conditions=[
+            "at least one treatment-side proxy Z (independent of outcome given U, X)",
+            "at least one outcome-side proxy W (independent of treatment given U, X)",
+            "proxy_z and proxy_w measure the same unmeasured confounder U from different angles",
+            "n ≥ 1000 — 2SLS on proxies is noisy",
+        ],
+        assumptions=[
+            "Existence of an outcome bridge function h(w, a, x) that recovers E[Y(a) | U, X]",
+            "Z and W are conditionally independent given U and (A, X)",
+            "Z ⊥ Y | U, A, X (exclusion on Z)",
+            "W ⊥ A | U, X (exclusion on W)",
+            "Z is relevant for W given A, X (bridge first stage)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="First-stage (Z → W) too weak",
+                exception="statspai.AssumptionWarning",
+                remedy="Try richer Z or more proxies; without first-stage strength the bridge is underidentified.",
+                alternative="sp.iv",
+            ),
+            FailureMode(
+                symptom="Proxies collapse to nearly-constant",
+                exception="statspai.DataInsufficient",
+                remedy="Proxy variation insufficient — redesign measurement or fall back to sensitivity (sp.sensemakr).",
+                alternative="sp.sensemakr",
+            ),
+            FailureMode(
+                symptom="Estimate highly sensitive to bridge specification",
+                exception="statspai.AssumptionWarning",
+                remedy="Report multiple bridge families; compare with sp.negative_control_outcome / _exposure.",
+                alternative="sp.negative_control_outcome",
+            ),
+        ],
+        alternatives=[
+            "negative_control_outcome",
+            "negative_control_exposure",
+            "double_negative_control",
+            "iv",
+            "sensemakr",
+        ],
+        typical_n_min=1000,
     ))
 
     register(FunctionSpec(
@@ -1215,6 +1432,333 @@ def _build_registry():
         example='sp.principal_strat(df, y="y", treat="d", strata="s")',
         tags=["principal-stratification", "sace", "late", "compliance", "causal"],
         reference="Frangakis & Rubin (2002); Zhang & Rubin (2003); Ding & Lu (2017)",
+        pre_conditions=[
+            "binary treatment",
+            "binary post-treatment stratum variable (compliance, survival, employment, …)",
+            "covariates required when method='principal_score' (for Ding-Lu weighting)",
+            "n ≥ 300 per (treat × stratum) cell for stable bounds",
+        ],
+        assumptions=[
+            "Monotonicity (no defiers) for method='monotonicity'",
+            "Principal ignorability for method='principal_score' (strata ⊥ Y(d) | X)",
+            "SUTVA and exclusion restriction for the never-takers / always-takers interpretation",
+            "Overlap in the principal score when method='principal_score'",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Zhang-Rubin bounds include 0 and both signs",
+                exception="statspai.AssumptionWarning",
+                remedy="Strata partition too weak for point identification — add covariates and use method='principal_score'.",
+                alternative="sp.principal_strat",
+            ),
+            FailureMode(
+                symptom="Complier share near zero",
+                exception="statspai.DataInsufficient",
+                remedy="Low compliance — report only bounds; LATE SE explodes.",
+                alternative="sp.bounds",
+            ),
+            FailureMode(
+                symptom="Principal score fails overlap",
+                exception="statspai.AssumptionViolation",
+                remedy="Principal-score inversion is unstable — restrict to overlap region or fall back to method='monotonicity'.",
+                alternative="sp.trimming",
+            ),
+        ],
+        alternatives=["survivor_average_causal_effect", "iv", "bounds"],
+        typical_n_min=500,
+    ))
+
+    register(FunctionSpec(
+        name="mediate",
+        category="causal",
+        description=(
+            "Mediation analysis (Imai-Keele-Tingley 2010). Decomposes the "
+            "total effect into natural direct effect (NDE) and natural "
+            "indirect effect (NIE) via an interventional or sequential-"
+            "ignorability identification strategy."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome"),
+            ParamSpec("treat", "str", True, description="Binary treatment"),
+            ParamSpec("mediator", "str", True, description="Mediator variable"),
+            ParamSpec("covariates", "list", False, description="Pre-treatment confounders"),
+            ParamSpec("n_sim", "int", False, 1000, "Monte Carlo sims for NDE/NIE"),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="MediationAnalysis with .NDE, .NIE, .total, .proportion_mediated",
+        example='sp.mediate(df, y="y", treat="d", mediator="m")',
+        tags=["mediation", "NDE", "NIE", "imai-keele-tingley", "causal"],
+        reference="Imai, Keele & Tingley (2010) Psych Methods; VanderWeele (2015) Explanation in Causal Inference",
+        pre_conditions=[
+            "binary treatment 0/1",
+            "mediator is a post-treatment variable causally between treat and y",
+            "pre-treatment covariates capture confounding for T–Y, M–Y, T–M",
+            "n ≥ 500 for stable NDE/NIE bootstrap CIs",
+        ],
+        assumptions=[
+            "Sequential ignorability: (Y(t,m), M(t)) ⊥ T | X; Y(t,m) ⊥ M | T, X",
+            "No post-treatment confounder of the mediator-outcome relationship (classical Imai-Keele-Tingley)",
+            "SUTVA on both mediator and outcome",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="NDE + NIE do not sum to total effect (difference vs product decomposition)",
+                exception="statspai.AssumptionWarning",
+                remedy="Nonlinear / interactive mediator model — use sp.mediate_interventional or four-way decomposition.",
+                alternative="sp.mediate_interventional",
+            ),
+            FailureMode(
+                symptom="Sensitivity to unobserved T-M / M-Y confounder unknown",
+                exception="statspai.AssumptionWarning",
+                remedy="Always report sp.mediate_sensitivity (Imai-Keele-Yamamoto ρ bound).",
+                alternative="sp.mediate_sensitivity",
+            ),
+            FailureMode(
+                symptom="Post-treatment confounder L suspected",
+                exception="statspai.AssumptionViolation",
+                remedy="Use sp.four_way_decomposition (VanderWeele 2014) which handles L.",
+                alternative="sp.four_way_decomposition",
+            ),
+        ],
+        alternatives=[
+            "mediate_sensitivity",
+            "mediate_interventional",
+            "four_way_decomposition",
+            "proximal",
+        ],
+        typical_n_min=500,
+    ))
+
+    register(FunctionSpec(
+        name="bartik",
+        category="causal",
+        description=(
+            "Bartik / shift-share IV estimator (Adão-Kolesár-Morales 2019; "
+            "Borusyak-Hull-Jaravel 2022). Uses pre-period industry / group "
+            "shares × exogenous shocks as an instrument for local outcome "
+            "exposure."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome (e.g. local wage growth)"),
+            ParamSpec("shares", "str", True, description="Pre-period share column (e.g. industry share)"),
+            ParamSpec("shocks", "str", True, description="Shock column (e.g. industry-level change)"),
+            ParamSpec("unit", "str", True, description="Region / unit identifier"),
+            ParamSpec("time", "str", False, description="Time column (panel)"),
+            ParamSpec("covariates", "list", False),
+        ],
+        returns="BartikIV result",
+        example=(
+            'sp.bartik(df, y="wage_growth", shares="industry_share_t0", '
+            'shocks="industry_shock", unit="region", time="year")'
+        ),
+        tags=["bartik", "shift-share", "iv", "causal", "labor", "trade"],
+        reference="Adão, Kolesár & Morales (2019) QJE; Borusyak, Hull & Jaravel (2022) ReStud",
+        pre_conditions=[
+            "pre-period shares are pre-determined (measured strictly before the outcome window)",
+            "shocks are as-good-as-random conditional on unit-level controls",
+            "≥ 50 regions for AKM shift-share SE to be well-sized",
+            "enough industries / groups (n_shares × avg_share_concentration not too concentrated)",
+        ],
+        assumptions=[
+            "Exogeneity of shocks conditional on pre-period exposure structure (Borusyak-Hull-Jaravel)",
+            "Shock-level IV: shocks are independent of region-level unobserved trends",
+            "Asymptotic framework: many shocks (L → ∞) — check via sp.ssaggregate Herfindahl",
+            "First-stage relevance: Bartik predicts local exposure",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Herfindahl of shares too concentrated (one industry dominates)",
+                exception="statspai.AssumptionWarning",
+                remedy="Shift-share SE unreliable — use Adão-Kolesár-Morales shock-level SE via sp.shift_share_se.",
+                alternative="sp.shift_share_se",
+            ),
+            FailureMode(
+                symptom="First-stage F < 10",
+                exception="statspai.AssumptionWarning",
+                remedy="Shares don't predict exposure enough — report weak-IV-robust CI (sp.anderson_rubin_ci).",
+                alternative="sp.anderson_rubin_ci",
+            ),
+            FailureMode(
+                symptom="Shocks correlate with pre-trends",
+                exception="statspai.AssumptionViolation",
+                remedy="Shock exogeneity fails — drop the violating shock dimension or add trend controls.",
+                alternative="",
+            ),
+        ],
+        alternatives=["iv", "shift_share_se", "shift_share_political",
+                      "shift_share_political_panel"],
+        typical_n_min=100,
+    ))
+
+    register(FunctionSpec(
+        name="bayes_rd",
+        category="bayes",
+        description=(
+            "Bayesian sharp Regression Discontinuity — full posterior over "
+            "the RD jump via local polynomial with prior regularisation on "
+            "bandwidth and bias-correction slopes. Reports HDI, rhat, ESS, "
+            "divergences."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("x", "str", True, description="Running variable"),
+            ParamSpec("c", "float", False, 0.0, "Cutoff value"),
+            ParamSpec("p", "int", False, 1, "Polynomial order"),
+            ParamSpec("kernel", "str", False, "triangular",
+                      enum=["triangular", "epanechnikov", "uniform"]),
+            ParamSpec("draws", "int", False, 2000),
+            ParamSpec("tune", "int", False, 1000),
+            ParamSpec("chains", "int", False, 4),
+        ],
+        returns="CausalResult with .posterior, .rhat, .ess_bulk, .divergences",
+        example='sp.bayes_rd(df, y="y", x="running_var", c=0.0)',
+        tags=["bayes", "rd", "sharp", "posterior", "bandwidth"],
+        reference="Chib & Jacobi (2016); Branson et al. (2019)",
+        pre_conditions=[
+            "pymc installed",
+            "running variable x is continuous with mass on both sides of c",
+            "enough observations within the optimal bandwidth (≥ 50 on each side)",
+            "draws × chains ≥ 8000 for reliable tail HDI",
+        ],
+        assumptions=[
+            "Continuity at the cutoff (same as frequentist RD)",
+            "No manipulation / bunching at c (McCrary / rddensity clean)",
+            "Local polynomial + prior-regularised bandwidth captures the CEF",
+            "HMC convergence within thresholds",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="R-hat > 1.01 or divergences > 0",
+                exception="statspai.ConvergenceFailure",
+                remedy="Increase tune / target_accept; non-centered polynomial coefficients.",
+                alternative="sp.rdrobust",
+            ),
+            FailureMode(
+                symptom="Posterior mass outside the plausible effect range",
+                exception="statspai.AssumptionWarning",
+                remedy="Prior too wide — report sensitivity to prior_sd over {1, 5, 20} × OLS jump SE.",
+                alternative="",
+            ),
+        ],
+        alternatives=["rdrobust", "rd_honest", "bayes_fuzzy_rd"],
+        typical_n_min=500,
+    ))
+
+    register(FunctionSpec(
+        name="bayes_fuzzy_rd",
+        category="bayes",
+        description=(
+            "Bayesian fuzzy RD: joint model of first-stage jump in "
+            "treatment probability and outcome jump, yielding posterior "
+            "over the LATE at the cutoff (Wald ratio)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treatment", "str", True, description="Take-up / treatment received"),
+            ParamSpec("x", "str", True, description="Running variable"),
+            ParamSpec("c", "float", False, 0.0, "Cutoff"),
+            ParamSpec("p", "int", False, 1, "Polynomial order"),
+            ParamSpec("draws", "int", False, 2000),
+            ParamSpec("tune", "int", False, 1000),
+            ParamSpec("chains", "int", False, 4),
+        ],
+        returns="CausalResult with .posterior, .rhat, .ess_bulk, .divergences",
+        example='sp.bayes_fuzzy_rd(df, y="y", treatment="d", x="score", c=0.5)',
+        tags=["bayes", "rd", "fuzzy", "late", "wald"],
+        reference="Geneletti, O'Keeffe & Baio (2015); Chib & Jacobi (2016)",
+        pre_conditions=[
+            "pymc installed",
+            "running variable continuous on both sides of c",
+            "first-stage take-up probability must jump at c (verify with sp.rdrobust on the treatment)",
+            "enough draws to resolve Wald-ratio tail mass",
+        ],
+        assumptions=[
+            "Continuity of potential outcomes at c",
+            "First-stage relevance (posterior on take-up jump concentrated away from 0)",
+            "Exclusion / monotonicity: running variable affects outcome only via treatment at c",
+            "HMC convergence",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Posterior on first-stage take-up jump straddles zero",
+                exception="statspai.AssumptionWarning",
+                remedy="Weak fuzzy first stage — report posterior CI width; Wald-ratio divergence symptom.",
+                alternative="sp.anderson_rubin_ci",
+            ),
+            FailureMode(
+                symptom="Divergences > 0 near the cutoff",
+                exception="statspai.ConvergenceFailure",
+                remedy="Reparameterize ratio as log-ratio or raise target_accept to 0.98.",
+                alternative="sp.rdrobust",
+            ),
+        ],
+        alternatives=["rdrobust", "bayes_rd", "anderson_rubin_ci"],
+        typical_n_min=800,
+    ))
+
+    register(FunctionSpec(
+        name="bayes_mte",
+        category="bayes",
+        description=(
+            "Bayesian Marginal Treatment Effect (Heckman-Vytlacil 2005). "
+            "Full posterior over the MTE curve under essential heterogeneity, "
+            "with bivariate-normal latent errors. Derives ATE / ATT / LATE / "
+            "PRTE as posterior linear functionals."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treatment", "str", True, description="Binary treatment"),
+            ParamSpec("instrument", "str", True, description="Instrument(s)"),
+            ParamSpec("covariates", "list", False),
+            ParamSpec("draws", "int", False, 2000),
+            ParamSpec("tune", "int", False, 1000),
+            ParamSpec("chains", "int", False, 4),
+            ParamSpec("n_grid", "int", False, 20, "Grid points for MTE curve"),
+        ],
+        returns="CausalResult with .mte_grid, .posterior, .rhat, .divergences",
+        example='sp.bayes_mte(df, y="y", treatment="d", instrument="z")',
+        tags=["bayes", "mte", "heckman-vytlacil", "hte", "late"],
+        reference="Heckman & Vytlacil (2005, 2007); Brinch, Mogstad & Wiswall (2017)",
+        pre_conditions=[
+            "pymc installed",
+            "binary treatment + at least one continuous instrument",
+            "enough variation in the propensity score (≥ 3 instrument values or continuous)",
+            "n ≥ 500 for stable MTE posterior across grid points",
+        ],
+        assumptions=[
+            "Binary treatment, latent index model Y = T Y₁ + (1-T) Y₀",
+            "Instrument relevance: propensity score varies",
+            "Monotonicity / LATE assumption (no defiers)",
+            "Joint normality of structural errors (bivariate normal for tractable MTE)",
+            "Support of propensity score determines which estimands (ATE/ATT/PRTE) are identified",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Propensity-score support thin — ATE endpoints {0,1} not covered",
+                exception="statspai.IdentificationFailure",
+                remedy="Only report estimands on the supported P-range; ATE not identified.",
+                alternative="sp.iv",
+            ),
+            FailureMode(
+                symptom="R-hat > 1.01 or divergences > 0",
+                exception="statspai.ConvergenceFailure",
+                remedy="Increase tune and target_accept; Cholesky-parameterise the bivariate error covariance.",
+                alternative="sp.bayes_iv",
+            ),
+            FailureMode(
+                symptom="Posterior MTE curve wildly oscillates",
+                exception="statspai.NumericalInstability",
+                remedy="Grid too fine for data support — reduce n_grid or use GP smoothing.",
+                alternative="",
+            ),
+        ],
+        alternatives=["iv", "bayes_iv", "deepiv", "metalearner"],
+        typical_n_min=500,
     ))
 
     # -- v0.9.16 breadth-expansion: Target Trial Emulation ----------- #
@@ -2496,6 +3040,161 @@ def _build_registry():
         ),
         tags=["bayes", "dml", "double_ml", "posterior"],
         reference="Chernozhukov et al. (arXiv:2508.12688, 2025).",
+        pre_conditions=[
+            "prior_sd is weakly informative relative to the expected effect scale",
+            "for mode='full': pymc installed (sp.bayes extra)",
+            "treatment is numeric (binary for irm, continuous for plr)",
+        ],
+        assumptions=[
+            "Standard DML unconfoundedness + overlap (see sp.dml)",
+            "Normal-Normal prior/likelihood update valid on the DML asymptotic linearization (mode='conjugate')",
+            "Weak prior dominance: posterior concentrates around DML point when prior_sd is large",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Strong prior shifts posterior noticeably from DML point",
+                exception="statspai.AssumptionWarning",
+                remedy="Report sensitivity to prior_sd over [1, 10, 100] × DML SE; document prior choice.",
+                alternative="sp.dml",
+            ),
+            FailureMode(
+                symptom="Full-mode MCMC R-hat > 1.01 or ESS < 400",
+                exception="statspai.ConvergenceFailure",
+                remedy="Increase tune / draws; reparameterise to non-centered; check divergences.",
+                alternative="sp.bayes_dml",
+            ),
+        ],
+        alternatives=["dml", "bayes_did", "bayes_mte"],
+        typical_n_min=500,
+    ))
+
+    register(FunctionSpec(
+        name="bayes_did",
+        category="bayes",
+        description=(
+            "Bayesian Difference-in-Differences with staggered adoption — "
+            "hierarchical ATT(g,t) posterior with optional cohort / unit "
+            "random effects. Full MCMC with PyMC; reports R-hat, ESS, "
+            "divergences, and 94% HDI."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome"),
+            ParamSpec("g", "str", True, description="First-treatment-period column (0 = never-treated)"),
+            ParamSpec("t", "str", True, description="Time period column"),
+            ParamSpec("i", "str", True, description="Unit identifier"),
+            ParamSpec("draws", "int", False, 2000, "Post-warmup draws per chain"),
+            ParamSpec("tune", "int", False, 1000, "Warmup draws per chain"),
+            ParamSpec("chains", "int", False, 4, "Number of parallel chains"),
+            ParamSpec("target_accept", "float", False, 0.9, "HMC target acceptance rate"),
+        ],
+        returns="CausalResult with .posterior, .rhat, .ess_bulk, .ess_tail, .divergences",
+        example=(
+            "sp.bayes_did(df, y='wage', g='first_treat', t='year', i='worker_id')"
+        ),
+        tags=["bayes", "did", "staggered", "hierarchical", "posterior"],
+        reference="Callaway & Sant'Anna (2021); Gelman & Hill (2006) hierarchical models",
+        pre_conditions=[
+            "pymc installed (pip install 'statspai[bayes]')",
+            "staggered-panel shape: unit × time × outcome with g-column",
+            "≥ 2 pre-treatment periods per cohort",
+            "enough draws for posterior summaries (≥ 2000 post-warmup)",
+        ],
+        assumptions=[
+            "Parallel trends (conditional on covariates if supplied)",
+            "No anticipation (or modelled via explicit anticipation parameter)",
+            "Hierarchical prior regularises small cohorts toward the grand mean",
+            "HMC / NUTS reaches stationary distribution (R-hat ≤ 1.01, ESS ≥ 400)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Max R-hat > 1.01",
+                exception="statspai.ConvergenceFailure",
+                remedy="Raise tune ≥ 4000 and target_accept ≥ 0.95; check priors for weak identification.",
+                alternative="sp.callaway_santanna",
+            ),
+            FailureMode(
+                symptom="Min bulk ESS < 400",
+                exception="statspai.ConvergenceWarning",
+                remedy="Increase draws or chains; consider reparameterization.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="Post-warmup divergences > 0",
+                exception="statspai.ConvergenceFailure",
+                remedy="Raise target_accept to 0.95–0.99; switch to non-centered random effects.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="Posterior concentrates at a single cohort",
+                exception="statspai.DataInsufficient",
+                remedy="Cohort sizes too uneven — aggregate small cohorts or use partial pooling strength.",
+                alternative="sp.callaway_santanna",
+            ),
+        ],
+        alternatives=["callaway_santanna", "did", "bayes_dml", "bayes_mte"],
+        typical_n_min=200,
+    ))
+
+    register(FunctionSpec(
+        name="bayes_iv",
+        category="bayes",
+        description=(
+            "Bayesian instrumental variables with full posterior over "
+            "structural parameters. Handles weak instruments via shrinkage "
+            "priors and reports posterior mass near zero on the first-stage "
+            "coefficient."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome"),
+            ParamSpec("treatment", "str", True, description="Endogenous treatment"),
+            ParamSpec("instrument", "str", True, description="Instrument(s) — str or list"),
+            ParamSpec("covariates", "list", False, description="Exogenous controls"),
+            ParamSpec("draws", "int", False, 2000),
+            ParamSpec("tune", "int", False, 1000),
+            ParamSpec("chains", "int", False, 4),
+        ],
+        returns="CausalResult with .posterior, .rhat, .ess_bulk, .divergences",
+        example=(
+            "sp.bayes_iv(df, y='wage', treatment='education', "
+            "instrument='quarter_of_birth')"
+        ),
+        tags=["bayes", "iv", "2sls", "weak-iv", "posterior"],
+        reference="Kleibergen & Zivot (2003); Chen et al. (2018) weak-IV Bayesian",
+        pre_conditions=[
+            "pymc installed",
+            "instrument column(s) exist; exclusion restriction is defensible a priori",
+            "draws × chains ≥ 8000 for reliable tail quantiles",
+        ],
+        assumptions=[
+            "Relevance (posterior on first-stage coef concentrated away from 0)",
+            "Exclusion: instrument → outcome only through treatment",
+            "Monotonicity (for LATE interpretation)",
+            "HMC convergence diagnostics within thresholds",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Posterior on first-stage coef straddles zero",
+                exception="statspai.AssumptionWarning",
+                remedy="Weak instrument — report posterior credible interval width and caveat LATE interpretation.",
+                alternative="sp.anderson_rubin_ci",
+            ),
+            FailureMode(
+                symptom="Divergences > 0",
+                exception="statspai.ConvergenceFailure",
+                remedy="Raise target_accept; use Cholesky-parameterized bivariate error.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="R-hat > 1.01",
+                exception="statspai.ConvergenceFailure",
+                remedy="Longer tune; non-centered structural error parameterization.",
+                alternative="",
+            ),
+        ],
+        alternatives=["iv", "anderson_rubin_ci", "deepiv", "bayes_mte"],
+        typical_n_min=300,
     ))
 
     # -- Multivariable / mediation / BMA MR -------------------------- #
@@ -2664,6 +3363,35 @@ def _build_registry():
         tags=["mendelian_randomization", "mr_cml", "constrained_ml",
               "sparse_pleiotropy", "bic"],
         reference="Xue, Shen & Pan (2021) AJHG 108(7).",
+    ))
+    register(FunctionSpec(
+        name="mr_raps",
+        category="mendelian",
+        description=(
+            "MR-RAPS: Robust Adjusted Profile Score for two-sample "
+            "summary-data MR (Zhao et al. 2020, Annals of Statistics). "
+            "Profile-likelihood MR with Tukey biweight loss + weak-"
+            "instrument correction; resistant to a small fraction of "
+            "gross pleiotropy outliers. Complements GRAPPLE (Gaussian) "
+            "with a robust-loss variant of the same structural model."
+        ),
+        params=[
+            ParamSpec("beta_exposure", "ndarray", True),
+            ParamSpec("beta_outcome", "ndarray", True),
+            ParamSpec("se_exposure", "ndarray", True),
+            ParamSpec("se_outcome", "ndarray", True),
+            ParamSpec("tuning_c", "float", False, 4.685),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("beta_init", "float", False),
+            ParamSpec("tau2_init", "float", False, 1e-4),
+        ],
+        returns="MRRapsResult",
+        tags=["mendelian_randomization", "mr_raps",
+              "robust_profile_score", "pleiotropy", "outlier_resistant"],
+        reference=(
+            "Zhao, Wang, Hemani, Bowden & Small (2020) "
+            "Annals of Statistics 48(3)."
+        ),
     ))
 
     # -- TARGET 21-item checklist ------------------------------------ #
@@ -2989,6 +3717,92 @@ def _build_registry():
                  'covariates=[f"x{j}" for j in range(10)])'),
         tags=["dml", "causal", "model_averaging", "ensemble", "plr"],
         reference="Ahrens, Hansen, Kurz, Schaffer, Wiemann (2025). JAE 40(3):381-402. DOI 10.1002/jae.3103.",
+    ))
+
+    # -- v1.7 long-panel DML (Semenova-Chernozhukov 2023) -------------- #
+    register(FunctionSpec(
+        name="dml_panel",
+        category="causal",
+        description=(
+            "Long-panel Double/Debiased ML (Semenova-Chernozhukov 2023 "
+            "simplified). Absorbs unit (and optional time) fixed "
+            "effects via within-transform, cross-fits ML nuisance "
+            "learners with folds that split units, and reports "
+            "cluster-robust SE at the unit level. PLR moment "
+            "(continuous or binary treatment)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome column"),
+            ParamSpec("treat", "str", True, description="Treatment column"),
+            ParamSpec("covariates", "list", True,
+                      description="Covariate columns X_it"),
+            ParamSpec("unit", "str", True,
+                      description="Unit ID column (FE + clustering)"),
+            ParamSpec("time", "str", False, None,
+                      description="Time column (required if include_time_fe)"),
+            ParamSpec("ml_g", "sklearn estimator", False,
+                      description="Outcome nuisance learner"),
+            ParamSpec("ml_m", "sklearn estimator", False,
+                      description="Treatment nuisance learner"),
+            ParamSpec("n_folds", "int", False, 5),
+            ParamSpec("include_time_fe", "bool", False, False),
+            ParamSpec("binary_treatment", "bool", False, False),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("seed", "int", False, 0),
+        ],
+        returns="DMLPanelResult",
+        example=(
+            'sp.dml_panel(df, y="log_wage", treat="union", '
+            'covariates=["exper","educ"], unit="pid", time="year", '
+            'include_time_fe=True)'
+        ),
+        tags=["dml", "causal", "panel", "fixed_effects",
+              "cluster_robust_se", "long_panel"],
+        reference=(
+            "Semenova & Chernozhukov (2023) Econometrics Journal 26(2); "
+            "Chernozhukov et al. (2018); Cameron & Miller (2015)."
+        ),
+        pre_conditions=[
+            "long panel: at least unit and outcome columns; include_time_fe=True needs time column",
+            "enough units (clusters) for cluster-robust SE — ≥ 30 ideally",
+            "enough periods per unit for within-transform to leave variation in the treatment",
+            "covariates are time-varying (pure time-invariant ones get absorbed by unit FE)",
+        ],
+        assumptions=[
+            "Conditional unconfoundedness within unit: E[ε_it | X_it, α_i, λ_t] = 0",
+            "Strict exogeneity conditional on covariates (weaker than standard FE)",
+            "Nuisance learners converge fast enough (op(n^{-1/4})) after within-transform",
+            "Cluster-robust inference valid: ≥ 30 units; no cross-unit dependence at t given X",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Few units (< 30) — cluster-robust SE under-coverage",
+                exception="statspai.DataInsufficient",
+                remedy="Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 jackknife.",
+                alternative="sp.wild_cluster_bootstrap",
+            ),
+            FailureMode(
+                symptom="Within-unit variation in treatment is near zero",
+                exception="statspai.DataInsufficient",
+                remedy="Unit FE absorbs almost all treatment variation — switch to between estimator or cross-section.",
+                alternative="sp.dml",
+            ),
+            FailureMode(
+                symptom="Nuisance cross-val R² near zero on demeaned outcomes",
+                exception="statspai.AssumptionWarning",
+                remedy="ML nuisances not learnable on within-transformed data; use sp.panel FE or richer features.",
+                alternative="sp.panel",
+            ),
+            FailureMode(
+                symptom="Large residual serial correlation within unit",
+                exception="statspai.AssumptionWarning",
+                remedy="Cluster-robust SE handles within-unit correlation, but report Driscoll-Kraay (sp.panel robust='driscoll-kraay') if cross-sectional dependence likely.",
+                alternative="sp.panel",
+            ),
+        ],
+        alternatives=["dml", "panel", "msm", "bayes_dml"],
+        typical_n_min=500,
     ))
 
     register(FunctionSpec(
@@ -3540,8 +4354,8 @@ def _build_registry():
             ),
         ],
         alternatives=[
-            "sp.causal: workflow without paper rendering",
-            "sp.recommend: estimator selection only",
+            "causal",       # workflow without paper rendering
+            "recommend",    # estimator selection only
         ],
     ))
 
@@ -4041,6 +4855,49 @@ def _build_registry():
             "Verbanck et al. 2018; Hartwig et al. 2017; Sanderson et al. "
             "2019; Zuber et al. 2020."
         ),
+        pre_conditions=[
+            "SNP-summary statistics for exposure and outcome aligned by SNP",
+            "beta_exposure / beta_outcome / se_exposure / se_outcome arrays of equal length",
+            "≥ 10 genetic instruments for reliable IVW/median/mode; ≥ 20 for robust Egger intercept",
+            "mvmr needs SNP × exposure associations matrix",
+        ],
+        assumptions=[
+            "Relevance: SNPs predict exposure (F-statistic ≥ 10 per SNP or set-F)",
+            "Independence: SNPs ⊥ confounders of exposure-outcome",
+            "Exclusion restriction: SNPs affect outcome only through exposure (InSIDE for Egger; ≥ 50% valid for median; modal for mode-based)",
+            "Monotonicity when interpreting LATE on genetically-shifted subpopulation",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Egger intercept p < 0.05 — directional pleiotropy",
+                exception="statspai.AssumptionViolation",
+                remedy="Use weighted-median or mode-based estimator; report Egger intercept + I² as pleiotropy diagnostic.",
+                alternative="sp.mr_median",
+            ),
+            FailureMode(
+                symptom="Q-statistic rejects homogeneity (Cochran's Q p < 0.05)",
+                exception="statspai.AssumptionWarning",
+                remedy="Heterogeneity across SNPs — run sp.mr_presso to detect/remove outliers.",
+                alternative="sp.mr_presso",
+            ),
+            FailureMode(
+                symptom="Set-F < 10 (weak instruments in aggregate)",
+                exception="statspai.AssumptionWarning",
+                remedy="Weak-IV bias in IVW — use debiased IVW or LAP-type estimator (sp.mr_lap).",
+                alternative="sp.mr_lap",
+            ),
+            FailureMode(
+                symptom="Steiger test flags reverse causation",
+                exception="statspai.IdentificationFailure",
+                remedy="SNPs explain more outcome variance than exposure — direction of effect questionable.",
+                alternative="",
+            ),
+        ],
+        alternatives=[
+            "mr_ivw", "mr_egger", "mr_median", "mr_presso",
+            "mr_multivariable", "iv",
+        ],
+        typical_n_min=10,
     ))
 
     register(FunctionSpec(
@@ -4079,6 +4936,44 @@ def _build_registry():
             "Lei & Candès 2021 JRSS-B; Tibshirani et al. 2019 NeurIPS; "
             "Kim-Jeong-Barber-Lee 2024; Romano et al. 2019."
         ),
+        pre_conditions=[
+            "calibration sample disjoint from training sample (auto-split or user-supplied)",
+            "exchangeability between calibration and test distributions (weighted variants for covariate shift)",
+            "for CATE / ITE variants: unconfoundedness + overlap on covariates",
+            "≥ 500 calibration observations for reliable finite-sample coverage at alpha ≤ 0.1",
+        ],
+        assumptions=[
+            "Exchangeability of calibration and test points (base case)",
+            "For kind='weighted': known or estimable density ratio between calibration and test",
+            "For kind='cate' / 'ite': selection-on-observables with correct propensity / outcome model",
+            "For kind='interference': cluster-exchangeable exchangeability",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Calibration and test distributions differ (covariate shift)",
+                exception="statspai.AssumptionViolation",
+                remedy="Use kind='weighted' with estimated density ratios.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="Calibration set too small — intervals wide",
+                exception="statspai.DataInsufficient",
+                remedy="Increase calibration sample or raise alpha; coverage gets loose below ~100.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="Miscalibrated nuisance (propensity / outcome) for CATE/ITE",
+                exception="statspai.AssumptionWarning",
+                remedy="Use kind='debiased' which orthogonalises via DML-style nuisance handling.",
+                alternative="",
+            ),
+        ],
+        alternatives=[
+            "conformal_cate",
+            "weighted_conformal_prediction",
+            "conformal_counterfactual",
+        ],
+        typical_n_min=500,
     ))
 
     register(FunctionSpec(
@@ -4122,6 +5017,359 @@ def _build_registry():
             "Parmigiani et al. 2025; Bai 2022; Ding et al. 2025; "
             "Zhou et al. 2025; Zhao et al. 2026."
         ),
+        pre_conditions=[
+            "clustered data OR network / adjacency matrix",
+            "treatment varies within cluster (or exposure is well-defined on the network)",
+            "enough clusters (≥ 30) for cluster-robust inference",
+        ],
+        assumptions=[
+            "Partial interference (within-cluster spillover only) OR an explicit exposure mapping",
+            "SUTVA modulo the declared spillover structure",
+            "Correctly specified exposure function (e.g. fraction-treated, neighbour-share)",
+            "Overlap: positive probability of every (treatment × exposure) cell",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Few clusters (< 30) with cluster-level inference",
+                exception="statspai.DataInsufficient",
+                remedy="Use wild cluster bootstrap or permutation; CR3 jackknife for < 50.",
+                alternative="sp.wild_cluster_bootstrap",
+            ),
+            FailureMode(
+                symptom="Very few treated per cluster",
+                exception="statspai.DataInsufficient",
+                remedy="Saturation DID (Baird et al.) or cluster-level estimand instead of individual.",
+                alternative="sp.cluster_matched_pair",
+            ),
+            FailureMode(
+                symptom="Exposure mapping misspecified",
+                exception="statspai.AssumptionWarning",
+                remedy="Report sensitivity to multiple exposure functions (fraction / any / k-NN).",
+                alternative="sp.network_exposure",
+            ),
+        ],
+        alternatives=[
+            "network_exposure", "peer_effects", "cluster_matched_pair",
+            "cluster_cross_interference", "cluster_staggered_rollout",
+        ],
+        typical_n_min=500,
+    ))
+
+    # -- Distributional / continuous-treatment / multi-valued / network families --
+    register(FunctionSpec(
+        name="qdid",
+        category="causal",
+        description=(
+            "Quantile Difference-in-Differences (Athey & Imbens 2006 CIC). "
+            "Estimates QTE at multiple quantiles via changes-in-changes on "
+            "a 2×2 design with bootstrap SE."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome"),
+            ParamSpec("group", "str", True, description="Binary treated / control group"),
+            ParamSpec("time", "str", True, description="Binary pre / post indicator"),
+            ParamSpec("quantiles", "list", False,
+                      description="Quantiles to estimate, defaults to [0.1, ..., 0.9]"),
+            ParamSpec("n_boot", "int", False, 500),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="QTEResult",
+        example='sp.qdid(df, y="wage", group="treat", time="post")',
+        tags=["qte", "qdid", "cic", "distributional", "did", "causal"],
+        reference="Athey & Imbens (2006) Econometrica — Changes-in-Changes",
+        pre_conditions=[
+            "panel or repeated cross-section",
+            "group is binary 0/1",
+            "time is binary 0/1 (pre / post)",
+            "outcome is continuous",
+        ],
+        assumptions=[
+            "CIC rank invariance: the quantile rank in the untreated distribution is stable across groups",
+            "Continuous outcome support covering both groups in both periods",
+            "SUTVA (no cross-group spillovers)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Outcome heavily discrete / zero-inflated",
+                exception="statspai.AssumptionViolation",
+                remedy="CIC rank-matching is unstable on discrete supports — use QTE regression (sp.qte) or Firpo-RIF.",
+                alternative="sp.qte",
+            ),
+            FailureMode(
+                symptom="Bootstrap CI across quantiles varies wildly",
+                exception="statspai.DataInsufficient",
+                remedy="Thin tails at extreme quantiles — restrict to [0.2, 0.8] or raise n_boot to 2000.",
+                alternative="",
+            ),
+        ],
+        alternatives=["qte", "did", "rifreg"],
+        typical_n_min=500,
+    ))
+
+    register(FunctionSpec(
+        name="qte",
+        category="causal",
+        description=(
+            "Quantile Treatment Effect via quantile regression or IPW "
+            "weighting. Returns QTE at supplied quantiles with bootstrap "
+            "SE."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treatment", "str", True),
+            ParamSpec("quantiles", "list", False),
+            ParamSpec("method", "str", False, "quantile_regression",
+                      "Estimation method",
+                      ["quantile_regression", "ipw"]),
+            ParamSpec("controls", "list", False),
+            ParamSpec("n_boot", "int", False, 500),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="QTEResult",
+        example='sp.qte(df, y="earnings", treatment="training", quantiles=[0.25, 0.5, 0.75])',
+        tags=["qte", "quantile", "distributional", "causal"],
+        reference="Koenker & Bassett (1978); Firpo (2007); Chernozhukov & Hansen (2005)",
+        pre_conditions=[
+            "binary or continuous treatment (method='quantile_regression' supports both; 'ipw' needs binary)",
+            "continuous outcome",
+            "controls cover the confounding set (for 'quantile_regression')",
+            "overlap when method='ipw'",
+        ],
+        assumptions=[
+            "For 'quantile_regression': unconfoundedness conditional on controls",
+            "For 'ipw': unconfoundedness + overlap 0 < e(x) < 1",
+            "Correct parametric quantile model (sensitivity tested via multiple quantiles)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Large IPW weights (method='ipw')",
+                exception="statspai.AssumptionViolation",
+                remedy="Extreme propensities — trim (sp.trimming) or switch to doubly-robust DR-QTE.",
+                alternative="sp.trimming",
+            ),
+            FailureMode(
+                symptom="Quantile crossing",
+                exception="statspai.AssumptionWarning",
+                remedy="Use rearrangement (Chernozhukov-Fernandez-Val-Galichon) or monotone constraints.",
+                alternative="",
+            ),
+        ],
+        alternatives=["qdid", "rifreg", "cic", "metalearner"],
+        typical_n_min=500,
+    ))
+
+    register(FunctionSpec(
+        name="dose_response",
+        category="causal",
+        description=(
+            "Dose-response function for a continuous treatment under "
+            "unconfoundedness. Uses generalised propensity-score weighting "
+            "or double ML for the conditional expectation E[Y(d)]."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True, description="Continuous treatment / dose"),
+            ParamSpec("covariates", "list", True),
+            ParamSpec("n_dose_points", "int", False, 20),
+            ParamSpec("dose_range", "tuple", False,
+                      description="(lo, hi) over which to evaluate dose-response"),
+            ParamSpec("n_boot", "int", False, 500),
+        ],
+        returns="DoseResponseResult",
+        example='sp.dose_response(df, y="y", treat="dose", covariates=["x1","x2"])',
+        tags=["continuous_treatment", "dose_response", "gps", "causal"],
+        reference="Hirano & Imbens (2004); Kennedy et al. (2017) JRSSB",
+        pre_conditions=[
+            "treat is continuous (numeric, not binary)",
+            "covariates comprise the confounding set",
+            "n ≥ 1000 for stable dose-response curves",
+            "weak overlap: positive density of treatment across the confounder range",
+        ],
+        assumptions=[
+            "Weak unconfoundedness: Y(d) ⊥ D | X for each d",
+            "Generalised overlap: positive conditional density of D at each evaluated dose",
+            "Smoothness of dose-response function (for local-polynomial / kernel smoothing)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Sparse data at extreme doses",
+                exception="statspai.DataInsufficient",
+                remedy="Narrow dose_range; CIs at tails will be wide and uninformative.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="Heavy-tailed generalised propensity weights",
+                exception="statspai.AssumptionViolation",
+                remedy="Use stabilised weights or restrict to common-support dose window.",
+                alternative="",
+            ),
+        ],
+        alternatives=["dml", "metalearner", "causal_forest"],
+        typical_n_min=1000,
+    ))
+
+    register(FunctionSpec(
+        name="spillover",
+        category="causal",
+        description=(
+            "Direct + spillover treatment effect estimation under partial "
+            "interference (within-cluster). Uses the Hudgens-Halloran "
+            "decomposition with chosen exposure function."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True),
+            ParamSpec("cluster", "str", True,
+                      description="Cluster column (interference boundary)"),
+            ParamSpec("covariates", "list", False),
+            ParamSpec("exposure_fn", "str", False, "fraction",
+                      "Exposure function",
+                      ["fraction", "any", "count"]),
+            ParamSpec("n_bootstrap", "int", False, 500),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult (direct + spillover effects)",
+        example='sp.spillover(df, y="y", treat="d", cluster="village")',
+        tags=["spillover", "interference", "partial", "cluster"],
+        reference="Hudgens & Halloran (2008); Basse & Feller (2018)",
+        pre_conditions=[
+            "data has a cluster column defining the interference boundary",
+            "treatment varies within clusters",
+            "≥ 30 clusters for cluster-robust inference",
+        ],
+        assumptions=[
+            "Partial interference: spillover only within cluster, not across",
+            "Correct exposure function (fraction / any / count — sensitivity tested)",
+            "Overlap: every (treatment × exposure) cell has positive probability",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="No within-cluster variation in treatment",
+                exception="statspai.DataInsufficient",
+                remedy="Assignments are cluster-level — use sp.cluster_matched_pair or cluster-level ATE.",
+                alternative="sp.cluster_matched_pair",
+            ),
+            FailureMode(
+                symptom="Exposure function misspecified",
+                exception="statspai.AssumptionWarning",
+                remedy="Compare estimates under exposure_fn in {fraction, any, count}.",
+                alternative="",
+            ),
+        ],
+        alternatives=["network_exposure", "cluster_matched_pair", "peer_effects"],
+        typical_n_min=500,
+    ))
+
+    register(FunctionSpec(
+        name="multi_treatment",
+        category="causal",
+        description=(
+            "Effects of multi-valued (3+ level) treatments via AIPW. "
+            "Returns pairwise contrasts versus a reference level."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True, description="Multi-valued treatment (int)"),
+            ParamSpec("covariates", "list", True),
+            ParamSpec("reference", "int", False,
+                      description="Reference treatment level (defaults to 0 / smallest)"),
+            ParamSpec("n_bootstrap", "int", False, 500),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult with pairwise contrasts",
+        example='sp.multi_treatment(df, y="wage", treat="program", covariates=["age","edu"])',
+        tags=["multi_treatment", "multi_arm", "aipw", "causal"],
+        reference="Robins et al. (1994); Imbens (2000); Yang et al. (2016)",
+        pre_conditions=[
+            "treat is integer-valued with ≥ 2 distinct levels",
+            "covariates comprise the confounding set",
+            "enough units per treatment arm (≥ 50 per arm)",
+            "overlap: every treatment arm has positive probability at each x",
+        ],
+        assumptions=[
+            "Generalised unconfoundedness: Y(a) ⊥ T | X for all a",
+            "Generalised overlap: 0 < P(T=a | X) < 1 for each arm a",
+            "SUTVA across arms",
+            "Correctly specified (or ML-approximated) nuisance models",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Some arm has near-zero propensity in the data",
+                exception="statspai.AssumptionViolation",
+                remedy="Violates overlap — drop that arm or use bounds.",
+                alternative="sp.bounds",
+            ),
+            FailureMode(
+                symptom="Tiny treatment cells (< 30)",
+                exception="statspai.DataInsufficient",
+                remedy="Collapse sparse arms or use regularised multinomial propensity.",
+                alternative="",
+            ),
+        ],
+        alternatives=["multi_arm_forest", "dml", "metalearner"],
+        typical_n_min=300,
+    ))
+
+    register(FunctionSpec(
+        name="network_exposure",
+        category="causal",
+        description=(
+            "Aronow-Samii Horvitz-Thompson estimator for arbitrary "
+            "interference via a user-supplied exposure mapping. Handles "
+            "Bernoulli / complete randomisation designs with simulated "
+            "conservative variance."
+        ),
+        params=[
+            ParamSpec("Y", "array", True, description="Outcome vector"),
+            ParamSpec("Z", "array", True, description="Treatment vector (0/1)"),
+            ParamSpec("adjacency", "array", True,
+                      description="Adjacency matrix (n x n) or sparse"),
+            ParamSpec("mapping", "str", False, "as4",
+                      "Exposure mapping",
+                      ["as4", "as3", "as2", "custom"]),
+            ParamSpec("p_treat", "float", False,
+                      description="Marginal treatment probability"),
+            ParamSpec("design", "str", False, "bernoulli",
+                      "Randomisation design", ["bernoulli", "complete"]),
+            ParamSpec("n_sim", "int", False, 2000),
+        ],
+        returns="NetworkExposureResult with per-exposure HT estimates",
+        example='sp.network_exposure(Y=y, Z=z, adjacency=A, mapping="as4")',
+        tags=["interference", "network", "aronow_samii",
+              "horvitz_thompson"],
+        reference="Aronow & Samii (2017) AoAS",
+        pre_conditions=[
+            "adjacency is a binary n × n matrix encoding network ties",
+            "Y, Z have same length n",
+            "randomisation design is known (bernoulli with p_treat, or complete)",
+            "n_sim ≥ 2000 for stable Monte Carlo variance",
+        ],
+        assumptions=[
+            "Exposure mapping is correctly specified (as4 / as3 / as2 — Aronow-Samii hierarchy)",
+            "Positivity: every exposure level has positive probability under the design",
+            "Network adjacency is fixed / known (measurement error in ties introduces bias)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Some exposure level has < 5 observed units",
+                exception="statspai.DataInsufficient",
+                remedy="Switch to a coarser mapping (as4 → as3) or increase sample size.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="Variance estimate extremely conservative (wide CI)",
+                exception="statspai.AssumptionWarning",
+                remedy="HT-style variance is conservative by design — use sp.spillover for cluster case.",
+                alternative="sp.spillover",
+            ),
+        ],
+        alternatives=["spillover", "peer_effects", "cluster_matched_pair"],
+        typical_n_min=200,
     ))
 
     _BASE_REGISTRY_BUILT = True

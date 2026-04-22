@@ -238,3 +238,66 @@ Panel with many controls:
 
 *Current for StatsPAI ≥ 1.5.0.  All functions are registered; inspect
 with `sp.describe_function("beyond_average_late")`, etc.*
+
+<!-- AGENT-BLOCK-START: qte -->
+
+## For Agents
+
+**Pre-conditions**
+- binary or continuous treatment (method='quantile_regression' supports both; 'ipw' needs binary)
+- continuous outcome
+- controls cover the confounding set (for 'quantile_regression')
+- overlap when method='ipw'
+
+**Identifying assumptions**
+- For 'quantile_regression': unconfoundedness conditional on controls
+- For 'ipw': unconfoundedness + overlap 0 < e(x) < 1
+- Correct parametric quantile model (sensitivity tested via multiple quantiles)
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| Large IPW weights (method='ipw') | `statspai.AssumptionViolation` | Extreme propensities — trim (sp.trimming) or switch to doubly-robust DR-QTE. | `sp.trimming` |
+| Quantile crossing | `statspai.AssumptionWarning` | Use rearrangement (Chernozhukov-Fernandez-Val-Galichon) or monotone constraints. |  |
+
+**Alternatives (ranked)**
+- `sp.qdid`
+- `sp.rifreg`
+- `sp.cic`
+- `sp.metalearner`
+
+**Typical minimum N**: 500
+
+<!-- AGENT-BLOCK-END -->
+
+<!-- AGENT-BLOCK-START: qdid -->
+
+## For Agents
+
+**Pre-conditions**
+- panel or repeated cross-section
+- group is binary 0/1
+- time is binary 0/1 (pre / post)
+- outcome is continuous
+
+**Identifying assumptions**
+- CIC rank invariance: the quantile rank in the untreated distribution is stable across groups
+- Continuous outcome support covering both groups in both periods
+- SUTVA (no cross-group spillovers)
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| Outcome heavily discrete / zero-inflated | `statspai.AssumptionViolation` | CIC rank-matching is unstable on discrete supports — use QTE regression (sp.qte) or Firpo-RIF. | `sp.qte` |
+| Bootstrap CI across quantiles varies wildly | `statspai.DataInsufficient` | Thin tails at extreme quantiles — restrict to [0.2, 0.8] or raise n_boot to 2000. |  |
+
+**Alternatives (ranked)**
+- `sp.qte`
+- `sp.did`
+- `sp.rifreg`
+
+**Typical minimum N**: 500
+
+<!-- AGENT-BLOCK-END -->

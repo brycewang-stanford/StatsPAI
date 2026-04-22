@@ -73,10 +73,47 @@ def diagnose_result(
     output = fn(result, alpha=alpha)
     output["method_type"] = method_type
 
+    # Agent-native closed loop: merge in result.violations() if available.
+    # This surfaces diagnostic violations that the estimator *already*
+    # stored (pre-trend p, first-stage F, rhat, overlap, SMD, …) as a
+    # dedicated section with recovery hints — complements the family-
+    # specific battery checks above.
+    output["violations"] = _collect_violations(result)
+
+    # And the recommended next steps from the result itself, so a single
+    # ``diagnose_result(r)`` call gives an agent the full triage picture
+    # (family battery + structured violations + next steps).
+    output["next_steps"] = _collect_next_steps(result)
+
     if print_results:
         _print_battery(output)
 
     return output
+
+
+def _collect_violations(result) -> List[Dict[str, Any]]:
+    """Return ``result.violations()`` if the method exists, else ``[]``."""
+    vfn = getattr(result, "violations", None)
+    if vfn is None:
+        return []
+    try:
+        vs = vfn()
+    except Exception:  # pragma: no cover - defensive
+        return []
+    if not isinstance(vs, list):
+        return []
+    return vs
+
+
+def _collect_next_steps(result) -> List[Dict[str, Any]]:
+    """Return ``result.next_steps(print_result=False)`` if available."""
+    nfn = getattr(result, "next_steps", None)
+    if nfn is None:
+        return []
+    try:
+        return nfn(print_result=False) or []
+    except Exception:  # pragma: no cover - defensive
+        return []
 
 
 # ====================================================================== #
@@ -1006,4 +1043,19 @@ def _print_battery(output: Dict[str, Any]):
     n_warn = sum(1 for c in checks if c.get("pass") is False)
     n_info = sum(1 for c in checks if c.get("pass") is None)
     print(f"\n  Summary: {n_pass} passed, {n_warn} warnings, {n_info} info")
+
+    # --- Agent-native violations block (populated by result.violations())
+    violations = output.get("violations") or []
+    if violations:
+        print("\n  Structured violations (agent-native)")
+        print("  " + "-" * 60)
+        for v in violations:
+            sev = str(v.get("severity", "info")).upper()
+            test = v.get("test", "?")
+            msg = v.get("message", "")
+            hint = v.get("recovery_hint", "")
+            print(f"  [{sev}] {test}: {msg}")
+            if hint:
+                print(f"         ↳ {hint}")
+
     print("=" * 65)

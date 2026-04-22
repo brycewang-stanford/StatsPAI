@@ -27,6 +27,7 @@ from .iivm import DoubleMLIIVM
 from .model_averaging import (
     dml_model_averaging, model_averaging_dml, DMLAveragingResult,
 )
+from .panel_dml import dml_panel, DMLPanelResult
 
 __all__ = [
     'dml',
@@ -38,4 +39,7 @@ __all__ = [
     'dml_model_averaging',
     'model_averaging_dml',
     'DMLAveragingResult',
+    # v1.7 long-panel DML (Semenova-Chernozhukov 2023)
+    'dml_panel',
+    'DMLPanelResult',
 ]

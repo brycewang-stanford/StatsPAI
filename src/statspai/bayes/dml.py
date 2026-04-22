@@ -149,9 +149,17 @@ def bayes_dml(
     if np.isnan(dml_se) and hasattr(dml_res, "results") and "se" in dml_res.results.columns:
         dml_se = float(dml_res.results["se"].iloc[0])
     if np.isnan(dml_se) or dml_se <= 0:
-        raise RuntimeError(
+        from statspai.exceptions import NumericalInstability
+        raise NumericalInstability(
             "DML returned non-positive standard error; cannot form "
-            "Bayesian posterior. Check DML inputs."
+            "Bayesian posterior. Check DML inputs.",
+            recovery_hint=(
+                "Inspect the underlying DML fit (sp.dml) for overlap / "
+                "cross-fit failures; ensure propensity scores are bounded "
+                "away from 0 and 1."
+            ),
+            diagnostics={"dml_se": float(dml_se) if not np.isnan(dml_se) else None},
+            alternative_functions=["sp.dml"],
         )
 
     if mode == "conjugate":

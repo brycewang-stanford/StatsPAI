@@ -90,7 +90,19 @@ def optimal_match(
     treated_idx = np.where(t == 1)[0]
     ctrl_idx = np.where(t == 0)[0]
     if len(treated_idx) == 0 or len(ctrl_idx) == 0:
-        raise ValueError("Need both treated and control units.")
+        from statspai.exceptions import DataInsufficient
+        raise DataInsufficient(
+            "Need both treated and control units.",
+            recovery_hint=(
+                "All observations have the same treatment value. "
+                "Re-check the treatment column / sample filter."
+            ),
+            diagnostics={
+                "n_treated": int(len(treated_idx)),
+                "n_control": int(len(ctrl_idx)),
+            },
+            alternative_functions=[],
+        )
     if len(treated_idx) > len(ctrl_idx):
         raise ValueError(
             "Optimal 1:1 matching requires n_control ≥ n_treated. "

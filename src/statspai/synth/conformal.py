@@ -93,9 +93,27 @@ def conformal_synth(
     post_mask = times >= treatment_time
 
     if pre_mask.sum() < 2:
-        raise ValueError("Need at least 2 pre-treatment periods")
+        from statspai.exceptions import DataInsufficient
+        raise DataInsufficient(
+            "Need at least 2 pre-treatment periods",
+            recovery_hint=(
+                "Conformal SC inference needs ≥ 2 pre-treatment observations "
+                "to form residuals; consider sp.did or sp.causal_impact "
+                "with fewer periods."
+            ),
+            diagnostics={"n_pre_periods": int(pre_mask.sum())},
+            alternative_functions=["sp.did", "sp.causal_impact"],
+        )
     if post_mask.sum() < 1:
-        raise ValueError("Need at least 1 post-treatment period")
+        from statspai.exceptions import DataInsufficient
+        raise DataInsufficient(
+            "Need at least 1 post-treatment period",
+            recovery_hint=(
+                "Verify the treatment_time is before the panel's end."
+            ),
+            diagnostics={"n_post_periods": int(post_mask.sum())},
+            alternative_functions=[],
+        )
 
     Y_treated = pivot[treated_unit].values.astype(np.float64)
     donor_cols = [c for c in pivot.columns if c != treated_unit]

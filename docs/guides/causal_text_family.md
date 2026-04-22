@@ -174,3 +174,59 @@ and human labels exist, then divide:
 - Hausman, J., Abrevaya, J., & Scott-Morton, F. (1998). "Misclassification of the dependent variable in a discrete-response setting." *Journal of Econometrics*, 87, 239–269.
 - Aigner, D. J. (1973). "Regression with a binary independent variable subject to errors of observation." *Journal of Econometrics*, 1(1), 49–59.
 - Roberts, M. E., Stewart, B. M., & Nielsen, R. A. (2020). "Adjusting for confounding with text matching." *American Journal of Political Science*. (Not yet implemented — v1.7 roadmap.)
+
+<!-- AGENT-BLOCK-START: text_treatment_effect -->
+
+## For Agents
+
+**Pre-conditions**
+- data has the text/outcome/treatment columns
+- n_obs >= max(20, n_components+4)
+
+**Identifying assumptions**
+- All text-derived confounding is captured by the embedding
+- Treatment is conditionally exogenous given embedding+covariates
+- Linear outcome in treatment (HC1 OLS)
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| DataInsufficient: 'Need at least N rows' | `statspai.DataInsufficient` | Lower n_components or supply more data |  |
+| ImportError on embedder='sbert' | `ImportError` | Install sentence-transformers: `pip install sentence-transformers` or use embedder='hash' | `embedder='hash'` |
+
+**Alternatives (ranked)**
+- `sp.sp.regress: plain OLS without text adjustment`
+- `sp.sp.dml: double machine learning with manual text features`
+
+**Typical minimum N**: 200
+
+<!-- AGENT-BLOCK-END -->
+
+<!-- AGENT-BLOCK-START: llm_annotator_correct -->
+
+## For Agents
+
+**Pre-conditions**
+- annotations_llm is binary (0/1)
+- >=30 rows with both LLM and human labels
+- Both T_human classes present in validation set
+
+**Identifying assumptions**
+- Binary treatment indicator
+- Misclassification is independent of outcome conditional on T
+- Validation subset is representative of the full sample
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| DataInsufficient: 'At least 30 validation rows' | `statspai.DataInsufficient` | Hand-label more rows so that annotations_human has >=30 non-NaN entries spanning both classes |  |
+| IdentificationFailure: '1-p_01-p_10 <= 0' | `statspai.IdentificationFailure` | Misclassification too severe — re-prompt the LLM or hand-label |  |
+
+**Alternatives (ranked)**
+- `sp.sp.regress with raw LLM label (biased — for comparison only)`
+
+**Typical minimum N**: 300
+
+<!-- AGENT-BLOCK-END -->

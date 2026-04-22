@@ -94,7 +94,16 @@ def ebalance(
     n_c = c_mask.sum()
 
     if n_t < 2 or n_c < 2:
-        raise ValueError("Need at least 2 treated and 2 control units.")
+        from statspai.exceptions import DataInsufficient
+        raise DataInsufficient(
+            "Need at least 2 treated and 2 control units.",
+            recovery_hint=(
+                "Check the treatment variable coding or relax the sample "
+                "filter; entropy balancing needs at least a 2/2 split."
+            ),
+            diagnostics={"n_treated": int(n_t), "n_control": int(n_c)},
+            alternative_functions=["sp.match", "sp.cbps"],
+        )
 
     X_t = X[t_mask]
     X_c = X[c_mask]

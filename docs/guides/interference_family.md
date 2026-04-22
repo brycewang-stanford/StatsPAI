@@ -402,3 +402,64 @@ confound the two pathways.
 stable and registered in `sp.list_functions()`; inspect any of them
 with `sp.describe_function("spillover")`, etc. For dispatcher-style
 access to the whole family, see `sp.interference(design=...)`.*
+
+<!-- AGENT-BLOCK-START: spillover -->
+
+## For Agents
+
+**Pre-conditions**
+- data has a cluster column defining the interference boundary
+- treatment varies within clusters
+- ≥ 30 clusters for cluster-robust inference
+
+**Identifying assumptions**
+- Partial interference: spillover only within cluster, not across
+- Correct exposure function (fraction / any / count — sensitivity tested)
+- Overlap: every (treatment × exposure) cell has positive probability
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| No within-cluster variation in treatment | `statspai.DataInsufficient` | Assignments are cluster-level — use sp.cluster_matched_pair or cluster-level ATE. | `sp.cluster_matched_pair` |
+| Exposure function misspecified | `statspai.AssumptionWarning` | Compare estimates under exposure_fn in {fraction, any, count}. |  |
+
+**Alternatives (ranked)**
+- `sp.network_exposure`
+- `sp.cluster_matched_pair`
+- `sp.peer_effects`
+
+**Typical minimum N**: 500
+
+<!-- AGENT-BLOCK-END -->
+
+<!-- AGENT-BLOCK-START: network_exposure -->
+
+## For Agents
+
+**Pre-conditions**
+- adjacency is a binary n × n matrix encoding network ties
+- Y, Z have same length n
+- randomisation design is known (bernoulli with p_treat, or complete)
+- n_sim ≥ 2000 for stable Monte Carlo variance
+
+**Identifying assumptions**
+- Exposure mapping is correctly specified (as4 / as3 / as2 — Aronow-Samii hierarchy)
+- Positivity: every exposure level has positive probability under the design
+- Network adjacency is fixed / known (measurement error in ties introduces bias)
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| Some exposure level has < 5 observed units | `statspai.DataInsufficient` | Switch to a coarser mapping (as4 → as3) or increase sample size. |  |
+| Variance estimate extremely conservative (wide CI) | `statspai.AssumptionWarning` | HT-style variance is conservative by design — use sp.spillover for cluster case. | `sp.spillover` |
+
+**Alternatives (ranked)**
+- `sp.spillover`
+- `sp.peer_effects`
+- `sp.cluster_matched_pair`
+
+**Typical minimum N**: 200
+
+<!-- AGENT-BLOCK-END -->

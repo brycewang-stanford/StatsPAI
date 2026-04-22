@@ -261,7 +261,17 @@ class MatchEstimator:
 
         treat_vals = self.data[self.treat].dropna().unique()
         if not set(treat_vals).issubset({0, 1, 0.0, 1.0}):
-            raise ValueError(f"Treatment must be binary (0/1), got values: {treat_vals}")
+            from statspai.exceptions import MethodIncompatibility
+            raise MethodIncompatibility(
+                f"Treatment must be binary (0/1), got values: {treat_vals}",
+                recovery_hint=(
+                    "Matching assumes a binary treatment. For multi-valued "
+                    "treatments use sp.multi_treatment; for continuous use "
+                    "sp.dose_response."
+                ),
+                diagnostics={"treat_values": sorted(map(str, treat_vals))[:10]},
+                alternative_functions=["sp.multi_treatment", "sp.dose_response"],
+            )
 
         # Exact matching only supports ATT
         if self.distance == 'exact' and self.estimand == 'ATE':
@@ -287,7 +297,19 @@ class MatchEstimator:
         idx_c = np.where(T == 0)[0]
 
         if len(idx_t) == 0 or len(idx_c) == 0:
-            raise ValueError("Need both treated and control observations")
+            from statspai.exceptions import DataInsufficient
+            raise DataInsufficient(
+                "Need both treated and control observations",
+                recovery_hint=(
+                    "All observations have the same treatment value; "
+                    "re-check the treatment column."
+                ),
+                diagnostics={
+                    "n_treated": int(len(idx_t)),
+                    "n_control": int(len(idx_c)),
+                },
+                alternative_functions=[],
+            )
 
         # Dispatch — each returns (att, se, balance, extra_info)
         extra_info = {}

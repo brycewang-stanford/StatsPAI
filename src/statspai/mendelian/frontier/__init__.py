@@ -20,8 +20,10 @@ from .lap import MRLapResult, mr_lap
 from .clust import MRClustResult, mr_clust
 from .grapple import GrappleResult, grapple
 from .cml import MRcMLResult, mr_cml
+from .raps import MRRapsResult, mr_raps
 
 __all__ = [
-    "mr_lap", "mr_clust", "grapple", "mr_cml",
-    "MRLapResult", "MRClustResult", "GrappleResult", "MRcMLResult",
+    "mr_lap", "mr_clust", "grapple", "mr_cml", "mr_raps",
+    "MRLapResult", "MRClustResult", "GrappleResult",
+    "MRcMLResult", "MRRapsResult",
 ]

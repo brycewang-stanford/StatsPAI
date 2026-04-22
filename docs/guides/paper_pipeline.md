@@ -164,3 +164,28 @@ suitable for round-tripping through agent tool calls.
 - `sp.recommend`: estimator-selection rule engine.
 - `sp.evalue_from_result`, `sp.honest_did`, `sp.anderson_rubin_ci`,
   `sp.rdsensitivity`: per-design robustness primitives.
+
+<!-- AGENT-BLOCK-START: paper -->
+
+## For Agents
+
+**Pre-conditions**
+- data must contain the outcome column (`y` or parsed)
+- If treatment given, it must be a column
+
+**Identifying assumptions**
+- Question parser is heuristic — explicit kwargs always win
+- Underlying sp.causal() determines design when not specified
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| ValueError 'Could not determine the outcome y' | `ValueError` | Pass `y=...` explicitly or include 'effect of X on Y' in the question text |  |
+| Pipeline notes section appears in draft | `(none — informational)` | One pipeline stage failed; inspect `draft.workflow.diagnostics` and pipeline_errors |  |
+
+**Alternatives (ranked)**
+- `sp.causal`
+- `sp.recommend`
+
+<!-- AGENT-BLOCK-END -->

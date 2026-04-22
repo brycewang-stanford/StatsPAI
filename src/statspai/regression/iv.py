@@ -63,9 +63,17 @@ def _k_class_fit(
     m = Z.shape[1]
 
     if m < k2:
-        raise ValueError(
+        from statspai.exceptions import MethodIncompatibility
+        raise MethodIncompatibility(
             f"Under-identified: {m} instruments for {k2} endogenous "
-            f"variables. Need at least {k2} instruments."
+            f"variables. Need at least {k2} instruments.",
+            recovery_hint=(
+                "Add more instruments (order condition: m ≥ k2), or drop "
+                "one endogenous variable. For partial identification use "
+                "sp.bounds."
+            ),
+            diagnostics={"n_instruments": m, "n_endogenous": k2},
+            alternative_functions=["sp.bounds"],
         )
 
     # Full instrument matrix: [X_exog, Z]
@@ -95,10 +103,18 @@ def _k_class_fit(
 
     try:
         XAX_inv = np.linalg.inv(XAX)
-    except np.linalg.LinAlgError:
-        raise ValueError(
-            "Singular matrix in k-class estimation. Check for collinearity."
-        )
+    except np.linalg.LinAlgError as exc:
+        from statspai.exceptions import NumericalInstability
+        raise NumericalInstability(
+            "Singular matrix in k-class estimation. Check for collinearity.",
+            recovery_hint=(
+                "Run sp.vif() to locate collinear regressors; drop redundant "
+                "ones. For weak-IV-robust inference without full rank in the "
+                "second stage, use sp.anderson_rubin_ci."
+            ),
+            diagnostics={"stage": "k_class_second_stage"},
+            alternative_functions=["sp.vif", "sp.anderson_rubin_ci"],
+        ) from exc
 
     params = XAX_inv @ XAy
 
@@ -245,9 +261,17 @@ def _gmm_fit(
     m = Z.shape[1]
 
     if m < k2:
-        raise ValueError(
+        from statspai.exceptions import MethodIncompatibility
+        raise MethodIncompatibility(
             f"Under-identified: {m} instruments for {k2} endogenous "
-            f"variables. Need at least {k2} instruments."
+            f"variables. Need at least {k2} instruments.",
+            recovery_hint=(
+                "Add more instruments (order condition: m ≥ k2), or drop "
+                "one endogenous variable. For partial identification use "
+                "sp.bounds."
+            ),
+            diagnostics={"n_instruments": m, "n_endogenous": k2},
+            alternative_functions=["sp.bounds"],
         )
 
     W = np.column_stack([X_exog, Z])
@@ -377,9 +401,17 @@ def _jive_fit(
     m = Z.shape[1]
 
     if m < k2:
-        raise ValueError(
+        from statspai.exceptions import MethodIncompatibility
+        raise MethodIncompatibility(
             f"Under-identified: {m} instruments for {k2} endogenous "
-            f"variables. Need at least {k2} instruments."
+            f"variables. Need at least {k2} instruments.",
+            recovery_hint=(
+                "Add more instruments (order condition: m ≥ k2), or drop "
+                "one endogenous variable. For partial identification use "
+                "sp.bounds."
+            ),
+            diagnostics={"n_instruments": m, "n_endogenous": k2},
+            alternative_functions=["sp.bounds"],
         )
 
     W = np.column_stack([X_exog, Z])

@@ -122,9 +122,26 @@ def augsynth(
     post_times = [t for t in all_times if t >= treatment_time]
 
     if len(pre_times) < 2:
-        raise ValueError("Need at least 2 pre-treatment periods")
+        from statspai.exceptions import DataInsufficient
+        raise DataInsufficient(
+            "Need at least 2 pre-treatment periods",
+            recovery_hint=(
+                "Augmented SCM fits an outcome bridge on pre-periods — "
+                "needs at least 2. Use sp.did if you only have 1 pre period."
+            ),
+            diagnostics={"n_pre_periods": int(len(pre_times))},
+            alternative_functions=["sp.did"],
+        )
     if len(post_times) < 1:
-        raise ValueError("Need at least 1 post-treatment period")
+        from statspai.exceptions import DataInsufficient
+        raise DataInsufficient(
+            "Need at least 1 post-treatment period",
+            recovery_hint=(
+                "Verify treatment_time is within the panel window."
+            ),
+            diagnostics={"n_post_periods": int(len(post_times))},
+            alternative_functions=[],
+        )
 
     # Treated and donor matrices
     Y1_pre = panel.loc[treated_unit, pre_times].values.astype(np.float64)

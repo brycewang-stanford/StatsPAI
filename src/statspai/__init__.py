@@ -116,6 +116,8 @@ from .matching import (
 from .dml import (
     dml, DoubleML, DoubleMLPLR, DoubleMLIRM, DoubleMLPLIV, DoubleMLIIVM,
     dml_model_averaging, model_averaging_dml, DMLAveragingResult,
+    # v1.7 long-panel DML
+    dml_panel, DMLPanelResult,
 )
 from .deepiv import deepiv, DeepIV
 from .panel import (
@@ -507,10 +509,9 @@ from .mendelian import (
     ModeBasedResult, FStatisticResult,
     mr_multivariable, mr_mediation, mr_bma,
     MVMRResult, MediationMRResult, MRBMAResult,
-    # v1.6 frontier (P1 bundle): sample-overlap correction, clustered
-    # pleiotropy, profile-likelihood MR, and constrained-MLE MR.
-    mr_lap, mr_clust, grapple, mr_cml,
-    MRLapResult, MRClustResult, GrappleResult, MRcMLResult,
+    # v1.6 frontier: sample-overlap / clusters / profile-LL / cML / RAPS
+    mr_lap, mr_clust, grapple, mr_cml, mr_raps,
+    MRLapResult, MRClustResult, GrappleResult, MRcMLResult, MRRapsResult,
     # v1.5 unified dispatcher (replaces the `sp.mr` module alias)
     mr, mr_available_methods,
 )
@@ -732,6 +733,9 @@ __all__ = [
     "dml_model_averaging",
     "model_averaging_dml",
     "DMLAveragingResult",
+    # v1.7 long-panel DML
+    "dml_panel",
+    "DMLPanelResult",
     # DeepIV
     "deepiv",
     "DeepIV",
@@ -1354,6 +1358,10 @@ __all__ = [
     # Bunching frontier
     "general_bunching", "GeneralBunchingResult",
     "kink_unified", "KinkUnifiedResult",
+    # v1.6 MR frontier: sample-overlap / clusters / profile-LL / cML / RAPS
+    "mr_lap", "mr_clust", "grapple", "mr_cml", "mr_raps",
+    "MRLapResult", "MRClustResult", "GrappleResult",
+    "MRcMLResult", "MRRapsResult",
     # v1.5 unified family dispatchers
     "mr", "mr_available_methods",
     "conformal", "conformal_available_kinds",

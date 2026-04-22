@@ -43,8 +43,8 @@ from .multivariable import (
     MVMRResult, MediationMRResult, MRBMAResult,
 )
 from .frontier import (
-    mr_lap, mr_clust, grapple, mr_cml,
-    MRLapResult, MRClustResult, GrappleResult, MRcMLResult,
+    mr_lap, mr_clust, grapple, mr_cml, mr_raps,
+    MRLapResult, MRClustResult, GrappleResult, MRcMLResult, MRRapsResult,
 )
 from .dispatcher import mr, available_methods as mr_available_methods
 
@@ -63,9 +63,10 @@ __all__ = [
     # Multivariable / mediation / BMA (Yao et al. 2026 roadmap)
     "mr_multivariable", "mr_mediation", "mr_bma",
     "MVMRResult", "MediationMRResult", "MRBMAResult",
-    # v1.6 frontier: MR-Lap / MR-Clust / GRAPPLE / MR-cML
-    "mr_lap", "mr_clust", "grapple", "mr_cml",
+    # v1.6 frontier: MR-Lap / MR-Clust / GRAPPLE / MR-cML / MR-RAPS
+    "mr_lap", "mr_clust", "grapple", "mr_cml", "mr_raps",
     "MRLapResult", "MRClustResult", "GrappleResult", "MRcMLResult",
+    "MRRapsResult",
     # v1.5 unified dispatcher
     "mr", "mr_available_methods",
 ]

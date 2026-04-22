@@ -79,10 +79,28 @@ def did_misclassified(
     treat_arr = df[treat].to_numpy()
     cohorts = sorted(df.loc[treat_arr > 0, treat].unique())
     if not cohorts:
-        raise ValueError("No treated cohorts found.")
+        from statspai.exceptions import DataInsufficient
+        raise DataInsufficient(
+            "No treated cohorts found.",
+            recovery_hint=(
+                "Check that the treat column encodes the first-treated "
+                "period (integer > 0 for treated units). Use sp.did for 2x2."
+            ),
+            diagnostics={"treat_column": treat},
+            alternative_functions=["sp.did"],
+        )
     control_units = df.loc[df[treat] == 0, id].unique()
     if len(control_units) == 0:
-        raise ValueError("No never-treated control units; misclassified DID requires them.")
+        from statspai.exceptions import DataInsufficient
+        raise DataInsufficient(
+            "No never-treated control units; misclassified DID requires them.",
+            recovery_hint=(
+                "Include never-treated units in the panel, or switch to "
+                "sp.callaway_santanna(control_group='notyettreated')."
+            ),
+            diagnostics={"n_control_units": 0},
+            alternative_functions=["sp.callaway_santanna"],
+        )
 
     naive_atts = []
     anticip_leads = []

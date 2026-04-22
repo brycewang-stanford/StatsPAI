@@ -943,6 +943,16 @@ def recommend(
         head.sort(key=_sort_key)
         recommendations = head + tail
 
+    # ------------------------------------------------------------------
+    # Agent-native enrichment: pull structured metadata from the registry
+    # so each recommendation carries the canonical assumptions / failure
+    # modes / alternatives / typical_n_min.  Single source of truth — if
+    # an agent card exists, use its fields even when the hardcoded ones
+    # here fall out of date.
+    # ------------------------------------------------------------------
+    _enrich_with_agent_cards(recommendations, n_obs=int(profile.get("n_obs", 0) or 0),
+                             warnings_list=warnings_list)
+
     return RecommendationResult(
         recommendations=recommendations,
         data_profile=profile,
@@ -952,3 +962,67 @@ def recommend(
         y=y,
         treatment=treatment,
     )
+
+
+def _enrich_with_agent_cards(recommendations, *, n_obs: int, warnings_list):
+    """Merge registry agent-card metadata into each recommendation in place.
+
+    Adds keys ``agent_card`` (full card), ``pre_conditions``,
+    ``failure_modes``, ``alternatives``, ``typical_n_min``.  Preserves
+    the hand-written ``assumptions`` / ``reason`` fields unless the
+    recommendation left them empty, in which case it promotes the card
+    values.  Appends an ``n_obs < typical_n_min`` warning to
+    ``warnings_list`` for the top recommendation when applicable.
+
+    Quiet if the named function has no agent card — everything else
+    continues to work.
+    """
+    try:
+        from statspai.registry import agent_card as _card
+    except ImportError:
+        return
+
+    first_flagged = False
+    for rec in recommendations:
+        name = rec.get("function")
+        if not name:
+            continue
+        try:
+            card = _card(name)
+        except KeyError:
+            continue
+
+        # Only attach an agent_card view if the entry is actually
+        # populated with agent-native fields.  Plain auto-registered
+        # entries contribute nothing useful here.
+        card_has_content = (
+            card.get("assumptions") or card.get("failure_modes")
+            or card.get("alternatives") or card.get("pre_conditions")
+            or card.get("typical_n_min")
+        )
+        if not card_has_content:
+            continue
+
+        rec.setdefault("agent_card", card)
+        rec.setdefault("pre_conditions", card["pre_conditions"])
+        rec.setdefault("failure_modes", card["failure_modes"])
+        rec.setdefault("alternatives", card["alternatives"])
+        rec.setdefault("typical_n_min", card["typical_n_min"])
+
+        # Promote card assumptions when the rec didn't set any.
+        if not rec.get("assumptions") and card["assumptions"]:
+            rec["assumptions"] = list(card["assumptions"])
+
+        # First rec only: flag n < typical_n_min once in the
+        # top-level warnings.
+        n_min = card.get("typical_n_min")
+        if (
+            not first_flagged and n_min is not None
+            and isinstance(n_min, int) and n_obs and n_obs < n_min
+        ):
+            warnings_list.append(
+                f"Sample size n={n_obs} is below the typical minimum "
+                f"({n_min}) for sp.{name}; interpret cautiously "
+                f"(see sp.agent_card('{name}'))."
+            )
+            first_flagged = True

@@ -197,7 +197,16 @@ def synth_survival(
     L_wide = wide.apply(_cloglog)
     donors = [c for c in wide.columns if c != treated_unit]
     if not donors:
-        raise ValueError("At least one donor unit required")
+        from statspai.exceptions import DataInsufficient
+        raise DataInsufficient(
+            "At least one donor unit required",
+            recovery_hint=(
+                "synth_survival needs at least one untreated (donor) unit. "
+                "Check the unit / treatment_unit columns."
+            ),
+            diagnostics={"n_donors": 0},
+            alternative_functions=[],
+        )
 
     pre_mask = time_grid < treat_time
     if pre_mask.sum() < 2:

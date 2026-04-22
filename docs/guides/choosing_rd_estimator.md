@@ -162,7 +162,7 @@ r.plot()           # Falls back to coefplot; use sp.rdplot for binscatter
 
 **Alternatives (ranked)**
 - `sp.rd_honest`
-- `sp.rd_donut`
+- `sp.rdrbounds`
 - `sp.bounds`
 
 **Typical minimum N**: 500

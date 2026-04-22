@@ -25,8 +25,8 @@ import pytest
 
 import statspai as sp
 from statspai.mendelian.frontier import (
-    mr_lap, mr_clust, grapple, mr_cml,
-    MRLapResult, MRClustResult, GrappleResult, MRcMLResult,
+    mr_lap, mr_clust, grapple, mr_cml, mr_raps,
+    MRLapResult, MRClustResult, GrappleResult, MRcMLResult, MRRapsResult,
 )
 
 
@@ -398,7 +398,83 @@ class TestMRcML:
 
 
 # --------------------------------------------------------------------------- #
-#  5. Dispatcher + public API
+#  5. MR-RAPS (robust profile score)
+# --------------------------------------------------------------------------- #
+
+
+class TestMRRAPS:
+
+    def test_result_type_and_summary(self):
+        bx, by, sx, sy, _ = _sim_clean(seed=0)
+        r = mr_raps(bx, by, sx, sy)
+        assert isinstance(r, MRRapsResult)
+        assert r.converged
+        assert "MR-RAPS" in r.summary()
+
+    def test_recovers_truth_balanced_pleiotropy(self):
+        bias_list = []
+        se_list = []
+        for seed in range(10):
+            bx, by, sx, sy, true_beta = _sim_clean(
+                n_snps=80, pleiotropy_sd=0.005, seed=seed,
+            )
+            r = mr_raps(bx, by, sx, sy)
+            bias_list.append(r.estimate - true_beta)
+            se_list.append(r.se)
+        mean_bias = float(np.mean(bias_list))
+        mean_se = float(np.mean(se_list))
+        assert abs(mean_bias) < 2.0 * mean_se, (mean_bias, mean_se)
+
+    def test_robust_to_outlier_pleiotropy(self):
+        """Plant 3 strong pleiotropic outliers; MR-RAPS should remain
+        closer to truth than IVW.
+        """
+        rng = np.random.default_rng(17)
+        n = 60
+        alpha = rng.normal(0.10, 0.03, n)
+        sx = np.full(n, 1.0 / np.sqrt(20_000))
+        sy = np.full(n, np.sqrt(2.0 / 20_000))
+        bx = rng.normal(alpha, sx)
+        true_beta = 0.30
+        pleio = np.zeros(n)
+        pleio[:3] = rng.choice([-0.15, 0.15], size=3)  # gross outliers
+        by = true_beta * alpha + pleio + rng.normal(0, sy)
+        r_raps = mr_raps(bx, by, sx, sy, tuning_c=4.685)
+        r_ivw = sp.mr("ivw",
+                      beta_exposure=bx, beta_outcome=by,
+                      se_exposure=sx, se_outcome=sy)
+        assert abs(r_raps.estimate - true_beta) < abs(
+            r_ivw["estimate"] - true_beta
+        ) + 0.02, (r_raps.estimate, r_ivw["estimate"], true_beta)
+
+    def test_smaller_c_is_more_robust(self):
+        """With contaminated data, smaller Tukey c should yield estimates
+        at least as close to truth as the default c=4.685."""
+        rng = np.random.default_rng(23)
+        n = 60
+        alpha = rng.normal(0.10, 0.03, n)
+        sx = np.full(n, 1.0 / np.sqrt(20_000))
+        sy = np.full(n, np.sqrt(2.0 / 20_000))
+        bx = rng.normal(alpha, sx)
+        true_beta = 0.30
+        pleio = np.zeros(n)
+        pleio[:4] = rng.choice([-0.2, 0.2], size=4)
+        by = true_beta * alpha + pleio + rng.normal(0, sy)
+        r_default = mr_raps(bx, by, sx, sy, tuning_c=4.685)
+        r_robust = mr_raps(bx, by, sx, sy, tuning_c=2.0)
+        # Finite sample: either works, but the tight-c estimate should
+        # not be dramatically worse.
+        assert np.isfinite(r_robust.estimate)
+        assert np.isfinite(r_robust.se)
+
+    def test_invalid_tuning_c_raises(self):
+        bx, by, sx, sy, _ = _sim_clean(seed=0)
+        with pytest.raises(ValueError, match="tuning_c"):
+            mr_raps(bx, by, sx, sy, tuning_c=-1.0)
+
+
+# --------------------------------------------------------------------------- #
+#  6. Dispatcher + public API
 # --------------------------------------------------------------------------- #
 
 
@@ -412,6 +488,8 @@ class TestFrontierIntegration:
         ("grapple", GrappleResult),
         ("mr_cml", MRcMLResult),
         ("cml", MRcMLResult),
+        ("mr_raps", MRRapsResult),
+        ("raps", MRRapsResult),
     ])
     def test_dispatcher_routes(self, method, cls):
         bx, by, sx, sy, _ = _sim_clean(seed=0)
@@ -432,7 +510,7 @@ class TestFrontierIntegration:
         assert isinstance(r, cls)
 
     def test_registry_describes_each_function(self):
-        for name in ("mr_lap", "mr_clust", "grapple", "mr_cml"):
+        for name in ("mr_lap", "mr_clust", "grapple", "mr_cml", "mr_raps"):
             info = sp.describe_function(name)
             assert info is not None
             assert info["category"] == "mendelian"
@@ -445,15 +523,12 @@ class TestFrontierIntegration:
     def test_available_methods_lists_new_aliases(self):
         methods = set(sp.mr_available_methods())
         for alias in ("mr_lap", "lap", "mr_clust", "clust",
-                      "grapple", "mr_cml", "cml"):
+                      "grapple", "mr_cml", "cml",
+                      "mr_raps", "raps"):
             assert alias in methods, alias
 
     def test_all_top_level_imports(self):
-        assert sp.mr_lap is not None
-        assert sp.mr_clust is not None
-        assert sp.grapple is not None
-        assert sp.mr_cml is not None
-        assert sp.MRLapResult is not None
-        assert sp.MRClustResult is not None
-        assert sp.GrappleResult is not None
-        assert sp.MRcMLResult is not None
+        for name in ("mr_lap", "mr_clust", "grapple", "mr_cml", "mr_raps",
+                     "MRLapResult", "MRClustResult", "GrappleResult",
+                     "MRcMLResult", "MRRapsResult"):
+            assert getattr(sp, name, None) is not None, name

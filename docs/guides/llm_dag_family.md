@@ -182,3 +182,50 @@ edge looks spurious.
 - Kıcıman, Ness, Sharma & Tan (2023). "Causal reasoning and large language models." [arXiv:2305.00050](https://arxiv.org/abs/2305.00050).
 - Long, Piché, Zantedeschi, Schuster & Drouin (2023). "Causal discovery with language models as imperfect experts." [arXiv:2307.02390](https://arxiv.org/abs/2307.02390).
 - Vashishtha et al. (2024). "Causal Inference Using LLM-Guided Discovery." [arXiv:2402.01207](https://arxiv.org/abs/2402.01207).
+
+<!-- AGENT-BLOCK-START: llm_dag_constrained -->
+
+## For Agents
+
+**Pre-conditions**
+- data has at least 2 numeric columns intersecting `variables`
+- n_obs >> number of variables (PC unstable when p ~ n)
+
+**Identifying assumptions**
+- Faithfulness (PC's CI tests reflect d-separation)
+- Causal sufficiency (no unmeasured confounder among `variables`)
+- Linear/Gaussian relationships (Fisher-Z partial correlation)
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| ValueError 'Variable X not in data.columns' | `ValueError` | Pass only column names that exist in data |  |
+| Loop never converges (max_iter reached) | `(none — returns converged=False)` | Inspect iteration_log for oscillating edges; raise alpha or lower high_conf_threshold | `sp.llm_dag_propose (single-shot)` |
+
+**Alternatives (ranked)**
+- `sp.sp.llm_dag_propose: single-shot LLM proposal without CI loop`
+- `sp.sp.pc_algorithm: data-only PC (no LLM)`
+- `sp.sp.causal_mas: multi-agent LLM consensus`
+
+**Typical minimum N**: 200
+
+<!-- AGENT-BLOCK-END -->
+
+<!-- AGENT-BLOCK-START: llm_dag_validate -->
+
+## For Agents
+
+**Identifying assumptions**
+- Faithfulness
+- Linear/Gaussian (Fisher-Z)
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| Many supported=False edges | `(none — informational)` | DAG may be misspecified; rerun discovery or check for nonlinearity / unmeasured confounders | `sp.llm_dag_constrained` |
+
+**Typical minimum N**: 200
+
+<!-- AGENT-BLOCK-END -->

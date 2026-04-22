@@ -161,7 +161,17 @@ def sbw(
     df = data[req_cols].dropna().copy()
     T = df[treat].values.astype(int)
     if not set(np.unique(T)).issubset({0, 1}):
-        raise ValueError(f"`{treat}` must be 0/1 binary.")
+        from statspai.exceptions import MethodIncompatibility
+        raise MethodIncompatibility(
+            f"`{treat}` must be 0/1 binary.",
+            recovery_hint=(
+                "SBW (stable balancing weights) targets ATT/ATE on a "
+                "binary treatment. For multi-valued treatments use "
+                "sp.multi_treatment; for continuous use sp.dose_response."
+            ),
+            diagnostics={"treat_values": sorted(map(float, np.unique(T)))[:10]},
+            alternative_functions=["sp.multi_treatment", "sp.dose_response"],
+        )
     X = df[covariates].values.astype(float)
     n = X.shape[0]
     n_t = int(T.sum())

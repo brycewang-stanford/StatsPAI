@@ -2,21 +2,29 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased] — v1.6 P1 Agent-Native × Frontier (MR + LLM-DAG + Paper + Causal-Text)
+## [1.6.0] — 2026-04-21 — P1 Agent-Native × Frontier + Agent-Native Infrastructure
 
 Pure-additive release pushing two competitive axes:
 
 - **Agent-native** — closed-loop LLM-DAG, end-to-end `sp.paper()`
-  pipeline, full registry/agent-card metadata for every new function.
-- **Methodological frontier** — four post-2020 Mendelian-randomization
-  estimators *and* two `causal_text` MVPs (text-as-treatment,
+  pipeline, full registry/agent-card metadata for every new function,
+  typed exception taxonomy (`StatsPAIError` + 6 subclasses) with
+  `recovery_hint` / `diagnostics` / `alternative_functions` payloads,
+  result-object `.violations()` / `.to_agent_summary()` methods, and
+  auto-generated `## For Agents` blocks in every flagship guide.
+- **Methodological frontier** — five post-2020 Mendelian-randomization
+  estimators (`mr_lap`, `mr_clust`, `grapple`, `mr_cml`, `mr_raps`),
+  long-panel Double-ML (`sp.dml_panel`), constrained LLM-assisted PC
+  discovery, and two `causal_text` MVPs (text-as-treatment,
   LLM-annotator measurement-error correction).
 
 Together: one new top-level pipeline (`sp.paper`), four new LLM-aware
 dag/text estimators (`sp.llm_dag_constrained`, `sp.llm_dag_validate`,
 `sp.text_treatment_effect`, `sp.llm_annotator_correct`), constrained
-PC discovery (`sp.pc_algorithm(forbidden=, required=)`), and four MR
-frontier estimators (`sp.mr_lap` etc., described below).
+PC discovery (`sp.pc_algorithm(forbidden=, required=)`), five MR
+frontier estimators (`sp.mr_lap` etc.), one long-panel DML estimator
+(`sp.dml_panel`), 36 populated agent cards (was 0 pre-v1.5.1), and 26
+`## For Agents` blocks across 19 guides.
 
 ### Added — P1-A: closed-loop LLM-assisted causal discovery
 
@@ -94,24 +102,43 @@ frontier estimators (`sp.mr_lap` etc., described below).
   pleiotropy, MR-cML-BIC variant (Xue, Shen & Pan 2021).  Block-
   coordinate descent jointly updates causal β, true exposure effects,
   and a K-sparse pleiotropy vector; K selected by BIC.
+- **`sp.mr_raps`** — Robust Adjusted Profile Score (Zhao, Wang,
+  Hemani, Bowden & Small 2020, *Annals of Statistics* 48(3)).
+  Profile-likelihood MR with Tukey biweight loss + log-variance
+  adjustment; same structural model as GRAPPLE but resistant to
+  gross pleiotropy outliers.  Sandwich SE from M-estimator formula.
+
+### Added — v1.7 long-panel DML (`src/statspai/dml/panel_dml.py`)
+
+- **`sp.dml_panel`** — Long-panel Double/Debiased ML (Semenova-
+  Chernozhukov 2023 simplified).  Absorbs unit (and optional time)
+  fixed effects via within-transform, cross-fits ML nuisance learners
+  with folds that **split units** (Liang-Zeger compatible), reports
+  cluster-robust SE at the unit level.  PLR moment for continuous or
+  binary treatment; empty-covariate fallback reduces to pure FE-OLS.
 
 ### Added — dispatcher + registry wiring
 
 - `sp.mr(method=...)` routes `mr_lap | lap | sample_overlap`,
   `mr_clust | clust | clustered`, `grapple | profile_likelihood`,
-  `mr_cml | cml | constrained_ml` to the new estimators.
-- All four registered in `registry.py` with full `ParamSpec` metadata,
-  category `"mendelian"`, tags, and reference.  `sp.describe_function`,
-  `sp.function_schema`, and `sp.agent_card` now cover them.
-- `statspai.list_functions()` grows from 902 to 906 top-level entries
-  (+4 new MR frontier functions).
+  `mr_cml | cml | constrained_ml`, `mr_raps | raps |
+  robust_profile_score` to the new estimators.
+- All six new functions (5 MR + `dml_panel`) registered in
+  `registry.py` with full `ParamSpec` metadata, category, tags, and
+  reference.  `sp.describe_function`, `sp.function_schema`, and
+  `sp.agent_card` cover them.
 
-### Added — tests (`tests/test_mr_frontier.py`)
+### Added — tests
 
-- 34 tests covering correctness, boundary validation, cross-method
-  consistency (`mr_lap` with `overlap=0` == IVW; `mr_cml` with `K=0`
-  ≈ IVW; `mr_clust` two-cluster DGP detection), dispatcher routing,
-  and registry/schema export.
+- `tests/test_mr_frontier.py` — 41 tests covering correctness,
+  boundary validation, cross-method consistency (`mr_lap` with
+  `overlap=0` == IVW; `mr_cml` with `K=0` ≈ IVW; `mr_clust`
+  two-cluster DGP; `mr_raps` outlier-robustness vs IVW), dispatcher
+  routing, and registry/schema export.
+- `tests/test_dml_panel.py` — 13 tests covering recovery under
+  homogeneous treatment, FE-OLS agreement in the no-confounding
+  limit, cluster-SE vs iid SE under AR(1) within-unit correlation,
+  time-FE option, boundary validation, and registry metadata.
 
 ### Deferred (originally scoped for v1.6)
 
@@ -122,10 +149,11 @@ frontier estimators (`sp.mr_lap` etc., described below).
   CAUSE will land in a later release once reference-parity
   infrastructure is in place.
 
-## [Prior-Unreleased] — Agent-native infrastructure
+### Agent-native infrastructure (foundation for v1.6.0)
 
-Pure-additive release targeting agent-native adoption: every layer
-now speaks in structured data with recovery hints, not prose.
+Every layer now speaks in structured data with recovery hints, not
+prose — this is the foundation the P1 frontier estimators above build
+on.
 
 ### Added — agent-native exception taxonomy (`statspai.exceptions`)
 
@@ -234,11 +262,100 @@ now speaks in structured data with recovery hints, not prose.
   / Bayesian-DID / TMLE / causal-forest / agent-native suites
   continue to pass.
 
+### Added — agent-native round 3 (v1.6 sprint)
+
+- **Nine more flagship agent cards**: `sp.dml_panel` (v1.7 long panel
+  DML), `sp.proximal` (+ bidirectional/fortified PCI alternatives
+  exposed), `sp.mr` (dispatcher for the full MR family), `sp.qdid`,
+  `sp.qte`, `sp.dose_response`, `sp.spillover`, `sp.multi_treatment`,
+  `sp.network_exposure`. `sp.agent_cards()` now returns **30 populated
+  entries** (was 19 after the prior sprint).
+- **Thirteen more guide `## For Agents` blocks** (26 total across 19
+  guides): `proximal_family.md`, `mendelian_family.md`,
+  `qte_family.md` (qte + qdid), `interference_family.md` (spillover +
+  network_exposure), `harvest_did.md` (did + callaway_santanna),
+  `causal_text_family.md` (text_treatment_effect +
+  llm_annotator_correct), `llm_dag_family.md` (llm_dag_constrained +
+  llm_dag_validate), `paper_pipeline.md` (paper).
+- **`paper` spec cleanup** — `alternatives` entries now use bare
+  function names (`"causal"`, `"recommend"`) instead of prose strings,
+  so the renderer emits `sp.causal` rather than `sp.sp.causal: ...`.
+- **Six more call-site exception migrations** with recovery hints:
+  - `sp.match` non-binary treatment → `MethodIncompatibility`
+    pointing at `sp.multi_treatment` / `sp.dose_response`
+  - `sp.match` all-same treatment → `DataInsufficient`
+  - `sp.ebalance` < 2 treated-or-control → `DataInsufficient`
+  - `sp.dml(model='irm')` non-binary D → `MethodIncompatibility`
+  - `sp.dml(model='irm')` constant D → `IdentificationFailure`
+  - `sp.conformal_synth` / `sp.augsynth` insufficient pre/post
+    periods → `DataInsufficient`
+- **6 new migration tests** added to
+  `tests/test_exception_migrations.py` (13 total now). All existing
+  DID / IV / matching / DML / meta-learners / TMLE / synth / Bayesian
+  family suites (363 tests total) continue to pass.
+
+### Added — agent-native round 4 (v1.6 closed-loop)
+
+- **Seven more flagship agent cards**: `sp.principal_strat`
+  (extended), `sp.mediate`, `sp.bartik`, `sp.bayes_rd`,
+  `sp.bayes_fuzzy_rd`, `sp.bayes_mte`, `sp.conformal` (extended).
+  `sp.agent_cards()` now returns **36 populated entries**
+  (30 → 36).
+- **Two more guide `## For Agents` blocks** (28 total across 21
+  guides): `conformal_family.md` (conformal),
+  `shift_share_political_panel.md` (bartik). Drift-check passes.
+- **Six more exception migrations** with recovery hints:
+  - `sp.gsynth` < 3 pre-periods → `DataInsufficient` pointing at
+    `sp.synth` / `sp.did`
+  - `sp.gsynth` < 1 post-period → `DataInsufficient`
+  - `sp.sbw` non-binary treatment → `MethodIncompatibility`
+    pointing at `sp.multi_treatment` / `sp.dose_response`
+  - `sp.optimal_match` missing control arm → `DataInsufficient`
+  - `sp.synth_survival` no donor → `DataInsufficient`
+- **Closed-loop `sp.diagnose_result`**: the diagnostic battery output
+  now also carries:
+  - `violations` — the structured output of `result.violations()`
+    (already surfaces pre-trend / first-stage F / McCrary / rhat /
+    ESS / divergences / overlap / SMD with severity + recovery_hint),
+  - `next_steps` — the output of
+    `result.next_steps(print_result=False)`.
+  The printed version includes a new "Structured violations
+  (agent-native)" section below the family battery so humans and
+  agents see the same triage picture. Backwards compatible: the
+  existing `method_type` / `checks` keys are untouched.
+- **3 new migration tests** + **8 new closed-loop tests** added to
+  `tests/test_exception_migrations.py` and
+  `tests/test_diagnose_result_closed_loop.py`.
+- **Self-audit fix**: the `rdrobust` card's alternatives list used
+  `rd_donut` (not exposed as a top-level function); replaced with
+  `rdrbounds`. Doc block re-synced; drift-check green.
+
+### Final tally (rounds 1 – 4 combined)
+
+- **36 populated agent cards** covering: regression / IV / DID /
+  RD / synth / matching / DML / meta-learners / TMLE / Bayesian
+  (DID/IV/DML/RD/fuzzy-RD/MTE) / proximal / MR / principal strat /
+  mediation / Bartik / QTE / QDID / dose-response / spillover /
+  multi-treatment / network exposure / conformal / DML panel /
+  paper / causal text / LLM-DAG.
+- **28 `## For Agents` blocks** across **21 guides**, rendered by
+  `python scripts/sync_agent_blocks.py` with a CI drift guard.
+- **19 call-site exception migrations** to the typed taxonomy
+  (`MethodIncompatibility`, `DataInsufficient`,
+  `IdentificationFailure`, `NumericalInstability`) across DID / IV
+  / DML / matching / synth / Bayes. All still inherit from
+  `ValueError` / `RuntimeError`, so existing `except` blocks work
+  unchanged.
+- **Closed-loop `sp.diagnose_result`** bridges fit → violations →
+  next_steps in one call, merging the family battery with the
+  structured agent-native view.
+
 ### Migration notes
 
 This release is purely additive. Existing call sites that catch
-`ValueError` continue to catch `AssumptionViolation` and
-`DataInsufficient`; catching `RuntimeError` continues to catch
+`ValueError` continue to catch `AssumptionViolation` /
+`DataInsufficient` / `MethodIncompatibility` /
+`IdentificationFailure`; catching `RuntimeError` continues to catch
 `ConvergenceFailure` and `NumericalInstability`. New code in
 StatsPAI should prefer the specific subclasses and attach a
 `recovery_hint` so agents can act on failures without parsing

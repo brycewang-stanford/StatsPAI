@@ -67,3 +67,37 @@ Skip re-running estimation if you already have a
 cs = sp.callaway_santanna(df, ...)
 rpt = sp.cs_report(cs, n_boot=500, random_state=0)
 ```
+
+<!-- AGENT-BLOCK-START: callaway_santanna -->
+
+## For Agents
+
+**Pre-conditions**
+- panel data with unit × time × outcome
+- g column is integer: first-treated period or 0 for never-treated
+- at least one never-treated or late-treated control group
+- ≥ 2 pre-treatment periods per cohort
+
+**Identifying assumptions**
+- Parallel trends conditional on X (if covariates supplied)
+- No anticipation (or adjust via anticipation= parameter)
+- Overlap: positive propensity for each cohort
+- SUTVA
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| Pre-trend test on aggregated ATT(g,t) rejects | `AssumptionViolation` | Use sp.sensitivity_rr for honest CI, or add covariates for conditional parallel trends. | `sp.sensitivity_rr` |
+| Cohort with only one unit — insufficient variation | `DataInsufficient` | Aggregate small cohorts or drop; check sp.diagnose_result. |  |
+| All units treated at the same time (no staggering) | `MethodIncompatibility` | Fall back to 2x2 DID via sp.did(method='2x2'). | `sp.did` |
+
+**Alternatives (ranked)**
+- `sp.sun_abraham`
+- `sp.did_imputation`
+- `sp.sdid`
+- `sp.did`
+
+**Typical minimum N**: 50
+
+<!-- AGENT-BLOCK-END -->

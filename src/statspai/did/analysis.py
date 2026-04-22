@@ -269,7 +269,16 @@ def did_analysis(
         method_label = 'DID 2×2 (OLS)'
     elif method in ('cs', 'callaway_santanna'):
         if id is None:
-            raise ValueError("'id' is required for Callaway-Sant'Anna.")
+            from statspai.exceptions import MethodIncompatibility
+            raise MethodIncompatibility(
+                "'id' is required for Callaway-Sant'Anna.",
+                recovery_hint=(
+                    "Pass the unit identifier column via id='...', or use "
+                    "method='2x2' if you only have two periods."
+                ),
+                diagnostics={"method": "callaway_santanna", "missing": "id"},
+                alternative_functions=["sp.did"],
+            )
         main_result = callaway_santanna(
             data, y=y, g=treat, t=time, i=id,
             x=covariates, estimator=estimator,
@@ -278,7 +287,16 @@ def did_analysis(
         method_label = f'Callaway-Sant\'Anna ({estimator.upper()})'
     elif method in ('sa', 'sun_abraham', 'sunab'):
         if id is None:
-            raise ValueError("'id' is required for Sun-Abraham.")
+            from statspai.exceptions import MethodIncompatibility
+            raise MethodIncompatibility(
+                "'id' is required for Sun-Abraham.",
+                recovery_hint=(
+                    "Pass the unit identifier column via id='...', or use "
+                    "method='2x2' if you only have two periods."
+                ),
+                diagnostics={"method": "sun_abraham", "missing": "id"},
+                alternative_functions=["sp.did"],
+            )
         main_result = sun_abraham(
             data, y=y, g=treat, t=time, i=id,
             covariates=covariates, cluster=cluster, alpha=alpha,

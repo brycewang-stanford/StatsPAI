@@ -99,9 +99,25 @@ def gsynth(
     post_times = [t for t in all_times if t >= treatment_time]
 
     if len(pre_times) < 3:
-        raise ValueError("GSynth needs at least 3 pre-treatment periods")
+        from statspai.exceptions import DataInsufficient
+        raise DataInsufficient(
+            "GSynth needs at least 3 pre-treatment periods",
+            recovery_hint=(
+                "Interactive-fixed-effects identification requires ≥ 3 "
+                "pre-periods. Use sp.synth(method='classic') for 2 pre-"
+                "periods, or sp.did for 1."
+            ),
+            diagnostics={"n_pre_periods": int(len(pre_times))},
+            alternative_functions=["sp.synth", "sp.did"],
+        )
     if len(post_times) < 1:
-        raise ValueError("Need at least 1 post-treatment period")
+        from statspai.exceptions import DataInsufficient
+        raise DataInsufficient(
+            "Need at least 1 post-treatment period",
+            recovery_hint="Verify treatment_time is within the panel window.",
+            diagnostics={"n_post_periods": int(len(post_times))},
+            alternative_functions=[],
+        )
 
     # Separate treated and control
     donors = [u for u in pivot.index if u != treated_unit]

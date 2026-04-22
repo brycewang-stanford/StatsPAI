@@ -172,3 +172,37 @@ print(f'Joint pretrend p-value: {p:.3f}')
   *Shift-Share Designs: Theory and Inference.*  QJE 134(4).
 - Borusyak, K., Hull, P. & Jaravel, X. (2022).
   *Quasi-Experimental Shift-Share Research Designs.*  ReStud 89.
+
+<!-- AGENT-BLOCK-START: bartik -->
+
+## For Agents
+
+**Pre-conditions**
+- pre-period shares are pre-determined (measured strictly before the outcome window)
+- shocks are as-good-as-random conditional on unit-level controls
+- ≥ 50 regions for AKM shift-share SE to be well-sized
+- enough industries / groups (n_shares × avg_share_concentration not too concentrated)
+
+**Identifying assumptions**
+- Exogeneity of shocks conditional on pre-period exposure structure (Borusyak-Hull-Jaravel)
+- Shock-level IV: shocks are independent of region-level unobserved trends
+- Asymptotic framework: many shocks (L → ∞) — check via sp.ssaggregate Herfindahl
+- First-stage relevance: Bartik predicts local exposure
+
+**Failure modes → recovery**
+
+| Symptom | Exception | Remedy | Try next |
+| --- | --- | --- | --- |
+| Herfindahl of shares too concentrated (one industry dominates) | `statspai.AssumptionWarning` | Shift-share SE unreliable — use Adão-Kolesár-Morales shock-level SE via sp.shift_share_se. | `sp.shift_share_se` |
+| First-stage F < 10 | `statspai.AssumptionWarning` | Shares don't predict exposure enough — report weak-IV-robust CI (sp.anderson_rubin_ci). | `sp.anderson_rubin_ci` |
+| Shocks correlate with pre-trends | `statspai.AssumptionViolation` | Shock exogeneity fails — drop the violating shock dimension or add trend controls. |  |
+
+**Alternatives (ranked)**
+- `sp.iv`
+- `sp.shift_share_se`
+- `sp.shift_share_political`
+- `sp.shift_share_political_panel`
+
+**Typical minimum N**: 100
+
+<!-- AGENT-BLOCK-END -->

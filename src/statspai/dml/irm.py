@@ -35,11 +35,27 @@ class DoubleMLIRM(_DoubleMLBase):
         from sklearn.model_selection import KFold
 
         if not set(np.unique(D)).issubset({0, 1}):
-            raise ValueError("model='irm' requires binary treatment (0/1).")
+            from statspai.exceptions import MethodIncompatibility
+            raise MethodIncompatibility(
+                "model='irm' requires binary treatment (0/1).",
+                recovery_hint=(
+                    "Use model='plr' for continuous treatment, or "
+                    "sp.multi_treatment for multi-valued treatments."
+                ),
+                diagnostics={"treat_values": sorted(map(float, np.unique(D)))[:10]},
+                alternative_functions=["sp.dml", "sp.multi_treatment"],
+            )
         if len(np.unique(D)) < 2:
-            raise ValueError(
+            from statspai.exceptions import IdentificationFailure
+            raise IdentificationFailure(
                 "model='irm' requires variation in D (both 0 and 1); "
-                "ATE is not identified with a constant treatment."
+                "ATE is not identified with a constant treatment.",
+                recovery_hint=(
+                    "Treatment is constant in the sample — check the filter / "
+                    "data pipeline."
+                ),
+                diagnostics={"n_unique_D": int(len(np.unique(D)))},
+                alternative_functions=[],
             )
 
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=rng_seed)

@@ -80,17 +80,36 @@ def did_2x2(
     df = data.copy()
 
     # Validate binary variables
+    from statspai.exceptions import MethodIncompatibility
+
     treat_vals = sorted(df[treat].dropna().unique())
     time_vals = sorted(df[time].dropna().unique())
     if len(treat_vals) != 2:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"Treatment variable '{treat}' must have exactly 2 values, "
-            f"got {len(treat_vals)}: {treat_vals}"
+            f"got {len(treat_vals)}: {treat_vals}",
+            recovery_hint=(
+                "For staggered adoption (multi-period treat), use "
+                "sp.callaway_santanna or sp.sun_abraham. "
+                "For multi-valued treatment, use sp.multi_treatment."
+            ),
+            diagnostics={"treat": treat, "n_unique_values": len(treat_vals)},
+            alternative_functions=[
+                "sp.callaway_santanna", "sp.sun_abraham", "sp.did_multiplegt",
+            ],
         )
     if len(time_vals) != 2:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"Time variable '{time}' must have exactly 2 values, "
-            f"got {len(time_vals)}: {time_vals}"
+            f"got {len(time_vals)}: {time_vals}",
+            recovery_hint=(
+                "For multi-period panels, use sp.did(method='cs') "
+                "(Callaway-Sant'Anna) or sp.event_study."
+            ),
+            diagnostics={"time": time, "n_unique_values": len(time_vals)},
+            alternative_functions=[
+                "sp.callaway_santanna", "sp.event_study", "sp.sun_abraham",
+            ],
         )
 
     # Ensure 0/1 coding
