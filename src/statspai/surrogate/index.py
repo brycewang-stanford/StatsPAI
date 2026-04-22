@@ -3,8 +3,8 @@ Surrogate-index estimators for long-term treatment effects.
 
 Implements three closely-related identification strategies:
 
-1. **Classical surrogate index** (Athey, Chetty, Imbens, Pollmann, Taubinsky
-   2019) — under the surrogacy assumption ``Y ⟂ T | S``, the long-term ATE
+1. **Classical surrogate index** (Athey, Chetty, Imbens & Kang 2019,
+   NBER WP 26463) — under the surrogacy assumption ``Y ⟂ T | S``, the long-term ATE
    in the experiment equals
 
        ATE = E[ f(S) | T=1 ] - E[ f(S) | T=0 ],  f(s) = E[Y | S=s]
@@ -15,14 +15,14 @@ Implements three closely-related identification strategies:
    2024) — iterates the above over multiple waves to handle long-term
    *treatments*, not just long-term outcomes.
 
-3. **Proximal surrogate index** (Imbens, Kallus, Mao arXiv:2601.17712, 2026)
-   — relaxes surrogacy to allow an unobserved ``U`` confounding ``S → Y``,
-   using a proxy ``W``. Identifies the bridge function via a two-stage
-   least-squares style moment condition.
+3. **Proximal surrogate index** (Imbens, Kallus, Mao & Wang 2025, JRSS-B
+   87(2); arXiv:2202.07234) — relaxes surrogacy to allow an unobserved
+   ``U`` confounding ``S → Y``, using a proxy ``W``. Identifies the
+   bridge function via a two-stage least-squares style moment condition.
 
 Standard errors use an analytic two-sample delta-method asymptotic
-variance (Athey et al. 2019, Theorem 1) by default, with a nonparametric
-bootstrap fallback.
+variance (Athey, Chetty, Imbens & Kang 2019, Theorem 1) by default,
+with a nonparametric bootstrap fallback.
 """
 
 from __future__ import annotations
@@ -145,7 +145,7 @@ def _delta_variance(
     n_exp: int,
     n_obs: int,
 ) -> float:
-    """Athey-Chetty-Imbens two-sample variance.
+    """Athey-Chetty-Imbens-Kang two-sample variance.
 
     var(ATE_hat) = Var[h | T=1] / n1 + Var[h | T=0] / n0
                  + E[h_pred'(S) * (Y - f(S))]^2 * sigma^2 / n_obs (approx)
@@ -165,7 +165,7 @@ def _delta_variance(
 
 
 # ---------------------------------------------------------------------------
-# 1) Classical surrogate index (Athey-Chetty-Imbens 2019)
+# 1) Classical surrogate index (Athey-Chetty-Imbens-Kang 2019)
 # ---------------------------------------------------------------------------
 
 
@@ -182,7 +182,7 @@ def surrogate_index(
     n_boot: int = 0,
     random_state: Optional[int] = None,
 ) -> CausalResult:
-    """Athey-Chetty-Imbens surrogate-index estimator for the long-term ATE.
+    """Athey-Chetty-Imbens-Kang surrogate-index estimator for the long-term ATE.
 
     Parameters
     ----------
@@ -223,7 +223,10 @@ def surrogate_index(
 
     References
     ----------
-    Athey, Chetty, Imbens, Pollmann, Taubinsky (2019). NBER WP 26463.
+    Athey, S., Chetty, R., Imbens, G. W., & Kang, H. (2019).
+    "The Surrogate Index: Combining Short-Term Proxies to Estimate
+    Long-Term Treatment Effects More Rapidly and Precisely."
+    NBER Working Paper 26463.
     """
     if not isinstance(experimental, pd.DataFrame):
         raise TypeError("`experimental` must be a pandas DataFrame.")
@@ -471,7 +474,7 @@ def long_term_from_short(
 
 
 # ---------------------------------------------------------------------------
-# 3) Proximal surrogate index (Imbens-Kallus-Mao 2026)
+# 3) Proximal surrogate index (Imbens-Kallus-Mao-Wang 2025 JRSS-B)
 # ---------------------------------------------------------------------------
 
 
@@ -493,8 +496,8 @@ def proximal_surrogate_index(
     Relaxes the surrogacy assumption ``Y ⟂ T | S`` by allowing an
     unobserved ``U`` that confounds ``S → Y``. Identification uses a proxy
     ``W`` satisfying the two-stage completeness conditions of Imbens,
-    Kallus & Mao (2026). In linear-Gaussian form the bridge function
-    ``h(s, x)`` solves
+    Kallus, Mao & Wang (2025, JRSS-B). In linear-Gaussian form the
+    bridge function ``h(s, x)`` solves
 
         E[Y | S, X, W] = W' * α + β * h(S, X)
 
@@ -518,7 +521,10 @@ def proximal_surrogate_index(
 
     References
     ----------
-    Imbens, Kallus, Mao (arXiv:2601.17712, 2026).
+    Imbens, G., Kallus, N., Mao, X., & Wang, Y. (2025).
+    "Long-term Causal Inference Under Persistent Confounding via Data
+    Combination." Journal of the Royal Statistical Society Series B,
+    87(2), 362-388. arXiv:2202.07234.
     """
     if len(proxies) == 0:
         raise ValueError(

@@ -25,14 +25,14 @@ disagree beyond sampling error.
 
 ## The six bridges
 
-| `kind`            | Theorem                                          | Reference                                 |
-|-------------------|--------------------------------------------------|-------------------------------------------|
-| `did_sc`          | DiD ≡ Synthetic Control                          | Shi & Athey, arXiv:2503.11375 (2025)       |
-| `ewm_cate`        | EWM ≡ CATE-max policy                            | Ferman et al., arXiv:2510.26723 (2025)     |
-| `cb_ipw`          | Covariate Balancing ≡ IPW ≡ DR                   | Zhao & Percival, arXiv:2310.18563 v6 (2025)|
-| `kink_rdd`        | Bunching ≡ Kink RDD first-order expansion        | Lu, Wang, Xie, arXiv:2404.09117 (2025)     |
-| `dr_calib`        | Doubly-robust ≡ outcome + Riesz joint calibration | Zhang et al., arXiv:2411.02771 (2025)     |
-| `surrogate_pci`   | Long-term Surrogate Index ≡ PCI                  | Kallus & Mao, arXiv:2601.17712 (2026)      |
+| `kind`          | Theorem                                           | Reference                                                       |
+|-----------------|---------------------------------------------------|-----------------------------------------------------------------|
+| `did_sc`        | DiD ≡ Synthetic Control                           | Shi & Athey, arXiv:2503.11375 (2025)                            |
+| `ewm_cate`      | EWM ≡ CATE-max policy                             | Ferman et al., arXiv:2510.26723 (2025)                          |
+| `cb_ipw`        | Covariate Balancing ≡ IPW ≡ DR                    | Zhao & Percival, arXiv:2310.18563 v6 (2025)                     |
+| `kink_rdd`      | Bunching ≡ Kink RDD first-order expansion         | Lu, Wang, Xie, arXiv:2404.09117 (2025)                          |
+| `dr_calib`      | Doubly-robust ≡ outcome + Riesz joint calibration | Zhang et al., arXiv:2411.02771 (2025)                           |
+| `surrogate_pci` | Long-term Surrogate Index ≡ PCI                   | Imbens, Kallus, Mao & Wang, JRSS-B 87(2) 2025; arXiv:2202.07234 |
 
 Each bridge is importable at top level as `sp.bridge(kind="..." ...)` or
 via the per-module function in `statspai.bridge.*`.
@@ -186,13 +186,14 @@ explicit.
 
 ---
 
-## 6. Long-term Surrogate Index ≡ Proximal Causal Inference — Kallus-Mao (2026)
+## 6. Long-term Surrogate Index ≡ Proximal Causal Inference — Imbens-Kallus-Mao-Wang (2025)
 
-Surrogate indices (Athey-Chetty-Imbens, 2020) use short-term
-measurements as proxies for long-term outcomes. Kallus-Mao show that
-under a completeness condition, the surrogate-index estimand is
-*identical* to a proximal-causal-inference (PCI) estimand using the
-same short-term variables as proxies for an unobserved confounder.
+Surrogate indices (Athey-Chetty-Imbens-Kang, NBER WP 26463, 2019) use
+short-term measurements as proxies for long-term outcomes. Imbens,
+Kallus, Mao & Wang show that under a completeness condition, the
+surrogate-index estimand is *identical* to a proximal-causal-inference
+(PCI) estimand using the same short-term variables as proxies for an
+unobserved confounder.
 
 ```python
 r = sp.bridge(

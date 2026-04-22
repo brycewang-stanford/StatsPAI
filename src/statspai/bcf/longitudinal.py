@@ -1,8 +1,8 @@
 """
 BCFLong — hierarchical Bayesian Causal Forest for longitudinal data.
 
-Alessi, Zorzetto et al. (arXiv:2508.08418, 2025) extend BCF to
-longitudinal/panel data with a two-level hierarchy:
+Prevot, Häring, Nichols, Holmes & Ganjgahi (arXiv:2508.08418, 2025)
+extend BCF to longitudinal/panel data with a two-level hierarchy:
 
 * Level 1 (observation): ``Y_{it} = mu_t(X_{it}) + tau_t(X_{it}) D_{it} + u_i + e_{it}``
 * Level 2 (subject)    : ``u_i ~ Normal(0, sigma_u^2)`` (random intercept)
@@ -15,7 +15,10 @@ bootstrap-based posterior that avoids PyMC as a hard dependency.
 
 References
 ----------
-Alessi, Zorzetto et al. (arXiv:2508.08418, 2025).
+Prevot, E., Häring, D. A., Nichols, T. E., Holmes, C. C., & Ganjgahi, H.
+(2025). "A hierarchical modelling approach for Bayesian Causal Forests
+on longitudinal data: A Case Study in Multiple Sclerosis Clinical
+Trials." arXiv:2508.08418.
 """
 
 from __future__ import annotations
@@ -178,7 +181,7 @@ def bcf_longitudinal(
 
     References
     ----------
-    Alessi, Zorzetto et al. (arXiv:2508.08418, 2025).
+    Prevot, Häring, Nichols, Holmes & Ganjgahi (arXiv:2508.08418, 2025).
     Hahn, Murray, Carvalho (2020), Bayesian Analysis.
     """
     if not isinstance(data, pd.DataFrame):
@@ -354,6 +357,6 @@ def bcf_longitudinal(
             "n_trees_mu": n_trees_mu,
             "n_trees_tau": n_trees_tau,
             "n_bootstrap_effective": len(boot_point),
-            "reference": "Alessi, Zorzetto et al. (arXiv:2508.08418, 2025)",
+            "reference": "Prevot, Häring, Nichols, Holmes & Ganjgahi (arXiv:2508.08418, 2025)",
         },
     )

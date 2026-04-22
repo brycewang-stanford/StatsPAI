@@ -9,24 +9,25 @@ and an observational sample (with both surrogate and long-term outcome).
 
 Estimators
 ----------
-- :func:`surrogate_index` — Athey, Chetty, Imbens, Pollmann & Taubinsky (2019).
+- :func:`surrogate_index` — Athey, Chetty, Imbens & Kang (2019).
   Classical single-wave surrogate index.
 - :func:`long_term_from_short` — Ghassami, Yang, Shpitser, Tchetgen Tchetgen
   (arXiv:2311.08527, 2024). Long-term effect of long-term treatments from
   short-term experiments.
-- :func:`proximal_surrogate_index` — Imbens, Kallus, Mao (arXiv:2601.17712,
-  2026). Proximal identification when unobserved confounders link surrogate
-  and long-term outcome.
+- :func:`proximal_surrogate_index` — Imbens, Kallus, Mao & Wang (2025, JRSS-B
+  87(2); arXiv:2202.07234). Proximal identification when unobserved
+  confounders link surrogate and long-term outcome.
 
 References
 ----------
-Athey, S., Chetty, R., Imbens, G., Pollmann, M., & Taubinsky, D. (2019).
+Athey, S., Chetty, R., Imbens, G. W., & Kang, H. (2019).
 "The Surrogate Index: Combining Short-Term Proxies to Estimate Long-Term
-Treatment Effects More Rapidly and Precisely." NBER WP 26463.
+Treatment Effects More Rapidly and Precisely." NBER Working Paper 26463.
 
-Imbens, G., Kallus, N., Mao, X. (2026).
-"The Proximal Surrogate Index: Long-Term Treatment Effects under
-Unobserved Confounding." arXiv:2601.17712.
+Imbens, G., Kallus, N., Mao, X., & Wang, Y. (2025).
+"Long-term Causal Inference Under Persistent Confounding via Data
+Combination." Journal of the Royal Statistical Society Series B,
+87(2), 362-388. arXiv:2202.07234.
 """
 
 from .index import (

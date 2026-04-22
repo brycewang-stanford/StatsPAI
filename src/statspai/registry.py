@@ -2652,7 +2652,7 @@ def _build_registry():
         name="surrogate_index",
         category="surrogate",
         description=(
-            "Athey-Chetty-Imbens surrogate-index estimator for the "
+            "Athey-Chetty-Imbens-Kang surrogate-index estimator for the "
             "long-term ATE: combines an experimental sample (treatment + "
             "short-term surrogate) with an observational sample "
             "(surrogate + long-term outcome) to extrapolate the effect on "
@@ -2677,7 +2677,7 @@ def _build_registry():
         ),
         tags=["surrogate", "long_term", "causal", "ate"],
         reference=(
-            "Athey, Chetty, Imbens, Pollmann, Taubinsky (2019). NBER WP 26463."
+            "Athey, Chetty, Imbens & Kang (2019). NBER WP 26463."
         ),
     ))
 
@@ -2799,7 +2799,7 @@ def _build_registry():
         name="causal_bandit",
         category="causal_rl",
         description=(
-            "Bareinboim-Pearl contextual causal bandit: pick the optimal "
+            "Bareinboim-Forney-Pearl contextual causal bandit: pick the optimal "
             "arm by Monte-Carlo estimation of E[Y(a) | context]."
         ),
         params=[
@@ -2810,7 +2810,7 @@ def _build_registry():
         ],
         returns="CausalBanditResult",
         tags=["causal_rl", "bandit", "pearl"],
-        reference="Bareinboim & Pearl (NIPS 2015).",
+        reference="Bareinboim, Forney & Pearl (NeurIPS 2015). 'Bandits with Unobserved Confounders: A Causal Approach.'",
     ))
     register(FunctionSpec(
         name="counterfactual_policy_optimization",
@@ -3017,7 +3017,7 @@ def _build_registry():
         name="bayes_dml",
         category="bayes",
         description=(
-            "Bayesian Double Machine Learning (Chernozhukov et al. 2025): "
+            "Bayesian Double Machine Learning (DiTraglia & Liu 2025): "
             "Normal-Normal conjugate update on a DML point estimate, with "
             "optional full PyMC MCMC over the orthogonal moment equation."
         ),
@@ -3039,7 +3039,7 @@ def _build_registry():
             "covariates=['x1','x2'])"
         ),
         tags=["bayes", "dml", "double_ml", "posterior"],
-        reference="Chernozhukov et al. (arXiv:2508.12688, 2025).",
+        reference="DiTraglia & Liu (arXiv:2508.12688, 2025). DML framework: Chernozhukov et al. (2018).",
         pre_conditions=[
             "prior_sd is weakly informative relative to the expected effect scale",
             "for mode='full': pymc installed (sp.bayes extra)",
@@ -3443,7 +3443,7 @@ def _build_registry():
             "unit='id', time='t', covariates=['x1','x2'])"
         ),
         tags=["bcf", "longitudinal", "panel", "hte"],
-        reference="Alessi, Zorzetto et al. (arXiv:2508.08418, 2025).",
+        reference="Prevot, Häring, Nichols, Holmes & Ganjgahi (arXiv:2508.08418, 2025).",
     ))
 
     # -- Time-series causal discovery extensions --------------------- #
@@ -3632,7 +3632,7 @@ def _build_registry():
         description=(
             "Proximal surrogate-index estimator: long-term ATE when an "
             "unobserved U confounds S→Y, using a proxy W and 2SLS-style "
-            "bridge-function identification (Imbens-Kallus-Mao 2026)."
+            "bridge-function identification (Imbens-Kallus-Mao-Wang 2025, JRSS-B)."
         ),
         params=[
             ParamSpec("experimental", "DataFrame", True),
@@ -3650,7 +3650,7 @@ def _build_registry():
             "surrogates=['s'], proxies=['w'], long_term_outcome='Y')"
         ),
         tags=["surrogate", "long_term", "proximal", "unobserved_confounding"],
-        reference="Imbens, Kallus, Mao (arXiv:2601.17712, 2026).",
+        reference="Imbens, Kallus, Mao & Wang (2025). JRSS-B 87(2), 362-388. arXiv:2202.07234.",
     ))
 
     # ------------------------------------------------------------------
@@ -3924,7 +3924,7 @@ def _build_registry():
             "Unified dispatcher for six causal-inference bridging theorems "
             "(2025-2026): DiD≡SC (Shi-Athey), EWM≡CATE (Ferman), "
             "IPW≡DR≡CB (Zhao-Percival), Bunching≡RDD (Lu-Wang-Xie), "
-            "DR-via-Calibration (Zhang), Long-term-surrogate≡PCI (Kallus-Mao). "
+            "DR-via-Calibration (Zhang), Long-term-surrogate≡PCI (Imbens-Kallus-Mao-Wang). "
             "Reports both path estimates + doubly-robust recommendation."
         ),
         params=[
@@ -3940,7 +3940,7 @@ def _build_registry():
         reference=(
             "Shi-Athey (2503.11375); Ferman et al. (2510.26723); "
             "Zhao-Percival (2310.18563); Lu-Wang-Xie (2404.09117); "
-            "Zhang et al. (2411.02771); Kallus-Mao (2601.17712)."
+            "Zhang et al. (2411.02771); Imbens-Kallus-Mao-Wang (2202.07234, JRSS-B 2025)."
         ),
     ))
 

@@ -3,7 +3,7 @@ Core causal-RL primitives added in v1.0.
 
 Three building blocks on top of :mod:`statspai.causal_rl`:
 
-- :func:`causal_bandit` — Bareinboim-Pearl contextual causal bandit.
+- :func:`causal_bandit` — Bareinboim-Forney-Pearl contextual causal bandit.
 - :func:`counterfactual_policy_optimization` — Oberst-Sontag 2019 style
   counterfactual policy evaluation via SCM noise inversion (Gaussian
   linear special case).
@@ -124,7 +124,7 @@ def causal_bandit(
     n_samples: int = 500,
     rng_seed: int = 0,
 ) -> CausalBanditResult:
-    """Bareinboim-Pearl contextual causal bandit.
+    """Bareinboim-Forney-Pearl contextual causal bandit.
 
     Given a callable ``reward_fn(arm, context)`` that samples the
     potential outcome of an arm under the current context, Monte Carlo

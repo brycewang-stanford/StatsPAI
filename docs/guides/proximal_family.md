@@ -155,12 +155,13 @@ single-control versions.
 
 ---
 
-## Long-term surrogate + PCI — `sp.proximal_surrogate_index` (Kallus-Mao, 2026)
+## Long-term surrogate + PCI — `sp.proximal_surrogate_index` (Imbens-Kallus-Mao-Wang, 2025)
 
 You ran a randomised experiment for 3 months but care about the 2-year
-outcome.  The classical solution (Athey-Chetty-Imbens 2020 surrogate index)
-needs the surrogates to fully mediate the long-term effect — a strong
-assumption.  Kallus-Mao show that combining the surrogate index with a PCI
+outcome.  The classical solution (Athey-Chetty-Imbens-Kang, NBER WP 26463,
+2019 surrogate index) needs the surrogates to fully mediate the long-term
+effect — a strong assumption.  Imbens, Kallus, Mao & Wang show that
+combining the surrogate index with a PCI
 layer on the **observational** data lets you drop the full-mediation
 requirement: short-term surrogates play the role of `W`, observational
 proxies play the role of `Z`, and the two together identify the long-term
@@ -181,7 +182,9 @@ r = sp.proximal_surrogate_index(
 This is also available as the `surrogate_pci` bridge in `sp.bridge` — see
 [Bridging theorems](bridging_theorems.md).
 
-Citation: Kallus & Mao (2026), arXiv:2601.17712.
+Citation: Imbens, Kallus, Mao & Wang (2025). "Long-term Causal Inference
+Under Persistent Confounding via Data Combination." *Journal of the Royal
+Statistical Society Series B* 87(2), 362-388. arXiv:2202.07234.
 
 ---
 

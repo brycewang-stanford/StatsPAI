@@ -1,6 +1,6 @@
 """
-Bridge: Long-term Surrogate ≡ Proximal Causal Inference (Kallus-Mao
-2026, arXiv 2601.17712).
+Bridge: Long-term Surrogate ≡ Proximal Causal Inference (Imbens, Kallus,
+Mao & Wang 2025, JRSS-B 87(2) 362-388; arXiv 2202.07234).
 
 Both paths target the long-term ATT under unobserved confounding via
 short-term proxy variables. Surrogate Index assumes the proxy fully
@@ -85,7 +85,7 @@ def surrogate_pci_bridge(
         att_surr = np.nan
 
     # ---------- Path B: PCI bridge (two-model counterfactual) ---------- #
-    # Kallus-Mao (2026) show that under proxy completeness the bridge
+    # Imbens-Kallus-Mao-Wang (2025) show that under proxy completeness the bridge
     # function b(W, X) = E[Y | W, X, D = 0] identifies the ATT via
     #     ATT = E[b(W, X) | D = 1] - E[Y | D = 0].
     # We go one step further and fit a symmetric bridge on BOTH arms —
@@ -159,5 +159,5 @@ def surrogate_pci_bridge(
         se_dr=se_dr,
         n_obs=n,
         detail={"n_short_term": len(short_term)},
-        reference="Kallus-Mao (2026), arXiv 2601.17712",
+        reference="Imbens, Kallus, Mao & Wang (2025), JRSS-B 87(2); arXiv 2202.07234",
     )

@@ -120,7 +120,7 @@ def test_bridge_kink_rdd_dispatches():
 
 
 # ═══════════════════════════════════════════════════════════════════════
-#  surrogate_pci — Kallus-Mao 2026
+#  surrogate_pci — Imbens-Kallus-Mao-Wang 2025 (JRSS-B)
 # ═══════════════════════════════════════════════════════════════════════
 
 def test_bridge_surrogate_pci_dispatches():
