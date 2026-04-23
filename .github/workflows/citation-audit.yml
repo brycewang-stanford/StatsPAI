@@ -72,7 +72,15 @@ jobs:
         # Fast (<1s) stdlib-only tests guarding DOI regex / Q-network
         # stopword / parse_bib brace-balance regressions. Runs BEFORE
         # the live auditors so a broken auditor can't silently pass.
-        run: python -m pytest tests/test_audit_citations.py tests/test_audit_bib_duplicates.py --no-cov -q
+        #
+        # -o 'addopts=' overrides the project-wide pyproject.toml addopts
+        # (which pull in --cov=statspai for local dev); the auditor tests
+        # are stdlib-only and don't need the full coverage toolchain.
+        run: |
+          python -m pytest \
+            tests/test_audit_citations.py \
+            tests/test_audit_bib_duplicates.py \
+            -o 'addopts=' -q
 
       - name: Run paper.bib duplicate auditor (strict)
         id: bib_audit
