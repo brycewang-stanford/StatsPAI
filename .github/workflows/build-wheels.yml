@@ -38,6 +38,12 @@ on:
         type: boolean
         default: false
 
+# Opt into Node 24 runtime for JavaScript actions. GitHub's documented
+# migration path (2025-09-19 changelog) ahead of the 2026-06-02 hard
+# cutover. Preserves current action versions. No user input interpolated.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   check_rust_present:
     name: Detect Rust crate

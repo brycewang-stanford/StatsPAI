@@ -19,6 +19,14 @@ on:
           - both
         default: none
 
+# Opt into Node 24 runtime early for all JavaScript actions.
+# GitHub's documented migration path (blog post 2025-09-19) before the
+# hard cutover on 2026-06-02. Keeps existing action versions intact and
+# just swaps the runtime, so no surface-area change in our steps.
+# Security: pure runner config, no user input.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}

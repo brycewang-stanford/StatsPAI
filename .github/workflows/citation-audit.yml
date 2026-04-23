@@ -57,6 +57,13 @@ on:
       - '.github/workflows/citation-audit.yml'
   workflow_dispatch:
 
+# Opt into Node 24 runtime early for all JavaScript actions.
+# GitHub's documented migration path (blog post 2025-09-19) before the
+# hard cutover on 2026-06-02. Keeps existing action versions intact.
+# Security: pure runner config, no user input.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 concurrency:
   group: citation-audit-${{ github.ref }}
   cancel-in-progress: true
