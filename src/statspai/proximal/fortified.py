@@ -1,6 +1,6 @@
 """
-Fortified Proximal Causal Inference (Yang-Schwartz 2025,
-arXiv 2506.13152).
+Fortified Proximal Causal Inference (Yu, Shi & Tchetgen Tchetgen 2025,
+arXiv 2506.13152). [@yu2025fortified]
 
 Adds robustness to misspecification of the bridge function. The
 ordinary PCI estimator solves
@@ -61,8 +61,8 @@ def fortified_pci(
 
     References
     ----------
-    Yu, Shi & Tchetgen Tchetgen (2025). Fortified Proximal Causal Inference.
-    arXiv 2506.13152.
+    Yu, Shi & Tchetgen Tchetgen (2025). Fortified Proximal Causal Inference
+    with Many Invalid Proxies. arXiv 2506.13152. [@yu2025fortified]
     """
     cov = list(covariates or [])
     df = data[[y, treat] + list(proxy_z) + list(proxy_w) + cov] \
@@ -143,9 +143,11 @@ def fortified_pci(
 
 
 CausalResult._CITATIONS['fortified_pci'] = (
-    "@article{yang2025fortified,\n"
-    "  title={Fortified Proximal Causal Inference},\n"
-    "  author={Yang, Yifan and Schwartz, Sheila},\n"
+    "@article{yu2025fortified,\n"
+    "  title={Fortified Proximal Causal Inference with "
+    "Many Invalid Proxies},\n"
+    "  author={Yu, Myeonghun and Shi, Xu and "
+    "Tchetgen Tchetgen, Eric J.},\n"
     "  journal={arXiv preprint arXiv:2506.13152},\n"
     "  year={2025}\n"
     "}"

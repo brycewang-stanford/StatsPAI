@@ -63,8 +63,8 @@ Standard PCI fails hard when either bridge is misspecified.  **Fortified PCI**
 adds a stability constraint: at each proxy choice, we fit both bridges with a
 shared penalty that drives the solution toward an *overlap region* where both
 moments are jointly satisfied.  Empirically this is the PCI variant most
-robust to moderate bridge-function misspecification (Yang-Schwartz 2025
-Tables 2-4).
+robust to moderate bridge-function misspecification (Yu, Shi & Tchetgen
+Tchetgen 2025 Tables 2-4).
 
 ```python
 r = sp.fortified_pci(

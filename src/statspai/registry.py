@@ -3972,7 +3972,7 @@ def _build_registry():
         name="fortified_pci",
         category="causal",
         description=(
-            "Fortified proximal causal inference (Yang-Schwartz 2025). "
+            "Fortified proximal causal inference (Yu, Shi & Tchetgen Tchetgen 2025). "
             "Adds a bridge-function stability constraint that gives robust "
             "ATT under mild misspecification of the outcome/treatment bridge."
         ),
@@ -3994,7 +3994,7 @@ def _build_registry():
         name="bidirectional_pci",
         category="causal",
         description=(
-            "Bidirectional proximal causal inference (Shi-Miao-Tchetgen 2025). "
+            "Bidirectional proximal causal inference (Min, Zhang & Luo 2025). "
             "Solves for both outcome and treatment bridges simultaneously "
             "in a single two-way regression system."
         ),

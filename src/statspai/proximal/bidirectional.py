@@ -1,6 +1,6 @@
 """
-Bidirectional Proximal Causal Inference (Shi-Miao-Tchetgen 2025,
-arXiv 2507.13965).
+Bidirectional Proximal Causal Inference (Min, Zhang & Luo 2025,
+arXiv 2507.13965). [@min2025regression]
 
 Standard PCI uses one outcome bridge (W ⊥ D | U) and one treatment
 bridge (Z ⊥ Y | D, U). The bidirectional variant fits both bridges
@@ -123,9 +123,10 @@ def bidirectional_pci(
 
 
 CausalResult._CITATIONS['bidirectional_pci'] = (
-    "@article{shi2025bidirectional,\n"
-    "  title={Regression-Based Bidirectional Proximal Causal Inference},\n"
-    "  author={Shi, Xu and Miao, Wang and Tchetgen Tchetgen, Eric J.},\n"
+    "@article{min2025regression,\n"
+    "  title={A regression-based approach for bidirectional proximal "
+    "causal inference in the presence of unmeasured confounding},\n"
+    "  author={Min, Jiaqi and Zhang, Xueyue and Luo, Shanshan},\n"
     "  journal={arXiv preprint arXiv:2507.13965},\n"
     "  year={2025}\n"
     "}"
