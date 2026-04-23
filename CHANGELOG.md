@@ -2,6 +2,29 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Fixed — CI/CD green-up
+
+- **Bandit security gate** — `src/statspai/causal_text/_common.py`
+  hashing call now passes `usedforsecurity=False` to `hashlib.md5`.
+  The digest is used as a deterministic bucket index for hashed-token
+  embeddings, not a security primitive; the flag tells Bandit B324
+  (CWE-327) that weak-hash use is intentional. Digest bytes are
+  identical to the prior call — no numerical change to `embed_texts`
+  or `sp.text_treatment_effect`.
+- **Windows path-separator parity** — `tools/audit_bib_coverage.py::_rel`
+  now emits POSIX-style paths via `Path.as_posix()`, so the
+  `citations_by_key` report is identical across Windows and POSIX
+  runners. Fixes `test_build_report_records_citation_locations` on
+  `windows-latest`.
+- **Windows CLI subprocess** — `tests/test_suggest_bibkey_backfills.py`
+  now merges the child-process environment with `os.environ` (so `PATH`
+  survives) before invoking the tool. Windows `CreateProcess` has no
+  `_CS_PATH` fallback like POSIX `execvpe`, so an empty-env child
+  cannot resolve `git.exe`. Fixes `test_cli_dry_run_does_not_mutate` on
+  `windows-latest`.
+
 ## [1.6.0] — 2026-04-21 — P1 Agent-Native × Frontier + Agent-Native Infrastructure
 
 Pure-additive release pushing two competitive axes:

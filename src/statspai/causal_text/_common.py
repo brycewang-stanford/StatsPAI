@@ -62,7 +62,9 @@ def hash_embed_texts(
     salt = str(int(seed)).encode("utf-8")
     for i, text in enumerate(texts):
         for tok in _tokenize(text):
-            h = hashlib.md5(salt + tok.encode("utf-8")).digest()
+            h = hashlib.md5(
+                salt + tok.encode("utf-8"), usedforsecurity=False,
+            ).digest()
             bucket = int.from_bytes(h[:4], "little") % n_components
             out[i, bucket] += 1.0
         norm = np.linalg.norm(out[i])

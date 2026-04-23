@@ -15,6 +15,7 @@ Guards the three invariants the tool needs to be safe:
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import textwrap
@@ -307,8 +308,11 @@ def test_cli_dry_run_does_not_mutate(tmp_path):
     subprocess.run(["git", "add", "-A"], cwd=tmp_path, check=True)
     subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=tmp_path, check=True)
 
-    # Point tool at the tmp repo.
-    env = {"PYTHONPATH": str(TOOLS_DIR)}
+    # Point tool at the tmp repo. Merge into os.environ so PATH stays
+    # available for the ``git grep`` subprocess inside the tool — Windows
+    # CreateProcess has no fallback path like POSIX execvpe (_CS_PATH),
+    # so an empty-env child cannot resolve ``git.exe``.
+    env = {**os.environ, "PYTHONPATH": str(TOOLS_DIR)}
     result = subprocess.run(
         [sys.executable, str(TOOLS_DIR / "suggest_bibkey_backfills.py"),
          "--bib", str(tmp_path / "paper.bib"),

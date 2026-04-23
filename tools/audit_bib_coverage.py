@@ -126,10 +126,12 @@ def extract_citations(roots: list[Path]) -> list[CitationSite]:
 
 
 def _rel(path: Path) -> str:
+    # Always emit POSIX-style separators so the report is stable across
+    # Windows/POSIX (tests + downstream agents key on these strings).
     try:
-        return str(path.relative_to(REPO_ROOT))
+        return path.relative_to(REPO_ROOT).as_posix()
     except ValueError:
-        return str(path)
+        return path.as_posix()
 
 
 def build_report(bib_path: Path, roots: list[Path]) -> CoverageReport:
