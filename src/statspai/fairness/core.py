@@ -340,7 +340,8 @@ def counterfactual_fairness(
 
 
 # -------------------------------------------------------------------------
-# Orthogonal-to-Bias preprocessing (Marchesin et al. 2025)
+# Orthogonal-to-Bias preprocessing (Chen & Zhu 2024, arXiv:2403.17852)
+# [@chen2024counterfactual]
 # -------------------------------------------------------------------------
 
 

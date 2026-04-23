@@ -2896,7 +2896,7 @@ def _build_registry():
         category="conformal_causal",
         description=(
             "Split-conformal prediction bands for continuous-treatment "
-            "dose-response curves (Kim, Jeong, Barber, Lee 2024)."
+            "dose-response curves (Schröder, Frauen, Schweisthal, Heß, Melnychuk, Feuerriegel 2024, arXiv:2407.03094)."
         ),
         params=[
             ParamSpec("data", "DataFrame", True),
@@ -2979,7 +2979,7 @@ def _build_registry():
         description=(
             "Orthogonal learning of direct + spillover effects under "
             "network interference via cross-fitted double-residualisation "
-            "(Parmigiani et al. 2025)."
+            "(Wu & Yuan 2025, arXiv:2509.18484)."
         ),
         params=[
             ParamSpec("data", "DataFrame", True),
@@ -3891,7 +3891,7 @@ def _build_registry():
         name="synth_survival",
         category="causal",
         description=(
-            "Synthetic Survival Control (Agarwal & Shah 2025). Fits a convex "
+            "Synthetic Survival Control (Han & Shah 2025, arXiv:2511.14133). Fits a convex "
             "combination of donor Kaplan-Meier curves on the complementary "
             "log-log scale to match the treated arm's pre-treatment survival, "
             "then reports the post-treatment survival gap with placebo UCBs."
@@ -3948,7 +3948,7 @@ def _build_registry():
         name="causal_dqn",
         category="causal",
         description=(
-            "Causal deep Q-network (Fu-Zhou 2025) for offline policy "
+            "Causal deep Q-network (Li, Zhang, Bareinboim 2025, arXiv:2510.21110) for offline policy "
             "learning under unobserved confounding. Learns a "
             "confounding-robust Q-function via bootstrap data augmentation."
         ),
@@ -4985,8 +4985,8 @@ def _build_registry():
             "'partial' (Hudgens-Halloran cluster) / "
             "'network_exposure' (Aronow-Samii HT) / "
             "'peer_effects' (Manski / Bramoullé linear-in-means) / "
-            "'network_hte' (Parmigiani et al. 2025 orthogonal) / "
-            "'inward_outward' (directed network Li-Ratkovic 2025) / "
+            "'network_hte' (Wu & Yuan 2025 orthogonal, arXiv:2509.18484) / "
+            "'inward_outward' (directed network; Fang, Airoldi & Forastiere 2025, arXiv:2506.06615) / "
             "'cluster_matched_pair' (Bai 2022) / "
             "'cluster_cross' (Ding et al. 2025) / "
             "'cluster_staggered' (Zhou et al. 2025) / "
@@ -5014,7 +5014,7 @@ def _build_registry():
         reference=(
             "Hudgens & Halloran 2008 JASA; Aronow & Samii 2017 AoAS; "
             "Manski 1993; Bramoullé-Djebbari-Fortin 2009; "
-            "Parmigiani et al. 2025; Bai 2022; Ding et al. 2025; "
+            "Wu & Yuan 2025 (arXiv:2509.18484); Bai 2022; Ding et al. 2025; "
             "Zhou et al. 2025; Zhao et al. 2026."
         ),
         pre_conditions=[

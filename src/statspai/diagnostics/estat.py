@@ -28,7 +28,8 @@ References
 Breusch, T.S. and Pagan, A.R. (1979). *Econometrica*, 47(5), 1287--1294.
 White, H. (1980). *Econometrica*, 48(4), 817--838.
 Ramsey, J.B. (1969). *JRSS-B*, 31(2), 350--371.
-Breusch, L.G. (1978). *Australian Economic Papers*, 17, 334--355.
+Breusch, T.S. (1978). "Testing for Autocorrelation in Dynamic Linear Models."
+    *Australian Economic Papers*, 17(31), 334--355. [@breusch1978testing]
 Godfrey, L.G. (1978). *Econometrica*, 46(6), 1293--1301.
 Jarque, C.M. and Bera, A.K. (1987). *International Statistical Review*, 55, 163--172.
 Cook, R.D. (1977). *Technometrics*, 19(1), 15--18. [@breusch1979simple]
