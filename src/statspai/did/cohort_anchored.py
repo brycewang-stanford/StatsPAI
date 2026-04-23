@@ -1,5 +1,5 @@
 """
-Cohort-Anchored Robust Event Study (Liu 2025, arXiv 2509.01829).
+Cohort-Anchored Robust Event Study (Liu 2025, arXiv 2509.01829). [@cohort_anchored2025]
 
 Standard event-study TWFE with leads/lags is fragile under staggered
 adoption because untreated leads/lags from later cohorts contaminate

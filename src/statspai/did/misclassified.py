@@ -1,6 +1,6 @@
 """
 Staggered Adoption DiD with Misclassification and Anticipation
-(Augustin, Gutknecht & Liu 2025, arXiv 2507.20415).
+(Augustin, Gutknecht & Liu 2025, arXiv 2507.20415). [@did_misclassified2025]
 
 Extends Callaway-Sant'Anna to handle two common practical
 imperfections:

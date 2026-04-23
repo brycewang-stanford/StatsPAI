@@ -1,5 +1,5 @@
 """
-DiD-BCF — Forests for Differences (Wüthrich-Zhu 2025, arXiv 2505.09706).
+DiD-BCF — Forests for Differences (Wüthrich-Zhu 2025, arXiv 2505.09706). [@wuthrich2025forests]
 
 Non-parametric DiD via Bayesian Causal Forests (Hahn-Murray-Carvalho
 2020) applied to the differenced outcome ΔY = Y_post - Y_pre.

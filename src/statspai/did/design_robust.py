@@ -1,5 +1,5 @@
 """
-Design-Robust Event-Study Estimation (arXiv 2601.18801, 2026).
+Design-Robust Event-Study Estimation (arXiv 2601.18801, 2026). [@design_robust_es2026]
 
 Provides design-consistent inference for TWFE event-study coefficients
 under staggered adoption. The key insight: under correct design (no
