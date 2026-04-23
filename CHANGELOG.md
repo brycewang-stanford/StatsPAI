@@ -2,7 +2,12 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.6.1] — 2026-04-23 — CI/CD green-up
+
+Patch release. No user-facing behavior or numerical change — all three
+fixes target CI matrix reliability. The `hashlib.md5` change is
+digest-byte-identical to v1.6.0 (verified by assert); `embed_texts` /
+`sp.text_treatment_effect` outputs are bit-for-bit unchanged.
 
 ### Fixed — CI/CD green-up
 
