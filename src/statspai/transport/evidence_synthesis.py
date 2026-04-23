@@ -137,7 +137,7 @@ def synthesise_evidence(
 
     References
     ----------
-    Dahabreh et al. (2020); arXiv:2511.19735 (2025).
+    Dahabreh et al. (2020); Yang, Gamalo & Fu (arXiv:2511.19735, 2025). [@yang2025integrating]
     """
     if rct_se <= 0 or rwd_se <= 0:
         raise ValueError("SEs must be > 0.")

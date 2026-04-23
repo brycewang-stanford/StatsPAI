@@ -295,7 +295,7 @@ print(r.dose_curves)       # full curve per test row across the grid
 fertilizer application, time-in-app. Returns a point estimate + band
 at each `(test_row, dose)` pair in the grid.
 
-Citation: Schröder et al. (arXiv:2407.03094, 2024).
+Citation: Schröder et al. (arXiv:2407.03094, 2024). [@schroder2024conformal]
 
 ---
 

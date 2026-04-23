@@ -1,4 +1,4 @@
-r"""Synthetic Survival Control (Han & Shah 2025, arXiv:2511.14133).
+r"""Synthetic Survival Control (Han & Shah 2025, arXiv:2511.14133). [@han2025synthetic]
 
 Estimates the **survival difference** caused by treatment for a single treated
 unit (or a small set thereof) by constructing a synthetic control on the

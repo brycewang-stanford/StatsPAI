@@ -201,7 +201,7 @@ def dl_propensity_score(
 
     References
     ----------
-    arXiv:2404.04794 (2024).
+    Peng, Li, Wu & Li (arXiv:2404.04794, 2024). [@peng2024local]
     """
     from sklearn.neural_network import MLPClassifier
     X = data[list(covariates)].to_numpy(dtype=float)

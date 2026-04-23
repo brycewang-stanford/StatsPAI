@@ -181,7 +181,7 @@ def bcf_longitudinal(
 
     References
     ----------
-    Prevot, Häring, Nichols, Holmes & Ganjgahi (arXiv:2508.08418, 2025).
+    Prevot, Häring, Nichols, Holmes & Ganjgahi (arXiv:2508.08418, 2025). [@prevot2025hierarchical]
     Hahn, Murray, Carvalho (2020), Bayesian Analysis.
     """
     if not isinstance(data, pd.DataFrame):
