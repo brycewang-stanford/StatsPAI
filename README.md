@@ -17,6 +17,84 @@ It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/
 
 ---
 
+## Quick Start — 60 seconds
+
+`pip install statspai`, then run any of the four canonical causal-inference exercises below. StatsPAI ships the classic teaching datasets bundled under `sp.datasets` — Callaway–Sant'Anna `mpdta`, Card (1995) returns-to-schooling, Abadie–Diamond–Hainmueller California Prop 99, Lee (2008) Senate RD, LaLonde / NSW–DW, Angrist–Krueger (1991) QOB, Basque terrorism, German reunification — so every snippet runs **offline** with no data wrangling.
+
+```python
+import statspai as sp
+
+sp.datasets.list_datasets()   # name / design / n_obs / paper / expected_main
+```
+
+### DiD — Callaway & Sant'Anna staggered ATT on `mpdta`
+
+Minimum-wage effect on teen employment (the canonical example used in R's `did` package).
+
+```python
+import statspai as sp
+
+df = sp.datasets.mpdta()
+cs = sp.callaway_santanna(data=df, y='lemp', t='year',
+                          i='countyreal', g='first_treat')
+print(sp.aggte(cs, type='simple').summary())
+# Simple ATT ≈ -0.033, bootstrap SE ≈ 0.004, p < 0.001
+```
+
+### IV — Card (1995) returns to schooling
+
+Instrument endogenous `educ` with proximity to a 4-year college (`nearc4`).
+
+```python
+import statspai as sp
+
+df = sp.datasets.card_1995()
+iv = sp.ivreg('lwage ~ (educ ~ nearc4) + exper + expersq + black + south + smsa',
+              data=df)
+print(iv.summary())
+# educ coefficient ≈ 0.142 (SE 0.019); first-stage F ≈ 160; Hausman p ≈ 0.03
+```
+
+### RD — Lee (2008) incumbent advantage
+
+Sharp RD around the 0-margin cutoff with Calonico–Cattaneo–Titiunik robust bias-corrected inference.
+
+```python
+import statspai as sp
+
+df = sp.datasets.lee_2008_senate()
+rd = sp.rdrobust(data=df, y='voteshare_next', x='margin', c=0)
+print(rd.summary())
+# RD estimate ≈ 0.062 (SE 0.024) — incumbent advantage in next-term voteshare
+```
+
+### Synthetic Control — California Proposition 99
+
+Abadie, Diamond & Hainmueller's canonical tobacco-policy evaluation.
+
+```python
+import statspai as sp
+
+df = sp.datasets.california_prop99()
+sc = sp.synth(data=df, outcome='cigsale', unit='state', time='year',
+              treated_unit='California', treatment_time=1989)
+print(sc.summary())
+# Post-1988 ATT ≈ -13.3 packs/capita
+```
+
+### What each result object gives you for free
+
+Beyond the point estimate, every `.summary()` above prints inference scaffolding you would otherwise hand-assemble from 3–4 separate R packages:
+
+- **DiD** — `aggte[simple]` carries a uniform critical value (1.96), `balanced_e` / `min_e` / `max_e` event-time bookkeeping, and 1 000-replication multiplier-bootstrap SEs.
+- **IV** — Partial R²(educ) ≈ 0.051 and first-stage F ≈ 160 (comfortably above Stock–Yogo's rule-of-thumb 10), so weak-instrument risk is visible without a second call.
+- **RD** — Conventional (0.073) and Robust bias-corrected (0.062) estimators print side-by-side with effective-sample counts (440 left / 443 right) at the mserd bandwidth.
+- **Synth** — full 12-period treated-vs-counterfactual gap table; `ridge_lambda ≈ 112.9` flags that the ASCM (Ben-Michael, Feller & Rothstein 2021) branch is active. Pass `method='adh'` to fall back to classical Abadie–Diamond–Hainmueller (ATT ≈ -13.1 on the same panel).
+
+Every result object exposes the same interface — `.summary()` / `.tidy()` / `.plot()` / `.to_latex()` / `.to_docx()` / `.to_agent_summary()` — across all 800+ estimators. For deeper walkthroughs (staggered DiD, weak-IV diagnostics, RD bandwidth choice, 20 synth methods, DML, matching, spatial, ...) see [`docs/guides/`](docs/guides/).
+
+---
+
 ## 📊 Causal Inference Coverage at a Glance
 
 StatsPAI's focus is **causal inference** — and on this axis we aim to be the most complete single package in any language. "Stata" = official + major SSC packages. "R" = CRAN. "sm+lm" = statsmodels + linearmodels.
@@ -149,75 +227,6 @@ StatsPAI is **not** a wrapper for R. We independently re-implement every algorit
 - **Publication pipeline out of the box.** Word + Excel + LaTeX + HTML + Markdown export from every estimator, not a separate `modelsummary`-style dance.
 
 If a method exists in R, we aim to match or exceed its feature set in Python — and then add what Python can uniquely offer (sklearn integration, JAX/PyTorch backends, agent-native schemas).
-
----
-
-## Quick Start — 60 seconds
-
-`pip install statspai`, then run any of the four canonical causal-inference exercises below. StatsPAI ships the classic teaching datasets bundled under `sp.datasets` — Callaway–Sant'Anna `mpdta`, Card (1995) returns-to-schooling, Abadie–Diamond–Hainmueller California Prop 99, Lee (2008) Senate RD, LaLonde / NSW–DW, Angrist–Krueger (1991) QOB, Basque terrorism, German reunification — so every snippet runs **offline** with no data wrangling.
-
-```python
-import statspai as sp
-
-sp.datasets.list_datasets()   # name / design / n_obs / paper / expected_main
-```
-
-### DiD — Callaway & Sant'Anna staggered ATT on `mpdta`
-
-Minimum-wage effect on teen employment (the canonical example used in R's `did` package).
-
-```python
-import statspai as sp
-
-df = sp.datasets.mpdta()
-cs = sp.callaway_santanna(data=df, y='lemp', t='year',
-                          i='countyreal', g='first_treat')
-print(sp.aggte(cs, type='simple').summary())
-# Simple ATT ≈ -0.033, bootstrap SE ≈ 0.004, p < 0.001
-```
-
-### IV — Card (1995) returns to schooling
-
-Instrument endogenous `educ` with proximity to a 4-year college (`nearc4`).
-
-```python
-import statspai as sp
-
-df = sp.datasets.card_1995()
-iv = sp.ivreg('lwage ~ (educ ~ nearc4) + exper + expersq + black + south + smsa',
-              data=df)
-print(iv.summary())
-# educ coefficient ≈ 0.142 (SE 0.019); first-stage F ≈ 160; Hausman p ≈ 0.03
-```
-
-### RD — Lee (2008) incumbent advantage
-
-Sharp RD around the 0-margin cutoff with Calonico–Cattaneo–Titiunik robust bias-corrected inference.
-
-```python
-import statspai as sp
-
-df = sp.datasets.lee_2008_senate()
-rd = sp.rdrobust(data=df, y='voteshare_next', x='margin', c=0)
-print(rd.summary())
-# RD estimate ≈ 0.062 (SE 0.024) — incumbent advantage in next-term voteshare
-```
-
-### Synthetic Control — California Proposition 99
-
-Abadie, Diamond & Hainmueller's canonical tobacco-policy evaluation.
-
-```python
-import statspai as sp
-
-df = sp.datasets.california_prop99()
-sc = sp.synth(data=df, outcome='cigsale', unit='state', time='year',
-              treated_unit='California', treatment_time=1989)
-print(sc.summary())
-# Post-1988 ATT ≈ -13.3 packs/capita
-```
-
-Every result object exposes the same interface — `.summary()` / `.tidy()` / `.plot()` / `.to_latex()` / `.to_docx()` / `.to_agent_summary()` — across all 800+ estimators. For deeper walkthroughs (staggered DiD, weak-IV diagnostics, RD bandwidth choice, 20 synth methods, DML, matching, spatial, ...) see [`docs/guides/`](docs/guides/).
 
 ---
 
