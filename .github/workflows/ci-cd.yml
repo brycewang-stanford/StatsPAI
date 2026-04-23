@@ -28,19 +28,36 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
+  # Decide the test matrix based on trigger:
+  #   - pull_request: 1 combo (ubuntu-latest × 3.10) — fast PR feedback, keeps Codecov upload
+  #   - push / release / workflow_dispatch: full 10-combo matrix
+  # Rationale: PR CI was ~44 min wall-clock on the slowest Windows shard; a PR
+  # rarely needs all 10 shards to catch regressions, and push-to-main still runs
+  # the full matrix before any release. Fully reversible: delete set-matrix and
+  # inline the old matrix block to restore.
+  set-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.compute.outputs.matrix }}
+    env:
+      EVENT_NAME: ${{ github.event_name }}
+    steps:
+      - id: compute
+        shell: bash
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # Match the Codecov upload combo (ubuntu-latest × 3.10) so PR runs still publish coverage.
+            echo 'matrix={"include":[{"os":"ubuntu-latest","python-version":"3.10"}]}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'matrix={"include":[{"os":"ubuntu-latest","python-version":"3.9"},{"os":"ubuntu-latest","python-version":"3.10"},{"os":"ubuntu-latest","python-version":"3.11"},{"os":"ubuntu-latest","python-version":"3.12"},{"os":"windows-latest","python-version":"3.10"},{"os":"windows-latest","python-version":"3.11"},{"os":"windows-latest","python-version":"3.12"},{"os":"macos-latest","python-version":"3.10"},{"os":"macos-latest","python-version":"3.11"},{"os":"macos-latest","python-version":"3.12"}]}' >> "$GITHUB_OUTPUT"
+          fi
+
   test:
+    needs: set-matrix
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12']
-        exclude:
-          # 减少矩阵大小，只在 Ubuntu 上测试所有 Python 版本
-          - os: windows-latest
-            python-version: '3.9'
-          - os: macos-latest
-            python-version: '3.9'
+      matrix: ${{ fromJSON(needs.set-matrix.outputs.matrix) }}
 
     steps:
     - uses: actions/checkout@v4
