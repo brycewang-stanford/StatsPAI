@@ -107,7 +107,7 @@ def copula_sensitivity(
 
     References
     ----------
-    Balgi, Braun, Peña & Daoud (arXiv:2508.08752, 2025).
+    Balgi, Braun, Peña & Daoud (arXiv:2508.08752, 2025). [@balgi2025sensitivity]
     """
     if rho_grid is None:
         rho_grid = np.linspace(-0.5, 0.5, 21)
@@ -185,7 +185,7 @@ def survival_sensitivity(
 
     References
     ----------
-    Hu & Westling (arXiv:2511.01412, 2025).
+    Hu & Westling (arXiv:2511.01412, 2025). [@hu2025nonparametric]
     """
     if se_log_hr <= 0:
         raise ValueError("`se_log_hr` must be > 0.")
@@ -267,7 +267,7 @@ def calibrate_confounding_strength(
 
     References
     ----------
-    Baitairian et al. (arXiv:2510.16560, 2025).
+    Baitairian et al. (arXiv:2510.16560, 2025). [@baitairian2025calibrating]
     Cinelli & Hazlett (JRSS-B 2020).
     """
     if not (0 < observed_r2_outcome < 1):
