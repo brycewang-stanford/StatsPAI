@@ -49,7 +49,7 @@ arXiv:2307.02390.
 
 Jiralerspong, T., Chen, X., More, Y., Shah, V., & Bengio, Y. (2024).
 "Efficient Causal Graph Discovery Using Large Language Models."
-arXiv:2402.01207.
+arXiv:2402.01207. [@jiralerspong2024efficient]
 """
 from __future__ import annotations
 

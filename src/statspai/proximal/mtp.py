@@ -1,6 +1,6 @@
 """
 Proximal Causal Inference for Modified Treatment Policies
-(Olivas-Martinez, Gilbert & Rotnitzky 2025, arXiv 2512.12038).
+(Olivas-Martinez, Gilbert & Rotnitzky 2025, arXiv 2512.12038). [@olivas2025proximal]
 
 Standard PCI estimates the ATE between a treatment level and its
 reference. Modified Treatment Policies (MTP, Haneuse-Rotnitzky 2013)

@@ -133,7 +133,7 @@ def network_hte(
 
     References
     ----------
-    Wu & Yuan (arXiv:2509.18484, 2025).
+    Wu & Yuan (arXiv:2509.18484, 2025). [@wu2025estimating]
     """
     cols = [y, treatment, neighbor_exposure, *covariates]
     missing = set(cols) - set(data.columns)
@@ -249,7 +249,7 @@ def inward_outward_spillover(
 
     References
     ----------
-    Fang, Airoldi & Forastiere (arXiv:2506.06615, 2025).
+    Fang, Airoldi & Forastiere (arXiv:2506.06615, 2025). [@fang2025inward]
     """
     cov_list = list(covariates) if covariates else []
     cols = [y, treatment, inward_exposure, outward_exposure, *cov_list]
