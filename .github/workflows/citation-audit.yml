@@ -1,0 +1,79 @@
+name: Citation Audit
+
+# Enforces CLAUDE.md §10 "zero-hallucination" red line: every arXiv / NBER /
+# DOI reference in src/ and docs/ must match primary-source metadata.
+#
+# Fails on any MISMATCH (wrong authors / year / title) OR UNRESOLVED citation
+# (id that neither arXiv, NBER, nor Crossref recognises). The audit report is
+# always uploaded as an artifact so reviewers can see the full verdict.
+#
+# Security: no untrusted PR inputs flow into `run:` commands — only the
+# repo's own tools/audit_citations.py is executed.
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'docs/**'
+      - 'paper.bib'
+      - 'paper.md'
+      - 'tools/audit_citations.py'
+      - '.github/workflows/citation-audit.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'docs/**'
+      - 'paper.bib'
+      - 'paper.md'
+      - 'tools/audit_citations.py'
+      - '.github/workflows/citation-audit.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: citation-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Audit arXiv / NBER / DOI citations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install certifi
+        run: python -m pip install --quiet certifi
+
+      - name: Run citation auditor (strict)
+        id: audit
+        run: python tools/audit_citations.py --strict --out audit_report.md
+        # --strict: unresolved IDs fail alongside mismatches, so a typo
+        # that breaks arXiv/Crossref lookup is caught early.
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: citation-audit-report
+          path: audit_report.md
+          retention-days: 30
+
+      - name: Summarise to GitHub step summary
+        if: always()
+        run: |
+          {
+            echo "### Citation Audit"
+            echo ""
+            sed -n '3p' audit_report.md
+            echo ""
+            echo "Full report is attached as the \`citation-audit-report\` artifact."
+          } >> "$GITHUB_STEP_SUMMARY"

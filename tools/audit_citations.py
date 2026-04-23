@@ -86,7 +86,7 @@ NBER_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-DOI_RE = re.compile(r"\b(?P<id>10\.\d{4,9}/[^\s)\"'`,;]+?)(?=[\s)\"'`,;]|\.(?:$|\s|[^\d])|$)")
+DOI_RE = re.compile(r"\b(?P<id>10\.\d{4,9}/[^\s)\"'`,;}]+?)(?=[\s)\"'`,;}]|\.(?:$|\s|[^\d])|$)")
 
 YEAR_RE = re.compile(r"\b(19\d{2}|20\d{2})\b")
 
@@ -158,6 +158,10 @@ SURNAME_STOPWORDS = {
     "event", "series", "acronym", "framework", "library",
     "survey", "generation", "evidence", "designs", "design",
     "algorithm", "algorithms", "tree", "forests",
+    # ML method/architecture tokens that hyphenate into faux-surnames
+    "q-network", "q-networks", "q-learning", "q-function", "q-functions",
+    "deep-q", "dqn", "ddqn", "ppo", "a3c", "trpo",
+    "actor-critic", "soft-actor-critic", "double-dqn",
 }
 
 
@@ -708,6 +712,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--json", dest="json_out", default=None,
         help="Also dump structured verdicts to this JSON path",
     )
+    parser.add_argument(
+        "--strict", action="store_true",
+        help="Also exit non-zero if any citation is unresolved "
+             "(default: only mismatches fail)",
+    )
     args = parser.parse_args(argv)
 
     roots = [REPO_ROOT / r for r in args.roots]
@@ -781,8 +790,19 @@ def main(argv: Optional[list[str]] = None) -> int:
                                        encoding="utf-8")
         print(f"wrote {args.json_out}", file=sys.stderr)
 
-    # exit code: 1 if any mismatch, 0 otherwise (unresolved does not fail)
-    return 1 if any(v.status == "mismatch" for v in verdicts) else 0
+    n_mismatch = sum(1 for v in verdicts if v.status == "mismatch")
+    n_unresolved = sum(1 for v in verdicts if v.status == "unresolved")
+    n_ok = sum(1 for v in verdicts if v.status == "ok")
+    print(
+        f"summary: {n_ok} ok / {n_mismatch} mismatch / {n_unresolved} unresolved",
+        file=sys.stderr,
+    )
+
+    if n_mismatch:
+        return 1
+    if args.strict and n_unresolved:
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
