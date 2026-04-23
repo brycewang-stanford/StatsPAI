@@ -37,9 +37,11 @@ on:
       - 'tools/audit_citations.py'
       - 'tools/audit_bib_duplicates.py'
       - 'tools/audit_bib_coverage.py'
+      - 'tools/suggest_bibkey_backfills.py'
       - 'tests/test_audit_citations.py'
       - 'tests/test_audit_bib_duplicates.py'
       - 'tests/test_audit_bib_coverage.py'
+      - 'tests/test_suggest_bibkey_backfills.py'
       - '.github/workflows/citation-audit.yml'
   push:
     branches: [ main ]
@@ -51,9 +53,11 @@ on:
       - 'tools/audit_citations.py'
       - 'tools/audit_bib_duplicates.py'
       - 'tools/audit_bib_coverage.py'
+      - 'tools/suggest_bibkey_backfills.py'
       - 'tests/test_audit_citations.py'
       - 'tests/test_audit_bib_duplicates.py'
       - 'tests/test_audit_bib_coverage.py'
+      - 'tests/test_suggest_bibkey_backfills.py'
       - '.github/workflows/citation-audit.yml'
   workflow_dispatch:
 
@@ -102,6 +106,7 @@ jobs:
             tests/test_audit_citations.py \
             tests/test_audit_bib_duplicates.py \
             tests/test_audit_bib_coverage.py \
+            tests/test_suggest_bibkey_backfills.py \
             -o 'addopts=' -q
 
       - name: Gate 1 — paper.bib duplicate auditor (strict)
