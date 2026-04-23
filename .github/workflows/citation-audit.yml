@@ -27,6 +27,8 @@ on:
       - 'paper.md'
       - 'tools/audit_citations.py'
       - 'tools/audit_bib_duplicates.py'
+      - 'tests/test_audit_citations.py'
+      - 'tests/test_audit_bib_duplicates.py'
       - '.github/workflows/citation-audit.yml'
   push:
     branches: [ main ]
@@ -37,6 +39,8 @@ on:
       - 'paper.md'
       - 'tools/audit_citations.py'
       - 'tools/audit_bib_duplicates.py'
+      - 'tests/test_audit_citations.py'
+      - 'tests/test_audit_bib_duplicates.py'
       - '.github/workflows/citation-audit.yml'
   workflow_dispatch:
 
@@ -59,8 +63,16 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install certifi
-        run: python -m pip install --quiet certifi
+      - name: Install certifi + pytest
+        # certifi for the citation auditor's HTTPS calls; pytest to run
+        # the auditor test suite that pins the §10 regex regressions.
+        run: python -m pip install --quiet certifi pytest
+
+      - name: Run auditor test suite
+        # Fast (<1s) stdlib-only tests guarding DOI regex / Q-network
+        # stopword / parse_bib brace-balance regressions. Runs BEFORE
+        # the live auditors so a broken auditor can't silently pass.
+        run: python -m pytest tests/test_audit_citations.py tests/test_audit_bib_duplicates.py --no-cov -q
 
       - name: Run paper.bib duplicate auditor (strict)
         id: bib_audit
