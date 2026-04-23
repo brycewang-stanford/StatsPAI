@@ -111,7 +111,7 @@ interface: `.summary()`, `.plot()`, `.to_latex()`, `.to_docx()`, and
 - **Difference-in-differences (10+ variants):** Callaway and Sant'Anna
   [@callaway2021difference], Sun and Abraham [@sun2021estimating],
   Borusyak--Jaravel--Spiess imputation, de Chaisemartin--D'Haultfoeuille,
-  ETWFE, Goodman-Bacon decomposition [@goodman2021difference], and
+  ETWFE, Goodman-Bacon decomposition [@goodmanbacon2021difference], and
   Rambachan--Roth honest-parallel-trends sensitivity.
 - **Regression discontinuity (18+ estimators, v0.9.1):** sharp/fuzzy/kink
   RD with bias-corrected robust inference [@calonico2014robust];

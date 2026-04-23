@@ -1,17 +1,26 @@
 name: Citation Audit
 
-# Enforces CLAUDE.md §10 "zero-hallucination" red line. Two gates:
+# Enforces CLAUDE.md §10 "zero-hallucination" red line. Four gates run
+# in dependency order — Gate N only runs if Gate 0..N-1 passed:
 #
-# 1. tools/audit_citations.py  — every arXiv / NBER / DOI reference in
-#    src/ and docs/ must match primary-source metadata (authors / year /
-#    title). Fails on MISMATCH or UNRESOLVED under --strict.
+# 0. pytest on the auditor test suites themselves — if a regex / stopword
+#    tweak broke the auditors, all downstream verdicts are meaningless.
 #
-# 2. tools/audit_bib_duplicates.py — paper.bib must have no duplicate
+# 1. tools/audit_bib_duplicates.py — paper.bib must have no duplicate
 #    bib keys (biblatex error), no duplicate DOIs, no duplicate arXiv
-#    ids (same paper under two keys = citation drift). Fails on any
-#    duplicate under --strict.
+#    ids (same paper under two keys = citation drift).
 #
-# Both audit reports are uploaded as artifacts so reviewers can see the
+# 2. tools/audit_bib_coverage.py — every ``[@bibkey]`` in src/ / docs/ /
+#    paper.md must resolve to a paper.bib entry (dangling = hard fail,
+#    would render as ``???`` in pandoc). Orphans (unused bib entries)
+#    are reported but do not fail CI — they're valuable methodological
+#    references that just haven't been wired back to docstrings yet.
+#
+# 3. tools/audit_citations.py — every arXiv / NBER / DOI reference in
+#    src/ and docs/ must match primary-source metadata (authors /
+#    year / title). Fails on MISMATCH or UNRESOLVED under --strict.
+#
+# Audit reports are uploaded as artifacts so reviewers can see the
 # full verdict.
 #
 # Security: no untrusted PR inputs flow into `run:` commands — only the
@@ -27,8 +36,10 @@ on:
       - 'paper.md'
       - 'tools/audit_citations.py'
       - 'tools/audit_bib_duplicates.py'
+      - 'tools/audit_bib_coverage.py'
       - 'tests/test_audit_citations.py'
       - 'tests/test_audit_bib_duplicates.py'
+      - 'tests/test_audit_bib_coverage.py'
       - '.github/workflows/citation-audit.yml'
   push:
     branches: [ main ]
@@ -39,8 +50,10 @@ on:
       - 'paper.md'
       - 'tools/audit_citations.py'
       - 'tools/audit_bib_duplicates.py'
+      - 'tools/audit_bib_coverage.py'
       - 'tests/test_audit_citations.py'
       - 'tests/test_audit_bib_duplicates.py'
+      - 'tests/test_audit_bib_coverage.py'
       - '.github/workflows/citation-audit.yml'
   workflow_dispatch:
 
@@ -68,10 +81,11 @@ jobs:
         # the auditor test suite that pins the §10 regex regressions.
         run: python -m pip install --quiet certifi pytest
 
-      - name: Run auditor test suite
-        # Fast (<1s) stdlib-only tests guarding DOI regex / Q-network
-        # stopword / parse_bib brace-balance regressions. Runs BEFORE
-        # the live auditors so a broken auditor can't silently pass.
+      - name: Gate 0 — auditor test suite
+        # Fast (<2s) stdlib-only tests guarding DOI regex / Q-network
+        # stopword / parse_bib brace-balance / [@bibkey] extractor
+        # regressions. Runs BEFORE the live auditors so a broken auditor
+        # can't silently pass.
         #
         # -o 'addopts=' overrides the project-wide pyproject.toml addopts
         # (which pull in --cov=statspai for local dev); the auditor tests
@@ -80,19 +94,32 @@ jobs:
           python -m pytest \
             tests/test_audit_citations.py \
             tests/test_audit_bib_duplicates.py \
+            tests/test_audit_bib_coverage.py \
             -o 'addopts=' -q
 
-      - name: Run paper.bib duplicate auditor (strict)
+      - name: Gate 1 — paper.bib duplicate auditor (strict)
         id: bib_audit
-        # Gate 1: runs first because it's cheap (stdlib only, no network)
-        # and a broken bibliography invalidates downstream citation checks.
+        # Stdlib only, no network. A broken bibliography invalidates
+        # downstream checks.
         run: python tools/audit_bib_duplicates.py --strict
 
-      - name: Run citation auditor (strict)
+      - name: Gate 2 — paper.bib coverage auditor (strict-dangling)
+        id: coverage_audit
+        # Stdlib only. Every ``[@bibkey]`` in src/ / docs/ / paper.md
+        # must resolve to a paper.bib entry — a dangling ref would
+        # render as ``???`` in pandoc's paper.md build.
+        #
+        # Orphans are deliberately NOT gated: paper.bib carries
+        # methodological references from JOSS submission that haven't
+        # been wired back to docstrings yet. Those will be retired as
+        # the bibkey graph is backfilled.
+        run: python tools/audit_bib_coverage.py --strict-dangling --hide-orphans
+
+      - name: Gate 3 — citation auditor (strict)
         id: citation_audit
-        # Gate 2: live verification against arXiv / NBER / Crossref.
-        # --strict: unresolved IDs fail alongside mismatches, so a typo
-        # that breaks primary-source lookup is caught early.
+        # Live verification against arXiv / NBER / Crossref. --strict:
+        # unresolved IDs fail alongside mismatches, so a typo that
+        # breaks primary-source lookup is caught early.
         run: python tools/audit_citations.py --strict --out audit_report.md
 
       - name: Upload citation audit report
