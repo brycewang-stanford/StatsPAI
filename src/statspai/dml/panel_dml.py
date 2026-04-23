@@ -52,7 +52,7 @@ Parameters." *Econometrics Journal*, 21(1), C1-C68. [@chernozhukov2018double]
 
 Cameron, A.C. & Miller, D.L. (2015).
 "A Practitioner's Guide to Cluster-Robust Inference."
-*Journal of Human Resources*, 50(2), 317-372. [@colincameron2015practitioner]
+*Journal of Human Resources*, 50(2), 317-372. [@cameron2015practitioner]
 """
 
 from __future__ import annotations

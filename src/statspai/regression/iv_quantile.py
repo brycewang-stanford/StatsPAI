@@ -387,7 +387,7 @@ def _fit_ivqreg_one(
 
 try:
     EconometricResults._CITATIONS['ivqreg'] = (
-        "@article{chernozhukov2008iv,\n"
+        "@article{chernozhukov2008instrumental,\n"
         "  title={Instrumental Variable Quantile Regression: "
         "A Robust Inference Approach},\n"
         "  author={Chernozhukov, Victor and Hansen, Christian},\n"

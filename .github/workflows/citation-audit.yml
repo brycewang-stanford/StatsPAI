@@ -1,14 +1,21 @@
 name: Citation Audit
 
-# Enforces CLAUDE.md §10 "zero-hallucination" red line: every arXiv / NBER /
-# DOI reference in src/ and docs/ must match primary-source metadata.
+# Enforces CLAUDE.md §10 "zero-hallucination" red line. Two gates:
 #
-# Fails on any MISMATCH (wrong authors / year / title) OR UNRESOLVED citation
-# (id that neither arXiv, NBER, nor Crossref recognises). The audit report is
-# always uploaded as an artifact so reviewers can see the full verdict.
+# 1. tools/audit_citations.py  — every arXiv / NBER / DOI reference in
+#    src/ and docs/ must match primary-source metadata (authors / year /
+#    title). Fails on MISMATCH or UNRESOLVED under --strict.
+#
+# 2. tools/audit_bib_duplicates.py — paper.bib must have no duplicate
+#    bib keys (biblatex error), no duplicate DOIs, no duplicate arXiv
+#    ids (same paper under two keys = citation drift). Fails on any
+#    duplicate under --strict.
+#
+# Both audit reports are uploaded as artifacts so reviewers can see the
+# full verdict.
 #
 # Security: no untrusted PR inputs flow into `run:` commands — only the
-# repo's own tools/audit_citations.py is executed.
+# repo's own scripts under tools/ are executed.
 
 on:
   pull_request:
@@ -19,6 +26,7 @@ on:
       - 'paper.bib'
       - 'paper.md'
       - 'tools/audit_citations.py'
+      - 'tools/audit_bib_duplicates.py'
       - '.github/workflows/citation-audit.yml'
   push:
     branches: [ main ]
@@ -28,6 +36,7 @@ on:
       - 'paper.bib'
       - 'paper.md'
       - 'tools/audit_citations.py'
+      - 'tools/audit_bib_duplicates.py'
       - '.github/workflows/citation-audit.yml'
   workflow_dispatch:
 
@@ -53,13 +62,20 @@ jobs:
       - name: Install certifi
         run: python -m pip install --quiet certifi
 
-      - name: Run citation auditor (strict)
-        id: audit
-        run: python tools/audit_citations.py --strict --out audit_report.md
-        # --strict: unresolved IDs fail alongside mismatches, so a typo
-        # that breaks arXiv/Crossref lookup is caught early.
+      - name: Run paper.bib duplicate auditor (strict)
+        id: bib_audit
+        # Gate 1: runs first because it's cheap (stdlib only, no network)
+        # and a broken bibliography invalidates downstream citation checks.
+        run: python tools/audit_bib_duplicates.py --strict
 
-      - name: Upload audit report
+      - name: Run citation auditor (strict)
+        id: citation_audit
+        # Gate 2: live verification against arXiv / NBER / Crossref.
+        # --strict: unresolved IDs fail alongside mismatches, so a typo
+        # that breaks primary-source lookup is caught early.
+        run: python tools/audit_citations.py --strict --out audit_report.md
+
+      - name: Upload citation audit report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -73,7 +89,9 @@ jobs:
           {
             echo "### Citation Audit"
             echo ""
-            sed -n '3p' audit_report.md
+            if [ -f audit_report.md ]; then
+              sed -n '3p' audit_report.md
+            fi
             echo ""
-            echo "Full report is attached as the \`citation-audit-report\` artifact."
+            echo "Full citation report is attached as the \`citation-audit-report\` artifact."
           } >> "$GITHUB_STEP_SUMMARY"

@@ -32,7 +32,7 @@ from .rdrobust import _select_bandwidth
 # ======================================================================
 
 CausalResult._CITATIONS['rdhte'] = (
-    "@article{calonico2025heterogeneous,\n"
+    "@article{calonico2025rdhte,\n"
     "  title={Treatment Effect Heterogeneity in Regression\n"
     "  Discontinuity Designs},\n"
     "  author={Calonico, Sebastian and Cattaneo, Matias D and\n"

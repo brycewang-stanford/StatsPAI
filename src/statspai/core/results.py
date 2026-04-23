@@ -854,7 +854,7 @@ class CausalResult:
             "}"
         ),
         'bacon_decomposition': (
-            "@article{goodman2021difference,\n"
+            "@article{goodmanbacon2021difference,\n"
             "  title={Difference-in-differences with variation in treatment timing},\n"
             "  author={Goodman-Bacon, Andrew},\n"
             "  journal={Journal of Econometrics},\n"
@@ -913,7 +913,7 @@ class CausalResult:
             "}"
         ),
         'twfe_decomposition': (
-            "@article{goodman2021difference,\n"
+            "@article{goodmanbacon2021difference,\n"
             "  title={Difference-in-differences with variation in treatment timing},\n"
             "  author={Goodman-Bacon, Andrew},\n"
             "  journal={Journal of Econometrics},\n"

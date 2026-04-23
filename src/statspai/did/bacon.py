@@ -260,7 +260,7 @@ def _pairwise_did(panel, units_treated, units_control, treat_time,
 
 # Citation
 CausalResult._CITATIONS['bacon_decomposition'] = (
-    "@article{goodman2021difference,\n"
+    "@article{goodmanbacon2021difference,\n"
     "  title={Difference-in-Differences with Variation in Treatment "
     "Timing},\n"
     "  author={Goodman-Bacon, Andrew},\n"

@@ -16,7 +16,7 @@ References
 ----------
 de Chaisemartin, C. and D'Haultfoeuille, X. (2020).
 "Two-Way Fixed Effects Estimators with Heterogeneous Treatment Effects."
-*American Economic Review*, 110(9), 2964-2996. [@dechaisemartin2020fixed]
+*American Economic Review*, 110(9), 2964-2996. [@dechaisemartin2020two]
 
 de Chaisemartin, C. and D'Haultfoeuille, X. (2022).
 "Two-way fixed effects and differences-in-differences with heterogeneous
