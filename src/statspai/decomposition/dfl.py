@@ -11,10 +11,10 @@ References
 ----------
 DiNardo, J., Fortin, N., & Lemieux, T. (1996). "Labor Market Institutions
 and the Distribution of Wages, 1973-1992: A Semiparametric Approach."
-*Econometrica*, 64(5), 1001-1044.
+*Econometrica*, 64(5), 1001-1044. [@dinardo1996labor]
 
 Fortin, N., Lemieux, T., & Firpo, S. (2011). "Decomposition Methods in
-Economics." In *Handbook of Labor Economics*, Vol. 4A, Ch. 1.
+Economics." In *Handbook of Labor Economics*, Vol. 4A, Ch. 1. [@fortin2011decomposition]
 """
 from __future__ import annotations
 

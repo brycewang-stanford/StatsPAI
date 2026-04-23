@@ -10,7 +10,7 @@ References
 ----------
 Hartford, J., Lewis, G., Leyton-Brown, K., & Taddy, M. (2017).
 "Deep IV: A Flexible Approach for Counterfactual Prediction."
-*Proceedings of the 34th International Conference on Machine Learning (ICML)*.
+*Proceedings of the 34th International Conference on Machine Learning (ICML)*. [@hartford2017deep]
 """
 
 from .deep_iv import deepiv, DeepIV

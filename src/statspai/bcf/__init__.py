@@ -14,7 +14,7 @@ References
 Hahn, P. R., Murray, J. S., & Carvalho, C. M. (2020).
 Bayesian Regression Tree Models for Causal Inference: Regularization,
 Confounding, and Heterogeneous Effects.
-Bayesian Analysis, 15(3), 965-1056.
+Bayesian Analysis, 15(3), 965-1056. [@hahn2020bayesian]
 """
 
 from .bcf import bcf, BayesianCausalForest

@@ -14,7 +14,7 @@ Counterfactual Distributions." *Econometrica*, 81(6), 2205-2268.
 
 Chernozhukov, V., Fernández-Val, I., Melly, B., & Wüthrich, K. (2020).
 "Generic Inference on Quantile and Quantile Effect Functions for
-Discrete Outcomes." *JASA*, 115(529), 123-137.
+Discrete Outcomes." *JASA*, 115(529), 123-137. [@chernozhukov2020generic]
 """
 from __future__ import annotations
 

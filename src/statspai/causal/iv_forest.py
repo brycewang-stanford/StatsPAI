@@ -26,7 +26,7 @@ and the average LATE with bootstrap SE.
 References
 ----------
 Athey, S., Tibshirani, J., & Wager, S. (2019). "Generalized random
-forests." *Annals of Statistics*, 47(2), 1148-1178.
+forests." *Annals of Statistics*, 47(2), 1148-1178. [@athey2019surrogate]
 """
 
 from __future__ import annotations

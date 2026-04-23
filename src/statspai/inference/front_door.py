@@ -38,14 +38,14 @@ Inference via nonparametric bootstrap.
 References
 ----------
 Pearl, J. (1995). "Causal diagrams for empirical research." *Biometrika*,
-82(4), 669-688.
+82(4), 669-688. [@pearl1995causal]
 
 Pearl, J. (2009). *Causality: Models, Reasoning, and Inference*
 (2nd ed.). Cambridge University Press. §3.3.
 
 Fulcher, I.R., Shpitser, I., Marealle, S., Tchetgen Tchetgen, E.J.
 (2020). "Robust inference on population indirect causal effects:
-the generalized front-door criterion." *JRSS-B*, 82(1), 199-214.
+the generalized front-door criterion." *JRSS-B*, 82(1), 199-214. [@fulcher2020robust]
 """
 
 import warnings
@@ -138,7 +138,7 @@ def front_door(
     ----------
     Pearl, J. (1995). Causal diagrams for empirical research. *Biometrika*.
     Fulcher et al. (2020). Robust inference on population indirect causal
-    effects: the generalized front-door criterion. *JRSS-B*.
+    effects: the generalized front-door criterion. *JRSS-B*. [@pearl1995causal]
     """
     if integrate_by not in ('marginal', 'conditional'):
         raise ValueError(

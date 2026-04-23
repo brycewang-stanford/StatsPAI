@@ -13,21 +13,21 @@ References
 ----------
 Horowitz, J. L. & Manski, C. F. (2000).
 "Nonparametric Analysis of Randomized Experiments with Missing
-Covariate and Outcome Data." JASA, 95(449), 77-84.
+Covariate and Outcome Data." JASA, 95(449), 77-84. [@horowitz2000nonparametric]
 
 Nevo, A. & Rosen, A. M. (2012).
-"Identification with Imperfect Instruments." RES, 79(3), 1104-1127.
+"Identification with Imperfect Instruments." RES, 79(3), 1104-1127. [@nevo2012identification]
 
 Oster, E. (2019).
 "Unobservable Selection and Coefficient Stability: Theory and Evidence."
-Journal of Business & Economic Statistics, 37(2), 187-204.
+Journal of Business & Economic Statistics, 37(2), 187-204. [@oster2019unobservable]
 
 Lee, D. S. (2009).
-"Training, Wages, and Sample Selection." RES, 76(3), 1071-1102.
+"Training, Wages, and Sample Selection." RES, 76(3), 1071-1102. [@lee2009training]
 
 Masten, M. A. & Poirier, A. (2021).
 "Salvaging Falsified Instrumental Variable Models."
-Econometrica, 89(3), 1449-1469.
+Econometrica, 89(3), 1449-1469. [@masten2021salvaging]
 """
 
 from typing import Optional, List, Dict, Any, Tuple, Union

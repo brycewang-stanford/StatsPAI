@@ -47,14 +47,14 @@ information the ML regressions can extract from the covariates.
 References
 ----------
 Kennedy, E.H., Balakrishnan, S. & Wasserman, L.A. (2024). "Semiparametric
-counterfactual density estimation." *Biometrika* 111(1), 1-20.
+counterfactual density estimation." *Biometrika* 111(1), 1-20. [@kennedy2023semiparametric]
 
 Padh, K., Oprescu, M. & van der Schaar, M. (2024). "Meta-Learners for
 Partially-Identified Treatment Effects Across Multiple Environments."
 *arXiv:2409.xxxxx*.
 
 Manski, C.F. (1990). "Nonparametric bounds on treatment effects."
-*American Economic Review*, 80(2), 319-323.
+*American Economic Review*, 80(2), 319-323. [@manski1990nonparametric]
 """
 
 from __future__ import annotations

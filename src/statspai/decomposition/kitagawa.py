@@ -12,7 +12,7 @@ decomposition.
 References
 ----------
 Kitagawa, E.M. (1955). "Components of a Difference Between Two Rates."
-*JASA*, 50(272), 1168-1194.
+*JASA*, 50(272), 1168-1194. [@kitagawa1955components]
 
 Das Gupta, P. (1993). "Standardization and Decomposition of Rates: A
 User's Manual." U.S. Bureau of the Census, CDS P23-186.

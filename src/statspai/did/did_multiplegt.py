@@ -16,16 +16,16 @@ References
 ----------
 de Chaisemartin, C. and D'Haultfoeuille, X. (2020).
 "Two-Way Fixed Effects Estimators with Heterogeneous Treatment Effects."
-*American Economic Review*, 110(9), 2964-2996.
+*American Economic Review*, 110(9), 2964-2996. [@dechaisemartin2020fixed]
 
 de Chaisemartin, C. and D'Haultfoeuille, X. (2022).
 "Two-way fixed effects and differences-in-differences with heterogeneous
-treatment effects: A survey."  *The Econometrics Journal*, 26(3), C1-C30.
+treatment effects: A survey."  *The Econometrics Journal*, 26(3), C1-C30. [@dechaisemartin2022fixed]
 
 de Chaisemartin, C. and D'Haultfoeuille, X. (2024).
 "Difference-in-Differences Estimators of Intertemporal Treatment Effects."
 *Review of Economics and Statistics*, forthcoming.  (Joint placebo test
-and average cumulative effect, Section 3.)
+and average cumulative effect, Section 3.) [@dechaisemartin2024difference]
 """
 
 from typing import Optional, List, Dict, Any, Tuple

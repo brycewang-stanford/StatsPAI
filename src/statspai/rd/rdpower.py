@@ -14,7 +14,7 @@ References
 ----------
 Cattaneo, M.D., Titiunik, R. & Vazquez-Bare, G. (2019).
   "Power calculations for regression-discontinuity designs."
-  *Stata Journal*, 19(1), 210–245.
+  *Stata Journal*, 19(1), 210–245. [@cattaneo2019power]
 """
 from __future__ import annotations
 

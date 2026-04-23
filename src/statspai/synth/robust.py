@@ -18,11 +18,11 @@ References
 ----------
 Doudchenko, N. and Imbens, G.W. (2016).
 "Balancing, Regression, Difference-in-Differences and Synthetic
-Control Methods: A Synthesis." NBER Working Paper 22791.
+Control Methods: A Synthesis." NBER Working Paper 22791. [@doudchenko2016balancing]
 
 Abadie, A. and L'Hour, J. (2021).
 "A Penalized Synthetic Control Estimator for Disaggregated Data."
-*Journal of the American Statistical Association*, 116(536), 1817-1834.
+*Journal of the American Statistical Association*, 116(536), 1817-1834. [@abadie2021penalized]
 """
 
 from __future__ import annotations

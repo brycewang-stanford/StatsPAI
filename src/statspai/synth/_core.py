@@ -27,7 +27,7 @@ recommended in Abadie, Diamond & Hainmueller (2010, §4).
 References
 ----------
 Abadie, A., Diamond, A. & Hainmueller, J. (2010). Synthetic control
-methods for comparative case studies. *JASA* 105(490), 493-505.
+methods for comparative case studies. *JASA* 105(490), 493-505. [@abadie2010synthetic]
 
 Kaul, A., Klößner, S., Pfeifer, G. & Schieler, M. (2015). Synthetic
 control methods: Never use all pre-intervention outcomes together with
@@ -35,7 +35,7 @@ covariates.  *MPRA Working Paper*.
 
 Abadie, A. (2021). Using synthetic controls: feasibility, data
 requirements, and methodological aspects.  *Journal of Economic
-Literature* 59(2), 391-425.
+Literature* 59(2), 391-425. [@abadie2021synthetic]
 """
 
 from __future__ import annotations

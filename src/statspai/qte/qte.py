@@ -18,7 +18,7 @@ References
 Athey, S. & Imbens, G. W. (2006). Identification and Inference in Nonlinear
     Difference-in-Differences Models. *Econometrica*, 74(2), 431-497.
 Firpo, S. (2007). Efficient Semiparametric Estimation of Quantile Treatment
-    Effects. *Econometrica*, 75(1), 259-276.
+    Effects. *Econometrica*, 75(1), 259-276. [@athey2006identification]
 """
 
 from __future__ import annotations

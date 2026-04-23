@@ -10,11 +10,11 @@ References
 ----------
 Heckman, J.J. (1978).
 "Dummy Endogenous Variables in a Simultaneous Equation System."
-*Econometrica*, 46(4), 931-959.
+*Econometrica*, 46(4), 931-959. [@heckman1978dummy]
 
 Maddala, G.S. (1983).
 "Limited-Dependent and Qualitative Variables in Econometrics."
-*Cambridge University Press*.
+*Cambridge University Press*. [@maddala1983limited]
 """
 
 from typing import Optional, List, Dict, Any

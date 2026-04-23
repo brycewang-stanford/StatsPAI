@@ -33,15 +33,15 @@ Matches Chernozhukov-Hansen's Stata ``ivqreg2`` (Kaplan 2019) and R's
 References
 ----------
 Chernozhukov, V. & Hansen, C. (2005). "An IV Model of Quantile Treatment
-Effects." *Econometrica*, 73(1), 245-261.
+Effects." *Econometrica*, 73(1), 245-261. [@chernozhukov2005model]
 
 Chernozhukov, V. & Hansen, C. (2006). "Instrumental Quantile Regression
 Inference for Structural and Treatment Effect Models." *Journal of
-Econometrics*, 132(2), 491-525.
+Econometrics*, 132(2), 491-525. [@chernozhukov2006instrumental]
 
 Chernozhukov, V. & Hansen, C. (2008). "Instrumental Variable Quantile
 Regression: A Robust Inference Approach." *Journal of Econometrics*,
-142(1), 379-398.
+142(1), 379-398. [@chernozhukov2008instrumental]
 """
 
 from __future__ import annotations

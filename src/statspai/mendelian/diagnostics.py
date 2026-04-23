@@ -9,20 +9,20 @@ References
 ----------
 Bowden, J. et al. (2017). "Assessing the suitability of summary data
 for two-sample Mendelian randomization analyses using MR-Egger
-regression: the role of the I2 statistic." *IJE*, 45(6), 1961-1974.
+regression: the role of the I2 statistic." *IJE*, 45(6), 1961-1974. [@bowden2016assessing]
 
 Hemani, G. et al. (2017). "Orienting the causal relationship between
 imprecisely measured traits using GWAS summary data." *PLoS Genetics*,
-13(11).
+13(11). [@hemani2017orienting]
 
 Bowden, J. et al. (2018). "Improving the visualization, interpretation
 and analysis of two-sample summary data Mendelian randomization via the
-Radial plot and Radial regression." *IJE*, 47(4), 1264-1278.
+Radial plot and Radial regression." *IJE*, 47(4), 1264-1278. [@bowden2018improving]
 
 Verbanck, M. et al. (2018). "Detection of widespread horizontal
 pleiotropy in causal relationships inferred from Mendelian
 randomization between complex traits and diseases." *Nature Genetics*,
-50(5), 693-698.
+50(5), 693-698. [@verbanck2018detection]
 """
 
 from __future__ import annotations

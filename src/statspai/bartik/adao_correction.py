@@ -16,7 +16,7 @@ References
 ----------
 Adão, R., Kolesár, M., & Morales, E. (2019).
 "Shift-Share Designs: Theory and Inference."
-*Quarterly Journal of Economics*, 134(4), 1949-2010.
+*Quarterly Journal of Economics*, 134(4), 1949-2010. [@ado2019shift]
 """
 
 from typing import Optional, List, Union

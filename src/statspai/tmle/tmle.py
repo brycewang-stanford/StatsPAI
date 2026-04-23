@@ -22,11 +22,11 @@ The resulting estimator is:
 References
 ----------
 van der Laan, M. J. & Rose, S. (2011).
-Targeted Learning. Springer Series in Statistics.
+Targeted Learning. Springer Series in Statistics. [@vanderlaan2011targeted]
 
 van der Laan, M. J. & Rubin, D. (2006).
 Targeted Maximum Likelihood Learning.
-International Journal of Biostatistics, 2(1).
+International Journal of Biostatistics, 2(1). [@vanderlaan2006targeted]
 """
 
 from typing import Optional, List, Dict, Any, Tuple

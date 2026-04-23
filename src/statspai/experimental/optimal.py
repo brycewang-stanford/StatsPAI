@@ -8,7 +8,7 @@ References
 ----------
 Duflo, E., Glennerster, R. & Kremer, M. (2007).
 "Using Randomization in Development Economics Research: A Toolkit."
-*Handbook of Development Economics*, 4, 3895-3962.
+*Handbook of Development Economics*, 4, 3895-3962. [@duflo2007chapter]
 """
 
 from typing import Optional, List, Dict, Any

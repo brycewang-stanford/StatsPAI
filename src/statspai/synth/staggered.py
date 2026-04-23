@@ -20,7 +20,7 @@ References
 ----------
 Ben-Michael, E., Feller, A. and Rothstein, J. (2022).
 "Synthetic Controls with Staggered Adoption."
-*Journal of the Royal Statistical Society: Series B*, 84(2), 351-381.
+*Journal of the Royal Statistical Society: Series B*, 84(2), 351-381. [@benmichael2022synthetic]
 """
 
 from __future__ import annotations

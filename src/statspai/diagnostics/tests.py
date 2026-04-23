@@ -21,17 +21,17 @@ References
 ----------
 Breusch, T.S. and Pagan, A.R. (1979).
 "A Simple Test for Heteroscedasticity and Random Coefficient Variation."
-*Econometrica*, 47(5), 1287-1294.
+*Econometrica*, 47(5), 1287-1294. [@breusch1979simple]
 
 Ramsey, J.B. (1969).
 "Tests for Specification Errors in Classical Linear Least-Squares
 Regression Analysis."
-*Journal of the Royal Statistical Society: Series B*, 31(2), 350-371.
+*Journal of the Royal Statistical Society: Series B*, 31(2), 350-371. [@ramsey1969tests]
 
 White, H. (1980).
 "A Heteroskedasticity-Consistent Covariance Matrix Estimator and a
 Direct Test for Heteroskedasticity."
-*Econometrica*, 48(4), 817-838.
+*Econometrica*, 48(4), 817-838. [@white1980heteroskedasticity]
 """
 
 from typing import Optional, Dict, Any, List
@@ -120,7 +120,7 @@ def het_test(
 
     References
     ----------
-    Breusch, T.S. and Pagan, A.R. (1979). *Econometrica*, 47(5), 1287-1294.
+    Breusch, T.S. and Pagan, A.R. (1979). *Econometrica*, 47(5), 1287-1294. [@breusch1979simple]
     """
     df = data[[y] + x].dropna()
     Y = df[y].values
@@ -159,7 +159,7 @@ def reset_test(
 
     References
     ----------
-    Ramsey, J.B. (1969). *JRSS-B*, 31(2), 350-371.
+    Ramsey, J.B. (1969). *JRSS-B*, 31(2), 350-371. [@ramsey1969tests]
     """
     df = data[[y] + x].dropna()
     Y = df[y].values

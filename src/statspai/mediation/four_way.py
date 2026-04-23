@@ -26,7 +26,7 @@ References
 ----------
 VanderWeele, T. J. (2014). "A unification of mediation and
 interaction: a four-way decomposition." *Epidemiology*, 25(5),
-749-761.
+749-761. [@vanderweele2014effect]
 """
 
 from __future__ import annotations

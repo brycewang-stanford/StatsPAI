@@ -15,7 +15,7 @@ References
 ----------
 Hudgens, M. G. & Halloran, M. E. (2008).
 "Toward Causal Inference with Interference."
-JASA, 103(482), 832-842.
+JASA, 103(482), 832-842. [@hudgens2008toward]
 """
 
 from typing import Optional, List, Dict, Any

@@ -32,7 +32,7 @@ References
 ----------
 Brodersen, K.H., Gallusser, F., Koehler, J., Remy, N. and Scott, S.L.
 (2015).  "Inferring causal impact using Bayesian structural time series
-models."  *Annals of Applied Statistics*, 9(1), 247-274.
+models."  *Annals of Applied Statistics*, 9(1), 247-274. [@brodersen2015inferring]
 """
 
 from __future__ import annotations
@@ -540,7 +540,7 @@ def causal_impact(
     ----------
     Brodersen, K.H., Gallusser, F., Koehler, J., Remy, N. and Scott, S.L.
     (2015).  "Inferring causal impact using Bayesian structural time series
-    models."  *Annals of Applied Statistics*, 9(1), 247-274.
+    models."  *Annals of Applied Statistics*, 9(1), 247-274. [@brodersen2015inferring]
     """
     # ------------------------------------------------------------------
     # Input validation

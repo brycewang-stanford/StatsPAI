@@ -10,7 +10,7 @@ Numerics are designed to match the legacy reference implementation to within
 
 References
 ----------
-Anselin (1988); Ord (1975); LeSage & Pace (2009).
+Anselin (1988); Ord (1975); LeSage & Pace (2009). [@anselin1988spatial]
 """
 from __future__ import annotations
 

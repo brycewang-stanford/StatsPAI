@@ -13,11 +13,11 @@ References
 Papke, L.E. & Wooldridge, J.M. (1996).
 "Econometric Methods for Fractional Response Variables with an
 Application to 401(k) Plan Participation Rates."
-*Journal of Applied Econometrics*, 11(6), 619-632.
+*Journal of Applied Econometrics*, 11(6), 619-632. [@papke1996econometric]
 
 Ferrari, S.L.P. & Cribari-Neto, F. (2004).
 "Beta Regression for Modelling Rates and Proportions."
-*Journal of Applied Statistics*, 31(7), 799-815.
+*Journal of Applied Statistics*, 31(7), 799-815. [@ferrari2004beta]
 """
 
 from typing import Optional, List, Dict, Any

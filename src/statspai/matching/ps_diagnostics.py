@@ -22,7 +22,7 @@ Crump, R.K., Hotz, V.J., Imbens, G.W. and Mitnik, O.A. (2009).
     "Dealing with limited overlap in estimation of average treatment effects."
     Biometrika, 96(1), 187-199.
 Rosenbaum, P.R. and Rubin, D.B. (1983). Biometrika, 70(1), 41-55.
-Austin, P.C. (2011). Multivariate Behavioral Research, 46(3), 399-424.
+Austin, P.C. (2011). Multivariate Behavioral Research, 46(3), 399-424. [@crump2009dealing]
 """
 
 from typing import Optional, List, Tuple, Union

@@ -17,18 +17,18 @@ References
 ----------
 Lambert, D. (1992).
 "Zero-Inflated Poisson Regression, with an Application to Defects in
-Manufacturing." *Technometrics*, 34(1), 1-14.
+Manufacturing." *Technometrics*, 34(1), 1-14. [@lambert1992zero]
 
 Vuong, Q.H. (1989).
 "Likelihood Ratio Tests for Model Selection and Non-Nested Hypotheses."
-*Econometrica*, 57(2), 307-333.
+*Econometrica*, 57(2), 307-333. [@vuong1989likelihood]
 
 Cameron, A.C. and P.K. Trivedi (2013).
-*Regression Analysis of Count Data*, 2nd ed. Cambridge University Press.
+*Regression Analysis of Count Data*, 2nd ed. Cambridge University Press. [@cameron2013regression]
 
 Mullahy, J. (1986).
 "Specification and Testing of Some Modified Count Data Models."
-*Journal of Econometrics*, 33(3), 341-365.
+*Journal of Econometrics*, 33(3), 341-365. [@mullahy1986specification]
 """
 
 from typing import Optional, List, Dict, Any

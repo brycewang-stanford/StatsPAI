@@ -39,10 +39,10 @@ double robustness under linear / GLM parameterisations.
 References
 ----------
 Tchetgen Tchetgen, E. J., Ying, A., Cui, Y., Shi, X., & Miao, W. (2024).
-"An introduction to proximal causal inference." *arXiv*:2009.10982.
+"An introduction to proximal causal inference." *arXiv*:2009.10982. [@tchetgentchetgen2024introduction]
 
 Cui, Y., Pu, H., Shi, X., Miao, W. & Tchetgen Tchetgen, E. (2024).
-"Semiparametric proximal causal inference." *JASA*, 119(547), 1348-1359.
+"Semiparametric proximal causal inference." *JASA*, 119(547), 1348-1359. [@cui2024semiparametric]
 """
 
 from __future__ import annotations

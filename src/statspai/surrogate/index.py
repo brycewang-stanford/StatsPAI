@@ -226,7 +226,7 @@ def surrogate_index(
     Athey, S., Chetty, R., Imbens, G. W., & Kang, H. (2019).
     "The Surrogate Index: Combining Short-Term Proxies to Estimate
     Long-Term Treatment Effects More Rapidly and Precisely."
-    NBER Working Paper 26463.
+    NBER Working Paper 26463. [@athey2019surrogate]
     """
     if not isinstance(experimental, pd.DataFrame):
         raise TypeError("`experimental` must be a pandas DataFrame.")
@@ -526,7 +526,7 @@ def proximal_surrogate_index(
     Imbens, G., Kallus, N., Mao, X., & Wang, Y. (2025).
     "Long-term Causal Inference Under Persistent Confounding via Data
     Combination." Journal of the Royal Statistical Society Series B,
-    87(2), 362-388. arXiv:2202.07234.
+    87(2), 362-388. arXiv:2202.07234. [@imbens2025long]
     """
     if len(proxies) == 0:
         raise ValueError(

@@ -15,7 +15,7 @@ inverted pointwise to obtain the counterfactual quantile function.
 References
 ----------
 Melly, B. (2005). "Decomposition of Differences in Distribution Using
-Quantile Regression." *Labour Economics*, 12(4), 577-590.
+Quantile Regression." *Labour Economics*, 12(4), 577-590. [@melly2005decomposition]
 
 Melly, B. (2006). "Estimation of Counterfactual Distributions Using
 Quantile Regression." Swiss Institute for International Economics.

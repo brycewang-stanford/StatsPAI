@@ -27,14 +27,14 @@ References
 ----------
 Runge, J., Nowack, P., Kretschmer, M., Flaxman, S. & Sejdinovic, D.
 (2019). "Detecting and quantifying causal associations in large
-nonlinear time series datasets." *Science Advances*, 5(11).
+nonlinear time series datasets." *Science Advances*, 5(11). [@runge2019detecting]
 
 Runge, J. (2020). "Discovering contemporaneous and lagged causal
 relations in autocorrelated nonlinear time series datasets."
 *Conference on Uncertainty in Artificial Intelligence (UAI)*.
 
 Spirtes, P., Glymour, C. & Scheines, R. (2000). *Causation,
-Prediction, and Search*, 2nd ed.
+Prediction, and Search*, 2nd ed. [@spirtes2000causation]
 """
 
 from __future__ import annotations

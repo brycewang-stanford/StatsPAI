@@ -21,12 +21,12 @@ References
 Robins, J. (1986). "A new approach to causal inference in mortality
 studies with a sustained exposure period — application to control of
 the healthy worker survivor effect." *Mathematical Modelling*, 7(9-12),
-1393-1512.
+1393-1512. [@robins1986approach]
 
 Snowden, J.M., Rose, S. and Mortimer, K.M. (2011). "Implementation of
 G-computation on a Simulated Data Set: Demonstration of a Causal
 Inference Technique." *American Journal of Epidemiology*, 173(7),
-731-738.
+731-738. [@snowden2011implementation]
 
 Hernán, M.A. and Robins, J.M. (2020). *Causal Inference: What If.*
 Chapman & Hall/CRC. Chapter 13.

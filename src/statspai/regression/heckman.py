@@ -15,7 +15,7 @@ References
 ----------
 Heckman, J.J. (1979).
 "Sample Selection Bias as a Specification Error."
-*Econometrica*, 47(1), 153-161.
+*Econometrica*, 47(1), 153-161. [@heckman1979sample]
 """
 
 from typing import Optional, List, Dict, Any

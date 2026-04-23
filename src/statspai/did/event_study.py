@@ -19,11 +19,11 @@ References
 ----------
 Freyaldenhoven, S., Hansen, C. and Shapiro, J.M. (2019).
 "Pre-event Trends in the Panel Event-Study Design."
-*American Economic Review*, 109(9), 3307-3338.
+*American Economic Review*, 109(9), 3307-3338. [@freyaldenhoven2019event]
 
 Roth, J. (2022).
 "Pretest with Caution: Event-Study Estimates After Testing for Parallel
-Trends." *American Economic Review: Insights*, 4(3), 305-322.
+Trends." *American Economic Review: Insights*, 4(3), 305-322. [@roth2022pretest]
 """
 
 from __future__ import annotations

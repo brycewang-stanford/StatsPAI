@@ -43,14 +43,14 @@ Important limitations of this implementation
 References
 ----------
 Tchetgen Tchetgen, E.J., Ying, A., Cui, Y., Shi, X. and Miao, W. (2020).
-"An Introduction to Proximal Causal Learning." arXiv:2009.10982.
+"An Introduction to Proximal Causal Learning." arXiv:2009.10982. [@tchetgen2020introduction]
 
 Miao, W., Geng, Z. and Tchetgen Tchetgen, E.J. (2018). "Identifying
 causal effects with proxy variables of an unmeasured confounder."
-*Biometrika*, 105(4), 987-993.
+*Biometrika*, 105(4), 987-993. [@miao2018identifying]
 
 Cui, Y., Pu, H., Shi, X., Miao, W. and Tchetgen Tchetgen, E.J. (2024).
-"Semiparametric proximal causal inference." *JASA*, 119(546), 1348-1359.
+"Semiparametric proximal causal inference." *JASA*, 119(546), 1348-1359. [@cui2024semiparametric]
 """
 
 import warnings

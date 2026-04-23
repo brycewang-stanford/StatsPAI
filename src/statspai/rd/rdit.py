@@ -10,7 +10,7 @@ References
 ----------
 Hausman, C. and Rapson, D.S. (2018).
 "Regression Discontinuity in Time: Considerations for Empirical
-Applications." Annual Review of Resource Economics, 10, 533-552.
+Applications." Annual Review of Resource Economics, 10, 533-552. [@hausman2018regression]
 """
 
 from typing import Optional, Tuple

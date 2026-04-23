@@ -16,17 +16,17 @@ References
 ----------
 Fairlie, R.W. (2005). "An Extension of the Blinder-Oaxaca Decomposition
 Technique to Logit and Probit Models." *Journal of Economic and Social
-Measurement*, 30, 305-316.
+Measurement*, 30, 305-316. [@fairlie2005extension]
 
 Bauer, T.K. & Sinning, M. (2008). "An Extension of the Blinder-Oaxaca
 Decomposition to Nonlinear Models." *AStA Advances in Statistical
-Analysis*, 92, 197-206.
+Analysis*, 92, 197-206. [@bauer2008extension]
 
 Yun, M.-S. (2004). "Decomposing Differences in the First Moment."
-*Economics Letters*, 82, 275-280.
+*Economics Letters*, 82, 275-280. [@yun2004decomposing]
 
 Yun, M.-S. (2005). "A Simple Solution to the Identification Problem in
-Detailed Wage Decompositions." *Economic Inquiry*, 43(4), 766-772.
+Detailed Wage Decompositions." *Economic Inquiry*, 43(4), 766-772. [@yun2005simple]
 """
 from __future__ import annotations
 

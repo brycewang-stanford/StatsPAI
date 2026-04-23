@@ -217,7 +217,7 @@ def policy_weight_observed_prte(
     ----------
     Carneiro, P., Heckman, J. J., & Vytlacil, E. J. (2011).
     Estimating marginal returns to education. *AER*, 101(6),
-    2754-2781.
+    2754-2781. [@carneiro2011estimating]
     """
     from scipy.stats import gaussian_kde
 

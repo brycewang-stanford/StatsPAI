@@ -10,10 +10,10 @@ References
 ----------
 Machado, J.A.F. & Mata, J. (2005). "Counterfactual Decomposition of Changes
 in Wage Distributions Using Quantile Regression." *Journal of Applied
-Econometrics*, 20(4), 445-465.
+Econometrics*, 20(4), 445-465. [@machado2005counterfactual]
 
 Albrecht, Björklund, Vroman (2003). "Is There a Glass Ceiling in Sweden?"
-*Journal of Labor Economics*, 21(1), 145-177.
+*Journal of Labor Economics*, 21(1), 145-177. [@albrecht2003there]
 """
 from __future__ import annotations
 

@@ -14,18 +14,18 @@ with ``sp.iv.fit(..., method='ujive')``.
 References
 ----------
 Angrist, J.D., Imbens, G.W. and Krueger, A.B. (1999). "Jackknife
-    Instrumental Variables Estimation." JAE 14(1), 57-67.
+    Instrumental Variables Estimation." JAE 14(1), 57-67. [@angrist1999jackknife]
 
 Ackerberg, D.A. and Devereux, P.J. (2009). "Improved JIVE Estimators
     for Overidentified Linear Models with and without Heteroskedasticity."
-    Review of Economics and Statistics, 91(2), 351-362.
+    Review of Economics and Statistics, 91(2), 351-362. [@ackerberg2009improved]
 
 Kolesár, M. (2013). "Estimation in an Instrumental Variables Model with
     Treatment Effect Heterogeneity." Working paper.
 
 Hansen, C. and Kozbur, D. (2014). "Instrumental variables estimation
     with many weak instruments using regularized JIVE."
-    *Journal of Econometrics*, 182(2), 290-308.
+    *Journal of Econometrics*, 182(2), 290-308. [@hansen2014instrumental]
 """
 
 from __future__ import annotations

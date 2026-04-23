@@ -14,7 +14,7 @@ Lutkepohl, H. (2005).
 
 Granger, C.W.J. (1969).
 "Investigating Causal Relations by Econometric Models and Cross-spectral Methods."
-*Econometrica*, 37(3), 424-438.
+*Econometrica*, 37(3), 424-438. [@granger1969investigating]
 """
 
 from typing import Optional, List, Dict, Any, Union

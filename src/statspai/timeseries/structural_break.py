@@ -11,11 +11,11 @@ References
 ----------
 Bai, J. & Perron, P. (1998).
 "Estimating and Testing Linear Models with Multiple Structural Changes."
-*Econometrica*, 66(1), 47-78.
+*Econometrica*, 66(1), 47-78. [@bai1998estimating]
 
 Brown, R.L., Durbin, J. & Evans, J.M. (1975).
 "Techniques for Testing the Constancy of Regression Relationships Over Time."
-*JRSS-B*, 37(2), 149-192.
+*JRSS-B*, 37(2), 149-192. [@brown1975techniques]
 """
 
 from typing import Optional, List, Dict, Any, Union

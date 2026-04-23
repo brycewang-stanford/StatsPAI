@@ -8,11 +8,11 @@ References
 ----------
 Lei, L. & Candes, E. J. (2021).
 Conformal Inference of Counterfactuals and Individual Treatment Effects.
-JRSS-B, 83(5), 911-938.
+JRSS-B, 83(5), 911-938. [@lei2021conformal]
 
 Chernozhukov, V., Wuthrich, K., & Zhu, Y. (2021).
 An Exact and Robust Conformal Inference Method for Counterfactual and
-Synthetic Controls. JASA, 116(536), 1849-1864.
+Synthetic Controls. JASA, 116(536), 1849-1864. [@chernozhukov2021exact]
 """
 
 from .conformal_ite import conformal_cate, ConformalCATE

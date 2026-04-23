@@ -13,22 +13,22 @@ References
 Arellano, M. and Bond, S. (1991).
 "Some Tests of Specification for Panel Data: Monte Carlo Evidence
 and an Application to Employment Equations."
-*Review of Economic Studies*, 58(2), 277-297.
+*Review of Economic Studies*, 58(2), 277-297. [@arellano1991some]
 
 Blundell, R. and Bond, S. (1998).
 "Initial Conditions and Moment Restrictions in Dynamic Panel Data
 Models."
-*Journal of Econometrics*, 87(1), 115-143.
+*Journal of Econometrics*, 87(1), 115-143. [@blundell1998initial]
 
 Roodman, D. (2009).
 "How to Do xtabond2: An Introduction to Difference and System GMM
 in Stata."
-*Stata Journal*, 9(1), 86-136.
+*Stata Journal*, 9(1), 86-136. [@roodman2009xtabond]
 
 Windmeijer, F. (2005).
 "A Finite Sample Correction for the Variance of Linear Efficient
 Two-Step GMM Estimators."
-*Journal of Econometrics*, 126(1), 25-51.
+*Journal of Econometrics*, 126(1), 25-51. [@windmeijer2005finite]
 """
 
 from typing import Optional, List, Dict, Any, Tuple

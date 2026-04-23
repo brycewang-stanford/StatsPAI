@@ -18,7 +18,7 @@ Greene, W.H. (2018).
     *Econometric Analysis*, 8th ed. Pearson.
 
 Hosmer, D.W. & Lemeshow, S. (2000).
-    *Applied Logistic Regression*, 2nd ed. Wiley.
+    *Applied Logistic Regression*, 2nd ed. Wiley. [@hosmer2000applied]
 """
 
 from typing import Optional, List, Dict, Any, Tuple

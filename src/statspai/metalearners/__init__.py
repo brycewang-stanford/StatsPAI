@@ -8,13 +8,13 @@ accept any scikit-learn compatible estimator.
 References
 ----------
 Kunzel et al. (2019). Metalearners for estimating heterogeneous treatment
-effects using machine learning. PNAS, 116(10), 4156-4165.
+effects using machine learning. PNAS, 116(10), 4156-4165. [@kunzel2019metalearners]
 
 Nie & Wager (2021). Quasi-oracle estimation of heterogeneous treatment
-effects. Biometrika, 108(2), 299-319.
+effects. Biometrika, 108(2), 299-319. [@nie2021quasi]
 
 Kennedy (2023). Towards optimal doubly robust estimation of heterogeneous
-causal effects. Electronic Journal of Statistics, 17(2), 3008-3049.
+causal effects. Electronic Journal of Statistics, 17(2), 3008-3049. [@kennedy2023towards]
 """
 
 from .metalearners import (

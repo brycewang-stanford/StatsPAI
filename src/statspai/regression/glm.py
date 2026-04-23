@@ -9,7 +9,7 @@ References
 ----------
 - McCullagh, P. and Nelder, J.A. (1989). Generalized Linear Models, 2nd ed.
 - Hardin, J.W. and Hilbe, J.M. (2007). Generalized Linear Models and Extensions.
-- Cameron, A.C. and Trivedi, P.K. (2005). Microeconometrics: Methods and Applications.
+- Cameron, A.C. and Trivedi, P.K. (2005). Microeconometrics: Methods and Applications. [@mccullagh1989generalized]
 """
 
 from typing import Optional, Union, Dict, Any, List, Callable, Tuple

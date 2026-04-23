@@ -23,12 +23,12 @@ References
 Delgado, M. S. & Florax, R. J. G. M. (2015).
 "Difference-in-differences techniques for spatial data: local
 autocorrelation and spatial interaction." *Economics Letters*, 137,
-123-126.
+123-126. [@delgado2015difference]
 
 Dubé, J., Legros, D., & Thériault, M. (2014).
 "A spatial difference-in-differences estimator to evaluate the effect
 of change in public mass transit systems on house prices."
-*Transportation Research Part B*, 64, 24-40.
+*Transportation Research Part B*, 64, 24-40. [@dub2014spatial]
 """
 
 from __future__ import annotations

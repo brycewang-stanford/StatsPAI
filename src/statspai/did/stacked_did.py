@@ -10,7 +10,7 @@ References
 ----------
 Cengiz, D., Dube, A., Lindner, A. and Zipperer, B. (2019).
 "The Effect of Minimum Wages on Low-Wage Jobs."
-*Quarterly Journal of Economics*, 134(3), 1405-1454.
+*Quarterly Journal of Economics*, 134(3), 1405-1454. [@cengiz2019effect]
 """
 
 from typing import Optional, List, Tuple

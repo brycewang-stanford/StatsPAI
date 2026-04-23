@@ -22,10 +22,10 @@ fast enough for typical observational datasets.
 References
 ----------
 Athey, S., Tibshirani, J., & Wager, S. (2019). "Generalized random
-forests." *Annals of Statistics*, 47(2), 1148-1178.
+forests." *Annals of Statistics*, 47(2), 1148-1178. [@athey2019surrogate]
 
 Nie, X., Brunskill, E., & Wager, S. (2021). "Learning when-to-treat
-policies." *JASA*, 116(533), 392-409.
+policies." *JASA*, 116(533), 392-409. [@nie2021learning]
 """
 
 from __future__ import annotations

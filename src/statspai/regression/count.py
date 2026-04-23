@@ -9,7 +9,7 @@ References
 - Cameron, A.C. & Trivedi, P.K. (2013). Regression Analysis of Count Data. 2nd ed.
 - Santos Silva, J.M.C. & Tenreyro, S. (2006). "The Log of Gravity." REStat.
 - Correia, S., Guimaraes, P. & Zylkin, T. (2020). "Fast Poisson estimation with
-  high-dimensional fixed effects." Stata Journal.
+  high-dimensional fixed effects." Stata Journal. [@cameron2013regression]
 """
 
 from typing import Optional, List, Dict, Any, Union

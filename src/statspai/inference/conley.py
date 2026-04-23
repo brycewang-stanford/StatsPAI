@@ -18,15 +18,15 @@ References
 ----------
 Conley, T.G. (1999).
 "GMM Estimation with Cross Sectional Dependence."
-*Journal of Econometrics*, 92(1), 1-45.
+*Journal of Econometrics*, 92(1), 1-45. [@conley1999estimation]
 
 Conley, T.G. (2008).
-"Spatial Econometrics." In *The New Palgrave Dictionary of Economics*.
+"Spatial Econometrics." In *The New Palgrave Dictionary of Economics*. [@conley2008spatial]
 
 Hsiang, S.M. (2010).
 "Temperatures and Cyclones Strongly Associated with Economic
 Production in the Caribbean and Central America."
-*PNAS*, 107(35), 15367-15372.
+*PNAS*, 107(35), 15367-15372. [@hsiang2010temperatures]
 """
 
 from typing import Optional

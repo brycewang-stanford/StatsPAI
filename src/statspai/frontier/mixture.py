@@ -24,7 +24,7 @@ Orea, L. & Kumbhakar, S.C. (2004).  "Efficiency measurement using a
     169-183.
 Greene, W.H. (2005).  "Reconsidering heterogeneity in panel data
     estimators of the stochastic frontier model."  J. Econometrics
-    126, 269-303.
+    126, 269-303. [@kumbhakar2013zero]
 """
 
 from __future__ import annotations

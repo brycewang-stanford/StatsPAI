@@ -16,7 +16,7 @@ References
 ----------
 Athey, S. & Wager, S. (2021).
 "Policy Learning with Observational Data."
-Econometrica, 89(1), 133-161.
+Econometrica, 89(1), 133-161. [@athey2021matrix]
 """
 
 from typing import Optional, List, Dict, Any, Tuple

@@ -17,11 +17,11 @@ References
 ----------
 Hartwig, F.P., Davey Smith, G. & Bowden, J. (2017).
 "Robust inference in summary data Mendelian randomization via the
-zero modal pleiotropy assumption." *IJE*, 46(6), 1985-1998.
+zero modal pleiotropy assumption." *IJE*, 46(6), 1985-1998. [@hartwig2017robust]
 
 Staiger, D. & Stock, J.H. (1997).
 "Instrumental variables regression with weak instruments."
-*Econometrica*, 65(3), 557-586.
+*Econometrica*, 65(3), 557-586. [@staiger1997instrumental]
 """
 
 from __future__ import annotations

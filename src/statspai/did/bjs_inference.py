@@ -17,7 +17,7 @@ References
 Borusyak, K., Jaravel, X. and Spiess, J. (2024).
     "Revisiting Event-Study Designs: Robust and Efficient Estimation."
     *Review of Economic Studies*, 91(6), 3253-3285.
-    Appendix discussion of joint pre-trend testing.
+    Appendix discussion of joint pre-trend testing. [@borusyak2024revisiting]
 """
 
 from __future__ import annotations

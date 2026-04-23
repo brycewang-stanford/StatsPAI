@@ -34,11 +34,11 @@ References
 Egami, N., Hinck, M., Stewart, B., & Wei, H. (2024). "Using imperfect
 surrogates for downstream inference: Design-based supervised learning
 for social science applications of large language models."  *NeurIPS*.
-arXiv:2306.04746.
+arXiv:2306.04746. [@egami2023imperfect]
 
 Hausman, J., Abrevaya, J., & Scott-Morton, F. (1998). "Misclassification
 of the dependent variable in a discrete-response setting."  *Journal of
-Econometrics*, 87, 239–269.
+Econometrics*, 87, 239–269. [@hausman1998misclassification]
 """
 from __future__ import annotations
 

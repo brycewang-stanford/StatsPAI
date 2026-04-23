@@ -16,11 +16,11 @@ Multi-Stage Samples." *Survey Methodology*, 28(2), 169-181.
 
 MacKinnon, J.G. and Webb, M.D. (2017).
 "Wild Bootstrap Inference for Wildly Different Cluster Sizes."
-*Journal of Applied Econometrics*, 32(2), 233-254.
+*Journal of Applied Econometrics*, 32(2), 233-254. [@mackinnon2017wild]
 
 Cameron, A.C., Gelbach, J.B. and Miller, D.L. (2008).
 "Bootstrap-Based Improvements for Inference with Clustered Errors."
-*Review of Economics and Statistics*, 90(3), 414-427.
+*Review of Economics and Statistics*, 90(3), 414-427. [@cameron2008bootstrap]
 """
 
 from typing import Optional, List, Dict, Any, Tuple

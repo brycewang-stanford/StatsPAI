@@ -31,11 +31,11 @@ plus the max-advantage term.
 References
 ----------
 Murphy, S. A. (2003). "Optimal dynamic treatment regimes." *JRSS B*,
-65(2), 331-355.
+65(2), 331-355. [@murphy2003optimal]
 
 Schulte, P. J., Tsiatis, A. A., Laber, E. B., & Davidian, M. (2014).
 "Q- and A-learning methods for estimating optimal dynamic treatment
-regimes." *Statistical Science*, 29(4), 640-661.
+regimes." *Statistical Science*, 29(4), 640-661. [@schulte2014mathbf]
 """
 
 from __future__ import annotations

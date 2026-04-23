@@ -15,7 +15,7 @@ References
 ----------
 Chernozhukov, V., Chetverikov, D., Demirer, M., Duflo, E., Hansen, C.,
 Newey, W., and Robins, J. (2018). "Double/Debiased Machine Learning for
-Treatment and Structural Parameters." *Econometrics Journal*, 21(1), C1-C68.
+Treatment and Structural Parameters." *Econometrics Journal*, 21(1), C1-C68. [@chernozhukov2018double]
 """
 
 from typing import Optional, List, Any, Union

@@ -32,14 +32,14 @@ References
 Chernozhukov, V., Demirer, M., Duflo, E., Fernández-Val, I. (2020).
 "Generic Machine Learning Inference on Heterogeneous Treatment Effects
 in Randomized Experiments, with an Application to Immunization in India."
-NBER WP 24678.
+NBER WP 24678. [@chernozhukov2020generic]
 
 Yadlowsky, S., Fleming, S., Shah, N., Brunskill, E., Wager, S. (2021).
 "Evaluating Treatment Prioritization Rules via Rank-Weighted Average
 Treatment Effects." arXiv:2111.07966.
 
 Athey, S., Tibshirani, J., Wager, S. (2019). "Generalized Random
-Forests." Annals of Statistics, 47(2), 1148-1178.
+Forests." Annals of Statistics, 47(2), 1148-1178. [@athey2019surrogate]
 """
 
 from __future__ import annotations

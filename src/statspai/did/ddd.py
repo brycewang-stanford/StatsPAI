@@ -24,7 +24,7 @@ Gruber, J. (1994). "The Incidence of Mandated Maternity Benefits."
 
 Olden, A. and Møen, J. (2022).
 "The Triple Difference Estimator."
-*The Econometrics Journal*, 25(3), 531-553.
+*The Econometrics Journal*, 25(3), 531-553. [@olden2022triple]
 """
 
 from typing import Optional, List

@@ -33,17 +33,17 @@ Two methods are supported here:
 References
 ----------
 Frangakis, C.E. and Rubin, D.B. (2002). "Principal Stratification in
-Causal Inference." *Biometrics*, 58(1), 21-29.
+Causal Inference." *Biometrics*, 58(1), 21-29. [@frangakis2002principal]
 
 Zhang, J.L. and Rubin, D.B. (2003). "Estimation of Causal Effects via
 Principal Stratification When Some Outcomes Are Truncated by 'Death'."
-*Journal of Educational and Behavioral Statistics*, 28(4), 353-368.
+*Journal of Educational and Behavioral Statistics*, 28(4), 353-368. [@zhang2003estimation]
 
 Angrist, J.D., Imbens, G.W. and Rubin, D.B. (1996). "Identification of
-causal effects using instrumental variables." *JASA*, 91(434), 444-455.
+causal effects using instrumental variables." *JASA*, 91(434), 444-455. [@angrist1996identification]
 
 Ding, P. and Lu, J. (2017). "Principal stratification analysis using
-principal scores." *JRSS-B*, 79(3), 757-777.
+principal scores." *JRSS-B*, 79(3), 757-777. [@ding2017principal]
 
 Jo, B. and Stuart, E.A. (2009). "On the use of propensity scores in
 principal causal effect estimation." *Statistics in Medicine*, 28(23),

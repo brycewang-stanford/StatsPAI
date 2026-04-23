@@ -11,16 +11,16 @@ References
 ----------
 Burgess, S. et al. (2013).
 "Mendelian randomization analysis with multiple genetic variants using
-summarized data." *Genetic Epidemiology*, 37(7), 658-665.
+summarized data." *Genetic Epidemiology*, 37(7), 658-665. [@burgess2013mendelian]
 
 Bowden, J. et al. (2015).
 "Mendelian randomization with invalid instruments: effect estimation and
-bias detection through Egger regression." *IJE*, 44(2), 512-525.
+bias detection through Egger regression." *IJE*, 44(2), 512-525. [@bowden2015mendelian]
 
 Bowden, J. et al. (2016).
 "Consistent estimation in Mendelian randomization with some invalid
 instruments using a weighted median estimator." *Genetic Epidemiology*,
-40(4), 304-314.
+40(4), 304-314. [@bowden2016consistent]
 """
 
 from typing import Optional, List, Dict, Any

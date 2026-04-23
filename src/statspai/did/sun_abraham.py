@@ -21,7 +21,7 @@ References
 Sun, L. and Abraham, S. (2021).
     "Estimating Dynamic Treatment Effects in Event Studies with
      Heterogeneous Treatment Effects."
-    *Journal of Econometrics*, 225(2), 175-199.
+    *Journal of Econometrics*, 225(2), 175-199. [@sun2021estimating]
 """
 
 from __future__ import annotations

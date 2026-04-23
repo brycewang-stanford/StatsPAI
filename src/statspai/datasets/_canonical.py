@@ -53,7 +53,7 @@ def mpdta(seed: int = 42) -> pd.DataFrame:
     References
     ----------
     Callaway, B. & Sant'Anna, P.H.C. (2021). Difference-in-Differences
-    with Multiple Time Periods. Journal of Econometrics 225(2), 200-230.
+    with Multiple Time Periods. Journal of Econometrics 225(2), 200-230. [@callaway2021difference]
     """
     rng = np.random.default_rng(seed)
     n_counties = 500
@@ -218,7 +218,7 @@ def nsw_lalonde(seed: int = 42) -> pd.DataFrame:
 
     Dehejia, R. & Wahba, S. (1999). Causal Effects in Nonexperimental
     Studies: Reevaluating the Evaluation of Training Programs.  JASA
-    94(448), 1053-1062.
+    94(448), 1053-1062. [@dehejia1999causal]
     """
     rng = np.random.default_rng(seed)
     n_t, n_c = 185, 260
@@ -300,7 +300,7 @@ def nsw_dw(seed: int = 42) -> pd.DataFrame:
     References
     ----------
     Dehejia, R. & Wahba, S. (1999). Causal Effects in Nonexperimental
-    Studies.  JASA 94(448), 1053-1062.
+    Studies.  JASA 94(448), 1053-1062. [@dehejia1999causal]
     """
     rng = np.random.default_rng(seed)
     n_t, n_c = 185, 2490
@@ -387,7 +387,7 @@ def lee_2008_senate(seed: int = 42) -> pd.DataFrame:
     References
     ----------
     Lee, D. (2008). Randomized experiments from non-random selection in
-    U.S. House elections. Journal of Econometrics 142, 675-697.
+    U.S. House elections. Journal of Econometrics 142, 675-697. [@lee2008randomized]
     """
     rng = np.random.default_rng(seed)
     n = 6558
@@ -433,7 +433,7 @@ def angrist_krueger_1991(seed: int = 42) -> pd.DataFrame:
     References
     ----------
     Angrist, J. & Krueger, A. (1991). Does Compulsory School Attendance
-    Affect Schooling and Earnings?  QJE 106(4), 979-1014.
+    Affect Schooling and Earnings?  QJE 106(4), 979-1014. [@angrist1991does]
     """
     rng = np.random.default_rng(seed)
     n = 5000

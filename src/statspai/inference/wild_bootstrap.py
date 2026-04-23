@@ -12,7 +12,7 @@ References
 ----------
 Cameron, A.C., Gelbach, J.B. and Miller, D.L. (2008).
 "Bootstrap-Based Improvements for Inference with Clustered Errors."
-*Review of Economics and Statistics*, 90(3), 414-427.
+*Review of Economics and Statistics*, 90(3), 414-427. [@cameron2008bootstrap]
 
 Webb, M.D. (2014).
 "Reworking Wild Bootstrap Based Inference for Clustered Errors."
@@ -20,11 +20,11 @@ Webb, M.D. (2014).
 
 Roodman, D., Nielsen, M.Ø., MacKinnon, J.G. and Webb, M.D. (2019).
 "Fast and Wild: Bootstrap Inference in Stata Using boottest."
-*Stata Journal*, 19(1), 4-60.
+*Stata Journal*, 19(1), 4-60. [@roodman2019fast]
 
 MacKinnon, J.G. and Webb, M.D. (2018).
 "The Wild Bootstrap for Few (Treated) Clusters."
-*The Econometrics Journal*, 21(2), 114-135.
+*The Econometrics Journal*, 21(2), 114-135. [@mackinnon2018wild]
 """
 
 from typing import Optional, List, Tuple, Dict, Any

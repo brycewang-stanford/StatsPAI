@@ -34,11 +34,11 @@ References
 ----------
 Shalit, U., Johansson, F. D., & Sontag, D. (2017).
 "Estimating individual treatment effect: generalization bounds and algorithms."
-Proceedings of the 34th International Conference on Machine Learning.
+Proceedings of the 34th International Conference on Machine Learning. [@shalit2017estimating]
 
 Shi, C., Blei, D. M., & Veitch, V. (2019).
 "Adapting neural networks for the estimation of treatment effects."
-Advances in Neural Information Processing Systems, 32.
+Advances in Neural Information Processing Systems, 32. [@shi2019adapting]
 """
 
 from typing import Optional, List, Tuple, Dict, Any

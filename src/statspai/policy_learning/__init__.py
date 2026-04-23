@@ -16,11 +16,11 @@ References
 ----------
 Athey, S. & Wager, S. (2021).
 Policy Learning with Observational Data.
-Econometrica, 89(1), 133-161.
+Econometrica, 89(1), 133-161. [@athey2021matrix]
 
 Zhou, Z., Athey, S., & Wager, S. (2023).
 Offline Multi-Action Policy Learning: Generalization and Optimization.
-Operations Research, 71(1), 148-183.
+Operations Research, 71(1), 148-183. [@zhou2023offline]
 """
 
 from .policy_tree import policy_tree, PolicyTree, policy_value

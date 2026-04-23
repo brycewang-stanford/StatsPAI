@@ -21,11 +21,11 @@ Rothman, K.J., Greenland, S. & Lash, T.L. (2008). *Modern Epidemiology*,
 3rd ed. Lippincott Williams & Wilkins.
 
 Woolf, B. (1955). "On estimating the relation between blood group and
-disease." *Annals of Human Genetics*, 19(4), 251-253.
+disease." *Annals of Human Genetics*, 19(4), 251-253. [@woolf1955estimating]
 
 Zou, G. (2004). "A modified Poisson regression approach to prospective
 studies with binary data." *American Journal of Epidemiology*, 159(7),
-702-706.
+702-706. [@zou2004modified]
 """
 
 from __future__ import annotations

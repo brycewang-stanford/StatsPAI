@@ -11,16 +11,16 @@ References
 Robins, J.M., Rotnitzky, A. and Zhao, L.P. (1994).
 "Estimation of Regression Coefficients When Some Regressors Are Not
 Always Observed."
-*Journal of the American Statistical Association*, 89(427), 846-866.
+*Journal of the American Statistical Association*, 89(427), 846-866. [@robins1994estimation]
 
 Glynn, A.N. and Quinn, K.M. (2010).
 "An Introduction to the Augmented Inverse Propensity Weighted Estimator."
-*Political Analysis*, 18(1), 36-56.
+*Political Analysis*, 18(1), 36-56. [@glynn2010introduction]
 
 Chernozhukov, V., Chetverikov, D., Demirer, M., Duflo, E.,
 Hansen, C., Newey, W. and Robins, J. (2018).
 "Double/Debiased Machine Learning for Treatment and Structural Parameters."
-*The Econometrics Journal*, 21(1), C1-C68.
+*The Econometrics Journal*, 21(1), C1-C68. [@chernozhukov2018double]
 """
 
 from typing import Optional, List, Dict, Any

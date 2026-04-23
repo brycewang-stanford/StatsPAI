@@ -32,10 +32,10 @@ restrictions. This module gives both.
 References
 ----------
 Balke, A. & Pearl, J. (1997). "Bounds on treatment effects from
-studies with imperfect compliance." *JASA*, 92(439), 1171-1176.
+studies with imperfect compliance." *JASA*, 92(439), 1171-1176. [@balke1997bounds]
 
 Richardson, T. S. & Robins, J. M. (2014). "ACE bounds; SEMs with
-equilibrium conditions." *Statistical Science*, 29(4), 363-396.
+equilibrium conditions." *Statistical Science*, 29(4), 363-396. [@richardson2014bounds]
 """
 
 from __future__ import annotations

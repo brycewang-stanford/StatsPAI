@@ -28,7 +28,7 @@ Murphy, S. A. (2005). "A generalization error for Q-learning."
 *JMLR*, 6, 1073-1097.
 
 Chakraborty, B., & Moodie, E. E. M. (2013).
-*Statistical Methods for Dynamic Treatment Regimes*. Springer.
+*Statistical Methods for Dynamic Treatment Regimes*. Springer. [@chakraborty2013statistical]
 """
 
 from __future__ import annotations

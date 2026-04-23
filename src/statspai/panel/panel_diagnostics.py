@@ -15,7 +15,7 @@ References
 Hausman, J.A. (1978). "Specification Tests in Econometrics."
 Breusch, T.S. and Pagan, A.R. (1980). "The Lagrange Multiplier Test."
 Pesaran, M.H. (2004). "General Diagnostic Tests for Cross Section
-    Dependence in Panels."
+    Dependence in Panels." [@hausman1978specification]
 """
 
 from typing import List, Dict, Any, Optional

@@ -11,7 +11,7 @@ References
 ----------
 Borusyak, K., Jaravel, X. and Spiess, J. (2024).
 "Revisiting Event-Study Designs: Robust and Efficient Estimation."
-*Review of Economic Studies*, 91(6), 3253-3285.
+*Review of Economic Studies*, 91(6), 3253-3285. [@borusyak2024revisiting]
 """
 
 from typing import Optional, List, Dict, Any, Tuple, Union

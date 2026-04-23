@@ -10,11 +10,11 @@ References
 Parks, R.W. (1967).
 "Efficient Estimation of a System of Regression Equations When
 Disturbances Are Both Serially and Contemporaneously Correlated."
-*JASA*, 62(318), 500-509.
+*JASA*, 62(318), 500-509. [@parks1967efficient]
 
 Beck, N. & Katz, J.N. (1995).
 "What To Do (and Not To Do) with Time-Series Cross-Section Data."
-*APSR*, 89(3), 634-647.
+*APSR*, 89(3), 634-647. [@beck1995what]
 """
 
 from typing import Optional, List

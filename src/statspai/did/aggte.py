@@ -19,12 +19,12 @@ Callaway, B. and Sant'Anna, P.H.C. (2021).
     "Difference-in-Differences with Multiple Time Periods."
     *Journal of Econometrics*, 225(2), 200-230.
     Section 4 (aggregated parameters) and Section 4.2
-    (uniform inference via multiplier bootstrap).
+    (uniform inference via multiplier bootstrap). [@callaway2021difference]
 
 Mammen, E. (1993).
     "Bootstrap and Wild Bootstrap for High Dimensional Linear Models."
     *Annals of Statistics*, 21(1), 255-285.
-    Two-point multiplier distribution used for the wild weights.
+    Two-point multiplier distribution used for the wild weights. [@mammen1993bootstrap]
 """
 
 from __future__ import annotations

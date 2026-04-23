@@ -15,15 +15,15 @@ References
 Abadie, A., Diamond, A. and Hainmueller, J. (2010).
 "Synthetic Control Methods for Comparative Case Studies: Estimating
 the Effect of California's Tobacco Control Program."
-*Journal of the American Statistical Association*, 105(490), 493-505.
+*Journal of the American Statistical Association*, 105(490), 493-505. [@abadie2010synthetic]
 
 Abadie, A., Diamond, A. and Hainmueller, J. (2015).
 "Comparative Politics and the Synthetic Control Method."
-*American Journal of Political Science*, 59(2), 495-510.
+*American Journal of Political Science*, 59(2), 495-510. [@abadie2015comparative]
 
 Ferman, B. and Pinto, C. (2021).
 "Synthetic Controls with Imperfect Pre-Treatment Fit."
-*Quantitative Economics*, 12(4), 1197-1221.
+*Quantitative Economics*, 12(4), 1197-1221. [@ferman2021synthetic]
 """
 
 from __future__ import annotations

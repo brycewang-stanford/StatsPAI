@@ -16,11 +16,11 @@ References
 ----------
 Romano, J.P. and Wolf, M. (2005).
 "Exact and Approximate Stepdown Methods for Multiple Hypothesis Testing."
-*Journal of the American Statistical Association*, 100(469), 94-108.
+*Journal of the American Statistical Association*, 100(469), 94-108. [@romano2005exact]
 
 Romano, J.P. and Wolf, M. (2016).
 "Efficient computation of adjusted p-values for resampling-based
-stepdown multiple testing." *Statistics & Probability Letters*, 113, 38-40.
+stepdown multiple testing." *Statistics & Probability Letters*, 113, 38-40. [@romano2016efficient]
 
 Westfall, P.H. and Young, S.S. (1993).
 *Resampling-Based Multiple Testing*. Wiley.
@@ -30,11 +30,11 @@ Holm, S. (1979).
 *Scandinavian Journal of Statistics*, 6(2), 65-70.
 
 Benjamini, Y. and Hochberg, Y. (1995).
-"Controlling the False Discovery Rate." *JRSS-B*, 57(1), 289-300.
+"Controlling the False Discovery Rate." *JRSS-B*, 57(1), 289-300. [@benjamini1995controlling]
 
 Clarke, D., Romano, J.P. and Wolf, M. (2020).
 "The Romano-Wolf Multiple Hypothesis Correction."
-*The Stata Journal*, 20(4), 812-843.
+*The Stata Journal*, 20(4), 812-843. [@clarke2020romano]
 """
 
 from __future__ import annotations

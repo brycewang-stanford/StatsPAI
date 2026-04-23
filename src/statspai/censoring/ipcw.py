@@ -12,7 +12,7 @@ References
 * Robins & Finkelstein (2000). "Correcting for Noncompliance and
   Dependent Censoring in an AIDS Clinical Trial with IPCW Log-Rank
   Tests."
-* Hernan & Robins. *Causal Inference: What If* (Chapter 17).
+* Hernan & Robins. *Causal Inference: What If* (Chapter 17). [@robins2000correcting]
 """
 
 from __future__ import annotations

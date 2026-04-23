@@ -11,7 +11,7 @@ References
 ----------
 Brodersen, K.H., Gallusser, F., Koehler, J., Remy, N., and Scott, S.L. (2015).
 "Inferring Causal Impact Using Bayesian Structural Time-Series Models."
-*Annals of Applied Statistics*, 9(1), 247-274.
+*Annals of Applied Statistics*, 9(1), 247-274. [@brodersen2015inferring]
 """
 
 from .impact import causal_impact, CausalImpactEstimator, impactplot

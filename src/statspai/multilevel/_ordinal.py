@@ -36,7 +36,7 @@ References
 ----------
 McCullagh, P. (1980).  Regression Models for Ordinal Data.
 Hartzel, J., Agresti, A., & Caffo, B. (2001).  Multinomial logit RE models.
-Hedeker & Gibbons (1996).  MIXOR.
+Hedeker & Gibbons (1996).  MIXOR. [@mccullagh1980regression]
 """
 
 from __future__ import annotations

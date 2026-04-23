@@ -25,15 +25,15 @@ Python had nothing).
 References
 ----------
 Brinch, C.N., Mogstad, M. and Wiswall, M. (2017). "Beyond LATE with a
-    Discrete Instrument." *Journal of Political Economy*, 125(4), 985-1039.
+    Discrete Instrument." *Journal of Political Economy*, 125(4), 985-1039. [@brinch2017beyond]
 
 Heckman, J.J. and Vytlacil, E.J. (2005). "Structural Equations,
     Treatment Effects, and Econometric Policy Evaluation."
-    *Econometrica*, 73(3), 669-738.
+    *Econometrica*, 73(3), 669-738. [@heckman2005structural]
 
 Mogstad, M., Santos, A. and Torgovitsky, A. (2018). "Using Instrumental
     Variables for Inference About Policy Relevant Treatment Parameters."
-    *Econometrica*, 86(5), 1589-1619.
+    *Econometrica*, 86(5), 1589-1619. [@mogstad2018instrumental]
 """
 
 from __future__ import annotations

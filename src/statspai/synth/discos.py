@@ -36,7 +36,7 @@ References
 ----------
 Gunsilius, F. F. (2023).
 "Distributional Synthetic Controls."
-*Econometrica*, 91(3), 1105-1117.
+*Econometrica*, 91(3), 1105-1117. [@gunsilius2023distributional]
 """
 
 from __future__ import annotations

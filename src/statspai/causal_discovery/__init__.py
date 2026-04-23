@@ -15,10 +15,10 @@ References
 ----------
 Zheng, X., Aragam, B., Ravikumar, P., & Xing, E. P. (2018).
 DAGs with NO TEARS: Continuous Optimization for Structure Learning.
-Advances in Neural Information Processing Systems, 31.
+Advances in Neural Information Processing Systems, 31. [@zheng2018dags]
 
 Spirtes, P., Glymour, C., & Scheines, R. (2000).
-Causation, Prediction, and Search (2nd ed.). MIT Press.
+Causation, Prediction, and Search (2nd ed.). MIT Press. [@spirtes2000causation]
 """
 
 from .notears import notears, NOTEARS

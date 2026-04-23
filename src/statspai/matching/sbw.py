@@ -35,11 +35,11 @@ References
 Zubizarreta, J.R. (2015).
 "Stable Weights that Balance Covariates for Estimation with Incomplete
 Outcome Data." *Journal of the American Statistical Association*,
-110(511), 910-922.
+110(511), 910-922. [@zubizarreta2015stable]
 
 Wang, Y. and Zubizarreta, J.R. (2020).
 "Minimal dispersion approximately balancing weights: asymptotic
-properties and practical considerations." *Biometrika*, 107(1), 93-105.
+properties and practical considerations." *Biometrika*, 107(1), 93-105. [@wang2019minimal]
 """
 
 from __future__ import annotations

@@ -19,7 +19,7 @@ Bai, J. (2009).
 
 Moon, H.R. & Weidner, M. (2015).
 "Linear Regression for Panel with Unknown Number of Factors as
-Interactive Fixed Effects." *Econometrica*, 83(4), 1543-1579.
+Interactive Fixed Effects." *Econometrica*, 83(4), 1543-1579. [@moon2015linear]
 """
 
 from typing import Optional, List, Dict, Any

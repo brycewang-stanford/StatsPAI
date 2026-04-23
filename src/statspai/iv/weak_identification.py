@@ -20,18 +20,18 @@ References
 ----------
 Kleibergen, F. and Paap, R. (2006). "Generalized reduced rank tests using
     the singular value decomposition." *Journal of Econometrics*, 133(1),
-    97-126.
+    97-126. [@kleibergen2006generalized]
 
 Sanderson, E. and Windmeijer, F. (2016). "A weak instrument F-test in
     linear IV models with multiple endogenous variables." *Journal of
-    Econometrics*, 190(2), 212-221.
+    Econometrics*, 190(2), 212-221. [@sanderson2016weak]
 
 Moreira, M.J. (2003). "A conditional likelihood ratio test for structural
-    models." *Econometrica*, 71(4), 1027-1048.
+    models." *Econometrica*, 71(4), 1027-1048. [@moreira2003conditional]
 
 Cragg, J.G. and Donald, S.G. (1993). "Testing identifiability and
     specification in instrumental variable models." *Econometric Theory*,
-    9(2), 222-240.
+    9(2), 222-240. [@cragg1993testing]
 """
 
 from __future__ import annotations

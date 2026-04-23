@@ -59,11 +59,11 @@ Science*, 1-10.
 
 Robins, J.M., Hernán, M.A. and Brumback, B. (2000). "Marginal
 structural models and causal inference in epidemiology." *Epidemiology*,
-11(5), 550-560.
+11(5), 550-560. [@robins2000marginal]
 
 Cole, S.R. and Hernán, M.A. (2008). "Constructing Inverse Probability
 Weights for Marginal Structural Models." *American Journal of
-Epidemiology*, 168(6), 656-664.
+Epidemiology*, 168(6), 656-664. [@cole2008constructing]
 """
 
 from typing import Optional, List, Union

@@ -8,7 +8,7 @@ produces side-by-side tables in text, LaTeX, HTML, or DataFrame format.
 References
 ----------
 Arel-Bundock, V. (2022). "modelsummary: Data and Model Summaries in R."
-*Journal of Statistical Software*, 103(1), 1-23.
+*Journal of Statistical Software*, 103(1), 1-23. [@arelbundock2022modelsummary]
 """
 
 from typing import Optional, List, Dict, Any, Union, Sequence

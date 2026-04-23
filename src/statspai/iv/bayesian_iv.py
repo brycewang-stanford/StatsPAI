@@ -24,11 +24,11 @@ AR" posterior).
 References
 ----------
 Chernozhukov, V. and Hong, H. (2003). "An MCMC Approach to Classical
-    Estimation." *Journal of Econometrics*, 115(2), 293-346.
+    Estimation." *Journal of Econometrics*, 115(2), 293-346. [@chernozhukov2003mcmc]
 
 Kleibergen, F. and Zivot, E. (2003). "Bayesian and Classical Approaches
     to Instrumental Variable Regression."
-    *Journal of Econometrics*, 114(1), 29-72.
+    *Journal of Econometrics*, 114(1), 29-72. [@kleibergen2003bayesian]
 """
 
 from __future__ import annotations

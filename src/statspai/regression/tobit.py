@@ -11,11 +11,11 @@ References
 ----------
 Tobin, J. (1958).
 "Estimation of Relationships for Limited Dependent Variables."
-*Econometrica*, 26(1), 24-36.
+*Econometrica*, 26(1), 24-36. [@tobin1958estimation]
 
 Amemiya, T. (1984).
 "Tobit Models: A Survey."
-*Journal of Econometrics*, 24(1-2), 3-61.
+*Journal of Econometrics*, 24(1-2), 3-61. [@amemiya1984tobit]
 """
 
 from typing import Optional, List, Dict, Any

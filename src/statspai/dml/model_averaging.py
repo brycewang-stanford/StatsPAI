@@ -28,7 +28,7 @@ References
 Ahrens, A., Hansen, C.B., Schaffer, M.E. and Wiemann, T. (2025).
     "Model Averaging and Double Machine Learning."
     *Journal of Applied Econometrics*, 40(3), 249-269.
-    DOI 10.1002/jae.3103.
+    DOI 10.1002/jae.3103. [@ahrens2025model]
 """
 
 from __future__ import annotations

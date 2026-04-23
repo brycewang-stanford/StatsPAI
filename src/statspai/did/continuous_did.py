@@ -10,12 +10,12 @@ References
 ----------
 Callaway, B., Goodman-Bacon, A. & Sant'Anna, P.H.C. (2024).
 "Difference-in-Differences with a Continuous Treatment."
-*NBER Working Paper 32117*.
+*NBER Working Paper 32117*. [@callaway2024difference]
 
 Acemoglu, D. & Angrist, J. (2001). Instrumented DID approach.
 
 de Chaisemartin, C. & D'Haultfoeuille, X. (2018).
-"Fuzzy Differences-in-Differences." *RES*, 85(2), 999-1028.
+"Fuzzy Differences-in-Differences." *RES*, 85(2), 999-1028. [@dechaisemartin2018fuzzy]
 """
 
 from typing import Optional, List, Dict, Any, Union

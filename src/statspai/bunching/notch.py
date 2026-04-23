@@ -18,7 +18,7 @@ References
 Kleven, H. J. and Waseem, M. (2013).
 "Using Notches to Uncover Optimization Frictions and Structural
 Elasticities: Theory and Evidence from Pakistan."
-QJE, 128(2), 669-723.
+QJE, 128(2), 669-723. [@kleven2013using]
 """
 
 from typing import Optional, Tuple

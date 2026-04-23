@@ -42,7 +42,7 @@ bias." *UAI-95*, 499-506.
 Zhang, J. (2008).
 "On the completeness of orientation rules for causal discovery in the
 presence of latent confounders and selection bias." *Artificial
-Intelligence*, 172(16-17), 1873-1896.
+Intelligence*, 172(16-17), 1873-1896. [@zhang2008completeness]
 """
 
 from __future__ import annotations

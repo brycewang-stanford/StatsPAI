@@ -132,7 +132,7 @@ def sequential_sdid(
     References
     ----------
     Arkhangelsky, D. & Samkov, A. (arXiv:2404.00164, 2024).
-    Arkhangelsky, Athey, Hirshberg, Imbens & Wager (2021). AER 111(12).
+    Arkhangelsky, Athey, Hirshberg, Imbens & Wager (2021). AER 111(12). [@arkhangelsky2024sequential]
     """
     if not isinstance(data, pd.DataFrame):
         raise TypeError("`data` must be a pandas DataFrame.")

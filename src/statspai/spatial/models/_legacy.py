@@ -13,7 +13,7 @@ Anselin, L. (1988). *Spatial Econometrics: Methods and Models*. Kluwer.
 Ord, K. (1975). "Estimation Methods for Models of Spatial Interaction."
     *JASA*, 70(349), 120-126.
 LeSage, J. and Pace, R.K. (2009).
-    *Introduction to Spatial Econometrics*. CRC Press.
+    *Introduction to Spatial Econometrics*. CRC Press. [@anselin1988spatial]
 """
 
 from __future__ import annotations

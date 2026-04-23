@@ -19,20 +19,20 @@ References
 ----------
 Anderson, T.W. and Rubin, H. (1949).
     "Estimation of the Parameters of a Single Equation in a Complete
-    System of Stochastic Equations." *AMS*, 20(1), 46-63.
+    System of Stochastic Equations." *AMS*, 20(1), 46-63. [@anderson1949estimation]
 
 Moreira, M.J. (2003). "A conditional likelihood ratio test for structural
-    models." *Econometrica*, 71(4), 1027-1048.
+    models." *Econometrica*, 71(4), 1027-1048. [@moreira2003conditional]
 
 Kleibergen, F. (2002). "Pivotal statistics for testing structural
     parameters in instrumental variables regression."
-    *Econometrica*, 70(5), 1781-1803.
+    *Econometrica*, 70(5), 1781-1803. [@kleibergen2002pivotal]
 
 Kleibergen, F. (2005). "Testing parameters in GMM without assuming
-    that they are identified." *Econometrica*, 73(4), 1103-1123.
+    that they are identified." *Econometrica*, 73(4), 1103-1123. [@kleibergen2005testing]
 
 Andrews, I., Stock, J.H. and Sun, L. (2019). "Weak Instruments in IV
-    Regression: Theory and Practice." *Annual Review of Economics*, 11.
+    Regression: Theory and Practice." *Annual Review of Economics*, 11. [@andrews2019weak]
 """
 
 from __future__ import annotations

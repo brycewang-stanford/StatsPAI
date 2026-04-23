@@ -25,10 +25,10 @@ References
 ----------
 Lee, D. S. (2009). "Training, Wages, and Sample Selection:
 Estimating Sharp Bounds on Treatment Effects."
-Review of Economic Studies, 76(3), 1071-1102.
+Review of Economic Studies, 76(3), 1071-1102. [@lee2009training]
 
 Manski, C. F. (1990). "Nonparametric Bounds on Treatment Effects."
-American Economic Review P&P, 80(2), 319-323.
+American Economic Review P&P, 80(2), 319-323. [@manski1990nonparametric]
 """
 
 from typing import Optional, List, Dict, Any, Tuple

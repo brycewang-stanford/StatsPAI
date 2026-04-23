@@ -29,7 +29,7 @@ References
 Gardner, J. (2021).  "Two-stage differences in differences."
     *Working paper*, University of Mississippi.  arXiv:2207.05943.
 Butts, K. and Gardner, J. (2022).  "did2s: Two-Stage Difference-in-Differences."
-    *R Journal*, 14(3), 162-173.
+    *R Journal*, 14(3), 162-173. [@gardner2022stage]
 """
 
 from __future__ import annotations

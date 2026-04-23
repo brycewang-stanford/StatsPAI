@@ -15,7 +15,7 @@ References
 ----------
 Cattaneo, M. D. (2010).
 "Efficient semiparametric estimation of multi-valued treatment effects."
-Journal of Econometrics, 155(2), 138-154.
+Journal of Econometrics, 155(2), 138-154. [@cattaneo2010efficient]
 """
 
 from typing import Optional, List, Dict, Any

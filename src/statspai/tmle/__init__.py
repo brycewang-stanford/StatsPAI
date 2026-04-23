@@ -14,10 +14,10 @@ References
 ----------
 van der Laan, M. J. & Rose, S. (2011).
 Targeted Learning: Causal Inference for Observational and Experimental Data.
-Springer Series in Statistics.
+Springer Series in Statistics. [@vanderlaan2011targeted]
 
 van der Laan, M. J., Polley, E. C., & Hubbard, A. E. (2007).
-Super Learner. Statistical Applications in Genetics and Molecular Biology, 6(1).
+Super Learner. Statistical Applications in Genetics and Molecular Biology, 6(1). [@vanderlaan2007super]
 """
 
 from .tmle import tmle, TMLE

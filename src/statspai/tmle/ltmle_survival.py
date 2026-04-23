@@ -29,14 +29,14 @@ References
 ----------
 van der Laan, M.J. & Gruber, S. (2012). "Targeted minimum loss based
 estimation of causal effects of multiple time point interventions."
-*IJB*, 8(1).
+*IJB*, 8(1). [@vanderlaan2012targeted]
 
 Stitelman, O.M. & van der Laan, M.J. (2010). "Collaborative targeted
-maximum likelihood for time to event data." *IJB*, 6(1).
+maximum likelihood for time to event data." *IJB*, 6(1). [@stitelman2010collaborative]
 
 Cai, W. & van der Laan, M.J. (2019). "One-step targeted maximum
 likelihood estimation for time-to-event outcomes." *Biometrics*,
-75(1), 150-162.
+75(1), 150-162. [@cai2020step]
 """
 
 from __future__ import annotations

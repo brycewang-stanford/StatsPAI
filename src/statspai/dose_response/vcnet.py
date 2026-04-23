@@ -35,7 +35,7 @@ References
 ----------
 Nie, L., Ye, M., Zhang, L., Yang, Q., & Wen, Q. (2021).
 "VCNet and Functional Targeted Regularization For Learning Causal
-Effects of Continuous Treatments." *ICLR 2021*.
+Effects of Continuous Treatments." *ICLR 2021*. [@nie2021quasi]
 """
 
 from __future__ import annotations

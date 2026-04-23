@@ -14,7 +14,7 @@ References
 ----------
 Cinelli, C. and Hazlett, C. (2020).
 "Making Sense of Sensitivity: Extending Omitted Variable Bias."
-*Journal of the Royal Statistical Society: Series B*, 82(1), 39-67.
+*Journal of the Royal Statistical Society: Series B*, 82(1), 39-67. [@cinelli2020making]
 """
 
 from typing import Optional, List, Dict, Any, Tuple

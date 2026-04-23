@@ -14,7 +14,7 @@ References
 ----------
 Callaway, B. and Sant'Anna, P.H.C. (2021).
 "Difference-in-Differences with Multiple Time Periods."
-*Journal of Econometrics*, 225(2), 200-230.
+*Journal of Econometrics*, 225(2), 200-230. [@callaway2021difference]
 
 Sant'Anna, P.H.C. and Zhao, J. (2020).
 "Doubly Robust Difference-in-Differences Estimators."

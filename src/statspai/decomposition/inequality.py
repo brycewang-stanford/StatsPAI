@@ -14,18 +14,18 @@ Supports:
 References
 ----------
 Shorrocks, A.F. (1984). "Inequality Decomposition by Population Subgroups."
-*Econometrica*, 52(6), 1369-1385.
+*Econometrica*, 52(6), 1369-1385. [@shorrocks1984inequality]
 
 Shorrocks, A.F. (2013). "Decomposition Procedures for Distributional
 Analysis: A Unified Framework Based on the Shapley Value." *Journal of
-Economic Inequality*, 11, 99-126.
+Economic Inequality*, 11, 99-126. [@shorrocks2013decomposition]
 
 Dagum, C. (1997). "A New Approach to the Decomposition of the Gini
-Income Inequality Ratio." *Empirical Economics*, 22, 515-531.
+Income Inequality Ratio." *Empirical Economics*, 22, 515-531. [@dagum1997approach]
 
 Lerman, R. & Yitzhaki, S. (1985). "Income Inequality Effects by Income
 Source: A New Approach and Applications to the United States." *Review
-of Economics and Statistics*, 67, 151-156.
+of Economics and Statistics*, 67, 151-156. [@lerman1985income]
 """
 from __future__ import annotations
 

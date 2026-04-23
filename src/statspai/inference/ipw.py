@@ -11,16 +11,16 @@ References
 ----------
 Horvitz, D.G. and Thompson, D.J. (1952).
 "A Generalization of Sampling Without Replacement From a Finite Universe."
-*Journal of the American Statistical Association*, 47(260), 663-685.
+*Journal of the American Statistical Association*, 47(260), 663-685. [@horvitz1952generalization]
 
 Hirano, K., Imbens, G.W. and Ridder, G. (2003).
 "Efficient Estimation of Average Treatment Effects Using the Estimated
 Propensity Score."
-*Econometrica*, 71(4), 1161-1189.
+*Econometrica*, 71(4), 1161-1189. [@hirano2003efficient]
 
 Crump, R.K., Hotz, V.J., Imbens, G.W. and Mitnik, O.A. (2009).
 "Dealing with Limited Overlap in Estimation of Average Treatment Effects."
-*Biometrika*, 96(1), 187-199.
+*Biometrika*, 96(1), 187-199. [@crump2009dealing]
 """
 
 from __future__ import annotations

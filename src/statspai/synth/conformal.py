@@ -14,7 +14,7 @@ References
 Chernozhukov, V., Wuthrich, K. and Zhu, Y. (2021).
 "An Exact and Robust Conformal Inference Method for Counterfactual
 and Synthetic Controls."
-*Journal of the American Statistical Association*, 116(536), 1849-1864.
+*Journal of the American Statistical Association*, 116(536), 1849-1864. [@chernozhukov2021exact]
 """
 
 from __future__ import annotations

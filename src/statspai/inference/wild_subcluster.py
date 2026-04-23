@@ -16,10 +16,10 @@ level rather than cluster level.
 References
 ----------
 MacKinnon, J.G. and Webb, M.D. (2018). "The Wild Bootstrap for Few
-(Treated) Clusters." Econometrics Journal, 21(2), 114-135.
+(Treated) Clusters." Econometrics Journal, 21(2), 114-135. [@mackinnon2018wild]
 
 Roodman, D. et al. (2019). "Fast and Wild: Bootstrap Inference in Stata
-Using boottest." Stata Journal, 19(1), 4-60.
+Using boottest." Stata Journal, 19(1), 4-60. [@roodman2019fast]
 """
 
 from __future__ import annotations

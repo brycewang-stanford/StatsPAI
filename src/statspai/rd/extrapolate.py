@@ -6,19 +6,23 @@ cutoff by providing methods to extrapolate treatment effects away from it.
 
 Implements:
 - Angrist & Rokkanen (2015) conditional-independence extrapolation
-- Multi-cutoff extrapolation (Cattaneo et al. 2024 JASA)
+- Multi-cutoff extrapolation (Cattaneo, Keele, Titiunik & Vazquez-Bare 2021 JASA)
 - External validity diagnostics
 
 References
 ----------
 Angrist, J.D. and Rokkanen, M. (2015).
 "Wanna Get Away? Regression Discontinuity Estimation of Exam School
-Effects Away from the Cutoff."
+Effects Away From the Cutoff."
 *Journal of the American Statistical Association*, 110(512), 1331-1344.
+doi:10.1080/01621459.2015.1012259
+[@angrist2015wanna]
 
-Cattaneo, M.D., Keele, L., Titiunik, R. and Vazquez-Bare, G. (2024).
+Cattaneo, M.D., Keele, L., Titiunik, R. and Vazquez-Bare, G. (2021).
 "Extrapolating Treatment Effects in Multi-Cutoff Regression Discontinuity
-Designs." *Journal of the American Statistical Association*, 119(545), 1-13.
+Designs." *Journal of the American Statistical Association*, 116(536),
+1941-1952. doi:10.1080/01621459.2020.1751646
+[@cattaneo2021extrapolating]
 """
 
 from typing import Optional, List, Dict, Any, Tuple
@@ -44,21 +48,23 @@ CausalResult._CITATIONS['rd_extrapolate'] = (
     "  volume={110},\n"
     "  number={512},\n"
     "  pages={1331--1344},\n"
-    "  year={2015}\n"
+    "  year={2015},\n"
+    "  doi={10.1080/01621459.2015.1012259}\n"
     "}"
 )
 
 CausalResult._CITATIONS['rd_multi_extrapolate'] = (
-    "@article{cattaneo2024extrapolating,\n"
+    "@article{cattaneo2021extrapolating,\n"
     "  title={Extrapolating treatment effects in multi-cutoff\n"
     "  regression discontinuity designs},\n"
     "  author={Cattaneo, Matias D and Keele, Luke and\n"
-    "  Titiunik, Rocio and Vazquez-Bare, Gonzalo},\n"
+    "  Titiunik, Roc{\\'\\i}o and Vazquez-Bare, Gonzalo},\n"
     "  journal={Journal of the American Statistical Association},\n"
-    "  volume={119},\n"
-    "  number={545},\n"
-    "  pages={1--13},\n"
-    "  year={2024}\n"
+    "  volume={116},\n"
+    "  number={536},\n"
+    "  pages={1941--1952},\n"
+    "  year={2021},\n"
+    "  doi={10.1080/01621459.2020.1751646}\n"
     "}"
 )
 
@@ -401,7 +407,7 @@ def rd_extrapolate(
     ----------
     Angrist, J.D. and Rokkanen, M. (2015). "Wanna Get Away? Regression
     Discontinuity Estimation of Exam School Effects Away from the Cutoff."
-    *JASA*, 110(512), 1331-1344.
+    *JASA*, 110(512), 1331-1344. [@angrist2015wanna]
 
     Examples
     --------
@@ -584,7 +590,7 @@ def rd_multi_extrapolate(
     alpha: float = 0.05,
 ) -> CausalResult:
     """
-    Multi-cutoff RD extrapolation (Cattaneo, Keele, Titiunik, Vazquez-Bare 2024).
+    Multi-cutoff RD extrapolation (Cattaneo, Keele, Titiunik, Vazquez-Bare 2021).
 
     Estimates local RD effects at each cutoff, then interpolates/extrapolates
     a treatment effect function tau(x) through those point estimates.
@@ -622,9 +628,11 @@ def rd_multi_extrapolate(
 
     References
     ----------
-    Cattaneo, M.D., Keele, L., Titiunik, R. and Vazquez-Bare, G. (2024).
+    Cattaneo, M.D., Keele, L., Titiunik, R. and Vazquez-Bare, G. (2021).
     "Extrapolating Treatment Effects in Multi-Cutoff Regression Discontinuity
-    Designs." *JASA*, 119(545), 1-13.
+    Designs." *Journal of the American Statistical Association*, 116(536),
+    1941-1952. doi:10.1080/01621459.2020.1751646
+    [@cattaneo2021extrapolating]
 
     Examples
     --------
@@ -793,7 +801,7 @@ def rd_multi_extrapolate(
     }
 
     return CausalResult(
-        method='Multi-Cutoff RD Extrapolation (Cattaneo et al. 2024)',
+        method='Multi-Cutoff RD Extrapolation (Cattaneo et al. 2021)',
         estimand='ATE (multi-cutoff extrapolated)',
         estimate=ate,
         se=ate_se,

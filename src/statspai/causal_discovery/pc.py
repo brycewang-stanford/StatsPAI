@@ -17,7 +17,7 @@ Steps:
 References
 ----------
 Spirtes, P., Glymour, C., & Scheines, R. (2000).
-Causation, Prediction, and Search (2nd ed.). MIT Press.
+Causation, Prediction, and Search (2nd ed.). MIT Press. [@spirtes2000causation]
 
 Colombo, D. & Maathuis, M. H. (2014).
 Order-independent constraint-based causal structure learning.

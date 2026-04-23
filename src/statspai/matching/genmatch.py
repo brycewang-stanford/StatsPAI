@@ -23,7 +23,7 @@ References
 ----------
 Diamond, A. & Sekhon, J. S. (2013).
 "Genetic matching for estimating causal effects." *Review of Economics
-and Statistics*, 95(3), 932-945.
+and Statistics*, 95(3), 932-945. [@diamond2013genetic]
 """
 
 from __future__ import annotations

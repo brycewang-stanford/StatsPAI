@@ -18,7 +18,7 @@ References
 ----------
 Hahn, P. R., Murray, J. S., & Carvalho, C. M. (2020).
 "Bayesian Regression Tree Models for Causal Inference."
-Bayesian Analysis, 15(3), 965-1056.
+Bayesian Analysis, 15(3), 965-1056. [@hahn2020bayesian]
 """
 
 from typing import Optional, List, Dict, Any, Tuple

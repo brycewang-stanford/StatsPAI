@@ -13,7 +13,7 @@ References
 ----------
 Chamberlain, G. (1980). "Analysis of Covariance with Qualitative Data."
 Mundlak, Y. (1978). "On the Pooling of Time Series and Cross Section Data."
-Wooldridge, J.M. (2010). Econometric Analysis of Cross Section and Panel Data.
+Wooldridge, J.M. (2010). Econometric Analysis of Cross Section and Panel Data. [@chamberlain1980analysis]
 """
 from typing import Optional, List
 import numpy as np

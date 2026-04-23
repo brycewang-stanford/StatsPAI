@@ -15,11 +15,11 @@ rd_cate_summary : Unified multi-method CATE comparison
 References
 ----------
 Athey, S., Tibshirani, J. and Wager, S. (2019).
-"Generalized Random Forests." *Annals of Statistics*, 47(2), 1148-1178.
+"Generalized Random Forests." *Annals of Statistics*, 47(2), 1148-1178. [@athey2019generalized]
 
 Belloni, A., Chernozhukov, V. and Hansen, C. (2014).
 "Inference on Treatment Effects after Selection among High-Dimensional
-Controls." *Review of Economic Studies*, 81(2), 608-650.
+Controls." *Review of Economic Studies*, 81(2), 608-650. [@belloni2014inference]
 """
 
 from __future__ import annotations

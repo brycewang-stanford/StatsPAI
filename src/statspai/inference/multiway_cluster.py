@@ -21,13 +21,13 @@ Also exposes:
 References
 ----------
 Cameron, A.C., Gelbach, J.B., Miller, D.L. (2011). "Robust Inference with
-Multiway Clustering." JBES, 29(2), 238-249.
+Multiway Clustering." JBES, 29(2), 238-249. [@cameron2011robust]
 
 Bell, R.M., McCaffrey, D.F. (2002). "Bias reduction in standard errors
 for linear regression with multi-stage samples." Survey Methodology.
 
 MacKinnon, J.G., Nielsen, M.Ø., Webb, M.D. (2022). "Cluster-robust
-inference: A guide to empirical practice." Journal of Econometrics.
+inference: A guide to empirical practice." Journal of Econometrics. [@mackinnon2023cluster]
 """
 
 from __future__ import annotations

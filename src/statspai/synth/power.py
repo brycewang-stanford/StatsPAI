@@ -30,12 +30,12 @@ References
 ----------
 Abadie, A., Diamond, A. and Hainmueller, J. (2010).
 "Synthetic Control Methods for Comparative Case Studies."
-*JASA*, 105(490), 493-505.
+*JASA*, 105(490), 493-505. [@abadie2010synthetic]
 
 Firpo, S. and Possebom, V. (2018).
 "Synthetic Control Method: Inference, Sensitivity Analysis and
 Confidence Sets."
-*Journal of Causal Inference*, 6(2).
+*Journal of Causal Inference*, 6(2). [@firpo2018synthetic]
 """
 
 from __future__ import annotations

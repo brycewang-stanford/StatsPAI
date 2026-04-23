@@ -19,11 +19,11 @@ Firpo, S., Fortin, N., & Lemieux, T. (2009). "Unconditional Quantile
 Regressions." *Econometrica*, 77(3), 953-973.
 
 Fortin, N., Lemieux, T., & Firpo, S. (2011). "Decomposition Methods in
-Economics." *Handbook of Labor Economics*, Vol. 4A, Ch. 1.
+Economics." *Handbook of Labor Economics*, Vol. 4A, Ch. 1. [@fortin2011decomposition]
 
 Firpo, S., Fortin, N., & Lemieux, T. (2018). "Decomposing Wage
 Distributions Using Recentered Influence Function Regressions."
-*Econometrics*, 6(2), 28.
+*Econometrics*, 6(2), 28. [@firpo2018decomposing]
 """
 from __future__ import annotations
 

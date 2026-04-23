@@ -28,7 +28,7 @@ Abadie, A. and Imbens, G.W. (2011). JBES, 29(1), 1-11.
 Iacus, S.M., King, G., and Porro, G. (2012). Political Analysis, 20(1), 1-24.
 King, G. and Nielsen, R. (2019). Political Analysis, 27(4), 435-454.
 Cunningham, S. (2021). *Causal Inference: The Mixtape*. Yale University Press.
-    Ch. 5: Matching and Subclassification. https://mixtape.scunning.com/
+    Ch. 5: Matching and Subclassification. https://mixtape.scunning.com/ [@rosenbaum1983central]
 """
 
 from typing import Optional, List

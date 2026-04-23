@@ -17,7 +17,7 @@ References
 ----------
 Therneau, T.M. & Grambsch, P.M. (2000). *Modeling Survival Data:
   Extending the Cox Model*. Springer.
-Duchateau, L. & Janssen, P. (2008). *The Frailty Model*. Springer.
+Duchateau, L. & Janssen, P. (2008). *The Frailty Model*. Springer. [@therneau2000modeling]
 """
 from __future__ import annotations
 

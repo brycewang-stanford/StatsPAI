@@ -19,10 +19,10 @@ what you want for a sanity test.
 References
 ----------
 Gordon, Salmond, Smith (1993).  "Novel approach to nonlinear/non-
-Gaussian Bayesian state estimation."  *IEE Proc. F.*
+Gaussian Bayesian state estimation."  *IEE Proc. F.* [@gordon1993novel]
 
 Douc, Cappé (2005).  "Comparison of resampling schemes for particle
-filtering."  *ISPA*.
+filtering."  *ISPA*. [@douc2005comparison]
 """
 
 from __future__ import annotations

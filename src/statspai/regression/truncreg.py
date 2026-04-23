@@ -10,7 +10,7 @@ References
 ----------
 Hausman, J.A. & Wise, D.A. (1977).
 "Social Experimentation, Truncated Distributions, and Efficient
-Estimation." *Econometrica*, 45(4), 919-938.
+Estimation." *Econometrica*, 45(4), 919-938. [@hausman1977social]
 """
 
 from typing import Optional, List

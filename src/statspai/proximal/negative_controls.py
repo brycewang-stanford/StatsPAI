@@ -32,11 +32,11 @@ observational studies." *Epidemiology*, 21(3), 383-388.
 
 Shi, X., Miao, W., & Tchetgen Tchetgen, E. J. (2020).
 "A selective review of negative control methods in epidemiology."
-*Current Epidemiology Reports*, 7, 190-202.
+*Current Epidemiology Reports*, 7, 190-202. [@shi2020selective]
 
 Miao, W., Geng, Z., & Tchetgen Tchetgen, E. J. (2018).
 "Identifying causal effects with proxy variables of an unmeasured
-confounder." *Biometrika*, 105(4), 987-993.
+confounder." *Biometrika*, 105(4), 987-993. [@miao2018identifying]
 """
 
 from __future__ import annotations

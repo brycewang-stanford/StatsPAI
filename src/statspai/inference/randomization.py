@@ -17,11 +17,11 @@ Fisher, R.A. (1935).
 Young, A. (2019).
 "Channeling Fisher: Randomization Tests and the Statistical
 Insignificance of Seemingly Significant Experimental Results."
-*Quarterly Journal of Economics*, 134(2), 557-598.
+*Quarterly Journal of Economics*, 134(2), 557-598. [@young2019channeling]
 
 Hodges, J.L. and Lehmann, E.L. (1963).
 "Estimates of Location Based on Rank Tests."
-*Annals of Mathematical Statistics*, 34(2), 598-611.
+*Annals of Mathematical Statistics*, 34(2), 598-611. [@hodges1963estimates]
 """
 
 from typing import Optional, List, Dict, Any, Callable, Tuple, Union

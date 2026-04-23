@@ -45,10 +45,10 @@ References
 van der Laan, M. J., & Gruber, S. (2012).
 "Targeted minimum loss based estimation of causal effects of multiple
 time point interventions." *The International Journal of Biostatistics*,
-8(1).
+8(1). [@vanderlaan2012targeted]
 
 Schwab, J., Lendle, S., Petersen, M., & van der Laan, M. J. (2014).
-ltmle: Longitudinal Targeted Maximum Likelihood Estimation (R package).
+ltmle: Longitudinal Targeted Maximum Likelihood Estimation (R package). [@schwab2013ltmle]
 """
 
 from __future__ import annotations

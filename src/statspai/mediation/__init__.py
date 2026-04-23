@@ -12,11 +12,11 @@ References
 ----------
 Imai, K., Keele, L., and Tingley, D. (2010).
 "A General Approach to Causal Mediation Analysis."
-*Psychological Methods*, 15(4), 309-334.
+*Psychological Methods*, 15(4), 309-334. [@imai2010general]
 
 Baron, R.M. and Kenny, D.A. (1986).
 "The Moderator-Mediator Variable Distinction in Social Psychological Research."
-*Journal of Personality and Social Psychology*, 51(6), 1173-1182.
+*Journal of Personality and Social Psychology*, 51(6), 1173-1182. [@baron1986moderator]
 """
 
 from .mediate import mediate, MediationAnalysis, mediate_interventional

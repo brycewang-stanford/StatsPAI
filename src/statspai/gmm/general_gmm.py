@@ -10,11 +10,11 @@ References
 ----------
 Hansen, L.P. (1982).
 "Large Sample Properties of Generalized Method of Moments Estimators."
-*Econometrica*, 50(4), 1029-1054.
+*Econometrica*, 50(4), 1029-1054. [@hansen1982large]
 
 Hansen, L.P., Heaton, J. & Yaron, A. (1996).
 "Finite-Sample Properties of Some Alternative GMM Estimators."
-*Journal of Business & Economic Statistics*, 14(3), 262-280.
+*Journal of Business & Economic Statistics*, 14(3), 262-280. [@hansen1996finite]
 """
 
 from typing import Optional, List, Dict, Any, Callable

@@ -9,11 +9,11 @@ References
 ----------
 Hudgens, M. G. & Halloran, M. E. (2008).
 Toward Causal Inference with Interference.
-JASA, 103(482), 832-842.
+JASA, 103(482), 832-842. [@hudgens2008toward]
 
 Aronow, P. M. & Samii, C. (2017).
 Estimating Average Causal Effects Under General Interference.
-Annals of Applied Statistics, 11(4), 1912-1947.
+Annals of Applied Statistics, 11(4), 1912-1947. [@aronow2017estimating]
 """
 
 from .spillover import spillover, SpilloverEstimator

@@ -8,11 +8,11 @@ References
 ----------
 Imbens, G.W. and Lemieux, T. (2008).
 "Regression Discontinuity Designs: A Guide to Practice."
-*Journal of Econometrics*, 142(2), 615-635.
+*Journal of Econometrics*, 142(2), 615-635. [@imbens2008regression]
 
 Cattaneo, M.D., Idrobo, N. and Titiunik, R. (2020).
 "A Practical Introduction to Regression Discontinuity Designs."
-*Cambridge Elements*.
+*Cambridge Elements*. [@cattaneo2019practical]
 """
 
 from typing import Optional, List, Dict, Any

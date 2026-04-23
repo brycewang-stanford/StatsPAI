@@ -123,7 +123,7 @@ def bayes_dml(
     DiTraglia, F. J., & Liu, L. (2025). "Bayesian Double Machine
     Learning for Causal Inference." arXiv:2508.12688.
     (The underlying orthogonal-moments DML construction is due to
-    Chernozhukov et al. 2018, Econometrics Journal.)
+    Chernozhukov et al. 2018, Econometrics Journal.) [@ditraglia2025bayesian]
     """
     if mode not in ("conjugate", "full"):
         raise ValueError(f"mode must be 'conjugate' or 'full'; got {mode!r}.")

@@ -18,7 +18,7 @@ References
 Arkhangelsky, D., Athey, S., Hirshberg, D.A., Imbens, G.W.
 and Wager, S. (2021).
 "Synthetic Difference-in-Differences."
-*American Economic Review*, 111(12), 4088-4118.
+*American Economic Review*, 111(12), 4088-4118. [@arkhangelsky2021synthetic]
 """
 
 from typing import Optional, List, Dict, Any, Tuple, Literal

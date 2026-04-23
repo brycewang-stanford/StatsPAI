@@ -21,7 +21,7 @@ References
 ----------
 Lei, L. & Candès, E.J. (2021). "Conformal inference of
 counterfactuals and individual treatment effects." *JRSS-B*, 83(5),
-911-938.
+911-938. [@lei2021conformal]
 
 Tibshirani, R.J., Barber, R.F., Candès, E.J. & Ramdas, A. (2019).
 "Conformal prediction under covariate shift." *NeurIPS*.

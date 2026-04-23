@@ -17,14 +17,14 @@ All functions accept either:
 References
 ----------
 Altman, D.G. & Bland, J.M. (1994). "Diagnostic tests 1: Sensitivity and
-specificity." *BMJ*, 308(6943), 1552.
+specificity." *BMJ*, 308(6943), 1552. [@altman1994statistics]
 
 Cohen, J. (1960). "A coefficient of agreement for nominal scales."
-*Educational and Psychological Measurement*, 20(1), 37-46.
+*Educational and Psychological Measurement*, 20(1), 37-46. [@cohen1960coefficient]
 
 Hanley, J.A. & McNeil, B.J. (1982). "The meaning and use of the area
 under a receiver operating characteristic (ROC) curve." *Radiology*,
-143(1), 29-36.
+143(1), 29-36. [@hanley1982meaning]
 """
 
 from __future__ import annotations

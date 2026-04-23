@@ -27,10 +27,10 @@ Compared to :func:`sp.bartik`, this wrapper
 References
 ----------
 Park, P. K. & Xu, Y. (2026).
-"Shift-Share Designs in Political Science." arXiv:2603.00135.
+"Shift-Share Designs in Political Science." arXiv:2603.00135. [@park2026shift]
 
 Adão, R., Kolesár, M. & Morales, E. (2019).
-"Shift-Share Designs: Theory and Inference." QJE, 134(4).
+"Shift-Share Designs: Theory and Inference." QJE, 134(4). [@ado2019shift]
 """
 
 from __future__ import annotations

@@ -9,12 +9,12 @@ References
 ----------
 Card, D., Lee, D.S., Pei, Z. and Weber, A. (2015).
 "Inference on Causal Effects in a Generalized Regression Kink Design."
-*Econometrica*, 83(6), 2453-2483.
+*Econometrica*, 83(6), 2453-2483. [@card2015inference]
 
 Nielsen, H.S., Sorensen, T. and Taber, C. (2010).
 "Estimating the Effect of Student Aid on College Enrollment:
 Evidence from a Government Grant Policy Reform."
-*American Economic Journal: Economic Policy*, 2(2), 185-215.
+*American Economic Journal: Economic Policy*, 2(2), 185-215. [@nielsen2010estimating]
 """
 
 from typing import Optional, Dict, Any

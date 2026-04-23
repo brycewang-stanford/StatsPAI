@@ -4,21 +4,26 @@ Multi-cutoff and multi-score RD designs.
 Implements RD designs with multiple cutoffs (rdmc) and
 multiple running variables / geographic RD (rdms).
 
-Equivalent to Stata/R's ``rdmulti`` package (Cattaneo et al. 2024).
+Equivalent to Stata/R's ``rdmulti`` package (Cattaneo, Keele, Titiunik &
+Vazquez-Bare 2016, 2021).
 
 References
 ----------
 Cattaneo, M.D., Keele, L., Titiunik, R. & Vazquez-Bare, G. (2016).
 "Interpreting Regression Discontinuity Designs with Multiple Cutoffs."
-*Journal of Politics*, 78(4), 1229-1248.
+*Journal of Politics*, 78(4), 1229-1248. doi:10.1086/686802
+[@cattaneo2016interpreting]
 
-Cattaneo, M.D., Keele, L., Titiunik, R. & Vazquez-Bare, G. (2024).
+Cattaneo, M.D., Keele, L., Titiunik, R. & Vazquez-Bare, G. (2021).
 "Extrapolating Treatment Effects in Multi-Cutoff Regression Discontinuity
-Designs." *JASA*, 119(545), 118-127.
+Designs." *Journal of the American Statistical Association*, 116(536),
+1941-1952. doi:10.1080/01621459.2020.1751646
+[@cattaneo2021extrapolating]
 
 Keele, L. & Titiunik, R. (2015).
 "Geographic Boundaries as Regression Discontinuities."
-*Political Analysis*, 23(1), 127-155.
+*Political Analysis*, 23(1), 127-155. doi:10.1093/pan/mpu014
+[@keele2015geographic]
 """
 
 from typing import Optional, List, Dict, Any, Union

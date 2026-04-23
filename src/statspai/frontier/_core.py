@@ -54,7 +54,7 @@ Pitt, M.M. & Lee, L.-F. (1981). "The Measurement and Sources of Technical
     Inefficiency in the Indonesian Weaving Industry." J. Development
     Economics 9, 43-64.
 Stevenson, R.E. (1980). "Likelihood Functions for Generalized Stochastic
-    Frontier Estimation." J. Econometrics 13, 57-66.
+    Frontier Estimation." J. Econometrics 13, 57-66. [@aigner1977formulation]
 """
 
 from __future__ import annotations

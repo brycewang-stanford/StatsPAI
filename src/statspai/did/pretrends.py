@@ -16,7 +16,7 @@ References
 - Roth, J. (2022). Pre-test with Caution: Event-Study Estimates after
   Testing for Parallel Trends. *AER: Insights*, 4(3), 305--322.
 - Rambachan, A. & Roth, J. (2023). A More Credible Approach to Parallel
-  Trends. *Review of Economic Studies*, 90(5), 2555--2591.
+  Trends. *Review of Economic Studies*, 90(5), 2555--2591. [@roth2022pretest]
 """
 
 from __future__ import annotations
@@ -252,7 +252,7 @@ def pretrends_power(
     References
     ----------
     Roth, J. (2022). Pre-test with Caution: Event-Study Estimates after
-    Testing for Parallel Trends. *AER: Insights*, 4(3), 305--322.
+    Testing for Parallel Trends. *AER: Insights*, 4(3), 305--322. [@roth2022pretest]
 
     Examples
     --------
@@ -535,7 +535,7 @@ def sensitivity_rr(
     References
     ----------
     Rambachan, A. & Roth, J. (2023). A More Credible Approach to
-    Parallel Trends. *Review of Economic Studies*, 90(5), 2555--2591.
+    Parallel Trends. *Review of Economic Studies*, 90(5), 2555--2591. [@rambachan2023more]
 
     Examples
     --------

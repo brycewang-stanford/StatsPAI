@@ -16,14 +16,14 @@ References
 ----------
 Lundberg, I. (2021). "The Gap-Closing Estimand: A Causal Approach to
 Study Interventions That Close Disparities Across Social Categories."
-*Sociological Methods & Research*.
+*Sociological Methods & Research*. [@lundberg2020closing]
 
 VanderWeele, T.J. (2014). "A Unification of Mediation and Interaction:
-A Four-Way Decomposition." *Epidemiology*, 25(5), 749-761.
+A Four-Way Decomposition." *Epidemiology*, 25(5), 749-761. [@vanderweele2014effect]
 
 Jackson, J.W. & VanderWeele, T.J. (2018). "Decomposition Analysis to
 Identify Intervention Targets for Reducing Disparities." *Epidemiology*,
-29(6), 825-835.
+29(6), 825-835. [@jackson2018decomposition]
 """
 from __future__ import annotations
 

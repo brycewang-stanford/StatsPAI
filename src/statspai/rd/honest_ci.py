@@ -12,7 +12,7 @@ References
 Armstrong, T. B., & Kolesár, M. (2018). Optimal inference in a class of
     regression models. Econometrica, 86(2), 655-683.
 Armstrong, T. B., & Kolesár, M. (2020). Simple and honest confidence
-    intervals in nonparametric regression. Quantitative Economics, 11(1), 1-39.
+    intervals in nonparametric regression. Quantitative Economics, 11(1), 1-39. [@armstrong2018optimal]
 """
 
 from typing import Optional

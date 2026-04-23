@@ -19,7 +19,7 @@ References
 Wooldridge, J.M. (2021).
     "Two-Way Fixed Effects, the Two-Way Mundlak Regression, and
      Difference-in-Differences Estimators."
-    Working paper, Michigan State University.
+    Working paper, Michigan State University. [@wooldridge2021fixed]
 
 Sant'Anna, P.H.C. and Zhao, J. (2020).
     "Doubly Robust Difference-in-Differences Estimators."
@@ -27,11 +27,11 @@ Sant'Anna, P.H.C. and Zhao, J. (2020).
 
 Goodman-Bacon, A. (2021).
     "Difference-in-Differences with Variation in Treatment Timing."
-    *Journal of Econometrics*, 225(2), 254–277.
+    *Journal of Econometrics*, 225(2), 254–277. [@goodmanbacon2021difference]
 
 de Chaisemartin, C. and D'Haultfoeuille, X. (2020).
     "Two-Way Fixed Effects Estimators with Heterogeneous Treatment Effects."
-    *American Economic Review*, 110(9), 2964–2996.
+    *American Economic Review*, 110(9), 2964–2996. [@dechaisemartin2020fixed]
 """
 
 from typing import Optional, List, Dict, Any, Tuple
@@ -432,10 +432,10 @@ def etwfe(
     References
     ----------
     Wooldridge, J.M. (2021). "Two-Way Fixed Effects, the Two-Way Mundlak
-    Regression, and Difference-in-Differences Estimators."
+    Regression, and Difference-in-Differences Estimators." [@wooldridge2021fixed]
 
     McDermott, G. (2023). ``etwfe``: Extended Two-Way Fixed Effects.
-    https://grantmcdermott.com/etwfe/
+    https://grantmcdermott.com/etwfe/ [@mcdermott2022etwfe]
 
     Examples
     --------

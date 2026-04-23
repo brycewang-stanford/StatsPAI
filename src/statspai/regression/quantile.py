@@ -9,14 +9,14 @@ References
 ----------
 Koenker, R. and Bassett, G. (1978).
 "Regression Quantiles."
-*Econometrica*, 46(1), 33-50.
+*Econometrica*, 46(1), 33-50. [@koenker1978regression]
 
 Koenker, R. (2005).
 *Quantile Regression*. Cambridge University Press.
 
 Chernozhukov, V. and Hansen, C. (2005).
 "An IV Model of Quantile Treatment Effects."
-*Econometrica*, 73(1), 245-261.
+*Econometrica*, 73(1), 245-261. [@chernozhukov2005model]
 """
 
 from typing import Optional, List, Dict, Any, Union

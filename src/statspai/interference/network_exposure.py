@@ -37,7 +37,7 @@ References
 Aronow, P. M., & Samii, C. (2017).
 "Estimating average causal effects under general interference, with
 application to a social network experiment." *Annals of Applied
-Statistics*, 11(4), 1912-1947.
+Statistics*, 11(4), 1912-1947. [@aronow2017estimating]
 """
 
 from __future__ import annotations

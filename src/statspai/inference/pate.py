@@ -19,7 +19,7 @@ References
 ----------
 Stuart, E. A., Cole, S. R., Bradshaw, C. P., & Leaf, P. J. (2011).
 "The use of propensity scores to assess the generalizability of results
-from randomized trials." *JRSS-A*, 174(2), 369-386.
+from randomized trials." *JRSS-A*, 174(2), 369-386. [@stuart2011propensity]
 
 Buchanan, A. L., Hudgens, M. G., Cole, S. R., Mollan, K. R.,
 Sax, P. E., Daar, E. S., ... & Mugavero, M. J. (2018).
@@ -29,7 +29,7 @@ of sampling weights." *JRSS-A*, 181(4), 1193-1209.
 Dahabreh, I. J., Robertson, S. E., Tchetgen, E. J. T., Stuart, E. A.,
 & Hernán, M. A. (2019). "Generalizing causal inferences from
 randomized trials: counterfactual and graphical identification."
-*Biometrics*, 75(3), 685-694.
+*Biometrics*, 75(3), 685-694. [@dahabreh2019generalizing]
 """
 
 from typing import Optional, List

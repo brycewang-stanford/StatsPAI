@@ -19,26 +19,26 @@ References
 ----------
 Lee, D. S. (2009).
 Training, Wages, and Sample Selection: Estimating Sharp Bounds on
-Treatment Effects. RES, 76(3), 1071-1102.
+Treatment Effects. RES, 76(3), 1071-1102. [@lee2009training]
 
 Manski, C. F. (1990).
 Nonparametric Bounds on Treatment Effects.
-AER P&P, 80(2), 319-323.
+AER P&P, 80(2), 319-323. [@manski1990nonparametric]
 
 Horowitz, J. L. & Manski, C. F. (2000).
 Nonparametric Analysis of Randomized Experiments with Missing
-Covariate and Outcome Data. JASA, 95(449), 77-84.
+Covariate and Outcome Data. JASA, 95(449), 77-84. [@horowitz2000nonparametric]
 
 Nevo, A. & Rosen, A. M. (2012).
-Identification with Imperfect Instruments. RES, 79(3), 1104-1127.
+Identification with Imperfect Instruments. RES, 79(3), 1104-1127. [@nevo2012identification]
 
 Oster, E. (2019).
 Unobservable Selection and Coefficient Stability.
-JBES, 37(2), 187-204.
+JBES, 37(2), 187-204. [@oster2019unobservable]
 
 Masten, M. A. & Poirier, A. (2021).
 Salvaging Falsified Instrumental Variable Models.
-Econometrica, 89(3), 1449-1469.
+Econometrica, 89(3), 1449-1469. [@masten2021salvaging]
 """
 
 from .lee_manski import lee_bounds, manski_bounds

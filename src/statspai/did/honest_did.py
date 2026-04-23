@@ -15,12 +15,12 @@ References
 ----------
 Rambachan, A. and Roth, J. (2023).
 "A More Credible Approach to Parallel Trends."
-*Review of Economic Studies*, 90(5), 2555-2591.
+*Review of Economic Studies*, 90(5), 2555-2591. [@rambachan2023more]
 
 Roth, J. (2022).
 "Pretest with Caution: Event-Study Estimates after Testing for
 Parallel Trends."
-*American Economic Review: Insights*, 4(3), 305-322.
+*American Economic Review: Insights*, 4(3), 305-322. [@roth2022pretest]
 """
 
 from typing import Optional, List, Dict, Any, Tuple

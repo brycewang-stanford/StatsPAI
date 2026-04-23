@@ -9,12 +9,12 @@ References
 ----------
 Oster, E. (2019).
 "Unobservable Selection and Coefficient Stability: Theory and Evidence."
-*Journal of Business & Economic Statistics*, 37(2), 187-204.
+*Journal of Business & Economic Statistics*, 37(2), 187-204. [@oster2019unobservable]
 
 McCrary, J. (2008).
 "Manipulation of the Running Variable in the Regression Discontinuity
 Design: A Density Test."
-*Journal of Econometrics*, 142(2), 698-714.
+*Journal of Econometrics*, 142(2), 698-714. [@mccrary2008manipulation]
 """
 
 from typing import Optional, List, Dict, Any, Tuple, Union

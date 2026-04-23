@@ -35,13 +35,13 @@ simulation noise; set ``n_draws >= 1000`` for tighter agreement).
 References
 ----------
 McFadden, D. & Train, K. (2000). "Mixed MNL Models for Discrete Response."
-*Journal of Applied Econometrics*, 15(5), 447-470.
+*Journal of Applied Econometrics*, 15(5), 447-470. [@mcfadden2000mixed]
 
 Train, K. (2009). *Discrete Choice Methods with Simulation*,
 2nd edition, Cambridge University Press.
 
 Hole, A. R. (2007). "Fitting Mixed Logit Models by Using Maximum
-Simulated Likelihood." *Stata Journal*, 7(3), 388-401.
+Simulated Likelihood." *Stata Journal*, 7(3), 388-401. [@hole2007fitting]
 """
 
 from __future__ import annotations

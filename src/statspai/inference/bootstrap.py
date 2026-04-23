@@ -17,7 +17,7 @@ Efron, B. and Tibshirani, R.J. (1993).
 
 Cameron, A.C., Gelbach, J.B. and Miller, D.L. (2008).
 "Bootstrap-Based Improvements for Inference with Clustered Errors."
-*Review of Economics and Statistics*, 90(3), 414-427.
+*Review of Economics and Statistics*, 90(3), 414-427. [@cameron2008bootstrap]
 """
 
 from __future__ import annotations

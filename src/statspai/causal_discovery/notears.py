@@ -15,7 +15,7 @@ References
 ----------
 Zheng, X., Aragam, B., Ravikumar, P., & Xing, E. P. (2018).
 "DAGs with NO TEARS: Continuous Optimization for Structure Learning."
-Advances in Neural Information Processing Systems, 31.
+Advances in Neural Information Processing Systems, 31. [@zheng2018dags]
 """
 
 from typing import Optional, List, Dict, Any, Tuple

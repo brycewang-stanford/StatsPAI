@@ -22,12 +22,12 @@ References
 ----------
 Athey, S., Chetty, R., Imbens, G. W., & Kang, H. (2019).
 "The Surrogate Index: Combining Short-Term Proxies to Estimate Long-Term
-Treatment Effects More Rapidly and Precisely." NBER Working Paper 26463.
+Treatment Effects More Rapidly and Precisely." NBER Working Paper 26463. [@athey2019surrogate]
 
 Imbens, G., Kallus, N., Mao, X., & Wang, Y. (2025).
 "Long-term Causal Inference Under Persistent Confounding via Data
 Combination." Journal of the Royal Statistical Society Series B,
-87(2), 362-388. arXiv:2202.07234.
+87(2), 362-388. arXiv:2202.07234. [@imbens2025long]
 """
 
 from .index import (

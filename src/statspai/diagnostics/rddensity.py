@@ -12,11 +12,11 @@ References
 ----------
 Cattaneo, M.D., Jansson, M. and Ma, X. (2020).
 "Simple Local Polynomial Density Estimators."
-*Journal of the American Statistical Association*, 115(531), 1449-1455.
+*Journal of the American Statistical Association*, 115(531), 1449-1455. [@cattaneo2020simple]
 
 Cattaneo, M.D., Jansson, M. and Ma, X. (2018).
 "Manipulation Testing Based on Density Discontinuity."
-*The Stata Journal*, 18(1), 234-261.
+*The Stata Journal*, 18(1), 234-261. [@cattaneo2018manipulation]
 """
 
 from typing import Optional, Dict, Any

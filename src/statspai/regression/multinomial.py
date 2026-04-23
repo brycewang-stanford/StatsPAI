@@ -17,7 +17,7 @@ McFadden, D. (1974).
 
 McKelvey, R.D. & Zavoina, W. (1975).
 "A Statistical Model for the Analysis of Ordinal Level Dependent Variables."
-*Journal of Mathematical Sociology*, 4(1), 103-120.
+*Journal of Mathematical Sociology*, 4(1), 103-120. [@mckelvey1975statistical]
 
 McFadden, D. (1973).
 "Conditional Logit Analysis of Qualitative Choice Behavior."

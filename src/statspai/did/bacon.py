@@ -13,7 +13,7 @@ References
 ----------
 Goodman-Bacon, A. (2021).
 "Difference-in-Differences with Variation in Treatment Timing."
-*Journal of Econometrics*, 225(2), 254-277.
+*Journal of Econometrics*, 225(2), 254-277. [@goodmanbacon2021difference]
 
 Goodman-Bacon, A., Goldring, T. and Nichols, A. (2019).
 "BACONDECOMP: Stata module to perform the Bacon decomposition

@@ -23,14 +23,14 @@ used for low degree and B-spline for high degree.
 References
 ----------
 Newey, W.K. and Powell, J.L. (2003). "Instrumental Variable Estimation
-    of Nonparametric Models." *Econometrica*, 71(5), 1565-1578.
+    of Nonparametric Models." *Econometrica*, 71(5), 1565-1578. [@newey2003instrumental]
 
 Blundell, R., Chen, X. and Kristensen, D. (2007). "Semi-Nonparametric
     IV Estimation of Shape-Invariant Engel Curves." *Econometrica*,
-    75(6), 1613-1669.
+    75(6), 1613-1669. [@blundell2007semi]
 
 Darolles, S., Fan, Y., Florens, J.-P. and Renault, E. (2011). "Nonparametric
-    instrumental regression." *Econometrica*, 79(5), 1541-1565.
+    instrumental regression." *Econometrica*, 79(5), 1541-1565. [@darolles2010nonparametric]
 """
 
 from __future__ import annotations

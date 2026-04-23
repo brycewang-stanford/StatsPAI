@@ -21,10 +21,10 @@ Estimation proceeds in two nested loops:
 References
 ----------
 Berry, S., Levinsohn, J., & Pakes, A. (1995). Automobile Prices in Market
-Equilibrium. Econometrica, 63(4), 841-890.
+Equilibrium. Econometrica, 63(4), 841-890. [@berry1995automobile]
 
 Nevo, A. (2000). A Practitioner's Guide to Estimation of Random-Coefficients
-Logit Models of Demand. Journal of Economics & Management Strategy, 9(4), 513-548.
+Logit Models of Demand. Journal of Economics & Management Strategy, 9(4), 513-548. [@nevo2000practitioner]
 """
 
 from __future__ import annotations

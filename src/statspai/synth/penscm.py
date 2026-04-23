@@ -102,7 +102,7 @@ def penalized_synth(
     ----------
     Abadie, A. and L'Hour, J. (2021). "A Penalized Synthetic Control
     Estimator for Disaggregated Data." *Journal of the American
-    Statistical Association*, 116(536), 1817-1834.
+    Statistical Association*, 116(536), 1817-1834. [@abadie2021penalized]
     """
     _VALID_PENALTIES = ("pairwise", "max_dev", "l1_pairwise")
     if penalty_type not in _VALID_PENALTIES:

@@ -31,7 +31,7 @@ Ramsey, J.B. (1969). *JRSS-B*, 31(2), 350--371.
 Breusch, L.G. (1978). *Australian Economic Papers*, 17, 334--355.
 Godfrey, L.G. (1978). *Econometrica*, 46(6), 1293--1301.
 Jarque, C.M. and Bera, A.K. (1987). *International Statistical Review*, 55, 163--172.
-Cook, R.D. (1977). *Technometrics*, 19(1), 15--18.
+Cook, R.D. (1977). *Technometrics*, 19(1), 15--18. [@breusch1979simple]
 """
 
 from __future__ import annotations

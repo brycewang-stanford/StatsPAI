@@ -11,12 +11,12 @@ References
 Zellner, A. (1962).
 "An Efficient Method of Estimating Seemingly Unrelated Regressions
 and Tests for Aggregation Bias."
-*JASA*, 57(298), 348-368.
+*JASA*, 57(298), 348-368. [@zellner1962efficient]
 
 Zellner, A. & Theil, H. (1962).
 "Three-Stage Least Squares: Simultaneous Estimation of
 Simultaneous Equations."
-*Econometrica*, 30(1), 54-78.
+*Econometrica*, 30(1), 54-78. [@zellner1962three]
 """
 
 from typing import Optional, List, Dict, Any, Tuple

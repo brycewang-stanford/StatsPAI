@@ -18,7 +18,7 @@ The algorithm works backwards from the last stage:
 References
 ----------
 Robins, J. M. (2004). "Optimal Structural Nested Models."
-Murphy, S. A. (2003). "Optimal Dynamic Treatment Regimes."
+Murphy, S. A. (2003). "Optimal Dynamic Treatment Regimes." [@robins2004optimal]
 """
 
 from typing import Optional, List, Dict, Any

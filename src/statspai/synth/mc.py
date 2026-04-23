@@ -22,7 +22,7 @@ References
 ----------
 Athey, S., Bayati, M., Doudchenko, N., Imbens, G. and Khosravi, A. (2021).
 "Matrix Completion Methods for Causal Panel Data Models."
-*Journal of the American Statistical Association*, 116(536), 1716-1730.
+*Journal of the American Statistical Association*, 116(536), 1716-1730. [@athey2021matrix]
 """
 
 from __future__ import annotations

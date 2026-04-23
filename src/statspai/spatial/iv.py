@@ -26,7 +26,7 @@ References
 Kelejian, H. H. & Prucha, I. R. (1998). "A generalized spatial two-
 stage least squares procedure for estimating a spatial autoregressive
 model with autoregressive disturbances." *Journal of Real Estate
-Finance and Economics*, 17(1), 99-121.
+Finance and Economics*, 17(1), 99-121. [@kelejian1998generalized]
 
 Anselin, L. & Bera, A. K. (1998). "Spatial dependence in linear
 regression models with an introduction to spatial econometrics."

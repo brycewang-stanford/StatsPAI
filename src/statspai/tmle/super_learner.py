@@ -14,7 +14,7 @@ References
 ----------
 van der Laan, M. J., Polley, E. C., & Hubbard, A. E. (2007).
 "Super Learner."
-Statistical Applications in Genetics and Molecular Biology, 6(1).
+Statistical Applications in Genetics and Molecular Biology, 6(1). [@vanderlaan2007super]
 """
 
 from typing import Optional, List, Dict, Any

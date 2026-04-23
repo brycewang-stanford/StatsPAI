@@ -21,6 +21,8 @@ References
 Cattaneo, M.D., Crump, R.K., Farrell, M.H. and Feng, Y. (2024).
 "On Binscatter."
 *American Economic Review*, 114(5), 1488-1514.
+doi:10.1257/aer.20221576
+[@cattaneo2024binscatter]
 
 Stepner, M. (2013).
 "binscatter: Stata module to generate binned scatterplots."

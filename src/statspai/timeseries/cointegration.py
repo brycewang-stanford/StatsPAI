@@ -10,11 +10,11 @@ References
 ----------
 Engle, R.F. & Granger, C.W.J. (1987).
 "Co-Integration and Error Correction: Representation, Estimation,
-and Testing." *Econometrica*, 55(2), 251-276.
+and Testing." *Econometrica*, 55(2), 251-276. [@engle1987integration]
 
 Johansen, S. (1991).
 "Estimation and Hypothesis Testing of Cointegration Vectors in
-Gaussian Vector Autoregressive Models." *Econometrica*, 59(6), 1551-1580.
+Gaussian Vector Autoregressive Models." *Econometrica*, 59(6), 1551-1580. [@johansen1991estimation]
 """
 
 from typing import Optional, List, Dict, Any

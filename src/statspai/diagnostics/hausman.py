@@ -10,7 +10,7 @@ References
 ----------
 Hausman, J.A. (1978).
 "Specification Tests in Econometrics."
-*Econometrica*, 46(6), 1251-1271.
+*Econometrica*, 46(6), 1251-1271. [@hausman1978specification]
 """
 
 from typing import Optional, List, Dict, Any

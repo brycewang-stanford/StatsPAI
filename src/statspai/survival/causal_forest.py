@@ -45,7 +45,7 @@ References
 ----------
 Cui, Y., Kosorok, M. R., Sverdrup, E., Wager, S., & Zhu, R. (2023).
 "Estimating heterogeneous treatment effects with right-censored data
-via causal survival forests." *JRSS B*, 85(2), 179-211.
+via causal survival forests." *JRSS B*, 85(2), 179-211. [@cui2023estimating]
 """
 
 from __future__ import annotations

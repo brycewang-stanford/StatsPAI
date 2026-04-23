@@ -24,11 +24,11 @@ References
 ----------
 Belloni, A., Chen, D., Chernozhukov, V. and Hansen, C. (2012).
     "Sparse Models and Methods for Optimal Instruments With an
-    Application to Eminent Domain." *Econometrica*, 80(6), 2369-2429.
+    Application to Eminent Domain." *Econometrica*, 80(6), 2369-2429. [@belloni2011sparse]
 
 Belloni, A., Chernozhukov, V. and Hansen, C. (2014). "Inference on
     Treatment Effects After Selection Among High-Dimensional Controls."
-    *Review of Economic Studies*, 81(2), 608-650.
+    *Review of Economic Studies*, 81(2), 608-650. [@belloni2014inference]
 """
 
 from __future__ import annotations

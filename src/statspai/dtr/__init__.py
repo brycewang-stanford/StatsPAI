@@ -13,11 +13,11 @@ References
 ----------
 Robins, J. M. (2004).
 Optimal Structural Nested Models for Optimal Sequential Decisions.
-In Proceedings of the Second Seattle Symposium in Biostatistics, 189-326.
+In Proceedings of the Second Seattle Symposium in Biostatistics, 189-326. [@robins2004optimal]
 
 Murphy, S. A. (2003).
 Optimal Dynamic Treatment Regimes.
-JRSS-B, 65(2), 331-355.
+JRSS-B, 65(2), 331-355. [@murphy2003optimal]
 """
 
 from .g_estimation import g_estimation, GEstimation

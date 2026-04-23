@@ -10,12 +10,12 @@ References
 ----------
 Cattaneo, M. D. (2010).
 Efficient semiparametric estimation of multi-valued treatment effects.
-Journal of Econometrics, 155(2), 138-154.
+Journal of Econometrics, 155(2), 138-154. [@cattaneo2010efficient]
 
 Lechner, M. (2001).
 Identification and estimation of causal effects of multiple treatments
 under the conditional independence assumption.
-Econometric Evaluation of Labour Market Policies, 43-58.
+Econometric Evaluation of Labour Market Policies, 43-58. [@lechner2001identification]
 """
 
 from .multi_ipw import multi_treatment, MultiTreatment

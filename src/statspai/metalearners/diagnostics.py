@@ -291,7 +291,7 @@ def blp_test(
     ----------
     Chernozhukov, V., Demirer, M., Duflo, E., & Fernandez-Val, I. (2018).
     Generic Machine Learning Inference on Heterogeneous Treatment Effects
-    in Randomized Experiments. *Econometrica* (forthcoming as of 2018 NBER WP).
+    in Randomized Experiments. *Econometrica* (forthcoming as of 2018 NBER WP). [@chernozhukov2018double]
     """
     import statsmodels.api as sm
     from sklearn.base import clone

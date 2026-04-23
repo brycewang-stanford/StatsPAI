@@ -9,11 +9,11 @@ References
 ----------
 Goldsmith-Pinkham, P., Sorkin, I., and Swift, H. (2020).
 "Bartik Instruments: What, When, Why, and How."
-*American Economic Review*, 110(8), 2586-2624.
+*American Economic Review*, 110(8), 2586-2624. [@goldsmithpinkham2020bartik]
 
 Borusyak, K., Hull, P., and Jaravel, X. (2022).
 "Quasi-Experimental Shift-Share Research Designs."
-*Review of Economic Studies*, 89(1), 181-213.
+*Review of Economic Studies*, 89(1), 181-213. [@borusyak2022quasi]
 """
 
 from .shift_share import bartik, BartikIV

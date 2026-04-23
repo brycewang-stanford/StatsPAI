@@ -10,7 +10,7 @@ References
 ----------
 Levin, A., Lin, C.F. & Chu, C.S.J. (2002).
 "Unit Root Tests in Panel Data: Asymptotic and Finite-Sample Properties."
-*Journal of Econometrics*, 108(1), 1-24.
+*Journal of Econometrics*, 108(1), 1-24. [@levin2002unit]
 
 Im, K.S., Pesaran, M.H. & Shin, Y. (2003).
 "Testing for Unit Roots in Heterogeneous Panels."

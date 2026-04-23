@@ -27,10 +27,10 @@ Mikusheva-Sun's key ideas suitable for applied work:
 References
 ----------
 Mikusheva, A., & Sun, L. (2024). "Inference with many weak
-instruments." *Econometrica*, 92(2), forthcoming.
+instruments." *Econometrica*, 92(2), forthcoming. [@mikusheva2024weak]
 
 Angrist, J. D., Imbens, G. W., & Krueger, A. B. (1999). "Jackknife
-instrumental variables estimation." *JAE*, 14(1), 57-67.
+instrumental variables estimation." *JAE*, 14(1), 57-67. [@angrist1999jackknife]
 
 Phillips, G. D. A., & Hale, C. (2018). "The jackknife estimator: bias
 and variance in the IV model." *JAE*, 33(6), 871-887.

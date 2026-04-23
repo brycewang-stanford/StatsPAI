@@ -16,7 +16,7 @@ Research. Volume I - The Analysis of Case-Control Studies*. IARC
 Scientific Publications No. 32.
 
 Tarone, R.E. (1985). "On heterogeneity tests based on efficient scores."
-*Biometrika*, 72(1), 91-95.
+*Biometrika*, 72(1), 91-95. [@tarone1985heterogeneity]
 """
 
 from __future__ import annotations

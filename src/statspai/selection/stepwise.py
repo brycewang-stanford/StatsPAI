@@ -9,7 +9,7 @@ References
 ----------
 - Hastie, Tibshirani & Friedman (2009). *Elements of Statistical Learning*.
 - Tibshirani (1996). Regression shrinkage and selection via the lasso.
-  *JRSS-B*, 58(1), 267-288.
+  *JRSS-B*, 58(1), 267-288. [@hastie2009elements]
 """
 
 from __future__ import annotations

@@ -22,7 +22,7 @@ Zorzetto, D. L., Molina, J., Bargagli-Stoffi, F. J., Ortiz, J. J.,
 "Bayesian causal forest for ordered / multi-level treatments"
 (working paper).
 
-Hahn, Murray, Carvalho (2020). Bayesian Analysis, 15(3).
+Hahn, Murray, Carvalho (2020). Bayesian Analysis, 15(3). [@hahn2020bayesian]
 """
 
 from __future__ import annotations

@@ -22,11 +22,11 @@ References
 ----------
 VanderWeele, T. J. & Ding, P. (2017).
 Sensitivity Analysis in Observational Research: Introducing the E-Value.
-Annals of Internal Medicine, 167(4), 268-274.
+Annals of Internal Medicine, 167(4), 268-274. [@vanderweele2017sensitivity]
 
 Ding, P. & VanderWeele, T. J. (2016).
 Sensitivity Analysis Without Assumptions.
-Epidemiology, 27(3), 368-377.
+Epidemiology, 27(3), 368-377. [@ding2016sensitivity]
 """
 
 from typing import Optional, Dict, Any, Tuple

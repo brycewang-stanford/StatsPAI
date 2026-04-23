@@ -23,7 +23,7 @@ Vives, J. and Martinez, A. (2024). "Bayesian Synthetic Control Methods."
 
 Brodersen, K. H., Gallusser, F., Koehler, J., Remy, N. and Scott, S. L.
 (2015). "Inferring causal impact using Bayesian structural time-series
-models." *The Annals of Applied Statistics*, 9(1), 247-274.
+models." *The Annals of Applied Statistics*, 9(1), 247-274. [@brodersen2015inferring]
 """
 
 from __future__ import annotations

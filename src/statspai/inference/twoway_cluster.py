@@ -19,11 +19,11 @@ References
 ----------
 Cameron, A.C., Gelbach, J.B. and Miller, D.L. (2011).
 "Robust Inference with Multiway Clustering."
-*Journal of Business & Economic Statistics*, 29(2), 238-249.
+*Journal of Business & Economic Statistics*, 29(2), 238-249. [@cameron2011robust]
 
 Liang, K.-Y. and Zeger, S.L. (1986).
 "Longitudinal data analysis using generalized linear models."
-*Biometrika*, 73(1), 13-22.
+*Biometrika*, 73(1), 13-22. [@liang1986longitudinal]
 """
 
 from typing import Optional, Dict, Any

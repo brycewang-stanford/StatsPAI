@@ -20,24 +20,24 @@ References
 Anderson, T.W. and Rubin, H. (1949).
 "Estimation of the Parameters of a Single Equation in a Complete System
 of Stochastic Equations."
-*Annals of Mathematical Statistics*, 20(1), 46-63.
+*Annals of Mathematical Statistics*, 20(1), 46-63. [@anderson1949estimation]
 
 Stock, J.H. and Yogo, M. (2005).
 "Testing for Weak Instruments in Linear IV Regression."
 In Andrews, D.W.K. and Stock, J.H. (eds), *Identification and Inference
-for Econometric Models*. Cambridge University Press.
+for Econometric Models*. Cambridge University Press. [@stock2005testing]
 
 Olea, J.L.M. and Pflueger, C. (2013).
 "A Robust Test for Weak Instruments."
-*Journal of Business & Economic Statistics*, 31(3), 358-369.
+*Journal of Business & Economic Statistics*, 31(3), 358-369. [@olea2013robust]
 
 Lee, D.S., McCrary, J., Moreira, M.J. and Porter, J. (2022).
 "Valid t-ratio Inference for IV."
-*American Economic Review*, 112(10), 3260-3290.
+*American Economic Review*, 112(10), 3260-3290. [@lee2022valid]
 
 Andrews, I., Stock, J.H. and Sun, L. (2019).
 "Weak Instruments in Instrumental Variables Regression: Theory and
-Practice." *Annual Review of Economics*, 11, 727-753.
+Practice." *Annual Review of Economics*, 11, 727-753. [@andrews2019weak]
 """
 
 from typing import Optional, List, Dict, Any, Tuple
@@ -710,7 +710,7 @@ def weakrobust(
     Moreira (2003) Econometrica 71, 1027-1048.
     Kleibergen–Paap (2006) J. Econom. 133, 97-126.
     Olea–Pflueger (2013) JBES 31, 358-369.
-    Lee–McCrary–Moreira–Porter (2022) AER 112, 3260-3290.
+    Lee–McCrary–Moreira–Porter (2022) AER 112, 3260-3290. [@anderson1949estimation]
     """
     if isinstance(instruments, str):
         instruments = [instruments]

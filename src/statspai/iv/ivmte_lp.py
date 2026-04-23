@@ -37,9 +37,9 @@ References
 ----------
 Mogstad, M., Santos, A. and Torgovitsky, A. (2018). "Using Instrumental
     Variables for Inference about Policy Relevant Treatment Parameters."
-    *Econometrica*, 86(5), 1589-1619.
+    *Econometrica*, 86(5), 1589-1619. [@mogstad2018instrumental]
 
-Heckman, J.J. and Vytlacil, E.J. (2005). Op. cit.
+Heckman, J.J. and Vytlacil, E.J. (2005). Op. cit. [@heckman2005structural]
 """
 
 from __future__ import annotations

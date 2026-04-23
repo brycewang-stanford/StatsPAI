@@ -20,7 +20,7 @@ References
 ----------
 Lei, L. & Candes, E. J. (2021).
 "Conformal Inference of Counterfactuals and Individual Treatment Effects."
-JRSS-B, 83(5), 911-938.
+JRSS-B, 83(5), 911-938. [@lei2021conformal]
 """
 
 from typing import Optional, List, Dict, Any, Tuple

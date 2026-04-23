@@ -20,11 +20,11 @@ References
 ----------
 Conley, T.G., Hansen, C.B. and Rossi, P.E. (2012).
     "Plausibly exogenous." *Review of Economics and Statistics*,
-    94(1), 260-272.
+    94(1), 260-272. [@conley2012plausibly]
 
 van Kippersluis, H. and Rietveld, C.A. (2018).
     "Beyond plausibly exogenous." *Econometrics Journal*, 21(3),
-    316-331.  [pragmatic guidance]
+    316-331.  [pragmatic guidance] [@vankippersluis2018beyond]
 """
 
 from __future__ import annotations

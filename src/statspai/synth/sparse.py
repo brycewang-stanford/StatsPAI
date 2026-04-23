@@ -24,7 +24,7 @@ Microsoft SparseSC (2019). github.com/microsoft/SparseSC.
 
 Doudchenko, N. and Imbens, G.W. (2016).
 "Balancing, Regression, Difference-in-Differences and Synthetic
-Control Methods: A Synthesis." NBER Working Paper 22791.
+Control Methods: A Synthesis." NBER Working Paper 22791. [@doudchenko2016balancing]
 """
 
 from __future__ import annotations

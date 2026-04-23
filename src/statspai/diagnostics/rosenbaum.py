@@ -22,7 +22,7 @@ Two flavours are implemented:
 References
 ----------
 Rosenbaum, P. R. (2002). *Observational Studies*, 2nd ed. Springer.
-Rosenbaum, P. R. (2010). *Design of Observational Studies*. Springer.
+Rosenbaum, P. R. (2010). *Design of Observational Studies*. Springer. [@rosenbaum2002observational]
 """
 
 from __future__ import annotations

@@ -27,12 +27,12 @@ References
 Wagner, A. K., Soumerai, S. B., Zhang, F., & Ross-Degnan, D. (2002).
 "Segmented regression analysis of interrupted time series studies in
 medication use research." *Journal of Clinical Pharmacy and
-Therapeutics*, 27(4), 299-309.
+Therapeutics*, 27(4), 299-309. [@wagner2002segmented]
 
 Bernal, J. L., Cummins, S., & Gasparrini, A. (2017).
 "Interrupted time series regression for the evaluation of public
 health interventions: a tutorial." *International Journal of
-Epidemiology*, 46(1), 348-355.
+Epidemiology*, 46(1), 348-355. [@lopezbernal2016interrupted]
 """
 
 from __future__ import annotations

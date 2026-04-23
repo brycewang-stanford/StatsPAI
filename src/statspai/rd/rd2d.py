@@ -14,11 +14,11 @@ Two estimation approaches:
 References
 ----------
 Cattaneo, M.D., Titiunik, R. and Yu, R. (2025).
-"Boundary Discontinuity Designs." Working Paper.
+"Boundary Discontinuity Designs." Working Paper. [@cattaneo2025boundary]
 
 Keele, L. and Titiunik, R. (2015).
 "Geographic Boundaries as Regression Discontinuities."
-*Political Analysis*, 23(1), 127-155.
+*Political Analysis*, 23(1), 127-155. [@keele2015geographic]
 """
 
 from typing import Optional, Callable, Tuple, Dict, Any, List, Union

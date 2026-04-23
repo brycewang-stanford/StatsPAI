@@ -17,11 +17,11 @@ References
 ----------
 Ben-Michael, E., Feller, A. and Rothstein, J. (2021).
 "The Augmented Synthetic Control Method."
-*Journal of the American Statistical Association*, 116(536), 1789-1803.
+*Journal of the American Statistical Association*, 116(536), 1789-1803. [@benmichael2021augmented]
 
 Ben-Michael, E., Feller, A. and Rothstein, J. (2022).
 "Synthetic Controls with Staggered Adoption."
-*Journal of the Royal Statistical Society: Series B*, 84(2), 351-381.
+*Journal of the Royal Statistical Society: Series B*, 84(2), 351-381. [@benmichael2022synthetic]
 """
 
 from __future__ import annotations
@@ -93,7 +93,7 @@ def augsynth(
     References
     ----------
     Ben-Michael, E., Feller, A. and Rothstein, J. (2021). "The Augmented
-    Synthetic Control Method." *JASA*, 116(536), 1789-1803.
+    Synthetic Control Method." *JASA*, 116(536), 1789-1803. [@benmichael2021augmented]
 
     Examples
     --------

@@ -16,7 +16,7 @@ References
 ----------
 Cattaneo, M.D., Feng, Y. and Titiunik, R. (2021).
 "Prediction Intervals for Synthetic Control Methods."
-*Journal of the American Statistical Association*, 116(536), 1865-1880.
+*Journal of the American Statistical Association*, 116(536), 1865-1880. [@cattaneo2021prediction]
 """
 
 from __future__ import annotations

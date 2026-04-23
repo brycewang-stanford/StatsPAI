@@ -422,7 +422,7 @@ def mediate_interventional(
     ----------
     VanderWeele, T.J., Vansteelandt, S. and Robins, J.M. (2014).
     "Effect decomposition in the presence of an exposure-induced
-    mediator-outcome confounder." *Epidemiology*, 25(2), 300-306.
+    mediator-outcome confounder." *Epidemiology*, 25(2), 300-306. [@vanderweele2014effect]
     """
     if pvalue_method not in ('bootstrap_sign', 'wald'):
         raise ValueError(

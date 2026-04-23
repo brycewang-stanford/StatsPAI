@@ -45,10 +45,10 @@ References
 ----------
 Robins, J. M. (1994). "Correcting for non-compliance in randomized
 trials using structural nested mean models." *Communications in
-Statistics*, 23(8), 2379-2412.
+Statistics*, 23(8), 2379-2412. [@robins1994correcting]
 
 Vansteelandt, S. & Joffe, M. (2014). "Structural nested models and
-G-estimation." *Statistical Science*, 29(4), 707-731.
+G-estimation." *Statistical Science*, 29(4), 707-731. [@vansteelandt2014structural]
 """
 
 from __future__ import annotations

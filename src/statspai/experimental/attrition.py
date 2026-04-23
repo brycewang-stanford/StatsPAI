@@ -8,7 +8,7 @@ References
 ----------
 Lee, D.S. (2009).
 "Training, Wages, and Sample Selection: Estimating Sharp Bounds
-on Treatment Effects." *RES*, 76(3), 1071-1102.
+on Treatment Effects." *RES*, 76(3), 1071-1102. [@lee2009training]
 """
 
 from typing import Optional, List, Dict, Any

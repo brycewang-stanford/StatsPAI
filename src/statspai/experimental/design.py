@@ -10,7 +10,7 @@ References
 ----------
 Bruhn, M. & McKenzie, D. (2009).
 "In Pursuit of Balance: Randomization in Practice in
-Development Field Experiments." *AEJ: Applied*, 1(4), 200-232.
+Development Field Experiments." *AEJ: Applied*, 1(4), 200-232. [@bruhn2009pursuit]
 """
 
 from typing import Optional, List, Dict, Any, Union

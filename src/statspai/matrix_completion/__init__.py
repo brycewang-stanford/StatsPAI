@@ -9,7 +9,7 @@ References
 ----------
 Athey, S., Bayati, M., Doudchenko, N., Imbens, G., & Khosravi, K. (2021).
 Matrix Completion Methods for Causal Panel Data Models.
-JASA, 116(536), 1716-1730.
+JASA, 116(536), 1716-1730. [@athey2021matrix]
 """
 
 from .mc_panel import mc_panel, MCPanel

@@ -10,7 +10,7 @@ References
 ----------
 Angrist, J.D. and Pischke, J.-S. (2009).
 *Mostly Harmless Econometrics: An Empiricist's Companion*.
-Princeton University Press.
+Princeton University Press. [@angrist2009mostly]
 """
 
 from typing import Optional, List

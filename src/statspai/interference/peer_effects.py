@@ -20,14 +20,14 @@ the endogenous :math:`W y`.
 References
 ----------
 Manski, C. F. (1993). "Identification of endogenous social effects:
-the reflection problem." *Review of Economic Studies*, 60(3), 531-542.
+the reflection problem." *Review of Economic Studies*, 60(3), 531-542. [@manski1993identification]
 
 Bramoullé, Y., Djebbari, H., & Fortin, B. (2009). "Identification of
-peer effects through social networks." *Journal of Econometrics*, 150(1), 41-55.
+peer effects through social networks." *Journal of Econometrics*, 150(1), 41-55. [@bramoull2009identification]
 
 Lee, L. F. (2007). "Identification and estimation of econometric
 models with group interactions, contextual factors and fixed effects."
-*Journal of Econometrics*, 140(2), 333-374.
+*Journal of Econometrics*, 140(2), 333-374. [@lee2007identification]
 """
 
 from __future__ import annotations

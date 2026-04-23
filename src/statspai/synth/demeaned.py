@@ -14,11 +14,11 @@ References
 ----------
 Ferman, B. and Pinto, C. (2021).
 "Synthetic Control Method: Inference, Sensitivity, and Confidence Sets."
-*Journal of the American Statistical Association*, 116(536), 1835-1847.
+*Journal of the American Statistical Association*, 116(536), 1835-1847. [@ferman2021synthetic]
 
 Doudchenko, N. and Imbens, G.W. (2016).
 "Balancing, Regression, Difference-in-Differences and Synthetic
-Control Methods: A Synthesis." NBER Working Paper 22791.
+Control Methods: A Synthesis." NBER Working Paper 22791. [@doudchenko2016balancing]
 """
 
 from __future__ import annotations

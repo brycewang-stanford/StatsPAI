@@ -10,11 +10,11 @@ References
 ----------
 van Buuren, S. & Groothuis-Oudshoorn, K. (2011).
 "mice: Multivariate Imputation by Chained Equations in R."
-*Journal of Statistical Software*, 45(3), 1-67.
+*Journal of Statistical Software*, 45(3), 1-67. [@buuren2011mice]
 
 Rubin, D.B. (1987).
 "Multiple Imputation for Nonresponse in Surveys."
-*Wiley*.
+*Wiley*. [@rubin1987multiple]
 """
 
 from typing import Optional, List, Dict, Any, Union

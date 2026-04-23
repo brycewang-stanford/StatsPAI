@@ -19,7 +19,7 @@ Imai, K., Keele, L. & Tingley, D. (2010). "A General Approach to
   Causal Mediation Analysis." *Psych Methods*, 15(4), 309–334.
 Imai, K., Keele, L. & Yamamoto, T. (2010). "Identification, Inference
   and Sensitivity Analysis for Causal Mediation Effects." *Stat Sci*,
-  25(1), 51–71.
+  25(1), 51–71. [@imai2010general]
 """
 from __future__ import annotations
 

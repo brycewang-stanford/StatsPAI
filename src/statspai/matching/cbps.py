@@ -29,7 +29,7 @@ bootstrap re-estimation by default.
 References
 ----------
 Imai, K., Ratkovic, M. (2014). "Covariate Balancing Propensity Score."
-JRSS-B, 76(1), 243-263.
+JRSS-B, 76(1), 243-263. [@imai2014covariate]
 
 Fong, C., Ratkovic, M., Imai, K. (2022). ``CBPS`` R package documentation.
 """

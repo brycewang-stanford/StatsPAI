@@ -185,7 +185,7 @@ def mr_multivariable(
     ----------
     Sanderson, E., Davey Smith, G., Windmeijer, F. & Bowden, J. (2019).
     "An examination of multivariable Mendelian randomization in the
-    single-sample and two-sample summary data settings." IJE 48(3).
+    single-sample and two-sample summary data settings." IJE 48(3). [@sanderson2019examination]
     """
     if exposures is None:
         exposures = [c for c in snp_associations.columns
@@ -334,7 +334,7 @@ def mr_mediation(
     Burgess, S., Daniel, R. M., Butterworth, A. S. & Thompson, S. G. (2015).
     "Network Mendelian randomization: using genetic variants as
     instrumental variables to investigate mediation in causal pathways."
-    IJE 44(2).
+    IJE 44(2). [@burgess2015network]
     """
     cols = [beta_exposure, se_exposure, beta_mediator, se_mediator,
             beta_outcome, se_outcome]
@@ -428,7 +428,7 @@ def mr_bma(
     Zuber, V., Colijn, J. M., Staley, J. R. & Burgess, S. (2020).
     "Selecting likely causal risk factors from high-throughput
     experiments using multivariable Mendelian randomization."
-    Nature Communications 11, 29.
+    Nature Communications 11, 29. [@zuber2020selecting]
     """
     if exposures is None:
         exposures = [c for c in snp_associations.columns

@@ -18,7 +18,7 @@ Callaway, B. and Sant'Anna, P.H.C. (2021).
     *Journal of Econometrics*, 225(2), 200-230.
 Rambachan, A. and Roth, J. (2023).
     "A More Credible Approach to Parallel Trends."
-    *Review of Economic Studies*, 90(5), 2555-2591.
+    *Review of Economic Studies*, 90(5), 2555-2591. [@callaway2021difference]
 """
 
 from __future__ import annotations

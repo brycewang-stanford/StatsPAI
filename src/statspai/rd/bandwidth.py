@@ -23,15 +23,15 @@ References
 ----------
 Calonico, S., Cattaneo, M.D. and Farrell, M.H. (2020).
 "Optimal Bandwidth Choice for Robust Bias-Corrected Inference in
-Regression Discontinuity Designs." *Econometrics Journal*, 23(2), 192-210.
+Regression Discontinuity Designs." *Econometrics Journal*, 23(2), 192-210. [@calonico2020optimal]
 
 Calonico, S., Cattaneo, M.D. and Titiunik, R. (2014).
 "Robust Nonparametric Confidence Intervals for Regression-Discontinuity
-Designs." *Econometrica*, 82(6), 2295-2326.
+Designs." *Econometrica*, 82(6), 2295-2326. [@calonico2014robust]
 
 Imbens, G. and Kalyanaraman, K. (2012).
 "Optimal Bandwidth Choice for the Regression Discontinuity Estimator."
-*Review of Economic Studies*, 79(3), 933-959.
+*Review of Economic Studies*, 79(3), 933-959. [@imbens2012optimal]
 """
 
 from typing import Optional, List, Tuple
@@ -786,11 +786,11 @@ def rdbwselect(
     Calonico, S., Cattaneo, M.D. and Farrell, M.H. (2020).
     "Optimal Bandwidth Choice for Robust Bias-Corrected Inference in
     Regression Discontinuity Designs." *Econometrics Journal*, 23(2),
-    192-210.
+    192-210. [@calonico2020optimal]
 
     Calonico, S., Cattaneo, M.D. and Titiunik, R. (2014).
     "Robust Nonparametric Confidence Intervals for Regression-Discontinuity
-    Designs." *Econometrica*, 82(6), 2295-2326.
+    Designs." *Econometrica*, 82(6), 2295-2326. [@calonico2014robust]
 
     Examples
     --------

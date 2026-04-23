@@ -10,19 +10,19 @@ References
 ----------
 Anderson, T.W. & Rubin, H. (1949).
 "Estimation of the Parameters of a Single Equation in a Complete System
-of Stochastic Equations." *Annals of Math. Stats.*, 20(1), 46-63.
+of Stochastic Equations." *Annals of Math. Stats.*, 20(1), 46-63. [@anderson1949estimation]
 
 Fuller, W.A. (1977).
 "Some Properties of a Modification of the Limited Information Estimator."
-*Econometrica*, 45(4), 939-953.
+*Econometrica*, 45(4), 939-953. [@fuller1977some]
 
 Angrist, J.D., Imbens, G.W. & Krueger, A.B. (1999).
 "Jackknife Instrumental Variables Estimation."
-*Journal of Applied Econometrics*, 14(1), 57-67.
+*Journal of Applied Econometrics*, 14(1), 57-67. [@angrist1999jackknife]
 
 Belloni, A., Chen, D., Chernozhukov, V. & Hansen, C. (2012).
 "Sparse Models and Methods for Optimal Instruments with an Application
-to Eminent Domain." *Econometrica*, 80(6), 2369-2429.
+to Eminent Domain." *Econometrica*, 80(6), 2369-2429. [@belloni2011sparse]
 """
 
 from typing import Optional, List, Dict, Any, Union

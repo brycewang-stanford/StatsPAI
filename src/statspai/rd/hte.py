@@ -13,7 +13,7 @@ References
 ----------
 Calonico, S., Cattaneo, M.D., Farrell, M.H., Palomba, F. and Titiunik, R.
 (2025). "Treatment Effect Heterogeneity in Regression Discontinuity Designs."
-Working Paper.
+Working Paper. [@calonico2025rdhte]
 """
 
 from typing import Optional, List, Union, Dict, Any, Tuple

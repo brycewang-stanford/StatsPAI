@@ -52,7 +52,7 @@ References
 ----------
 Hartford, J., Lewis, G., Leyton-Brown, K., & Taddy, M. (2017).
     "Deep IV: A Flexible Approach for Counterfactual Prediction."
-    Proceedings of the 34th International Conference on Machine Learning.
+    Proceedings of the 34th International Conference on Machine Learning. [@hartford2017deep]
 
 Microsoft EconML. ``DeepIVEstimator`` — reference implementation whose
     ``n_gradient_samples`` default of 0 this package follows.

@@ -13,7 +13,7 @@ References
 Hainmueller, J. (2012).
 "Entropy Balancing for Causal Effects: A Multivariate Reweighting
 Method to Produce Balanced Samples in Observational Studies."
-*Political Analysis*, 20(1), 25-46.
+*Political Analysis*, 20(1), 25-46. [@hainmueller2012entropy]
 """
 
 from typing import Optional, List, Dict, Any

@@ -18,7 +18,7 @@ References
 Kalbfleisch, J.D. & Prentice, R.L. (2002). *The Statistical Analysis
   of Failure Time Data*, 2nd ed. Wiley.
 Klein, J.P. & Moeschberger, M.L. (2003). *Survival Analysis:
-  Techniques for Censored and Truncated Data*, 2nd ed. Springer.
+  Techniques for Censored and Truncated Data*, 2nd ed. Springer. [@kalbfleisch2002statistical]
 """
 from __future__ import annotations
 

@@ -17,7 +17,7 @@ Doan, T., Litterman, R. & Sims, C. (1984). "Forecasting and Conditional
   Projection Using Realistic Prior Distributions."
   *ECREV*, 3(1), 1–100.
 Kilian, L. & Lütkepohl, H. (2017). *Structural Vector Autoregressive
-  Analysis*. Cambridge.
+  Analysis*. Cambridge. [@litterman1986forecasting]
 """
 from __future__ import annotations
 
