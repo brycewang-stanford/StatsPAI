@@ -2,6 +2,50 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.6.2] — 2026-04-23 — DiD-frontier registry coverage
+
+Patch release. **Pure-additive: no numerical behaviour changes.** Closes a
+registry-coverage gap for two already-shipping DiD estimators that were
+callable but invisible to `sp.list_functions()` / `sp.describe_function()` /
+agent discovery (CLAUDE.md §4). Adds the supporting RFC design documents
+under `docs/rfc/` so the registry `reference` / `remedy` pointers resolve.
+
+### Added — registry & agent discoverability
+
+- `sp.continuous_did` is now registered. DiD with continuous treatment
+  intensity, exposing three modes: (i) TWFE with dose×post interaction,
+  (ii) dose-quantile group-time ATT vs. the untreated (dose=0) arm with
+  bootstrap SE, (iii) local-linear dose-response of ΔY on baseline dose.
+  Callaway, Goodman-Bacon & Sant'Anna (2024) analytical
+  influence-function inference is on the v1.7 roadmap — see
+  `docs/rfc/continuous_did_cgs.md`.
+- `sp.did_multiplegt` is now registered. de Chaisemartin &
+  D'Haultfœuille (2020) DID_M estimator for treatments that switch on
+  *and off* (unlike Callaway–Sant'Anna which assumes staggered
+  adoption). Supports placebo lags, dynamic horizons, joint placebo
+  Wald test, and cluster-bootstrap SE. The full dCDH (2024)
+  intertemporal event-study (Stata `did_multiplegt_dyn`) is on the v1.7
+  roadmap — see `docs/rfc/multiplegt_dyn.md`.
+- `docs/rfc/` — RFC directory for not-yet-landed design docs. Ships
+  with `continuous_did_cgs.md`, `multiplegt_dyn.md`,
+  `did_roadmap_gap_audit.md`, plus `README.md` and a sprint-prep
+  handoff note (`HANDOFF_2026-04-23.md`).
+
+### Changed
+
+- *None. No estimator output changes. Existing `sp.continuous_did` /
+  `sp.did_multiplegt` callers observe identical numerical behaviour.*
+
+### Fixed
+
+- *None.*
+
+### Notes for agents
+
+- Both estimators now surface in `sp.list_functions()` and expose full
+  `ParamSpec` / `FailureMode` / `alternatives` metadata through
+  `sp.describe_function()`. Registered count rises from 923 to **925**.
+
 ## [1.6.1] — 2026-04-23 — CI/CD green-up
 
 Patch release. No user-facing behavior or numerical change — all three

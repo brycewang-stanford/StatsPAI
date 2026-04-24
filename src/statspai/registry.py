@@ -5372,6 +5372,215 @@ def _build_registry():
         typical_n_min=200,
     ))
 
+    # ------------------------------------------------------------------
+    # DiD frontier: continuous treatment + on/off switching
+    # ------------------------------------------------------------------
+    register(FunctionSpec(
+        name="continuous_did",
+        category="causal",
+        description=(
+            "DiD with continuous treatment intensity. Currently exposes three "
+            "modes: (i) TWFE with dose×post interaction, (ii) dose-quantile "
+            "group-time ATT versus the untreated (dose=0) arm with bootstrap "
+            "SE, and (iii) dose-response via local-linear regression of "
+            "ΔY=Y_post−Y_pre on baseline dose. A full Callaway-Goodman-Bacon-"
+            "Sant'Anna (2024) ATT(d|g,t) / ACRT implementation with their "
+            "influence-function inference is on the roadmap — see "
+            "docs/rfc/continuous_did_cgs.md."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome variable"),
+            ParamSpec("dose", "str", True,
+                      description="Continuous treatment / dose variable"),
+            ParamSpec("time", "str", True, description="Time period column"),
+            ParamSpec("id", "str", True, description="Unit identifier"),
+            ParamSpec("post", "str", False, None,
+                      "Binary post-treatment indicator "
+                      "(inferred from t_pre / t_post if omitted)"),
+            ParamSpec("t_pre", "int", False, None,
+                      "Last pre-treatment period"),
+            ParamSpec("t_post", "int", False, None,
+                      "First post-treatment period"),
+            ParamSpec("method", "str", False, "att_gt",
+                      "Estimation mode",
+                      ["att_gt", "twfe", "dose_response"]),
+            ParamSpec("n_quantiles", "int", False, 5,
+                      "Number of dose quantiles for discretisation"),
+            ParamSpec("controls", "list", False, None, "Control variables"),
+            ParamSpec("cluster", "str", False, None,
+                      "Cluster variable for SE (TWFE mode)"),
+            ParamSpec("n_boot", "int", False, 500,
+                      "Bootstrap replications for SE"),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("seed", "int", False, None),
+        ],
+        returns="CausalResult",
+        example=(
+            'sp.continuous_did(df, y="wage", dose="training_hours", '
+            'time="year", id="worker_id", t_pre=2019, t_post=2020)'
+        ),
+        tags=["did", "continuous_treatment", "dose_response", "causal",
+              "acrt", "frontier"],
+        reference=(
+            "Callaway, Goodman-Bacon & Sant'Anna (2024) "
+            "[@callaway2024difference]; de Chaisemartin & D'Haultfœuille "
+            "(2018) [@dechaisemartin2018fuzzy]."
+        ),
+        pre_conditions=[
+            "panel data with unit × time × outcome × continuous dose",
+            "at least one unit with dose == 0 acts as untreated control "
+            "(or the lowest dose quantile is used as control)",
+            "both a pre and a post period per unit",
+        ],
+        assumptions=[
+            "Parallel trends in potential outcomes across dose levels",
+            "No anticipation of treatment",
+            "Strong parallel trends (CGS 2024) required for ATT(d|g,t) "
+            "interpretation in att_gt mode",
+            "Overlap: positive density of dose in the treated support",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="No units with dose == 0",
+                exception="DataInsufficient",
+                remedy=("Lowest-dose quantile is auto-used as the control arm; "
+                        "pass an explicit never-treated indicator via post= if "
+                        "this is not intended."),
+                alternative="callaway_santanna",
+            ),
+            FailureMode(
+                symptom="Dose collapses to one quantile",
+                exception="DataInsufficient",
+                remedy=("Not enough variation in dose. Lower n_quantiles, or "
+                        "check that dose is truly continuous in the baseline "
+                        "period."),
+                alternative="",
+            ),
+            FailureMode(
+                symptom=("SE appears too small — you want the CGS 2024 "
+                        "analytical influence-function variance"),
+                exception="",
+                remedy=("Current modes use bootstrap / OLS SE. The CGS 2024 "
+                        "analytical IF is tracked in "
+                        "docs/rfc/continuous_did_cgs.md; until landed, "
+                        "inflate n_boot or cluster bootstrap manually."),
+                alternative="",
+            ),
+        ],
+        alternatives=[
+            "callaway_santanna",
+            "did_multiplegt",
+            "dose_response",
+        ],
+        typical_n_min=100,
+    ))
+
+    register(FunctionSpec(
+        name="did_multiplegt",
+        category="causal",
+        description=(
+            "de Chaisemartin & D'Haultfœuille (2020) DID_M estimator. "
+            "Weighted average of consecutive-period DID cells where "
+            "treatment 'switchers' are compared to 'stayers'. Handles "
+            "treatments that switch on AND off (unlike Callaway-Sant'Anna "
+            "which assumes staggered adoption). Supports placebo lags, "
+            "dynamic horizons, cluster bootstrap SE, joint placebo test "
+            "and average-cumulative-effect summary from dCDH (2024). The "
+            "heteroskedastic-weights variant and full dCDH (2024) "
+            "intertemporal event-study (did_multiplegt_dyn Stata) are on "
+            "the roadmap — see docs/rfc/multiplegt_dyn.md."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome variable"),
+            ParamSpec("group", "str", True, description="Unit identifier"),
+            ParamSpec("time", "str", True, description="Time period column"),
+            ParamSpec("treatment", "str", True,
+                      description="Binary current-treatment indicator "
+                                  "(may switch on and off)"),
+            ParamSpec("controls", "list", False, None,
+                      "Controls residualised via first differences"),
+            ParamSpec("placebo", "int", False, 0,
+                      "Number of pre-treatment placebo lags"),
+            ParamSpec("dynamic", "int", False, 0,
+                      "Number of post-treatment dynamic horizons"),
+            ParamSpec("cluster", "str", False, None,
+                      "Cluster variable for bootstrap (defaults to group)"),
+            ParamSpec("n_boot", "int", False, 100,
+                      "Cluster-bootstrap replications"),
+            ParamSpec("seed", "int", False, None),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns=(
+            "CausalResult with placebo / dynamic event-study in "
+            "model_info['event_study'], joint placebo Wald test, and "
+            "avg_cumulative_effect summary."
+        ),
+        example=(
+            'sp.did_multiplegt(df, y="wage", group="county", time="year", '
+            'treatment="treated", placebo=2, dynamic=3, cluster="state", '
+            'n_boot=200, seed=42)'
+        ),
+        tags=["did", "dcdh", "switchers", "on_off", "event_study",
+              "placebo", "dynamic", "causal"],
+        reference=(
+            "de Chaisemartin & D'Haultfœuille (2020) "
+            "[@dechaisemartin2020two]; 2022 survey "
+            "[@dechaisemartin2022fixed]; 2024 joint placebo + avg "
+            "cumulative [@dechaisemartin2024difference]."
+        ),
+        pre_conditions=[
+            "long-format panel with one row per unit × period",
+            "treatment is binary (0/1) and may vary over time within a unit",
+            "at least two periods observed per unit so a first difference "
+            "can be computed",
+        ],
+        assumptions=[
+            "Parallel trends between switchers and stayers",
+            "Stable treatment effects across consecutive periods (for the "
+            "DID_M weighted average interpretation)",
+            "No anticipation",
+            "Cluster-bootstrap validity requires G large and clusters "
+            "independent",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="No switching cells (nobody changes treatment)",
+                exception="DataInsufficient",
+                remedy=("did_multiplegt identifies effects only from treatment "
+                        "switches. Fall back to callaway_santanna if the "
+                        "design is staggered adoption."),
+                alternative="callaway_santanna",
+            ),
+            FailureMode(
+                symptom=("Joint placebo test rejects — parallel trends "
+                         "unlikely"),
+                exception="AssumptionViolation",
+                remedy=("Inspect model_info['event_study'] by placebo lag; "
+                        "consider honest_did sensitivity bounds or add "
+                        "controls."),
+                alternative="honest_did",
+            ),
+            FailureMode(
+                symptom=("Bootstrap SE unstable with small G"),
+                exception="",
+                remedy=("Raise n_boot, or switch to a wild cluster bootstrap. "
+                        "The analytical influence-function SE from dCDH "
+                        "(2020) is not yet implemented — see RFC."),
+                alternative="",
+            ),
+        ],
+        alternatives=[
+            "callaway_santanna",
+            "sun_abraham",
+            "did_imputation",
+            "gardner_did",
+            "wooldridge_did",
+        ],
+        typical_n_min=50,
+    ))
+
     _BASE_REGISTRY_BUILT = True
 
 
