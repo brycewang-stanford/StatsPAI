@@ -17,7 +17,7 @@ in StatsPAI.
 
 | `pyreghdfe` | StatsPAI (`import statspai as sp`) |
 | --- | --- |
-| `reghdfe(y, x, absorb=['firm','year'], data=df, cluster=['firm'], solver='lsmr')` | `sp.absorb_ols(y=df['y'].values, X=df[['x']].values, fe=df[['firm','year']], cluster=df['firm'].values, solver='lsmr')` |
+| `reghdfe(data=df, y='y', x=['x'], fe=['firm','year'], cluster=['firm'])` | `sp.absorb_ols(y=df['y'].values, X=df[['x']].values, fe=df[['firm','year']], cluster=df['firm'].values, solver='lsmr')` |
 | Stata-style formula via pyreghdfe is not supported | `sp.hdfe_ols("y ~ x \| firm + year", data=df, cluster="firm")` (formula interface via pyfixest backend) |
 | `solver='lsmr'` / `'lsqr'` | `solver='lsmr'` / `'lsqr'` — same Krylov paths (scipy.sparse.linalg) |
 | Krylov-based solvers (LSMR/LSQR) | default `solver='map'` — alternating projections + Irons-Tuck acceleration, typically faster on well-conditioned panels. LSMR/LSQR remain opt-in for pathological FE structures. |
