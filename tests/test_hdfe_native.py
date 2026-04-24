@@ -156,3 +156,103 @@ def test_feols_summary_prints_cleanly():
     assert "FEOLS" in summary_str
     assert "firm" in summary_str
     assert "x1" in summary_str
+
+
+# ---------------------------------------------------------------------------
+# Cross-solver parity (LSMR / LSQR vs default MAP)
+# ---------------------------------------------------------------------------
+#
+# StatsPAI's default HDFE solver is alternating projections + Irons-Tuck
+# acceleration (Correia 2017). Stata's ``reghdfe`` and the pyreghdfe Python
+# port offer LSMR / LSQR Krylov solvers as an alternative. These tests verify
+# that when the user opts into ``solver="lsmr"`` or ``"lsqr"``, the numerical
+# output agrees with the MAP baseline on the same data — this is the pyreghdfe
+# migration guarantee.
+
+
+@pytest.mark.parametrize("solver", ["lsmr", "lsqr"])
+def test_demean_alt_solver_matches_map_two_way(solver):
+    df = _make_panel(n_firms=20, n_years=8, seed=3)
+    ab_map = Absorber(df[["firm", "year"]].values, drop_singletons=False, tol=1e-10)
+    ab_alt = Absorber(
+        df[["firm", "year"]].values, drop_singletons=False, tol=1e-10, solver=solver
+    )
+    yw_map = ab_map.demean(df["y"].values)
+    yw_alt = ab_alt.demean(df["y"].values)
+    np.testing.assert_allclose(yw_alt, yw_map, atol=1e-6)
+
+
+@pytest.mark.parametrize("solver", ["lsmr", "lsqr"])
+def test_absorb_ols_alt_solver_matches_map(solver):
+    df = _make_panel(n_firms=15, n_years=8, beta=(1.5, -0.75), seed=11)
+    res_map = absorb_ols(
+        y=df["y"].values,
+        X=df[["x1", "x2"]].values,
+        fe=df[["firm", "year"]].values,
+        drop_singletons=False,
+        tol=1e-10,
+    )
+    res_alt = absorb_ols(
+        y=df["y"].values,
+        X=df[["x1", "x2"]].values,
+        fe=df[["firm", "year"]].values,
+        drop_singletons=False,
+        tol=1e-10,
+        solver=solver,
+    )
+    np.testing.assert_allclose(res_alt["coef"], res_map["coef"], atol=1e-6)
+    np.testing.assert_allclose(res_alt["se"], res_map["se"], atol=1e-6)
+
+
+def test_absorb_ols_lsmr_weighted_matches_map():
+    df = _make_panel(n_firms=25, n_years=6, seed=17)
+    rng = np.random.default_rng(17)
+    weights = rng.uniform(0.5, 2.0, size=len(df))
+    res_map = absorb_ols(
+        y=df["y"].values,
+        X=df[["x1", "x2"]].values,
+        fe=df[["firm", "year"]].values,
+        weights=weights,
+        drop_singletons=False,
+        tol=1e-10,
+    )
+    res_lsmr = absorb_ols(
+        y=df["y"].values,
+        X=df[["x1", "x2"]].values,
+        fe=df[["firm", "year"]].values,
+        weights=weights,
+        drop_singletons=False,
+        tol=1e-10,
+        solver="lsmr",
+    )
+    np.testing.assert_allclose(res_lsmr["coef"], res_map["coef"], atol=1e-6)
+    np.testing.assert_allclose(res_lsmr["se"], res_map["se"], atol=1e-6)
+
+
+def test_absorb_ols_lsmr_cluster_matches_map():
+    df = _make_panel(n_firms=30, n_years=8, seed=23)
+    res_map = absorb_ols(
+        y=df["y"].values,
+        X=df[["x1", "x2"]].values,
+        fe=df[["firm", "year"]].values,
+        cluster=df["firm"].values,
+        drop_singletons=False,
+        tol=1e-10,
+    )
+    res_lsmr = absorb_ols(
+        y=df["y"].values,
+        X=df[["x1", "x2"]].values,
+        fe=df[["firm", "year"]].values,
+        cluster=df["firm"].values,
+        drop_singletons=False,
+        tol=1e-10,
+        solver="lsmr",
+    )
+    np.testing.assert_allclose(res_lsmr["coef"], res_map["coef"], atol=1e-6)
+    np.testing.assert_allclose(res_lsmr["se"], res_map["se"], atol=1e-6)
+
+
+def test_solver_invalid_name_raises():
+    df = _make_panel(n_firms=5, n_years=4)
+    with pytest.raises(ValueError, match="solver"):
+        Absorber(df[["firm", "year"]].values, drop_singletons=False, solver="bogus")

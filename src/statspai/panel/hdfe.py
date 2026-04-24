@@ -62,6 +62,9 @@ import pandas as pd
 from . import _hdfe_kernels as _kernels
 
 
+_VALID_SOLVERS = ("map", "lsmr", "lsqr")
+
+
 # ======================================================================
 # Core demean kernel
 # ======================================================================
@@ -228,6 +231,14 @@ class Absorber:
         Maximum alternating-projection iterations.
     accelerate : bool, default True
         Enable Irons-Tuck Δ² acceleration.
+    solver : {"map", "lsmr", "lsqr"}, default "map"
+        Within-transformation backend. ``"map"`` uses alternating
+        projections with Irons-Tuck acceleration (default, typically
+        fastest on well-conditioned panels). ``"lsmr"`` / ``"lsqr"``
+        delegate to ``scipy.sparse.linalg.lsmr`` / ``lsqr`` on the
+        sparse FE design matrix — more robust for ill-conditioned or
+        highly nested FE structures. See the migration guide for how
+        this maps to ``pyreghdfe``.
 
     Attributes
     ----------
@@ -255,6 +266,7 @@ class Absorber:
         "tol",
         "maxiter",
         "accelerate",
+        "solver",
         "_converged",
         "_iters",
     )
@@ -267,7 +279,12 @@ class Absorber:
         tol: float = 1e-8,
         maxiter: int = 10_000,
         accelerate: bool = True,
+        solver: str = "map",
     ) -> None:
+        if solver not in _VALID_SOLVERS:
+            raise ValueError(
+                f"solver={solver!r} invalid; expected one of {_VALID_SOLVERS}."
+            )
         if isinstance(fe_data, pd.DataFrame):
             fe_arr = fe_data.values
         else:
@@ -328,6 +345,7 @@ class Absorber:
         self.tol = tol
         self.maxiter = maxiter
         self.accelerate = accelerate
+        self.solver = solver
         self._converged = False
         self._iters = 0
 
@@ -388,6 +406,25 @@ class Absorber:
         tol = self.tol
         maxiter = self.maxiter
         accelerate = self.accelerate
+
+        # Krylov solvers (LSMR / LSQR) bypass the AP loop entirely: build the
+        # sparse FE design matrix once and delegate the within-projection to
+        # scipy. See ``_solve_krylov`` for the √w weight handling.
+        if self.solver != "map":
+            for j in range(x.shape[1]):
+                col = x[:, j]
+                r, iters, converged = _solve_krylov(
+                    col,
+                    fe_codes,
+                    weights,
+                    solver=self.solver,
+                    tol=tol,
+                    maxiter=maxiter,
+                )
+                x[:, j] = r
+                self._iters = max(self._iters, iters)
+                self._converged = self._converged or converged
+            return x.ravel() if squeeze else x
 
         # Per-column AP loop
         for j in range(x.shape[1]):
@@ -461,6 +498,81 @@ def _group_mean_sweep_seq(
 
 
 # ======================================================================
+# Krylov solvers (LSMR / LSQR) — pyreghdfe-compatible path
+# ======================================================================
+
+
+def _build_fe_design(
+    fe_codes: List[np.ndarray],
+    n_rows: int,
+):
+    """Horizontally stack one-hot FE indicator matrices into a sparse CSR.
+
+    Each FE dimension contributes an ``(n_rows, G_k)`` indicator block.
+    The concatenated ``D`` has shape ``(n_rows, sum_k G_k)`` and is the
+    design matrix of the fixed-effect dummies.
+    """
+    from scipy import sparse as _sp
+
+    blocks = []
+    rows = np.arange(n_rows)
+    for codes in fe_codes:
+        G = int(codes.max()) + 1
+        data = np.ones(n_rows, dtype=np.float64)
+        blocks.append(_sp.csr_matrix((data, (rows, codes)), shape=(n_rows, G)))
+    return _sp.hstack(blocks, format="csr")
+
+
+def _solve_krylov(
+    x: np.ndarray,
+    fe_codes: List[np.ndarray],
+    weights: Optional[np.ndarray],
+    solver: str,
+    tol: float,
+    maxiter: int,
+) -> Tuple[np.ndarray, int, bool]:
+    """One-column within-transformation via scipy.sparse.linalg.
+
+    Solves ``min_α ‖W^{1/2}(x − D α)‖₂`` and returns the residual
+    ``r = x − D α*`` in the **original (unweighted) scale** so that the
+    downstream FWL OLS matches the MAP path byte-for-byte.
+    """
+    from scipy.sparse.linalg import lsmr, lsqr
+
+    n = x.shape[0]
+    D = _build_fe_design(fe_codes, n)
+
+    if weights is not None:
+        sw = np.sqrt(weights)
+        # Row-scale D by sqrt(w); equivalent to left-multiplying by diag(sw).
+        D_solve = D.multiply(sw[:, None]).tocsr()
+        x_solve = sw * x
+    else:
+        D_solve = D
+        x_solve = x
+
+    if solver == "lsmr":
+        out = lsmr(D_solve, x_solve, atol=tol, btol=tol, maxiter=maxiter)
+        alpha = out[0]
+        istop = out[1]
+        iters = out[2]
+    elif solver == "lsqr":
+        out = lsqr(D_solve, x_solve, atol=tol, btol=tol, iter_lim=maxiter)
+        alpha = out[0]
+        istop = out[1]
+        iters = out[2]
+    else:  # pragma: no cover — Absorber.__init__ guards against this.
+        raise ValueError(f"solver={solver!r} invalid.")
+
+    # istop == 7 in both lsmr and lsqr means maxiter reached without convergence.
+    converged = istop != 7
+    # Residual in the ORIGINAL (unweighted) scale — this is what the caller
+    # feeds into OLS. Using the weighted residual here would double-apply √w.
+    r = x - D @ alpha
+    return r, int(iters), converged
+
+
+# ======================================================================
 # Functional API
 # ======================================================================
 
@@ -472,14 +584,16 @@ def demean(
     drop_singletons: bool = True,
     tol: float = 1e-8,
     maxiter: int = 10_000,
+    solver: str = "map",
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Return the within-transformed ``x`` and the singleton keep mask.
 
-    Convenience wrapper around :class:`Absorber`.
+    Convenience wrapper around :class:`Absorber`. See ``Absorber`` for
+    the ``solver`` kwarg semantics.
     """
     ab = Absorber(
         fe, weights=weights, drop_singletons=drop_singletons,
-        tol=tol, maxiter=maxiter,
+        tol=tol, maxiter=maxiter, solver=solver,
     )
     xw = ab.demean(x)
     return xw, ab.keep_mask
@@ -500,6 +614,7 @@ def absorb_ols(
     tol: float = 1e-8,
     maxiter: int = 10_000,
     return_absorber: bool = False,
+    solver: str = "map",
 ) -> dict:
     """OLS with absorbed high-dimensional fixed effects (reghdfe-style).
 
@@ -525,6 +640,8 @@ def absorb_ols(
         Demean convergence controls.
     return_absorber : bool, default False
         If True, also return the ``Absorber`` object for reuse.
+    solver : {"map", "lsmr", "lsqr"}, default "map"
+        Within-transformation backend. See :class:`Absorber`.
 
     Returns
     -------
@@ -544,7 +661,7 @@ def absorb_ols(
 
     ab = Absorber(
         fe, weights=weights, drop_singletons=drop_singletons,
-        tol=tol, maxiter=maxiter,
+        tol=tol, maxiter=maxiter, solver=solver,
     )
     yw = ab.demean(y)
     Xw = ab.demean(X)

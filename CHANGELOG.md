@@ -2,6 +2,85 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.6.6] — 2026-04-24 — HDFE LSMR/LSQR solver + ⚠️ Heckman SE correctness fix
+
+### ⚠️ Correctness fix — `sp.heckman` two-step standard errors
+
+**Affected**: `sp.heckman(...)` — the Heckman (1979) two-step selection
+model. Point estimates are unchanged; **standard errors, t-statistics,
+p-values and confidence intervals change**, and `model_info['sigma']` /
+`model_info['rho']` now use the correct Greene (2003) formula.
+
+**What was wrong.** Before v1.6.6, `sp.heckman` reported an ad-hoc
+HC1-style sandwich that (a) ignored the selection-induced
+heteroskedasticity `Var(y | X, D=1) = σ²(1 − ρ² δ_i)`, and (b) treated
+the inverse Mills ratio `λ̂` as a known regressor, ignoring the
+first-stage probit estimation error in γ̂ — the "generated regressor"
+problem. The code itself flagged this as
+`"Heckman SEs are complex; robust is conservative"`. It was a known
+limitation, not a false belief; this release upgrades it from
+approximate-conservative to textbook-correct.
+
+**The fix.** `sp.heckman` now computes the Heckman (1979) / Greene
+(2003, eq. 22-22) / Wooldridge (2010, §19.6) analytical variance:
+
+```text
+V(β̂) = σ̂² (X*'X*)⁻¹ [ X*'(I − ρ̂² D_δ) X* + ρ̂² F V̂_γ F' ] (X*'X*)⁻¹
+```
+
+where `δ_i = λ̂_i (λ̂_i + Z_iγ̂) ≥ 0`, `D_δ = diag(δ_i)`,
+`F = X*' D_δ Z`, and `V̂_γ = (Z' diag(w_i) Z)⁻¹` is the probit
+information-based variance of γ̂. Consistent σ̂² is
+`σ̂² = RSS/n_sel + β̂_λ² · mean(δ_i)` (Greene 22-21), replacing the
+old naive `RSS/(n−k)`. The probit IRLS helper `_probit_fit` now also
+returns `V̂_γ` for consumption by the second-stage SE computation.
+
+**What you'll see.** Heckman SEs will generally be **smaller** than
+before when selection is strong (the heteroskedastic factor
+`1 − ρ² δ_i ≤ 1` trims the structural-error contribution) and
+**larger** when the exclusion restriction is weak (generated-regressor
+uncertainty dominates). Match is to Stata's `heckman ..., twostep`
+output and R's `sampleSelection::heckit` to the documented formula
+precision.
+
+### Added — test coverage (Heckman)
+
+- `tests/reference_parity/test_heckman_se_parity.py`: three tests
+  pinning β̂ and SE to a hand-computed implementation of the
+  Greene (2003) formula, plus a check that `model_info['sigma']` /
+  `rho` expose the consistent σ̂² estimator.
+
+### Fixed
+
+- `src/statspai/regression/heckman.py::heckman` — replace naive
+  HC1 sandwich with the Heckman (1979) two-step analytical variance.
+- `src/statspai/regression/heckman.py::_probit_fit` — now returns
+  `(γ̂, V̂_γ)`; avoids allocating an n×n `diag(w)` via broadcasting.
+
+### Added — HDFE LSMR/LSQR solver option (additive, pyreghdfe parity)
+
+- `sp.hdfe_ols` / `sp.absorb_ols` / `sp.Absorber` / `sp.demean` now accept
+  `solver={"map", "lsmr", "lsqr"}` (default `"map"`, unchanged).
+  - `"lsmr"` / `"lsqr"` build a sparse FE design matrix and delegate the
+    within-projection to `scipy.sparse.linalg.lsmr` / `lsqr`. Weighted
+    regression uses the standard √w transformation applied to both the
+    sparse design and the response. No new runtime dependency — scipy
+    is already core.
+  - Covers the feature surface of `pyreghdfe`: multi-way FE OLS,
+    robust / multi-way cluster SE, singleton drop, weights, Krylov
+    solvers. `pyreghdfe` can now be archived with `sp.hdfe_ols` as a
+    strict replacement (see [`MIGRATION.md`](MIGRATION.md)).
+- New cross-solver parity tests in `tests/test_hdfe_native.py` verify MAP
+  ≡ LSMR ≡ LSQR to `atol=1e-6` on two-way FE OLS (with and without
+  weights, with and without clustering).
+- `MIGRATION.md` gained a "Migrating from `pyreghdfe`" section with full
+  API mapping.
+
+### Behavior
+
+- HDFE default solver remains `"map"` — all HDFE numerical output
+  (MAP path) is byte-identical to v1.6.5.
+
 ## [1.6.5] — 2026-04-24 — ⚠️ Standalone LIML correctness fix (follow-up to v1.6.4)
 
 ### ⚠️ Correctness fix — standalone `sp.liml` / `sp.iv.liml`

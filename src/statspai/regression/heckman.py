@@ -94,8 +94,9 @@ def heckman(
     D_v = D[valid_s]
     Z_v = Z[valid_s]
 
-    # Probit via MLE (Newton-Raphson)
-    gamma = _probit_fit(D_v, Z_v)
+    # Probit via MLE (Newton-Raphson); return γ̂ AND V̂_γ for the
+    # Heckman (1979) two-step SE correction below.
+    gamma, V_gamma = _probit_fit(D_v, Z_v)
     Z_gamma = Z @ gamma  # for all observations (need IMR for selected)
 
     # Inverse Mills ratio: λ(Z'γ) = φ(Z'γ) / Φ(Z'γ)
@@ -108,6 +109,8 @@ def heckman(
     selected = D == 1
     df_sel = df[selected].copy()
     imr_sel = imr[selected]
+    Z_gamma_sel = Z_gamma[selected]
+    Z_selected = Z[selected]
     n_sel = selected.sum()
 
     Y_sel = df_sel[y].values.astype(float)
@@ -118,18 +121,54 @@ def heckman(
     valid_o = np.all(np.isfinite(X_sel), axis=1) & np.isfinite(Y_sel)
     Y_v = Y_sel[valid_o]
     X_v = X_sel[valid_o]
+    Z_v = Z_selected[valid_o]
+    Zg_v = Z_gamma_sel[valid_o]
+    imr_v = imr_sel[valid_o]
     n_eff = len(Y_v)
     k = X_v.shape[1]
 
     beta = np.linalg.lstsq(X_v, Y_v, rcond=None)[0]
     resid = Y_v - X_v @ beta
 
-    # HC1 robust SE (Heckman SEs are complex; robust is conservative)
+    # --- Heckman (1979) two-step analytical variance ---
+    #
+    # The second-stage regressor λ̂ is a "generated regressor", so a
+    # naive OLS / HC-style sandwich under-states true uncertainty by
+    # ignoring the first-stage estimation error in γ̂ and misses the
+    # heteroskedasticity Var(y|X, D=1) = σ²(1 − ρ² δ_i).
+    #
+    # Correct variance (Greene 2003 eq. 22-22; Heckman 1979 eq. 19;
+    # Wooldridge 2010 §19.6):
+    #
+    #   V(β̂) = σ̂² (X*'X*)^{-1} [ X*'(I − ρ̂² D_δ) X* + ρ̂² F V̂_γ F' ]
+    #          × (X*'X*)^{-1}
+    #
+    # with
+    #   δ_i     = λ̂_i (λ̂_i + Z_iγ̂)        ≥ 0 (Mills' ratio inequality)
+    #   D_δ     = diag(δ_i)
+    #   F       = X*' D_δ Z                  (k × q)
+    #   σ̂²     = u'u/n + β̂_λ² · mean(δ_i)  (Greene 22-21)
+    #   ρ̂²     = β̂_λ² / σ̂²
+    #
+    # For 2SLS / k-class this is a different structural bug family
+    # (fixed in v1.6.4/1.6.5); for Heckman the generated-regressor
+    # correction is the canonical fix.
+    delta_v = imr_v * (imr_v + Zg_v)
+    beta_lambda = float(beta[-1])
+    rss = float(np.sum(resid ** 2))
+    sigma2 = rss / n_eff + beta_lambda ** 2 * float(np.mean(delta_v))
+    rho2 = beta_lambda ** 2 / sigma2 if sigma2 > 0 else 0.0
+
     XtX_inv = np.linalg.pinv(X_v.T @ X_v)
-    sigma2 = np.sum(resid ** 2) / (n_eff - k)
-    meat = X_v.T @ np.diag((n_eff / (n_eff - k)) * resid ** 2) @ X_v
-    vcov = XtX_inv @ meat @ XtX_inv
-    se = np.sqrt(np.diag(vcov))
+    # Heteroskedastic contribution  X*'(I − ρ̂² D_δ) X*
+    het_w = 1.0 - rho2 * delta_v
+    M_het = X_v.T @ (het_w[:, None] * X_v)
+    # Generated-regressor contribution  ρ̂² F V̂_γ F'  with F = X*' D_δ Z
+    F = X_v.T @ (delta_v[:, None] * Z_v)
+    Q = rho2 * (F @ V_gamma @ F.T)
+
+    vcov = sigma2 * XtX_inv @ (M_het + Q) @ XtX_inv
+    se = np.sqrt(np.maximum(np.diag(vcov), 0.0))
 
     # Variable names
     var_names = ['const'] + x + ['lambda (IMR)']
@@ -189,20 +228,33 @@ def heckman(
 
 
 def _probit_fit(D, Z, max_iter=50):
-    """Probit MLE via IRLS."""
+    """Probit MLE via Newton–Raphson.
+
+    Returns
+    -------
+    gamma : (q,) ndarray
+        Maximum-likelihood estimate of the probit coefficient vector.
+    V_gamma : (q, q) ndarray
+        Asymptotic variance-covariance matrix of γ̂, computed as
+        ``(Z' diag(w) Z)^{-1}`` with expected-information weights
+        ``w_i = φ(Z_iγ̂)² / [Φ(Z_iγ̂)(1 − Φ(Z_iγ̂))]``. Required by
+        the Heckman (1979) two-step SE correction.
+    """
     n, k = Z.shape
     gamma = np.zeros(k)
+    H = None
+    w = None
 
     for _ in range(max_iter):
         Zg = Z @ gamma
         Phi = np.clip(stats.norm.cdf(Zg), 1e-10, 1 - 1e-10)
         phi = stats.norm.pdf(Zg)
 
-        # Score and Hessian
+        # Score and Hessian (broadcast avoids allocating diag(w) n×n).
         w = phi ** 2 / (Phi * (1 - Phi))
         w = np.clip(w, 1e-10, 1e10)
         score = Z.T @ ((D - Phi) * phi / (Phi * (1 - Phi)))
-        H = -Z.T @ np.diag(w) @ Z
+        H = -(Z.T @ (w[:, None] * Z))
 
         try:
             delta = np.linalg.solve(H, score)
@@ -213,7 +265,12 @@ def _probit_fit(D, Z, max_iter=50):
         if np.max(np.abs(delta)) < 1e-8:
             break
 
-    return gamma
+    # V(γ̂) = (Z' diag(w) Z)^{-1} = (−H)^{-1} at convergence.
+    try:
+        V_gamma = np.linalg.inv(Z.T @ (w[:, None] * Z))
+    except np.linalg.LinAlgError:
+        V_gamma = np.linalg.pinv(Z.T @ (w[:, None] * Z))
+    return gamma, V_gamma
 
 
 # Citation

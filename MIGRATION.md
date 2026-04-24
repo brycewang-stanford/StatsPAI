@@ -5,6 +5,132 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## Migrating from `pyreghdfe`
+
+`pyreghdfe` (`pip install pyreghdfe`) is a Python port of Stata's
+`reghdfe` maintained as a standalone package. Its scope — multi-way FE
+OLS with robust / multi-way cluster SEs, singleton dropping, weighted
+regression — is now a strict subset of `sp.hdfe_ols` / `sp.absorb_ols`
+in StatsPAI.
+
+### API mapping (pyreghdfe → StatsPAI)
+
+| `pyreghdfe` | StatsPAI (`import statspai as sp`) |
+| --- | --- |
+| `reghdfe(y, x, absorb=['firm','year'], data=df, cluster=['firm'], solver='lsmr')` | `sp.absorb_ols(y=df['y'].values, X=df[['x']].values, fe=df[['firm','year']], cluster=df['firm'].values, solver='lsmr')` |
+| Stata-style formula via pyreghdfe is not supported | `sp.hdfe_ols("y ~ x \| firm + year", data=df, cluster="firm")` (formula interface via pyfixest backend) |
+| `solver='lsmr'` / `'lsqr'` | `solver='lsmr'` / `'lsqr'` — same Krylov paths (scipy.sparse.linalg) |
+| Krylov-based solvers (LSMR/LSQR) | default `solver='map'` — alternating projections + Irons-Tuck acceleration, typically faster on well-conditioned panels. LSMR/LSQR remain opt-in for pathological FE structures. |
+| weighted regression | `weights=` kwarg; LSMR path uses the standard √w transformation on both the sparse design and the response |
+| singleton drop | `drop_singletons=True` (default) |
+| multi-way cluster SE | `cluster=[firm_arr, year_arr]` (inclusion-exclusion CGM with PSD correction) |
+
+### What you also get
+
+- `sp.ppmlhdfe` — Poisson pseudo-ML with HDFE (not available in `pyreghdfe`).
+- Rust-accelerated mean-sweep kernel ([rust/statspai_hdfe/](rust/statspai_hdfe/)).
+- Formula interface and unified result object (`summary()`, `to_latex()`, `to_excel()`).
+- One-line cross-solver parity check (all three solvers exposed under the
+  same API — see `tests/test_hdfe_native.py::test_demean_alt_solver_matches_map_two_way`).
+
+### Numerical parity
+
+Default MAP and `solver='lsmr'` / `'lsqr'` agree on identical data to
+`atol=1e-6` on two-way FE OLS (with and without weights, with and
+without clustering). See the cross-solver parity suite in
+`tests/test_hdfe_native.py`. We do not take a runtime dependency on
+`pyreghdfe`; correctness is anchored to scipy's battle-tested
+`scipy.sparse.linalg.lsmr` / `lsqr` plus the internal MAP baseline.
+
+### When to prefer which solver
+
+- **Default (`solver='map'`)**: almost everything. MAP + Aitken is
+  typically 2–5× faster than LSMR on canonical firm × year panels.
+- **`solver='lsmr'`**: ill-conditioned / highly nested FE structures
+  where MAP shows slow convergence (`converged=False`,
+  `iters==maxiter`). LSMR is more robust to near-redundancy between FE
+  dimensions.
+- **`solver='lsqr'`**: exposed for users migrating from code that
+  explicitly requested LSQR. For new work prefer LSMR, which scipy
+  implements on the same interface and generally offers better
+  numerical stability on sparse least-squares.
+
+---
+
+## v1.6.5 → v1.6.6 — ⚠️ Heckman two-step SE correctness fix (+ HDFE solver option)
+
+**Two-part release.** (1) Correctness fix for `sp.heckman` standard
+errors — point estimates unchanged, **SE / t / p / CI change**.
+(2) Additive HDFE LSMR/LSQR solver option — all HDFE MAP output is
+byte-identical to v1.6.5.
+
+### What changed numerically (Heckman two-step)
+
+`sp.heckman(...)` previously reported an HC1-style sandwich that the
+source code itself flagged as
+`"Heckman SEs are complex; robust is conservative"`. This was a known
+limitation, not a secret bug — but it meant reported SEs, t-stats,
+p-values and CIs were off by an amount that depended on (a) how
+strongly selection induced heteroskedasticity `σ²(1 − ρ² δ_i)` and
+(b) how uncertain the probit first-stage estimate γ̂ was.
+
+v1.6.6 replaces it with the textbook Heckman (1979) / Greene (2003, eq.
+22-22) / Wooldridge (2010, §19.6) analytical two-step variance:
+
+```text
+V(β̂) = σ̂² (X*'X*)⁻¹ [ X*'(I − ρ̂² D_δ) X* + ρ̂² F V̂_γ F' ] (X*'X*)⁻¹
+```
+
+- `X*`: second-stage design matrix including λ̂ as its last column.
+- `δ_i = λ̂_i (λ̂_i + Z_iγ̂) ≥ 0` (Mills' ratio inequality).
+- `D_δ = diag(δ_i)`; `F = X*' D_δ Z` (`k × q`).
+- `V̂_γ = (Z' diag(w_i) Z)⁻¹` with probit information weights
+  `w_i = φ(Z_iγ̂)² / [Φ(Z_iγ̂)(1 − Φ(Z_iγ̂))]`.
+- `σ̂² = RSS / n_sel + β̂_λ² · mean(δ_i)` (Greene 22-21) —
+  replaces the old naive `RSS / (n_sel − k)`.
+- `ρ̂² = β̂_λ² / σ̂²`.
+
+`model_info['sigma']` / `model_info['rho']` now also use this
+consistent σ̂², so downstream code reading those fields will see
+slightly different numbers.
+
+### Who is affected
+
+- Any caller of `sp.heckman(...)` — SEs, t-stats, p-values, CIs change.
+- Point estimates `β̂` **do not change** (OLS of y on [X, λ̂]
+  is unaffected by the variance formula).
+- Callers that pin SE values in their own test suites against a
+  pre-v1.6.6 StatsPAI will need to re-baseline.
+
+### What you should do
+
+1. **If you cited a Heckman SE / t / p / CI from StatsPAI ≤ 1.6.5**,
+   re-run and update. The direction of change depends on whether
+   selection-induced heteroskedasticity (reduces SE) or
+   generated-regressor uncertainty (increases SE) dominates.
+2. **Cross-validation**: compare the new output against Stata
+   `heckman y x, select(z) twostep` or R
+   `sampleSelection::heckit(...)`. Both implement the same Heckman
+   (1979) formula; agreement should be to the documented precision.
+3. **If you want the old conservative HC1 sandwich** for any reason
+   (e.g. replicating a legacy pipeline), there is no supported way to
+   get it. The old formula was not a convention choice — it was a
+   known approximation the project had not yet replaced.
+
+### Reference formula
+
+Same as above, with the influence-function derivation:
+
+```text
+β̂ − β = (X*'X*)⁻¹ [ X*' e − β̂_λ · X*' D_δ Z · (γ̂ − γ) ] + o_p(n^{-1/2})
+```
+
+The first term gives the heteroskedastic `X*'(I − ρ̂² D_δ) X*`
+contribution; the second gives the `ρ̂² F V̂_γ F'` generated-regressor
+contribution, since `∂λ / ∂γ' = −λ(λ + Zγ) Z' = −δ · Z'`.
+
+---
+
 ## v1.6.4 → v1.6.5 — ⚠️ Standalone LIML correctness fix
 
 **Narrow correctness follow-up to v1.6.4.** If your codebase only uses
