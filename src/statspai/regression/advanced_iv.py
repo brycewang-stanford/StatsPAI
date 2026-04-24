@@ -122,20 +122,39 @@ def liml(
     Pz = Z_all @ np.linalg.inv(Z_all.T @ Z_all) @ Z_all.T
     Mz = np.eye(n) - Pz
 
-    # Compute LIML k
-    # W = [Y, X_endog] after partialling out X_exog
+    # Compute LIML κ via the Anderson (1951) generalized symmetric
+    # eigenvalue problem:  S_exog v = κ S_full v , with
+    #   S_full = W0' M_full W0   (residuals from full model)
+    #   S_exog = W0' M_exog W0   (residuals from exog-only model)
+    # and W0 = [Y, X_endog]. Both are symmetric PSD and
+    # S_exog ≽ S_full in the Loewner order (extra residualisation
+    # shrinks SSR), so all eigenvalues κ ≥ 1 and κ_LIML is the SMALLEST.
+    #
+    # The previous implementation used ``np.linalg.eigvals(inv(A) @ B)``
+    # on the non-symmetric product, which silently returned complex
+    # eigenvalues and produced a biased κ — the same bug already fixed
+    # in ``iv.py::_liml_kappa``. Fixed here by aligning to that
+    # canonical implementation: ``scipy.linalg.eigh(S_exog, S_full)``.
     W = np.column_stack([Y.reshape(-1, 1), X_endog])
-    Mxw = Mx @ W
-
-    # Eigenvalue problem: find smallest eigenvalue of (W'MzW)^{-1}(W'MxW)
-    A = Mxw.T @ Mxw  # W'MxW (demeaned by exog)
-    B = W.T @ Mz @ W  # W'MzW
+    S_full = W.T @ Mz @ W  # W0' M_full W0
+    S_exog = W.T @ Mx @ W  # W0' M_exog W0
 
     try:
-        eigvals = np.linalg.eigvals(np.linalg.inv(A) @ B)
-        kappa = np.min(np.real(eigvals))
-    except np.linalg.LinAlgError:
-        kappa = 1.0  # Fall back to 2SLS
+        from scipy.linalg import eigh as _sp_eigh
+        eigvals = _sp_eigh(S_exog, S_full, eigvals_only=True)
+        kappa = float(np.min(eigvals))
+        if not np.isfinite(kappa) or kappa < 1 - 1e-8:
+            warnings.warn(
+                f"LIML κ = {kappa} outside expected [1, ∞); falling back "
+                "to 2SLS (κ = 1).", RuntimeWarning, stacklevel=2,
+            )
+            kappa = 1.0
+    except Exception:
+        warnings.warn(
+            "LIML generalized eigenvalue solve failed; falling back to 2SLS.",
+            RuntimeWarning, stacklevel=2,
+        )
+        kappa = 1.0
 
     if fuller is not None:
         kappa = kappa - fuller / (n - Z_all.shape[1])
@@ -157,6 +176,12 @@ def liml(
     except np.linalg.LinAlgError:
         XtX_inv = np.linalg.pinv(X_all.T @ I_kMz @ X_all)
 
+    # k-class FOC X' (I − κ M_Z) (y − X β) = 0 implies the score per
+    # observation is (AX)_i u_i with AX = (I − κ M_Z) X. Meat must use
+    # AX, not raw X — the same projection-in-meat invariant as the 2SLS
+    # path in regression/iv.py::_k_class_fit (fixed in v1.6.4). Matches
+    # Cameron–Miller (2015), Stata ivregress, and linearmodels.IVLIML.
+    AX = I_kMz @ X_all
     if cluster is not None:
         clusters = df[cluster].values
         unique_cl = np.unique(clusters)
@@ -164,15 +189,13 @@ def liml(
         meat = np.zeros((k, k))
         for cl in unique_cl:
             cl_mask = clusters == cl
-            X_cl = X_all[cl_mask]
-            r_cl = resid[cl_mask]
-            score = X_cl.T @ r_cl
+            score = AX[cl_mask].T @ resid[cl_mask]
             meat += np.outer(score, score)
         correction = n_cl / (n_cl - 1) * (n - 1) / (n - k)
         var_cov = correction * XtX_inv @ meat @ XtX_inv
     elif robust != 'nonrobust':
         Omega = np.diag(resid**2)
-        var_cov = XtX_inv @ (X_all.T @ Omega @ X_all) @ XtX_inv
+        var_cov = XtX_inv @ (AX.T @ Omega @ AX) @ XtX_inv
     else:
         sigma2 = np.sum(resid**2) / (n - k)
         var_cov = sigma2 * XtX_inv

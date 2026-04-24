@@ -2,6 +2,65 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.6.5] — 2026-04-24 — ⚠️ Standalone LIML correctness fix (follow-up to v1.6.4)
+
+### ⚠️ Correctness fix — standalone `sp.liml` / `sp.iv.liml`
+
+**Affected**: the standalone LIML entry point
+`sp.liml(...)` = `sp.iv.liml(...)` in `statspai.regression.advanced_iv`.
+This is a **separate code path** from the 2SLS/LIML/Fuller dispatcher
+fixed in v1.6.4 (`sp.ivreg(method='liml')` went through the correct
+`_k_class_fit` implementation and was fixed in the previous release;
+the standalone `sp.liml` did not).
+
+**Not affected**: `sp.ivreg`, `sp.iv.iv`, `sp.iv.fit`,
+`sp.ivreg(method='liml' | 'fuller' | '2sls')` — all already correct
+as of v1.6.4.
+
+**What was wrong.** Two independent bugs in the standalone LIML:
+
+1. **κ (Anderson LIML eigenvalue) used non-symmetric solver**: the code
+   called `np.linalg.eigvals(np.linalg.inv(A) @ B)` on a non-symmetric
+   product, which can silently return complex eigenvalues and produces
+   a biased κ. This is the same bug fixed in `iv.py::_liml_kappa` in an
+   earlier release, but the standalone module was an orphan copy that
+   never got the fix. **Point estimates β̂ were biased** as a result.
+2. **Cluster / robust SE meat used raw X**: same bug as v1.6.4, just in
+   a different module. Sandwich meat is now built from the k-class
+   transformed regressor `AX = (I − κ M_Z) X`.
+
+**The fix.**
+
+1. κ now computed via `scipy.linalg.eigh(S_exog, S_full)`
+   (generalized symmetric eigenvalue problem), aligned with
+   `iv.py::_liml_kappa`. Falls back to 2SLS (κ = 1) with a warning if
+   the solver returns an implausible κ < 1.
+2. Cluster / robust SE meat now uses `AX = I_kMz @ X_all`, matching
+   the FOC `X' (I − κ M_Z) (y − X β) = 0`.
+
+**What you'll see.** Users who called `sp.liml(...)` directly will see
+**both β̂ and SE change** compared to ≤ v1.6.4. After the fix,
+`sp.liml(...)` and `sp.ivreg(..., method='liml')` produce byte-identical
+output, and both agree with `linearmodels.IVLIML` on β̂ to machine
+precision. Cluster SEs differ from `linearmodels.IVLIML` by ~0.1–0.2%
+due to a convention choice (StatsPAI uses the k-class FOC-derived
+meat `AX`; linearmodels uses the 2SLS-style meat `X̂ = P_Z X`
+regardless of κ). The two are asymptotically equivalent and coincide
+at κ = 1 (2SLS).
+
+### Added — test coverage
+
+- `tests/reference_parity/test_liml_se_parity.py`: four tests —
+  hand-computed projected-meat formula match, `sp.liml` vs
+  `sp.ivreg(method='liml')` internal consistency (byte-exact), and
+  `linearmodels.IVLIML` parity with documented convention tolerance.
+
+### Fixed
+
+- `src/statspai/regression/advanced_iv.py::liml` — κ solver aligned to
+  `scipy.linalg.eigh` on the symmetric generalized eigenvalue problem;
+  cluster / robust meat now uses projected `AX = I_kMz @ X_all`.
+
 ## [1.6.4] — 2026-04-24 — ⚠️ IV SE correctness fix
 
 ### ⚠️ Correctness fix — IV cluster & robust standard errors

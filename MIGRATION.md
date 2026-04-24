@@ -5,6 +5,64 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## v1.6.4 → v1.6.5 — ⚠️ Standalone LIML correctness fix
+
+**Narrow correctness follow-up to v1.6.4.** If your codebase only uses
+`sp.ivreg`, `sp.iv.iv`, `sp.iv.fit`, or `sp.ivreg(method='liml')` you
+are **not affected** — those paths were fixed in v1.6.4. This release
+closes an orphan copy of the same bug that lived in the standalone
+`sp.liml` / `sp.iv.liml` entry point.
+
+### What changed numerically
+
+Anything calling `sp.liml(...)` directly will see both **β̂ and SE
+change** compared to ≤ v1.6.4. Two independent bugs were fixed:
+
+1. **κ_LIML solver**: switched from the non-symmetric
+   `np.linalg.eigvals(inv(A) @ B)` (which can silently return complex
+   eigenvalues and a biased κ) to the proper generalized symmetric
+   eigenvalue problem `scipy.linalg.eigh(S_exog, S_full)`. Point
+   estimates β̂ shift to the correct κ.
+2. **Sandwich meat**: the cluster / robust meat used raw `X` instead of
+   the k-class transformed `AX = (I − κ M_Z) X`. Same bug family as
+   v1.6.4 for 2SLS; same fix (use the influence-function regressor in
+   the meat).
+
+### Post-fix consistency checks
+
+- `sp.liml(...)` now produces **byte-identical** output to
+  `sp.ivreg(..., method='liml')`.
+- β̂ agrees with `linearmodels.IVLIML` to machine precision.
+- Cluster SEs differ from `linearmodels.IVLIML` by ~0.1–0.2% because
+  StatsPAI uses the k-class FOC-derived meat `AX = (I − κ M_Z) X`,
+  while `linearmodels` uses the 2SLS-style meat `X̂ = P_Z X`
+  regardless of κ. Both estimators are asymptotically equivalent and
+  coincide exactly at κ = 1 (2SLS). The convention is documented in
+  the new test file `tests/reference_parity/test_liml_se_parity.py`.
+
+### What you should do
+
+1. **If you have published LIML results** from a version ≤ v1.6.4 via
+   `sp.liml(...)`, re-run and update — the old κ could be materially
+   off and the old SE was built from the wrong meat.
+2. **If you want LIML and only used `sp.ivreg(method='liml')`**, no
+   action needed; v1.6.4 already has the correct formula.
+3. **If you pinned SE or coefficient values** against the standalone
+   `sp.liml` in your test suite, re-baseline to the v1.6.5 numbers.
+
+### Reference formula (same as v1.6.4 for the k-class meat)
+
+```text
+β̂ − β = (X' A X)⁻¹ (AX)' u ,  A = (1 − κ) I + κ P_Z
+Meat (cluster):  Σ_c (Σ_{i∈c} (AX)_i u_i)(·)'
+Bread         :  (X' A X)⁻¹  = (AX' X)⁻¹
+```
+
+For 2SLS (κ = 1) `AX = P_Z X = X̂`; for LIML/Fuller `AX` is the
+k-class transformed regressor.
+
+---
+
 ## v1.6.3 → v1.6.4 — ⚠️ IV SE correctness fix
 
 **Correctness-fix release.** No API surface changes, no new functions,
