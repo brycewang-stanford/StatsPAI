@@ -656,39 +656,49 @@ pip install statspai[fixest]      # pyfixest for high-dimensional FE
 
 ## Quick Example
 
+Every snippet below is end-to-end runnable — it uses only the teaching datasets bundled with StatsPAI under `sp.datasets`, so `pip install statspai` and paste-run is all you need.
+
 ```python
 import statspai as sp
 
 # --- Estimation ---
-r1 = sp.regress("wage ~ education + experience", data=df, robust='hc1')
-r2 = sp.ivreg("wage ~ (education ~ parent_edu) + experience", data=df)
-r3 = sp.did(df, y='wage', treat='policy', time='year', id='worker')
-r4 = sp.rdrobust(df, y='score', x='running_var', c=0)
-r5 = sp.dml(df, y='wage', treat='training', covariates=['age', 'edu', 'exp'])
-r6 = sp.causal_forest("y ~ treatment | x1 + x2 + x3", data=df)
+card = sp.datasets.card_1995()           # Card (1995) returns-to-schooling (n=3010)
+r1 = sp.regress("lwage ~ educ + exper", data=card, robust='hc1')
+r2 = sp.ivreg("lwage ~ (educ ~ nearc4) + exper", data=card)
+
+mp = sp.datasets.mpdta()                 # Callaway–Sant'Anna staggered DiD (n=2500)
+r3 = sp.did(mp, y='lemp', treat='first_treat', time='year', id='countyreal')
+
+lee = sp.datasets.lee_2008_senate()      # Lee (2008) sharp RD (n=6558)
+r4 = sp.rdrobust(lee, y='voteshare_next', x='margin', c=0)
+
+nsw = sp.datasets.nsw_dw()               # LaLonde / NSW-DW job training (n=2675)
+r5 = sp.dml(nsw, y='re78', treat='treat',
+            covariates=['age', 'education', 're74', 're75'])
+r6 = sp.causal_forest("re78 ~ treat | age + education + re74 + re75", data=nsw)
 
 # --- Post-estimation ---
-sp.margins(r1, data=df)              # Marginal effects
-sp.test(r1, "education = experience") # Wald test
-sp.oster_bounds(df, y='wage', treat='education', controls=['experience'])
+sp.margins(r1, data=card)                 # Marginal effects
+sp.test(r1, "educ = exper")               # Wald test
+sp.oster_bounds(card, y='lwage', treat='educ', controls=['exper'])
 
 # --- Tables (to Word / Excel / LaTeX) ---
 sp.modelsummary(r1, r2, output='table2.docx')
 sp.outreg2(r1, r2, r3, filename='results.xlsx')
-sp.sumstats(df, vars=['wage', 'education', 'age'], output='table1.docx')
+sp.sumstats(card, vars=['lwage', 'educ', 'exper'], output='table1.docx')
 
 # --- Robustness (unique to StatsPAI) ---
-sp.spec_curve(df, y='wage', x='education',
-              controls=[[], ['experience'], ['experience', 'female']],
+sp.spec_curve(card, y='lwage', x='educ',
+              controls=[[], ['exper'], ['exper', 'black']],
               se_types=['nonrobust', 'hc1']).plot()
 
-sp.robustness_report(df, formula="wage ~ education + experience",
-                     x='education', extra_controls=['female'],
+sp.robustness_report(card, formula="lwage ~ educ + exper",
+                     x='educ', extra_controls=['black'],
                      winsor_levels=[0.01, 0.05]).plot()
 
-sp.subgroup_analysis(df, formula="wage ~ education + experience",
-                     x='education',
-                     by={'Gender': 'female', 'Region': 'region'}).plot()
+sp.subgroup_analysis(card, formula="lwage ~ educ + exper",
+                     x='educ',
+                     by={'Region': 'south', 'Race': 'black'}).plot()
 ```
 
 ---

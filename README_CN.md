@@ -328,34 +328,44 @@ pip install statspai[deepiv]      # PyTorch (Deep IV)
 
 ## 快速示例
 
+以下所有代码均可直接运行 —— 仅使用 StatsPAI 随包内置的教学数据集（`sp.datasets`），无需额外下载数据。`pip install statspai` 后复制粘贴即可执行。
+
 ```python
 import statspai as sp
 
 # --- 估计 ---
-r1 = sp.regress("wage ~ education + experience", data=df, robust='hc1')
-r2 = sp.ivreg("wage ~ (education ~ parent_edu) + experience", data=df)
-r3 = sp.did(df, y='wage', treat='policy', time='year', id='worker')
-r4 = sp.rdrobust(df, y='score', x='running_var', c=0)
-r5 = sp.dml(df, y='wage', treat='training', covariates=['age', 'edu', 'exp'])
-r6 = sp.causal_forest("y ~ treatment | x1 + x2 + x3", data=df)
+card = sp.datasets.card_1995()            # Card (1995) 教育回报（n=3010）
+r1 = sp.regress("lwage ~ educ + exper", data=card, robust='hc1')
+r2 = sp.ivreg("lwage ~ (educ ~ nearc4) + exper", data=card)
+
+mp = sp.datasets.mpdta()                  # Callaway–Sant'Anna 交错 DiD（n=2500）
+r3 = sp.did(mp, y='lemp', treat='first_treat', time='year', id='countyreal')
+
+lee = sp.datasets.lee_2008_senate()       # Lee (2008) 锐断 RD（n=6558）
+r4 = sp.rdrobust(lee, y='voteshare_next', x='margin', c=0)
+
+nsw = sp.datasets.nsw_dw()                # LaLonde / NSW-DW 职业培训（n=2675）
+r5 = sp.dml(nsw, y='re78', treat='treat',
+            covariates=['age', 'education', 're74', 're75'])
+r6 = sp.causal_forest("re78 ~ treat | age + education + re74 + re75", data=nsw)
 
 # --- 估计后 ---
-sp.margins(r1, data=df)              # 边际效应
-sp.test(r1, "education = experience") # Wald 检验
-sp.estat(r1)                          # 综合诊断
+sp.margins(r1, data=card)                  # 边际效应
+sp.test(r1, "educ = exper")                # Wald 检验
+sp.estat(r1)                               # 综合诊断
 
 # --- 表格（Word / Excel / LaTeX）---
 sp.modelsummary(r1, r2, output='table2.docx')
 sp.outreg2(r1, r2, r3, filename='results.xlsx')
-sp.sumstats(df, vars=['wage', 'education', 'age'], output='table1.docx')
+sp.sumstats(card, vars=['lwage', 'educ', 'exper'], output='table1.docx')
 
 # --- 稳健性（StatsPAI 独有）---
-sp.spec_curve(df, y='wage', x='education',
-              controls=[[], ['experience'], ['experience', 'female']],
+sp.spec_curve(card, y='lwage', x='educ',
+              controls=[[], ['exper'], ['exper', 'black']],
               se_types=['nonrobust', 'hc1']).plot()
 
 # --- 智能推荐（StatsPAI 独有）---
-rec = sp.recommend(df, y='wage', treatment='training')
+rec = sp.recommend(nsw, y='re78', treatment='treat')
 print(rec.summary())     # 推荐哪个估计方法 + 原因
 result = rec.run()       # 一键执行推荐的方法
 ```
