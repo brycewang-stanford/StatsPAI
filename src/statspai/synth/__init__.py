@@ -21,7 +21,7 @@ Variants (20 methods)
 - **bsts / causal_impact** — Bayesian Structural Time Series (Brodersen et al. 2015)
 - **penscm / abadie_lhour** — Penalized SCM with pairwise discrepancy (Abadie & L'Hour 2021)
 - **fdid / forward_did** — Forward DID with optimal donor selection (Li 2024)
-- **cluster** — Cluster SCM with donor grouping (Rho 2024)
+- **cluster** — Cluster SCM with donor grouping (Rho et al. 2025, arXiv:2503.21629) [@rho2025clustersc]
 - **sparse / lasso** — Sparse SCM with L1 penalties (Amjad, Shah & Shen 2018)
 - **kernel / kernel_ridge** — Kernel-based nonlinear SCM
 

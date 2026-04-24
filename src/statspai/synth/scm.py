@@ -19,7 +19,7 @@ Provides ``synth()`` as a single dispatcher for 20 SCM variants:
 * **bsts / causal_impact** — Bayesian Structural Time Series (Brodersen et al. 2015)
 * **penscm / abadie_lhour** — Penalized SCM (Abadie & L'Hour 2021)
 * **fdid / forward_did** — Forward DID (Li 2024)
-* **cluster** — Cluster SCM (Rho 2024)
+* **cluster** — Cluster SCM (Rho et al. 2025, arXiv:2503.21629)
 * **sparse / lasso** — Sparse SCM (Amjad, Shah & Shen 2018)
 * **kernel** — Kernel-based nonlinear SCM
 * **kernel_ridge** — Kernel ridge regression SCM
@@ -107,7 +107,7 @@ def synth(
           pairwise discrepancy (Abadie & L'Hour 2021).
         * ``'fdid'`` / ``'forward_did'`` — Forward DID
           (Li 2024).
-        * ``'cluster'`` — Cluster SCM (Rho 2024).
+        * ``'cluster'`` — Cluster SCM (Rho et al. 2025, arXiv:2503.21629). [@rho2025clustersc]
         * ``'sparse'`` / ``'lasso'`` — Sparse SCM
           (Amjad, Shah & Shen 2018).
         * ``'kernel'`` — Kernel-based nonlinear SCM.
