@@ -72,7 +72,7 @@ Before today's edit, `continuous_did` and `did_multiplegt` were falling through 
 
 ### What Callaway-Goodman-Bacon-Sant'Anna (2024) actually identifies
 
-[待核验 — CGS 2024 (NBER WP 32117) §3; will confirm against the PDF] the headline estimands are:
+[待核验 — Callaway, Goodman-Bacon & Sant'Anna (2024), NBER WP 32117 §3; will confirm against the PDF] the headline estimands are:
 
 - **ATT(d|g,t)** = E[Y_t(d) − Y_t(0) | G=g, D=d] for treated with dose `d` in cohort `g` at time `t` — a level effect.
 - **ACRT(d|g,t)** = d/dd ATT(d|g,t) — an average causal response on the treated, a slope effect.

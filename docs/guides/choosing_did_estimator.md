@@ -125,6 +125,29 @@ DID is the **wrong** tool if:
 4. **Anticipation effects exist:** use `anticipation=h` parameter in
    CS2021 to backdate the reference period.
 
+## 4.5 Frontier estimators (tracked, partial, or not-yet-landed)
+
+Several post-2020 DiD advances are either **partially** shipped or on
+the roadmap. Using them today means knowing what you're getting:
+
+| What you want | Current state | Tracked in |
+| --- | --- | --- |
+| Continuous-dose DiD — heuristic | `sp.continuous_did(method='att_gt')` dose-quantile 2×2 rollup; **not** CGS (2024) ATT(d\|g,t) | `docs/rfc/continuous_did_cgs.md` |
+| Continuous-dose DiD — CGS (2024) ATT(d\|g,t) / ACRT | **Not yet implemented**; `method='cgs'` reserved in RFC | `docs/rfc/continuous_did_cgs.md` |
+| On/off switching — dCDH (2020) DID_M | `sp.did_multiplegt` — pair rollup + joint placebo + avg cumulative (2024 overlay) | shipped |
+| On/off switching — dCDH (2024) `_dyn` event-study | **Not yet implemented**; `sp.did_multiplegt(dynamic=H)` is *not* equivalent | `docs/rfc/multiplegt_dyn.md` |
+| LP-DiD (Dube, Girardi, Jordà, Taylor 2023) | **Not yet implemented** | `docs/rfc/did_roadmap_gap_audit.md` §4 |
+| Triple-difference, heterogeneity-robust | `sp.ddd` textbook only; Olden-Møen / Strezhnev variants pending | `docs/rfc/did_roadmap_gap_audit.md` §4 |
+| Time-varying covariates DiD (Caetano et al. 2022) | **Not yet implemented** | `docs/rfc/did_roadmap_gap_audit.md` §4 |
+
+> **Why dCDH (2020) and dCDH (2024) are not the same estimator**: the 2024 ``_dyn`` version does a direct long-difference event-study with "not-yet-treated at horizon `l`" as the per-horizon control group, with its own influence-function variance. `sp.did_multiplegt(dynamic=H)` is the 2020 pair rollup extended to H horizons — numerically close in simple DGPs, but different in identification, control construction, and inference. Until `sp.did_multiplegt_dyn` lands, if you want the 2024 estimator, do not use the 2020 function as a substitute.
+
+Until frontier items land with reference-parity tests, do not cite them
+as CGS (2024) / dCDH (2024) in your paper. The current heuristics are
+honest dose-bin / pair-rollup estimators — useful but not paper-faithful
+to those 2024 estimands. See the RFCs for API proposals and
+[待核验]-marked identification formulas.
+
 ## 5. Reading the output
 
 All DID estimators in StatsPAI return a `CausalResult`. The common

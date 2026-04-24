@@ -16,7 +16,7 @@
 
 ## 2. 目标估计量 `[待核验]`
 
-> dCDH 2024 *ReStat* §2—§3（DOI 10.1162/rest_a_01414，已在 `paper.bib` 核验），以及 R `DIDmultiplegtDYN` 包 reference manual。arXiv working-paper 版本号 [待核验]。所有公式核验前不得落到 docstring。
+> dCDH 2024 *ReStat* §2—§3（DOI `10.1162/rest_a_01414`，已在 `paper.bib` 核验），以及 R `DIDmultiplegtDYN` 包 reference manual。arXiv working-paper 版本号 [待核验]。所有公式核验前不得落到 docstring。
 
 对每个 horizon `l ≥ 0`：
 
@@ -51,7 +51,7 @@ dCDH 2024 provides:
 - **Joint test** of all dynamic horizons + placebo: `W = δ̂' V⁻¹ δ̂ ~ χ²(L_P + L_D + 1)`.
 - **Average cumulative effect**: `δ̄ = (1/(L+1)) Σ_l δ_l`, SE from the IF covariance across horizons.
 
-Heteroskedastic-weights variant (dCDH 2022 survey, `paper.bib` key `dechaisemartin2022fixed` — journal venue [待核验]): alternative cell weighting less sensitive to group-size heterogeneity [待核验].
+Heteroskedastic-weights variant (dCDH 2023 survey, *The Econometrics Journal* 26(3):C1-C30, DOI 10.1093/ectj/utac017, bib key `dechaisemartin2022fixed` — venue verified 2026-04-24 via Crossref): alternative cell weighting less sensitive to group-size heterogeneity [待核验].
 
 ## 4. 拟议 API
 

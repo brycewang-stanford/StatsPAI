@@ -5,6 +5,51 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## v1.6.2 → v1.6.3 — DiD frontier sprint
+
+**Strictly additive** plus one docstring / label truth-up. No existing
+estimator's numerical path changes.
+
+### User-visible changes worth noting
+
+1. **`sp.continuous_did(method='att_gt')` result labels** —
+   - ``result.method`` changed from
+     `"Continuous DID (Callaway et al. 2024)"` to
+     `"Continuous DID (dose-bin heuristic)"`.
+   - ``result.estimand`` changed from
+     `"ACRT (Average Causal Response on Treated)"` to
+     `"Sample-weighted mean of dose-bin 2x2 DIDs (not CGS 2024 ATT(d|g,t))"`.
+   - Why: the previous labels claimed paper fidelity with CGS (2024)
+     that the implementation did not deliver. Numerical output is
+     unchanged. If you were parsing these strings in a pipeline, update
+     the matcher.
+   - If you actually want a CGS (2024)-style estimator: the new
+     `method='cgs'` is an **MVP** (2-period design, OR only) with
+     paper formulas flagged `[待核验]`. See
+     `docs/rfc/continuous_did_cgs.md`.
+
+2. **`sp.did_multiplegt(dynamic=H)` semantic clarification** — the
+   docstring now states explicitly that this is a pair-rollup
+   extension, **not** the dCDH (2024) `did_multiplegt_dyn` estimator.
+   Numerical output is unchanged; if you were using `dynamic=H` and
+   calling it "dCDH 2024", switch to the new `sp.did_multiplegt_dyn`
+   (also MVP — see `docs/rfc/multiplegt_dyn.md`).
+
+### New functions (no migration needed, just additive)
+
+`sp.lp_did`, `sp.ddd_heterogeneous`, `sp.did_timevarying_covariates`,
+`sp.did_multiplegt_dyn` (MVP), `sp.continuous_did(method='cgs')` (MVP).
+
+### Bib key updates
+
+`paper.bib` entry `dechaisemartin2022fixed` upgraded from SSRN to the
+published *Econometrics Journal* 26(3):C1–C30 (2023) version. Any
+downstream uses of the bib key via `[@dechaisemartin2022fixed]` are
+unaffected; the expanded citation will now render to the journal
+version.
+
+---
+
 ## v1.5.x → agent-native infrastructure (Unreleased)
 
 Pure-additive release. **No migration required** for existing code.

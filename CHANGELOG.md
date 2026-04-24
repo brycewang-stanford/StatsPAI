@@ -2,6 +2,111 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.6.3] — 2026-04-24 — DiD frontier sprint
+
+Additive release focused on closing gaps in the DiD module. **No numerical
+changes to existing estimators** — all new work is either new functions,
+new registry entries, new tests, or docstring truth-up where the existing
+docstring had overstated paper fidelity.
+
+### Added — new DiD estimators
+
+- **`sp.lp_did`** — Local-Projections DiD (Dube, Girardi, Jordà &
+  Taylor 2023). Per-horizon long-difference OLS with time FE and
+  cluster-robust SE; 'not-yet-treated' or 'never-treated' control
+  variants. Paper bib key pending — reference carries ``[待核验]``.
+- **`sp.ddd_heterogeneous`** — Heterogeneity-robust triple differences
+  (Olden & Møen 2022 / Strezhnev 2023). CS-style cohort-time
+  decomposition of DDD with a placebo subgroup, aggregated via
+  switcher-count weights. `[@olden2022triple]` verified via Crossref;
+  Strezhnev bib key pending.
+- **`sp.did_timevarying_covariates`** — DiD with covariates frozen at
+  baseline (Caetano, Callaway, Payne & Rodrigues 2022 — paper version
+  `[待核验]`). Avoids the bad-controls bias when treatment affects the
+  covariates. Per-(g, t) OR-DiD on frozen baseline X, aggregated with
+  cohort-size weights.
+- **`sp.did_multiplegt_dyn`** — dCDH (2024) intertemporal event-study
+  DiD **MVP**. Long-difference per-horizon estimator with not-yet-
+  treated / never-treated controls, cluster-bootstrap SE, joint
+  placebo and overall Wald tests. Anchored to
+  `[@dechaisemartin2024difference]` (DOI verified). **Not paper-
+  parity** — switch-off events and analytical IF variance are flagged
+  `[待核验]`, covered in `docs/rfc/multiplegt_dyn.md`.
+- **`sp.continuous_did(method='cgs')`** — Callaway-Goodman-Bacon-
+  Sant'Anna (2024) ATT(d)/ACRT(d) **MVP**. 2-period design, OR only,
+  Nadaraya-Watson-style local linear smoother over dose, bootstrap
+  SE. Anchored to `[@callaway2024difference]`. Full CGS cohort
+  aggregation + DR/IPW + analytical IF are flagged `[待核验]` and
+  tracked in `docs/rfc/continuous_did_cgs.md`.
+
+### Added — shared infrastructure
+
+- **`statspai.did._core`** — shared DiD primitives: cluster-bootstrap
+  resampling with collision-safe relabelling, canonical event-study
+  DataFrame shape, influence-function → SE plumbing, joint Wald. Used
+  by the new estimators above; existing estimators retain their
+  in-file copies (refactor is a separate pass). 16 unit tests.
+
+### Added — docstring truth-up (non-numerical)
+
+- `sp.continuous_did` docstring no longer claims "equivalent to the
+  methods in Callaway, Goodman-Bacon & Sant'Anna (2024)". The heuristic
+  modes (`'twfe'`, `'att_gt'`, `'dose_response'`) are explicitly
+  labelled as heuristic; the CGS MVP lives at `method='cgs'`. Method
+  label in returned CausalResult for the dose-bin heuristic changed
+  from "Continuous DID (Callaway et al. 2024)" to "Continuous DID
+  (dose-bin heuristic)" with estimand name updated accordingly.
+- `sp.did_multiplegt` docstring explicitly notes its `dynamic=H`
+  argument is a pair-rollup extension, **not** equivalent to the dCDH
+  (2024) `did_multiplegt_dyn` estimator (which is now a separate
+  function, `sp.did_multiplegt_dyn`).
+
+### Added — test coverage
+
+- `tests/test_continuous_did_heuristics.py` — 11 tests covering
+  `method='att_gt'` and `method='dose_response'` paths that previously
+  had zero dedicated tests.
+- `tests/test_did_core_primitives.py` — 16 unit tests for `_core.py`.
+- `tests/test_lp_did.py` — 9 tests for `sp.lp_did`.
+- `tests/test_ddd_heterogeneous.py` — 7 tests for
+  `sp.ddd_heterogeneous`.
+- `tests/test_did_timevarying_covariates.py` — 6 tests.
+- `tests/test_did_multiplegt_dyn.py` — 10 tests including method-label
+  MVP warning.
+- `tests/test_continuous_did_cgs.py` — 8 tests including recovery on
+  linear dose-response DGP.
+- `tests/reference_parity/test_did_multiplegt_parity.py` — skeleton
+  with R fixture script template; skipped until
+  `tests/reference_parity/fixtures/did_multiplegt/*.json` committed.
+
+### Added — registry
+
+Rich hand-written `FunctionSpec` entries with agent-card metadata
+(assumptions, failure modes with `alternative` pointers, pre-conditions,
+typical_n_min) for 18 previously auto-registered DiD estimators:
+`did_2x2`, `drdid`, `sun_abraham`, `did_imputation`, `wooldridge_did`,
+`etwfe`, `bacon_decomposition`, `ddd`, `cic`, `stacked_did`,
+`event_study`, `did_analysis`, `harvest_did`, `overlap_weighted_did`,
+`cohort_anchored_event_study`, `design_robust_event_study`,
+`did_misclassified`, `did_bcf`, plus rich entries for the five new
+functions above. One fabricated bib key (`roth2023trustworthy`)
+detected and removed during self-review; replaced with `[待核验]`.
+
+### Added — documentation
+
+- `docs/guides/choosing_did_estimator.md` §4.5 **Frontier estimators**
+  section distinguishes shipped vs. partial vs. not-yet-landed work
+  and cross-links all three RFC documents. Makes explicit that
+  `sp.did_multiplegt(dynamic=H)` is **not** the dCDH (2024) `_dyn`
+  estimator.
+
+### Fixed — citation hygiene
+
+- **`paper.bib`**: `dechaisemartin2022fixed` upgraded from the SSRN
+  working-paper stub to the published *Econometrics Journal* 26(3):
+  C1–C30 (2023) version, DOI `10.1093/ectj/utac017`. Verified via two
+  independent Crossref queries per CLAUDE.md §10 two-source rule.
+
 ## [1.6.2] — 2026-04-23 — DiD-frontier registry coverage
 
 Patch release. **Pure-additive: no numerical behaviour changes.** Closes a
