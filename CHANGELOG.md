@@ -2,6 +2,59 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.6.4] — 2026-04-24 — ⚠️ IV SE correctness fix
+
+### ⚠️ Correctness fix — IV cluster & robust standard errors
+
+**Affected**: `sp.iv`, `sp.ivreg`, `sp.iv.fit(method='2sls' | 'liml' | 'fuller')`
+— any call that passes `robust={'hc0','hc1','hc2','hc3'}` or `cluster=`.
+
+**Not affected**: point estimates `β̂` are unchanged; nonrobust (default)
+standard errors are unchanged; GMM (`method='gmm'`), JIVE (`method='jive'`),
+and the JIVE variants (`ujive`/`ijive`/`rjive`) are unchanged (they already
+used the correct formula).
+
+**What was wrong.** The 2SLS / LIML / Fuller k-class sandwich meat was
+computed with the **unprojected** regressor matrix `X = [X_exog, X_endog]`
+instead of the projected `X̂ = P_W X`. The bread
+`(X' A X)^{-1} = (X̂' X̂)^{-1}` was correct; the bug was in
+`src/statspai/regression/iv.py::_cluster_cov` / `::_robust_cov` call
+sites which passed `X_actual` where the parameter (already misleadingly
+named `X_hat`) expected the projected regressor.
+
+This deviated from Cameron & Miller (2015), Stata `ivregress`,
+`ivreg2` (Baum–Schaffer–Stillman 2007), and `linearmodels`. The
+magnitude of the error depends on first-stage fit: weaker instruments
+→ larger inflation of the reported SE. On the audit DGP (n=1000,
+40 clusters, moderate first stage) the reported SE on the endogenous
+coefficient was **2.46× too large**.
+
+**The fix.** `_k_class_fit` now computes `AX = A @ X_actual` and passes
+it to `_cluster_cov` / `_robust_cov`. For 2SLS (κ=1) this yields
+`AX = P_W X = X̂`; for LIML/Fuller it is the k-class transformed
+regressor `X − κ M_W X` that the k-class FOC `X' A (y − X β) = 0`
+dictates. Matches `linearmodels` `IV2SLS` with `debiased=True` to
+machine precision.
+
+**What you'll see.** Reported SEs for cluster / HC0 / HC1 / HC2 / HC3
+under 2SLS / LIML / Fuller will decrease (or occasionally increase)
+compared to v1.6.3 and earlier. t-statistics, p-values, and confidence
+intervals will change accordingly. **If you cite SEs from StatsPAI IV
+in a paper, re-run and update the numbers before submission.**
+
+### Added — test coverage
+
+- `tests/reference_parity/test_iv_se_parity.py`: six tests pinning
+  2SLS cluster / HC0 / HC1 to both a hand-computed projected-meat
+  formula (Cameron–Miller) and to `linearmodels.IV2SLS` with
+  `debiased=True`. Closes the coverage gap that let this bug live
+  in `_cluster_cov` / `_robust_cov` since the module's introduction.
+
+### Fixed
+
+- `src/statspai/regression/iv.py::_k_class_fit` — pass projected
+  `AX = A @ X_actual` to the sandwich meat.
+
 ## [1.6.3] — 2026-04-24 — DiD frontier sprint
 
 Additive release focused on closing gaps in the DiD module. **No numerical

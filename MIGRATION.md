@@ -5,6 +5,71 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## v1.6.3 → v1.6.4 — ⚠️ IV SE correctness fix
+
+**Correctness-fix release.** No API surface changes, no new functions,
+no docstring renames. **Numerical output of IV cluster / robust SE
+changes** — this is the whole point of the release.
+
+### What changed numerically
+
+`sp.iv`, `sp.ivreg`, and `sp.iv.fit(method='2sls' | 'liml' | 'fuller')`
+produce different standard errors when called with `robust={'hc0',
+'hc1', 'hc2', 'hc3'}` or `cluster=...`. The fix restores the textbook
+Cameron–Miller (2015) / Stata `ivregress` / `linearmodels` formula —
+meat uses the projected regressor `X̂ = P_W X` rather than the raw
+`X = [X_exog, X_endog]`.
+
+Concretely the sandwich is now
+
+```text
+V̂ = (X̂'X̂)⁻¹ · [ Σ_c (X̂_c' û_c)(û_c' X̂_c) ] · (X̂'X̂)⁻¹
+```
+
+for the cluster case, and analogously for HC0/HC1/HC2/HC3. Before v1.6.4
+the bread used `X̂` but the meat used `X`, which is a strictly incorrect
+estimator for 2SLS — it happens to coincide with the correct formula
+only when the first stage is a perfect fit (never, in practice).
+
+### Who is affected
+
+- Any IV workflow using `robust=` or `cluster=` with 2SLS, LIML, or Fuller.
+- **Not affected**: point estimates (`β̂` is algebraically unchanged by
+  the projection in the meat), nonrobust default SE, `method='gmm'`,
+  `method='jive'`, and `sp.iv.ujive` / `ijive` / `rjive`.
+
+### What you should do
+
+1. **If you have published results** citing an IV SE / t-stat / p-value
+   / CI from StatsPAI ≤ 1.6.3, re-run and update. The bias in the
+   reported SE can be several-fold depending on first-stage fit —
+   **not a rounding issue**.
+2. **If you have pinned SE values in your test suite** against an
+   earlier StatsPAI version, expect a mismatch. You can verify the new
+   numbers by cross-checking with `linearmodels.IV2SLS(...).fit(
+   cov_type='clustered', debiased=True)` — they should now agree to
+   machine precision.
+3. **If you were intentionally trying to reproduce the old (wrong)
+   numbers**, don't. There is no supported way to get the
+   pre-v1.6.4 behaviour because it was not a convention choice — it
+   was a bug.
+
+### Reference formula
+
+For k-class with parameter κ (2SLS → κ=1, LIML → κ=κ_LIML, Fuller →
+κ_LIML − α/(n−K)):
+
+- Bread: `(X' A X)⁻¹` with `A = (1−κ) I + κ P_W`
+- Meat: uses `A X` (the k-class transformed regressor); for 2SLS
+  `A X = P_W X = X̂`
+- FOC: `X' A (y − X β) = 0`, so the influence function is
+  `β̂ − β = (X'AX)⁻¹ (AX)' u`, and the cluster/robust variance
+  plugs `(AX)_i u_i` into the moment sum.
+
+Pre-v1.6.4 the implementation plugged `X_i u_i` instead of `(AX)_i u_i`.
+
+---
+
 ## v1.6.2 → v1.6.3 — DiD frontier sprint
 
 **Strictly additive** plus one docstring / label truth-up. No existing

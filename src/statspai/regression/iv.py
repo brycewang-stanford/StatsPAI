@@ -123,12 +123,19 @@ def _k_class_fit(
     residuals = y - fitted_values
 
     # --- Standard errors ---
-    # Use 2SLS-style sandwich: bread = (X_hat'X_hat)^{-1}, meat varies
-    # For k-class, the "bread" is XAX_inv
+    # The k-class first-order condition X' A (y - X β) = 0 implies the
+    # influence function β̂ - β = (X'AX)^{-1} (AX)' u, so the sandwich
+    # meat must use the PROJECTED regressors AX, not the raw X. For
+    # κ = 1 (2SLS) this is AX = P_W X = X̂; for LIML/Fuller it is the
+    # k-class transformed regressor. Using raw X here is the classic
+    # mistake that inflates 2SLS cluster/robust SEs by a factor that
+    # depends on first-stage fit. This implementation matches
+    # Cameron–Miller (2015), Stata ivregress, and linearmodels.
+    AX = A @ X_actual
     if cluster is not None:
-        var_cov = _cluster_cov(X_actual, A, residuals, XAX_inv, cluster)
+        var_cov = _cluster_cov(AX, A, residuals, XAX_inv, cluster)
     elif robust != 'nonrobust':
-        var_cov = _robust_cov(X_actual, A, residuals, XAX_inv, robust, n, k)
+        var_cov = _robust_cov(AX, A, residuals, XAX_inv, robust, n, k)
     else:
         sigma2 = np.sum(residuals ** 2) / (n - k)
         var_cov = sigma2 * XAX_inv
