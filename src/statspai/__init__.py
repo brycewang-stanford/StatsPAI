@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "1.6.2"
+__version__ = "1.6.3"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -526,6 +526,10 @@ from .rd import (
 from .rd import rd2d, rd2d_bw, rd2d_plot
 # Continuous Treatment DID
 from .did import continuous_did
+from .did.lp_did import lp_did
+from .did.ddd_heterogeneous import ddd_heterogeneous
+from .did.timevarying_covariates import did_timevarying_covariates
+from .did.did_multiplegt_dyn import did_multiplegt_dyn
 
 # === NEW v0.6 Round 2 ===
 # Interactive Fixed Effects
@@ -1110,6 +1114,14 @@ __all__ = [
     "multi_cutoff_rd", "geographic_rd", "boundary_rd", "multi_score_rd",
     # Continuous DID
     "continuous_did",
+    # LP-DiD (Dube-Girardi-Jordà-Taylor 2023)
+    "lp_did",
+    # Heterogeneity-robust DDD (Olden-Møen 2022)
+    "ddd_heterogeneous",
+    # Time-varying covariates DiD (Caetano et al. 2022)
+    "did_timevarying_covariates",
+    # dCDH (2024) intertemporal event-study DiD (MVP — see RFC)
+    "did_multiplegt_dyn",
     # === v0.6 Round 2 ===
     "interactive_fe",
     "panel_unitroot", "PanelUnitRootResult",

@@ -5379,13 +5379,15 @@ def _build_registry():
         name="continuous_did",
         category="causal",
         description=(
-            "DiD with continuous treatment intensity. Currently exposes three "
-            "modes: (i) TWFE with dose×post interaction, (ii) dose-quantile "
-            "group-time ATT versus the untreated (dose=0) arm with bootstrap "
-            "SE, and (iii) dose-response via local-linear regression of "
-            "ΔY=Y_post−Y_pre on baseline dose. A full Callaway-Goodman-Bacon-"
-            "Sant'Anna (2024) ATT(d|g,t) / ACRT implementation with their "
-            "influence-function inference is on the roadmap — see "
+            "DiD with continuous treatment intensity. Four modes: (i) "
+            "'twfe' TWFE with dose×post interaction; (ii) 'att_gt' dose-"
+            "quantile group-time ATT versus the untreated (dose=0) arm "
+            "with bootstrap SE (heuristic); (iii) 'dose_response' local-"
+            "linear regression of ΔY=Y_post−Y_pre on baseline dose; (iv) "
+            "'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP "
+            "— 2-period design, OR only, bootstrap SE, [待核验] markers "
+            "on paper formulas. Full CGS parity (cohort aggregation, DR/"
+            "IPW, analytical IF variance) is on the roadmap — see "
             "docs/rfc/continuous_did_cgs.md."
         ),
         params=[
@@ -5404,7 +5406,7 @@ def _build_registry():
                       "First post-treatment period"),
             ParamSpec("method", "str", False, "att_gt",
                       "Estimation mode",
-                      ["att_gt", "twfe", "dose_response"]),
+                      ["att_gt", "twfe", "dose_response", "cgs"]),
             ParamSpec("n_quantiles", "int", False, 5,
                       "Number of dose quantiles for discretisation"),
             ParamSpec("controls", "list", False, None, "Control variables"),
@@ -5579,6 +5581,1152 @@ def _build_registry():
             "wooldridge_did",
         ],
         typical_n_min=50,
+    ))
+
+    # ==================================================================
+    # DiD family: rich specs for previously auto-registered estimators
+    # (added 2026-04-24 as part of docs/rfc/did_roadmap_gap_audit.md §5)
+    # ==================================================================
+
+    register(FunctionSpec(
+        name="did_2x2",
+        category="causal",
+        description=(
+            "Canonical 2×2 DID: two groups (treated / control) × two periods "
+            "(pre / post). Point estimate via either group-means differencing "
+            "or OLS on the treat × post interaction; optional covariates, "
+            "robust / cluster SE, and sample weights."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome variable"),
+            ParamSpec("treat", "str", True,
+                      description="Binary treatment-group indicator (0/1)"),
+            ParamSpec("time", "str", True, description="Time / period indicator"),
+            ParamSpec("covariates", "list", False, None,
+                      "Covariates included additively; for DR use sp.drdid"),
+            ParamSpec("cluster", "str", False, None,
+                      "Column for cluster-robust SE (defaults to treat)"),
+            ParamSpec("robust", "bool", False, True,
+                      "Heteroskedasticity-robust SE when no cluster provided"),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("weights", "str", False, None,
+                      "Optional column name for sampling weights"),
+        ],
+        returns="CausalResult",
+        example=(
+            'sp.did_2x2(df, y="earnings", treat="treated", time="year")'
+        ),
+        tags=["did", "2x2", "canonical", "causal"],
+        reference="Card & Krueger (1994); Angrist & Pischke (2009) MHE Ch.5",
+        pre_conditions=[
+            "data has exactly two time periods (pre, post)",
+            "treat is 0/1 constant within unit (unit-level, not time-varying)",
+            "at least a handful of treated and control units",
+        ],
+        assumptions=[
+            "Parallel trends",
+            "No anticipation",
+            "SUTVA (no spillovers)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Staggered timing (> 2 periods with varying treat start)",
+                exception="MethodIncompatibility",
+                remedy="Use sp.callaway_santanna / sp.sun_abraham / sp.did_imputation.",
+                alternative="callaway_santanna",
+            ),
+            FailureMode(
+                symptom="Very few clusters at the group level",
+                exception="AssumptionWarning",
+                remedy="Use wild cluster bootstrap via sp.wild_cluster_bootstrap.",
+                alternative="wild_cluster_bootstrap",
+            ),
+        ],
+        alternatives=["drdid", "did_analysis", "callaway_santanna"],
+        typical_n_min=30,
+    ))
+
+    register(FunctionSpec(
+        name="drdid",
+        category="causal",
+        description=(
+            "Doubly-robust DiD (Sant'Anna & Zhao 2020). Combines outcome "
+            "regression with IPW; consistent if either model is correct. "
+            "Primary estimator for 2×2 DiD with covariates."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome variable"),
+            ParamSpec("group", "str", True,
+                      description="Unit-level treatment indicator (0/1)"),
+            ParamSpec("time", "str", True, description="Time period column"),
+            ParamSpec("covariates", "list", False, None, "Covariates X"),
+            ParamSpec("method", "str", False, "dr",
+                      "Estimation method",
+                      ["dr", "or", "ipw", "reg", "stdipw"]),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("n_boot", "int", False, None,
+                      "Bootstrap replications (None → analytical SE)"),
+            ParamSpec("seed", "int", False, None),
+        ],
+        returns="CausalResult",
+        example=(
+            'sp.drdid(df, y="y", group="d", time="t", '
+            'covariates=["age","edu"])'
+        ),
+        tags=["did", "dr", "doubly_robust", "causal", "2x2", "ipw"],
+        reference="Sant'Anna & Zhao (2020) J. Econometrics 219(1) "
+                  "[@santanna2020doubly]",
+        pre_conditions=[
+            "panel or repeated cross-section with 2 periods",
+            "group is a binary unit-level treatment indicator",
+            "covariates have non-zero variance and overlap",
+        ],
+        assumptions=[
+            "Conditional parallel trends given X",
+            "Overlap / positivity: 0 < P(D=1|X) < 1",
+            "Correct specification of at least one nuisance model",
+            "No anticipation",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Propensity score near 0/1 (overlap violation)",
+                exception="AssumptionViolation",
+                remedy="Trim extreme propensity scores or use sp.ipw_trim.",
+                alternative="",
+            ),
+        ],
+        alternatives=["did_2x2", "callaway_santanna", "wooldridge_did"],
+        typical_n_min=100,
+    ))
+
+    register(FunctionSpec(
+        name="sun_abraham",
+        category="causal",
+        description=(
+            "Sun-Abraham (2021) interaction-weighted event-study. Fixes the "
+            "contamination in dynamic event-study TWFE coefficients from "
+            "other relative-time bins by using cohort-specific interaction "
+            "weights. Canonical companion to Callaway-Sant'Anna for event "
+            "studies."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("g", "str", True,
+                      description="First-treatment period (0 = never-treated)"),
+            ParamSpec("t", "str", True, description="Time period column"),
+            ParamSpec("i", "str", True, description="Unit identifier"),
+            ParamSpec("event_window", "tuple", False, None,
+                      "(lead, lag) window for event-study coefficients"),
+            ParamSpec("control_group", "str", False, "nevertreated",
+                      "Control arm", ["nevertreated", "notyettreated"]),
+            ParamSpec("covariates", "list", False, None),
+            ParamSpec("cluster", "str", False, None,
+                      "Cluster variable (defaults to i)"),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult with event-study in model_info['event_study']",
+        example=(
+            'sp.sun_abraham(df, y="y", g="first_treat", t="year", i="unit")'
+        ),
+        tags=["did", "event_study", "sun_abraham", "iw", "staggered", "causal"],
+        reference="Sun & Abraham (2021) J. Econometrics 225(2) "
+                  "[@sun2021estimating]",
+        pre_conditions=[
+            "panel with unit × time × outcome",
+            "g is the first-treatment period (int), 0 / NaN for never-treated",
+            "≥ 2 pre-periods per cohort for event-study leads",
+        ],
+        assumptions=[
+            "Parallel trends across cohorts",
+            "No anticipation within event_window lead horizon",
+            "SUTVA",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="No never-treated cohort when control_group='nevertreated'",
+                exception="DataInsufficient",
+                remedy="Pass control_group='notyettreated' or add never-treated units.",
+                alternative="callaway_santanna",
+            ),
+        ],
+        alternatives=["callaway_santanna", "did_imputation", "gardner_did",
+                      "wooldridge_did"],
+        typical_n_min=50,
+    ))
+
+    register(FunctionSpec(
+        name="did_imputation",
+        category="causal",
+        description=(
+            "Borusyak-Jaravel-Spiess (2024) imputation DiD. Fits a TWFE "
+            "model on untreated observations only, imputes counterfactual "
+            "Y(0) for treated obs, and averages the imputation residuals. "
+            "Efficient under no-anticipation + parallel trends; analytical "
+            "SE via bjs_inference."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("group", "str", True, description="Unit identifier"),
+            ParamSpec("time", "str", True, description="Time period column"),
+            ParamSpec("first_treat", "str", True,
+                      description="First-treatment period; 0 = never-treated"),
+            ParamSpec("controls", "list", False, None),
+            ParamSpec("horizon", "list", False, None,
+                      "Relative-time leads / lags (default: all available)"),
+            ParamSpec("cluster", "str", False, None),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult",
+        example=(
+            'sp.did_imputation(df, y="y", group="i", time="t", '
+            'first_treat="g_first")'
+        ),
+        tags=["did", "imputation", "bjs", "efficient", "event_study", "causal"],
+        reference="Borusyak, Jaravel & Spiess (2024) RES "
+                  "[@borusyak2024revisiting]; Borusyak & Jaravel (2022) "
+                  "[@borusyak2022quasi]",
+        pre_conditions=[
+            "panel with unit × time × outcome",
+            "first_treat encodes cohort (first treated period or 0)",
+            "≥ 1 never-treated unit OR ≥ 1 late-treated cohort",
+        ],
+        assumptions=[
+            "Parallel trends in absolute levels",
+            "No anticipation (no pre-treatment reaction)",
+            "SUTVA",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="All units treated (no untreated observations to fit)",
+                exception="DataInsufficient",
+                remedy="Impossible to impute Y(0); use sp.did_multiplegt if on/off switching.",
+                alternative="did_multiplegt",
+            ),
+        ],
+        alternatives=["callaway_santanna", "sun_abraham", "gardner_did",
+                      "wooldridge_did"],
+        typical_n_min=50,
+    ))
+
+    register(FunctionSpec(
+        name="wooldridge_did",
+        category="causal",
+        description=(
+            "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE "
+            "regression with cohort × post interactions; recovers "
+            "cohort-specific ATTs. Numerically equivalent to CS / SA / BJS "
+            "under the saturated specification."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("group", "str", True, description="Unit identifier"),
+            ParamSpec("time", "str", True),
+            ParamSpec("first_treat", "str", True,
+                      description="First-treatment period; 0 = never-treated"),
+            ParamSpec("controls", "list", False, None),
+            ParamSpec("cluster", "str", False, None),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult",
+        example=(
+            'sp.wooldridge_did(df, y="y", group="i", time="t", '
+            'first_treat="g")'
+        ),
+        tags=["did", "twfe", "wooldridge", "etwfe", "staggered", "causal"],
+        reference="Wooldridge (2021) working paper "
+                  "[@wooldridge2021two]; McDermott (2023) R etwfe package",
+        pre_conditions=[
+            "panel with unit × time × outcome",
+            "first_treat cohort column (first period treated, 0 = never)",
+        ],
+        assumptions=[
+            "Parallel trends per cohort",
+            "No anticipation",
+            "SUTVA",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Singleton cohorts with one unit",
+                exception="DataInsufficient",
+                remedy="Aggregate small cohorts or drop them.",
+                alternative="callaway_santanna",
+            ),
+        ],
+        alternatives=["callaway_santanna", "sun_abraham", "did_imputation",
+                      "etwfe"],
+        typical_n_min=50,
+    ))
+
+    register(FunctionSpec(
+        name="etwfe",
+        category="causal",
+        description=(
+            "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API "
+            "mirroring the R etwfe package. Alias for sp.wooldridge_did; "
+            "same numerical output."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("group", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("first_treat", "str", True),
+            ParamSpec("controls", "list", False, None),
+            ParamSpec("cluster", "str", False, None),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("xvar", "list", False, None,
+                      "R-style alias for controls"),
+            ParamSpec("panel", "bool", False, True,
+                      "If False, treat data as repeated cross-section"),
+        ],
+        returns="CausalResult",
+        example='sp.etwfe(df, y="y", group="i", time="t", first_treat="g")',
+        tags=["did", "etwfe", "twfe", "wooldridge", "staggered", "causal",
+              "r_parity"],
+        reference="Wooldridge (2021) [@wooldridge2021two]",
+        alternatives=["wooldridge_did", "callaway_santanna", "did_imputation"],
+        typical_n_min=50,
+    ))
+
+    register(FunctionSpec(
+        name="bacon_decomposition",
+        category="causal",
+        description=(
+            "Goodman-Bacon (2021) decomposition of the TWFE DiD coefficient "
+            "into a weighted sum of underlying 2×2 DID comparisons: "
+            "treated-vs-never, treated-vs-notyet, earlier-vs-later. "
+            "Diagnoses when TWFE is contaminated by already-treated units "
+            "acting as controls."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True,
+                      description="Time-varying binary treatment indicator"),
+            ParamSpec("time", "str", True),
+            ParamSpec("id", "str", True),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="dict with 'weights', 'estimates', 'summary'",
+        example=(
+            'sp.bacon_decomposition(df, y="y", treat="d", time="t", id="i")'
+        ),
+        tags=["did", "diagnostic", "bacon", "twfe", "decomposition"],
+        reference="Goodman-Bacon (2021) J. Econometrics "
+                  "[@goodmanbacon2021difference]",
+        pre_conditions=[
+            "panel with time-varying binary treatment",
+            "≥ 2 treatment cohorts OR 1 cohort + never-treated",
+        ],
+        assumptions=[
+            "Treatment is absorbing (staggered adoption, no reversal)",
+            "Standard DiD assumptions hold within each 2x2 comparison",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Treatment switches on and off (dCDH setting)",
+                exception="MethodIncompatibility",
+                remedy="Bacon decomp assumes absorbing treatment. Use "
+                       "sp.did_multiplegt for on/off switching.",
+                alternative="did_multiplegt",
+            ),
+        ],
+        alternatives=["did_multiplegt", "callaway_santanna"],
+        typical_n_min=30,
+    ))
+
+    register(FunctionSpec(
+        name="ddd",
+        category="causal",
+        description=(
+            "Triple Differences (DDD) estimator. Adds a within-treatment-group "
+            "subgroup that is unaffected by treatment as an additional "
+            "control dimension, relaxing parallel trends from 'same trend "
+            "across groups' to 'same differential trend across subgroups "
+            "within groups'."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True,
+                      description="Primary treatment indicator"),
+            ParamSpec("time", "str", True),
+            ParamSpec("subgroup", "str", True,
+                      description="Within-group subgroup (1=affected, 0=not)"),
+            ParamSpec("covariates", "list", False, None),
+            ParamSpec("cluster", "str", False, None),
+            ParamSpec("robust", "bool", False, True),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("weights", "str", False, None),
+        ],
+        returns="CausalResult",
+        example=(
+            'sp.ddd(df, y="y", treat="policy_state", time="year", '
+            'subgroup="eligible")'
+        ),
+        tags=["did", "ddd", "triple", "causal"],
+        reference=(
+            "Gruber (1994) JPE — classical DDD; Olden & Møen (2022) "
+            "[@olden2022triple] — heterogeneity-robust variant (separate "
+            "function on the roadmap)."
+        ),
+        pre_conditions=[
+            "treat × time × subgroup variation exists",
+            "subgroup is binary and meaningful within treatment group",
+        ],
+        assumptions=[
+            "Parallel trends in the DDD differential (weaker than DID PT)",
+            "No anticipation",
+            "SUTVA",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Staggered adoption with heterogeneous effects",
+                exception="AssumptionWarning",
+                remedy="Textbook DDD can have negative weights with staggered "
+                       "timing. The Olden-Møen (2022) / Strezhnev (2023) "
+                       "heterogeneity-robust DDD is on the roadmap "
+                       "(see docs/rfc/did_roadmap_gap_audit.md §4).",
+                alternative="",
+            ),
+        ],
+        alternatives=["did_2x2", "callaway_santanna"],
+        typical_n_min=100,
+    ))
+
+    register(FunctionSpec(
+        name="cic",
+        category="causal",
+        description=(
+            "Changes-in-Changes (Athey & Imbens 2006). Nonparametric "
+            "quantile DiD that identifies the full counterfactual outcome "
+            "distribution for treated units, not just the mean. Reports "
+            "quantile treatment effects (QTE) via empirical-CDF "
+            "transformation; bootstrap SE."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("group", "str", True,
+                      description="Treatment-group indicator (0/1)"),
+            ParamSpec("time", "str", True,
+                      description="Period indicator (0=pre, 1=post)"),
+            ParamSpec("quantiles", "list", False, None,
+                      "Quantile grid (default: deciles)"),
+            ParamSpec("n_boot", "int", False, 500),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("seed", "int", False, None),
+            ParamSpec("n_grid", "int", False, 100,
+                      "Grid size for inverse-CDF mapping"),
+        ],
+        returns="CausalResult with quantile-specific effects in detail",
+        example='sp.cic(df, y="y", group="d", time="t")',
+        tags=["did", "cic", "quantile", "qte", "nonparametric", "causal"],
+        reference="Athey & Imbens (2006) Econometrica 74(2) "
+                  "[@athey2006identification]",
+        pre_conditions=[
+            "continuous-ish outcome with sufficient support overlap "
+            "between treated and control",
+            "2 periods, 2 groups",
+        ],
+        assumptions=[
+            "Rank-invariance of untreated potential outcomes across periods",
+            "Time-invariant group-level production technology "
+            "(distributional DiD)",
+            "SUTVA",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Discrete outcome with few support points",
+                exception="AssumptionWarning",
+                remedy="CIC quantile transformation degenerates; use sp.qte "
+                       "or sp.drdid for mean effects.",
+                alternative="qte",
+            ),
+        ],
+        alternatives=["qte", "drdid", "did_2x2"],
+        typical_n_min=200,
+    ))
+
+    register(FunctionSpec(
+        name="stacked_did",
+        category="causal",
+        description=(
+            "Stacked DiD (Cengiz, Dube, Lindner, Zipperer 2019). For each "
+            "treatment cohort, constructs a sub-experiment with only that "
+            "cohort + clean (never-treated or not-yet-treated) controls, "
+            "then TWFE on the stacked panel. Robust to staggered-adoption "
+            "contamination at the cost of dropping late-treated units in "
+            "early sub-experiments."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("group", "str", True, description="Unit identifier"),
+            ParamSpec("time", "str", True),
+            ParamSpec("first_treat", "str", True),
+            ParamSpec("window", "tuple", False, (-5, 5),
+                      "Event-time (lead, lag) window per sub-experiment"),
+            ParamSpec("controls", "list", False, None),
+            ParamSpec("cluster", "str", False, None),
+            ParamSpec("never_treated_only", "bool", False, False,
+                      "Use only never-treated as controls (drops late-treated)"),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult with event-study coefficients",
+        example=(
+            'sp.stacked_did(df, y="y", group="i", time="t", '
+            'first_treat="g", window=(-4, 4))'
+        ),
+        tags=["did", "stacked", "event_study", "cengiz", "staggered", "causal"],
+        reference="Cengiz, Dube, Lindner & Zipperer (2019) QJE "
+                  "[@cengiz2019effect]",
+        pre_conditions=[
+            "staggered adoption with ≥ 2 cohorts",
+            "window horizon available per cohort (else dropped)",
+        ],
+        assumptions=[
+            "Parallel trends within each sub-experiment",
+            "No anticipation within window",
+            "SUTVA",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="No clean controls for the latest cohort",
+                exception="DataInsufficient",
+                remedy="Late cohort's sub-experiment is dropped; check "
+                       "coverage in model_info. Consider sp.callaway_santanna.",
+                alternative="callaway_santanna",
+            ),
+        ],
+        alternatives=["callaway_santanna", "sun_abraham", "did_imputation"],
+        typical_n_min=100,
+    ))
+
+    register(FunctionSpec(
+        name="event_study",
+        category="causal",
+        description=(
+            "Traditional OLS event-study with entity and time FEs. Generates "
+            "relative-time dummies around the treatment date, omits a "
+            "reference period, and estimates via TWFE + optional clustered "
+            "SE. Exposed for users who want the classical specification "
+            "alongside CS / SA / BJS; not robust to staggered-effect "
+            "heterogeneity — use sp.sun_abraham for that."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat_time", "str", True,
+                      description="First-treatment period column"),
+            ParamSpec("time", "str", True),
+            ParamSpec("unit", "str", True, description="Unit identifier"),
+            ParamSpec("window", "tuple", False, (-4, 4),
+                      "(lead, lag) horizons"),
+            ParamSpec("ref_period", "int", False, -1,
+                      "Reference relative-time period to omit"),
+            ParamSpec("covariates", "list", False, None),
+            ParamSpec("cluster", "str", False, None),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult with event_study DataFrame",
+        example=(
+            'sp.event_study(df, y="y", treat_time="g", time="t", unit="i", '
+            'window=(-3, 3))'
+        ),
+        tags=["did", "event_study", "twfe", "ols", "lead_lag"],
+        reference="Standard event-study; Roth (2022) on pre-test bias; "
+                  "Sun & Abraham (2021) on dynamic contamination.",
+        pre_conditions=[
+            "panel with unit × time × outcome",
+            "treat_time column gives first-treatment period (or 0/NaN)",
+        ],
+        assumptions=[
+            "Parallel trends across event time",
+            "No anticipation beyond window lead",
+            "SUTVA",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Staggered heterogeneity — TWFE event-study biased",
+                exception="AssumptionWarning",
+                remedy="Use sp.sun_abraham for contamination-robust "
+                       "event-study coefficients.",
+                alternative="sun_abraham",
+            ),
+        ],
+        alternatives=["sun_abraham", "callaway_santanna", "did_imputation"],
+        typical_n_min=50,
+    ))
+
+    register(FunctionSpec(
+        name="did_analysis",
+        category="causal",
+        description=(
+            "Workflow wrapper that runs a full DiD pipeline: auto-detects "
+            "2×2 vs. staggered, runs the right estimator (CS by default), "
+            "optionally runs Bacon decomposition, event study, and "
+            "Rambachan-Roth sensitivity, and aggregates into a "
+            "DIDAnalysis report object."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True,
+                      description="Binary treatment or first-treat column"),
+            ParamSpec("time", "str", True),
+            ParamSpec("id", "str", True),
+            ParamSpec("method", "str", False, "auto",
+                      "Estimator selection",
+                      ["auto", "2x2", "cs", "sa", "sdid"]),
+            ParamSpec("run_bacon", "bool", False, True),
+            ParamSpec("run_event_study", "bool", False, True),
+            ParamSpec("run_sensitivity", "bool", False, True),
+        ],
+        returns="DIDAnalysis",
+        example=(
+            'sp.did_analysis(df, y="earnings", treat="first_treat", '
+            'time="year", id="worker")'
+        ),
+        tags=["did", "workflow", "analysis", "bacon", "event_study",
+              "sensitivity"],
+        reference=("DiD workflow synthesis; Roth, Sant'Anna, Bilinski & Poe "
+                   "(2023) survey cited throughout [待核验 — bib key for "
+                   "the 2023 DiD-what's-trending survey not yet added to "
+                   "paper.bib]."),
+        alternatives=["callaway_santanna", "harvest_did"],
+        typical_n_min=50,
+    ))
+
+    register(FunctionSpec(
+        name="harvest_did",
+        category="causal",
+        description=(
+            "Harvest every valid 2×2 DID comparison from a staggered panel "
+            "and aggregate them via precision-weighted / simple / "
+            "cohort-weighted averages. Agnostic to cohort structure; "
+            "useful for robustness comparisons against CS / SA / BJS."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("unit", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("outcome", "str", True),
+            ParamSpec("treat", "str", False, None,
+                      "Time-varying treat indicator (for dynamic harvesting)"),
+            ParamSpec("cohort", "str", False, None,
+                      "First-treat cohort column (for static harvesting)"),
+            ParamSpec("never_value", "Any", False, 0),
+            ParamSpec("horizons", "list", False, None),
+            ParamSpec("reference", "str", False, "pre",
+                      "Reference period convention",
+                      ["pre", "first_treat"]),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult with all 2x2 comparisons in detail",
+        example=(
+            'sp.harvest_did(df, unit="i", time="t", outcome="y", '
+            'cohort="g_first")'
+        ),
+        tags=["did", "harvest", "2x2", "aggregation", "staggered",
+              "event_study"],
+        reference="Synthesis of Goodman-Bacon (2021) + CS (2021) + "
+                  "precision-weighted DiD; see docs/guides/harvest_did.md.",
+        alternatives=["callaway_santanna", "bacon_decomposition",
+                      "did_analysis"],
+        typical_n_min=100,
+    ))
+
+    register(FunctionSpec(
+        name="overlap_weighted_did",
+        category="causal",
+        description=(
+            "Overlap-weighted 2×2 DiD. Weights observations by "
+            "e(X)(1-e(X)), where e(X) is the estimated propensity score, "
+            "placing highest weight on units with the most overlap between "
+            "treated and control covariate distributions. Useful when "
+            "overlap is poor at the tails."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True,
+                      description="Binary treatment indicator"),
+            ParamSpec("time", "str", True),
+            ParamSpec("covariates", "list", True, description="Covariates X"),
+            ParamSpec("ps_model", "str", False, "logit",
+                      "Propensity score model",
+                      ["logit", "rf", "gbm", "dl"]),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult",
+        example=(
+            'sp.overlap_weighted_did(df, y="y", treat="d", time="t", '
+            'covariates=["age","edu"])'
+        ),
+        tags=["did", "overlap", "propensity", "weighted", "causal"],
+        reference="Li, Morgan & Zaslavsky (2018) JASA on overlap weights; "
+                  "applied to DiD by several authors [待核验 — specific "
+                  "citation to be confirmed].",
+        pre_conditions=[
+            "2 periods, binary treat",
+            "covariates with variation",
+        ],
+        assumptions=[
+            "Overlap weights target the sub-population with positive overlap",
+            "Correct PS model OR outcome model for DR variant",
+        ],
+        alternatives=["drdid", "did_2x2"],
+        typical_n_min=200,
+    ))
+
+    register(FunctionSpec(
+        name="cohort_anchored_event_study",
+        category="causal",
+        description=(
+            "Cohort-anchored event study. Instead of averaging across "
+            "cohorts at each relative-time bin (which can contaminate "
+            "leads / lags with other cohorts' dynamics), estimates "
+            "separate event-study paths per cohort and then aggregates "
+            "with cohort weights. Successor to the Rambachan-Roth "
+            "sensitivity-friendly specification."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("id", "str", True),
+            ParamSpec("leads", "int", False, 3),
+            ParamSpec("lags", "int", False, 5),
+            ParamSpec("cluster", "str", False, None),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult with cohort-specific event-study paths",
+        example=(
+            'sp.cohort_anchored_event_study(df, y="y", treat="d", '
+            'time="t", id="i", leads=3, lags=5)'
+        ),
+        tags=["did", "event_study", "cohort_anchored", "staggered", "causal"],
+        reference="Rambachan & Roth (2023) ReStud "
+                  "[@rambachan2023more]; design-robust extensions [待核验 "
+                  "— specific citation to be confirmed].",
+        alternatives=["sun_abraham", "callaway_santanna", "event_study"],
+        typical_n_min=80,
+    ))
+
+    register(FunctionSpec(
+        name="design_robust_event_study",
+        category="causal",
+        description=(
+            "Design-robust event study with explicit negative-weight "
+            "diagnostics per cohort × relative-time cell. Reports which "
+            "event-study coefficients receive negative weights in TWFE "
+            "and flags the affected horizons."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("id", "str", True),
+            ParamSpec("leads", "int", False, 3),
+            ParamSpec("lags", "int", False, 5),
+            ParamSpec("cluster", "str", False, None),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult with weight diagnostics in model_info",
+        example=(
+            'sp.design_robust_event_study(df, y="y", treat="d", '
+            'time="t", id="i")'
+        ),
+        tags=["did", "event_study", "design_robust", "negative_weights",
+              "diagnostic"],
+        reference="de Chaisemartin & D'Haultfœuille (2020) negative-weight "
+                  "diagnostic [@dechaisemartin2020two]; design-robust "
+                  "specifications [待核验 — specific citation to be "
+                  "confirmed].",
+        alternatives=["sun_abraham", "bacon_decomposition",
+                      "cohort_anchored_event_study"],
+        typical_n_min=80,
+    ))
+
+    register(FunctionSpec(
+        name="did_misclassified",
+        category="causal",
+        description=(
+            "Staggered DiD robust to treatment-timing misclassification "
+            "and anticipation. Adjusts the CS-style aggregation for a "
+            "user-supplied misclassification probability pi_misclass and "
+            "a known anticipation horizon. Use when first-treat dates "
+            "are noisy (e.g., survey-reported)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True,
+                      description="First-treatment period (possibly noisy)"),
+            ParamSpec("time", "str", True),
+            ParamSpec("id", "str", True),
+            ParamSpec("pi_misclass", "float", False, 0.0,
+                      "P(observed treat ≠ true treat) — between 0 and 1"),
+            ParamSpec("anticipation_periods", "int", False, 0),
+            ParamSpec("cluster", "str", False, None),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult adjusted for misclassification / anticipation",
+        example=(
+            'sp.did_misclassified(df, y="y", treat="d", time="t", id="i", '
+            'pi_misclass=0.05, anticipation_periods=1)'
+        ),
+        tags=["did", "measurement_error", "anticipation", "robustness",
+              "staggered"],
+        reference=("Measurement-error DiD literature — adjustment follows "
+                   "a standard attenuation-correction pattern; specific "
+                   "citation [待核验]."),
+        pre_conditions=[
+            "pi_misclass is between 0 and 0.5 (else identification flips)",
+            "Known anticipation horizon",
+        ],
+        alternatives=["callaway_santanna"],
+        typical_n_min=200,
+    ))
+
+    register(FunctionSpec(
+        name="did_multiplegt_dyn",
+        category="causal",
+        description=(
+            "dCDH (2024) intertemporal event-study DiD (MVP — see "
+            "docs/rfc/multiplegt_dyn.md). At each horizon l ∈ {-placebo, "
+            "..., dynamic}, compares Y_{F+l} − Y_{F-1} between units "
+            "first switching at F and a not-yet-treated or never-treated "
+            "control set held stable across the horizon. **MVP caveats**: "
+            "analytical influence-function variance [待核验] is not yet "
+            "implemented (SE via cluster bootstrap); switch-off events "
+            "are ignored; heteroskedastic-weights variant pending."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("group", "str", True, description="Unit identifier"),
+            ParamSpec("time", "str", True),
+            ParamSpec("treatment", "str", True,
+                      description="Binary treatment (0/1), switch-on only in MVP"),
+            ParamSpec("placebo", "int", False, 0,
+                      "Number of pre-treatment placebo horizons"),
+            ParamSpec("dynamic", "int", False, 3,
+                      "Number of post-treatment dynamic horizons"),
+            ParamSpec("control", "str", False, "not_yet_treated",
+                      "Control group", ["not_yet_treated", "never_treated"]),
+            ParamSpec("cluster", "str", False, None,
+                      "Cluster column (defaults to group)"),
+            ParamSpec("n_boot", "int", False, 500),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("seed", "int", False, None),
+        ],
+        returns=(
+            "CausalResult with event_study in model_info + joint placebo "
+            "and overall Wald tests + [待核验] MVP warning"
+        ),
+        example=(
+            'sp.did_multiplegt_dyn(df, y="y", group="i", time="t", '
+            'treatment="d", placebo=2, dynamic=4)'
+        ),
+        tags=["did", "dcdh", "dynamic", "event_study", "intertemporal",
+              "mvp", "causal"],
+        reference=("de Chaisemartin & D'Haultfœuille (2024) "
+                   "[@dechaisemartin2024difference]; DOI "
+                   "10.1162/rest_a_01414; paper-parity pending "
+                   "(see docs/rfc/multiplegt_dyn.md)."),
+        pre_conditions=[
+            "long-format panel with binary time-varying treatment",
+            "at least some units switching on from d=0 to d=1",
+            "enough horizons pre/post to compute long differences",
+        ],
+        assumptions=[
+            "Parallel trends between switchers and controls per horizon",
+            "No anticipation prior to F",
+            "Stable control treatment across horizon window",
+            "SUTVA",
+            "[待核验] MVP omits the paper's analytical IF variance",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="No units switch from 0 to 1",
+                exception="",
+                remedy="did_multiplegt_dyn identifies from switch-on events. "
+                       "Use sp.callaway_santanna if design is standard "
+                       "staggered adoption.",
+                alternative="callaway_santanna",
+            ),
+            FailureMode(
+                symptom="Joint placebo test rejects",
+                exception="AssumptionViolation",
+                remedy="Parallel trends unlikely; inspect event_study, "
+                       "consider sp.honest_did sensitivity.",
+                alternative="honest_did",
+            ),
+            FailureMode(
+                symptom="Switch-off events present",
+                exception="",
+                remedy="MVP silently ignores switch-off events. For full "
+                       "treatment-reversal handling, wait for paper-parity "
+                       "implementation or use sp.did_multiplegt (2020 DID_M).",
+                alternative="did_multiplegt",
+            ),
+        ],
+        alternatives=["did_multiplegt", "callaway_santanna", "sun_abraham",
+                      "did_imputation", "lp_did"],
+        typical_n_min=100,
+    ))
+
+    register(FunctionSpec(
+        name="did_timevarying_covariates",
+        category="causal",
+        description=(
+            "DiD with time-varying covariates frozen at baseline (Caetano, "
+            "Callaway, Payne & Rodrigues 2022 [待核验]). Avoids the "
+            "bad-controls bias that arises when treatment affects the "
+            "covariates: freezes X at period g + baseline_offset (default "
+            "g-1) per cohort and uses the frozen values as controls in a "
+            "per-(g, t) outcome-regression DiD. Aggregates via cohort-size "
+            "weights."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("unit", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("cohort", "str", True,
+                      description="First-treatment period (never_value = never-treated)"),
+            ParamSpec("covariates", "list", True,
+                      description="Time-varying covariates to freeze at baseline"),
+            ParamSpec("never_value", "Any", False, 0),
+            ParamSpec("baseline_offset", "int", False, -1,
+                      "Offset relative to first-treatment period for freezing"),
+            ParamSpec("n_boot", "int", False, 500),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("seed", "int", False, None),
+        ],
+        returns="CausalResult with per-(g, t) decomposition in detail",
+        example=(
+            'sp.did_timevarying_covariates(df, y="earnings", unit="i", '
+            'time="year", cohort="g", covariates=["age","prior_wage"])'
+        ),
+        tags=["did", "timevarying", "covariates", "bad_controls",
+              "staggered", "causal"],
+        reference=("Caetano, Callaway, Payne & Rodrigues (2022) — exact "
+                   "paper version + DOI [待核验 — not yet in paper.bib]."),
+        pre_conditions=[
+            "staggered adoption with ≥ 1 never-treated unit",
+            "covariates column(s) exist for the baseline period per cohort",
+            "integer-valued time column",
+        ],
+        assumptions=[
+            "Conditional parallel trends given frozen baseline X",
+            "No anticipation",
+            "SUTVA",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="No observation at baseline period for some units",
+                exception="",
+                remedy="Fallback uses the first observed period; review "
+                       "detail coverage.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="Covariate measured with error or missing",
+                exception="",
+                remedy="Impute (sp.mice_impute) or restrict to a complete "
+                       "sub-sample before calling.",
+                alternative="",
+            ),
+        ],
+        alternatives=["callaway_santanna", "drdid", "wooldridge_did"],
+        typical_n_min=150,
+    ))
+
+    register(FunctionSpec(
+        name="ddd_heterogeneous",
+        category="causal",
+        description=(
+            "Heterogeneity-robust triple differences (DDD) for staggered "
+            "adoption. Decomposes DDD into per-(cohort, time) cells via a "
+            "Callaway-Sant'Anna-style aggregation, with the unaffected "
+            "subgroup's DID as a placebo. Avoids the negative-weight issue "
+            "that textbook TWFE DDD inherits from TWFE DID (Goodman-Bacon "
+            "2021 analogue)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("unit", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("cohort", "str", True,
+                      description="First-treatment period (never_value = never-treated)"),
+            ParamSpec("subgroup", "str", True,
+                      description="Binary within-group subgroup indicator (1=affected, 0=placebo)"),
+            ParamSpec("never_value", "Any", False, 0,
+                      description="Value in cohort for never-treated units"),
+            ParamSpec("n_boot", "int", False, 500),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("seed", "int", False, None),
+        ],
+        returns=("CausalResult with per-(g, t) decomposition in detail + "
+                 "placebo joint test in model_info"),
+        example=(
+            'sp.ddd_heterogeneous(df, y="y", unit="i", time="t", '
+            'cohort="g_first", subgroup="eligible")'
+        ),
+        tags=["did", "ddd", "triple", "heterogeneity", "staggered", "causal"],
+        reference=("Olden & Møen (2022) *The Econometrics Journal* "
+                   "[@olden2022triple]; Strezhnev (2023) working paper "
+                   "[待核验 — bib key not yet added to paper.bib]; "
+                   "Callaway & Sant'Anna (2021) [@callaway2021difference] "
+                   "for the group-time aggregation template."),
+        pre_conditions=[
+            "staggered adoption panel with ≥ 1 never-treated unit",
+            "binary within-group subgroup (affected vs unaffected)",
+            "≥ 1 pre-treatment period per cohort",
+        ],
+        assumptions=[
+            "Parallel trends relaxed to: same differential trend across "
+            "treated vs never-treated, within both affected and unaffected "
+            "subgroups",
+            "No anticipation",
+            "SUTVA",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="No never-treated units",
+                exception="ValueError",
+                remedy=("First-cut implementation requires never-treated "
+                        "controls; not-yet-treated variant is on the roadmap."),
+                alternative="ddd",
+            ),
+            FailureMode(
+                symptom=("placebo_joint_test rejects — DDD parallel-trends "
+                         "assumption violated"),
+                exception="AssumptionViolation",
+                remedy=("Inspect per-(g, t) did_placebo values in the "
+                        "detail DataFrame; add controls or apply "
+                        "sp.honest_did sensitivity to the affected arm."),
+                alternative="honest_did",
+            ),
+        ],
+        alternatives=["ddd", "callaway_santanna", "wooldridge_did"],
+        typical_n_min=200,
+    ))
+
+    register(FunctionSpec(
+        name="lp_did",
+        category="causal",
+        description=(
+            "Local-Projections DiD (Dube-Girardi-Jordà-Taylor 2023). At each "
+            "event-time horizon h ∈ {-P, ..., H}, runs a separate OLS of "
+            "Y_{t+h} − Y_{t-1} on the treatment change Δd_{t} with time FE "
+            "and cluster-robust SE, using 'not-yet-treated' or 'never-treated' "
+            "units as controls. Event-study β_h paths are returned in "
+            "``model_info['event_study']``."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("unit", "str", True, description="Unit identifier"),
+            ParamSpec("time", "str", True,
+                      description="Integer period (consecutive)"),
+            ParamSpec("treatment", "str", True,
+                      description="Binary time-varying treatment (0/1)"),
+            ParamSpec("horizons", "tuple", False, (-3, 5),
+                      "(min, max) event-time horizons to estimate"),
+            ParamSpec("controls", "list", False, None),
+            ParamSpec("clean_controls", "str", False, "not_yet_treated",
+                      "Control selection",
+                      ["not_yet_treated", "never_treated"]),
+            ParamSpec("time_fe", "bool", False, True),
+            ParamSpec("cluster", "str", False, None,
+                      "Cluster variable (defaults to unit)"),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult with event-study in model_info['event_study']",
+        example=(
+            'sp.lp_did(df, y="y", unit="i", time="t", treatment="d", '
+            'horizons=(-3, 5))'
+        ),
+        tags=["did", "lp_did", "local_projections", "event_study",
+              "staggered", "causal"],
+        reference=("Dube, Girardi, Jordà & Taylor (2023) NBER Working Paper "
+                   "[待核验 — NBER WP ID + arXiv ID not yet added to "
+                   "paper.bib]. Jordà (2005) AER on local projections more "
+                   "broadly."),
+        pre_conditions=[
+            "long-format panel with consecutive integer time",
+            "treatment is binary 0/1 and time-varying",
+            "horizons feasible: enough periods for Y_{t-1} and Y_{t+H}",
+        ],
+        assumptions=[
+            "Parallel trends across event time (standard DiD)",
+            "No anticipation within the pre-treatment horizon",
+            "SUTVA",
+            "Stable treatment across the clean-control window",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom=("Horizon-0 n_obs is tiny because few units switch "
+                         "on in the clean-control window"),
+                exception="DataInsufficient",
+                remedy=("Widen clean_controls='never_treated' → "
+                        "'not_yet_treated' or shorten horizons."),
+                alternative="callaway_santanna",
+            ),
+            FailureMode(
+                symptom=("Placebo CIs don't cover zero — parallel trends "
+                         "suspect"),
+                exception="AssumptionViolation",
+                remedy=("Apply sp.honest_did to the event-study paths for "
+                        "Rambachan-Roth sensitivity bounds."),
+                alternative="honest_did",
+            ),
+        ],
+        alternatives=["callaway_santanna", "sun_abraham", "did_imputation",
+                      "gardner_did"],
+        typical_n_min=100,
+    ))
+
+    register(FunctionSpec(
+        name="did_bcf",
+        category="causal",
+        description=(
+            "Bayesian Causal Forests DiD. Fits a BART-style ensemble with "
+            "treatment and prognostic terms on the DiD residuals, "
+            "providing heterogeneous treatment-effect posterior draws per "
+            "unit. Useful for machine-learning DiD with covariates."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("treat", "str", True),
+            ParamSpec("time", "str", True),
+            ParamSpec("id", "str", True),
+            ParamSpec("covariates", "list", False, None),
+            ParamSpec("n_trees", "int", False, 200),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("seed", "int", False, None),
+        ],
+        returns=("CausalResult with posterior ATT + unit-level CATE "
+                 "posterior draws in model_info"),
+        example='sp.did_bcf(df, y="y", treat="d", time="t", id="i")',
+        tags=["did", "bcf", "bart", "bayesian", "heterogeneous", "causal"],
+        reference=("Hahn, Murray & Carvalho (2020) BCF prior; applied to "
+                   "DiD by multiple authors — specific citation [待核验]."),
+        alternatives=["did_imputation", "drdid"],
+        typical_n_min=200,
     ))
 
     _BASE_REGISTRY_BUILT = True

@@ -1,5 +1,5 @@
 """
-de Chaisemartin & D'Haultfoeuille (2020) DID estimator.
+de Chaisemartin & D'Haultfœuille (2020) DID_M estimator.
 
 Estimates the effect of a binary treatment that can switch on AND off,
 robust to heterogeneous treatment effects across groups and time periods.
@@ -7,10 +7,19 @@ Unlike Callaway & Sant'Anna (which assumes staggered adoption / no
 treatment reversal), this estimator handles general treatment paths
 where units can enter and exit treatment.
 
-The DID_M estimator computes a weighted average of group-time DID
-estimates, where "switchers" (units whose treatment changes between
-consecutive periods) are compared to "stayers" (units whose treatment
-remains constant).
+The DID_M estimator is a **pair-rollup**: for each consecutive period
+pair ``(t-1, t)`` it computes a cell-level DID comparing "switchers"
+(units whose treatment changed) to "stayers" (units whose treatment
+did not change), then aggregates to an overall estimate using the
+switcher count per cell as the weight.
+
+**Scope note** — the ``dynamic=`` argument here is the pair-rollup
+event-study extension (long differences relative to stayers at each
+pair). It is **not** the dCDH (2024) ``did_multiplegt_dyn`` estimator,
+which is a separate long-difference event-study with its own influence
+function and a "not-yet-treated-at-horizon-l" control construction.
+That estimator is tracked in ``docs/rfc/multiplegt_dyn.md`` and will
+land as a separate ``sp.did_multiplegt_dyn`` function.
 
 References
 ----------
@@ -56,10 +65,16 @@ def did_multiplegt(
     alpha: float = 0.05,
 ) -> CausalResult:
     """
-    de Chaisemartin & D'Haultfoeuille (2020) DID estimator.
+    de Chaisemartin & D'Haultfœuille (2020) DID_M estimator.
 
     Estimates the effect of a binary treatment that can switch on AND off,
     robust to heterogeneous treatment effects across groups and time.
+
+    **Note** — ``dynamic=H`` here extends the DID_M pair rollup to H
+    horizons; it is not equivalent to the dCDH (2024) ``_dyn``
+    event-study estimator. For the 2024 long-difference event-study with
+    not-yet-treated controls per horizon, see ``sp.did_multiplegt_dyn``
+    (tracked in ``docs/rfc/multiplegt_dyn.md``).
 
     Parameters
     ----------

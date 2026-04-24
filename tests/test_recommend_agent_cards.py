@@ -54,17 +54,25 @@ class TestEnrichment:
             fm["alternative"] for fm in cs["failure_modes"]
         )
 
-    def test_unpopulated_function_skipped(self, did_panel):
-        # sun_abraham is auto-registered only → no card content
+    def test_sun_abraham_now_populated_post_1_6_3(self, did_panel):
+        """After v1.6.3 D.1 registry enrichment, ``sun_abraham`` carries a
+        rich spec with assumptions + failure_modes + alternatives. This
+        test used to assert the opposite ('unpopulated → no agent_card');
+        flipped here to track the new contract.
+
+        If in the future a different DiD estimator that ``sp.recommend``
+        surfaces is still auto-only, repurpose this test to that
+        function — it exists to verify the enrichment path, not the
+        specific function."""
         rec = sp.recommend(did_panel, y="y", treatment="treated",
                            id="unit", time="year")
         sa = next(
             (r for r in rec.recommendations if r["function"] == "sun_abraham"),
             None,
         )
-        if sa is not None:  # sun_abraham appears when staggered
-            assert "agent_card" not in sa
-            assert sa.get("typical_n_min") is None
+        if sa is not None:
+            assert "agent_card" in sa
+            assert sa.get("typical_n_min") == 50
 
     def test_n_below_threshold_warning(self, tiny_panel):
         rec = sp.recommend(tiny_panel, y="y", treatment="treated",
