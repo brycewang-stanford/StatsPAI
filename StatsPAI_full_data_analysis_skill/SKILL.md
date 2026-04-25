@@ -516,6 +516,15 @@ This is the densest section of an applied paper. A modern AER §4 typically cont
 - **Table 2-ter** (multi-outcome): same treatment, several outcomes side-by-side
 - **Figure 3** (coefplot): visual summary of β̂ and 95% CI across specs
 
+> **Estimator routing** (memorize this — getting it wrong silently produces nonsense):
+> - **No FE** → `sp.regress("y ~ x1 + x2", df, cluster="firm_id")`
+> - **High-dim FE** → `sp.feols("y ~ x1 + x2 | fe1 + fe2", df, vcov={"CRV1":"firm_id"})`
+> - **Two-way cluster** → `sp.feols(..., vcov={"CRV1":"firm_id+year"})`
+> - **2SLS / IV** → `sp.ivreg("y ~ (x ~ z) + controls", df, cluster=...)`
+> - **DID / event-study** → `sp.callaway_santanna(...)` / `sp.sun_abraham(...)`
+>
+> **Never** write `sp.regress("y ~ x | firm_id")` — `sp.regress` does not parse `|` and silently treats `x | firm_id` as a single variable name. Use `sp.feols` for any formula containing `|`.
+
 `sp.regtable(*models, ...)` is the workhorse. Useful kwargs:
 
 ```
@@ -539,13 +548,16 @@ Stable β̂ across columns ⇒ less concern that selection on observables is dri
 | Controls | none | age, edu | + tenure, firm_size | high-dim FE | individual FE |
 
 ```python
-M1 = sp.regress("wage ~ training",                                     df, cluster="firm_id")
-M2 = sp.regress("wage ~ training + age + edu",                         df, cluster="firm_id")
-M3 = sp.regress("wage ~ training + age + edu + tenure + firm_size",    df, cluster="firm_id")
-M4 = sp.regress("wage ~ training + age + edu + tenure + firm_size | "
-                "region + industry + year",                            df, cluster="firm_id")
-M5 = sp.regress("wage ~ training + age + edu + tenure + firm_size | "
-                "worker_id + year",                                    df, cluster="firm_id")
+# RULE: pure OLS → sp.regress; high-dim FE absorption → sp.feols
+# (sp.regress does NOT parse `|` as FE — it's a thin OLS wrapper. Use
+# `sp.feols("y ~ x | fe1 + fe2", df, vcov={"CRV1":"firm_id"})` for FE.)
+M1 = sp.regress("wage ~ training",                                  df, cluster="firm_id")
+M2 = sp.regress("wage ~ training + age + edu",                      df, cluster="firm_id")
+M3 = sp.regress("wage ~ training + age + edu + tenure + firm_size", df, cluster="firm_id")
+M4 = sp.feols  ("wage ~ training + age + edu + tenure + firm_size | region + industry + year",
+                df, vcov={"CRV1": "firm_id"})
+M5 = sp.feols  ("wage ~ training + age + edu + tenure + firm_size | worker_id + year",
+                df, vcov={"CRV1": "firm_id"})
 
 # Consolidate 5 models into ONE table (= Stata `outreg2 [M1..M5] using ..., replace`).
 # **Default = show ALL coefficients verbatim — controls AND the intercept**
@@ -574,8 +586,8 @@ open("tables/table2_main.tex", "w").write(rt.to_latex())
 Show the same coefficient of interest under multiple identification strategies. This is *the* AER credibility move: convergent evidence across designs each making different identifying assumptions.
 
 ```python
-ols  = sp.regress("wage ~ training + age + edu + tenure | industry + year",
-                   df, cluster="firm_id")                                                 # OLS / FE
+ols  = sp.feols  ("wage ~ training + age + edu + tenure | industry + year",
+                   df, vcov={"CRV1": "firm_id"})                                          # OLS + 2-way FE
 ivr  = sp.ivreg("wage ~ (training ~ Z1 + Z2) + age + edu + tenure",
                  df, cluster="firm_id")                                                    # 2SLS
 did  = sp.callaway_santanna(df, y="wage", g="first_treat_year",
@@ -604,8 +616,8 @@ A single treatment, several outcomes. Use `dep_var_labels` so each column carrie
 
 ```python
 ys = ["wage", "log_wage", "weeks_employed", "left_firm", "promoted"]
-multi_y = [sp.regress(f"{y} ~ training + age + edu + tenure | industry + year",
-                       df, cluster="firm_id")
+multi_y = [sp.feols(f"{y} ~ training + age + edu + tenure | industry + year",
+                     df, vcov={"CRV1": "firm_id"})
            for y in ys]
 
 rt = sp.regtable(*multi_y,
@@ -623,10 +635,10 @@ open("tables/table2c_multi_outcome.tex", "w").write(rt.to_latex())
 Same model family, two horizons (short-run / long-run) or two samples (pre-2015 / post-2015) stacked vertically. Use `panel_labels`.
 
 ```python
-panelA = [sp.regress("wage_t1 ~ training + X | industry+year", df, cluster="firm_id"),
-          sp.regress("wage_t1 ~ training + X | worker_id+year", df, cluster="firm_id")]
-panelB = [sp.regress("wage_t5 ~ training + X | industry+year", df, cluster="firm_id"),
-          sp.regress("wage_t5 ~ training + X | worker_id+year", df, cluster="firm_id")]
+panelA = [sp.feols("wage_t1 ~ training + X | industry + year",  df, vcov={"CRV1":"firm_id"}),
+          sp.feols("wage_t1 ~ training + X | worker_id + year", df, vcov={"CRV1":"firm_id"})]
+panelB = [sp.feols("wage_t5 ~ training + X | industry + year",  df, vcov={"CRV1":"firm_id"}),
+          sp.feols("wage_t5 ~ training + X | worker_id + year", df, vcov={"CRV1":"firm_id"})]
 
 rt = sp.regtable(*panelA, *panelB,
                  template="aer",
@@ -646,8 +658,8 @@ open("tables/table2d_horizons.tex", "w").write(rt.to_latex())
 The textbook AER IV table presents the **first stage**, the **reduced form**, and the **2SLS** in three columns so the reader can verify Wald-ratio = RF / FS.
 
 ```python
-fs = sp.regress("training ~ Z + age + edu | industry+year", df, cluster="firm_id")  # 1st stage
-rf = sp.regress("wage     ~ Z + age + edu | industry+year", df, cluster="firm_id")  # reduced form
+fs = sp.feols  ("training ~ Z + age + edu | industry + year", df, vcov={"CRV1":"firm_id"})  # 1st stage
+rf = sp.feols  ("wage     ~ Z + age + edu | industry + year", df, vcov={"CRV1":"firm_id"})  # reduced form
 iv = sp.ivreg  ("wage ~ (training ~ Z) + age + edu | industry+year",
                 df, cluster="firm_id")                                              # 2SLS
 
@@ -694,7 +706,7 @@ sp.coefplot(M1, M2, M3, M4, M5,
 
 ### Reporting checklist for the Table 2 footnote (AER house style)
 - Standard-error cluster level (and whether it's two-way / Conley)
-- Fixed-effects absorbed
+- Fixed-effects absorbed — `regtable` auto-adds **one footer row per FE name** (e.g. `Industry FE: Yes / Year FE: Yes / Worker_id FE: No`) whenever any column comes from `sp.feols(... | fe1 + fe2 ...)`. Don't hand-roll these rows.
 - Sample size **and number of clusters**
 - Estimator (OLS / 2SLS / CS-DID / SCM / DML)
 - Stars convention `* 0.10  ** 0.05  *** 0.01`
@@ -717,8 +729,8 @@ slices = {
     "(6) Small firm": df[df["firm_size"] < 100],
     "(7) Large firm": df[df["firm_size"] >= 100],
 }
-gmodels = [sp.regress("wage ~ training + age + edu + tenure | industry+year",
-                       d, cluster="firm_id") for d in slices.values()]
+gmodels = [sp.feols("wage ~ training + age + edu + tenure | industry + year",
+                     d, vcov={"CRV1": "firm_id"}) for d in slices.values()]
 
 rt = sp.regtable(*gmodels,
                  template="aer",
@@ -735,12 +747,12 @@ open("tables/table3_heterogeneity.tex", "w").write(rt.to_latex())
 Test moderation formally with interaction terms — referees often ask whether the gap between subgroups is statistically significant, which requires the interaction p-value.
 
 ```python
-H1 = sp.regress("wage ~ training*female + age + edu + tenure | industry+year",
-                df, cluster="firm_id")
-H2 = sp.regress("wage ~ training*C(skill_quartile) + age + edu + tenure | industry+year",
-                df, cluster="firm_id")
-H3 = sp.regress("wage ~ training*log_firm_size + age + edu + tenure | industry+year",
-                df, cluster="firm_id")
+H1 = sp.feols("wage ~ training*female + age + edu + tenure | industry + year",
+              df, vcov={"CRV1": "firm_id"})
+H2 = sp.feols("wage ~ training*C(skill_quartile) + age + edu + tenure | industry + year",
+              df, vcov={"CRV1": "firm_id"})
+H3 = sp.feols("wage ~ training*log_firm_size + age + edu + tenure | industry + year",
+              df, vcov={"CRV1": "firm_id"})
 
 rt = sp.regtable(H1, H2, H3,
                  template="aer",
@@ -850,9 +862,14 @@ sp.spec_curve(df, y="wage", x="training",
 Cluster-level choice is itself a robustness check — show the result is not driven by an over-narrow cluster.
 
 ```python
+# For statsmodels-backed sp.regress / sp.ivreg results:
 sp.twoway_cluster(M3, df, cluster1="firm_id", cluster2="year")     # two-way clustering
 sp.conley(M3, df, lat="lat", lon="lon",
           dist_cutoff=100, kernel="uniform")                        # spatial HAC (Conley 1999)
+
+# For pyfixest-backed sp.feols results, set 2-way cluster directly in `vcov`:
+sp.feols("y ~ x | firm_id + year", df,
+         vcov={"CRV1": "firm_id+year"})                              # 2-way: firm × year
 ```
 
 ### 7.5 Oster (2019) selection bound
@@ -927,30 +944,30 @@ open("tables/table_robust_blocks.tex", "w").write(rt.to_latex())
 The canonical AER appendix Table A1 stacks every robustness specification next to the baseline so reviewers see at a glance that β̂ survives. `sp.regtable` accepts any mix of `EconometricResults` / `CausalResult`, so build the list dynamically:
 
 ```python
-baseline = sp.regress("wage ~ training + age + edu + tenure | industry+year",
-                       df, cluster="firm_id")
+baseline = sp.feols("wage ~ training + age + edu + tenure | industry + year",
+                     df, vcov={"CRV1": "firm_id"})
 
 rob = {
     "(1) Baseline":            baseline,
-    "(2) Drop top 1% wage":    sp.regress("wage ~ training + age + edu + tenure | industry+year",
-                                          df.query("wage < wage.quantile(0.99)"),
-                                          cluster="firm_id"),
-    "(3) Balanced panel":      sp.regress("wage ~ training + age + edu + tenure | industry+year",
-                                          sp.balance_panel(df, entity="worker_id", time="year"),
-                                          cluster="firm_id"),
-    "(4) Drop early cohorts":  sp.regress("wage ~ training + age + edu + tenure | industry+year",
-                                          df.query("first_treat_year > 2008"),
-                                          cluster="firm_id"),
-    "(5) Worker FE":           sp.regress("wage ~ training + age + edu + tenure | worker_id+year",
-                                          df, cluster="firm_id"),
-    "(6) 2-way cluster":       sp.twoway_cluster(baseline, df,
-                                                  cluster1="firm_id", cluster2="year"),
+    "(2) Drop top 1% wage":    sp.feols("wage ~ training + age + edu + tenure | industry + year",
+                                        df.query("wage < wage.quantile(0.99)"),
+                                        vcov={"CRV1": "firm_id"}),
+    "(3) Balanced panel":      sp.feols("wage ~ training + age + edu + tenure | industry + year",
+                                        sp.balance_panel(df, entity="worker_id", time="year"),
+                                        vcov={"CRV1": "firm_id"}),
+    "(4) Drop early cohorts":  sp.feols("wage ~ training + age + edu + tenure | industry + year",
+                                        df.query("first_treat_year > 2008"),
+                                        vcov={"CRV1": "firm_id"}),
+    "(5) Worker FE":           sp.feols("wage ~ training + age + edu + tenure | worker_id + year",
+                                        df, vcov={"CRV1": "firm_id"}),
+    "(6) 2-way cluster":       sp.feols("wage ~ training + age + edu + tenure | industry + year",
+                                        df, vcov={"CRV1": "firm_id+year"}),  # 2-way: firm × year
     "(7) Conley spatial SE":   sp.conley(baseline, df,
                                           lat="lat", lon="lon", dist_cutoff=100),
-    "(8) Log outcome":         sp.regress("log_wage ~ training + age + edu + tenure | industry+year",
-                                          df, cluster="firm_id"),
-    "(9) IHS outcome":         sp.regress("ihs_wage ~ training + age + edu + tenure | industry+year",
-                                          df, cluster="firm_id"),
+    "(8) Log outcome":         sp.feols("log_wage ~ training + age + edu + tenure | industry + year",
+                                        df, vcov={"CRV1": "firm_id"}),
+    "(9) IHS outcome":         sp.feols("ihs_wage ~ training + age + edu + tenure | industry + year",
+                                        df, vcov={"CRV1": "firm_id"}),
     "(10) PSM-weighted":       sp.match(df, y="wage", treat="training",
                                          covariates=["age","edu","tenure","firm_size"],
                                          method="nearest"),
@@ -1215,14 +1232,26 @@ For pyfixest-style native output, `sp.etable(*models, ...)` is the alternative; 
 ## Method Catalog
 
 ### Classical
+
+**Choose by FE structure:**
+- **No FE / single low-cardinality FE** → `sp.regress` (statsmodels OLS wrapper)
+- **High-dim FE absorption (`y ~ x | fe1 + fe2`)** → `sp.feols` (pyfixest backend, AER workhorse)
+- **Two-way panel (entity × time)** → `sp.panel(...)` (linearmodels backend, standard panel diagnostics)
+
 ```python
-sp.regress("y ~ x1 + x2", df, cluster="firm_id")                       # OLS (formula-first)
-sp.ivreg("y ~ (x1 ~ z1 + z2) + x2", df, cluster="state")               # IV/2SLS — (endog ~ instruments) + exog
-sp.panel(df, "y ~ x1 + x2", entity="firm", time="year", method="fe")   # Panel FE
+sp.regress("y ~ x1 + x2", df, cluster="firm_id")                       # OLS — `|` is NOT FE here
+sp.feols  ("y ~ x1 + x2 | firm_id + year", df, vcov={"CRV1":"firm_id"})# OLS + 2-way FE absorbed
+sp.feols  ("y ~ x1 + x2 | firm_id",        df, vcov={"CRV1":"firm_id+year"})  # 2-way cluster
+sp.fepois ("count ~ x1 + x2 | firm_id",    df, vcov={"CRV1":"firm_id"})# Poisson + FE (count outcomes)
+sp.feglm  ("y ~ x1 + x2 | firm_id", df, family="logit", vcov={"CRV1":"firm_id"})  # Logit + FE
+sp.ivreg  ("y ~ (x1 ~ z1 + z2) + x2", df, cluster="state")             # IV/2SLS — (endog ~ instruments) + exog
+sp.panel  (df, "y ~ x1 + x2", entity="firm", time="year", method="fe") # Panel FE (within / between / RE / FD)
 sp.heckman(df, y="wage", x=["age", "edu"],
            select="in_labor_force", z=["marital", "kids"])              # Heckman selection
-sp.qreg(df, formula="y ~ x1 + x2", quantile=0.5)                        # Quantile regression
+sp.qreg   (df, formula="y ~ x1 + x2", quantile=0.5)                     # Quantile regression
 ```
+
+> **`sp.regress` does NOT parse `|` as a FE separator** — it forwards the formula to statsmodels which treats `edu | firm_id` as a single garbage variable name. Use `sp.feols` (or `sp.panel`) whenever your formula has `|`. Models from `sp.regress`, `sp.feols`, `sp.ivreg`, `sp.panel`, `sp.fepois`, `sp.feglm`, `sp.qreg`, `sp.heckman` all flow through `sp.regtable / sp.coefplot / sp.collect / sp.paper_tables` — mix freely in the same table.
 
 ### Difference-in-Differences
 ```python
@@ -1365,6 +1394,9 @@ sp.interactive(fig)                                                   # WYSIWYG 
 | Forgetting `template="aer"` (or `qje`/`econometrica`/`restat`/`jf`/`jpe`/`restud`/`aeja`) on `regtable` | Without `template=`, you lose the journal-correct SE label, star levels, and notes. List presets via `sp.list_journal_templates()` |
 | Saving each regression to its own `.tex` and stitching by hand in LaTeX | Use `sp.paper_tables(main=, heterogeneity=, robustness=, placebo=)` for a single multi-panel `.docx` / `.xlsx`, or `sp.collect()` for a full Word/Excel/Markdown bundle (Step 8.4) |
 | `sp.regtable(..., keep=[focal_var])` (or `drop=["Intercept"]`) as the *default* for every table | AER convention is to **show every estimated parameter verbatim — controls AND the intercept** so the reader can verify the full spec. `regtable()` does this when you pass NEITHER `keep=` NOR `drop=`. Reserve `drop=["Intercept"]` for when you actively want to suppress the constant; reserve `keep=[focal]` for intentionally focal-only tables (IV first-stage triplet, interaction-form heterogeneity) — each with a comment explaining why |
+| `sp.regress("y ~ x \| firm_id", df, cluster="firm_id")` for FE | **Silently produces wrong numbers** — `sp.regress` is a thin statsmodels OLS wrapper that does NOT parse `\|` as a FE separator; it interprets `x \| firm_id` as a single garbage variable name. Use `sp.feols("y ~ x \| firm_id", df, vcov={"CRV1":"firm_id"})` for any formula containing `\|`. Two-way cluster: `vcov={"CRV1":"firm_id+year"}` |
+| `sp.feols(..., cluster="firm_id")` | feols uses pyfixest convention: `vcov={"CRV1":"firm_id"}` (one-way) or `vcov={"CRV1":"firm_id+year"}` (two-way). The `cluster=` kwarg is for `sp.regress` / `sp.ivreg` (statsmodels) only |
+| `sp.twoway_cluster(feols_result, df, cluster1=, cluster2=)` | `sp.twoway_cluster` consumes statsmodels-backed results only. For feols, pass two-way directly: `sp.feols(..., vcov={"CRV1":"firm_id+year"})` |
 | Trusting SEs without checking convergence / weak-IV / overlap | Always read `result.summary()` warnings and `result.diagnostics` |
 
 ---
