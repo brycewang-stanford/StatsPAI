@@ -90,11 +90,18 @@ A modern AER paper has **5–7 figures** and **3–5 main tables** + an appendix
 `sp.power(design, n=..., effect_size=..., power_target=...)` is a unified dispatcher — leave one argument `None` to solve for it (sample size, MDE, or power). Convenience wrappers: `sp.power_rct`, `sp.power_did`, `sp.power_rd`, `sp.power_iv`, `sp.power_cluster_rct`, `sp.power_ols`.
 
 ```python
-sp.power("rct", effect_size=0.3, power_target=0.80)                # → PowerResult(n=349, power=0.80)
-sp.power("did", n=200, effect_size=0.15, power_target=0.80)        # DID: solves MDE / n / power
-sp.power_cluster_rct(n_clusters=30, cluster_size=50,
-                     icc=0.05, effect_size=0.2, power_target=0.80) # Cluster RCT
-sp.pretrends_power(result)                                          # Roth (2022) pre-trends power
+# Always go through the dispatcher when you want auto-solve. The
+# `sp.power_<design>` wrappers (power_rct / power_did / power_rd /
+# power_iv / power_cluster_rct / power_ols) accept *only* the design's
+# native arguments — they will NOT solve for power_target / n / effect
+# unless you go via `sp.power(design, ..., power_target=...)`.
+
+sp.power("rct", effect_size=0.3, power_target=0.80)                  # → PowerResult(n=349, power=0.80)
+sp.power("did", n=200, effect_size=0.15, power_target=0.80,
+         n_periods=4, n_treated_periods=2)                            # DID: solves MDE / n / power
+sp.power("cluster_rct", cluster_size=50, icc=0.05,
+         effect_size=0.2, power_target=0.80)                          # Cluster RCT: solves n_clusters
+sp.pretrends_power(result)                                            # Roth (2022) pre-trends power
 ```
 
 Persist the `PowerResult` next to `data_contract.json` and `empirical_strategy.md` — a referee will ask whether the design was powered before data collection, not after.
@@ -198,7 +205,7 @@ sp.describe(df).to_markdown("references/codebook.md")              # auto-codebo
 ```
 
 ### 1.1 Multi-panel Table 1 (AER convention)
-Group rows into **Panel A: Outcomes**, **Panel B: Treatment intensity**, **Panel C: Controls**, **Panel D: Sample composition**. `sp.sumstats` accepts `groups=` for panel-style layout, and the result can be merged into one tex file:
+Group rows into **Panel A: Outcomes**, **Panel B: Treatment intensity**, **Panel C: Controls**, **Panel D: Sample composition**. `sp.sumstats` does not accept `groups=` directly — emit one Panel per call and concatenate. The result is one `.tex` file with `% Panel X` markers you can replace with `\midrule \multicolumn{...}{l}{\textit{Panel X. ...}} \\` during paper assembly.
 
 ```python
 panels = {
@@ -207,9 +214,14 @@ panels = {
     "C. Demographic controls": ["age", "edu", "female", "married"],
     "D. Labor market":         ["tenure", "firm_size", "industry_id"],
 }
-sp.sumstats(df, groups=panels, by="training",
-            stats=["mean", "sd", "n"],
-            output="tables/table1_summary.tex")
+import io
+buf = io.StringIO()
+for label, vs in panels.items():
+    buf.write(f"\n% Panel {label}\n")
+    buf.write(sp.sumstats(df, vars=vs, by="training",
+                          stats=["mean", "sd", "n"],
+                          output="latex"))
+open("tables/table1_summary.tex", "w").write(buf.getvalue())
 ```
 
 ### 1.2 Figure 1 — raw trends / treatment rollout
@@ -285,20 +297,28 @@ plan = q.identify()                # IdentificationPlan: estimator + assumptions
 print(plan.summary())              # human-readable Methods paragraph
 print(plan.identification_story)   # narrative of why this estimator identifies the estimand
 
-# FREEZE the plan to disk BEFORE estimating — this is your pre-registration:
+# FREEZE the plan to disk BEFORE estimating — this is your pre-registration.
+# `q` (CausalQuestion) carries the question (population / treatment / outcome).
+# `plan` (IdentificationPlan) carries the strategy (estimator / story /
+# assumptions / fallbacks / warnings). The estimating equation is *your*
+# job to write down — paste it from the §2.1 table that matches plan.estimator.
 from pathlib import Path
-bullets = lambda xs: "\n".join(f"- {x}" for x in xs)
+bullets = lambda xs: "\n".join(f"- {x}" for x in xs) if xs else "- (none)"
 Path("artifacts/empirical_strategy.md").write_text(
     f"# Empirical Strategy (pre-registration)\n\n"
-    f"**Population**: {plan.population}\n"
+    f"**Population**: {q.population}\n"
+    f"**Treatment**: `{q.treatment}`    **Outcome**: `{q.outcome}`\n"
     f"**Estimand**: {plan.estimand}\n"
-    f"**Estimator**: {plan.estimator}\n\n"
-    f"## Estimating equation\n```\n{plan.equation}\n```\n\n"
+    f"**Estimator**: `sp.{plan.estimator}`\n\n"
+    f"## Estimating equation (paste from §2.1 row matching `{plan.estimator}`)\n"
+    f"```\n<paste here>\n```\n\n"
     f"## Identification story\n{plan.identification_story}\n\n"
-    f"## Identifying assumptions\n{bullets(plan.assumptions)}\n\n"
-    f"## Threats to identification\n{bullets(plan.threats)}\n\n"
-    f"## Fallback estimators\n{bullets(plan.fallback_estimators)}\n"
+    f"## Identifying assumptions (must defend in §2)\n{bullets(plan.assumptions)}\n\n"
+    f"## Auto-flagged warnings\n{bullets(plan.warnings)}\n\n"
+    f"## Fallback estimators (Step 7 robustness)\n{bullets(plan.fallback_estimators)}\n"
 )
+# Machine-readable sidecar (full question, replayable):
+Path("artifacts/causal_question.yaml").write_text(q.to_yaml())
 
 result = q.estimate()              # run only after the plan is committed to disk / git
 ```
@@ -345,9 +365,8 @@ sp.enhanced_event_study_plot(
     title="Figure 2a. Event-study coefficients (95% CI; ref. period = −1)")\
   .savefig("figures/fig2a_event_study.png", dpi=300)
 
-# Numerical pre-trends test (joint F + Roth 2022 power) for the table footnote
+# Numerical pre-trends test (Roth 2022 power) for the table footnote
 print(sp.pretrends_summary(es))                       # F-stat, p-value, max-PT bound
-sp.bjs_pretrend_joint(es)                             # Borusyak-Jaravel-Spiess joint test
 
 # Bacon decomposition figure for staggered DID (Figure 2a-bis)
 bd = sp.bacon_decomposition(df, y="wage", treat="training",
@@ -355,10 +374,19 @@ bd = sp.bacon_decomposition(df, y="wage", treat="training",
 sp.bacon_plot(bd, title="Figure 2a-bis. Goodman-Bacon weights")\
   .savefig("figures/fig2a2_bacon.png", dpi=300)
 
-# CS / SA dynamic effects figure (Figure 2a-ter): the post-period τ_e curve
-cs = sp.callaway_santanna(df, y="wage", g="first_treat_year", t="year", i="worker_id")
+# CS / SA dynamic effects figure (Figure 2a-ter): the post-period τ_e curve.
+# Use `x=` for covariates (not `covariates=` — that kwarg does not exist).
+cs = sp.callaway_santanna(df, y="wage", g="first_treat_year",
+                          t="year", i="worker_id",
+                          x=["age", "edu"])
 sp.did_summary_plot(cs, title="Figure 2a-ter. Dynamic ATT (Callaway–Sant'Anna)")\
   .savefig("figures/fig2a3_csdid.png", dpi=300)
+
+# Borusyak–Jaravel–Spiess joint pre-trends test — needs the CS/SA result
+# AND the underlying panel (NOT the event_study() output):
+sp.bjs_pretrend_joint(cs, df, y="wage", group="first_treat_year",
+                      time="year", first_treat="first_treat_year",
+                      controls=["age", "edu"])
 ```
 
 ### 3.2 First-stage F-statistic + scatter (IV identification)
@@ -480,7 +508,7 @@ ivr  = sp.ivreg("wage ~ (training ~ Z1 + Z2) + age + edu + tenure",
                  df, cluster="firm_id")                                                    # 2SLS
 did  = sp.callaway_santanna(df, y="wage", g="first_treat_year",
                              t="year", i="worker_id",
-                             covariates=["age","edu","tenure"])                            # CS-DID
+                             x=["age","edu","tenure"])                                     # CS-DID (kwarg is x=)
 dml  = sp.dml(df, y="wage", treat="training",
                covariates=["age","edu","tenure","firm_size"], model="plr")                 # DML
 mtch = sp.match(df, y="wage", treat="training",
@@ -652,22 +680,29 @@ sp.continuous_did(df, y="wage", dose="training_hours",
   .savefig("figures/fig4a2_continuous_did.png", dpi=300)
 ```
 
-### 5.4 Figure 4-bis — CATE distribution (causal forest / DR-Learner)
-```python
-cf = sp.causal_forest(formula="wage ~ training | age + edu + tenure + firm_size", data=df)
+### 5.4 Figure 4-bis — CATE distribution (DR-Learner / causal forest)
+The CATE plotters need a result that exposes per-row conditional effects.
+`sp.causal_forest` returns a *summary* result without `.cate_estimates`, so
+for the CATE histogram and grouped bar chart use a meta-learner (or any
+DR-/X-/R-learner) and pass its CATE table to `cate_group_plot`.
 
-sp.cate_plot(cf, kind="hist",
+```python
+ml = sp.metalearner(df, y="wage", treat="training",
+                    covariates=["age","edu","tenure","firm_size"], learner="dr")
+
+sp.cate_plot(ml, kind="hist",
              title="Figure 4b. Distribution of conditional ATE")\
   .savefig("figures/fig4b_cate_hist.png", dpi=300)
 
-# CATE by group bar chart (heterogeneity by a discrete moderator)
-sp.cate_group_plot(cf, group="skill_quartile",
-                   title="Figure 4c. CATE by skill quartile")\
+# CATE by group bar chart: first compute the group-level table, THEN plot it.
+# `cate_group_plot` takes a DataFrame, not the result object.
+g = sp.cate_by_group(ml, df, by="skill_quartile", n_groups=4)
+sp.cate_group_plot(g, title="Figure 4c. CATE by skill quartile")\
   .savefig("figures/fig4c_cate_by_group.png", dpi=300)
 
 # Tabular summary for the appendix
-print(sp.cate_summary(cf))
-print(sp.cate_by_group(cf, group="skill_quartile"))
+print(sp.cate_summary(ml))
+print(g)                                              # group-level CATE table
 ```
 
 ### 5.5 Subgroup-analysis dispatcher (one-liner)
@@ -675,13 +710,13 @@ print(sp.cate_by_group(cf, group="skill_quartile"))
 sp.subgroup_analysis(df, formula="wage ~ training + age + edu + tenure",
                      x="training",
                      by={"gender": "female", "skill": "skill_quartile"},
-                     cluster="firm_id")            # quick subgroup β̂ table
+                     robust="hc1")                 # quick subgroup β̂ table (HC1 by default; no cluster arg)
 ```
 
 For continuous moderators or many subgroups, prefer:
 - `sp.continuous_did(...)` — dose-response under DID
-- `sp.causal_forest(formula="wage ~ training | X", data=df)` + `sp.cate_plot` — CATE
-- `sp.metalearner(..., learner="dr")` — DR-Learner CATE
+- `sp.metalearner(..., learner="dr")` + `sp.cate_plot` / `sp.cate_by_group` — DR-Learner CATE (recommended for plotting)
+- `sp.causal_forest(formula="wage ~ training | X", data=df)` — CATE summary only (no per-row `.cate_estimates`)
 
 ## Step 6 — Mechanisms / channels
 
@@ -736,14 +771,20 @@ sp.conley(M3, df, lat="lat", lon="lon",
 sp.oster_bounds(data=df, y="wage", treat="training",
                 controls=["age", "edu", "tenure"],
                 r_max=1.3)                          # β* assuming δ=1, R̃²=1.3·R²
-sp.oster_delta(data=df, y="wage", treat="training",
-               controls=["age", "edu", "tenure"],
+# `oster_delta` uses x_base / x_controls (NOT treat= / controls=):
+sp.oster_delta(data=df, y="wage",
+               x_base=["training"],                 # treatment(s) of interest
+               x_controls=["age", "edu", "tenure"], # observed controls
                r_max=1.3)                           # δ for which β=0
 ```
 
 ### 7.6 Honest DID — Rambachan–Roth (2023) PT sensitivity
+`honest_did` only consumes a CS / SA / `did_multiplegt` event-study result
+(or `aggte(result, type='dynamic')`). Pass the `cs` object built in §3.1,
+not a generic OLS/FE main-table result:
+
 ```python
-sp.honest_did(result, method="smoothness")          # bound β under bounded PT violation
+sp.honest_did(cs, method="smoothness")              # bound β under bounded PT violation
 ```
 
 ### 7.7 E-value & unified sensitivity (unmeasured confounding)
@@ -960,8 +1001,8 @@ For pyfixest-style native output, `sp.etable(*models, ...)` is the alternative.
 | 2d | SCM trajectory | `sp.synth(...).plot()` · `sp.synthdid_plot(sp.sdid(...))` | §3 |
 | 3 | Coefficient plot of main specs | `sp.coefplot(M1...M5, variables=["x"])` | §4 |
 | 4a | Dose-response | `sp.dose_response(...).plot()` | §5 |
-| 4b | CATE histogram | `sp.cate_plot(forest, kind="hist")` | §5 |
-| 4c | CATE by group bar | `sp.cate_group_plot(forest, group=...)` | §5 |
+| 4b | CATE histogram | `sp.cate_plot(ml, kind="hist")`  *(ml = `sp.metalearner(..., learner='dr')`)* | §5 |
+| 4c | CATE by group bar | `g = sp.cate_by_group(ml, df, by=..., n_groups=4); sp.cate_group_plot(g)` | §5 |
 | 5 | Robustness forest plot | `sp.coefplot(*rob.values(), variables=["x"])` | §7 |
 | 5b | Specification curve | `sp.spec_curve(...).plot()` | §7 |
 | 6 | Sensitivity dashboard | `sp.sensitivity_dashboard(result)` · `sp.sensitivity_plot(...)` | §7 |
@@ -990,7 +1031,7 @@ sp.callaway_santanna(df, y="y", g="first_treat_year", t="year", i="firm_id") # C
 sp.sun_abraham(df, y="y", g="first_treat_year", t="year", i="firm_id")       # SA 2021 event study
 sp.bacon_decomposition(df, y="y", treat="treated", time="year", id="firm_id")# TWFE diagnostic
 sp.continuous_did(df, y="y", dose="dose", time="year", id="firm_id")         # Continuous treatment
-sp.honest_did(result, method="smoothness")                                   # PT sensitivity (RR 2023)
+sp.honest_did(cs_result, method="smoothness")                                # PT sensitivity (RR 2023) — needs CS/SA result
 sp.event_study(df, y="y", treat_time="first_treat_year",
                time="year", unit="firm_id", window=(-4, 4))                  # Event-study coefficients
 ```
@@ -1107,6 +1148,17 @@ sp.interactive(fig)                                                   # WYSIWYG 
 | `sp.mediation(df, y, treat, mediator)` | Kwargs are `(df, y, d, m, X)` — `d` for treatment, `m` for mediator |
 | Pre-computed embeddings to `text_treatment_effect` | Pass `text_col=<column_name>`; control vectorisation via `embedder=` |
 | `llm_annotator_correct(df)` | Takes aligned `pd.Series` (not DataFrame); NaN for unlabelled rows |
+| `sp.callaway_santanna(..., covariates=[...])` | Kwarg is `x=[...]`, not `covariates=` |
+| `sp.subgroup_analysis(..., cluster=...)` | Kwarg is `robust='hc1'` (or `'hc0'`/`'hc2'`/`'hc3'`); no cluster slot |
+| `sp.oster_delta(..., treat=, controls=, r_max=)` | Real signature: `(data, y, x_base, x_controls, r_max)` |
+| `sp.power_did(..., power_target=...)` | Wrappers don't auto-solve. Use dispatcher: `sp.power('did', ..., power_target=..., n_periods=, n_treated_periods=)` |
+| `sp.power_cluster_rct(n_clusters=..., power_target=...)` | Use dispatcher: `sp.power('cluster_rct', cluster_size=, icc=, effect_size=, power_target=)` |
+| `sp.cate_group_plot(forest, group=...)` | Takes a DataFrame: `g = sp.cate_by_group(ml, df, by=..., n_groups=4); sp.cate_group_plot(g)`. Forest result lacks per-row CATEs — use `sp.metalearner(..., learner='dr')` |
+| `sp.cate_plot(causal_forest_result, ...)` | Same — needs `metalearner` (or any X/DR/R-learner) result that exposes `.cate_estimates` |
+| `sp.bjs_pretrend_joint(es)` | Real signature: `(cs_or_sa_result, data, y=, group=, time=, first_treat=, controls=)` — NOT `event_study()` output |
+| `sp.honest_did(ols_result, ...)` | Only accepts CS / SA / `did_multiplegt` / `aggte(..., 'dynamic')` results — pass a `callaway_santanna` object |
+| `sp.sumstats(df, groups={...}, ...)` | No `groups=` kwarg; loop `sp.sumstats(vars=v_panel, ...)` per panel and concat |
+| `plan.population` / `plan.equation` / `plan.threats` | Not exposed on `IdentificationPlan`. Available: `assumptions / estimand / estimator / fallback_estimators / identification_story / warnings / summary()`. Use `q.population / q.treatment / q.outcome` from the `CausalQuestion` |
 | Trusting SEs without checking convergence / weak-IV / overlap | Always read `result.summary()` warnings and `result.diagnostics` |
 
 ---
