@@ -1,6 +1,6 @@
 ---
 name: StatsPAI_skill
-description: Use when the user asks to run a full empirical / causal analysis in Python in the style of an applied economics paper (AER / QJE / JPE / ReStud / AEJ), pick between DID / RD / IV / SCM / DML / matching, write down an estimating equation and identifying assumption, produce Table 1 / Table 2 / event-study figure / robustness gauntlet, or generate a paper-ready replication package. Also triggers on keywords "StatsPAI", "statspai", "AER empirical analysis", "applied micro pipeline", "Table 1 balance", "event study", "first-stage F", "Oster bound", "honest_did", "spec_curve", "callaway_santanna", "dragonnet", "text as treatment".
+description: Use when the user asks to run a full empirical / causal analysis in Python in the style of an applied economics paper (AER / QJE / JPE / ReStud / AEJ), pick between DID / RD / IV / SCM / DML / matching, write down an estimating equation and identifying assumption, produce Table 1 / Table 2 / event-study figure / robustness gauntlet, OR export a multi-column regression table to Word / Excel / LaTeX (Stata outreg2 / esttab / R modelsummary equivalent), OR bundle an entire replication appendix into one .docx / .xlsx / .tex file. Also triggers on keywords "StatsPAI", "statspai", "AER empirical analysis", "applied micro pipeline", "Table 1 balance", "event study", "first-stage F", "Oster bound", "honest_did", "spec_curve", "callaway_santanna", "dragonnet", "text as treatment", "outreg2 in Python", "regression table to Word/Excel", "sp.regtable", "sp.collect", "sp.paper_tables", "sp.feols", "summary_col", "modelsummary", "AER style table", "QJE style table".
 triggers:
   - causal inference in python
   - applied microeconomics pipeline
@@ -19,6 +19,25 @@ triggers:
   - estimand-first DSL
   - LLM-assisted DAG discovery
   - text as treatment
+  - export regression table to Word
+  - export regression table to Excel
+  - regression table docx
+  - regression table xlsx
+  - outreg2 in Python
+  - summary_col equivalent
+  - modelsummary equivalent
+  - AER house style table
+  - QJE house style table
+  - journal template regression
+  - Stata collect equivalent
+  - replication bundle
+  - sp.regtable
+  - sp.collect
+  - sp.paper_tables
+  - sp.feols
+  - sp.cite
+  - high-dim fixed effects
+  - two-way clustering
   - StatsPAI
   - statspai
 ---
