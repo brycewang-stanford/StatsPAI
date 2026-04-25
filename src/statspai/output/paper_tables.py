@@ -21,53 +21,29 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
 from .regression_table import regtable, RegtableResult
+from ._journals import JOURNALS
 
 
 # ---------------------------------------------------------------------------
-# Journal templates
+# Journal templates (re-exported from ._journals for backwards compatibility)
 # ---------------------------------------------------------------------------
 
+# Build a TEMPLATES dict with the same shape as the historical
+# paper_tables.TEMPLATES (with ``se_type`` and ``notes_default`` as a list)
+# while delegating the actual content to the single-source-of-truth
+# :data:`statspai.output._journals.JOURNALS`. Adding a journal in
+# ``_journals.py`` automatically exposes it here.
 TEMPLATES = {
-    'aer': {
-        'label': 'AER style',
-        'star_levels': (0.10, 0.05, 0.01),
-        'se_type': 'se',
-        'stats': ('N', 'R-squared'),
-        'notes_default': [
-            "Standard errors in parentheses.",
-            "*** p<0.01, ** p<0.05, * p<0.10.",
-        ],
-    },
-    'qje': {
-        'label': 'QJE style',
-        'star_levels': (0.10, 0.05, 0.01),
-        'se_type': 'se',
-        'stats': ('N',),
-        'notes_default': [
-            "Robust standard errors in parentheses.",
-            "*** p<0.01, ** p<0.05, * p<0.10.",
-        ],
-    },
-    'econometrica': {
-        'label': 'Econometrica style',
-        'star_levels': (0.01, 0.05),     # only 5% and 1%
-        'se_type': 'se',
-        'stats': ('N', 'R-squared'),
-        'notes_default': [
-            "Standard errors in parentheses.",
-            "** p<0.05, *** p<0.01.",
-        ],
-    },
-    'restat': {
-        'label': 'Review of Economics and Statistics style',
-        'star_levels': (0.10, 0.05, 0.01),
-        'se_type': 'se',
-        'stats': ('N', 'R-squared'),
-        'notes_default': [
-            "Standard errors in parentheses.",
-            "*** p<0.01, ** p<0.05, * p<0.10.",
-        ],
-    },
+    name: {
+        "label": preset["label"],
+        "star_levels": tuple(preset["star_levels"]),
+        "se_type": "se",
+        "se_label": preset.get("se_label", "Standard errors"),
+        "stats": tuple(preset["stats"]),
+        "notes_default": list(preset["notes_default"]),
+        "font_name": preset.get("font_name", "Times New Roman"),
+    }
+    for name, preset in JOURNALS.items()
 }
 
 
@@ -142,6 +118,184 @@ class PaperTables:
             parts.append("")
         return "\n".join(parts)
 
+    # ------------------------------------------------------------------
+    # DOCX / XLSX export
+    # ------------------------------------------------------------------
+
+    def to_docx(self, path: str) -> str:
+        """Write every populated panel into a single ``.docx`` file.
+
+        Each panel renders as an AER/QJE book-tab table (heavy top rule,
+        thin mid rule, heavy bottom rule, no internal borders). Panels
+        are separated by a page break so the file lands on the
+        co-author's desk ready for direct insertion into a manuscript.
+
+        Returns the file path that was written.
+        """
+        try:
+            from docx import Document
+            from docx.shared import Pt
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
+        except ImportError as e:
+            raise ImportError(
+                "python-docx is required for .docx export. "
+                "Install with: pip install python-docx"
+            ) from e
+
+        from ._aer_style import (
+            apply_word_booktab_rules,
+            style_word_table_typography,
+            add_word_notes_paragraph,
+        )
+
+        doc = Document()
+        panels = list(self.panels().items())
+        for idx, (name, tbl) in enumerate(panels):
+            # Panel heading — Times New Roman 12pt bold, centered
+            heading = doc.add_paragraph()
+            heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = heading.add_run(
+                tbl.title if getattr(tbl, "title", None) else name.title()
+            )
+            run.bold = True
+            run.font.name = "Times New Roman"
+            run.font.size = Pt(12)
+
+            df = tbl.to_dataframe()
+            n_rows = len(df) + 1
+            n_cols = len(df.columns) + 1
+            table = doc.add_table(rows=n_rows, cols=n_cols)
+            table.autofit = True
+
+            # Header row
+            table.rows[0].cells[0].text = ""
+            for j, col in enumerate(df.columns, 1):
+                table.rows[0].cells[j].text = str(col)
+            # Body rows
+            for i, (row_idx, row_data) in enumerate(df.iterrows(), 1):
+                table.rows[i].cells[0].text = str(row_idx)
+                for j, val in enumerate(row_data, 1):
+                    table.rows[i].cells[j].text = str(val)
+
+            style_word_table_typography(table, header_rows=(0,))
+            apply_word_booktab_rules(table, header_top_idx=0, header_bot_idx=0)
+
+            # Notes
+            note_lines: List[str] = []
+            try:
+                note_lines.append(f"{tbl._se_label()} in parentheses")
+            except Exception:
+                pass
+            if getattr(tbl, "show_stars", True):
+                try:
+                    note_lines.append(tbl._star_note())
+                except Exception:
+                    note_lines.append("* p<0.10, ** p<0.05, *** p<0.01")
+            for n in getattr(tbl, "notes", []) or []:
+                note_lines.append(n)
+            add_word_notes_paragraph(doc, "\n".join(note_lines))
+
+            if idx < len(panels) - 1:
+                doc.add_page_break()
+
+        doc.save(path)
+        return path
+
+    def to_xlsx(self, path: str) -> str:
+        """Write every populated panel as a separate sheet in one workbook.
+
+        Sheet names are the panel names (``main`` / ``heterogeneity`` /
+        ``robustness`` / ``placebo``). Each sheet uses the AER book-tab
+        style: heavy rules above the header, below the header, and below
+        the last data row.
+
+        Returns the file path that was written.
+        """
+        try:
+            import openpyxl
+            from openpyxl.styles import Font, Alignment
+        except ImportError as e:
+            raise ImportError(
+                "openpyxl is required for .xlsx export. "
+                "Install with: pip install openpyxl"
+            ) from e
+
+        from ._aer_style import excel_booktab_borders
+
+        top_rule, mid_rule, bottom_rule, _ = excel_booktab_borders()
+        header_font = Font(bold=True, name="Times New Roman", size=11)
+        body_font = Font(name="Times New Roman", size=11)
+        title_font = Font(bold=True, name="Times New Roman", size=12)
+        notes_font = Font(italic=True, name="Times New Roman", size=9)
+        center = Alignment(horizontal="center")
+
+        wb = openpyxl.Workbook()
+        wb.remove(wb.active)
+
+        for name, tbl in self.panels().items():
+            ws = wb.create_sheet(title=name[:31])  # Excel: max 31 chars
+            df = tbl.to_dataframe()
+
+            row = 1
+            if getattr(tbl, "title", None):
+                ws.cell(row=row, column=1, value=str(tbl.title)).font = title_font
+                row += 2
+
+            header_row = row
+            ws.cell(row=row, column=1).border = top_rule
+            for j, col in enumerate(df.columns, 2):
+                cell = ws.cell(row=row, column=j, value=str(col))
+                cell.font = header_font
+                cell.alignment = center
+                cell.border = top_rule
+
+            row += 1
+            for j in range(1, len(df.columns) + 2):
+                ws.cell(row=row, column=j).border = mid_rule
+            mid_row = row
+
+            row = mid_row + 1
+            for i, (idx, row_data) in enumerate(df.iterrows()):
+                ws.cell(row=row, column=1, value=str(idx)).font = body_font
+                for j, val in enumerate(row_data, 2):
+                    cell = ws.cell(row=row, column=j, value=str(val))
+                    cell.font = body_font
+                    cell.alignment = center
+                row += 1
+
+            last_row = row - 1
+            for j in range(1, len(df.columns) + 2):
+                ws.cell(row=last_row, column=j).border = bottom_rule
+
+            # Notes — italic 9pt
+            note_row = last_row + 1
+            try:
+                ws.cell(
+                    row=note_row, column=1,
+                    value=f"{tbl._se_label()} in parentheses"
+                ).font = notes_font
+                note_row += 1
+            except Exception:
+                pass
+            if getattr(tbl, "show_stars", True):
+                try:
+                    ws.cell(row=note_row, column=1,
+                            value=tbl._star_note()).font = notes_font
+                    note_row += 1
+                except Exception:
+                    pass
+            for n in getattr(tbl, "notes", []) or []:
+                ws.cell(row=note_row, column=1, value=str(n)).font = notes_font
+                note_row += 1
+
+            # Auto-fit columns
+            for col_cells in ws.columns:
+                width = max((len(str(c.value)) for c in col_cells if c.value), default=8)
+                ws.column_dimensions[col_cells[0].column_letter].width = min(width + 3, 28)
+
+        wb.save(path)
+        return path
+
     def __repr__(self) -> str:
         names = list(self.panels().keys())
         return (f"<PaperTables template='{self.template}' "
@@ -166,6 +320,8 @@ def paper_tables(
     keep: Optional[Sequence[str]] = None,
     filename: Optional[str] = None,
     latex_filename: Optional[str] = None,
+    docx_filename: Optional[str] = None,
+    xlsx_filename: Optional[str] = None,
 ) -> PaperTables:
     """Generate a journal-style multi-panel table bundle.
 
@@ -195,6 +351,12 @@ def paper_tables(
         If provided, write the Markdown version to this path.
     latex_filename : str, optional
         If provided, write the concatenated LaTeX to this path.
+    docx_filename : str, optional
+        If provided, write a single Word document with all panels in
+        AER/QJE book-tab style (one panel per page).
+    xlsx_filename : str, optional
+        If provided, write a single Excel workbook with each panel as
+        its own worksheet, styled in AER/QJE book-tab convention.
 
     Returns
     -------
@@ -230,24 +392,21 @@ def paper_tables(
     if template not in TEMPLATES:
         raise ValueError(
             f"Unknown template {template!r}; choose from {list(TEMPLATES)}")
-    style = TEMPLATES[template]
 
     def _build(results, title, model_labels):
         if not results:
             return None
-        # regtable ships journal-appropriate footer notes by default
-        # ("Standard errors in parentheses; * p<0.10, ...").  Do NOT
-        # duplicate via template notes — pass None so only regtable's
-        # defaults appear.
+        # Delegate journal styling to regtable's template system. Doing so
+        # keeps a single source of truth (``_journals.JOURNALS``) for star
+        # levels / SE label / stat selection, so adding a journal in one
+        # file automatically lights up everywhere it can be used.
         return regtable(
             *results,
             title=title,
             model_labels=model_labels,
             coef_labels=coef_labels,
             keep=keep,
-            stats=list(style['stats']),
-            star_levels=style['star_levels'],
-            se_type=style['se_type'],
+            template=template,
             stars=True,
             output='text',
             notes=None,
@@ -268,4 +427,8 @@ def paper_tables(
         pt.to_markdown(filename)
     if latex_filename is not None:
         pt.to_latex(latex_filename)
+    if docx_filename is not None:
+        pt.to_docx(docx_filename)
+    if xlsx_filename is not None:
+        pt.to_xlsx(xlsx_filename)
     return pt

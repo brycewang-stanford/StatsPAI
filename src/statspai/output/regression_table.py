@@ -20,7 +20,7 @@ from __future__ import annotations
 import warnings
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union  # noqa: F401
 
 import numpy as np
 import pandas as pd
@@ -32,6 +32,7 @@ from scipy import stats as sp_stats
 # ---------------------------------------------------------------------------
 
 from .estimates import (
+    _ci_bounds,
     _extract_model_data,
     _ModelData,
     _format_stars,
@@ -42,6 +43,58 @@ from .estimates import (
     _STAT_ALIASES,
     _STAT_DISPLAY,
 )
+from ._diagnostics import extract_diagnostic_rows
+from ._journals import get_template, list_templates, star_note_for
+from ._repro import build_repro_note
+
+
+# Bracket styles cycled through when rendering ``multi_se`` extra SE rows.
+# The four bracket pairs are deliberately Markdown-safe: a fourth ``||`` pair
+# would collide with GFM pipe-table delimiters and break the row, so we use
+# guillemets ``«»`` instead. The primary SE always uses parentheses.
+_MULTI_SE_BRACKETS = (("[", "]"), ("{", "}"), ("⟨", "⟩"), ("«", "»"))
+
+
+def _resolve_multi_se(
+    multi_se: Optional[Dict[str, Sequence[Any]]],
+    n_models: int,
+) -> List[Tuple[str, List[Dict[str, float]]]]:
+    """Validate and normalise a ``multi_se`` argument.
+
+    Returns a list of ``(label, [per-model dict-of-var->se, ...])`` tuples
+    in user-supplied order. Each per-model entry is a plain ``dict``
+    keyed by coefficient name; missing variables yield empty cells.
+    """
+    if not multi_se:
+        return []
+    out: List[Tuple[str, List[Dict[str, float]]]] = []
+    for label, per_model in multi_se.items():
+        if not isinstance(label, str) or not label:
+            raise ValueError(f"multi_se keys must be non-empty strings, got {label!r}.")
+        seq = list(per_model) if per_model is not None else []
+        if len(seq) != n_models:
+            raise ValueError(
+                f"multi_se[{label!r}] has {len(seq)} entries but there are "
+                f"{n_models} models."
+            )
+        normalized: List[Dict[str, float]] = []
+        for entry in seq:
+            if entry is None:
+                normalized.append({})
+                continue
+            if isinstance(entry, pd.Series):
+                normalized.append({str(k): float(v) for k, v in entry.items()
+                                   if v is not None and not pd.isna(v)})
+            elif isinstance(entry, dict):
+                normalized.append({str(k): float(v) for k, v in entry.items()
+                                   if v is not None and not pd.isna(v)})
+            else:
+                raise TypeError(
+                    f"multi_se[{label!r}] entries must be pandas.Series or "
+                    f"dict, got {type(entry).__name__}."
+                )
+        out.append((label, normalized))
+    return out
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -71,7 +124,15 @@ class RegtableResult:
         add_rows: Optional[Dict[str, List[str]]],
         stats: Optional[List[str]],
         output: str = "text",
+        alpha: float = 0.05,
+        multi_se: Optional[List[Tuple[str, List[Dict[str, float]]]]] = None,
+        se_label: Optional[str] = None,
+        template: Optional[str] = None,
+        quarto_label: Optional[str] = None,
+        quarto_caption: Optional[str] = None,
     ):
+        if not 0.0 < alpha < 1.0:
+            raise ValueError(f"alpha must be in (0, 1), got {alpha!r}")
         self.panels = panels
         self.panel_labels = panel_labels
         self.model_labels = model_labels
@@ -88,7 +149,21 @@ class RegtableResult:
         self.notes = notes or []
         self.add_rows = add_rows or {}
         self.requested_stats = stats or ["N", "R2", "adj_R2", "F"]
+        self.alpha = float(alpha)
         self.n_models = sum(len(p.models) for p in panels)
+        self.multi_se = multi_se or []
+        # Override the SE-row footer label (e.g. "Robust standard errors"
+        # via QJE preset). When None, the label is derived from se_type.
+        self._se_label_override = se_label
+        # Journal template name (informational; resolution already happened
+        # at the regtable() call site).
+        self.template = template
+        # Quarto cross-reference metadata. When ``quarto_label`` is set,
+        # ``to_quarto()`` (and ``to_markdown(quarto=True)``) emit a Quarto
+        # ``: caption {#tbl-<label>}`` line so the table can be referenced
+        # via ``@tbl-<label>`` in the manuscript.
+        self.quarto_label = quarto_label
+        self.quarto_caption = quarto_caption
         # Controls which renderer __str__ uses. Jupyter still gets HTML via
         # _repr_html_ regardless, so output='latex' in a notebook still renders
         # pretty HTML — users who want the LaTeX source call to_latex() or
@@ -144,8 +219,9 @@ class RegtableResult:
         if var not in model.params.index:
             return ""
         if self.se_type == "ci":
-            lo = _fmt_val(model.conf_int_lower.get(var, np.nan), self.fmt)
-            hi = _fmt_val(model.conf_int_upper.get(var, np.nan), self.fmt)
+            lo_v, hi_v = _ci_bounds(model, var, self.alpha)
+            lo = _fmt_val(lo_v, self.fmt)
+            hi = _fmt_val(hi_v, self.fmt)
             return f"[{lo}, {hi}]"
         if self.se_type == "t":
             return f"({_fmt_val(model.tvalues.get(var, np.nan), self.fmt)})"
@@ -155,9 +231,32 @@ class RegtableResult:
         return f"({_fmt_val(model.std_errors.get(var, np.nan), self.fmt)})"
 
     def _se_label(self) -> str:
-        return {"ci": "95% CI", "t": "t-statistics", "p": "p-values"}.get(
+        if self._se_label_override is not None and self.se_type == "se":
+            return self._se_label_override
+        if self.se_type == "ci":
+            level = (1.0 - self.alpha) * 100.0
+            return f"{level:g}% CI"
+        return {"t": "t-statistics", "p": "p-values"}.get(
             self.se_type, "Standard errors"
         )
+
+    def _multi_se_cell(
+        self,
+        per_model: Dict[str, float],
+        var: str,
+        bracket_idx: int,
+    ) -> str:
+        """Render the bracket-wrapped extra-SE cell for one model column."""
+        if var not in per_model:
+            return ""
+        try:
+            val = float(per_model[var])
+        except (TypeError, ValueError):
+            return ""
+        if not np.isfinite(val):
+            return ""
+        lo, hi = _MULTI_SE_BRACKETS[bracket_idx % len(_MULTI_SE_BRACKETS)]
+        return f"{lo}{_fmt_val(val, self.fmt)}{hi}"
 
     def _stat_cell(self, model: _ModelData, key: str) -> str:
         val = model.stats.get(key)
@@ -168,12 +267,10 @@ class RegtableResult:
         return _fmt_val(float(val), "%.3f")
 
     def _star_note(self) -> str:
-        parts = []
-        sorted_levels = sorted(self.star_levels, reverse=True)
-        for i, lev in enumerate(sorted_levels):
-            stars = "*" * (i + 1)
-            parts.append(f"{stars} p<{lev:.2f}")
-        return ", ".join(parts)
+        # Delegate to ``star_note_for`` so the renderer's footer line and the
+        # journal-template ``notes_default`` lines use the same strict-first
+        # convention ("*** p<0.01, ** p<0.05, * p<0.10"). Reduces drift.
+        return star_note_for(self.star_levels)
 
     def _all_models_flat(self) -> List[_ModelData]:
         out: List[_ModelData] = []
@@ -191,6 +288,7 @@ class RegtableResult:
         var_list: List[str],
         col_w: int,
         label_w: int,
+        panel_idx: int = 0,
     ) -> List[str]:
         lines: List[str] = []
         for var in var_list:
@@ -204,6 +302,16 @@ class RegtableResult:
             for m in models:
                 row2 += f"{self._se_cell(m, var):>{col_w}}"
             lines.append(row2)
+            # Extra SE rows from multi_se. Each label maps to one entry per
+            # model across the WHOLE table, so we slice into the panel using
+            # cumulative model offsets.
+            base_idx = sum(len(p.models) for p in self.panels[:panel_idx])
+            for ext_idx, (_, per_model_list) in enumerate(self.multi_se):
+                row3 = " " * label_w
+                for off, _m in enumerate(models):
+                    per_model = per_model_list[base_idx + off]
+                    row3 += f"{self._multi_se_cell(per_model, var, ext_idx):>{col_w}}"
+                lines.append(row3)
             lines.append("")  # blank between vars
         return lines
 
@@ -256,7 +364,7 @@ class RegtableResult:
                 lines.append(thin)
 
             var_list = self._resolve_vars(panel.models)
-            lines.extend(self._text_panel(panel.models, var_list, col_w, label_w))
+            lines.extend(self._text_panel(panel.models, var_list, col_w, label_w, panel_idx=pi))
 
             if multi and pi < len(self.panels) - 1:
                 lines.append(thin)
@@ -286,6 +394,9 @@ class RegtableResult:
 
         # Notes
         lines.append(f"{self._se_label()} in parentheses")
+        for ext_idx, (label, _) in enumerate(self.multi_se):
+            lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
+            lines.append(f"{label} in {lo}…{hi}")
         if self.show_stars:
             lines.append(self._star_note())
         for note in self.notes:
@@ -391,6 +502,26 @@ class RegtableResult:
                                 '<td style="text-align:center; padding:0 12px;"></td>'
                             )
                 lines.append("</tr>")
+                # Extra SE rows from multi_se
+                base_idx = sum(len(p.models) for p in self.panels[:pi])
+                for ext_idx, (_, per_model_list) in enumerate(self.multi_se):
+                    lines.append("<tr>")
+                    lines.append("<td></td>")
+                    for gi, p2 in enumerate(self.panels):
+                        for off, m in enumerate(p2.models):
+                            if gi == pi:
+                                per_model = per_model_list[base_idx + off]
+                                cell = self._multi_se_cell(per_model, var, ext_idx)
+                                lines.append(
+                                    f'<td style="text-align:center; padding:0 12px; '
+                                    f'color:#777; font-size:12px;">'
+                                    f'{_html_escape(cell)}</td>'
+                                )
+                            else:
+                                lines.append(
+                                    '<td style="text-align:center; padding:0 12px;"></td>'
+                                )
+                    lines.append("</tr>")
 
         # Separator
         lines.append(
@@ -448,6 +579,13 @@ class RegtableResult:
             f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
             f'padding:4px 8px 0 8px;">{_html_escape(note_text)}</td></tr>'
         )
+        for ext_idx, (label, _) in enumerate(self.multi_se):
+            lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
+            multi_note = f"{label} in {lo}…{hi}"
+            lines.append(
+                f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
+                f'padding:0 8px;">{_html_escape(multi_note)}</td></tr>'
+            )
         if self.show_stars:
             lines.append(
                 f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
@@ -524,6 +662,20 @@ class RegtableResult:
                         else:
                             cells2.append("")
                 lines.append(" & " + " & ".join(cells2) + " \\\\")
+                # Extra SE rows (multi_se)
+                base_idx = sum(len(p.models) for p in self.panels[:pi])
+                for ext_idx, (_, per_model_list) in enumerate(self.multi_se):
+                    cells_ext: List[str] = []
+                    for gi, p2 in enumerate(self.panels):
+                        for off, _m in enumerate(p2.models):
+                            if gi == pi:
+                                per_model = per_model_list[base_idx + off]
+                                cells_ext.append(
+                                    _latex_escape(self._multi_se_cell(per_model, var, ext_idx))
+                                )
+                            else:
+                                cells_ext.append("")
+                    lines.append(" & " + " & ".join(cells_ext) + " \\\\")
 
             if multi and pi < len(self.panels) - 1:
                 lines.append("\\hline")
@@ -563,6 +715,13 @@ class RegtableResult:
             f"\\multicolumn{{{n_cols}}}{{l}}"
             f"{{\\footnotesize {_latex_escape(note_line)}}} \\\\"
         )
+        for ext_idx, (label, _) in enumerate(self.multi_se):
+            lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
+            multi_note = f"{label} in {lo}…{hi}"
+            lines.append(
+                f"\\multicolumn{{{n_cols}}}{{l}}"
+                f"{{\\footnotesize {_latex_escape(multi_note)}}} \\\\"
+            )
         if self.show_stars:
             lines.append(
                 f"\\multicolumn{{{n_cols}}}{{l}}"
@@ -582,7 +741,21 @@ class RegtableResult:
     # Markdown
     # ═══════════════════════════════════════════════════════════════════════
 
-    def to_markdown(self) -> str:
+    def to_markdown(self, *, quarto: bool = False) -> str:
+        """Render the table as Markdown.
+
+        Parameters
+        ----------
+        quarto : bool, default False
+            When ``True``, append a Quarto cross-reference caption block
+            of the form ``: <caption> {#tbl-<label>}`` so the table can be
+            referenced via ``@tbl-<label>`` in the manuscript. Requires
+            ``quarto_label`` to have been set on the result (typically via
+            ``regtable(..., quarto_label="main")``). Equivalent to calling
+            :meth:`to_quarto`.
+        """
+        if quarto:
+            return self.to_quarto()
         all_models = self._all_models_flat()
         lines: List[str] = []
         if self.title:
@@ -624,6 +797,18 @@ class RegtableResult:
                         else:
                             cells2.append("")
                 lines.append("| |" + "|".join(f" {c} " for c in cells2) + "|")
+                # Extra SE rows from multi_se
+                base_idx = sum(len(p.models) for p in self.panels[:pi])
+                for ext_idx, (_, per_model_list) in enumerate(self.multi_se):
+                    cells3: List[str] = []
+                    for gi, p2 in enumerate(self.panels):
+                        for off, _m in enumerate(p2.models):
+                            if gi == pi:
+                                per_model = per_model_list[base_idx + off]
+                                cells3.append(self._multi_se_cell(per_model, var, ext_idx))
+                            else:
+                                cells3.append("")
+                    lines.append("| |" + "|".join(f" {c} " for c in cells3) + "|")
 
         # Add rows
         for row_label, row_vals in self.add_rows.items():
@@ -643,12 +828,74 @@ class RegtableResult:
 
         lines.append("")
         lines.append(f"*{self._se_label()} in parentheses*")
+        for ext_idx, (label, _) in enumerate(self.multi_se):
+            lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
+            lines.append(f"*{label} in {lo}…{hi}*")
         if self.show_stars:
             lines.append(f"*{self._star_note()}*")
         for note in self.notes:
             lines.append(f"*{note}*")
 
         return "\n".join(lines)
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # Quarto
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def to_quarto(self) -> str:
+        """Render as a Quarto-cross-referenceable Markdown table.
+
+        Builds on :meth:`to_markdown` and appends a Quarto caption block
+        of the form::
+
+            : <caption> {#tbl-<label>}
+
+        which lets the manuscript reference the table via
+        ``@tbl-<label>``. The ``tbl-`` prefix is auto-prepended when the
+        user passes a bare ``quarto_label="main"``.
+
+        Behaviour
+        ---------
+        - ``quarto_label`` is required. Without it, ``ValueError`` is
+          raised — Quarto cross-references need an id.
+        - ``quarto_caption`` falls back to ``title`` when not provided.
+          If neither is set, a generic ``"Regression results"`` is used
+          and a warning is emitted.
+        - The leading title line is dropped (the caption block replaces
+          it) to avoid duplicating the heading.
+        """
+        if not self.quarto_label:
+            raise ValueError(
+                "to_quarto() requires quarto_label to be set. "
+                "Pass quarto_label='main' (or similar) to regtable()."
+            )
+
+        raw_label = str(self.quarto_label).strip()
+        label = raw_label if raw_label.startswith("tbl-") else f"tbl-{raw_label}"
+
+        if self.quarto_caption:
+            caption = str(self.quarto_caption)
+        elif self.title:
+            caption = str(self.title)
+        else:
+            warnings.warn(
+                "to_quarto(): no quarto_caption or title provided; "
+                "using default 'Regression results'. Quarto cross-refs "
+                "render better with an explicit caption.",
+                UserWarning,
+                stacklevel=2,
+            )
+            caption = "Regression results"
+
+        saved_title = self.title
+        try:
+            self.title = None
+            body = self.to_markdown()
+        finally:
+            self.title = saved_title
+
+        body = body.rstrip()
+        return f"{body}\n\n: {caption} {{#{label}}}\n"
 
     # ═══════════════════════════════════════════════════════════════════════
     # DataFrame
@@ -693,6 +940,21 @@ class RegtableResult:
                             row2[col_name] = ""
                         mi += 1
                 records.append(row2)
+                # Extra SE rows (multi_se)
+                base_idx = sum(len(p.models) for p in self.panels[:pi])
+                for ext_idx, (_, per_model_list) in enumerate(self.multi_se):
+                    row3: Dict[str, str] = {"": ""}
+                    mi = 0
+                    for gi, p2 in enumerate(self.panels):
+                        for off, _m in enumerate(p2.models):
+                            col_name = self.model_labels[mi]
+                            if gi == pi:
+                                per_model = per_model_list[base_idx + off]
+                                row3[col_name] = self._multi_se_cell(per_model, var, ext_idx)
+                            else:
+                                row3[col_name] = ""
+                            mi += 1
+                    records.append(row3)
 
         # Add rows
         for row_label, row_vals in self.add_rows.items():
@@ -774,17 +1036,27 @@ class RegtableResult:
         for j in range(1, len(df.columns) + 2):
             ws.cell(row=last_row, column=j).border = thick_border
 
-        # Notes
+        # Notes — emit the same lines that to_text/to_html/to_latex/to_word
+        # emit so users who pass multi_se / repro / notes do not lose them
+        # when exporting to Excel.
+        notes_font = Font(italic=True, name="Times New Roman", size=9)
         note_row = last_row + 1
         ws.cell(
             row=note_row, column=1,
             value=f"{self._se_label()} in parentheses"
-        ).font = Font(italic=True, name="Times New Roman", size=9)
+        ).font = notes_font
+        for ext_idx, (label, _) in enumerate(self.multi_se):
+            lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
+            note_row += 1
+            ws.cell(row=note_row, column=1,
+                    value=f"{label} in {lo}…{hi}").font = notes_font
         if self.show_stars:
             note_row += 1
-            ws.cell(row=note_row, column=1, value=self._star_note()).font = Font(
-                italic=True, name="Times New Roman", size=9
-            )
+            ws.cell(row=note_row, column=1,
+                    value=self._star_note()).font = notes_font
+        for note in self.notes:
+            note_row += 1
+            ws.cell(row=note_row, column=1, value=note).font = notes_font
 
         # Auto-width columns
         for col_cells in ws.columns:
@@ -802,11 +1074,15 @@ class RegtableResult:
     # ═══════════════════════════════════════════════════════════════════════
 
     def to_word(self, filename: str) -> None:
-        """Export table to Word (.docx) file."""
+        """Export table to Word (.docx) file in AER/QJE book-tab style.
+
+        The exported document follows economics-journal conventions:
+        a heavy top rule, thin mid rule below the header, heavy bottom
+        rule above notes, and **no** internal vertical borders. Body
+        text is Times New Roman 10pt; the notes paragraph is 8pt italic.
+        """
         try:
             from docx import Document
-            from docx.shared import Pt, Inches
-            from docx.enum.text import WD_ALIGN_PARAGRAPH
         except ImportError:
             warnings.warn(
                 "python-docx is required for Word export. "
@@ -814,57 +1090,45 @@ class RegtableResult:
             )
             return
 
+        from ._aer_style import (
+            apply_word_booktab_rules,
+            style_word_table_typography,
+            add_word_notes_paragraph,
+        )
+
         doc = Document()
         if self.title:
             doc.add_heading(self.title, level=2)
 
         df = self.to_dataframe()
-        n_rows = len(df) + 1  # +1 for header
-        n_cols = len(df.columns) + 1  # +1 for row labels
+        n_rows = len(df) + 1
+        n_cols = len(df.columns) + 1
+        table = doc.add_table(rows=n_rows, cols=n_cols)
+        table.autofit = True
 
-        table = doc.add_table(rows=n_rows, cols=n_cols, style="Table Grid")
-
-        # Header row
+        # Populate header
         header_row = table.rows[0]
         header_row.cells[0].text = ""
         for j, col in enumerate(df.columns, 1):
-            cell = header_row.cells[j]
-            cell.text = col
-            for para in cell.paragraphs:
-                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                for run in para.runs:
-                    run.font.bold = True
-                    run.font.size = Pt(10)
-                    run.font.name = "Times New Roman"
-
-        # Data rows
+            header_row.cells[j].text = str(col)
+        # Populate body
         for i, (idx, row_data) in enumerate(df.iterrows(), 1):
-            row = table.rows[i]
-            row.cells[0].text = str(idx)
-            for para in row.cells[0].paragraphs:
-                for run in para.runs:
-                    run.font.size = Pt(10)
-                    run.font.name = "Times New Roman"
+            table.rows[i].cells[0].text = str(idx)
             for j, val in enumerate(row_data, 1):
-                cell = row.cells[j]
-                cell.text = str(val)
-                for para in cell.paragraphs:
-                    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    for run in para.runs:
-                        run.font.size = Pt(10)
-                        run.font.name = "Times New Roman"
+                table.rows[i].cells[j].text = str(val)
 
-        # Notes
-        note_text = f"{self._se_label()} in parentheses"
+        style_word_table_typography(table, header_rows=(0,))
+        apply_word_booktab_rules(table, header_top_idx=0, header_bot_idx=0)
+
+        # Notes (italic, 8pt)
+        note_lines = [f"{self._se_label()} in parentheses"]
+        for ext_idx, (label, _) in enumerate(self.multi_se):
+            lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
+            note_lines.append(f"{label} in {lo}…{hi}")
         if self.show_stars:
-            note_text += f"\n{self._star_note()}"
-        for note in self.notes:
-            note_text += f"\n{note}"
-        p = doc.add_paragraph()
-        run = p.add_run(note_text)
-        run.font.size = Pt(8)
-        run.font.italic = True
-        run.font.name = "Times New Roman"
+            note_lines.append(self._star_note())
+        note_lines.extend(self.notes)
+        add_word_notes_paragraph(doc, "\n".join(note_lines))
 
         doc.save(filename)
 
@@ -887,6 +1151,8 @@ class RegtableResult:
             path.write_text(self.to_html(), encoding="utf-8")
         elif ext == ".md":
             path.write_text(self.to_markdown(), encoding="utf-8")
+        elif ext == ".qmd":
+            path.write_text(self.to_quarto(), encoding="utf-8")
         elif ext == ".csv":
             self.to_dataframe().to_csv(filename)
         else:
@@ -904,6 +1170,8 @@ class RegtableResult:
             "html": self.to_html,
             "markdown": self.to_markdown,
             "md": self.to_markdown,
+            "quarto": self.to_quarto,
+            "qmd": self.to_quarto,
         }.get(fmt, self.to_text)()
 
     def __str__(self) -> str:
@@ -943,7 +1211,7 @@ def regtable(
     stats: Optional[Sequence[str]] = None,
     se_type: str = "se",
     stars: bool = True,
-    star_levels: Tuple[float, ...] = (0.10, 0.05, 0.01),
+    star_levels: Optional[Tuple[float, ...]] = None,
     fmt: str = "%.3f",
     output: str = "text",
     filename: Optional[str] = None,
@@ -951,6 +1219,12 @@ def regtable(
     notes: Optional[List[str]] = None,
     add_rows: Optional[Dict[str, List[str]]] = None,
     alpha: float = 0.05,
+    template: Optional[str] = None,
+    diagnostics: Union[str, bool] = "auto",
+    multi_se: Optional[Dict[str, Sequence[Any]]] = None,
+    repro: Union[bool, Dict[str, Any], None] = None,
+    quarto_label: Optional[str] = None,
+    quarto_caption: Optional[str] = None,
 ) -> RegtableResult:
     """
     Unified publication-quality regression table.
@@ -992,21 +1266,70 @@ def regtable(
     output : str, default ``"text"``
         Controls what ``str(result)`` / ``repr(result)`` / ``print(result)``
         returns — one of ``"text"``, ``"latex"``, ``"html"``, ``"markdown"``,
-        ``"word"``, ``"excel"``. In Jupyter, ``_repr_html_`` always renders
-        HTML regardless of this setting.
+        ``"quarto"``, ``"word"``, ``"excel"``. In Jupyter, ``_repr_html_``
+        always renders HTML regardless of this setting.
     filename : str, optional
         Save the table to this file path. The format is chosen from the
-        **file extension** (``.tex``/``.html``/``.md``/``.docx``/``.xlsx``),
+        **file extension** (``.tex``/``.html``/``.md``/``.qmd``/``.docx``/``.xlsx``),
         independently of ``output=``. Pass a matching extension and
         ``output=`` to avoid surprises.
+    quarto_label : str, optional
+        Quarto cross-reference id. Pass ``"main"`` to make the table
+        referenceable as ``@tbl-main`` from the manuscript prose. The
+        ``tbl-`` prefix is auto-prepended when missing. Required for
+        ``to_quarto()`` and ``output="quarto"``.
+    quarto_caption : str, optional
+        Caption rendered alongside the Quarto cross-ref id. Falls back
+        to ``title`` when omitted; if both are absent, a generic
+        ``"Regression results"`` is used and a warning is emitted.
     title : str, optional
         Table title / caption.
     notes : list of str, optional
         Additional notes beneath the table.
     add_rows : dict, optional
-        Custom rows: ``{"Controls": ["No", "Yes", "Yes"]}``.
+        Custom rows: ``{"Controls": ["No", "Yes", "Yes"]}``. User-provided
+        rows take precedence over auto-extracted diagnostic rows with the
+        same label.
     alpha : float, default 0.05
-        Significance level (unused currently, reserved for CI width).
+        Significance level used when ``se_type='ci'``. Displayed CI is
+        ``(1 - alpha) * 100``%. With ``alpha=0.05`` (default) the bounds
+        come from the model's stored 95% CI; for any other ``alpha`` the
+        bounds are recomputed as ``b ± crit · se``, using the
+        t-distribution when ``df_resid`` is known, else the standard
+        normal.
+    template : str, optional
+        Journal preset name. One of ``"aer"``, ``"qje"``, ``"econometrica"``,
+        ``"restat"``, ``"jf"``, ``"aeja"``, ``"jpe"``, ``"restud"``. When
+        set, fills in defaults for ``star_levels``, the SE-row footer label
+        (e.g. QJE → "Robust standard errors"), the default ``stats``
+        selection (e.g. JF/AEJA include Adj. R²), and any extra notes —
+        but every explicit kwarg you pass still wins. See
+        :data:`statspai.output._journals.JOURNALS`.
+    diagnostics : {'auto', 'off'} or bool, default ``'auto'``
+        Auto-extract publication-quality diagnostic rows from the result
+        objects:
+
+        - **FE / Cluster indicators** — ``"Fixed Effects: Yes/No"``,
+          ``"Cluster SE: <var>"``.
+        - **IV** — first-stage F (Olea-Pflueger / KP), Hansen-J p.
+        - **DiD** — pre-trend p-value, treated-group count.
+        - **RD** — bandwidth, kernel, polynomial order.
+
+        ``"auto"`` (and ``True``) emit only rows where at least one column
+        produces a non-empty cell; ``False`` / ``"off"`` disables all
+        auto-extraction. User-supplied ``add_rows`` always override.
+    multi_se : dict, optional
+        Stack additional SE specifications under the primary SE row.
+        Keys are display labels (e.g. ``"Cluster SE"``, ``"Bootstrap SE"``)
+        and values are sequences of :class:`pandas.Series` or dicts
+        (one per model column) mapping coefficient names to SE values.
+        Bracket styles cycle ``[]``/``{}``/``⟨⟩``/``||``. Footer notes
+        record each label automatically.
+    repro : bool or dict, optional
+        Append a reproducibility metadata note (StatsPAI version, optional
+        seed and data hash, timestamp) as the last footer line. ``True``
+        emits the version + timestamp only. Pass a dict to record more:
+        ``{"data": df, "seed": 42, "extra": "git@<sha>"}``.
 
     Returns
     -------
@@ -1030,7 +1353,8 @@ def regtable(
         raise ValueError("At least one model result is required.")
 
     _VALID_OUTPUTS = {
-        "text", "latex", "tex", "html", "markdown", "md", "word", "excel",
+        "text", "latex", "tex", "html", "markdown", "md",
+        "quarto", "qmd", "word", "excel",
     }
     if output not in _VALID_OUTPUTS:
         raise ValueError(
@@ -1038,12 +1362,37 @@ def regtable(
             f"{sorted(_VALID_OUTPUTS)}"
         )
 
+    # --- Resolve journal template (sets defaults; explicit kwargs win) ---
+    se_label_override: Optional[str] = None
+    template_notes: List[str] = []
+    if template is not None:
+        preset = get_template(template)
+        if star_levels is None:
+            star_levels = tuple(preset["star_levels"])
+        if stats is None:
+            stats = list(preset["stats"])
+        if se_type == "se":
+            se_label_override = preset.get("se_label")
+        # Footer notes from the template are appended *after* user notes,
+        # except we skip the boilerplate "stars" / "SE in parentheses"
+        # lines because the renderer emits those itself.
+        for line in preset.get("notes_default", ()):
+            low = line.lower()
+            if "in parenthes" in low or "p<0" in low:
+                continue
+            template_notes.append(line)
+
+    if star_levels is None:
+        star_levels = (0.10, 0.05, 0.01)
+
     # --- Detect panel structure ---
     # If first arg is a list, treat each positional arg as a panel
     if isinstance(args[0], list):
         raw_panels = list(args)
+        flat_results = [r for raw in raw_panels for r in raw]
     else:
         raw_panels = [list(args)]
+        flat_results = list(args)
 
     # Extract model data per panel
     panels: List[_PanelData] = []
@@ -1069,6 +1418,33 @@ def regtable(
             f"there are {total_models} models."
         )
 
+    # --- Auto-extract diagnostic rows ----------------------------------
+    if diagnostics in (False, "off"):
+        auto_rows: Dict[str, List[str]] = {}
+    else:
+        auto_rows = dict(extract_diagnostic_rows(flat_results))
+
+    # Merge: user's add_rows wins on collisions, auto rows fill gaps.
+    user_rows = dict(add_rows) if add_rows else {}
+    merged_add_rows: Dict[str, List[str]] = {}
+    for label, vals in auto_rows.items():
+        if label not in user_rows:
+            merged_add_rows[label] = list(vals)
+    for label, vals in user_rows.items():
+        merged_add_rows[label] = list(vals)
+
+    # --- Resolve multi_se -----------------------------------------------
+    multi_se_norm = _resolve_multi_se(multi_se, total_models)
+
+    # --- Resolve reproducibility note -----------------------------------
+    final_notes = list(notes) if notes else []
+    final_notes.extend(template_notes)
+    if repro:
+        repro_kwargs = dict(repro) if isinstance(repro, dict) else {}
+        repro_note = build_repro_note(**repro_kwargs)
+        if repro_note:
+            final_notes.append(repro_note)
+
     result = RegtableResult(
         panels=panels,
         panel_labels=panel_labels,
@@ -1080,13 +1456,19 @@ def regtable(
         order=list(order) if order else None,
         se_type=se_type,
         stars=stars,
-        star_levels=star_levels,
+        star_levels=tuple(star_levels),
         fmt=fmt,
         title=title,
-        notes=notes,
-        add_rows=add_rows,
+        notes=final_notes,
+        add_rows=merged_add_rows,
         stats=list(stats) if stats else None,
         output=output,
+        alpha=alpha,
+        multi_se=multi_se_norm,
+        se_label=se_label_override,
+        template=template,
+        quarto_label=quarto_label,
+        quarto_caption=quarto_caption,
     )
 
     # --- Output handling ---
@@ -1439,30 +1821,29 @@ class MeanComparisonResult:
         df.to_excel(filename, sheet_name="Balance Table")
 
     def to_word(self, filename: str) -> None:
-        """Export balance table to Word."""
+        """Export balance table to Word in AER/QJE book-tab style."""
         try:
             from docx import Document
-            from docx.shared import Pt
-            from docx.enum.text import WD_ALIGN_PARAGRAPH
         except ImportError:
             warnings.warn("python-docx required for Word export: pip install python-docx")
             return
+
+        from ._aer_style import (
+            apply_word_booktab_rules,
+            style_word_table_typography,
+            add_word_notes_paragraph,
+        )
 
         doc = Document()
         doc.add_heading(self.title, level=2)
         df = self.to_dataframe().reset_index()
         n_rows = len(df) + 1
         n_cols = len(df.columns)
-        table = doc.add_table(rows=n_rows, cols=n_cols, style="Table Grid")
+        table = doc.add_table(rows=n_rows, cols=n_cols)
+        table.autofit = True
 
         for j, col in enumerate(df.columns):
-            cell = table.rows[0].cells[j]
-            cell.text = str(col)
-            for p in cell.paragraphs:
-                for run in p.runs:
-                    run.font.bold = True
-                    run.font.size = Pt(10)
-                    run.font.name = "Times New Roman"
+            table.rows[0].cells[j].text = str(col)
 
         for i, (_, row_data) in enumerate(df.iterrows(), 1):
             for j, val in enumerate(row_data):
@@ -1471,15 +1852,10 @@ class MeanComparisonResult:
                     cell.text = self.fmt % val if not np.isnan(val) else ""
                 else:
                     cell.text = str(val)
-                for p in cell.paragraphs:
-                    for run in p.runs:
-                        run.font.size = Pt(10)
-                        run.font.name = "Times New Roman"
 
-        p = doc.add_paragraph()
-        run = p.add_run("* p<0.10, ** p<0.05, *** p<0.01")
-        run.font.size = Pt(8)
-        run.font.italic = True
+        style_word_table_typography(table, header_rows=(0,))
+        apply_word_booktab_rules(table, header_top_idx=0, header_bot_idx=0)
+        add_word_notes_paragraph(doc, "* p<0.10, ** p<0.05, *** p<0.01")
         doc.save(filename)
 
     def save(self, filename: str) -> None:

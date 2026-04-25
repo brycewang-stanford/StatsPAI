@@ -1032,6 +1032,147 @@ def _build_registry():
         tags=["output", "summary", "comparison"],
     ))
 
+    _JOURNAL_NAMES = ["aer", "qje", "econometrica", "restat", "jf",
+                       "aeja", "jpe", "restud"]
+
+    register(FunctionSpec(
+        name="regtable",
+        category="output",
+        description=(
+            "Publication-quality multi-model regression table with auto-extracted "
+            "diagnostic rows (FE/Cluster indicators, IV first-stage F, DiD pre-trend "
+            "p, RD bandwidth/kernel/poly), journal presets (AER/QJE/Econometrica/JF/"
+            "AEJA/etc.), multi-SE side-by-side display, and reproducibility metadata."
+        ),
+        params=[
+            ParamSpec("results", "list", True, None, "Model result objects (positional)"),
+            ParamSpec("template", "str", False, None, "Journal preset",
+                      _JOURNAL_NAMES),
+            ParamSpec("diagnostics", "str|bool", False, "auto",
+                      "Auto-extract FE/Cluster/IV/DiD/RD rows"),
+            ParamSpec("multi_se", "dict", False, None,
+                      "Stack alternative SE specs under primary SE"),
+            ParamSpec("repro", "bool|dict", False, None,
+                      "Append reproducibility footer (version+seed+data hash)"),
+            ParamSpec("se_type", "str", False, "se",
+                      "Bottom-row content", ["se", "t", "p", "ci"]),
+            ParamSpec("output", "str", False, "text", "Render format",
+                      ["text", "latex", "html", "markdown", "word", "excel"]),
+            ParamSpec("filename", "str", False, None, "File path; format inferred from extension"),
+        ],
+        returns="RegtableResult",
+        example=(
+            'sp.regtable(m_ols, m_iv, template="qje", multi_se={"Bootstrap SE": [se1, se2]}, '
+            'repro={"data": df, "seed": 42}, filename="table1.tex")'
+        ),
+        tags=["output", "table", "publication", "journal", "diagnostics"],
+    ))
+
+    register(FunctionSpec(
+        name="esttab",
+        category="output",
+        description=(
+            "Stata-style esttab clone — tabulate one or more model results "
+            "(or models stored via sp.eststo) into text/LaTeX/HTML/Markdown/CSV."
+        ),
+        params=[
+            ParamSpec("results", "list", False, None, "Models; falls back to global eststo store"),
+            ParamSpec("se", "bool", False, True, "Show standard errors"),
+            ParamSpec("ci", "bool", False, False, "Show confidence intervals instead of SE"),
+            ParamSpec("alpha", "float", False, 0.05, "CI level when ci=True"),
+        ],
+        returns="EstimateTableResult",
+        example='sp.eststo(m1); sp.eststo(m2); sp.esttab()',
+        tags=["output", "table", "stata", "publication"],
+    ))
+
+    register(FunctionSpec(
+        name="paper_tables",
+        category="output",
+        description=(
+            "Multi-panel journal-ready table bundle (Main / Heterogeneity / "
+            "Robustness / Placebo) with one-shot export to LaTeX/Markdown/Word/Excel."
+        ),
+        params=[
+            ParamSpec("main", "list", True, None, "Main-spec results"),
+            ParamSpec("heterogeneity", "list", False, None, "Subsample / interaction results"),
+            ParamSpec("robustness", "list", False, None, "Alt-estimator results"),
+            ParamSpec("placebo", "list", False, None, "Placebo-outcome results"),
+            ParamSpec("template", "str", False, "aer", "Journal preset", _JOURNAL_NAMES),
+        ],
+        returns="PaperTables",
+        example='sp.paper_tables(main=[r1,r2,r3,r4], template="aer", docx_filename="t1.docx")',
+        tags=["output", "table", "publication", "multi-panel", "paper"],
+    ))
+
+    register(FunctionSpec(
+        name="cite",
+        category="output",
+        description=(
+            "Inline coefficient citation — formats one term as e.g. '0.234*** "
+            "(0.041)' for embedding directly in manuscript prose, Jupyter "
+            "Markdown cells, or Quarto inline expressions. Mirrors regtable's "
+            "formatting conventions (stars, SE/CI brackets) for cross-table "
+            "consistency."
+        ),
+        params=[
+            ParamSpec("result", "Result", True, None, "EconometricResults or CausalResult"),
+            ParamSpec("term", "str", False, None, "Coefficient name (default: estimand or first param)"),
+            ParamSpec("fmt", "str", False, "%.3f", "printf-style format string"),
+            ParamSpec("output", "str", False, "text", "Markup", ["text", "latex", "markdown", "html"]),
+            ParamSpec("second_row", "str", False, "se", "What to put in parens",
+                      ["se", "t", "p", "ci", "none"]),
+            ParamSpec("alpha", "float", False, 0.05, "CI level when second_row='ci'"),
+        ],
+        returns="str",
+        example='sp.cite(m_iv, "treat")  # → "0.234*** (0.041)"',
+        tags=["output", "inline", "citation", "publication"],
+    ))
+
+    register(FunctionSpec(
+        name="mean_comparison",
+        category="output",
+        description=(
+            "Balance / mean-comparison table — Mean (SD) per group, "
+            "difference, and t-test/ranksum/chi² p-value. Renders to "
+            "text/LaTeX/HTML/Markdown/Excel/Word."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("variables", "list", True, None, "Columns to compare"),
+            ParamSpec("group", "str", True, None, "Binary grouping variable"),
+            ParamSpec("test", "str", False, "ttest", "Statistical test",
+                      ["ttest", "ranksum", "chi2"]),
+        ],
+        returns="MeanComparisonResult",
+        example='sp.mean_comparison(df, ["age", "income"], group="treated")',
+        tags=["output", "balance", "summary", "publication"],
+    ))
+
+    register(FunctionSpec(
+        name="collect",
+        category="output",
+        description=(
+            "Session-level multi-table container (Stata 15 collect / R "
+            "gt::gtsave style). Gather regressions, summary stats, balance "
+            "tables, and free-form text in one Collection, then export the "
+            "whole bundle to a single .docx / .xlsx / .tex / .md / .html file."
+        ),
+        params=[
+            ParamSpec("title", "str", False, description="Document title shown at the top"),
+            ParamSpec("template", "str", False, "aer",
+                      "Journal style template", ["aer", "qje", "econometrica", "restat"]),
+        ],
+        returns="Collection",
+        example=(
+            'c = sp.collect("Wage analysis"); '
+            'c.add_regression(m1, m2, name="main"); '
+            'c.add_summary(df, vars=["wage","educ"]); '
+            'c.save("paper.docx")'
+        ),
+        tags=["output", "container", "multi-table", "publication", "export"],
+    ))
+
     register(FunctionSpec(
         name="sensemakr",
         category="diagnostics",

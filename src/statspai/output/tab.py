@@ -201,6 +201,12 @@ def _tab_to_word(df, test_result, filename, title):
     except ImportError:
         raise ImportError("python-docx required. Install: pip install python-docx")
 
+    from ._aer_style import (
+        apply_word_booktab_rules,
+        style_word_table_typography,
+        add_word_notes_paragraph,
+    )
+
     doc = Document()
 
     if title:
@@ -208,42 +214,37 @@ def _tab_to_word(df, test_result, filename, title):
         run = p.add_run(title)
         run.bold = True
         run.font.size = Pt(12)
+        run.font.name = "Times New Roman"
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     n_rows = len(df) + 1
     n_cols = len(df.columns) + 1
     table = doc.add_table(rows=n_rows, cols=n_cols)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.autofit = True
 
     # Header
     table.rows[0].cells[0].text = ''
     for j, col in enumerate(df.columns, 1):
         table.rows[0].cells[j].text = str(col)
-        for para in table.rows[0].cells[j].paragraphs:
-            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            for run in para.runs:
-                run.bold = True
-                run.font.size = Pt(9)
-
     # Data
     for i, (idx, row) in enumerate(df.iterrows()):
         table.rows[i + 1].cells[0].text = str(idx)
-        for para in table.rows[i + 1].cells[0].paragraphs:
-            for run in para.runs:
-                run.font.size = Pt(9)
         for j, val in enumerate(row, 1):
             table.rows[i + 1].cells[j].text = str(val)
-            for para in table.rows[i + 1].cells[j].paragraphs:
-                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                for run in para.runs:
-                    run.font.size = Pt(9)
+
+    style_word_table_typography(
+        table, header_rows=(0,),
+        header_pt=10, body_pt=9,
+        align_first_col="left", align_data_cols="center",
+    )
+    apply_word_booktab_rules(table, header_top_idx=0, header_bot_idx=0)
 
     if test_result:
-        p = doc.add_paragraph()
-        run = p.add_run(
+        add_word_notes_paragraph(
+            doc,
             f"Pearson chi2({test_result['df']}) = {test_result['chi2']:.4f}, "
-            f"p = {test_result['pvalue']:.4f}")
-        run.italic = True
-        run.font.size = Pt(8)
+            f"p = {test_result['pvalue']:.4f}",
+        )
 
     doc.save(filename)

@@ -295,7 +295,7 @@ def _sumstats_to_excel(df, filename, title):
 
 
 def _sumstats_to_word(df, filename, title):
-    """Export to Word (.docx)."""
+    """Export to Word (.docx) in AER/QJE book-tab style."""
     try:
         from docx import Document
         from docx.shared import Pt
@@ -304,6 +304,11 @@ def _sumstats_to_word(df, filename, title):
     except ImportError:
         raise ImportError("python-docx required. Install: pip install python-docx")
 
+    from ._aer_style import (
+        apply_word_booktab_rules,
+        style_word_table_typography,
+    )
+
     doc = Document()
 
     if title:
@@ -311,36 +316,30 @@ def _sumstats_to_word(df, filename, title):
         run = p.add_run(title)
         run.bold = True
         run.font.size = Pt(12)
+        run.font.name = "Times New Roman"
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     n_rows = len(df) + 1
     n_cols = len(df.columns) + 1  # +1 for index
     table = doc.add_table(rows=n_rows, cols=n_cols)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.autofit = True
 
     # Header
-    table.rows[0].cells[0].text = 'Variable'
+    table.rows[0].cells[0].text = "Variable"
     for j, col in enumerate(df.columns, 1):
         table.rows[0].cells[j].text = str(col)
-    for cell in table.rows[0].cells:
-        for para in cell.paragraphs:
-            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            for run in para.runs:
-                run.bold = True
-                run.font.size = Pt(9)
-
-    # Data
+    # Body
     for i, (idx, row) in enumerate(df.iterrows()):
         table.rows[i + 1].cells[0].text = str(idx)
-        for para in table.rows[i + 1].cells[0].paragraphs:
-            para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            for run in para.runs:
-                run.font.size = Pt(9)
         for j, val in enumerate(row, 1):
             table.rows[i + 1].cells[j].text = str(val)
-            for para in table.rows[i + 1].cells[j].paragraphs:
-                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                for run in para.runs:
-                    run.font.size = Pt(9)
+
+    style_word_table_typography(
+        table, header_rows=(0,),
+        header_pt=10, body_pt=9,
+        align_first_col="left", align_data_cols="center",
+    )
+    apply_word_booktab_rules(table, header_top_idx=0, header_bot_idx=0)
 
     doc.save(filename)

@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from scipy import stats as sp_stats
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +96,8 @@ class _ModelData:
     """Normalised extraction from either result type."""
 
     __slots__ = ("params", "std_errors", "tvalues", "pvalues",
-                 "conf_int_lower", "conf_int_upper", "stats", "depvar")
+                 "conf_int_lower", "conf_int_upper", "stats", "depvar",
+                 "df_resid")
 
     def __init__(
         self,
@@ -107,11 +109,41 @@ class _ModelData:
         conf_int_upper: pd.Series,
         stats: Dict[str, Any],
         depvar: str,
+        df_resid: Optional[float] = None,
     ):
         for attr, val in zip(self.__slots__,
                              [params, std_errors, tvalues, pvalues,
-                              conf_int_lower, conf_int_upper, stats, depvar]):
+                              conf_int_lower, conf_int_upper, stats, depvar,
+                              df_resid]):
             object.__setattr__(self, attr, val)
+
+
+def _ci_bounds(model: "_ModelData", var: str, alpha: float) -> Tuple[float, float]:
+    """Return ``(lower, upper)`` CI bounds at level ``1 - alpha``.
+
+    Reuses the result-stored 95% CI when ``alpha == 0.05`` (preserves the
+    exact numbers fit-time produced — typically t-based with model df).
+    Otherwise recomputes ``b ± crit · se`` using the t-distribution when
+    ``df_resid`` is known, falling back to the standard normal.
+    """
+    if var not in model.params.index:
+        return np.nan, np.nan
+    if abs(alpha - 0.05) < 1e-12:
+        lo = model.conf_int_lower.get(var, np.nan)
+        hi = model.conf_int_upper.get(var, np.nan)
+        if not (pd.isna(lo) or pd.isna(hi)):
+            return float(lo), float(hi)
+    se = model.std_errors.get(var, np.nan)
+    if pd.isna(se):
+        return np.nan, np.nan
+    df = getattr(model, "df_resid", None)
+    if df is not None and np.isfinite(df) and df > 0:
+        crit = sp_stats.t.ppf(1 - alpha / 2, df)
+    else:
+        crit = sp_stats.norm.ppf(1 - alpha / 2)
+    b = float(model.params[var])
+    se_f = float(se)
+    return b - crit * se_f, b + crit * se_f
 
 
 def _extract_model_data(result) -> _ModelData:
@@ -134,7 +166,9 @@ def _extract_model_data(result) -> _ModelData:
             if k in mi:
                 stats[k] = mi[k]
         depvar = getattr(result, "method", "")
-        return _ModelData(params, std_errors, tvalues, pvalues, ci_lo, ci_hi, stats, depvar)
+        df_resid = mi.get("df_resid") if isinstance(mi, dict) else None
+        return _ModelData(params, std_errors, tvalues, pvalues, ci_lo, ci_hi,
+                          stats, depvar, df_resid=df_resid)
 
     # EconometricResults (or duck-typed equivalent)
     params = result.params
@@ -170,7 +204,18 @@ def _extract_model_data(result) -> _ModelData:
         if k in diag:
             stats[k] = diag[k]
     depvar = dinfo.get("dependent_var", "")
-    return _ModelData(params, std_errors, tvalues, pvalues, ci_lo, ci_hi, stats, depvar)
+    df_resid = (
+        getattr(result, "df_resid", None)
+        or diag.get("df_resid")
+        or dinfo.get("df_resid")
+    )
+    if df_resid is None and n is not None:
+        try:
+            df_resid = float(n) - float(len(params))
+        except (TypeError, ValueError):
+            df_resid = None
+    return _ModelData(params, std_errors, tvalues, pvalues, ci_lo, ci_hi,
+                      stats, depvar, df_resid=df_resid)
 
 
 def _format_stars(pvalue: float, levels: Tuple[float, ...] = (0.10, 0.05, 0.01)) -> str:
@@ -225,7 +270,10 @@ class EstimateTable:
         fmt: str = "%.4f",
         title: Optional[str] = None,
         notes: Optional[Sequence[str]] = None,
+        alpha: float = 0.05,
     ):
+        if not 0.0 < alpha < 1.0:
+            raise ValueError(f"alpha must be in (0, 1), got {alpha!r}")
         self.models = list(models)
         self.names = list(names)
         self.se = se
@@ -242,6 +290,7 @@ class EstimateTable:
         self.fmt = fmt
         self.title = title
         self.notes = list(notes) if notes else []
+        self.alpha = float(alpha)
         self.n_models = len(self.models)
 
         # Resolve ordered variable list across all models
@@ -297,8 +346,9 @@ class EstimateTable:
         if var not in model.params.index:
             return ""
         if self.ci:
-            lo = _fmt_val(model.conf_int_lower.get(var, np.nan), self.fmt)
-            hi = _fmt_val(model.conf_int_upper.get(var, np.nan), self.fmt)
+            lo_v, hi_v = _ci_bounds(model, var, self.alpha)
+            lo = _fmt_val(lo_v, self.fmt)
+            hi = _fmt_val(hi_v, self.fmt)
             return f"[{lo}, {hi}]"
         if self.t:
             return f"({_fmt_val(model.tvalues.get(var, np.nan), self.fmt)})"
@@ -317,7 +367,9 @@ class EstimateTable:
 
     def _second_row_label(self) -> str:
         if self.ci:
-            return "95% CI"
+            level = (1.0 - self.alpha) * 100.0
+            level_str = f"{level:g}"
+            return f"{level_str}% CI"
         if self.t:
             return "t-statistics"
         if self.p:
@@ -788,6 +840,7 @@ def esttab(
     filename: Optional[str] = None,
     title: Optional[str] = None,
     notes: Optional[Sequence[str]] = None,
+    alpha: float = 0.05,
 ) -> EstimateTableResult:
     """
     Produce a publication-quality model comparison table.
@@ -811,7 +864,8 @@ def esttab(
     p : bool, default False
         Show p-values instead of standard errors.
     ci : bool, default False
-        Show 95 % confidence intervals instead of standard errors.
+        Show ``(1 - alpha) * 100`` % confidence intervals instead of
+        standard errors. The CI level is controlled by ``alpha``.
     stars : bool, default True
         Append significance stars to coefficients.
     star_levels : tuple of float, default (0.10, 0.05, 0.01)
@@ -839,6 +893,9 @@ def esttab(
         Table title/caption.
     notes : list of str, optional
         Additional notes printed beneath the table.
+    alpha : float, default 0.05
+        Significance level for confidence intervals (only used when
+        ``ci=True``). The displayed CI is ``(1 - alpha) * 100``%.
 
     Returns
     -------
@@ -886,6 +943,7 @@ def esttab(
         fmt=fmt,
         title=title,
         notes=notes,
+        alpha=alpha,
     )
 
     result_obj = EstimateTableResult(table, output)

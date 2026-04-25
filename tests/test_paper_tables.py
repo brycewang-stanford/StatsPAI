@@ -82,9 +82,16 @@ class TestTemplates:
         tex = pt.to_latex()
         assert '***' in tex or '***' in pt.to_text()
 
-    def test_econometrica_uses_two_star_levels(self, results_pair):
+    def test_econometrica_uses_three_star_levels(self, results_pair):
+        """Econometrica preset now mirrors AER's three-threshold convention.
+
+        Older Econometrica papers used only ``**``/``***`` (5%/1%); newer
+        issues (and our default) use the full three-level scheme. Users
+        wanting the legacy two-level scheme pass ``star_levels=(0.05, 0.01)``
+        explicitly to ``regtable``.
+        """
         pt = paper_tables(main=[results_pair['r1']], template='econometrica')
-        assert TEMPLATES['econometrica']['star_levels'] == (0.01, 0.05)
+        assert TEMPLATES['econometrica']['star_levels'] == (0.10, 0.05, 0.01)
 
 
 # ---------------------------------------------------------------------------

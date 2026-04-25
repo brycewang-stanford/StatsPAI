@@ -2,6 +2,137 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Output-layer overhaul: AER/QJE DOCX, paper_tables docx/xlsx, sp.collect, regtable.alpha, Quarto cross-refs
+
+This release elevates the export layer to journal-grade output. Five
+additive changes; **no breaking changes, no numerical changes** to any
+estimator. Existing scripts continue to produce identical numbers.
+
+### Added — Quarto cross-reference output for `sp.regtable`
+
+`sp.regtable(..., quarto_label="main", quarto_caption="Wage equation")`
+now emits a Quarto-cross-referenceable Markdown table via
+`result.to_quarto()` (or `result.to_markdown(quarto=True)`). The
+canonical `: <caption> {#tbl-<label>}` block is appended so the
+manuscript can reference the table with `@tbl-<label>`.
+
+- The `tbl-` prefix is auto-prepended when missing
+  (`quarto_label="main"` → `{#tbl-main}`); already-prefixed labels are
+  not double-prefixed.
+- `quarto_caption` falls back to `title` when omitted; if both are
+  absent a generic default is used and a `UserWarning` is emitted.
+- `output="quarto"` / `output="qmd"` make `__str__` / `print()` /
+  `result.save("table.qmd")` round-trip Quarto output end-to-end.
+- The leading bold-title line is suppressed in Quarto output to avoid
+  duplicating the caption block.
+
+This closes the last ergonomic gap between StatsPAI's export layer and
+modern reproducible-paper toolchains (Quarto is the de-facto successor
+to R Markdown for academic econ workflows).
+
+### Added — `sp.regtable(..., alpha=...)` now controls CI width
+
+`sp.regtable(..., se_type="ci", alpha=0.10)` now displays 90% confidence
+intervals (and labels them `90% CI`); `alpha=0.01` displays 99% CIs, etc.
+Previously the `alpha` parameter was documented but ignored — the
+displayed CI was always the model's stored 95% CI.
+
+When `alpha=0.05` (default) the bounds come from the result's stored
+95% CI for backward-compat (typically t-based with model df). For any
+other `alpha` the bounds are recomputed as `b ± crit · se`, using the
+t-distribution when `df_resid` is known and the standard normal as a
+fallback.
+
+`sp.esttab(..., ci=True, alpha=...)` mirrors the same behaviour. Both
+APIs raise `ValueError` for `alpha` outside `(0, 1)`.
+
+### Added — AER/QJE book-tab DOCX styling
+
+`sp.regtable(...).to_word(...)`, `sp.sumstats(..., output="*.docx")`,
+`sp.tab(..., output="*.docx")` and `sp.mean_comparison(...).to_word(...)`
+now render in book-tab style matching *AER* / *QJE* / *Econometrica*
+conventions:
+
+- heavy top rule above column headers (`sz=12`)
+- thin mid rule below the header (`sz=4`)
+- heavy bottom rule above the notes (`sz=12`)
+- **no** internal vertical or horizontal borders
+- Times New Roman, header bold, notes italic 8pt
+
+The shared helper lives in `src/statspai/output/_aer_style.py`.
+Previous DOCX output used the boxed `Table Grid` style.
+
+### Added — `sp.paper_tables(...)` DOCX / XLSX export
+
+`sp.PaperTables` gains `.to_docx(path)` and `.to_xlsx(path)` methods,
+and the `sp.paper_tables(...)` constructor accepts `docx_filename=` and
+`xlsx_filename=` kwargs. Multi-panel paper bundles now go to a single
+Word document (one panel per page, book-tab styled) or a single
+workbook (one sheet per panel) in addition to the existing Markdown
+and LaTeX outputs.
+
+### Added — `sp.collect()` / `sp.Collection` session-level container
+
+A new container mirroring Stata 15's `collect` and R's `gt::gtsave`
+workflow — gather any number of regressions, descriptive statistics,
+balance tables, and free-form text in one container, then export the
+whole bundle to a single `.docx` / `.xlsx` / `.tex` / `.md` / `.html`
+file.
+
+```python
+import statspai as sp
+c = sp.collect("Wage analysis", template="aer")
+c.add_regression(m1, m2, m3, name="main", title="Table 1: Wage equation")
+c.add_summary(df, vars=["wage", "educ"], name="desc")
+c.add_balance(df, treatment="treat", variables=["age", "female"], name="bal")
+c.add_text("Standard errors clustered at firm level.")
+c.save("appendix.docx")   # single Word doc, AER book-tab style
+c.save("appendix.xlsx")   # single workbook, one sheet per item
+```
+
+`Collection` exposes fluent `add_regression / add_table / add_summary /
+add_balance / add_text / add_heading` (each returns `self`), plus
+`list() / get(name) / remove(name) / clear()` for inspection. The
+public factory `sp.collect()` is registered with the StatsPAI registry
+and visible via `sp.help("collect")`.
+
+### Tests
+
+- `tests/test_regtable_alpha.py` (6 tests) — `alpha` controls CI label
+  and width; `esttab` parity; recompute matches `scipy.stats.t.ppf`
+  by hand.
+- `tests/test_aer_word_style.py` (6 tests) — OOXML reverse-checks the
+  three rules, asserts no inner vertical borders, italic notes.
+- `tests/test_paper_tables_export.py` (5 tests) — multi-panel docx /
+  xlsx round-trip with book-tab borders.
+- `tests/test_collection.py` (18 tests) — construction, chained adds,
+  duplicate-name guard, all five export formats, registry presence.
+
+### Files changed
+
+- `src/statspai/output/estimates.py` — `_ModelData` gains `df_resid`
+  slot; `_ci_bounds(model, var, alpha)` helper; `EstimateTable` /
+  `esttab` accept `alpha`.
+- `src/statspai/output/regression_table.py` — `RegtableResult` accepts
+  and uses `alpha`; `to_word` rewritten to use `_aer_style` helpers;
+  `MeanComparisonResult.to_word` likewise.
+- `src/statspai/output/sumstats.py` — `_sumstats_to_word` uses
+  `_aer_style`.
+- `src/statspai/output/tab.py` — `_tab_to_word` uses `_aer_style`.
+- `src/statspai/output/paper_tables.py` — `PaperTables.to_docx` /
+  `to_xlsx` added; `paper_tables()` accepts `docx_filename=` /
+  `xlsx_filename=`.
+- `src/statspai/output/_aer_style.py` — **new**, OOXML border
+  manipulation + book-tab typography helpers.
+- `src/statspai/output/collection.py` — **new**, `Collection` class
+  + `collect()` factory.
+- `src/statspai/output/__init__.py` — export `Collection`,
+  `CollectionItem`, `collect`.
+- `src/statspai/__init__.py` — export `Collection`, `CollectionItem`,
+  `collect`; add to public `__all__`.
+- `src/statspai/registry.py` — register `collect` under
+  `category="output"`.
+
 ## [1.6.6] — 2026-04-24 — HDFE LSMR/LSQR solver + ⚠️ Heckman SE correctness fix
 
 ### ⚠️ Correctness fix — `sp.heckman` two-step standard errors

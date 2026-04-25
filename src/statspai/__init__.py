@@ -138,6 +138,13 @@ from .output.tab import tab
 from .output.estimates import eststo, estclear, esttab
 from .output.regression_table import regtable, RegtableResult, mean_comparison, MeanComparisonResult
 from .output.paper_tables import paper_tables, PaperTables, TEMPLATES as PAPER_TABLE_TEMPLATES
+from .output.collection import Collection, CollectionItem, collect
+from .output._inline import cite
+from .output._journals import (
+    JOURNALS as JOURNAL_PRESETS,
+    list_templates as list_journal_templates,
+    get_template as get_journal_template,
+)
 from .postestimation import margins, marginsplot, margins_at, margins_at_plot, contrast, pwcompare, test, lincom
 from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, effective_f_test, tF_critical_value, evalue, evalue_from_result, diagnose_result, estat, kitagawa_test, KitagawaResult, rosenbaum_bounds, rosenbaum_gamma, RosenbaumResult, weakrobust, WeakRobustResult
 from .inference import (
@@ -794,6 +801,16 @@ __all__ = [
     "RegtableResult",
     "mean_comparison",
     "MeanComparisonResult",
+    "Collection",
+    "CollectionItem",
+    "collect",
+    "paper_tables",
+    "PaperTables",
+    "PAPER_TABLE_TEMPLATES",
+    "cite",
+    "JOURNAL_PRESETS",
+    "list_journal_templates",
+    "get_journal_template",
     # Plots
     "binscatter",
     "set_theme",
