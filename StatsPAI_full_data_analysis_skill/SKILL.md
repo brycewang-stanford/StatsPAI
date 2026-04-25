@@ -64,24 +64,61 @@ Pre-Analysis Plan           −1    sp.power.* + freeze IdentificationPlan to di
 
 ## Paper-ready figure & table inventory (what to produce by section)
 
-A modern AER paper has **5–7 figures** and **3–5 main tables** + an appendix robustness table. Every step below should leave at least one numbered artifact on disk. Default file names (use these so the agent can reference them later):
+A modern AER paper has **5–7 figures** and **3–5 main tables** + an appendix robustness table. Every step below should leave at least one numbered artifact on disk. Default file names assume parallel `.tex` / `.docx` / `.xlsx` exports (the agent should produce all three so co-authors can edit in Word / Excel and the build system can use LaTeX):
 
-| § | Artifact | StatsPAI primitive | Filename |
+| § | Artifact | StatsPAI primitive | Filenames (write all three) |
 |---|---|---|---|
 | §1 | **Figure 1**: raw trends / treatment rollout | `sp.parallel_trends_plot` · `sp.treatment_rollout_plot` | `figures/fig1_trends.png` |
-| §1 | **Table 1**: summary stats (full / treated / control + Δ) | `sp.sumstats(by=)` · `sp.balance_table` | `tables/table1_summary.tex` |
+| §1 | **Table 1**: summary stats (full / treated / control + Δ) | `sp.sumstats` + `sp.mean_comparison(...).to_word()/.to_excel()` (or `sp.collect().add_summary().add_balance()`) | `tables/table1_summary.{tex,docx,xlsx}` |
 | §3 | **Figure 2**: identification graphic (event-study / first-stage / McCrary / RD scatter / SCM trajectory) | `sp.enhanced_event_study_plot` · `sp.binscatter` · `sp.rdplot` · `sp.rddensity().plot()` · `sp.synthdid_plot` | `figures/fig2_identification.png` |
-| §4 | **Table 2**: main results — progressive controls | `sp.regtable(M1, M2, M3, M4, ...)` | `tables/table2_main.tex` |
-| §4 | **Table 2-bis**: design horse-race (OLS / IV / DID / DML) | `sp.regtable(ols, iv, did, dml, ...)` | `tables/table2b_designs.tex` |
+| §4 | **Table 2**: main results — progressive controls | `rt = sp.regtable(M1...M5, template="aer"); rt.to_word(...); rt.to_excel(...)` | `tables/table2_main.{tex,docx,xlsx}` |
+| §4 | **Table 2-bis**: design horse-race (OLS / IV / DID / DML) | `sp.regtable(ols, iv, did, dml, ...).to_word/.to_excel` | `tables/table2b_designs.{tex,docx,xlsx}` |
 | §4 | **Figure 3** (optional): coefficient plot across specs | `sp.coefplot(M1, M2, M3, M4)` | `figures/fig3_coef.png` |
-| §5 | **Table 3**: heterogeneity by subgroup | `sp.regtable(g_full, g_male, g_fem, g_q1...q4)` | `tables/table3_heterogeneity.tex` |
+| §5 | **Table 3**: heterogeneity by subgroup | `sp.regtable(g_full, g_male, g_fem, g_q1...q4).to_word/.to_excel` | `tables/table3_heterogeneity.{tex,docx,xlsx}` |
 | §5 | **Figure 4**: dose-response / CATE | `sp.dose_response(...).plot()` · `sp.cate_plot` · `sp.cate_group_plot` | `figures/fig4_cate.png` |
-| §6 | **Table 4**: mechanisms (mediation / decomposition) | `sp.regtable(total, direct, indirect)` | `tables/table4_mechanisms.tex` |
-| §7 | **Table A1**: robustness master (one row per check) | `sp.regtable(rob1...robN, panel_labels=[...])` | `tables/tableA1_robustness.tex` |
+| §6 | **Table 4**: mechanisms (mediation / decomposition) | `sp.regtable(total, direct, indirect).to_word/.to_excel` | `tables/table4_mechanisms.{tex,docx,xlsx}` |
+| §7 | **Table A1**: robustness master (one row per check) | `sp.regtable(rob1...robN, panel_labels=[...]).to_word/.to_excel` — or `sp.paper_tables(robustness=[...]).to_docx()` | `tables/tableA1_robustness.{tex,docx,xlsx}` |
 | §7 | **Figure 5**: spec curve | `sp.spec_curve(...).plot()` | `figures/fig5_spec_curve.png` |
 | §7 | **Figure 6**: sensitivity dashboard / Cinelli–Hazlett contour | `sp.sensitivity_dashboard` · `sp.sensitivity_plot` | `figures/fig6_sensitivity.png` |
+| §8 | **Replication bundle**: all tables in one Word/Excel/LaTeX file | `sp.collect("Paper").add_summary(...).add_regression(...)...save("paper.{docx,xlsx,tex}")` — or `sp.paper_tables(main=, heterogeneity=, robustness=, placebo=).to_docx/.to_xlsx` | `replication/paper.{docx,xlsx,tex}` |
 
-> Every `CausalResult` and OLS model can be passed straight into `sp.regtable(...)` and `sp.coefplot(...)`. Don't hand-roll LaTeX.
+> Every `CausalResult` and OLS model can be passed straight into `sp.regtable(...)`, `sp.coefplot(...)`, **and `sp.collect()`**. Don't hand-roll LaTeX, and don't render Word/Excel from pandas — the export functions apply book-tab borders, AER-style stars, and the right SE label automatically.
+
+---
+
+## Export cookbook — Word / Excel / LaTeX in one line
+
+StatsPAI's export stack is the agent-native equivalent of Stata's `outreg2` / `esttab` / `collect` and R's `modelsummary` / `gtsummary`. Three tiers, picked by **scope** of what you're exporting:
+
+| Tier | Use when | API | Hot kwargs |
+|---|---|---|---|
+| **1. Single multi-column table** (the outreg2 / `summary_col` equivalent) | Exporting *one* Table 2 / Table 3 / Table A1 with progressive columns | `rt = sp.regtable(M1, M2, ..., template="aer", title=...)`<br>`rt.to_word("table2.docx")`<br>`rt.to_excel("table2.xlsx")`<br>`rt.to_latex()` · `rt.to_markdown()` | `template`, `keep`, `coef_labels`, `model_labels`, `panel_labels`, `dep_var_labels`, `stats`, `stars`, `add_rows` |
+| **2. Multi-panel paper format** (Tables 2 + 3 + A1 + A2 in one file) | Producing the *paper-tables block* — main + heterogeneity + robustness + placebo as a single document | `pt = sp.paper_tables(main=[M1...M5], heterogeneity=[H1,H2,H3], robustness=[R1...Rn], placebo=[P1,P2], template="aer")`<br>`pt.to_docx("paper_tables.docx")`<br>`pt.to_xlsx("paper_tables.xlsx")`<br>`pt.to_latex(...)` | `main`, `heterogeneity`, `robustness`, `placebo`, `template`, `coef_labels`, `model_labels_<panel>`, `keep` |
+| **3. Full session bundle** (Stata 15 `collect` equivalent) | Replication appendix that mixes summary stats + balance + multiple regression tables + headings + prose in **one** file | `c = sp.collect("Paper title", template="aer")`<br>`c.add_heading("§1. Descriptives")`<br>`c.add_summary(df, vars=...)`<br>`c.add_balance(df, treatment=, variables=...)`<br>`c.add_regression(M1, M2, ..., title="Table 2")`<br>`c.add_text("Notes ...")`<br>`c.save("paper.docx")` (auto-detect by extension; `.xlsx`/`.tex`/`.md`/`.html`/`.txt` all work) | `add_heading(level=)`, `add_summary(stats=, labels=)`, `add_balance(weights=, test=)`, `add_regression(**regtable_kwargs)`, `add_table(result)`, `add_text(...)` |
+
+**Journal templates** (apply the right SE label, star levels, and notes automatically):
+
+```python
+sp.list_journal_templates()
+# → ('aer', 'qje', 'econometrica', 'restat', 'jf', 'aeja', 'jpe', 'restud')
+
+rt = sp.regtable(M1, M2, M3, template="qje", keep=["x"])     # QJE styling
+rt.to_word("table2_qje.docx")
+
+sp.get_journal_template("aer")                                 # inspect a preset
+# → {'label': 'American Economic Review', 'star_levels': [0.1, 0.05, 0.01],
+#    'se_label': 'Standard errors', 'stats': ['N', 'R-squared'],
+#    'notes_default': [...], 'font_name': 'Times New Roman'}
+```
+
+**Inline citations in prose** (drop a coefficient straight into a sentence):
+
+```python
+sp.cite(M3, "training")                  # → "1.239*** (0.153)"
+sp.cite(M3, "training", output="latex")  # → "$1.239^{***}$ ($0.153$)"
+```
+
+> **Naming gotcha**: `sp.regtable(..., output="docx")` is invalid — the enum is `{"text", "latex", "tex", "html", "markdown", "md", "qmd", "quarto", "word", "excel"}`. Use `output="word"` / `"excel"`, or — simpler — drop `output=` and call `.to_word(filename)` / `.to_excel(filename)` on the result.
 
 ---
 
@@ -196,32 +233,51 @@ The signature AER Table 1 has three column blocks plus a difference column:
 The Imbens–Rubin rule of thumb: a normalized difference `|Δ| / √((s²₁+s²₀)/2) > 0.25` flags substantive imbalance and should trigger matching / reweighting *before* you trust an OLS comparison.
 
 ```python
-sp.sumstats(df, vars=["wage","edu","exp","tenure","age"],
-            by="training", output="tables/table1_summary.tex")     # AER-format Table 1
-sp.balance_table(df, treat="training",
-                 covariates=["age","edu","tenure","firm_size"],
-                 test="ttest")                                     # mean diff + p-value
+# Quick text/LaTeX preview (use sumstats `output=` for a string-only render):
+print(sp.sumstats(df, vars=["wage","edu","exp","tenure","age"],
+                  by="training", output="text"))
+
+# AER-style balance table → Word + Excel + LaTeX in three lines.
+# `mean_comparison` returns a MeanComparisonResult that exposes the full
+# export chain (.to_word / .to_excel / .to_latex / .to_markdown / .to_html).
+mc = sp.mean_comparison(df,
+                        ["age","edu","tenure","firm_size"],
+                        group="training",
+                        test="ttest",
+                        title="Table 1. Summary statistics by treatment status")
+mc.to_word ("tables/table1_summary.docx")     # editable in Word
+mc.to_excel("tables/table1_summary.xlsx")     # editable in Excel
+open("tables/table1_summary.tex", "w").write(mc.to_latex())
 sp.describe(df).to_markdown("references/codebook.md")              # auto-codebook
 ```
 
 ### 1.1 Multi-panel Table 1 (AER convention)
-Group rows into **Panel A: Outcomes**, **Panel B: Treatment intensity**, **Panel C: Controls**, **Panel D: Sample composition**. `sp.sumstats` does not accept `groups=` directly — emit one Panel per call and concatenate. The result is one `.tex` file with `% Panel X` markers you can replace with `\midrule \multicolumn{...}{l}{\textit{Panel X. ...}} \\` during paper assembly.
+Group rows into **Panel A: Outcomes**, **Panel B: Treatment intensity**, **Panel C: Controls**, **Panel D: Sample composition**. The cleanest path is to push each panel into a `sp.collect()` bundle — one `.save("file.docx")` call then writes the whole multi-panel Table 1 with AER book-tab borders, in Word **and** Excel **and** LaTeX from one source.
 
 ```python
 panels = {
-    "A. Outcomes":            ["wage", "log_wage", "weeks_employed"],
-    "B. Treatment":           ["training", "training_hours"],
+    "A. Outcomes":             ["wage", "log_wage", "weeks_employed"],
+    "B. Treatment":            ["training", "training_hours"],
     "C. Demographic controls": ["age", "edu", "female", "married"],
     "D. Labor market":         ["tenure", "firm_size", "industry_id"],
 }
-import io
-buf = io.StringIO()
+
+c1 = sp.collect("Table 1. Summary statistics", template="aer")
+for label, vs in panels.items():
+    c1.add_heading(f"Panel {label}", level=2)
+    c1.add_summary(df, vars=vs, stats=["mean", "sd", "n"])
+c1.save("tables/table1_summary.docx")          # editable Word, AER book-tab borders
+c1.save("tables/table1_summary.xlsx")          # one sheet per panel (heading drives the sheet name)
+c1.save("tables/table1_summary.tex")           # multi-panel LaTeX
+
+# Plain-text alternative (no Collection): one `sp.sumstats` per panel, concat strings.
+# Useful when you only need the .tex preview without a binary export.
+import io; buf = io.StringIO()
 for label, vs in panels.items():
     buf.write(f"\n% Panel {label}\n")
     buf.write(sp.sumstats(df, vars=vs, by="training",
-                          stats=["mean", "sd", "n"],
-                          output="latex"))
-open("tables/table1_summary.tex", "w").write(buf.getvalue())
+                          stats=["mean", "sd", "n"], output="latex"))
+open("tables/table1_summary_flat.tex", "w").write(buf.getvalue())
 ```
 
 ### 1.2 Figure 1 — raw trends / treatment rollout
@@ -473,7 +529,7 @@ filename          : path to write the table
 ```
 
 ### 4.1 Pattern A — Progressive controls (the canonical Table 2)
-Stable β̂ across columns ⇒ less concern that selection on observables is driving the estimate (Oster 2019 selection-stability logic; quantified in Step 7.5).
+Stable β̂ across columns ⇒ less concern that selection on observables is driving the estimate (Oster 2019 selection-stability logic; quantified in Step 7.5). **`sp.regtable(*models)` is the StatsPAI equivalent of Stata `outreg2` / `esttab` and R `modelsummary::msummary` / `summary_col` — it consolidates N models into ONE table with one column per model.**
 
 | | (1) Baseline | (2) +Demographics | (3) +Labor-market | (4) +Region×Industry FE | (5) +Worker FE |
 |---|---|---|---|---|---|
@@ -488,14 +544,20 @@ M4 = sp.regress("wage ~ training + age + edu + tenure + firm_size | "
 M5 = sp.regress("wage ~ training + age + edu + tenure + firm_size | "
                 "worker_id + year",                                    df, cluster="firm_id")
 
-sp.regtable(M1, M2, M3, M4, M5,
-            keep=["training"],
-            coef_labels={"training": "Job training"},
-            model_labels=["(1) Baseline", "(2) +Demog.", "(3) +Labor-mkt",
-                          "(4) Region×Ind. FE", "(5) Worker FE"],
-            stars="aer",                          # * p<0.10  ** p<0.05  *** p<0.01
-            stats=["N", "R2", "Cluster", "FE", "DV mean"],
-            output="latex", filename="tables/table2_main.tex")
+# Consolidate 5 models into ONE table (= Stata `outreg2 [M1..M5] using ..., replace`)
+rt = sp.regtable(M1, M2, M3, M4, M5,
+                 template="aer",                  # auto-applies SE label, star levels, font
+                 keep=["training"],
+                 coef_labels={"training": "Job training"},
+                 model_labels=["(1) Baseline", "(2) +Demog.", "(3) +Labor-mkt",
+                               "(4) Region×Ind. FE", "(5) Worker FE"],
+                 stats=["N", "R2", "Cluster", "FE", "DV mean"],
+                 title="Table 2. Effect of training on wages")
+
+# Export to ALL THREE in three lines — Word for co-authors, Excel for editors, LaTeX for build:
+rt.to_word ("tables/table2_main.docx")
+rt.to_excel("tables/table2_main.xlsx")
+open("tables/table2_main.tex", "w").write(rt.to_latex())
 ```
 
 ### 4.2 Pattern B — Design horse race (Table 2-bis)
@@ -514,15 +576,18 @@ dml  = sp.dml(df, y="wage", treat="training",
 mtch = sp.match(df, y="wage", treat="training",
                  covariates=["age","edu","tenure"], method="nearest")                      # PSM
 
-sp.regtable(ols, ivr, did, dml, mtch,
-            keep=["training"],
-            coef_labels={"training": "Job training (β̂)"},
-            model_labels=["(1) OLS+FE", "(2) 2SLS", "(3) CS-DID",
-                          "(4) DML-PLR", "(5) PSM"],
-            stats=["Estimator", "Identifying assumption",
-                   "N", "R2 / Pseudo-R2", "Cluster"],
-            stars="aer",
-            output="latex", filename="tables/table2b_design_race.tex")
+rt = sp.regtable(ols, ivr, did, dml, mtch,
+                 template="aer",
+                 keep=["training"],
+                 coef_labels={"training": "Job training (β̂)"},
+                 model_labels=["(1) OLS+FE", "(2) 2SLS", "(3) CS-DID",
+                               "(4) DML-PLR", "(5) PSM"],
+                 stats=["Estimator", "Identifying assumption",
+                        "N", "R2 / Pseudo-R2", "Cluster"],
+                 title="Table 2-bis. Convergent evidence across designs")
+rt.to_word ("tables/table2b_design_race.docx")
+rt.to_excel("tables/table2b_design_race.xlsx")
+open("tables/table2b_design_race.tex", "w").write(rt.to_latex())
 ```
 
 ### 4.3 Pattern C — Multi-outcome table (same X, several Y's)
@@ -534,13 +599,16 @@ multi_y = [sp.regress(f"{y} ~ training + age + edu + tenure | industry + year",
                        df, cluster="firm_id")
            for y in ys]
 
-sp.regtable(*multi_y,
-            keep=["training"],
-            dep_var_labels=ys,                    # column header: dep var
-            model_labels=["(1)","(2)","(3)","(4)","(5)"],
-            stars="aer",
-            stats=["N","R2","DV mean","Cluster"],
-            output="latex", filename="tables/table2c_multi_outcome.tex")
+rt = sp.regtable(*multi_y,
+                 template="aer",
+                 keep=["training"],
+                 dep_var_labels=ys,                    # column header: dep var
+                 model_labels=["(1)","(2)","(3)","(4)","(5)"],
+                 stats=["N","R2","DV mean","Cluster"],
+                 title="Table 2-ter. Effect of training on multiple outcomes")
+rt.to_word ("tables/table2c_multi_outcome.docx")
+rt.to_excel("tables/table2c_multi_outcome.xlsx")
+open("tables/table2c_multi_outcome.tex", "w").write(rt.to_latex())
 ```
 
 ### 4.4 Pattern D — Stacked Panel A / Panel B table
@@ -552,15 +620,19 @@ panelA = [sp.regress("wage_t1 ~ training + X | industry+year", df, cluster="firm
 panelB = [sp.regress("wage_t5 ~ training + X | industry+year", df, cluster="firm_id"),
           sp.regress("wage_t5 ~ training + X | worker_id+year", df, cluster="firm_id")]
 
-sp.regtable(*panelA, *panelB,
-            panel_labels=["Panel A. Short-run (1 year)",
-                          "Panel A. Short-run (1 year)",
-                          "Panel B. Long-run (5 years)",
-                          "Panel B. Long-run (5 years)"],
-            keep=["training"],
-            model_labels=["(1) Industry FE","(2) Worker FE"]*2,
-            stars="aer", stats=["N","R2"],
-            output="latex", filename="tables/table2d_horizons.tex")
+rt = sp.regtable(*panelA, *panelB,
+                 template="aer",
+                 panel_labels=["Panel A. Short-run (1 year)",
+                               "Panel A. Short-run (1 year)",
+                               "Panel B. Long-run (5 years)",
+                               "Panel B. Long-run (5 years)"],
+                 keep=["training"],
+                 model_labels=["(1) Industry FE","(2) Worker FE"]*2,
+                 stats=["N","R2"],
+                 title="Table 2-quater. Short- vs long-run effects")
+rt.to_word ("tables/table2d_horizons.docx")
+rt.to_excel("tables/table2d_horizons.xlsx")
+open("tables/table2d_horizons.tex", "w").write(rt.to_latex())
 ```
 
 ### 4.5 Pattern E — IV reporting triplet (first-stage / reduced-form / 2SLS)
@@ -572,13 +644,16 @@ rf = sp.regress("wage     ~ Z + age + edu | industry+year", df, cluster="firm_id
 iv = sp.ivreg  ("wage ~ (training ~ Z) + age + edu | industry+year",
                 df, cluster="firm_id")                                              # 2SLS
 
-sp.regtable(fs, rf, iv,
-            keep=["Z", "training"],
-            dep_var_labels=["training", "wage", "wage"],
-            model_labels=["(1) First stage", "(2) Reduced form", "(3) 2SLS"],
-            stats=["First-stage F", "N", "R2", "Cluster"],
-            stars="aer",
-            output="latex", filename="tables/table2e_iv_triplet.tex")
+rt = sp.regtable(fs, rf, iv,
+                 template="aer",
+                 keep=["Z", "training"],
+                 dep_var_labels=["training", "wage", "wage"],
+                 model_labels=["(1) First stage", "(2) Reduced form", "(3) 2SLS"],
+                 stats=["First-stage F", "N", "R2", "Cluster"],
+                 title="Table 2-quinto. IV reporting triplet")
+rt.to_word ("tables/table2e_iv_triplet.docx")
+rt.to_excel("tables/table2e_iv_triplet.xlsx")
+open("tables/table2e_iv_triplet.tex", "w").write(rt.to_latex())
 ```
 
 ### 4.6 Pattern F — Causal-design main via `sp.causal(...)`
@@ -635,13 +710,16 @@ slices = {
 gmodels = [sp.regress("wage ~ training + age + edu + tenure | industry+year",
                        d, cluster="firm_id") for d in slices.values()]
 
-sp.regtable(*gmodels,
-            keep=["training"],
-            coef_labels={"training": "Training"},
-            model_labels=list(slices),
-            stars="aer",
-            stats=["N","R2","DV mean"],
-            output="latex", filename="tables/table3_heterogeneity.tex")
+rt = sp.regtable(*gmodels,
+                 template="aer",
+                 keep=["training"],
+                 coef_labels={"training": "Training"},
+                 model_labels=list(slices),
+                 stats=["N","R2","DV mean"],
+                 title="Table 3. Heterogeneous effects of training")
+rt.to_word ("tables/table3_heterogeneity.docx")
+rt.to_excel("tables/table3_heterogeneity.xlsx")
+open("tables/table3_heterogeneity.tex", "w").write(rt.to_latex())
 ```
 
 ### 5.2 Interaction-form heterogeneity (alternative Table 3)
@@ -655,15 +733,19 @@ H2 = sp.regress("wage ~ training*C(skill_quartile) + age + edu + tenure | indust
 H3 = sp.regress("wage ~ training*log_firm_size + age + edu + tenure | industry+year",
                 df, cluster="firm_id")
 
-sp.regtable(H1, H2, H3,
-            keep=["training", "training:female",
-                  "training:C(skill_quartile)[T.2]",
-                  "training:C(skill_quartile)[T.3]",
-                  "training:C(skill_quartile)[T.4]",
-                  "training:log_firm_size"],
-            model_labels=["(1) ×Female", "(2) ×Skill quartile", "(3) ×log(Firm size)"],
-            stars="aer", stats=["N","R2"],
-            output="latex", filename="tables/table3b_interactions.tex")
+rt = sp.regtable(H1, H2, H3,
+                 template="aer",
+                 keep=["training", "training:female",
+                       "training:C(skill_quartile)[T.2]",
+                       "training:C(skill_quartile)[T.3]",
+                       "training:C(skill_quartile)[T.4]",
+                       "training:log_firm_size"],
+                 model_labels=["(1) ×Female", "(2) ×Skill quartile", "(3) ×log(Firm size)"],
+                 stats=["N","R2"],
+                 title="Table 3-bis. Interaction-form heterogeneity")
+rt.to_word ("tables/table3b_interactions.docx")
+rt.to_excel("tables/table3b_interactions.xlsx")
+open("tables/table3b_interactions.tex", "w").write(rt.to_latex())
 ```
 
 ### 5.3 Figure 4 — dose-response (continuous treatment)
@@ -823,11 +905,14 @@ blocks = {
 models = [sp.regress(f"wage ~ training + {' + '.join(c) or '1'}",
                      df, cluster="firm_id")
           for c in blocks.values()]
-sp.regtable(*models,
-            model_labels=list(blocks),
-            keep=["training"],
-            output="latex",
-            filename="tables/table_robust_blocks.tex")
+rt = sp.regtable(*models,
+                 template="aer",
+                 model_labels=list(blocks),
+                 keep=["training"],
+                 title="Table 7. Selection-stability across confounder blocks")
+rt.to_word ("tables/table_robust_blocks.docx")
+rt.to_excel("tables/table_robust_blocks.xlsx")
+open("tables/table_robust_blocks.tex", "w").write(rt.to_latex())
 ```
 
 ### 7.11 Pattern H — Robustness master table (Table A1, one row per check)
@@ -867,13 +952,27 @@ rob = {
                                        covariates=["age","edu","tenure","firm_size"], model="plr"),
 }
 
-sp.regtable(*rob.values(),
-            keep=["training"],
-            coef_labels={"training": "Training (β̂)"},
-            model_labels=list(rob),
-            stars="aer",
-            stats=["N", "R2", "Cluster", "FE"],
-            output="latex", filename="tables/tableA1_robustness.tex")
+rt = sp.regtable(*rob.values(),
+                 template="aer",
+                 keep=["training"],
+                 coef_labels={"training": "Training (β̂)"},
+                 model_labels=list(rob),
+                 stats=["N", "R2", "Cluster", "FE"],
+                 title="Table A1. Robustness of the main estimate")
+rt.to_word ("tables/tableA1_robustness.docx")
+rt.to_excel("tables/tableA1_robustness.xlsx")
+open("tables/tableA1_robustness.tex", "w").write(rt.to_latex())
+
+# Equivalent one-shot via the paper-format multi-panel API — produces a
+# single .docx / .xlsx that you can hand a co-author, with main + robustness
+# (+ heterogeneity / placebo if you have them) auto-laid-out per AER style:
+sp.paper_tables(main=[M1, M2, M3, M4, M5],
+                robustness=list(rob.values()),
+                template="aer",
+                coef_labels={"training": "Training"},
+                model_labels_main=["(1)","(2)","(3)","(4)","(5)"],
+                model_labels_robustness=list(rob),
+                keep=["training"]).to_docx("tables/paper_tables.docx")
 ```
 
 ### 7.12 Figure 5 — coefficient forest plot of all robustness specs
@@ -932,14 +1031,88 @@ sp.estat(result, test="all")                        # Stata-style postestimation
 
 ## Step 8 — Replication package
 
-Every `CausalResult` exports paper-ready artifacts in three lines:
+The agent's job at §8 is to produce a **single artifact a co-author can open in Word, Excel, or LaTeX without further StatsPAI calls**. There are three packaging tiers, picked by what you need to ship:
+
+### 8.1 Per-result export (one estimator → one Word/Excel file)
+```python
+result.to_docx("tables/main_result.docx",
+               title="Table 2. Main result")          # CausalResult → .docx
+result.to_latex(caption="Main result", label="tab:main")
+result.plot().savefig("figures/main.png", dpi=300)    # publication-quality figure
+print(sp.cite(result, "training"))                    # → "1.239*** (0.153)"  ← inline citation
+```
+
+### 8.2 Per-table export (already covered in Steps 4 / 5 / 7)
+Every `sp.regtable(*models)` returns a `RegtableResult` with `.to_word()` / `.to_excel()` / `.to_latex()` / `.to_markdown()` / `.to_html()`. Use these in §4–§7 so that by the time you reach §8 the `tables/` folder already has parallel `.docx` / `.xlsx` / `.tex` for every numbered table.
+
+### 8.3 Multi-panel paper-format (Tier 2 — Tables 2 + 3 + A1 + A2 in one file)
+```python
+sp.paper_tables(
+    main          = [M1, M2, M3, M4, M5],            # → "Table 2. Main results"
+    heterogeneity = [g_full, g_fem, g_male],         # → "Table 3. Heterogeneity"
+    robustness    = list(rob.values()),              # → "Table A1. Robustness"
+    placebo       = [pb1, pb2],                      # → "Table A2. Placebo tests"
+    template      = "aer",
+    coef_labels   = {"training": "Training"},
+    keep          = ["training"],
+).to_docx("replication/paper_tables.docx")           # → 4 panels in one .docx
+# .to_xlsx(...) writes one sheet per panel; .to_latex(...) one .tex with section breaks.
+```
+
+### 8.4 Full session bundle (Tier 3 — the Stata `collect` equivalent)
+The single most efficient §8 deliverable: descriptives + balance + main + heterogeneity + robustness + prose **in one Word file**. `sp.collect()` is the agent-native counterpart of Stata 15's `collect` and R's `gtsave`.
 
 ```python
-result.to_latex("tables/main.tex")                         # booktabs LaTeX table
-result.plot().savefig("figures/main.png", dpi=300)         # publication-quality figure
-print(result.cite())                                       # BibTeX entry for the method
+c = sp.collect("Effect of Training on Wages — Replication", template="aer")
 
-# Reproducibility stamp — pair with the Step-0 contract + Step-2 pre-reg
+c.add_heading("§1. Descriptive statistics", level=1)
+c.add_summary(df, vars=["wage","age","edu","tenure"],
+              stats=["mean","sd","n"],
+              title="Table 1. Summary statistics")
+c.add_balance(df, treatment="training",
+              variables=["age","edu","tenure","firm_size"],
+              title="Table 1b. Balance by treatment")
+
+c.add_heading("§4. Main results",        level=1)
+c.add_regression(M1, M2, M3, M4, M5,
+                 keep=["training"],
+                 model_labels=["(1)","(2)","(3)","(4)","(5)"],
+                 stats=["N","R2","Cluster","FE"],
+                 title="Table 2. Effect of training on wages")
+
+c.add_heading("§5. Heterogeneity",       level=1)
+c.add_regression(*gmodels,
+                 keep=["training"], model_labels=list(slices),
+                 title="Table 3. Heterogeneous effects")
+
+c.add_heading("§7. Robustness",          level=1)
+c.add_regression(*rob.values(),
+                 keep=["training"], model_labels=list(rob),
+                 title="Table A1. Robustness")
+
+c.add_text(
+    "Standard errors clustered at the firm level. *** p<0.01, ** p<0.05, * p<0.10. "
+    "Sample restrictions and full variable definitions are documented in "
+    "artifacts/sample_construction.json and artifacts/data_contract.json.",
+    title="Notes",
+)
+
+# One artifact, three formats — auto-detected from the path extension:
+c.save("replication/paper.docx")   # editable Word, page-break between tables
+c.save("replication/paper.xlsx")   # one sheet per add_*() item
+c.save("replication/paper.tex")    # multi-section LaTeX
+c.save("replication/paper.md")     # GitHub-flavoured Markdown for the README
+```
+
+Inspect the bundle before saving:
+
+```python
+print(c)                # → <Collection items=8 kinds=[heading, summary, balance, ...]>
+print(c.list())         # DataFrame with name / kind / title for every item
+```
+
+### 8.5 Reproducibility stamp
+```python
 import json
 json.dump({
     "statspai":          sp.__version__,
@@ -951,6 +1124,7 @@ json.dump({
     "pre_registration":  "artifacts/empirical_strategy.md",
     "data_contract":     "artifacts/data_contract.json",
     "sample_log":        "artifacts/sample_construction.json",
+    "paper_bundle":      "replication/paper.docx",
 }, open("artifacts/result.json", "w"), indent=2)
 ```
 
@@ -973,18 +1147,26 @@ For full-draft generation (abstract + methods + results + bibliography), see `sp
 | **G. Subgroup table** | subsample (full / female / male / Q1…Q4) | 5.1 — Table 3 |
 | **H. Robustness master** | every robustness check stacked | 7.11 — Table A1 |
 
-Default `sp.regtable` settings for AER house style:
+Default `sp.regtable` settings for AER house style — and the export pipeline
+(produce `.docx` + `.xlsx` + `.tex` from the same `RegtableResult`):
+
 ```python
-sp.regtable(*models,
-            keep=["training"],                    # show only the coefficient of interest
-            coef_labels={"training": "Training"}, # pretty names
-            model_labels=[...],                   # column labels
-            stars="aer",                          # * 0.10 ** 0.05 *** 0.01
-            stats=["N", "R2", "Cluster", "FE", "DV mean"],
-            output="latex", filename="tables/...")
+rt = sp.regtable(*models,
+                 template="aer",                  # journal preset: aer/qje/econometrica/restat/jf/aeja/jpe/restud
+                 keep=["training"],               # show only the coefficient of interest
+                 coef_labels={"training": "Training"},
+                 model_labels=[...],              # column labels
+                 stats=["N", "R2", "Cluster", "FE", "DV mean"],
+                 title="Table N. ...")
+
+# One-call exports — never hand-roll Word/Excel from pandas:
+rt.to_word ("tables/tableN.docx")                  # editable Word, AER book-tab borders
+rt.to_excel("tables/tableN.xlsx")                  # editable Excel, one sheet
+open("tables/tableN.tex", "w").write(rt.to_latex()) # LaTeX for the build
+print(rt.to_text())                                 # quick terminal preview
 ```
 
-For pyfixest-style native output, `sp.etable(*models, ...)` is the alternative.
+For pyfixest-style native output, `sp.etable(*models, ...)` is the alternative; for stacking many tables in one `.docx`, use `sp.paper_tables(...)` (Tier 2) or `sp.collect()` (Tier 3) — see Step 8.
 
 ## Figure factory (the 12 standard AER figures)
 
@@ -1159,6 +1341,11 @@ sp.interactive(fig)                                                   # WYSIWYG 
 | `sp.honest_did(ols_result, ...)` | Only accepts CS / SA / `did_multiplegt` / `aggte(..., 'dynamic')` results — pass a `callaway_santanna` object |
 | `sp.sumstats(df, groups={...}, ...)` | No `groups=` kwarg; loop `sp.sumstats(vars=v_panel, ...)` per panel and concat |
 | `plan.population` / `plan.equation` / `plan.threats` | Not exposed on `IdentificationPlan`. Available: `assumptions / estimand / estimator / fallback_estimators / identification_story / warnings / summary()`. Use `q.population / q.treatment / q.outcome` from the `CausalQuestion` |
+| `sp.regtable(..., output="docx")` / `output="xlsx"` | Enum is `{"text","latex","tex","html","markdown","md","qmd","quarto","word","excel"}`. Either use `output="word"`/`"excel"` or — preferred — drop `output=` and call `.to_word(filename)` / `.to_excel(filename)` on the result |
+| `sp.sumstats(..., output="docx")` returns plain text | `sumstats` doesn't natively emit binary docx/xlsx. For Word/Excel use `sp.collect().add_summary(...).save("file.docx")` or convert via `sp.mean_comparison(...).to_word(...)` |
+| Hand-rolling Word from `pandas.DataFrame.to_string()` / writing LaTeX manually | `RegtableResult.to_word/.to_excel/.to_latex/.to_markdown/.to_html` already apply book-tab borders, AER stars, and the right SE label. `sp.collect()` bundles many such tables into one file |
+| Forgetting `template="aer"` (or `qje`/`econometrica`/`restat`/`jf`/`jpe`/`restud`/`aeja`) on `regtable` | Without `template=`, you lose the journal-correct SE label, star levels, and notes. List presets via `sp.list_journal_templates()` |
+| Saving each regression to its own `.tex` and stitching by hand in LaTeX | Use `sp.paper_tables(main=, heterogeneity=, robustness=, placebo=)` for a single multi-panel `.docx` / `.xlsx`, or `sp.collect()` for a full Word/Excel/Markdown bundle (Step 8.4) |
 | Trusting SEs without checking convergence / weak-IV / overlap | Always read `result.summary()` warnings and `result.diagnostics` |
 
 ---
