@@ -96,7 +96,7 @@ StatsPAI 1.4.0 是知识地图 v3 路线图的 Sprint 2，关闭了 Sprint 1 末
 
 **v0.6 新功能**：`sp.interactive(fig)` —— 类似 Stata Graph Editor 的 WYSIWYG 图表编辑器，支持 29 种学术主题、实时预览、自动生成可复现代码。
 
-![StatsPAI 交互式图表编辑器](https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/image-1.png)
+![StatsPAI 交互式图表编辑器](https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/StatsPAI-interactive.png)
 
 > 由 [CoPaper.AI](https://copaper.ai) 团队构建 · 斯坦福 REAP 项目
 
