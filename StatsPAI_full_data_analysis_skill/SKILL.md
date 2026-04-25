@@ -92,7 +92,7 @@ StatsPAI's export stack is the agent-native equivalent of Stata's `outreg2` / `e
 
 | Tier | Use when | API | Hot kwargs |
 |---|---|---|---|
-| **1. Single multi-column table** (the outreg2 / `summary_col` equivalent) | Exporting *one* Table 2 / Table 3 / Table A1 with progressive columns | `rt = sp.regtable(M1, M2, ..., template="aer", title=...)`<br>`rt.to_word("table2.docx")`<br>`rt.to_excel("table2.xlsx")`<br>`rt.to_latex()` · `rt.to_markdown()` | `template`, `keep`, `coef_labels`, `model_labels`, `panel_labels`, `dep_var_labels`, `stats`, `stars`, `add_rows` |
+| **1. Single multi-column table** (the outreg2 / `summary_col` equivalent) | Exporting *one* Table 2 / Table 3 / Table A1 with progressive columns | `rt = sp.regtable(M1, M2, ..., template="aer", drop=["Intercept"], title=...)`<br>`rt.to_word("table2.docx")`<br>`rt.to_excel("table2.xlsx")`<br>`rt.to_latex()` · `rt.to_markdown()` | `template`, `drop` (default = all coefs except those listed), `coef_labels`, `model_labels`, `panel_labels`, `dep_var_labels`, `stats`, `stars`, `add_rows`, `keep` (opt-in focal-only filter) |
 | **2. Multi-panel paper format** (Tables 2 + 3 + A1 + A2 in one file) | Producing the *paper-tables block* — main + heterogeneity + robustness + placebo as a single document | `pt = sp.paper_tables(main=[M1...M5], heterogeneity=[H1,H2,H3], robustness=[R1...Rn], placebo=[P1,P2], template="aer")`<br>`pt.to_docx("paper_tables.docx")`<br>`pt.to_xlsx("paper_tables.xlsx")`<br>`pt.to_latex(...)` | `main`, `heterogeneity`, `robustness`, `placebo`, `template`, `coef_labels`, `model_labels_<panel>`, `keep` |
 | **3. Full session bundle** (Stata 15 `collect` equivalent) | Replication appendix that mixes summary stats + balance + multiple regression tables + headings + prose in **one** file | `c = sp.collect("Paper title", template="aer")`<br>`c.add_heading("§1. Descriptives")`<br>`c.add_summary(df, vars=...)`<br>`c.add_balance(df, treatment=, variables=...)`<br>`c.add_regression(M1, M2, ..., title="Table 2")`<br>`c.add_text("Notes ...")`<br>`c.save("paper.docx")` (auto-detect by extension; `.xlsx`/`.tex`/`.md`/`.html`/`.txt` all work) | `add_heading(level=)`, `add_summary(stats=, labels=)`, `add_balance(weights=, test=)`, `add_regression(**regtable_kwargs)`, `add_table(result)`, `add_text(...)` |
 
@@ -102,8 +102,10 @@ StatsPAI's export stack is the agent-native equivalent of Stata's `outreg2` / `e
 sp.list_journal_templates()
 # → ('aer', 'qje', 'econometrica', 'restat', 'jf', 'aeja', 'jpe', 'restud')
 
-rt = sp.regtable(M1, M2, M3, template="qje", keep=["x"])     # QJE styling
+rt = sp.regtable(M1, M2, M3, template="qje", drop=["Intercept"])   # QJE styling, full coef list
 rt.to_word("table2_qje.docx")
+# Use `keep=[focal]` only for a focal-coefficient-only table, e.g.
+# `sp.regtable(M1, M2, M3, template="qje", keep=["x"])` for an IV first-stage row.
 
 sp.get_journal_template("aer")                                 # inspect a preset
 # → {'label': 'American Economic Review', 'star_levels': [0.1, 0.05, 0.01],
@@ -544,15 +546,21 @@ M4 = sp.regress("wage ~ training + age + edu + tenure + firm_size | "
 M5 = sp.regress("wage ~ training + age + edu + tenure + firm_size | "
                 "worker_id + year",                                    df, cluster="firm_id")
 
-# Consolidate 5 models into ONE table (= Stata `outreg2 [M1..M5] using ..., replace`)
+# Consolidate 5 models into ONE table (= Stata `outreg2 [M1..M5] using ..., replace`).
+# **Default = show ALL coefficients including controls** (AER convention; readers
+# verify the full spec). Drop the intercept for paper aesthetics; only add
+# `keep=[...]` if you explicitly want a focal-coefficient-only table.
 rt = sp.regtable(M1, M2, M3, M4, M5,
                  template="aer",                  # auto-applies SE label, star levels, font
-                 keep=["training"],
+                 drop=["Intercept"],              # suppress the constant; show every other coef
                  coef_labels={"training": "Job training"},
                  model_labels=["(1) Baseline", "(2) +Demog.", "(3) +Labor-mkt",
                                "(4) Region×Ind. FE", "(5) Worker FE"],
                  stats=["N", "R2", "Cluster", "FE", "DV mean"],
                  title="Table 2. Effect of training on wages")
+# Variant — focal-coefficient-only style (use ONLY when the paper's Table 2
+# already cites controls in a footnote; default above is preferred):
+# rt = sp.regtable(M1, M2, M3, M4, M5, template="aer", keep=["training"], ...)
 
 # Export to ALL THREE in three lines — Word for co-authors, Excel for editors, LaTeX for build:
 rt.to_word ("tables/table2_main.docx")
@@ -578,7 +586,7 @@ mtch = sp.match(df, y="wage", treat="training",
 
 rt = sp.regtable(ols, ivr, did, dml, mtch,
                  template="aer",
-                 keep=["training"],
+                 drop=["Intercept"],              # show all controls; only suppress the constant
                  coef_labels={"training": "Job training (β̂)"},
                  model_labels=["(1) OLS+FE", "(2) 2SLS", "(3) CS-DID",
                                "(4) DML-PLR", "(5) PSM"],
@@ -601,7 +609,7 @@ multi_y = [sp.regress(f"{y} ~ training + age + edu + tenure | industry + year",
 
 rt = sp.regtable(*multi_y,
                  template="aer",
-                 keep=["training"],
+                 drop=["Intercept"],                   # show all coefficients; suppress only the constant
                  dep_var_labels=ys,                    # column header: dep var
                  model_labels=["(1)","(2)","(3)","(4)","(5)"],
                  stats=["N","R2","DV mean","Cluster"],
@@ -626,7 +634,7 @@ rt = sp.regtable(*panelA, *panelB,
                                "Panel A. Short-run (1 year)",
                                "Panel B. Long-run (5 years)",
                                "Panel B. Long-run (5 years)"],
-                 keep=["training"],
+                 drop=["Intercept"],                   # show all controls
                  model_labels=["(1) Industry FE","(2) Worker FE"]*2,
                  stats=["N","R2"],
                  title="Table 2-quater. Short- vs long-run effects")
@@ -646,7 +654,10 @@ iv = sp.ivreg  ("wage ~ (training ~ Z) + age + edu | industry+year",
 
 rt = sp.regtable(fs, rf, iv,
                  template="aer",
-                 keep=["Z", "training"],
+                 keep=["Z", "training"],               # IV triplet is intentionally focal:
+                                                       # show only Z + endog so the reader can
+                                                       # eyeball Wald-ratio = RF / FS. For the
+                                                       # full coef table use drop=["Intercept"].
                  dep_var_labels=["training", "wage", "wage"],
                  model_labels=["(1) First stage", "(2) Reduced form", "(3) 2SLS"],
                  stats=["First-stage F", "N", "R2", "Cluster"],
@@ -712,7 +723,7 @@ gmodels = [sp.regress("wage ~ training + age + edu + tenure | industry+year",
 
 rt = sp.regtable(*gmodels,
                  template="aer",
-                 keep=["training"],
+                 drop=["Intercept"],                   # show all controls across subgroups
                  coef_labels={"training": "Training"},
                  model_labels=list(slices),
                  stats=["N","R2","DV mean"],
@@ -735,11 +746,11 @@ H3 = sp.regress("wage ~ training*log_firm_size + age + edu + tenure | industry+y
 
 rt = sp.regtable(H1, H2, H3,
                  template="aer",
-                 keep=["training", "training:female",
-                       "training:C(skill_quartile)[T.2]",
-                       "training:C(skill_quartile)[T.3]",
-                       "training:C(skill_quartile)[T.4]",
-                       "training:log_firm_size"],
+                 keep=["training", "training:female", # interaction-form heterogeneity
+                       "training:C(skill_quartile)[T.2]",   # is intentionally focal:
+                       "training:C(skill_quartile)[T.3]",   # only the main effect + interactions
+                       "training:C(skill_quartile)[T.4]",   # are reported. To show full controls
+                       "training:log_firm_size"],           # too, switch to drop=["Intercept"].
                  model_labels=["(1) ×Female", "(2) ×Skill quartile", "(3) ×log(Firm size)"],
                  stats=["N","R2"],
                  title="Table 3-bis. Interaction-form heterogeneity")
@@ -908,7 +919,7 @@ models = [sp.regress(f"wage ~ training + {' + '.join(c) or '1'}",
 rt = sp.regtable(*models,
                  template="aer",
                  model_labels=list(blocks),
-                 keep=["training"],
+                 drop=["Intercept"],                    # show every covariate as it enters
                  title="Table 7. Selection-stability across confounder blocks")
 rt.to_word ("tables/table_robust_blocks.docx")
 rt.to_excel("tables/table_robust_blocks.xlsx")
@@ -952,9 +963,13 @@ rob = {
                                        covariates=["age","edu","tenure","firm_size"], model="plr"),
 }
 
+# Robustness master = AER Table A1 — readers MUST see every coefficient
+# across every spec to verify nothing is hiding behind `keep=`. Default to
+# the full coef table; only switch to `keep=["training"]` if a referee has
+# explicitly asked for a focal-only summary.
 rt = sp.regtable(*rob.values(),
                  template="aer",
-                 keep=["training"],
+                 drop=["Intercept"],                    # AER convention: full coef list
                  coef_labels={"training": "Training (β̂)"},
                  model_labels=list(rob),
                  stats=["N", "R2", "Cluster", "FE"],
@@ -972,7 +987,10 @@ sp.paper_tables(main=[M1, M2, M3, M4, M5],
                 coef_labels={"training": "Training"},
                 model_labels_main=["(1)","(2)","(3)","(4)","(5)"],
                 model_labels_robustness=list(rob),
-                keep=["training"]).to_docx("tables/paper_tables.docx")
+                # paper_tables only accepts `keep=`, not `drop=`. Omit both to
+                # show every coefficient (AER convention). Pass `keep=["training"]`
+                # only when a focal-only summary is desired.
+                ).to_docx("tables/paper_tables.docx")
 ```
 
 ### 7.12 Figure 5 — coefficient forest plot of all robustness specs
@@ -1075,19 +1093,19 @@ c.add_balance(df, treatment="training",
 
 c.add_heading("§4. Main results",        level=1)
 c.add_regression(M1, M2, M3, M4, M5,
-                 keep=["training"],
+                 drop=["Intercept"],            # full coefficient list
                  model_labels=["(1)","(2)","(3)","(4)","(5)"],
                  stats=["N","R2","Cluster","FE"],
                  title="Table 2. Effect of training on wages")
 
 c.add_heading("§5. Heterogeneity",       level=1)
 c.add_regression(*gmodels,
-                 keep=["training"], model_labels=list(slices),
+                 drop=["Intercept"], model_labels=list(slices),
                  title="Table 3. Heterogeneous effects")
 
 c.add_heading("§7. Robustness",          level=1)
 c.add_regression(*rob.values(),
-                 keep=["training"], model_labels=list(rob),
+                 drop=["Intercept"], model_labels=list(rob),
                  title="Table A1. Robustness")
 
 c.add_text(
@@ -1153,7 +1171,10 @@ Default `sp.regtable` settings for AER house style — and the export pipeline
 ```python
 rt = sp.regtable(*models,
                  template="aer",                  # journal preset: aer/qje/econometrica/restat/jf/aeja/jpe/restud
-                 keep=["training"],               # show only the coefficient of interest
+                 drop=["Intercept"],              # AER convention: show ALL coefficients (controls
+                                                  # included), suppress only the constant.
+                                                  # Use `keep=[focal]` only when a focal-only table
+                                                  # is explicitly desired.
                  coef_labels={"training": "Training"},
                  model_labels=[...],              # column labels
                  stats=["N", "R2", "Cluster", "FE", "DV mean"],
@@ -1346,6 +1367,7 @@ sp.interactive(fig)                                                   # WYSIWYG 
 | Hand-rolling Word from `pandas.DataFrame.to_string()` / writing LaTeX manually | `RegtableResult.to_word/.to_excel/.to_latex/.to_markdown/.to_html` already apply book-tab borders, AER stars, and the right SE label. `sp.collect()` bundles many such tables into one file |
 | Forgetting `template="aer"` (or `qje`/`econometrica`/`restat`/`jf`/`jpe`/`restud`/`aeja`) on `regtable` | Without `template=`, you lose the journal-correct SE label, star levels, and notes. List presets via `sp.list_journal_templates()` |
 | Saving each regression to its own `.tex` and stitching by hand in LaTeX | Use `sp.paper_tables(main=, heterogeneity=, robustness=, placebo=)` for a single multi-panel `.docx` / `.xlsx`, or `sp.collect()` for a full Word/Excel/Markdown bundle (Step 8.4) |
+| `sp.regtable(..., keep=[focal_var])` as the *default* for every table | AER convention is to **show ALL coefficients including controls** so the reader can verify the full spec — `regtable()` does this by default. Use `drop=["Intercept"]` to suppress only the constant. Reserve `keep=[...]` for cases where focal-only is intentional (IV first-stage triplet, interaction-form heterogeneity) — and add a comment explaining why |
 | Trusting SEs without checking convergence / weak-IV / overlap | Always read `result.summary()` warnings and `result.diagnostics` |
 
 ---
