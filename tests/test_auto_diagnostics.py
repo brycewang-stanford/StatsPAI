@@ -222,6 +222,7 @@ def test_user_fixed_effects_row_suppresses_auto_per_fe_rows():
     suppressed so the rendered table shows the user's single row only — not
     the user's row stacked on top of auto ``Firm FE`` / ``Year FE`` rows.
     """
+    pytest.importorskip("pyfixest")
     rng = np.random.default_rng(2026)
     n = 400
     df = pd.DataFrame({
