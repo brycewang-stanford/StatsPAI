@@ -1464,5 +1464,5 @@ result.to_latex("tables/did_results.tex")
 | One-stop EDA → estimand → DAG → estimate → robustness pipeline | ✅ single import covers all eight AER sections | assemble pyfixest + econml + causalml + differences + ... |
 | Agent-driven analysis with self-describing API | ✅ `list_functions` / `describe_function` / `function_schema` | statsmodels / pyfixest (no agent API) |
 | Estimand-first "DID vs RD vs IV?" decision | ✅ `sp.causal_question` + `sp.causal` | manual judgement call |
-| Stata → Python migration (same API names) | ✅ `sp.regress`, `sp.estat`, `sp.sumstats`, `sp.xtreg` | linearmodels (partial) |
+| Stata → Python migration (same API names) | ✅ `sp.regress`, `sp.estat`, `sp.sumstats`, `sp.feols`, `sp.panel` (Stata `xtreg` → `sp.feols("y ~ x | id + year", df)` or `sp.panel(..., method="fe"/"re")`) | linearmodels (partial) |
 | Full AER-style robustness gauntlet from one package | ✅ Oster / honest_did / E-value / Conley / 2-way / spec_curve / placebo all in `sp.*` | manually wire 5+ packages |
