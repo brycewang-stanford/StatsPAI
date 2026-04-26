@@ -366,6 +366,9 @@ def _collect_variables(
 def _format_num(value: float, fmt: str) -> str:
     if np.isnan(value):
         return ''
+    if fmt == "auto":
+        from .estimates import _fmt_auto
+        return _fmt_auto(value)
     return fmt % value
 
 
@@ -649,71 +652,84 @@ def _to_html(all_rows, columns, title, notes, star_thresholds):
 
 
 def _to_excel(all_rows, columns, title, notes, star_thresholds, filename):
-    """Export to publication-quality Excel."""
+    """Export to publication-quality Excel using shared book-tab style.
+
+    Conforms to the AER/QJE three-line convention via primitives in
+    :mod:`._excel_style` so output is visually identical to ``regtable``,
+    ``sumstats``, ``tab``, and ``paper_tables``.
+    """
     import openpyxl
-    from openpyxl.styles import Font, Alignment, Border, Side
+    from openpyxl.styles import Alignment, Font
+
+    from ._excel_style import (
+        TIMES, BODY_PT, HEADER_PT, NOTES_PT, TITLE_PT,
+        apply_booktab_borders, autofit_columns, write_title,
+    )
 
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = 'Results'
 
+    n_cols = len(columns)
     row_idx = 1
-
-    # Title
     if title:
-        cell = ws.cell(row=row_idx, column=1, value=title)
-        cell.font = Font(bold=True, size=12)
-        row_idx += 2
+        row_idx = write_title(ws, row_idx, n_cols, title)
 
     # Header
-    header_font = Font(bold=True, size=10)
-    thin_bottom = Border(bottom=Side(style='thin'))
+    header_top_row = row_idx
+    header_font = Font(bold=True, name=TIMES, size=HEADER_PT)
+    body_font = Font(name=TIMES, size=BODY_PT)
+    notes_font = Font(italic=True, name=TIMES, size=NOTES_PT)
+    center = Alignment(horizontal='center')
+    left = Alignment(horizontal='left')
+
     for j, col in enumerate(columns, 1):
         cell = ws.cell(row=row_idx, column=j, value=col)
         cell.font = header_font
-        cell.alignment = Alignment(horizontal='center')
-        cell.border = thin_bottom
+        cell.alignment = center
+    header_bot_row = row_idx
     row_idx += 1
 
-    # Data
+    body_top_row = row_idx
+    last_data_row = row_idx
     for row in all_rows:
         if row is None:
-            # Separator
-            for j in range(1, len(columns) + 1):
-                ws.cell(row=row_idx, column=j).border = Border(
-                    bottom=Side(style='thin'))
+            # Separator: leave the row blank — booktab style avoids
+            # internal horizontal rules. Skip without advancing borders.
             row_idx += 1
             continue
         for j, val in enumerate(row, 1):
             cell = ws.cell(row=row_idx, column=j, value=str(val))
-            cell.font = Font(size=9)
-            cell.alignment = Alignment(
-                horizontal='left' if j == 1 else 'center')
+            cell.font = body_font
+            cell.alignment = left if j == 1 else center
+        last_data_row = row_idx
         row_idx += 1
+    body_bot_row = last_data_row
 
-    # Bottom border
-    for j in range(1, len(columns) + 1):
-        ws.cell(row=row_idx - 1, column=j).border = Border(
-            bottom=Side(style='double'))
+    apply_booktab_borders(
+        ws,
+        header_top_row=header_top_row,
+        header_bot_row=header_bot_row,
+        body_top_row=body_top_row,
+        body_bot_row=body_bot_row,
+        n_cols=n_cols,
+    )
 
     # Notes
+    note_row = body_bot_row + 1
     if star_thresholds:
         star_note = '; '.join(
             f'{sym} p<{thresh}' for sym, thresh in
             sorted(star_thresholds.items(), key=lambda x: -len(x[0])))
-        row_idx += 1
-        cell = ws.cell(row=row_idx, column=1, value=star_note)
-        cell.font = Font(italic=True, size=8)
+        cell = ws.cell(row=note_row, column=1, value=star_note)
+        cell.font = notes_font
+        note_row += 1
     for note in (notes or []):
-        row_idx += 1
-        cell = ws.cell(row=row_idx, column=1, value=note)
-        cell.font = Font(italic=True, size=8)
+        cell = ws.cell(row=note_row, column=1, value=note)
+        cell.font = notes_font
+        note_row += 1
 
-    # Auto-width
-    for col_idx in range(1, len(columns) + 1):
-        letter = openpyxl.utils.get_column_letter(col_idx)
-        ws.column_dimensions[letter].width = 15
-
+    autofit_columns(ws, n_cols)
     wb.save(filename)
 
 

@@ -981,10 +981,18 @@ class RegtableResult:
     # ═══════════════════════════════════════════════════════════════════════
 
     def to_excel(self, filename: str) -> None:
-        """Export table to Excel file."""
+        """Export table to Excel as a strict book-tab three-line table.
+
+        Uses the shared ``_excel_style`` primitives so the visual output
+        is byte-aligned with ``sumstats``, ``tab``, ``paper_tables``,
+        ``collection``, ``modelsummary`` and ``outreg2``: thick top rule
+        above the column header, thin mid rule between header and body,
+        thick bottom rule below the last data row, Times New Roman
+        throughout.
+        """
         try:
             import openpyxl
-            from openpyxl.styles import Font, Alignment, Border, Side
+            from openpyxl.styles import Alignment, Font
         except ImportError:
             warnings.warn(
                 "openpyxl is required for Excel export. "
@@ -992,55 +1000,64 @@ class RegtableResult:
             )
             return
 
+        from ._excel_style import (
+            BODY_PT, HEADER_PT, NOTES_PT, TIMES,
+            apply_booktab_borders, autofit_columns, write_title,
+        )
+
         df = self.to_dataframe()
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Regression Table"
 
-        thin_border = Border(
-            bottom=Side(style="thin"),
-        )
-        thick_border = Border(
-            bottom=Side(style="medium"),
-        )
-        header_font = Font(bold=True, name="Times New Roman", size=11)
-        body_font = Font(name="Times New Roman", size=11)
+        header_font = Font(bold=True, name=TIMES, size=HEADER_PT)
+        body_font = Font(name=TIMES, size=BODY_PT)
+        notes_font = Font(italic=True, name=TIMES, size=NOTES_PT)
         center = Alignment(horizontal="center")
+        left = Alignment(horizontal="left")
 
-        start_row = 1
+        n_cols = len(df.columns) + 1  # +1 for the row-label column
+        row_idx = 1
         if self.title:
-            ws.cell(row=1, column=1, value=self.title).font = Font(
-                bold=True, name="Times New Roman", size=12
-            )
-            start_row = 3
+            row_idx = write_title(ws, row_idx, n_cols, self.title)
 
-        # Header
+        # Header row
+        header_top_row = row_idx
+        c0 = ws.cell(row=row_idx, column=1, value="")
+        c0.font = header_font
         for j, col in enumerate(df.columns, 2):
-            cell = ws.cell(row=start_row, column=j, value=col)
+            cell = ws.cell(row=row_idx, column=j, value=col)
             cell.font = header_font
             cell.alignment = center
-            cell.border = thick_border
+        header_bot_row = row_idx
+        row_idx += 1
 
-        ws.cell(row=start_row, column=1).border = thick_border
-
-        # Data rows
-        for i, (idx, row_data) in enumerate(df.iterrows(), start_row + 1):
-            ws.cell(row=i, column=1, value=str(idx)).font = body_font
+        # Body rows
+        body_top_row = row_idx
+        for idx, row_data in df.iterrows():
+            c0 = ws.cell(row=row_idx, column=1, value=str(idx))
+            c0.font = body_font
+            c0.alignment = left
             for j, val in enumerate(row_data, 2):
-                cell = ws.cell(row=i, column=j, value=str(val))
+                cell = ws.cell(row=row_idx, column=j, value=str(val))
                 cell.font = body_font
                 cell.alignment = center
+            row_idx += 1
+        body_bot_row = row_idx - 1
 
-        # Bottom border
-        last_row = start_row + len(df)
-        for j in range(1, len(df.columns) + 2):
-            ws.cell(row=last_row, column=j).border = thick_border
+        apply_booktab_borders(
+            ws,
+            header_top_row=header_top_row,
+            header_bot_row=header_bot_row,
+            body_top_row=body_top_row,
+            body_bot_row=body_bot_row,
+            n_cols=n_cols,
+        )
 
         # Notes — emit the same lines that to_text/to_html/to_latex/to_word
         # emit so users who pass multi_se / repro / notes do not lose them
         # when exporting to Excel.
-        notes_font = Font(italic=True, name="Times New Roman", size=9)
-        note_row = last_row + 1
+        note_row = body_bot_row + 1
         ws.cell(
             row=note_row, column=1,
             value=f"{self._se_label()} in parentheses"
@@ -1058,15 +1075,7 @@ class RegtableResult:
             note_row += 1
             ws.cell(row=note_row, column=1, value=note).font = notes_font
 
-        # Auto-width columns
-        for col_cells in ws.columns:
-            max_len = 0
-            for cell in col_cells:
-                if cell.value:
-                    max_len = max(max_len, len(str(cell.value)))
-            adjusted = min(max_len + 3, 25)
-            ws.column_dimensions[col_cells[0].column_letter].width = adjusted
-
+        autofit_columns(ws, n_cols, max_width=25)
         wb.save(filename)
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -1262,7 +1271,12 @@ def regtable(
     star_levels : tuple, default ``(0.10, 0.05, 0.01)``
         Thresholds for ``*``, ``**``, ``***``.
     fmt : str, default ``"%.3f"``
-        Format string for numeric values.
+        Format string for numeric values. Pass any C-style format
+        (``"%.0f"``, ``"%.4f"``, ...) for fixed precision, or
+        ``"auto"`` for magnitude-adaptive precision (recommended when
+        a single table mixes dollar-magnitude coefficients like
+        ``1521`` with elasticity-magnitude coefficients like ``0.288``
+        — fixed ``"%.0f"`` would round the latter to ``0``).
     output : str, default ``"text"``
         Controls what ``str(result)`` / ``repr(result)`` / ``print(result)``
         returns — one of ``"text"``, ``"latex"``, ``"html"``, ``"markdown"``,
@@ -1820,14 +1834,20 @@ class MeanComparisonResult:
     # ═══════════════════════════════════════════════════════════════════════
 
     def to_excel(self, filename: str) -> None:
-        """Export balance table to Excel."""
+        """Export balance table to Excel as a book-tab three-line table."""
         try:
-            import openpyxl
+            import openpyxl  # noqa: F401
         except ImportError:
             warnings.warn("openpyxl required for Excel export: pip install openpyxl")
             return
-        df = self.to_dataframe()
-        df.to_excel(filename, sheet_name="Balance Table")
+        from ._excel_style import render_dataframe_to_xlsx
+        render_dataframe_to_xlsx(
+            self.to_dataframe(),
+            filename,
+            title=getattr(self, "title", None),
+            sheet_name="Balance Table",
+            index_label="Variable",
+        )
 
     def to_word(self, filename: str) -> None:
         """Export balance table to Word in AER/QJE book-tab style."""

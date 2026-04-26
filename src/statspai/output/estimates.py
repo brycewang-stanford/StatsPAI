@@ -229,9 +229,32 @@ def _format_stars(pvalue: float, levels: Tuple[float, ...] = (0.10, 0.05, 0.01))
     return stars
 
 
+def _fmt_auto(value: float) -> str:
+    """Magnitude-adaptive numeric formatting.
+
+    Picks decimal precision per |value| so a single table can mix
+    dollar-magnitude coefficients (e.g. ``1521``) and elasticity-magnitude
+    coefficients (e.g. ``0.288``) without one side being rounded to zero.
+    """
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return ""
+    av = abs(float(value))
+    if av >= 1000:
+        return f"{value:,.0f}"
+    if av >= 100:
+        return f"{value:.0f}"
+    if av >= 10:
+        return f"{value:.1f}"
+    if av >= 1:
+        return f"{value:.2f}"
+    return f"{value:.3f}"
+
+
 def _fmt_val(value: float, fmt: str = "%.4f") -> str:
     if value is None or (isinstance(value, float) and np.isnan(value)):
         return ""
+    if fmt == "auto":
+        return _fmt_auto(value)
     return fmt % value
 
 

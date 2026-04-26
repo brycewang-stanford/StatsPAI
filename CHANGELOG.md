@@ -2,6 +2,93 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.7.1] — 2026-04-26 — `fmt="auto"` magnitude-adaptive formatting + unified book-tab xlsx style
+
+Pure-additive output-layer patch on top of v1.7.0. **No numerical changes** to
+any estimator. Two themes — both close gaps that referees and AER/QJE
+production editors flag in practice:
+
+1. `sp.regtable(..., fmt="auto")` (and `sp.modelsummary(..., fmt="auto")`)
+   pick decimal precision per-cell so a single table can mix dollar-magnitude
+   coefficients (`1,521`) with elasticity-magnitude coefficients (`0.288`)
+   without one side rounding to bare `0`.
+2. Every `*.xlsx` writer in `statspai.output` now emits the strict academic
+   book-tab three-rule layout (top / mid / bottom) in Times New Roman, via a
+   single new shared module `statspai.output._excel_style`.
+
+### Added — `fmt="auto"` magnitude-adaptive formatting (`regtable`, `modelsummary`)
+
+`sp.regtable(..., fmt="auto")` (and `sp.modelsummary(..., fmt="auto")`)
+now picks decimal precision per-value so a single table can mix
+dollar-magnitude coefficients (e.g. `1,521`) with elasticity-magnitude
+coefficients (e.g. `0.288`) without one side being rounded to zero.
+
+Bucketing: `|x| ≥ 1000` → comma-separated integer; `≥ 100` → integer;
+`≥ 10` → 1 decimal; `≥ 1` → 2 decimals; `< 1` → 3 decimals.
+
+**Why this matters.** Before this addition, passing a single fixed format
+like `fmt="%.0f"` (sensible for a wage regression where coefficients are
+in dollars) would silently round any 0.X-magnitude regressor (e.g.
+lagged-earnings persistence in a wages model) to bare `0` while keeping
+its significance stars — producing `0***` cells that read as nonsense.
+`fmt="auto"` is the recommended setting for any specification with
+mixed-magnitude regressors. The default remains `fmt="%.3f"` for
+backwards compatibility.
+
+Closes the gap with R `modelsummary::fmt_significant()` and Stata
+`esttab`'s `%g`-family format codes.
+
+### Changed — Unified book-tab three-line style across **all** xlsx exports
+
+Every ``*.xlsx`` writer in :mod:`statspai.output` now emits the strict
+academic book-tab convention (thick top rule above the column header,
+thin mid-rule between header and body, thick bottom rule under the
+last data row, Times New Roman throughout, no internal grid lines —
+mirrors LaTeX ``booktabs`` ``\toprule`` / ``\midrule`` / ``\bottomrule``
+verbatim).
+
+Affected entrypoints:
+
+- `sp.regtable(...).save("xxx.xlsx")` (`RegtableResult.to_excel`) —
+  upgraded from a two-rule layout (heavy/heavy) to strict three-rule
+  (heavy/thin/heavy).
+- `sp.mean_comparison(...).to_excel(...)` — was previously a styleless
+  ``pandas.DataFrame.to_excel`` dump; now goes through the shared
+  book-tab renderer.
+- `sp.sumstats(..., output="xxx.xlsx")` — added Times New Roman, top/
+  mid/bottom rules, merged panel headers for ``by=`` MultiIndex
+  columns. Also adds the `by_labels` parameter and **auto-maps binary
+  0/1 group keys to ``Control`` / ``Treated``** so academic Table 1
+  reads correctly out of the box (previously rendered raw ``0`` / ``1``
+  as panel headers).
+- `sp.modelsummary(..., output="xxx.xlsx")` — Calibri → Times New
+  Roman, double-line bottom border → strict ``\bottomrule``.
+- `sp.outreg2(..., filename="xxx.xlsx")` — replaces the legacy Excel
+  grid layout (four-edge per-cell borders) with the book-tab three-rule
+  convention; drops Calibri for Times New Roman.
+- `sp.tab(..., output="xxx.xlsx")` — was unstyled; now book-tab
+  compliant, chi-square test row appended as italic note below the
+  table.
+
+`sp.paper_tables(...).to_xlsx()` and `sp.collect(...).save("xxx.xlsx")`
+were already book-tab compliant via ``_aer_style.excel_booktab_borders``
+and are unchanged in this release.
+
+**Implementation note.** The visual conventions live in a single new
+module ``statspai.output._excel_style`` (Times constants, ``write_title``
+/ ``write_header`` / ``write_body`` / ``apply_booktab_borders`` / ``write_notes``
+/ ``autofit_columns`` / one-shot ``render_dataframe_to_xlsx``). Future
+xlsx writers should call these primitives instead of hand-rolling
+borders so the book-tab look stays consistent across all of StatsPAI.
+
+**Why this matters.** Before this change the xlsx layer was three-way
+fractured — ``regtable`` / ``outreg2`` shipped two-rule or grid
+layouts, ``sumstats`` / ``tab`` / ``modelsummary`` had no rules at
+all, and only ``paper_tables`` / ``collection`` matched the AER/QJE
+book-tab standard. Authors copying ``lalonde_sumstats.xlsx`` straight
+into a manuscript got a styleless dump. Every entrypoint now produces
+output a referee would accept verbatim.
+
 ## [1.7.0] — 2026-04-25 — Phase 2 output overhaul: journal presets, auto-diagnostics, multi-SE, sp.cite(), reproducibility footer
 
 This release closes the remaining gaps between StatsPAI's table layer

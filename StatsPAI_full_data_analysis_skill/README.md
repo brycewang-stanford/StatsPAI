@@ -109,7 +109,7 @@ hands the `CausalResult` back to you).
   - **3-tier export cookbook** (single table / paper-format multi-panel / full session bundle)
   - **17 standard AER figures** (raw trends, rollout heatmap, event-study, Bacon, CS-DID, RD plot, McCrary, love plot, SCM trajectory, coefplot, dose-response, CATE, robustness forest, spec curve, sensitivity dashboard)
   - **Method Catalog** (classical OLS / `feols` / IV / panel / DID / RD / matching / SCM / ML / neural / text / mediation / robustness)
-  - **Common Mistakes table** (24 anti-patterns with corrections)
+  - **Common Mistakes table** (26 anti-patterns with corrections — incl. `fmt="auto"` for mixed-magnitude regtables, auto Control/Treated headers on binary `by=`)
 - `README.md` — this file
 
 ---

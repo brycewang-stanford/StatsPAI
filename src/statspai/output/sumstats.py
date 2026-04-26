@@ -22,6 +22,7 @@ def sumstats(
     title: str = 'Summary Statistics',
     fmt: str = '%.3f',
     labels: Optional[Dict[str, str]] = None,
+    by_labels: Optional[Dict[Any, str]] = None,
 ) -> Union[str, pd.DataFrame]:
     """
     Generate descriptive statistics table.
@@ -47,6 +48,11 @@ def sumstats(
         Number format.
     labels : dict, optional
         Variable labels: ``{'x1': 'Education (years)'}``.
+    by_labels : dict, optional
+        Group labels for ``by=`` panel headers, e.g.
+        ``{0: 'Control', 1: 'Treated'}``. When ``by`` is binary 0/1
+        and no ``by_labels`` is supplied, ``Control``/``Treated`` is
+        auto-applied so academic Table 1 reads correctly out of the box.
 
     Returns
     -------
@@ -79,11 +85,22 @@ def sumstats(
     if by is None:
         df_result = _compute_stats(data, vars, stats, stat_funcs, fmt, labels)
     else:
-        groups = data[by].unique()
+        groups = sorted(data[by].dropna().unique())
+        # Auto Control/Treated for binary 0/1 unless caller supplied labels.
+        if by_labels is None:
+            unique_set = set(groups)
+            if unique_set <= {0, 1, 0.0, 1.0} and len(unique_set) >= 1:
+                by_labels = {
+                    0: "Control", 1: "Treated",
+                    0.0: "Control", 1.0: "Treated",
+                }
         panels = {}
-        for g in sorted(groups):
+        for g in groups:
+            label = by_labels.get(g, str(g)) if by_labels else str(g)
             subset = data[data[by] == g]
-            panels[str(g)] = _compute_stats(subset, vars, stats, stat_funcs, fmt, labels)
+            panels[label] = _compute_stats(
+                subset, vars, stats, stat_funcs, fmt, labels
+            )
         # Stack panels
         df_result = pd.concat(panels, axis=1)
 
@@ -261,37 +278,22 @@ def _sumstats_to_html(df, title):
 
 
 def _sumstats_to_excel(df, filename, title):
-    """Export to Excel."""
-    import openpyxl
-    from openpyxl.styles import Font, Alignment, Border, Side
+    """Export sumstats DataFrame as a book-tab Excel table.
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = 'Summary'
+    Delegates layout + borders to ``_excel_style.render_dataframe_to_xlsx``
+    so the visual conventions stay aligned with every other StatsPAI
+    xlsx writer (Times New Roman, top/mid/bottom rules, merged
+    panel headers for ``by=`` MultiIndex columns).
+    """
+    from ._excel_style import render_dataframe_to_xlsx
 
-    row = 1
-    if title:
-        ws.cell(row=row, column=1, value=title).font = Font(bold=True, size=12)
-        row += 2
-
-    # Header
-    ws.cell(row=row, column=1, value='Variable').font = Font(bold=True)
-    for j, col in enumerate(df.columns, 2):
-        ws.cell(row=row, column=j, value=col).font = Font(bold=True)
-        ws.cell(row=row, column=j).alignment = Alignment(horizontal='center')
-    row += 1
-
-    # Data
-    for idx, data_row in df.iterrows():
-        ws.cell(row=row, column=1, value=str(idx))
-        for j, val in enumerate(data_row, 2):
-            ws.cell(row=row, column=j, value=str(val)).alignment = Alignment(horizontal='center')
-        row += 1
-
-    for col in range(1, len(df.columns) + 2):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 14
-
-    wb.save(filename)
+    render_dataframe_to_xlsx(
+        df,
+        filename,
+        title=title,
+        sheet_name="Summary",
+        index_label="Variable",
+    )
 
 
 def _sumstats_to_word(df, filename, title):

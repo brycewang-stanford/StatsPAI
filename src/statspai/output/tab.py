@@ -156,39 +156,54 @@ def _tab_to_latex(df, test_result, title):
 
 
 def _tab_to_excel(df, test_result, filename, title):
+    """Cross-tabulation -> book-tab xlsx.
+
+    Layout follows the shared three-line convention. The chi-square /
+    p-value test row is appended as an italic note below the table.
+    """
     import openpyxl
-    from openpyxl.styles import Font, Alignment
+
+    from ._excel_style import (
+        apply_booktab_borders,
+        autofit_columns,
+        write_body,
+        write_header,
+        write_notes,
+        write_title,
+    )
 
     wb = openpyxl.Workbook()
     ws = wb.active
+    ws.title = "Crosstab"
 
+    n_cols = len(df.columns) + 1
     row = 1
     if title:
-        ws.cell(row=row, column=1, value=title).font = Font(bold=True, size=12)
-        row += 2
+        row = write_title(ws, row, n_cols, title)
 
-    # Header
-    ws.cell(row=row, column=1, value='').font = Font(bold=True)
-    for j, col in enumerate(df.columns, 2):
-        ws.cell(row=row, column=j, value=str(col)).font = Font(bold=True)
-        ws.cell(row=row, column=j).alignment = Alignment(horizontal='center')
-    row += 1
+    header_top, header_bot = write_header(ws, row, df, index_label="")
+    row = header_bot + 1
+    body_top, body_bot = write_body(ws, row, df)
 
-    # Data
-    for idx, data_row in df.iterrows():
-        ws.cell(row=row, column=1, value=str(idx))
-        for j, val in enumerate(data_row, 2):
-            ws.cell(row=row, column=j, value=str(val)).alignment = Alignment(horizontal='center')
-        row += 1
+    apply_booktab_borders(
+        ws,
+        header_top_row=header_top,
+        header_bot_row=header_bot,
+        body_top_row=body_top,
+        body_bot_row=body_bot,
+        n_cols=n_cols,
+    )
 
+    notes = []
     if test_result:
-        row += 1
-        ws.cell(row=row, column=1,
-                value=f"chi2({test_result['df']}) = {test_result['chi2']:.4f}, "
-                      f"p = {test_result['pvalue']:.4f}").font = Font(italic=True, size=9)
+        notes.append(
+            f"chi2({test_result['df']}) = {test_result['chi2']:.4f}, "
+            f"p = {test_result['pvalue']:.4f}"
+        )
+    if notes:
+        write_notes(ws, body_bot + 1, notes, n_cols=n_cols)
 
-    for c in range(1, len(df.columns) + 2):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(c)].width = 12
+    autofit_columns(ws, n_cols)
     wb.save(filename)
 
 

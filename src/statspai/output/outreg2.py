@@ -378,93 +378,83 @@ class OutReg2:
         print(f"Regression results exported to: {filename}")
     
     def _export_with_formatting(self, df: pd.DataFrame, filename: str, sheet_name: str):
-        """Export with publication-quality Excel formatting"""
-        
-        # Create workbook and worksheet
+        """Export with publication-quality Excel formatting (book-tab style).
+
+        Replaces the legacy four-edge ``thin_border`` (Excel grid style)
+        with the three-line book-tab convention used everywhere else in
+        :mod:`statspai.output`. Font is Times New Roman to match
+        ``regtable`` / ``sumstats`` / ``paper_tables`` / ``collection``.
+        """
+        from ._excel_style import (
+            TIMES, BODY_PT, HEADER_PT, NOTES_PT,
+            apply_booktab_borders, autofit_columns, write_title,
+        )
+
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = sheet_name
-        
-        # Define styles
-        title_font = Font(bold=True, size=14)
-        header_font = Font(bold=True, size=11)
-        normal_font = Font(size=10)
-        italic_font = Font(italic=True, size=9)
-        
+
+        title_font = Font(bold=True, name=TIMES, size=12)
+        header_font = Font(bold=True, name=TIMES, size=HEADER_PT)
+        normal_font = Font(name=TIMES, size=BODY_PT)
+        italic_font = Font(italic=True, name=TIMES, size=NOTES_PT)
         center_align = Alignment(horizontal='center', vertical='center')
         left_align = Alignment(horizontal='left', vertical='center')
-        
-        thin_border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin'),
-            bottom=Side(style='thin')
-        )
-        
-        # Current row tracker
+
+        n_cols = len(df.columns)
         current_row = 1
-        
-        # Add title
+
         if self.title:
             title_cell = ws.cell(row=current_row, column=1, value=self.title)
             title_cell.font = title_font
             title_cell.alignment = center_align
-            ws.merge_cells(f'A{current_row}:{chr(64+len(df.columns))}{current_row}')
-            current_row += 2
-        
-        # Add table headers
+            if n_cols > 1:
+                ws.merge_cells(
+                    start_row=current_row, start_column=1,
+                    end_row=current_row, end_column=n_cols,
+                )
+            current_row += 1
+
+        # Header row
+        header_top_row = current_row
         for col_idx, col_name in enumerate(df.columns, 1):
             cell = ws.cell(row=current_row, column=col_idx, value=col_name)
             cell.font = header_font
             cell.alignment = center_align
-            cell.border = thin_border
-        
+        header_bot_row = current_row
         current_row += 1
-        
-        # Add table data
+
+        # Body rows — no per-cell borders, book-tab adds the three rules
+        body_top_row = current_row
+        last_data_row = current_row - 1
         for row_idx, row_data in df.iterrows():
             for col_idx, value in enumerate(row_data, 1):
                 cell = ws.cell(row=current_row, column=col_idx, value=value)
                 cell.font = normal_font
-                
-                # Different alignment for first column (variable names)
-                if col_idx == 1:
-                    cell.alignment = left_align
-                else:
-                    cell.alignment = center_align
-                
-                # Add border to data cells
-                if value != "":  # Don't add border to empty rows
-                    cell.border = thin_border
-            
+                cell.alignment = left_align if col_idx == 1 else center_align
+            last_data_row = current_row
             current_row += 1
-        
-        # Add notes
+        body_bot_row = last_data_row
+
+        apply_booktab_borders(
+            ws,
+            header_top_row=header_top_row,
+            header_bot_row=header_bot_row,
+            body_top_row=body_top_row,
+            body_bot_row=body_bot_row,
+            n_cols=n_cols,
+        )
+
+        # Notes
         if self.notes:
-            current_row += 1  # Add space before notes
+            current_row += 1
             for note in self.notes:
                 note_cell = ws.cell(row=current_row, column=1, value=note)
                 note_cell.font = italic_font
                 note_cell.alignment = left_align
                 current_row += 1
-        
-        # Auto-adjust column widths
-        for col_idx, column in enumerate(ws.columns, 1):
-            max_length = 0
-            column_letter = openpyxl.utils.get_column_letter(col_idx)
-            
-            for cell in column:
-                try:
-                    if hasattr(cell, 'value') and cell.value is not None:
-                        if len(str(cell.value)) > max_length:
-                            max_length = len(str(cell.value))
-                except:
-                    pass
-            
-            adjusted_width = min(max_length + 2, 20)  # Cap at 20 characters
-            ws.column_dimensions[column_letter].width = adjusted_width
-        
-        # Save workbook
+
+        autofit_columns(ws, n_cols, max_width=20)
         wb.save(filename)
     
     def to_latex(

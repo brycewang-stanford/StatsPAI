@@ -40,6 +40,11 @@ triggers:
   - two-way clustering
   - StatsPAI
   - statspai
+  - fmt auto regression table
+  - magnitude-adaptive coefficient formatting
+  - mixed magnitude coefficients
+  - sumstats by_labels
+  - Control Treated auto labels
 ---
 
 # StatsPAI: Agent-Native Causal Inference & AER-Style Empirical Workflow
@@ -255,7 +260,11 @@ The signature AER Table 1 has three column blocks plus a difference column:
 The Imbens–Rubin rule of thumb: a normalized difference `|Δ| / √((s²₁+s²₀)/2) > 0.25` flags substantive imbalance and should trigger matching / reweighting *before* you trust an OLS comparison.
 
 ```python
-# Quick text/LaTeX preview (use sumstats `output=` for a string-only render):
+# Quick text/LaTeX preview (use sumstats `output=` for a string-only render).
+# When `by=` is binary 0/1 and you don't pass `by_labels=`, sumstats auto-fills
+# the panel headers as **Control / Treated** so the academic Table 1 reads
+# correctly out of the box. For non-0/1 codings or different wording, pass
+# `by_labels={0:"Untrained", 1:"Trained"}` (or `{"A":"Control","B":"Treated"}`).
 print(sp.sumstats(df, vars=["wage","edu","exp","tenure","age"],
                   by="training", output="text"))
 
@@ -594,6 +603,15 @@ rt = sp.regtable(M1, M2, M3, M4, M5,
 # Variants (all opt-in — the default above is preferred):
 #   • drop intercept only:    sp.regtable(..., drop=["Intercept"])
 #   • focal-coefficient only: sp.regtable(..., keep=["training"])
+#   • mixed-magnitude table:  sp.regtable(..., fmt="auto")
+#       Use whenever a single table mixes dollar-magnitude coefficients
+#       (e.g. earnings ≈ 1500) with elasticity-magnitude coefficients
+#       (e.g. log-earnings ≈ 0.09). The default fmt="%.3f" pads the dollar
+#       side; a fixed fmt="%.0f" rounds the elasticity side to "0" while
+#       significance stars survive — the silent LaLonde-style precision
+#       trap. fmt="auto" picks per-value precision: thousands separator
+#       for |β|≥1000, integer for ≥100, 1 dp for ≥10, 2 dp for ≥1, 3 dp
+#       below — so neither magnitude is killed.
 
 # Export to ALL THREE in three lines — Word for co-authors, Excel for editors, LaTeX for build:
 rt.to_word ("tables/table2_main.docx")
@@ -1406,6 +1424,8 @@ sp.interactive(fig)                                                   # WYSIWYG 
 | `sp.bjs_pretrend_joint(es)` | Real signature: `(cs_or_sa_result, data, y=, group=, time=, first_treat=, controls=)` — NOT `event_study()` output |
 | `sp.honest_did(ols_result, ...)` | Only accepts CS / SA / `did_multiplegt` / `aggte(..., 'dynamic')` results — pass a `callaway_santanna` object |
 | `sp.sumstats(df, groups={...}, ...)` | No `groups=` kwarg; loop `sp.sumstats(vars=v_panel, ...)` per panel and concat |
+| `sp.sumstats(..., by="treat")` always shows numeric "0" / "1" panel headers | Binary 0/1 `by=` auto-renders as **Control / Treated** (no kwarg needed). For non-binary or alternative wording, pass `by_labels={0:"Untrained", 1:"Trained"}` |
+| Fixing `fmt="%.0f"` (or any fixed format) on a regtable that mixes dollar-magnitude (~$1500) and elasticity-magnitude (~0.09) coefficients | Silently rounds the elasticities to `0` while stars survive — the LaLonde precision trap. Use `fmt="auto"` for magnitude-adaptive precision: thousands separator for ≥1000, integer for ≥100, 1 dp for ≥10, 2 dp for ≥1, 3 dp below |
 | `plan.population` / `plan.equation` / `plan.threats` | Not exposed on `IdentificationPlan`. Available: `assumptions / estimand / estimator / fallback_estimators / identification_story / warnings / summary()`. Use `q.population / q.treatment / q.outcome` from the `CausalQuestion` |
 | `sp.regtable(..., output="docx")` / `output="xlsx"` | Enum is `{"text","latex","tex","html","markdown","md","qmd","quarto","word","excel"}`. Either use `output="word"`/`"excel"` or — preferred — drop `output=` and call `.to_word(filename)` / `.to_excel(filename)` on the result |
 | `sp.sumstats(..., output="docx")` returns plain text | `sumstats` doesn't natively emit binary docx/xlsx. For Word/Excel use `sp.collect().add_summary(...).save("file.docx")` or convert via `sp.mean_comparison(...).to_word(...)` |
