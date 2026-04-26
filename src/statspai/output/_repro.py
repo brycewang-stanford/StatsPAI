@@ -43,12 +43,21 @@ def _python_version() -> str:
     return f"{v.major}.{v.minor}.{v.micro}"
 
 
+#: Skip hashing for DataFrames larger than this many rows. The fingerprint
+#: is purely informational and the hash holds the GIL on object columns,
+#: so a 10M-row hash can take several seconds — not acceptable inside a
+#: ``regtable()`` call. Users with bigger frames get the row × col line
+#: only (no SHA256 segment).
+MAX_HASH_ROWS = 1_000_000
+
+
 def _hash_dataframe(df, length: int = 10) -> Optional[str]:
     """Return a short SHA-256 fingerprint of *df* (or ``None`` on failure).
 
     We hash the byte representation of ``pd.util.hash_pandas_object`` which
     is order-sensitive and column-name-sensitive — exactly the granularity
-    we want for "is this the same dataset?".
+    we want for "is this the same dataset?". DataFrames larger than
+    :data:`MAX_HASH_ROWS` rows are skipped to keep the call fast.
     """
     if df is None:
         return None
@@ -56,6 +65,8 @@ def _hash_dataframe(df, length: int = 10) -> Optional[str]:
         import pandas as pd
 
         if not isinstance(df, pd.DataFrame):
+            return None
+        if len(df) > MAX_HASH_ROWS:
             return None
         h = pd.util.hash_pandas_object(df, index=True).values.tobytes()
         digest = hashlib.sha256(h).hexdigest()
@@ -107,19 +118,21 @@ def build_repro_note(
         parts.append(f"Python {_python_version()}")
 
     if data is not None:
+        # ``_hash_dataframe`` already guards against non-DataFrame input and
+        # large frames; we only need to confirm we have a DataFrame here so
+        # the row×col line itself does not appear for non-frame ``data``.
         try:
-            import pandas as pd
-
-            if isinstance(data, pd.DataFrame):
-                n_rows = len(data)
-                n_cols = len(data.columns)
-                digest = _hash_dataframe(data)
-                if digest:
-                    parts.append(f"data {n_rows}×{n_cols} SHA256:{digest}")
-                else:
-                    parts.append(f"data {n_rows}×{n_cols}")
-        except Exception:
-            pass
+            import pandas as pd  # local import keeps top-of-module light
+        except ImportError:
+            pd = None  # pragma: no cover — pandas is a hard dep of statspai
+        if pd is not None and isinstance(data, pd.DataFrame):
+            n_rows = len(data)
+            n_cols = len(data.columns)
+            digest = _hash_dataframe(data)
+            if digest:
+                parts.append(f"data {n_rows}×{n_cols} SHA256:{digest}")
+            else:
+                parts.append(f"data {n_rows}×{n_cols}")
 
     if seed is not None:
         parts.append(f"seed={int(seed)}")

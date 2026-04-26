@@ -1309,8 +1309,12 @@ def regtable(
         Auto-extract publication-quality diagnostic rows from the result
         objects:
 
-        - **FE / Cluster indicators** — ``"Fixed Effects: Yes/No"``,
-          ``"Cluster SE: <var>"``.
+        - **FE / Cluster indicators** — one row per distinct fixed effect
+          variable (AER style: ``"Firm FE: Yes/No"``, ``"Year FE: Yes/No"``;
+          interactions render as ``"Firm × Year FE"``), plus
+          ``"Cluster SE: <var>"``. Falls back to a single
+          ``"Fixed Effects: Yes/No"`` row when FE metadata is present but
+          unparseable.
         - **IV** — first-stage F (Olea-Pflueger / KP), Hansen-J p.
         - **DiD** — pre-trend p-value, treated-group count.
         - **RD** — bandwidth, kernel, polynomial order.
@@ -1425,7 +1429,12 @@ def regtable(
         auto_rows = dict(extract_diagnostic_rows(flat_results))
 
     # Merge: user's add_rows wins on collisions, auto rows fill gaps.
+    # Backwards-compat: if user supplies the legacy "Fixed Effects" row,
+    # suppress the auto-emitted per-variable FE rows ("Firm FE", "Year FE",
+    # …) so old tables don't suddenly show a single row + auto rows stacked.
     user_rows = dict(add_rows) if add_rows else {}
+    if "Fixed Effects" in user_rows:
+        auto_rows = {k: v for k, v in auto_rows.items() if not k.endswith(" FE")}
     merged_add_rows: Dict[str, List[str]] = {}
     for label, vals in auto_rows.items():
         if label not in user_rows:

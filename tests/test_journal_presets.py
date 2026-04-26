@@ -142,12 +142,16 @@ def test_regtable_template_jf_includes_adj_r2(two_models):
 
 
 def test_regtable_template_qje_drops_r2(two_models):
-    """QJE preset stats = ('N',) only — no R² shown by default."""
+    """QJE preset stats = ('N',) only — no R² row shown by default."""
     m1, m2 = two_models
     txt = sp.regtable(m1, m2, template="qje").to_text()
-    # Loose check: the row label "R²" should not appear under stats
-    body = txt.split("━")[-2] if "━" in txt else txt
-    assert "R²" not in body or "R²" not in body
+    # The Unicode superscript-2 only appears via _STAT_DISPLAY for R-squared.
+    assert "R²" not in txt
+    # And the AER preset (which DOES include R²) should still show it,
+    # to anchor that the assertion above is meaningful rather than
+    # accidentally vacuous on every run.
+    txt_aer = sp.regtable(m1, m2, template="aer").to_text()
+    assert "R²" in txt_aer
 
 
 def test_regtable_unknown_template_raises(two_models):

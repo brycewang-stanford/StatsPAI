@@ -79,3 +79,82 @@ def test_shift_share_political_rejects_mismatched_shocks():
             df, unit="unit", time="time", outcome="y", endog="d",
             shares=shares, shocks=bad_shocks, leave_one_out=False,
         )
+
+
+# ---------------------------------------------------------------------------
+# model_info / FE metadata pickup (panel variant)
+# ---------------------------------------------------------------------------
+
+def _panel_long_df(units=20, T=4, K=3, seed=0):
+    """Build a long-format panel + per-period shares & shocks for the
+    panel variant, which requires shocks-by-time (not a flat Series).
+    """
+    rng = np.random.default_rng(seed)
+    shares = pd.DataFrame(
+        rng.dirichlet(np.ones(K), size=units),
+        columns=[f"s{k}" for k in range(K)],
+        index=range(units),
+    )
+    shocks = pd.DataFrame(
+        rng.normal(size=(T, K)),
+        index=range(T),
+        columns=[f"s{k}" for k in range(K)],
+    )
+    rows = []
+    for u in range(units):
+        u_fe = rng.normal(0, 0.2)
+        for t in range(T):
+            b = float((shares.loc[u] * shocks.loc[t]).sum())
+            d = b + rng.normal(0, 0.1)
+            y = u_fe + 0.5 * d + rng.normal(0, 0.1)
+            rows.append({"u": u, "t": t, "y": y, "d": d})
+    return pd.DataFrame(rows), shares, shocks
+
+
+@pytest.mark.parametrize("fe_mode,expected", [
+    ("two-way", "u+t"),
+    ("unit", "u"),
+    ("time", "t"),
+    ("none", ""),
+])
+def test_panel_writes_fe_to_model_info(fe_mode, expected):
+    """Bartik panel result exposes FE variable names via the canonical
+    ``model_info['fixed_effects']`` key (pyfixest-compatible ``"unit+time"``
+    convention) — not just the mode string in ``diagnostics['fe']``.
+    """
+    df, shares, shocks = _panel_long_df(seed=0)
+    r = sp.shift_share_political_panel(
+        df, unit="u", time="t", outcome="y", endog="d",
+        shares=shares, shocks=shocks, fe=fe_mode,
+    )
+    # Canonical key for the output layer
+    assert r.model_info["fixed_effects"] == expected
+    # Backwards-compat: the mode string is still in diagnostics
+    assert r.diagnostics["fe"] == fe_mode
+
+
+def test_panel_fe_picked_up_by_diagnostic_extractor():
+    """End-to-end: ``extract_fe_cluster_indicators`` now turns Bartik panel
+    FE metadata into AER-style per-variable rows (``"U FE"``, ``"T FE"``).
+    """
+    from statspai.output._diagnostics import extract_fe_cluster_indicators
+    df, shares, shocks = _panel_long_df(seed=1)
+    r = sp.shift_share_political_panel(
+        df, unit="u", time="t", outcome="y", endog="d",
+        shares=shares, shocks=shocks, fe="two-way",
+    )
+    rows = extract_fe_cluster_indicators([r])
+    assert rows["U FE"] == ["Yes"]
+    assert rows["T FE"] == ["Yes"]
+
+
+def test_panel_fe_none_drops_fe_rows_entirely():
+    df, shares, shocks = _panel_long_df(seed=2)
+    r = sp.shift_share_political_panel(
+        df, unit="u", time="t", outcome="y", endog="d",
+        shares=shares, shocks=shocks, fe="none",
+    )
+    from statspai.output._diagnostics import extract_fe_cluster_indicators
+    rows = extract_fe_cluster_indicators([r])
+    assert all(not k.endswith(" FE") for k in rows.keys())
+    assert "Fixed Effects" not in rows

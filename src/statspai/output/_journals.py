@@ -194,20 +194,17 @@ def get_template(name: str) -> Dict[str, Any]:
 def star_note_for(star_levels: Tuple[float, ...]) -> str:
     """Render the ``"*** p<0.01, ** p<0.05, * p<0.10"`` footer string.
 
-    Sorts loosest threshold first then writes them strict-first so that the
-    most-stars threshold appears at the start of the rendered note (this is
-    the convention used by every preset in :data:`JOURNALS`).
+    The strict-first ordering matches every preset's ``notes_default`` line
+    in :data:`JOURNALS` and is the convention used by ``stata::esttab`` and
+    ``R::modelsummary``.
     """
     if not star_levels:
         return ""
-    sorted_loose_first = sorted(star_levels, reverse=True)
-    parts = []
-    n_levels = len(sorted_loose_first)
-    for i, lev in enumerate(sorted_loose_first):
-        n_stars = i + 1
-        parts.append(("*" * n_stars, lev))
-    parts_strict_first = list(reversed(parts))
-    pieces = []
-    for stars, lev in parts_strict_first:
-        pieces.append(f"{stars} p<{lev:.2f}")
+    # Ascending = strict first; the strictest threshold gets the most stars.
+    levels_strict_first = sorted(star_levels)
+    n = len(levels_strict_first)
+    pieces = [
+        f"{'*' * (n - i)} p<{lev:.2f}"
+        for i, lev in enumerate(levels_strict_first)
+    ]
     return ", ".join(pieces)

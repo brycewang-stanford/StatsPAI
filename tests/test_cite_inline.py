@@ -117,20 +117,55 @@ def test_cite_second_row_none(ols_strong_signal):
 # CausalResult support
 # ---------------------------------------------------------------------------
 
-def test_cite_causal_result_default_term():
-    rng = np.random.default_rng(2026)
-    n = 400
-    df = pd.DataFrame({
-        "y": rng.normal(0, 1, n),
-        "treat": rng.integers(0, 2, n),
-        "g": rng.integers(0, 5, n),
-        "t": rng.integers(0, 3, n),
-    })
-    df["y"] = df["y"] + 0.5 * df["treat"]
-    # Use a simple regression-as-causal-result via regress
-    m = sp.regress("y ~ treat", data=df)
-    s = sp.cite(m, "treat")
-    assert isinstance(s, str) and len(s) > 0
+def _make_causal_result(estimate=0.42, se=0.10, pvalue=0.0001, ci=(0.22, 0.62),
+                        estimand="ATT", method="Custom DiD", n=300):
+    """Construct a duck-typed CausalResult for the cite() CausalResult branch.
+
+    Avoids importing the real ``CausalResult`` class to keep the test
+    independent of fitting any actual estimator (which may pull in optional
+    dependencies).
+    """
+    class _Causal:
+        pass
+    r = _Causal()
+    r.method = method
+    r.estimand = estimand
+    r.estimate = estimate
+    r.se = se
+    r.pvalue = pvalue
+    r.ci = ci
+    r.n_obs = n
+    r.model_info = {"df_resid": n - 2}
+    return r
+
+
+def test_cite_causal_result_default_term_uses_estimand():
+    """Without ``term=``, cite() reads result.estimate / .se / .pvalue."""
+    r = _make_causal_result()
+    s = sp.cite(r)  # term omitted → defaults to estimand "ATT"
+    assert "0.420" in s
+    assert "0.100" in s
+    assert "***" in s  # pvalue=0.0001 triggers all three stars
+
+
+def test_cite_causal_result_explicit_estimand_term():
+    r = _make_causal_result(estimand="LATE", method="IV")
+    s = sp.cite(r, "LATE")
+    assert "0.420" in s
+    assert "0.100" in s
+
+
+def test_cite_causal_result_mismatched_term_warns():
+    r = _make_causal_result(estimand="ATT")
+    with pytest.warns(UserWarning, match="CausalResult exposes only one term"):
+        sp.cite(r, "different_term")
+
+
+def test_cite_causal_result_ci_passthrough():
+    """second_row='ci' should reuse the result's stored CI for alpha=0.05."""
+    r = _make_causal_result(ci=(0.22, 0.62))
+    s = sp.cite(r, second_row="ci")
+    assert "[0.220, 0.620]" in s
 
 
 # ---------------------------------------------------------------------------

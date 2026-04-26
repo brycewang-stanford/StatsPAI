@@ -2,7 +2,82 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased] — Output-layer overhaul: AER/QJE DOCX, paper_tables docx/xlsx, sp.collect, regtable.alpha, Quarto cross-refs
+## [1.7.0] — 2026-04-25 — Phase 2 output overhaul: journal presets, auto-diagnostics, multi-SE, sp.cite(), reproducibility footer
+
+This release closes the remaining gaps between StatsPAI's table layer
+and `R::modelsummary` / `fixest::etable`. Six additive features;
+**no numerical changes** to any estimator. One backwards-compat note
+(see "Behavior change" below) — pure OLS without clustering or FE
+produces byte-identical output to v1.6.x.
+
+### Added — Journal presets via `template=` on `regtable`
+
+`sp.regtable(..., template="qje")` now picks up the per-journal SE-row
+label (e.g. QJE → "Robust standard errors"), default summary-stat
+selection (JF/AEJA add Adj. R²; QJE drops R²), and footer notes from a
+single source-of-truth registry at
+`statspai.output._journals.JOURNALS`. Eight presets ship: `aer`, `qje`,
+`econometrica`, `restat`, `jf`, `aeja`, `jpe`, `restud`. Adding a new
+journal is one dict entry — `regtable`, `paper_tables.TEMPLATES`, and
+the top-level `sp.JOURNAL_PRESETS` view all light up automatically.
+
+### Added — Auto-extracted diagnostic rows (`diagnostics="auto"` default)
+
+`regtable` now reads `model_info` / `diagnostics` on each result and
+auto-emits journal-quality rows above the summary-stats block:
+
+- **Fixed Effects: Yes/No** when any column absorbs FE.
+- **Cluster SE: `<var>`** with the variable name when any column clusters.
+- **First-stage F** for IV models (Olea-Pflueger preferred, falls back to
+  per-endog F from `sp.IVRegression`).
+- **Hansen J p-value** for over-identified IV.
+- **Pre-trend p-value**, **Treated groups** for DiD methods.
+- **Bandwidth**, **Kernel**, **Polynomial order** for RD.
+
+Rows are emitted only when at least one column produces a non-empty
+cell, and user-supplied `add_rows={...}` always overrides on label
+collision. Pass `diagnostics=False` (or `"off"`) to disable.
+
+### Added — Multi-SE side-by-side
+
+`sp.regtable(*models, multi_se={"Cluster SE": [...]})` stacks alternative
+SE specs under the primary SE row. Bracket styles cycle `[]` / `{}` /
+`⟨⟩` / `«»` (the fourth pair is guillemets, not pipes — Markdown-safe).
+Footer notes record each label automatically. Works across
+text / HTML / LaTeX / Markdown / Excel / Word / DataFrame.
+
+### Added — `sp.cite()` inline coefficient reporter
+
+`sp.cite(result, "treat")` returns `"0.234*** (0.041)"` for direct
+embedding in manuscript prose, Jupyter Markdown cells, and Quarto inline
+expressions. Mirrors `regtable`'s star / SE / CI conventions for
+cross-table consistency. Modes: `output="text"|"latex"|"markdown"|"html"`,
+`second_row="se"|"t"|"p"|"ci"|"none"`. Markdown stars are escaped so
+they do not collide with bold delimiters.
+
+### Added — Reproducibility metadata footer
+
+`sp.regtable(..., repro=True)` appends `Reproducibility: StatsPAI v1.X.Y;
+2026-04-25 15:30` as the last footer line. Pass a dict to record more:
+`repro={"data": df, "seed": 42, "extra": "git@<sha>"}` adds
+`data 50000×12 SHA256:abcd1234ef; seed=42; ...`. Hashing skips frames
+over `MAX_HASH_ROWS` (1M rows) to keep the call fast.
+
+### ⚠️ Behavior change — `diagnostics="auto"` default emits new rows
+
+`regtable` previously rendered **only** the rows you typed via
+`add_rows={...}`. With the new `diagnostics="auto"` default, tables for
+clustered or fixed-effects models now include a **Cluster SE: `<var>`** /
+**Fixed Effects: Yes** row that was previously absent. Pure OLS without
+clustering or FE produces byte-identical output to v1.6.x. Workarounds:
+
+- Pass `diagnostics=False` (or `"off"`) to restore the old behavior.
+- Override individual rows by passing `add_rows={"Cluster SE": [...]}`.
+
+This is the only behavior change in the release; no numerical paths are
+affected.
+
+## [1.6.6] — Output-layer overhaul: AER/QJE DOCX, paper_tables docx/xlsx, sp.collect, regtable.alpha, Quarto cross-refs
 
 This release elevates the export layer to journal-grade output. Five
 additive changes; **no breaking changes, no numerical changes** to any

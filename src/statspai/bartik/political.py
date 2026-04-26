@@ -384,6 +384,13 @@ class ShiftSharePoliticalPanelResult:
     n_industries : int
     method : str
     diagnostics : dict
+        Estimator-side diagnostics: ``fe`` (mode), ``cluster``, ``akm_se``,
+        ``n_obs``, ``first_stage_F``.
+    model_info : dict
+        Output-layer metadata: ``model_type``, ``method``, ``fixed_effects``
+        (column-name list as ``"unit+time"``), ``cluster``. Consumed by
+        :func:`statspai.regtable` to render per-FE / cluster rows
+        automatically.
     """
 
     estimate: float
@@ -398,6 +405,7 @@ class ShiftSharePoliticalPanelResult:
     alpha: float = 0.05
     method: str = "shift_share_political_panel"
     diagnostics: Dict[str, Any] = field(default_factory=dict)
+    model_info: Dict[str, Any] = field(default_factory=dict)
 
     def summary(self) -> str:
         lo, hi = self.ci
@@ -796,6 +804,19 @@ def shift_share_political_panel(
             columns=["covariate", "R2_on_shares", "F", "pvalue"]
         )
 
+    # Translate the FE *mode* into the column-name list that the output
+    # layer expects under the canonical ``model_info['fixed_effects']`` key.
+    # We follow the pyfixest convention — additive FEs joined with ``+`` —
+    # so ``sp.regtable`` can render one row per absorbed FE without a
+    # bartik-specific code path. ``diagnostics['fe']`` is kept for
+    # backwards-compat with any user code that already reads the mode.
+    fe_vars = {
+        "none": "",
+        "unit": unit,
+        "time": time,
+        "two-way": f"{unit}+{time}",
+    }[fe]
+
     return ShiftSharePoliticalPanelResult(
         estimate=beta,
         se=se,
@@ -817,5 +838,11 @@ def shift_share_political_panel(
                 (D_hat.var() / max(resid.var(), 1e-12))
                 if resid.var() > 0 else float("nan")
             ),
+        },
+        model_info={
+            "model_type": "Shift-Share IV (panel)",
+            "method": "shift_share_political_panel",
+            "fixed_effects": fe_vars,
+            "cluster": cluster_label,
         },
     )

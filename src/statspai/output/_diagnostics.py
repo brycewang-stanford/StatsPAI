@@ -122,6 +122,62 @@ def _fe_cell(result) -> str:
     return "Yes"
 
 
+def _fe_raw(result):
+    """Return the raw ``fixed_effects`` metadata for the result, if any."""
+    if _is_causal(result):
+        return None
+    mi = _model_info(result)
+    return mi.get("fixed_effects") or mi.get("absorbed_fe") or mi.get("fe")
+
+
+def _parse_fe_tokens(fe_value) -> List[str]:
+    """Split a ``fixed_effects`` metadata value into individual FE tokens.
+
+    Pyfixest encodes additive FEs as ``"firm+year"`` and interactions as
+    ``"firm^year"``. We split on ``+`` so each additive FE becomes one row;
+    ``^`` is kept inside the token so an interaction stays one row (which
+    matches how AER / QJE tables list "Firm × Year FE" as a single line).
+
+    Tolerated shapes:
+
+    - ``None`` / ``""`` / ``"None"``           → ``[]`` (no FE)
+    - ``"firm+year"`` / ``"firm + year"``      → ``["firm", "year"]``
+    - ``"firm^year+industry"``                 → ``["firm^year", "industry"]``
+    - ``["firm", "year"]`` / tuple / set        → ``["firm", "year"]``
+    - ``{"firm": ..., "year": ...}``           → ``["firm", "year"]``
+
+    Unknown truthy shapes return ``[]`` so the caller can fall back to a
+    single ``Fixed Effects | Yes/No`` row instead of inventing a token name
+    that may not match the underlying variable.
+    """
+    if fe_value in (None, "", False):
+        return []
+    if isinstance(fe_value, str):
+        s = fe_value.strip()
+        if s.lower() == "none":
+            return []
+        return [t.strip() for t in s.split("+") if t.strip()]
+    if isinstance(fe_value, (list, tuple, set)):
+        return [str(t).strip() for t in fe_value if str(t).strip()]
+    if isinstance(fe_value, dict):
+        return [str(k).strip() for k in fe_value if str(k).strip()]
+    return []  # Unknown truthy shape → upstream falls back to single-row Yes/No
+
+
+def _fe_token_label(token: str) -> str:
+    """Render a parsed FE token as an AER-style row label.
+
+    ``"firm"``       → ``"Firm FE"``
+    ``"firm^year"``  → ``"Firm × Year FE"``  (interaction)
+    ``"state-1"``    → ``"State-1 FE"``      (preserves non-letters)
+    """
+    parts = [p.strip() for p in token.split("^") if p.strip()]
+    if not parts:
+        return f"{token} FE"
+    pretty = " × ".join(p[:1].upper() + p[1:] for p in parts)
+    return f"{pretty} FE"
+
+
 def _cluster_cell(result) -> str:
     """Return the cluster variable name (or ``"Yes"`` / ``"No"``).
 
@@ -139,30 +195,20 @@ def _cluster_cell(result) -> str:
     return str(cl)
 
 
-def _se_type_cell(result) -> str:
-    """Return a short label for the SE type (HC0/HC3/Cluster/etc.)."""
-    mi = _model_info(result)
-    if _is_causal(result):
-        return ""
-    cluster = mi.get("cluster")
-    robust = mi.get("robust") or mi.get("vcov_type")
-    if cluster:
-        return "Clustered"
-    if not robust or robust in ("nonrobust", "iid", "constant"):
-        return "Homoskedastic"
-    return str(robust).upper()
-
-
 # ---- IV diagnostics --------------------------------------------------------
 
 def _iv_first_stage_F_cell(result) -> str:
-    """Return the first-stage F-stat for IV models, or ``""`` if not IV."""
+    """Return the first-stage F-stat for IV models, or ``""`` if not IV.
+
+    Probe order favours the inference-quality F (Olea-Pflueger effective F)
+    over the legacy first-stage F. The Kleibergen-Paap rk Wald F is read
+    only by :func:`_iv_kp_F_cell` so the two rows do not silently collapse
+    into one when only the KP value is populated.
+    """
     diag = _diagnostics(result)
-    # pyfixest / fixed F naming
     for key in (
         "Olea-Pflueger effective F",
         "OP effective F",
-        "KP rk Wald F",
         "F (first stage)",
     ):
         if key in diag:
@@ -312,16 +358,47 @@ def extract_fe_cluster_indicators(
 ) -> "OrderedDict[str, List[str]]":
     """Return ``{row_label: [cell_per_model, ...]}`` for FE & cluster rows.
 
-    Rows are emitted only when at least one model produces a non-empty cell;
-    rows that would be empty across every column are dropped. This avoids
-    ``Fixed Effects | No | No | No`` rows in tables where nobody absorbs
-    any FE.
+    When at least one model exposes parseable FE metadata (e.g. pyfixest's
+    ``"firm+year"``), emit **one row per distinct FE variable** — the AER /
+    QJE convention — with ``Yes``/``No`` cells:
+
+    .. code-block:: text
+
+        Firm FE          | Yes | Yes | No
+        Year FE          | Yes | No  | Yes
+        Industry × Year FE | No  | Yes | Yes
+
+    Falls back to a single ``Fixed Effects | Yes/No`` row when the metadata
+    is present but cannot be parsed into variable names (defensive — no
+    current writer hits this path, but future estimators may).
+
+    Rows are emitted only when at least one model produces a non-empty
+    cell; rows that would be empty across every column are dropped, so a
+    table of plain OLS columns stays clean.
     """
     rows: "OrderedDict[str, List[str]]" = OrderedDict()
-    fe_cells = [_fe_cell(r) for r in results]
+
+    # --- FE: per-variable rows (preferred), fall back to single Yes/No ----
+    per_col_tokens = [_parse_fe_tokens(_fe_raw(r)) for r in results]
+    union_tokens: List[str] = []
+    for tokens in per_col_tokens:
+        for t in tokens:
+            if t not in union_tokens:
+                union_tokens.append(t)
+
+    if union_tokens:
+        for tok in union_tokens:
+            rows[_fe_token_label(tok)] = [
+                "Yes" if tok in tokens else "No" for tokens in per_col_tokens
+            ]
+    else:
+        # Metadata exists but unparseable (truthy non-string) → single row
+        fe_cells = [_fe_cell(r) for r in results]
+        if any(c == "Yes" for c in fe_cells):
+            rows["Fixed Effects"] = fe_cells
+
+    # --- Cluster SE: unchanged ------------------------------------------
     cluster_cells = [_cluster_cell(r) for r in results]
-    if any(c == "Yes" for c in fe_cells):
-        rows["Fixed Effects"] = fe_cells
     if any(c not in ("", "No") for c in cluster_cells):
         rows["Cluster SE"] = cluster_cells
     return rows
