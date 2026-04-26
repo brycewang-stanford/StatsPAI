@@ -2,17 +2,36 @@
 
 This folder is a **Claude Code Skill** that teaches Claude (or any
 compatible agent harness) how to drive [StatsPAI](https://github.com/brycewang-stanford/StatsPAI)
-end-to-end through the **canonical pipeline of an applied AER /
-QJE / AEJ empirical paper** — pre-analysis plan, Table 1 summary
-statistics, written-out estimating equation and identifying
-assumption, identification graphics (event-study / first-stage F /
-McCrary / SCM trajectory / love plot), the AER multi-regression
-"Table 2" gauntlet (progressive controls / design horse-race /
-multi-outcome / IV first-stage triplet), heterogeneity (subgroup
-table + CATE figure), mechanisms, and a full robustness battery
-(placebo / Oster / honest_did / E-value / Conley / two-way SE /
-spec curve / sensitivity dashboard) — ending in a single editable
-Word / Excel / LaTeX replication bundle.
+end-to-end through a full causal-inference / empirical analysis,
+covering **three domain modes** that share the same export stack
+and `CausalResult` interface:
+
+- **Default — Applied Econ (AER / QJE / AEJ).** The canonical 8-section
+  empirical paper: pre-analysis plan, Table 1 summary statistics,
+  written-out estimating equation + identifying assumption,
+  identification graphics (event-study / first-stage F / McCrary /
+  SCM trajectory / love plot), the AER multi-regression Table 2
+  gauntlet (progressive controls / design horse-race / multi-outcome
+  / IV first-stage triplet), heterogeneity (subgroup table + CATE
+  figure), mechanisms, and a full robustness battery (placebo /
+  Oster / honest_did / E-value / Conley / two-way SE / spec curve /
+  sensitivity dashboard) — ending in a single editable Word / Excel
+  / LaTeX replication bundle.
+- **Mode A — Epidemiology / public health (§A).** Target-trial
+  emulation, IPTW + g-formula + TMLE doubly-robust triplet,
+  Mendelian randomization (IVW / Egger / weighted median), KM / AFT
+  survival, E-value sensitivity, principal stratification — under
+  STROBE / TRIPOD reporting conventions.
+- **Mode B — ML causal inference (§B).** DML, S/T/X/R/DR
+  meta-learners, causal forest (GRF), Dragonnet / TARNet / CEVAE
+  neural causal, BCF, matrix completion, CATE distribution + policy
+  tree + off-policy evaluation, conformal causal prediction,
+  fairness audit, and DAG learning (PC / NOTEARS / LLM-assisted).
+
+All three modes reuse the same Word / Excel / LaTeX export stack
+and the estimand-first `sp.causal_question(...).identify()` DSL —
+switching modes only changes which Step-4 estimators you reach
+for, not the surrounding scaffolding.
 
 ## What this skill ships (paper-ready, in three formats)
 
@@ -71,19 +90,40 @@ pip install statspai          # >= 1.6.6 (Word/Excel export stack)
 
 ## Activate
 
-The skill auto-activates on natural-language triggers such as
-*"run a DID analysis"*, *"AER empirical analysis"*, *"applied
-microeconomics pipeline"*, *"instrumental variables regression"*,
-*"event-study plot"*, *"first-stage F"*, *"Oster bound"*, *"export
-regression table to Word"*, *"outreg2 in Python"*, *"sp.collect"*,
-*"sp.feols"*, *"estimand-first DSL"*, etc. See the `triggers:`
-block in `SKILL.md` for the full list.
+The skill auto-activates on natural-language triggers — pick the wording
+that matches your domain and the right sub-pipeline kicks in:
+
+- **Default (AER econ)** — *"run a DID analysis"*, *"AER empirical
+  analysis"*, *"applied microeconomics pipeline"*, *"instrumental
+  variables regression"*, *"event-study plot"*, *"first-stage F"*,
+  *"Oster bound"*, *"export regression table to Word"*, *"outreg2
+  in Python"*, *"sp.collect"*, *"sp.feols"*, *"estimand-first DSL"*.
+- **Mode A (epi / public health)** — *"target trial emulation"*,
+  *"g-formula"*, *"IPTW"*, *"TMLE"*, *"HAL-TMLE"*, *"Mendelian
+  randomization"*, *"MR-Egger"*, *"E-value"*, *"Kaplan-Meier"*,
+  *"AFT survival"*, *"STROBE"*, *"TRIPOD-AI"*, *"流行病学"*, *"公共健康"*,
+  *"RWE / cohort study"*.
+- **Mode B (ML causal)** — *"DML"* / *"double machine learning"*,
+  *"meta-learner"*, *"causal forest"*, *"Dragonnet"*, *"TARNet"*,
+  *"CEVAE"*, *"BCF"*, *"CATE"*, *"policy tree"*, *"off-policy
+  evaluation"*, *"conformal causal"*, *"fairness audit"*,
+  *"causal discovery"* / *"DAG learning"*, *"NOTEARS"*, *"PC algorithm"*,
+  *"因果机器学习"*, *"uplift modeling"*.
+
+Mixed phrasing such as *"estimate DID and then ML CATE on the
+heterogeneity"* triggers Default + Mode B in sequence — every
+estimator returns the same `CausalResult`, so you can drop
+econ + ML estimators into one `sp.regtable(...)` for a horse-race
+column. See the `triggers:` block in `SKILL.md` for the full list.
 
 ## Scope
 
-**In scope** — the canonical AER 8-section empirical pipeline:
+**In scope** — three parallel sub-pipelines, each ending in a
+`CausalResult` that drops into the same Word / Excel / LaTeX export
+stack:
 
 ```text
+Default (AER econ) — the canonical 8-section pipeline:
 §-1 Pre-Analysis Plan      →  §0 Data construction & contract
 §1  Table 1 (descriptives) →  §2 Empirical strategy (equation + identifying assumption)
 §3  Identification graphics (event-study / first-stage / McCrary / SCM trajectory / love plot)
@@ -95,6 +135,27 @@ block in `SKILL.md` for the full list.
                          spec curve / sensitivity dashboard) + robustness master table
 §8  Replication package — Word / Excel / LaTeX / Markdown bundle via sp.collect()
                           + reproducibility stamp
+
+Mode A — Epidemiology / public health (§A):
+A.0  Cohort construction + target-trial protocol (TargetTrialProtocol + target_trial_emulate)
+A.1  Table 1 by exposure (mean_comparison, identical to AER mode)
+A.2  DAG + propensity-score overlap (positivity check) + KM curves
+A.3  IPTW-MSM + g-formula + TMLE + HAL-TMLE doubly-robust triplet
+A.4  Survival outcomes — KM / AFT / RMST
+A.5  Mendelian randomization (IVW / Egger / weighted median triplet)
+A.6  Robustness — E-value / bounds / principal stratification
+A.7  STROBE/TRIPOD-style reporting checklist (positivity, adjustment set, E-value)
+
+Mode B — ML causal inference (§B):
+B.0  Train/holdout split + SuperLearner nuisance stack
+B.1  Estimand DSL + DAG learning (PC / NOTEARS / LLM-assisted)
+B.2  Estimator stack — DML / meta-learner / causal forest / Dragonnet/TARNet / BCF /
+                       matrix completion (horse race in one regtable)
+B.3  CATE distribution + subgroup CATE plot
+B.4  Policy learning + off-policy evaluation (policy_tree, offline_safe_policy, ope.*)
+B.5  Uncertainty (conformal_causal) + fairness (fairness_audit) + sensitivity
+B.6  ML-causal-specific reporting checklist (nuisance learners, cross-fitting, overlap,
+     CATE summary, policy value, conformal coverage, fairness gaps)
 ```
 
 **Out of scope** — data cleaning (use pandas first) and end-to-end
@@ -104,7 +165,9 @@ hands the `CausalResult` back to you).
 ## Files
 
 - `SKILL.md` — frontmatter + full agent playbook
-  - 8 paper sections (§-1 – §8) with end-to-end code
+  - **Default (AER econ)** — 8 paper sections (§-1 – §8) with end-to-end code
+  - **§A — Epidemiology / public health pipeline** (target-trial · IPTW · g-formula · TMLE · HAL-TMLE · MR · KM/AFT · E-value)
+  - **§B — ML causal pipeline** (DML · S/T/X/R/DR-Learner · causal forest · Dragonnet/TARNet/CEVAE · BCF · matrix completion · policy tree · OPE · conformal causal · fairness audit · DAG learning)
   - **8 multi-regression `regtable` patterns** (A. progressive controls · B. design horse race · C. multi-outcome · D. stacked panel A/B · E. IV first-stage triplet · F. `sp.causal()` orchestrator · G. subgroup heterogeneity · H. robustness master Table A1)
   - **3-tier export cookbook** (single table / paper-format multi-panel / full session bundle)
   - **17 standard AER figures** (raw trends, rollout heatmap, event-study, Bacon, CS-DID, RD plot, McCrary, love plot, SCM trajectory, coefplot, dose-response, CATE, robustness forest, spec curve, sensitivity dashboard)
@@ -118,15 +181,31 @@ hands the `CausalResult` back to you).
 
 本文件夹是一份 **Claude Code Skill**，教 Claude（或任何兼容的 agent
 运行时）端到端地驱动 [StatsPAI](https://github.com/brycewang-stanford/StatsPAI)
-按照 **典型的应用经济学（AER / QJE / AEJ）实证论文套路** 完成一次完整
-分析——从预分析计划、样本构造、Table 1 描述统计、写出回归方程与识别
-假设，到事件研究图 / 一阶段 F / McCrary 密度 / SCM 轨迹 / love plot
-等识别图、AER 多回归主表火力全开（progressive controls / 设计赛马
-/ 多结果 / 面板 A-B / IV 三件套）、异质性（子样本表 + CATE 图）、
-机制分解、完整 robustness gauntlet（placebo / Oster / honest_did /
-E-value / Conley / 二维聚类 / spec curve / sensitivity dashboard），
-最终交付一份 **同时是 Word / Excel / LaTeX 三种格式** 的可复现
-replication bundle。
+完成一次完整的因果推断 / 实证分析。覆盖 **三种领域模式**，三者共用同
+一套 `CausalResult` 结果对象与 Word / Excel / LaTeX 导出栈：
+
+- **默认 — 应用经济学（AER / QJE / AEJ）**。预分析计划、样本构造、
+  Table 1 描述统计、写出回归方程与识别假设，到事件研究图 / 一阶段
+  F / McCrary 密度 / SCM 轨迹 / love plot 等识别图，AER 多回归
+  主表火力全开（progressive controls / 设计赛马 / 多结果 / 面板
+  A-B / IV 三件套），异质性（子样本表 + CATE 图），机制分解，
+  完整 robustness gauntlet（placebo / Oster / honest_did /
+  E-value / Conley / 二维聚类 / spec curve / sensitivity dashboard），
+  最终交付一份 **同时是 Word / Excel / LaTeX 三种格式** 的可复现
+  replication bundle。
+- **模式 A — 流行病学 / 公共健康（§A）**。target-trial emulation、
+  IPTW + g-formula + TMLE 双稳健三件套、Mendelian randomization
+  （IVW / Egger / 加权中位数）、KM / AFT 生存分析、E-value 敏感性、
+  principal stratification——按 STROBE / TRIPOD-AI 报告规范输出。
+- **模式 B — 因果机器学习（§B）**。DML、S/T/X/R/DR meta-learner、
+  causal forest（GRF）、Dragonnet / TARNet / CEVAE 神经因果、BCF、
+  matrix completion、CATE 分布 + policy tree + off-policy 评估、
+  conformal causal 预测区间、fairness audit、DAG 学习（PC / NOTEARS /
+  LLM 辅助）。
+
+三种模式共用同一套估计 → 报告导出链路。切换模式只换 Step-4 的估计器
+组合，前后骨架（estimand-first DSL / Table 1 / 主表 / robustness /
+replication bundle）保持一致。
 
 ### 这份 skill 给你产出什么（论文级，三种格式同步）
 
@@ -152,6 +231,17 @@ sp.list_journal_templates()
 ```python
 sp.cite(M3, "training")           # → "1.239*** (0.153)"
 ```
+
+### 三种领域模式怎么触发
+
+skill 通过自然语言关键词识别用户所在的领域，自动跳到对应 sub-pipeline：
+
+| 你说... | skill 走的 sub-pipeline |
+| --- | --- |
+| "做个 DID / IV / RD / 事件研究"、"AER 主表"、"应用微观" | 默认（AER 经济学） |
+| "target trial 模拟"、"g-formula"、"IPTW"、"TMLE"、"孟德尔随机化"、"Kaplan-Meier"、"E-value"、"STROBE"、"流行病学 / 公共健康"、"队列研究 / 病例对照 / RWE" | 模式 A（流行病学，§A） |
+| "DML / 双重机器学习"、"meta-learner"、"causal forest"、"Dragonnet / TARNet / CEVAE"、"BCF"、"CATE"、"policy tree / 策略学习"、"off-policy 评估"、"conformal 因果"、"公平性审计"、"因果发现 / DAG 学习"、"因果机器学习 / uplift" | 模式 B（ML 因果，§B） |
+| 混合表述（如 "先 DID 估主效应再 ML CATE 看异质性"） | 默认 + 模式 B 串联——所有估计器都返回同一个 `CausalResult`，可一次性扔进 `sp.regtable(...)` 做赛马列 |
 
 ### Agent 默认行为对齐
 

@@ -1,6 +1,6 @@
 ---
 name: StatsPAI_skill
-description: Use when the user asks to run a full empirical / causal analysis in Python in the style of an applied economics paper (AER / QJE / JPE / ReStud / AEJ), pick between DID / RD / IV / SCM / DML / matching, write down an estimating equation and identifying assumption, produce Table 1 / Table 2 / event-study figure / robustness gauntlet, OR export a multi-column regression table to Word / Excel / LaTeX (Stata outreg2 / esttab / R modelsummary equivalent), OR bundle an entire replication appendix into one .docx / .xlsx / .tex file. Also triggers on keywords "StatsPAI", "statspai", "AER empirical analysis", "applied micro pipeline", "Table 1 balance", "event study", "first-stage F", "Oster bound", "honest_did", "spec_curve", "callaway_santanna", "dragonnet", "text as treatment", "outreg2 in Python", "regression table to Word/Excel", "sp.regtable", "sp.collect", "sp.paper_tables", "sp.feols", "summary_col", "modelsummary", "AER style table", "QJE style table".
+description: Use when the user asks to run a full empirical / causal analysis in Python — by default in the style of an applied economics paper (AER / QJE / JPE / ReStud / AEJ) with DID / RD / IV / SCM / DML / matching, written-out estimating equation + identifying assumption, Table 1 / Table 2 / event-study figure / robustness gauntlet — OR in epidemiology / public health style (target-trial emulation, IPTW + g-formula + TMLE triplet, Mendelian randomization, KM/AFT survival, E-value sensitivity, STROBE/TRIPOD reporting) — OR in ML causal inference style (DML, S/T/X/R/DR meta-learners, causal forest, Dragonnet/TARNet/CEVAE, BCF, CATE distribution, policy learning, conformal causal, fairness audit, causal discovery). Also covers exporting multi-column regression tables to Word / Excel / LaTeX (Stata outreg2 / esttab / R modelsummary equivalent) and bundling an entire replication appendix into one .docx / .xlsx / .tex file. Triggers on keywords "StatsPAI", "statspai", "AER empirical analysis", "applied micro pipeline", "Table 1 balance", "event study", "first-stage F", "Oster bound", "honest_did", "spec_curve", "callaway_santanna", "dragonnet", "text as treatment", "outreg2 in Python", "regression table to Word/Excel", "sp.regtable", "sp.collect", "sp.paper_tables", "sp.feols", "summary_col", "modelsummary", "AER style table", "QJE style table", "epidemiology pipeline", "target trial emulation", "g-formula", "IPTW", "TMLE", "Mendelian randomization", "STROBE", "TRIPOD", "公共健康", "流行病学", "DML", "double machine learning", "causal forest", "meta-learner", "CATE", "conformal causal", "policy learning", "因果机器学习", "ML causal".
 triggers:
   - causal inference in python
   - applied microeconomics pipeline
@@ -45,6 +45,33 @@ triggers:
   - mixed magnitude coefficients
   - sumstats by_labels
   - Control Treated auto labels
+  - epidemiology pipeline
+  - public health causal inference
+  - target trial emulation
+  - g-formula
+  - IPTW marginal structural model
+  - TMLE doubly robust
+  - HAL-TMLE
+  - Mendelian randomization
+  - MR-Egger weighted median
+  - STROBE TRIPOD reporting
+  - E-value sensitivity
+  - Kaplan-Meier AFT survival
+  - 流行病学
+  - 公共健康
+  - ML causal inference
+  - double machine learning DML
+  - meta-learner S T X R DR
+  - causal forest GRF
+  - Dragonnet TARNet CEVAE
+  - Bayesian causal forest BCF
+  - CATE distribution
+  - policy tree
+  - off-policy evaluation
+  - conformal causal prediction
+  - fairness audit
+  - causal discovery PC NOTEARS
+  - 因果机器学习
 ---
 
 # StatsPAI: Agent-Native Causal Inference & AER-Style Empirical Workflow
@@ -85,6 +112,27 @@ Pre-Analysis Plan           −1    sp.power.* + freeze IdentificationPlan to di
 ```
 
 > **All code blocks below share one running example (`training → wage`, with `worker_id / firm_id / year / age / edu / tenure`) purely for readability.** Column names, `population`, `estimand`, and `design` values are **illustrative** — substitute the user's actual columns and research question. Only `sp.*` function names and argument *shapes* are normative.
+
+## Three domain modes (default = AER econ; alternates = epi & ML-causal)
+
+The default playbook above is **AER-style applied econometrics** — the AEA convention: written-out estimating equation, identifying assumption table, design horse-race, full robustness gauntlet. The skill **also** ships two parallel sub-pipelines for the other two big causal-inference traditions, each reusing the same export stack (`sp.regtable / sp.collect / sp.paper_tables`) and result objects:
+
+| Mode | Reader convention | Identification stack | Reporting stack | Jump to |
+|---|---|---|---|---|
+| **Default — Applied Econ (AER / QJE / AEJ)** | "Show the equation + identifying assumption + design horse-race; controls visible; clustered SE" | DID / IV / RD / SCM / matching / `feols` HDFE | AER house-style multi-column `regtable` + 8-section paper layout | §−1 → §8 (entire playbook above) |
+| **Mode A — Epidemiology / Public Health** | "STROBE / TRIPOD-AI; target trial protocol; doubly-robust estimand; absolute & relative risk; KM survival" | Target-trial emulation · IPTW · g-formula · TMLE · Mendelian randomization · KM/AFT | Same `regtable` + `collect`, with risk-difference / hazard-ratio / E-value rows | §A. Epidemiology pipeline |
+| **Mode B — ML Causal Inference** | "DML / meta-learners / causal forest / DR-learner; CATE distribution; policy value" | DML · S/T/X/R/DR-Learner · GRF causal forest · Dragonnet/TARNet/CEVAE · BCF · matrix completion | `regtable` ML horse-race + `cate_plot` + policy-value table + `conformal_causal` PI | §B. ML causal pipeline |
+
+**How to invoke a non-default mode** (Claude / agent picks this up from the user's wording):
+
+| User says... | Mode the skill switches to |
+|---|---|
+| "Run a DID / IV / RD / event study", "AER table", "applied micro" | Default (AER econ) |
+| "Target trial emulation", "g-formula", "IPTW", "TMLE", "Mendelian randomization", "STROBE / TRIPOD", "公共健康 / 流行病学", "epi pipeline", "RWE study", "cohort study", "case-control" | Mode A (Epi) |
+| "DML", "double machine learning", "causal forest", "meta-learner", "CATE", "Dragonnet", "BCF", "policy learning", "conformal causal", "ML causal", "uplift modeling", "因果机器学习" | Mode B (ML causal) |
+| "Mix" (e.g. "estimate DID + then ML CATE on the heterogeneity") | Default + Mode B in sequence — every estimator returns the same `CausalResult`, drop them all into one `sp.regtable(...)` for the horse-race column |
+
+The three modes share **the same export stack, the same `CausalResult` interface, and the same `sp.causal_question(...).identify()` estimand-first DSL** — switching modes only changes which Step 4 estimators you reach for, not the surrounding scaffolding. If you only want descriptive stats / Table 1 / a balance check, the AER `sp.sumstats` / `sp.mean_comparison` / `sp.collect` calls work in all three modes.
 
 ## Paper-ready figure & table inventory (what to produce by section)
 
@@ -1266,6 +1314,344 @@ For pyfixest-style native output, `sp.etable(*models, ...)` is the alternative; 
 
 ---
 
+## §A. Epidemiology / public health pipeline (Mode A)
+
+> **Convention**: STROBE (observational) / TRIPOD-AI (prediction) reporting. The modern epi gold standard is **target-trial emulation** (Hernán & Robins) — write the protocol of the hypothetical RCT first, then emulate it with observational data using a doubly-robust estimator. Outcomes are commonly **risk differences, risk ratios, hazard ratios, or restricted mean survival time**, not just OLS coefficients. The skill mirrors the AER 8-section flow but swaps the Step-4 estimator stack and adds survival/MR-specific reporting rows.
+
+Running example: `statin_initiation → 5-yr_MACE` in an EHR cohort (`patient_id / index_date / age / sex / ldl_baseline / comorbidity_index / followup_days / event`). The exposure is time-varying, confounders are time-varying, and competing-risk censoring matters — the canonical setting where naïve OLS / Cox-with-baseline-adjustment is biased.
+
+### A.0 Cohort construction & target-trial protocol
+
+```python
+import statspai as sp
+
+# Eligibility, treatment-strategy, time-zero, follow-up, outcome — written down BEFORE estimation
+protocol = sp.target_trial.TargetTrialProtocol(
+    eligibility           = "adults 40-75, LDL ≥ 130, no prior MI/stroke, no statin in 12mo washout",
+    treatment_strategies  = ["initiate statin within 30d of index", "no statin within 30d"],
+    assignment            = "observational; emulate randomization via IPTW + g-formula",
+    time_zero             = "index_date (first eligible cardiology visit)",
+    followup_end          = "first MACE / death / disenrollment / index_date + 5yr",
+    outcome               = "first MACE (composite: MI, stroke, cardiovascular death)",
+    causal_contrast       = "per-protocol risk difference at 5 years",
+    analysis_plan         = "IPTW-MSM + g-formula + TMLE triplet; report all three with CIs",
+    baseline_covariates   = ["age","sex","ldl_baseline","comorbidity_index","smoker"],
+    time_varying_covariates = ["ldl_current"],
+)
+cohort = sp.target_trial_emulate(df, protocol=protocol, id="patient_id", time="followup_days",
+                                  treat="statin_initiation", event="mace")
+```
+
+### A.1 Table 1 — baseline characteristics by exposure
+
+```python
+# Same sumstats stack as AER mode; binary 0/1 by= auto-renders Control/Treated.
+mc = sp.mean_comparison(cohort, ["age","sex","ldl_baseline","comorbidity_index","smoker"],
+                        group="statin_initiation", test="ttest",
+                        title="Table 1. Baseline characteristics by statin initiation")
+mc.to_word ("tables/table1_epi.docx")
+mc.to_excel("tables/table1_epi.xlsx")
+```
+
+### A.2 Identification — DAG, propensity overlap, KM curves
+
+```python
+# 2.1 DAG (manual or LLM-assisted)
+dag = sp.dag(["age","sex","ldl_baseline","comorbidity_index","statin_initiation","mace"])
+dag.add_edges([("age","ldl_baseline"),("age","statin_initiation"),
+               ("ldl_baseline","statin_initiation"),("statin_initiation","mace"),
+               ("ldl_baseline","mace"),("comorbidity_index","statin_initiation"),
+               ("comorbidity_index","mace")])
+adj = dag.adjustment_set(treatment="statin_initiation", outcome="mace")  # back-door set
+
+# 2.2 Propensity-score overlap (positivity check; epi convention before any IPW)
+# Returns a pd.Series of fitted PS — draw mirrored histograms by exposure.
+ps = sp.propensity_score(cohort, treatment="statin_initiation",
+                          covariates=["age","sex","ldl_baseline","comorbidity_index","smoker"],
+                          method="logit")
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots(figsize=(6,4))
+ax.hist(ps[cohort["statin_initiation"]==1], bins=40, alpha=0.5, label="Treated")
+ax.hist(ps[cohort["statin_initiation"]==0], bins=40, alpha=0.5, label="Control")
+ax.set_xlabel("Estimated propensity score"); ax.legend()
+fig.savefig("figures/figA1_ps_overlap.png", dpi=300)
+
+# 2.3 Crude KM curves by exposure (descriptive identification graphic)
+km = sp.kaplan_meier(cohort, duration="followup_days", event="mace", group="statin_initiation")
+km.plot().savefig("figures/figA2_km.png", dpi=300)
+```
+
+### A.3 Main estimate — IPTW · g-formula · TMLE triplet (the modern epi standard)
+
+Report **all three** in one `regtable` so the reader sees convergent doubly-robust evidence — this is the epi equivalent of the AER design horse race:
+
+```python
+# (1) IPTW marginal structural model
+iptw = sp.msm(cohort, y="mace", treat="statin_initiation",
+              id="patient_id", time="month",
+              time_varying=["ldl_current","comorbidity_index"],
+              baseline=["age","sex"])
+
+# (2) Parametric g-formula (g-computation)
+gcomp = sp.gformula(cohort, y="mace", treat="statin_initiation",
+                    covariates=["age","sex","ldl_baseline","comorbidity_index","smoker"],
+                    time_varying=["ldl_current"],
+                    intervention="always_treat", reference="never_treat")
+
+# (3) TMLE — doubly robust, the modern gold standard.
+# Pass an sklearn-style library list for nuisance learners; statspai stacks them
+# internally via SuperLearner. Keep `outcome_library` and `propensity_library`
+# explicit so the reviewer can see your nuisance choices.
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+sl_lib = [LogisticRegression(max_iter=1000),
+          GradientBoostingClassifier(),
+          RandomForestClassifier()]
+tmle = sp.tmle(cohort, y="mace", treat="statin_initiation",
+               covariates=["age","sex","ldl_baseline","comorbidity_index","smoker"],
+               outcome_library=sl_lib, propensity_library=sl_lib)
+
+# (3-bis) HAL-TMLE if you want a fully nonparametric variant
+hal = sp.hal_tmle(cohort, y="mace", treat="statin_initiation",
+                  covariates=["age","sex","ldl_baseline","comorbidity_index","smoker"],
+                  variant="ate")
+
+# Convergent-evidence table — risk difference at 5 years
+rt = sp.regtable(iptw, gcomp, tmle, hal,
+                 model_labels=["(1) IPTW-MSM","(2) g-formula","(3) TMLE","(4) HAL-TMLE"],
+                 stats=["N","Effect type","Risk diff. (RD)","Risk ratio (RR)"],
+                 title="Table 2. Effect of statin initiation on 5-yr MACE — convergent estimators")
+rt.to_word ("tables/table2_epi.docx"); rt.to_excel("tables/table2_epi.xlsx")
+```
+
+### A.4 Survival outcomes — KM / AFT / restricted mean
+
+```python
+# Restricted mean survival time (RMST) at 5 yr — preferred over hazard ratio when PH fails
+aft = sp.aft("Surv(followup_days, mace) ~ statin_initiation + age + sex + ldl_baseline",
+             cohort, family="weibull")
+
+rt_surv = sp.regtable(aft,
+                      stats=["N","Events","Median survival","RMST (5yr)","HR (PH)"],
+                      title="Table 3. Survival analysis (Weibull AFT)")
+rt_surv.to_word("tables/table3_survival.docx")
+```
+
+### A.5 Mendelian randomization (genetic IV — when relevant)
+
+```python
+# Standard MR triple: IVW → Egger → weighted median, on summary statistics
+ivw    = sp.mr_ivw   (beta_exposure, beta_outcome, se_exposure, se_outcome)
+egger  = sp.mr_egger (beta_exposure, beta_outcome, se_exposure, se_outcome)   # tests pleiotropy
+median = sp.mr_median(beta_exposure, beta_outcome, se_exposure, se_outcome, penalized=True)
+
+rt_mr = sp.regtable(ivw, egger, median,
+                    model_labels=["IVW","MR-Egger","Weighted median"],
+                    title="Table 4. Mendelian randomization — sensitivity stack")
+rt_mr.to_word("tables/table4_mr.docx")
+```
+
+### A.6 Robustness — E-value, bounds, principal stratification
+
+```python
+# E-value: minimum strength of unmeasured confounding to explain away the result
+ev = sp.evalue(estimate=tmle.point_estimate, ci=tmle.ci, measure="RR")
+# → "E-value 1.84; CI E-value 1.42" (a confounder must be ~2x associated with both
+#   exposure and outcome to nullify the effect — interpret in your domain)
+
+# Manski / Lee bounds when a covariate is missing-not-at-random
+bds = sp.bounds(cohort, y="mace", treat="statin_initiation", method="manski")
+
+# Principal stratification (e.g. always-takers / never-takers / compliers)
+ps_strat = sp.principal_strat(cohort, y="mace", treat="statin_initiation",
+                              instrument="zip_pharmacy_density",
+                              strata="compliance_type")
+```
+
+### A.7 Reporting checklist (epi-specific footer for `notes=`)
+
+When producing the Table-2 footer, include — in addition to the AER stars/SE language:
+
+- Cohort size, person-years of follow-up, event count
+- **Adjustment set** (variables in the back-door set, not just "controls")
+- **Positivity diagnostic** (PS truncation rule, % of cohort with extreme weights)
+- **E-value** for the main effect and its CI bound
+- For survival: **proportional-hazards check** (Schoenfeld residuals p-value) or "PH violated, RMST reported instead"
+- STROBE checklist completion (cite as a supplementary file)
+
+> **Output path stays identical**: every estimator above returns a `CausalResult` and slots straight into `sp.regtable(...) / sp.collect(...) / sp.paper_tables(...)`. Doubly-robust estimators (TMLE, HAL-TMLE, AIPW) are preferred over single-robust IPTW or g-formula alone — report all three for transparency, but treat TMLE as the primary.
+
+---
+
+## §B. ML causal inference pipeline (Mode B)
+
+> **Convention**: estimand-first, doubly-robust, ML-nuisance-learned, with **CATE distribution + policy value** as first-class outputs (not just a single ATE). The skill mirrors the AER skeleton but the Step-4 estimator stack is **DML + meta-learners + causal forest + neural-causal + BCF**, and Step-5 always reports a CATE distribution. Uncertainty is quantified by **conformal prediction** (`sp.conformal_causal`), not just normal-approximation SE.
+
+Running example: a marketing uplift study — `treatment = personalized_offer`, `outcome = revenue_30d`, with 80+ covariates including text features (`prior_browsing_text`).
+
+### B.0 Prep + nuisance super-learner
+
+```python
+import statspai as sp
+
+# 0.1 Train/holdout split — DML uses cross-fitting internally, but holdout is for policy eval.
+# statspai doesn't expose its own splitter; use sklearn directly.
+from sklearn.model_selection import train_test_split
+train, holdout = train_test_split(df, test_size=0.2, stratify=df["treatment"], random_state=42)
+
+# 0.2 SuperLearner library for nuisance — stacks GBM / RF / Lasso (pass sklearn estimators).
+from sklearn.linear_model import LogisticRegression, LassoCV
+from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier, RandomForestRegressor, RandomForestClassifier
+sl_outcome = sp.super_learner(X=train[X_cols].values, y=train["revenue_30d"].values,
+                              library=[LassoCV(), GradientBoostingRegressor(), RandomForestRegressor()],
+                              n_folds=5, task="regression")
+sl_treat   = sp.super_learner(X=train[X_cols].values, y=train["treatment"].values,
+                              library=[LogisticRegression(max_iter=1000),
+                                       GradientBoostingClassifier(), RandomForestClassifier()],
+                              n_folds=5, task="binary")
+```
+
+### B.1 Estimand & DAG learning (Step 2 + 2.5 in ML key)
+
+```python
+q = sp.causal_question(treatment="treatment", outcome="revenue_30d",
+                       population="marketed users", estimand="ate")
+plan = q.identify(strategy="ignorability_under_X", X=X_cols)
+
+# DAG learning (when domain DAG isn't given)
+proposed = sp.llm_dag_propose(variables=X_cols + ["treatment","revenue_30d"],
+                              domain="e-commerce uplift")
+constrained = sp.pc_algorithm(train[X_cols + ["treatment","revenue_30d"]],
+                              variables=X_cols + ["treatment","revenue_30d"], alpha=0.05)
+validated = sp.llm_dag_validate(dag=proposed, data=train, alpha=0.05)
+# Alternative learners: sp.notears(...), sp.causal_discovery(..., method="ges")
+```
+
+### B.2 Estimator stack — DML / meta-learner / GRF / neural / Bayesian
+
+```python
+# (1) DML — Chernozhukov double machine learning
+dml = sp.dml(train, y="revenue_30d", d="treatment", X=X_cols,
+             model="plr",                    # plr / irm / iv / pliv
+             ml_g=sl_outcome, ml_m=sl_treat, n_folds=5)
+
+# (2) Meta-learners — S / T / X / R / DR
+ml_dr = sp.metalearner(train, y="revenue_30d", treat="treatment", covariates=X_cols,
+                       learner="dr",         # 's' / 't' / 'x' / 'r' / 'dr'
+                       outcome_model="xgb", propensity_model="xgb")
+
+# (3) Causal forest (GRF / honest splits)
+cf = sp.causal_forest("revenue_30d ~ treatment | " + " + ".join(X_cols),
+                       train, n_estimators=4000, honest=True)
+
+# (4) Neural causal — Dragonnet / TARNet / CEVAE
+dn   = sp.dragonnet(train, y="revenue_30d", treat="treatment", covariates=X_cols,
+                    repr_layers=(200,100), head_layers=(100,))
+tar  = sp.tarnet  (train, y="revenue_30d", treat="treatment", covariates=X_cols)
+
+# (5) Bayesian causal forest (full posterior over CATE)
+bcf  = sp.bcf(train, y="revenue_30d", treat="treatment", covariates=X_cols,
+              n_trees_mu=200, n_trees_tau=50)
+
+# (6) Panel matrix completion (when units × periods)
+mc   = sp.matrix_completion(panel_df, y="revenue", d="treatment", unit="user_id", time="week")
+
+# Convergent evidence table — same regtable / collect stack
+rt = sp.regtable(dml, ml_dr, cf, dn, bcf,
+                 model_labels=["(1) DML-PLR","(2) DR-Learner","(3) Causal forest",
+                               "(4) Dragonnet","(5) BCF"],
+                 stats=["N","ATE","CATE 5–95% range","Cross-fit folds","Nuisance R²"],
+                 title="Table 2. ATE — ML estimator horse race")
+rt.to_word ("tables/table2_ml.docx"); rt.to_excel("tables/table2_ml.xlsx")
+```
+
+### B.3 CATE distribution & subgroup view (the ML-causal headline)
+
+```python
+# 3.1 Per-row CATE — DR-learner / X-learner expose .cate_estimates directly
+sp.cate_plot(ml_dr, kind="hist",
+             title="Figure B1. CATE distribution — DR-Learner") \
+  .savefig("figures/figB1_cate_dist.png", dpi=300)
+
+# 3.2 CATE by group (skill quartiles, gender, channel, …)
+g = sp.cate_by_group(ml_dr, train, by="customer_value_quartile", n_groups=4)
+sp.cate_group_plot(g, title="Figure B2. CATE by customer-value quartile") \
+  .savefig("figures/figB2_cate_group.png", dpi=300)
+
+# 3.3 Causal-forest local effect surface
+cf.local_effects().plot(...).savefig("figures/figB3_local.png", dpi=300)
+```
+
+### B.4 Policy learning + off-policy evaluation
+
+```python
+# 4.1 Learn an interpretable policy tree from CATE estimates
+pol_tree = sp.policy_tree(train, y="revenue_30d", d="treatment", X=X_cols, max_depth=3)
+pol_tree.plot().savefig("figures/figB4_policy.png", dpi=300)
+
+# 4.2 Safe policy under cost constraint
+safe = sp.offline_safe_policy(holdout, state=X_cols, action="treatment",
+                              reward="revenue_30d", cost="offer_cost", cost_threshold=2.50)
+
+# 4.3 Off-policy evaluation on holdout — IPS / DR / SNIPS.
+# sp.ope exposes estimator-level entry points: ips / direct_method / doubly_robust /
+# snips / switch_dr. Each takes (X, actions, rewards, pi_b, pi_e[, reward_model]).
+import numpy as np
+X_test  = holdout[X_cols].values
+A_test  = holdout["treatment"].values
+R_test  = holdout["revenue_30d"].values
+pi_b    = sl_treat.predict_proba(X_test)[:, 1]      # behavior policy: SL on treatment
+pi_e    = pol_tree.predict(X_test)                   # evaluation policy (deterministic)
+opv = sp.ope.doubly_robust(X_test, A_test, R_test, pi_b=pi_b, pi_e=pi_e,
+                            reward_model=sl_outcome)
+print(f"Policy value (DR): {opv.value:.3f} ± {opv.se:.3f}")
+```
+
+### B.5 Uncertainty + fairness + robustness
+
+```python
+# 5.1 Conformal prediction intervals on CATE — distribution-free coverage.
+# sp.conformal_causal exposes conformal_cate / conformal_ite / conformal_continuous /
+# conformal_fair / conformal_interference and more — pick by estimand.
+cp = sp.conformal_causal.conformal_cate(train, y="revenue_30d", treat="treatment",
+                                         covariates=X_cols, alpha=0.10)   # 90% PI
+
+# 5.2 Subgroup fairness audit — DP / EO gaps across protected attributes.
+# fairness_audit takes scored predictions on the dataset (not the model directly);
+# either materialize predictions into a column or pass `predictor=`.
+holdout = holdout.assign(pred=ml_dr.predict(holdout[X_cols]))
+fair = sp.fairness.fairness_audit(holdout, predictions="pred",
+                                   protected="gender", labels="revenue_30d",
+                                   threshold=0.10)
+
+# 5.3 Sensitivity dashboard — ATE robustness to unmeasured confounding
+sd = sp.sensitivity_dashboard(dml, train,
+                              dimensions=["unmeasured_confounding","positivity","model_misspec"])
+sd.plot().savefig("figures/figB5_sensitivity.png", dpi=300)
+
+# 5.4 (Reuse AER §7 robustness) Spec curve over nuisance choices
+sc = sp.spec_curve(train, y="revenue_30d", x="treatment",
+                   controls=[["age"],["age","gender"],X_cols],
+                   se_types=["robust","cluster"])
+sc.plot().savefig("figures/figB6_spec_curve.png", dpi=300)
+```
+
+### B.6 Reporting checklist (ML-causal-specific footer)
+
+When producing the Table-2 footer, include — in addition to the AER stars/SE language:
+
+- **Nuisance learners** used (e.g., "outcome: SuperLearner[xgb, rf, lasso, nn]; treatment: same")
+- **Cross-fitting**: number of folds, sample-splitting scheme
+- **Overlap diagnostic**: PS distribution range, `% trimmed`
+- **CATE summary**: mean / 5–95% range / share with CATE > 0
+- **Policy value**: off-policy DR value vs. random / vs. always-treat baselines
+- **Conformal coverage**: empirical coverage of nominal 1−α PI on holdout
+- **Fairness audit**: subgroup CATE gaps vs. acceptable thresholds
+
+> **Doubly-robust DML / DR-Learner / TMLE are preferred over single-robust S- or T-learner alone.** Report S- or T-learner only as a baseline in the horse race. Always check overlap before reporting any IPW-flavored estimator.
+
+---
+
 ## Method Catalog
 
 ### Classical
@@ -1466,3 +1852,5 @@ result.to_latex("tables/did_results.tex")
 | Estimand-first "DID vs RD vs IV?" decision | ✅ `sp.causal_question` + `sp.causal` | manual judgement call |
 | Stata → Python migration (same API names) | ✅ `sp.regress`, `sp.estat`, `sp.sumstats`, `sp.feols`, `sp.panel` (Stata `xtreg` → `sp.feols("y ~ x | id + year", df)` or `sp.panel(..., method="fe"/"re")`) | linearmodels (partial) |
 | Full AER-style robustness gauntlet from one package | ✅ Oster / honest_did / E-value / Conley / 2-way / spec_curve / placebo all in `sp.*` | manually wire 5+ packages |
+| **Epidemiology / public health** (target-trial emulation, IPTW + g-formula + TMLE triplet, MR, KM/AFT survival, E-value, STROBE/TRIPOD reporting) | ✅ `sp.target_trial.TargetTrialProtocol` + `sp.target_trial_emulate` + `sp.gformula` + `sp.msm` + `sp.tmle` + `sp.hal_tmle` + `sp.mendelian` (`sp.mr_ivw`/`sp.mr_egger`/`sp.mr_median`) + `sp.kaplan_meier` + `sp.aft` + `sp.evalue` + `sp.principal_strat` — see §A. | hand-stitched zEpid + lifelines + statsmodels + manual MR scripts |
+| **ML causal inference** (DML / S/T/X/R/DR-Learner / causal forest / Dragonnet / TARNet / CEVAE / BCF / matrix completion / policy learning / OPE / conformal CATE / fairness audit / DAG learning) | ✅ `sp.dml` + `sp.metalearner` + `sp.causal_forest` + `sp.dragonnet`/`tarnet`/`cevae` + `sp.bcf` + `sp.matrix_completion` + `sp.policy_tree` + `sp.offline_safe_policy` + `sp.ope.*` + `sp.conformal_causal.*` + `sp.fairness.fairness_audit` + `sp.causal_discovery`/`pc_algorithm`/`notears`/`llm_dag_propose`+`llm_dag_validate` — see §B. | EconML + DoWhy + CausalML + GRF + zEpid + dowhy-gcm assembled by hand |
