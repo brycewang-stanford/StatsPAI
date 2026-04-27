@@ -1144,7 +1144,27 @@ def iv(
         formula=formula, data=data, method=method,
         fuller_alpha=fuller_alpha,
     )
-    return model.fit(robust=robust, cluster=cluster, **kwargs)
+    _result = model.fit(robust=robust, cluster=cluster, **kwargs)
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.iv",
+            params={
+                "formula": formula,
+                "method": method,
+                "robust": robust,
+                "cluster": cluster,
+                "fuller_alpha": fuller_alpha,
+                **{k: v for k, v in kwargs.items()
+                   if k in ("weights", "se_type", "vcov")},
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover — provenance must never break fit
+        pass
+    return _result
 
 
 # ====================================================================== #

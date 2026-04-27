@@ -44,7 +44,7 @@ import pandas as pd
 from ..output._lineage import format_provenance, get_provenance
 
 
-__all__ = ["paper", "PaperDraft", "parse_question"]
+__all__ = ["paper", "PaperDraft", "parse_question", "paper_from_question"]
 
 
 # --------------------------------------------------------------------- #
@@ -188,6 +188,9 @@ class PaperDraft:
     fmt: str
     citations: List[str] = field(default_factory=list)
     parsed_hints: Dict[str, Any] = field(default_factory=dict)
+    dag: Any = None
+    dag_treatment: Optional[str] = None
+    dag_outcome: Optional[str] = None
 
     # ----- rendering -------------------------------------------------- #
 
@@ -375,15 +378,26 @@ class PaperDraft:
         # Body — identical section ordering to to_markdown().
         order = [
             "Question", "Data", "Identification",
-            "Estimator", "Results", "Robustness", "References",
+            "Estimator", "Results", "Robustness", "Causal DAG",
+            "References",
         ]
+        # When self.dag is set, regenerate the Causal DAG body with the
+        # Quarto-native mermaid block instead of the markdown text-art.
+        sections_view = dict(self.sections)
+        if self.dag is not None:
+            sections_view["Causal DAG"] = _render_dag_section(
+                self.dag,
+                treatment=self.dag_treatment,
+                outcome=self.dag_outcome,
+                fmt="qmd",
+            )
         chunks: List[str] = []
         for t in order:
-            body = self.sections.get(t)
+            body = sections_view.get(t)
             if not body:
                 continue
             chunks.append(f"## {t}\n\n{body.rstrip()}\n")
-        for t, body in self.sections.items():
+        for t, body in sections_view.items():
             if t not in order and body:
                 chunks.append(f"## {t}\n\n{body.rstrip()}\n")
 
@@ -448,6 +462,116 @@ class PaperDraft:
 # --------------------------------------------------------------------- #
 #  Helpers
 # --------------------------------------------------------------------- #
+
+
+def _render_dag_section(
+    dag: Any,
+    *,
+    treatment: Optional[str] = None,
+    outcome: Optional[str] = None,
+    fmt: str = "markdown",
+) -> str:
+    """Render a Causal DAG appendix section.
+
+    Accepts a :class:`statspai.dag.graph.DAG` or any duck-typed object
+    exposing ``nodes`` / ``edges`` / ``observed_nodes`` /
+    ``adjustment_sets(t, y)`` / ``backdoor_paths(t, y)`` /
+    ``bad_controls(t, y)``.
+
+    For ``fmt='qmd'`` we emit a Quarto-native mermaid code block; for
+    everything else (markdown / tex) we emit a plain text rendering
+    that survives any downstream pipeline (LaTeX users typically
+    typeset DAGs with TikZ; we do not attempt that here).
+    """
+    if dag is None:
+        return ""
+
+    nodes = sorted(getattr(dag, "observed_nodes", None) or
+                   getattr(dag, "nodes", set()))
+    edges = list(getattr(dag, "edges", []) or [])
+
+    lines: List[str] = []
+
+    # Mermaid block (Quarto renders natively; pandoc renders to SVG via
+    # mermaid-cli when available; plain markdown viewers show the text).
+    if fmt == "qmd":
+        lines.append("```{mermaid}")
+        lines.append("%%| fig-cap: Declared causal DAG")
+        lines.append("graph LR")
+        for u, v in edges:
+            # Mermaid is sensitive to leading underscores in node ids;
+            # latent ``_L_*`` nodes are quoted to avoid conflicts.
+            uu = f'"{u}"' if u.startswith("_") else u
+            vv = f'"{v}"' if v.startswith("_") else v
+            lines.append(f"  {uu} --> {vv}")
+        lines.append("```")
+        lines.append("")
+
+    # Variables list (always).
+    if nodes:
+        lines.append("**Variables**: " + ", ".join(f"`{n}`" for n in nodes))
+        lines.append("")
+
+    # Edges list (always — survives non-mermaid renderers).
+    if edges:
+        lines.append("**Edges**:")
+        for u, v in edges:
+            lines.append(f"- `{u}` → `{v}`")
+        lines.append("")
+
+    # Latent / unobserved confounders.
+    latent = sorted(n for n in (getattr(dag, "nodes", set()) or set())
+                    if isinstance(n, str) and n.startswith("_L_"))
+    if latent:
+        lines.append("**Latent common causes** (unobserved):")
+        for n in latent:
+            label = n.replace("_L_", "").replace("_", " ↔ ")
+            lines.append(f"- `{n}` ({label})")
+        lines.append("")
+
+    # Identification analysis (back-door + bad controls), when treatment
+    # and outcome are known.
+    if treatment and outcome:
+        try:
+            adj = dag.adjustment_sets(treatment, outcome)
+        except Exception:
+            adj = None
+        if adj:
+            lines.append(
+                f"**Adjustment sets** (back-door criterion for "
+                f"`{treatment}` → `{outcome}`):"
+            )
+            for s in adj:
+                if not s:
+                    lines.append("- ∅ (no controls needed)")
+                else:
+                    lines.append(
+                        "- {" + ", ".join(f"`{x}`" for x in sorted(s)) + "}"
+                    )
+            lines.append("")
+        try:
+            bd = dag.backdoor_paths(treatment, outcome)
+        except Exception:
+            bd = None
+        if bd:
+            lines.append(
+                f"**Back-door paths** from `{treatment}` to `{outcome}`:"
+            )
+            for path in bd:
+                arrow = " — ".join(f"`{x}`" for x in path)
+                lines.append(f"- {arrow}")
+            lines.append("")
+        try:
+            bad = dag.bad_controls(treatment, outcome)
+        except Exception:
+            bad = None
+        if bad:
+            lines.append("**Bad controls** (do **not** condition on these):")
+            for var, reason in bad.items():
+                lines.append(f"- `{var}` — {reason}")
+            lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def _yaml_str(value: str) -> str:
@@ -736,8 +860,8 @@ def _section_from_workflow(workflow) -> Dict[str, str]:
 
 
 def paper(
-    data: pd.DataFrame,
-    question: str,
+    data,
+    question: Optional[str] = None,
     *,
     y: Optional[str] = None,
     treatment: Optional[str] = None,
@@ -814,6 +938,29 @@ def paper(
     if fmt not in {'markdown', 'tex', 'docx', 'qmd'}:
         raise ValueError(
             f"Unknown fmt={fmt!r}. Use 'markdown', 'tex', 'docx', or 'qmd'."
+        )
+
+    # Estimand-first dispatch: if the first positional arg is a
+    # CausalQuestion (already declared population/estimand/design/data),
+    # route through identify() + estimate() rather than the
+    # natural-language workflow path. This is the v1.7 estimand-first
+    # entry point — the Target-Trial-Protocol-shaped declaration drives
+    # the analysis end-to-end.
+    try:
+        from ..question.question import CausalQuestion as _CQ
+    except Exception:
+        _CQ = None  # pragma: no cover — package-internal
+    if _CQ is not None and isinstance(data, _CQ):
+        if question is None:
+            question = (
+                f"effect of {data.treatment} on {data.outcome}"
+                + (f" in {data.population}" if data.population else "")
+            )
+        return paper_from_question(
+            data, question=question, fmt=fmt,
+            output_path=output_path,
+            include_robustness=include_robustness,
+            cite=cite, dag=dag,
         )
 
     cols = list(data.columns)
@@ -920,6 +1067,15 @@ def paper(
             f"- {e}" for e in pipeline_errors
         )
 
+    # Causal DAG appendix (when the user passes a DAG).
+    if dag is not None:
+        try:
+            sections["Causal DAG"] = _render_dag_section(
+                dag, treatment=t_eff, outcome=y_eff, fmt="markdown",
+            )
+        except Exception:  # pragma: no cover — DAG render must not break draft
+            pass
+
     # References
     citations: List[str] = []
     if cite and workflow.result is not None:
@@ -944,9 +1100,297 @@ def paper(
         fmt=fmt,
         citations=citations,
         parsed_hints=parsed,
+        dag=dag,
+        dag_treatment=t_eff,
+        dag_outcome=y_eff,
     )
 
     if output_path is not None:
         draft.write(output_path)
 
     return draft
+
+
+# --------------------------------------------------------------------- #
+#  Estimand-first paper builder (CausalQuestion → PaperDraft)
+# --------------------------------------------------------------------- #
+
+
+def paper_from_question(
+    q,
+    *,
+    question: Optional[str] = None,
+    fmt: str = "markdown",
+    output_path: Optional[str] = None,
+    include_robustness: bool = True,
+    cite: bool = True,
+    dag: Any = None,
+) -> PaperDraft:
+    """Build a :class:`PaperDraft` from a :class:`CausalQuestion`.
+
+    The estimand-first entry point: instead of inferring the design
+    from natural language and a DataFrame, the user *declares* the
+    Target Trial Protocol (treatment / outcome / population / estimand
+    / design / time-structure) up front, and this builder routes
+    through ``q.identify()`` + ``q.estimate()`` to assemble a paper
+    whose Methods / Results sections match what was pre-registered.
+
+    Sections produced
+    -----------------
+    - **Question** — population, treatment, outcome, estimand,
+      time-structure (verbatim from the declaration).
+    - **Identification** — the IdentificationPlan's story + assumptions.
+    - **Estimator** — chosen primary estimator + fallbacks.
+    - **Results** — point estimate, SE, 95% CI, n.
+    - **Robustness** — placeholder unless the user attaches a
+      :class:`CausalWorkflow` (or rolls their own follow-up).
+    - **References** — pulled from ``result.underlying.cite()`` when
+      available.
+
+    Parameters
+    ----------
+    q : CausalQuestion
+        Declared causal question. Must have ``data`` set.
+    question : str, optional
+        Free-form text to embed in the Question section. Defaults to
+        ``"effect of <treatment> on <outcome>"``.
+    fmt : {'markdown', 'tex', 'docx', 'qmd'}, default 'markdown'
+        Default rendering format on the returned ``PaperDraft``.
+    output_path : str, optional
+        Write the rendered draft to disk in the format inferred from
+        the path extension.
+    include_robustness : bool, default True
+        Reserve the Robustness section (will say "not run" until the
+        user attaches a workflow).
+    cite : bool, default True
+        Pull bibliography entries from ``result.underlying.cite()``
+        when available.
+    dag : object, optional
+        Pre-built ``sp.dag`` graph. When provided, the draft's
+        Identification section gains a *Causal DAG* subsection (text
+        rendering for markdown / mermaid for qmd).
+
+    Returns
+    -------
+    PaperDraft
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> q = sp.causal_question(
+    ...     "trained", "wage", data=df, design="did",
+    ...     time="year", id="worker_id",
+    ...     covariates=["edu"]
+    ... )
+    >>> draft = sp.paper(q, fmt='qmd')
+    >>> draft.write("paper.qmd")
+    """
+    if q.data is None:
+        raise ValueError(
+            "CausalQuestion.data must be set before paper_from_question(). "
+            "Pass data= when constructing the question."
+        )
+    if fmt not in {"markdown", "tex", "docx", "qmd"}:
+        raise ValueError(
+            f"Unknown fmt={fmt!r}. Use 'markdown', 'tex', 'docx', or 'qmd'."
+        )
+
+    if q._plan is None:
+        plan = q.identify()
+    else:
+        plan = q._plan
+    if q._result is None:
+        result = q.estimate()
+    else:
+        result = q._result
+
+    sections: Dict[str, str] = {}
+    eff_question = question or (
+        f"effect of {q.treatment} on {q.outcome}"
+    )
+
+    # Question section
+    bits = [
+        f"> {eff_question}",
+        "",
+        f"- **Population**: {q.population or '_(not specified)_'}",
+        f"- **Treatment**: `{q.treatment}`",
+        f"- **Outcome**: `{q.outcome}`",
+        f"- **Estimand**: {plan.estimand}",
+        f"- **Design**: `{q.design}`",
+        f"- **Time structure**: {q.time_structure}",
+    ]
+    if q.covariates:
+        bits.append(
+            "- **Covariates**: " + ", ".join(f"`{c}`" for c in q.covariates)
+        )
+    if q.instruments:
+        bits.append(
+            "- **Instruments**: " + ", ".join(f"`{c}`" for c in q.instruments)
+        )
+    if q.cutoff is not None:
+        bits.append(f"- **Cutoff**: {q.cutoff}")
+    if q.notes:
+        bits.append(f"- **Notes**: {q.notes}")
+    sections["Question"] = "\n".join(bits)
+
+    # Data section — declared frame stats.
+    data = q.data
+    n_rows, n_cols = data.shape
+    miss = data.isna().mean()
+    miss = miss[miss > 0].sort_values(ascending=False)
+    data_lines = [
+        f"- Sample size: **{n_rows:,}** rows, **{n_cols}** columns.",
+    ]
+    if not miss.empty:
+        data_lines.append("- Missingness (top 5):")
+        for col, frac in miss.head(5).items():
+            data_lines.append(f"    - `{col}`: {frac*100:.1f}%")
+    else:
+        data_lines.append("- Missingness: none detected in the analysis frame.")
+    if q.outcome in data.columns:
+        ys = data[q.outcome].dropna()
+        if pd.api.types.is_numeric_dtype(ys):
+            data_lines.append(
+                f"- Outcome `{q.outcome}`: mean={ys.mean():.3f}, "
+                f"sd={ys.std():.3f}, median={ys.median():.3f}, n={len(ys)}."
+            )
+    sections["Data"] = "\n".join(data_lines)
+
+    # Identification section
+    id_lines = [plan.identification_story, ""]
+    id_lines.append("**Required assumptions** (must defend):")
+    for a in plan.assumptions:
+        id_lines.append(f"- {a}")
+    if plan.warnings:
+        id_lines.append("")
+        id_lines.append("**Warnings:**")
+        for w in plan.warnings:
+            id_lines.append(f"- {w}")
+    if dag is not None:
+        id_lines.append("")
+        id_lines.append("**Causal DAG**: see appendix.")
+    sections["Identification"] = "\n".join(id_lines)
+
+    # Estimator section
+    est_lines = [
+        f"- **Primary estimator**: `sp.{plan.estimator}`",
+        f"- **Estimand**: {plan.estimand}",
+    ]
+    if plan.fallback_estimators:
+        est_lines.append(
+            "- **Fallbacks** (if primary's assumptions fail): "
+            + ", ".join(f"`sp.{f}`" for f in plan.fallback_estimators)
+        )
+    sections["Estimator"] = "\n".join(est_lines)
+
+    # Results section
+    lo, hi = result.ci
+    res_lines = [
+        f"- **{plan.estimand}** (via `sp.{plan.estimator}`): "
+        f"**{result.estimate:+.4f}** (SE = {result.se:.4f})",
+        f"- **95% CI**: [{lo:+.4f}, {hi:+.4f}]",
+        f"- **N obs**: {int(result.n)}",
+    ]
+    sections["Results"] = "\n".join(res_lines)
+
+    # Robustness placeholder
+    if include_robustness:
+        sections["Robustness"] = (
+            "_No robustness suite executed via this entry point — "
+            "use `sp.causal(...)` or attach a `CausalWorkflow` for the "
+            "full diagnostic battery (parallel-trends test, leave-one-out, "
+            "specification curve, e-value, etc.)._"
+        )
+
+    # References
+    citations: List[str] = []
+    if cite and result.underlying is not None:
+        cite_fn = getattr(result.underlying, "cite", None)
+        if callable(cite_fn):
+            try:
+                ref = cite_fn()
+                if ref:
+                    citations.append(str(ref))
+            except Exception:
+                pass
+    sections["References"] = (
+        "\n".join(f"- {c}" for c in citations)
+        if citations
+        else "_(No explicit citations attached — see "
+             "`result.underlying.cite()` if available.)_"
+    )
+
+    # DAG appendix when the user attached one.
+    if dag is not None:
+        try:
+            sections["Causal DAG"] = _render_dag_section(
+                dag, treatment=q.treatment, outcome=q.outcome, fmt="markdown",
+            )
+        except Exception:  # pragma: no cover
+            pass
+
+    # Build draft. workflow=None — this is the estimand-first path,
+    # not the workflow path; provenance gets attached directly.
+    draft = PaperDraft(
+        question=eff_question,
+        sections=sections,
+        workflow=_LightweightWorkflowAdapter(q, result),
+        fmt=fmt,
+        citations=citations,
+        parsed_hints={
+            "treatment": q.treatment,
+            "y": q.outcome,
+            "design": q.design,
+            "estimand": plan.estimand,
+        },
+        dag=dag,
+        dag_treatment=q.treatment,
+        dag_outcome=q.outcome,
+    )
+
+    # Attach provenance to the underlying estimator's result so
+    # downstream replication_pack / Quarto appendix pick it up.
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        target = result.underlying if result.underlying is not None else result
+        _attach_prov(
+            target,
+            function=f"sp.causal_question[{plan.estimator}]",
+            params={
+                "treatment": q.treatment,
+                "outcome": q.outcome,
+                "estimand": plan.estimand,
+                "design": q.design,
+                "covariates": list(q.covariates) if q.covariates else None,
+                "instruments": list(q.instruments) if q.instruments else None,
+                "cutoff": q.cutoff,
+                "time_structure": q.time_structure,
+            },
+            data=q.data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover — provenance must never break
+        pass
+
+    if output_path is not None:
+        draft.write(output_path)
+
+    return draft
+
+
+class _LightweightWorkflowAdapter:
+    """Minimal adapter so PaperDraft.to_qmd's _workflow_provenance() and
+    replication_pack's _extract_data() / _extract_results() work for the
+    estimand-first path (which has no real CausalWorkflow object).
+    """
+
+    __slots__ = ("question", "_estimation", "data", "result")
+
+    def __init__(self, q, estimation):
+        self.question = q
+        self._estimation = estimation
+        self.data = q.data
+        # Surface the underlying estimator's result so the qmd
+        # appendix and replication_pack pick up its _provenance.
+        self.result = estimation.underlying if estimation.underlying is not None else estimation

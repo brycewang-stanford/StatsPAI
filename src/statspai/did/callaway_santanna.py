@@ -218,7 +218,7 @@ def callaway_santanna(
         'cohort_sizes': cohort_sizes,
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method="Callaway and Sant'Anna (2021)",
         estimand='ATT',
         estimate=agg_est,
@@ -232,6 +232,26 @@ def callaway_santanna(
         _influence_funcs=inf_matrix,
         _citation_key='callaway_santanna',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.did.callaway_santanna",
+            params={
+                "y": y, "g": g, "t": t, "i": i, "x": x,
+                "estimator": estimator,
+                "control_group": control_group,
+                "base_period": base_period,
+                "anticipation": anticipation,
+                "alpha": alpha,
+                "panel": panel,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover — provenance must never break fit
+        pass
+    return _result
 
 
 # ======================================================================

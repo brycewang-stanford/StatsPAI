@@ -2,6 +2,217 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Phase 3: estimand-first paper + estimator provenance + DAG appendix
+
+Layered on top of the Phase 1+2 export trinity. **No numerical changes**
+to any estimator. Three additions, each gated to **opt-in** call sites
+to keep blast radius small.
+
+### Added — Estimand-first `sp.paper(causal_question_obj)`
+
+The Target-Trial-Protocol-shaped declaration now drives the paper end
+to end. Two equivalent entry points:
+
+```python
+# Method-style:
+q = sp.causal_question("trained", "wage", data=df, design="did",
+                       time="year", id="worker_id")
+draft = q.paper(fmt="qmd")
+draft.write("paper.qmd")
+
+# Function-style dispatch:
+draft = sp.paper(q, fmt="qmd")
+```
+
+The builder routes through ``q.identify()`` + ``q.estimate()`` and
+assembles Question / Data / Identification / Estimator / Results /
+Robustness / References sections whose contents match the
+*declaration* (not natural-language inference). Unlike the
+DataFrame-first ``sp.paper(df, "natural-language question")`` path,
+this preserves the user's pre-registered estimand, design, and
+identification claims verbatim — agents that pre-register get
+audit-grade traceability for free.
+
+Underlying estimator's result is exposed on
+``draft.workflow.result`` so ``sp.replication_pack`` and
+``draft.to_qmd()``'s Reproducibility appendix pick up provenance
+automatically.
+
+### Added — Estimator-level provenance instrumentation (4 of 5)
+
+Top-tier estimators now ``attach_provenance()`` to their fit result
+with ``overwrite=False`` semantics — outer wrappers (``sp.causal``,
+``sp.paper``) preserve the inner estimator's more-specific record:
+
+- ``sp.regress`` (regression/ols.py).
+- ``sp.callaway_santanna`` (did/callaway_santanna.py).
+- ``sp.did_2x2`` (did/did_2x2.py).
+- ``statspai.regression.iv.iv`` — unified 2SLS / LIML / GMM / JIVE.
+
+Each captures: function name, key kwargs (formula / estimator /
+control_group / method / etc.), 12-char SHA-256 of the input frame
+(column-name + dtype + value sensitive), run uuid, version stamps.
+
+**Deferred**: ``sp.synth`` dispatcher (13 method branches, 13+ return
+sites). A dedicated v1.7.3 sprint refactors ``synth`` into an inner
+``_dispatch_synth`` plus an outer wrapper that attaches provenance
+once, instead of sprinkling 13 attach calls.
+
+### Added — Causal DAG appendix in PaperDraft
+
+Pass ``dag=`` to ``sp.paper(...)`` (or ``q.paper(dag=...)``) and the
+draft gains a *Causal DAG* section that renders fmt-aware:
+
+- **Markdown / TeX**: text-art with the variable list, edge list,
+  back-door paths, adjustment sets, and any latent ``_L_*`` confounders.
+- **Quarto (.qmd)**: native ``{mermaid}`` graph block (Quarto renders
+  to SVG out of the box) plus the same text fallbacks below it.
+
+Identification-relevant info (back-door paths, adjustment sets, bad
+controls) is computed from the DAG via the existing
+:class:`statspai.dag.graph.DAG` API; the LLM-DAG closed loop
+(``sp.llm_dag_propose / validate / constrained``) integrates as a
+data source — pass any DAG those return into ``dag=``. The paper
+builder doesn't itself call any LLM API; that remains the user's
+explicit choice.
+
+### Added — Public exports
+
+- ``sp.paper_from_question`` — alternative entry point next to the
+  method-style ``q.paper()`` and the dispatcher in ``sp.paper(q)``.
+- DAG-section-related fields on :class:`PaperDraft`: ``dag``,
+  ``dag_treatment``, ``dag_outcome``.
+
+### Tests
+
+35 new tests (14 paper_from_question + 8 estimator_provenance + 13
+paper_dag_section). 295 green across the full Phase 1+2+3 + adjacent
+paper / registry / help / output / workflow surface.
+
+## [Unreleased] — v1.8.1: HDFE silent-bug fix + completeness pass
+
+Layered on top of the v1.8 RC `sp.fast.*` HDFE stack. **One ⚠️
+correctness fix** (`event_study` cluster SE), the rest is additive.
+
+### ⚠️ Correctness — `sp.fast.event_study` cluster SE
+
+`sp.fast.event_study` was computing CR1 cluster-robust SEs without
+charging the absorbed FE rank against residual degrees of freedom.
+The small-sample factor used `(n-1)/(n-k_dummies)` instead of
+`(n-1)/(n - k_dummies - Σ(G_k - 1))`, so SEs were **systematically
+too small** (~3–5% on a typical balanced panel; up to ~10% on
+small/uneven designs). The fix passes `extra_df = Σ(G_k - 1)` —
+matching `reghdfe` / `fixest` convention — through the new `crve`
+parameter (see Added below). t-statistics and CIs reported by
+`sp.fast.event_study` will now be slightly **wider**; users
+re-running the same data should expect modest changes in the third
+decimal of SE.
+
+### Added — `sp.fast.feols`: native OLS HDFE estimator
+
+The linear sister of `sp.fast.fepois`. Pure-Python orchestration on
+top of the Phase 1 Rust demean kernel + Phase 4 inference primitives;
+**independent of pyfixest**. Public API mirrors `sp.fast.fepois`
+(formula DSL, `vcov`, `cluster`, `weights`).
+
+- `vcov` ∈ `{"iid", "hc1", "cr1"}`. CR1 is FE-rank-aware via the
+  same `extra_df = Σ(G_k - 1)` convention used elsewhere in fast/*.
+- Weighted OLS path routes through the `_weighted_ap_demean` loop
+  (matches pyfixest weighted feols to ~1e-12).
+- Coefficient parity vs R `fixest::feols`: **4.2e-15** at n=1M / fe1=100k
+  / fe2=1k (machine epsilon). Wall-time **135 ms** vs R fixest **106 ms**
+  vs pyfixest **210 ms** — i.e. 1.55× faster than pyfixest, 1.27× slower
+  than fixest's mature C++. See [`benchmarks/hdfe/run_feols_bench.py`](benchmarks/hdfe/run_feols_bench.py).
+- Full `coef()` / `se()` / `vcov()` / `tidy()` / `summary()` surface;
+  drop-in compatible with `sp.fast.etable` for side-by-side regression
+  tables alongside `sp.fast.fepois` results.
+
+### Added — Cluster-robust SE in `sp.fast.fepois`
+
+`sp.fast.fepois(vcov="cr1", cluster="<col>")` now ships. Score uses
+the weighted Poisson form `obs_weights · (y - μ) · X̃` with the
+WLS bread `(X̃' diag(μ) X̃)^{-1}`; small-sample factor charges
+`Σ(G_k - 1)` via the new `crve` parameter. NaN cluster values raise.
+
+### Added — `extra_df` parameter on `crve` / `boottest` / `boottest_wald`
+
+Backward-compatible `extra_df: int = 0` parameter on all three CR1
+callers. Default 0 reproduces the prior behaviour bit-for-bit; HDFE
+callers should pass `extra_df = Σ(G_k - 1)` to get the FE-rank-aware
+small-sample factor. Documented in each docstring; rejected if `< 0`.
+
+### Added — Bell-McCaffrey / Imbens-Kolesar Satterthwaite DOF
+
+Two new helpers for small-G CR2 inference:
+
+- `sp.fast.cluster_dof_bm(X, cluster, *, contrast, ...)` — single
+  1-D contrast Satterthwaite DOF, formula
+  `ν = (Σ_g λ_g)² / Σ_g λ_g²` with
+  `λ_g = ‖A_g · W_g · X_g · bread · c‖²`.
+- `sp.fast.cluster_dof_wald_bm(X, cluster, *, R, ...)` — q-dim
+  matrix Satterthwaite for joint Wald tests, formula
+  `ν_W = (Σ tr(E_g E_g'))² / Σ ‖E_g E_g'‖_F²`. q=1 collapses to
+  the scalar form bit-for-bit.
+
+Honest convention note in both docstrings: these implement BM 2002
+§3 simplified, **not** clubSandwich's Pustejovsky-Tipton 2018 HTZ /
+generalized form. The CR2 *variance* matches clubSandwich exactly;
+the DOF differs by 5–10% on typical panels (1-D contrast) and can
+differ 50–100% in the q-dim matrix Satterthwaite. For tightest
+small-G inference prefer `sp.fast.boottest` / `sp.fast.boottest_wald`.
+
+### Changed — `sp.fast.fe_interact` rejects NaN
+
+The 2-way fast path was silently producing collision-prone packed
+codes when input columns contained NaN (`pd.factorize`'s `-1`
+sentinel leaking into `c0 * n1 + c1`). Now fail-fast, matching the
+fail-fast convention of `sp.fast.demean` / `sp.fast.fepois` /
+`sp.fast.feols`. K-way path also restructured to progressive packing
+with periodic re-densification, so deeply-nested FE chains can't
+overflow `int64`.
+
+### Changed — Registry walks `sp.fast.*`
+
+`sp.list_functions()` / `sp.describe_function()` now surface every
+public callable in the `sp.fast.*` namespace under a `fast.<name>`
+key (e.g. `fast.feols`, `fast.cluster_dof_bm`). The top-level
+pyfixest-backed `sp.feols` continues to coexist as a separate
+registry entry — no name collision. **+27 new registry entries** on
+the v1.8 stack become Agent-discoverable for the first time.
+
+### Documentation
+
+- `src/statspai/fast/jax_backend.py` — added a verified-blocked note
+  for Apple Silicon (Metal). `jax-metal 0.1.1` (latest, Apple-
+  maintained) is incompatible with JAX 0.10.0 at the StableHLO
+  bytecode level; even basic ops fail. Verified empirically on M3.
+  Workaround for users with jax-metal installed: `JAX_PLATFORMS=cpu`.
+- `benchmarks/hdfe/SUMMARY.md` — added v1.8.1 follow-up section with
+  OLS bench numbers and full delta vs Phase 8.
+
+### Tests
+
+- `tests/test_fast_feols.py` — 20 new tests (coef / SE parity vs
+  pyfixest and R fixest; weighted; intercept-only; validation; hand
+  closed-form for OLS).
+- `tests/test_fast_inference.py` — +14 tests (extra_df backward-compat
+  and direction proofs across crve/boottest/boottest_wald; BM and
+  Wald BM DOF coverage).
+- `tests/test_fast_event_study.py` — +2 tests (FE-rank pin via math
+  identity; R fixest SE parity within 1%).
+- `tests/test_fast_fepois.py` — +6 tests (cluster CR1 path + R fixest
+  SE parity).
+- `tests/test_fast_within_dsl.py` — +3 tests (`fe_interact` NaN
+  rejection; 2-way no-collision; K-way matches pandas tuple path).
+- `tests/test_fast_etable.py` — +2 tests (etable × FeolsResult; mixed
+  feols + fepois side-by-side).
+- `tests/test_registry_new_modules.py` — +25 tests (parametrised
+  `fast.*` registry coverage; namespace coexistence with top-level).
+
+Total: `pytest tests/test_fast_*.py tests/test_hdfe_native.py
+tests/test_registry*.py tests/test_help.py` — **267 passed,
+2 graceful-skip** (was 133 at end of Phase 8).
+
 ## [Unreleased] — Phase 2: great_tables + CSL pipeline + paper auto-provenance
 
 Layered on top of the export trinity below. **No numerical changes**

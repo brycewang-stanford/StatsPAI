@@ -208,6 +208,39 @@ class CausalQuestion:
             raise ValueError("Run .estimate() before .report().")
         return _render_report(self, self._plan, self._result, fmt=fmt)
 
+    # --- Paper builder --------------------------------------------------- #
+
+    def paper(self, *, fmt: str = "markdown",
+              output_path: Optional[str] = None,
+              dag: Any = None,
+              include_robustness: bool = True,
+              cite: bool = True):
+        """Build a full :class:`PaperDraft` from this declared question.
+
+        Convenience wrapper around :func:`statspai.paper_from_question`.
+        Calls ``identify()`` and ``estimate()`` on demand, then assembles
+        a Question / Data / Identification / Estimator / Results /
+        Robustness / References draft. Renders to markdown by default;
+        pass ``fmt='qmd'`` for a Quarto document with statspai
+        provenance and an auto-appended Reproducibility appendix.
+
+        Examples
+        --------
+        >>> q = sp.causal_question("trained", "wage", data=df, design="did",
+        ...                        time="year", id="worker_id")
+        >>> draft = q.paper(fmt='qmd')
+        >>> draft.write("paper.qmd")
+        """
+        from ..workflow.paper import paper_from_question
+        return paper_from_question(
+            self,
+            fmt=fmt,
+            output_path=output_path,
+            include_robustness=include_robustness,
+            cite=cite,
+            dag=dag,
+        )
+
 
 # --------------------------------------------------------------------------- #
 #  Factory
