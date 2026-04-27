@@ -57,7 +57,7 @@ In `rust/statspai_hdfe/src/demean.rs`, inside the existing `#[cfg(test)] mod tes
         let info = weighted_demean_column_inplace(
             &mut x,
             &[&codes],
-            &[&weights[..]],
+            &weights[..],
             &[&wsum[..]],
             &mut scratch,
             100,
@@ -73,6 +73,12 @@ In `rust/statspai_hdfe/src/demean.rs`, inside the existing `#[cfg(test)] mod tes
         }
     }
 ```
+
+> Note: `weighted_demean_column_inplace` takes `weights` as a flat
+> per-observation slice (`&[f64]`) and `wsum` as a slice-of-slices
+> (`&[&[f64]]`, one inner slice per FE dimension). Earlier drafts of
+> this plan accidentally wrapped `weights` as `&[&weights[..]]` — that
+> would not compile against the actual signature. Pass `&weights[..]`.
 
 - [ ] **Step 2: Run test to verify it fails (function does not exist yet)**
 

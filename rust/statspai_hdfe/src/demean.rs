@@ -120,6 +120,8 @@ fn weighted_sweep_all_fe(
     wsum: &[&[f64]],
     scratch: &mut [Vec<f64>],
 ) {
+    debug_assert_eq!(fe_codes.len(), wsum.len());
+    debug_assert_eq!(fe_codes.len(), scratch.len());
     for k in 0..fe_codes.len() {
         weighted_group_sweep(x, fe_codes[k], weights, wsum[k], &mut scratch[k]);
     }
