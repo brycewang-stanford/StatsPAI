@@ -559,13 +559,18 @@ mod tests {
             500, 0.0, 1e-12, true, 5,
         );
 
-        assert!(info_w.converged && info_u.converged);
+        assert!(info_w.converged, "weighted path did not converge");
+        assert!(info_u.converged, "unweighted path did not converge");
         for (a, b) in x_w.iter().zip(x_u.iter()) {
             assert!((a - b).abs() < 1e-12, "weighted={a} unweighted={b}");
         }
     }
 
-    /// Unequal weights: known closed-form on a 2×2 panel.
+    /// Unequal weights: convergence and finite-residual stability on a 2×2 panel.
+    /// (This is a stability sanity check, not a closed-form numeric verification —
+    /// the K=1 weighted means on this same data are checked element-wise in
+    /// `weighted_oneway_exact`. Promoting this to a closed-form K=2 check is
+    /// a tracked future hardening.)
     #[test]
     fn weighted_unequal_weights_2x2() {
         // Two units (i = 0,1), two periods (t = 0,1); 4 obs.
