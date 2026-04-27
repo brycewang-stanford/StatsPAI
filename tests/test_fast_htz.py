@@ -394,3 +394,94 @@ def test_htz_q1_documented_drift_from_bm_simplified():
     )
     assert 1.0 < nu_htz < 14.0
     assert 1.0 < nu_bm < 14.0
+
+
+# ---------------------------------------------------------------------------
+# Task 6: Live R clubSandwich parity (skipif when Rscript missing)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.skipif(
+    shutil.which("Rscript") is None,
+    reason="Rscript not on PATH",
+)
+@pytest.mark.parametrize("seed,G,q", [
+    (1010, 15, 1),
+    (1011, 25, 2),
+    (1012, 30, 2),
+])
+def test_htz_matches_r_clubsandwich_live(seed, G, q, tmp_path):
+    """Live parity: simulate panel in Python, run R clubSandwich on it,
+    compare HTZ outputs to ``rtol < 1e-8``.
+
+    Skipped if Rscript or clubSandwich is unavailable.
+    """
+    df = _ols_panel(seed=seed, n_clusters=G, m=20)
+    csv_path = tmp_path / "panel.csv"
+    df.to_csv(csv_path, index=False)
+
+    if q == 1:
+        R_str = "matrix(c(0, 1, 0), nrow=1)"
+    elif q == 2:
+        R_str = "rbind(c(0, 1, 0), c(0, 0, 1))"
+    else:
+        raise ValueError(f"unsupported q={q} in live test")
+
+    r_script = (
+        "if (!requireNamespace('clubSandwich', quietly=TRUE)) {\n"
+        "  cat('SKIP: clubSandwich not installed'); quit(status=2)\n}\n"
+        "suppressMessages({library(clubSandwich); library(jsonlite); "
+        "library(data.table)})\n"
+        f"d <- fread('{csv_path}')\n"
+        "fit <- lm(y ~ x1 + x2, data=d)\n"
+        "V <- vcovCR(fit, cluster=d$g, type='CR2')\n"
+        f"R <- {R_str}\n"
+        "GH <- clubSandwich:::get_GH(fit, V)\n"
+        "GH$G <- lapply(GH$G, function(s) R %*% s)\n"
+        "GH$H <- clubSandwich:::array_multiply(R, GH$H)\n"
+        "P_arr <- clubSandwich:::get_P_array(GH=GH, all_terms=TRUE)\n"
+        "Om <- apply(P_arr, 1:2, function(x) sum(diag(x)))\n"
+        "Om_nsqrt <- clubSandwich:::matrix_power(Om, -1/2)\n"
+        "VM <- clubSandwich:::total_variance_mat(P_arr, Om_nsqrt, "
+        f"q={q})\n"
+        f"nu_Z <- {q} * ({q}+1) / sum(VM)\n"
+        "wt <- Wald_test(fit, constraints=R, vcov=V, test='HTZ')\n"
+        "out <- list(eta=nu_Z, F_stat=wt$Fstat, p_value=wt$p_val, "
+        "df_denom=wt$df_denom)\n"
+        "cat(toJSON(out, auto_unbox=TRUE, digits=14))\n"
+    )
+    proc = subprocess.run(
+        ["Rscript", "-e", r_script], capture_output=True, text=True, timeout=120,
+    )
+    if proc.returncode == 2 or "SKIP" in proc.stdout:
+        pytest.skip("clubSandwich not available")
+    if proc.returncode != 0:
+        pytest.skip(f"Rscript failed: {proc.stderr[:200]}")
+    r_out = json.loads(proc.stdout.strip().splitlines()[-1])
+
+    X_ic = np.column_stack([np.ones(len(df)), df[["x1", "x2"]].to_numpy()])
+    y = df["y"].to_numpy()
+    g_arr = df["g"].to_numpy()
+    beta = np.linalg.solve(X_ic.T @ X_ic, X_ic.T @ y)
+    e = y - X_ic @ beta
+
+    if q == 1:
+        R = np.array([[0.0, 1.0, 0.0]])
+    else:
+        R = np.array([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+
+    res = sp.fast.cluster_wald_htz(
+        X=X_ic, residuals=e, cluster=g_arr, R=R, beta=beta,
+    )
+
+    np.testing.assert_allclose(
+        res.eta, r_out["eta"], rtol=1e-8,
+        err_msg=f"η drift seed={seed} G={G} q={q}",
+    )
+    np.testing.assert_allclose(
+        res.F_stat, r_out["F_stat"], rtol=1e-8,
+        err_msg=f"F drift seed={seed} G={G} q={q}",
+    )
+    np.testing.assert_allclose(
+        res.p_value, r_out["p_value"], rtol=1e-7,
+        err_msg=f"p drift seed={seed} G={G} q={q}",
+    )
