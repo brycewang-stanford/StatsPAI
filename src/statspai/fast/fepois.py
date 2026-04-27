@@ -2,10 +2,11 @@
 
 Implements the PPML-HDFE algorithm (Correia, Guimarães, Zylkin 2020,
 "Fast Poisson estimation with high-dimensional fixed effects", Stata
-Journal 20(1)). Pure-Python IRLS that calls into Phase 1's
-``sp.fast.demean`` for the within-transformation; weighted demeans are
-done with NumPy's weighted ``bincount`` because the Rust kernel does not
-yet expose a weighted variant (Phase 2 add-on, tracked).
+Journal 20(1)). Python IRLS outer loop that delegates the within-
+transformation to ``sp.fast.demean`` (unweighted) and to the Phase A
+Rust kernel ``statspai_hdfe.demean_2d_weighted`` (weighted, used by
+the IRLS-internal demean) when the compiled extension is available;
+falls back to a pure-NumPy ``np.bincount`` weighted path otherwise.
 
 Goals
 -----

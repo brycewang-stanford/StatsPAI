@@ -455,12 +455,12 @@ def test_rust_weighted_demean_matches_numpy_kernel():
 
     This is the first end-to-end FFI test for Phase A: it exercises the
     Rust path through PyO3 and confirms it produces the same residualised
-    matrix as ``_weighted_ap_demean`` (the canonical reference, retained
-    as the Rust-unavailable fallback).
+    matrix as ``_weighted_ap_demean_numpy`` (the canonical reference,
+    retained as the Rust-unavailable fallback).
     """
     pytest.importorskip("statspai_hdfe")
     import statspai_hdfe as _r
-    from statspai.fast.fepois import _weighted_ap_demean as _numpy_weighted
+    from statspai.fast.fepois import _weighted_ap_demean_numpy as _numpy_weighted
 
     for seed in range(5):
         rng = np.random.default_rng(seed)
