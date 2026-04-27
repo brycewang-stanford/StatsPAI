@@ -104,3 +104,61 @@ def test_htz_helper_Omega_is_symmetric_psd():
     assert np.allclose(Omega, Omega.T, atol=1e-12)
     eigvals = np.linalg.eigvalsh(Omega)
     assert eigvals.min() > 1e-10, f"Ω not PD: eigvals={eigvals}"
+
+
+# ---------------------------------------------------------------------------
+# Task 3: Frozen R-clubSandwich fixture parity (CI backbone)
+# ---------------------------------------------------------------------------
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures"
+
+
+def _load_fixture_all() -> dict:
+    return json.loads(
+        (FIXTURE_DIR / "htz_clubsandwich.json").read_text(encoding="utf-8")
+    )
+
+
+def _load_panel(name: str) -> pd.DataFrame:
+    return pd.read_csv(FIXTURE_DIR / f"htz_panel_{name}.csv")
+
+
+@pytest.mark.parametrize("panel_name", ["q1", "q2", "q3_unbal"])
+def test_htz_frozen_fixture_matches_clubsandwich(panel_name):
+    """Frozen-fixture parity: η / F / p match R clubSandwich to rtol<1e-8.
+
+    Runs in every CI environment (no R required). The fixture was generated
+    by ``tests/fixtures/_gen_htz_fixture.R`` against R clubSandwich 0.6.2.
+    """
+    fx = _load_fixture_all()[panel_name]
+    df = _load_panel(panel_name)
+
+    # Re-fit OLS with intercept on Python side (R side did `lm(y ~ x1 + x2)`).
+    X = np.column_stack([np.ones(len(df)), df[["x1", "x2"]].to_numpy()])
+    y = df["y"].to_numpy()
+    g = df["g"].to_numpy()
+
+    beta = np.linalg.solve(X.T @ X, X.T @ y)
+    e = y - X @ beta
+
+    R = np.atleast_2d(np.array(fx["R"], dtype=np.float64))
+
+    res = sp.fast.cluster_wald_htz(
+        X=X, residuals=e, cluster=g, R=R, beta=beta,
+    )
+    np.testing.assert_allclose(
+        res.eta, fx["eta"], rtol=1e-8,
+        err_msg=f"η mismatch on panel {panel_name}",
+    )
+    np.testing.assert_allclose(
+        res.F_stat, fx["F_stat"], rtol=1e-8,
+        err_msg=f"F mismatch on panel {panel_name}",
+    )
+    np.testing.assert_allclose(
+        res.p_value, fx["p_value"], rtol=1e-7,
+        err_msg=f"p-value mismatch on panel {panel_name}",
+    )
+    np.testing.assert_allclose(
+        res.V_R, np.atleast_2d(np.array(fx["V_R"], dtype=np.float64)),
+        rtol=1e-9, err_msg=f"V_R mismatch on panel {panel_name}",
+    )

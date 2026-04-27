@@ -979,6 +979,8 @@ def _htz_per_cluster_quantities(
 
     G_list: list = []
     Asw_list: list = []
+    A_raw_list: list = []
+    X_g_list: list = []
     Omega = np.zeros((q, q))
 
     for cg in range(G_clusters):
@@ -1014,6 +1016,8 @@ def _htz_per_cluster_quantities(
 
         G_list.append(G_g)
         Asw_list.append(A_g_sqrtW)
+        A_raw_list.append(A_g)
+        X_g_list.append(X_g)
         Omega += G_g @ G_g.T
 
     # Symmetrize Ω against floating drift
@@ -1022,12 +1026,139 @@ def _htz_per_cluster_quantities(
     return {
         "G_g": G_list,
         "A_g_sqrtW": Asw_list,
+        "A_g_raw": A_raw_list,        # for HTZ η formula (clubSandwich convention)
+        "X_g_list": X_g_list,         # for H_g_cs = G_cs · X_g · L^T
+        "R": R,                       # cached for η helper
+        "weights": weights,           # for η to detect w!=1 (raises in v1)
         "Omega": Omega,
         "cluster_codes": cluster_codes,
         "G": G_clusters,
         "q": q,
         "bread": bread,
     }
+
+
+def _htz_eta_from_quantities(qty: dict) -> float:
+    """Compute the HTZ moment-matching DOF η.
+
+    1:1 translation of clubSandwich (R, v0.6.2) ``Wald_testing`` HTZ branch
+    + ``get_P_array(all_terms=TRUE)`` + ``total_variance_mat``. Source
+    reconciliation: ``/tmp/htz_reconciliation.txt`` (developer-side note).
+
+    Reconstructs clubSandwich-style cluster quantities from the helper's
+    raw outputs:
+
+        G_cs[g] = R · bread · X_g^T · A_g                  (q × n_g)
+        H_cs[g] = G_cs[g] · X_g · L^T                      (q × k)
+        Ω_cs    = Σ_g G_cs[g] · G_cs[g]^T                  (q × q)
+
+    where L is the lower-triangular Cholesky factor of ``bread`` (so
+    ``L · L^T = bread``).
+
+    Then for each cluster pair (k, l) (with J = number of clusters):
+        if k == l:  P[:, :, k, k] = G_cs[k] · G_cs[k]^T  −  H_cs[k] · H_cs[k]^T
+        else:       P[:, :, k, l] =                       −  H_cs[k] · H_cs[l]^T
+
+    With Ω_nsqrt = Ω_cs^{-1/2}:
+        B[:, :, k, l] = Ω_nsqrt · P[:, :, k, l] · Ω_nsqrt
+
+    var_mat[s, t] = Σ_{k, l} ( B[s, t, k, l] · B[t, s, k, l]
+                                + B[s, s, k, l] · B[t, t, k, l] )
+
+    η = q · (q + 1) / Σ_{s, t} var_mat[s, t]
+
+    Note: the helper's ``Omega`` (V_R-decomposition convention, no A_g)
+    equals ``R · bread · R^T``. The HTZ formula uses a **different** Ω
+    that includes A_g — ``Ω_cs = Σ_g R · bread · X_g^T · A_g^2 · X_g · bread · R^T``.
+    These two Ω matrices coincide only in degenerate cases.
+    """
+    A_raw_list = qty["A_g_raw"]
+    X_g_list = qty["X_g_list"]
+    bread = qty["bread"]
+    R_arr = np.atleast_2d(np.asarray(qty["R"], dtype=np.float64))
+    weights = qty["weights"]
+    J = qty["G"]
+    q = qty["q"]
+
+    if not np.allclose(weights, 1.0):
+        raise NotImplementedError(
+            "HTZ with non-uniform weights is not implemented in v1 "
+            "(working covariance Φ=I, OLS+CR2 only)."
+        )
+
+    # Lower-triangular Cholesky of bread: L · L^T = bread.
+    L = np.linalg.cholesky(bread)
+
+    R_bread = R_arr @ bread
+
+    # Build clubSandwich-style G_cs and H_cs per cluster.
+    Gcs_list: list = []
+    Hcs_list: list = []
+    for cg in range(J):
+        X_g = X_g_list[cg]
+        A_g = A_raw_list[cg]
+        # G_cs = R · bread · X_g^T · A_g                   (q × n_g)
+        Gcs = (R_bread @ X_g.T) @ A_g
+        # H_cs = G_cs · X_g · L                            (q × k)
+        # NB: clubSandwich's M_U_ct = t(chol(M_U)) is lower-triangular,
+        # which is exactly numpy's np.linalg.cholesky(bread) (= L below);
+        # use L (NOT L.T) — verified element-wise vs clubSandwich GH$H.
+        Hcs = (Gcs @ X_g) @ L
+        Gcs_list.append(Gcs)
+        Hcs_list.append(Hcs)
+
+    # Build P_array (q × q × J × J).
+    # P[:, :, k, k] = G_k G_k^T - H_k H_k^T
+    # P[:, :, k, l] (k != l) = -H_k H_l^T
+    P = np.empty((q, q, J, J))
+    for k in range(J):
+        Gk = Gcs_list[k]
+        Hk = Hcs_list[k]
+        P[:, :, k, k] = Gk @ Gk.T - Hk @ Hk.T
+        for l in range(k + 1, J):
+            Hl = Hcs_list[l]
+            cross = -(Hk @ Hl.T)
+            P[:, :, k, l] = cross
+            P[:, :, l, k] = cross.T
+
+    # Critical: Ω used in HTZ is the *trace* of P_array over clusters,
+    # NOT Σ_g G_g · G_g^T. From clubSandwich source:
+    #   Omega <- apply(P_array, 1:2, function(x) sum(diag(x)))
+    # i.e. Ω[i, j] = Σ_k P_array[i, j, k, k]
+    #             = Σ_k (G_k G_k^T - H_k H_k^T)[i, j]
+    # The G_g-only Ω (which equals R · bread · X^T A^2 X · bread · R^T)
+    # is the *naive* expected value; HTZ subtracts the cluster-leverage
+    # cross terms. This was the root cause of an 18% drift before fix.
+    Omega_cs = np.einsum("ijkk->ij", P)
+    Omega_cs = 0.5 * (Omega_cs + Omega_cs.T)
+
+    # Ω_cs^{-1/2} via symmetric eigendecomposition with eigenvalue floor
+    # 1e-12 — matches clubSandwich's matrix_power(x, -1/2, tol=-12).
+    evals, evecs = np.linalg.eigh(Omega_cs)
+    evals_pow = np.where(evals > 1e-12, evals ** -0.5, 0.0)
+    Omega_nsqrt = (evecs * evals_pow) @ evecs.T
+
+    # B[s, t, k, l] = Σ_{i, j} Ω_nsqrt[s, i] · P[i, j, k, l] · Ω_nsqrt[j, t]
+    B = np.einsum("si,ijkl,jt->stkl", Omega_nsqrt, P, Omega_nsqrt)
+
+    # total_variance_mat
+    var_mat = np.zeros((q, q))
+    for s in range(q):
+        for t in range(s + 1):
+            temp = float(
+                np.sum(B[s, t, :, :] * B[t, s, :, :])
+                + np.sum(B[s, s, :, :] * B[t, t, :, :])
+            )
+            var_mat[s, t] = temp
+            var_mat[t, s] = temp
+
+    total = float(var_mat.sum())
+    if total <= 0:
+        raise ValueError(
+            f"HTZ var_mat sum non-positive (={total!r}); design degenerate. "
+            f"Use boottest_wald."
+        )
+    return float(q * (q + 1) / total)
 
 
 def cluster_dof_wald_htz(
@@ -1038,8 +1169,62 @@ def cluster_dof_wald_htz(
     weights: Optional[np.ndarray] = None,
     bread: Optional[np.ndarray] = None,
 ) -> float:
-    """Stub — implemented in Task 3."""
-    raise NotImplementedError("cluster_dof_wald_htz: implementation pending")
+    """clubSandwich-equivalent HTZ Wald DOF (Pustejovsky-Tipton 2018 §3.2).
+
+    For testing ``H0: R β = r`` with the CR2 sandwich variance, the
+    cluster-robust Wald statistic ``Q = (Rβ̂ - r)' V_R^{-1} (Rβ̂ - r)``
+    is approximated by Hotelling's T² with denominator DOF ``η`` such
+    that ``(η - q + 1) / (η · q) · Q ~ F(q, η - q + 1)``.
+
+    The DOF ``η`` is computed by moment-matching the first two moments
+    of ``V_R = R V^CR2 R^T`` under the working covariance ``Φ = I``
+    (OLS+CR2 path; clubSandwich's default).
+
+    Equivalent to R::clubSandwich::Wald_test(test="HTZ")$df_denom to
+    ``rtol < 1e-8`` on the verified fixtures
+    (``tests/fixtures/htz_clubsandwich.json``).
+
+    Parameters
+    ----------
+    X : ndarray, shape (n, k)
+        Regressors (already FE-residualised if applicable).
+    cluster : ndarray, shape (n,)
+        Cluster identifiers.
+    R : ndarray, shape (q, k)
+        Restriction matrix; full row rank required (q ≤ k).
+    weights : ndarray, shape (n,), optional
+        Observation weights. Must be all 1 in v1 (Φ = I working cov).
+    bread : ndarray, shape (k, k), optional
+        Pre-computed inverse Hessian / ``(X'WX)^{-1}``.
+
+    Returns
+    -------
+    float
+        ``η``, the HTZ moment-matching DOF.
+
+    Raises
+    ------
+    ValueError
+        If ``R`` is rank-deficient, ``G ≤ q``, or ``η ≤ q − 1``
+        (Hotelling-T² scaling diverges).
+
+    References
+    ----------
+    Pustejovsky, J. E., Tipton, E. (2018). Small-sample methods for
+    cluster-robust variance estimation and hypothesis testing in fixed
+    effects models. *Journal of Business & Economic Statistics* 36(4),
+    672-683. DOI: 10.1080/07350015.2016.1247004.
+    """
+    qty = _htz_per_cluster_quantities(
+        X, cluster, R=R, weights=weights, bread=bread,
+    )
+    eta = _htz_eta_from_quantities(qty)
+    if eta <= qty["q"] - 1:
+        raise ValueError(
+            f"HTZ DOF η={eta:.4f} ≤ q−1 (q={qty['q']}); design too "
+            f"degenerate. Use boottest_wald instead."
+        )
+    return eta
 
 
 def cluster_wald_htz(
@@ -1053,8 +1238,65 @@ def cluster_wald_htz(
     weights: Optional[np.ndarray] = None,
     bread: Optional[np.ndarray] = None,
 ) -> WaldTestResult:
-    """Stub — implemented in Task 4."""
-    raise NotImplementedError("cluster_wald_htz: implementation pending")
+    """clubSandwich-equivalent HTZ Wald test under CR2 cluster-robust sandwich.
+
+    Tests ``H0: R β = r`` with the Pustejovsky-Tipton 2018 §3.2
+    moment-matching DOF and Hotelling-T² scaling. Equivalent to
+    R::clubSandwich::Wald_test(fit, constraints=R, vcov="CR2",
+    test="HTZ") to ``rtol < 1e-8`` on the verified fixtures.
+    """
+    qty = _htz_per_cluster_quantities(
+        X, cluster, R=R, weights=weights, bread=bread,
+    )
+    G_list = qty["G_g"]
+    Asw_list = qty["A_g_sqrtW"]
+    cluster_codes = qty["cluster_codes"]
+    G_clusters = qty["G"]
+    q = qty["q"]
+    R_arr = np.atleast_2d(np.asarray(R, dtype=np.float64))
+
+    if r is None:
+        r = np.zeros(q)
+    else:
+        r = np.asarray(r, dtype=np.float64).ravel()
+        if r.shape[0] != q:
+            raise ValueError(
+                f"r has {r.shape[0]} entries but R has q={q} rows"
+            )
+
+    residuals = np.asarray(residuals, dtype=np.float64).ravel()
+    beta = np.asarray(beta, dtype=np.float64).ravel()
+
+    # V_R via the V_R-decomposition path (matches crve(type='cr2')):
+    #   v_g = G_g · (A_g_sqrtW · u_g) = R · bread · X_g^T · diag(w_g) · A_g · u_g
+    V_R = np.zeros((q, q))
+    for cg in range(G_clusters):
+        mask = cluster_codes == cg
+        u_g = residuals[mask]
+        e_tilde = Asw_list[cg] @ u_g                   # (n_g,)
+        v_g = G_list[cg] @ e_tilde                     # (q,)
+        V_R += np.outer(v_g, v_g)
+    V_R = 0.5 * (V_R + V_R.T)
+
+    eta = _htz_eta_from_quantities(qty)
+    if eta <= q - 1:
+        raise ValueError(
+            f"HTZ DOF η={eta:.4f} ≤ q−1 (q={q}); design too degenerate "
+            f"for Hotelling-T² scaling. Use boottest_wald instead."
+        )
+
+    diff = R_arr @ beta - r                            # (q,)
+    Q = float(diff @ np.linalg.solve(V_R, diff))
+    F_stat = (eta - q + 1) / (eta * q) * Q
+
+    from scipy.stats import f as _scipy_f
+    p_value = float(_scipy_f.sf(F_stat, q, eta - q + 1))
+
+    return WaldTestResult(
+        test="HTZ", q=q, eta=float(eta), F_stat=float(F_stat),
+        p_value=p_value, Q=Q, R=R_arr.copy(), r=r.copy(),
+        V_R=V_R,
+    )
 
 
 __all__ = [
