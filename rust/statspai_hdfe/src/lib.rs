@@ -189,6 +189,116 @@ fn demean_2d<'py>(
     Ok(out)
 }
 
+/// K-way **weighted** alternating-projection demean of a Fortran-order
+/// (n, p) matrix in place.
+///
+/// Parameters
+/// ----------
+/// x : 2-D float64 ndarray, shape (n, p), Fortran-contiguous
+///     The matrix to residualise (in place).
+/// fe_codes : list[ndarray[int64, shape (n,)]]
+///     One code array per FE dimension (K total).
+/// wsum : list[ndarray[float64, shape (G_k,)]]
+///     Per-group **weighted** sum ``Σ_{i ∈ g} weights[i]``. Caller
+///     precomputes via ``np.bincount(codes, weights=weights, minlength=G)``.
+/// weights : ndarray[float64, shape (n,)]
+///     Per-observation weights. Caller is responsible for non-negativity
+///     and finiteness — no re-validation here on the hot path.
+/// max_iter, tol_abs, tol_rel, accelerate, accel_period
+///     Same semantics as ``demean_2d``.
+#[pyfunction]
+#[pyo3(signature = (x, fe_codes, wsum, weights, max_iter, tol_abs, tol_rel, accelerate, accel_period))]
+#[allow(clippy::too_many_arguments)]
+fn demean_2d_weighted<'py>(
+    py: Python<'py>,
+    mut x: PyReadwriteArray2<'py, f64>,
+    fe_codes: &Bound<'py, PyList>,
+    wsum: &Bound<'py, PyList>,
+    weights: PyReadonlyArray1<'py, f64>,
+    max_iter: u32,
+    tol_abs: f64,
+    tol_rel: f64,
+    accelerate: bool,
+    accel_period: u32,
+) -> PyResult<Bound<'py, PyList>> {
+    if fe_codes.len() != wsum.len() {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "len(fe_codes)={} but len(wsum)={}",
+            fe_codes.len(),
+            wsum.len()
+        )));
+    }
+
+    let code_views = py_list_to_i64_views(fe_codes)?;
+    let wsum_views = py_list_to_f64_views(wsum)?;
+    let weights_view = weights.as_slice()?;
+
+    let arr = x.as_array();
+    let shape = arr.shape();
+    if shape.len() != 2 {
+        return Err(pyo3::exceptions::PyValueError::new_err("x must be 2-D"));
+    }
+    let n = shape[0];
+    let p = shape[1];
+
+    if weights_view.len() != n {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "weights length {} but n={}",
+            weights_view.len(),
+            n
+        )));
+    }
+
+    for v in &code_views {
+        if v.as_slice()?.len() != n {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "fe_codes entry has length {} but n={}",
+                v.as_slice()?.len(),
+                n
+            )));
+        }
+    }
+
+    if !x.is_fortran_contiguous() {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "x must be Fortran-contiguous; pass np.asfortranarray(X)",
+        ));
+    }
+    let mat = x.as_slice_mut()?;
+    let codes_slices: Vec<&[i64]> =
+        code_views.iter().map(|v| v.as_slice().unwrap()).collect();
+    let wsum_slices: Vec<&[f64]> =
+        wsum_views.iter().map(|v| v.as_slice().unwrap()).collect();
+    let wsum_lens: Vec<usize> = wsum_slices.iter().map(|s| s.len()).collect();
+
+    let infos = py.allow_threads(|| {
+        demean::weighted_demean_matrix_fortran_inplace(
+            mat,
+            n,
+            p,
+            &codes_slices,
+            weights_view,
+            &wsum_slices,
+            &wsum_lens,
+            max_iter,
+            tol_abs,
+            tol_rel,
+            accelerate,
+            accel_period,
+        )
+    });
+
+    let out = PyList::empty_bound(py);
+    for info in &infos {
+        let d = PyDict::new_bound(py);
+        d.set_item("iters", info.iters)?;
+        d.set_item("converged", info.converged)?;
+        d.set_item("max_dx", info.max_dx)?;
+        out.append(d)?;
+    }
+    Ok(out)
+}
+
 /// Iterative K-way singleton detection. Returns a uint8 keep-mask
 /// (1 = keep, 0 = drop).
 #[pyfunction]
@@ -213,7 +323,8 @@ fn singleton_mask<'py>(
 fn statspai_hdfe(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(group_demean, m)?)?;
     m.add_function(wrap_pyfunction!(demean_2d, m)?)?;
+    m.add_function(wrap_pyfunction!(demean_2d_weighted, m)?)?;
     m.add_function(wrap_pyfunction!(singleton_mask, m)?)?;
-    m.add("__version__", "0.2.0")?;
+    m.add("__version__", "0.3.0")?;
     Ok(())
 }
