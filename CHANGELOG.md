@@ -2,6 +2,98 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Phase 5: LLM-DAG closed loop + layered credential resolver
+
+Closes the LLM-DAG closed-loop deferred from Phases 2-4. **No
+numerical changes** to any estimator. The export pipeline can now
+auto-propose a DAG via a real LLM (Anthropic Claude or OpenAI GPT)
+without requiring users to pre-build one — credential resolution
+follows the industry-standard layered fallback pattern.
+
+### Added — `sp.causal_llm.get_llm_client()` layered credential resolver
+
+Resolution order (first match wins):
+
+1. **Explicit ``client=``** — already-built ``LLMClient``, pass through.
+2. **Explicit ``provider=`` + ``api_key=``** — construct directly.
+3. **Environment variable** — ``ANTHROPIC_API_KEY`` /
+   ``OPENAI_API_KEY``. When both are set, tie-break to the config
+   file's ``[llm].provider`` (or to Anthropic if no config).
+4. **Config file** ``~/.config/statspai/llm.toml`` (XDG-compliant) —
+   stores ``provider`` and ``model`` preferences. **Never stores API
+   keys** — that's the documented industry-standard split (Anthropic
+   SDK / OpenAI SDK / AWS CLI / kubectl all keep keys in
+   environment variables, never plaintext config).
+5. **Interactive prompt** — only when ``sys.stdin.isatty()`` AND
+   ``allow_interactive=True``. Walks user through provider + model
+   selection but never asks for the API key over stdin (security:
+   leaks in shell history, no obvious env-var integration path).
+6. **Hard error** with concrete remediation: lists the env vars to
+   set + points at ``sp.causal_llm.configure_llm(...)`` for the
+   provider+model preference part.
+
+### Added — `sp.causal_llm.configure_llm()` preferences setter
+
+One-shot setter that persists provider+model to the XDG config file.
+Useful when a user has both env vars set and wants to pin the choice:
+
+```python
+import statspai as sp
+sp.causal_llm.configure_llm(provider="openai", model="gpt-4o")
+# → ~/.config/statspai/llm.toml gets a [llm] block with the choice.
+```
+
+### Added — `sp.paper(..., llm='auto', llm_domain=...)` auto-DAG hook
+
+When the user doesn't pass an explicit ``dag=``, ``llm='auto'`` (or
+``llm='heuristic'`` for a pinned offline path) triggers
+``llm_dag_propose`` against the resolved client + the variable list.
+Failures (no API key, network error, malformed JSON) silently fall
+back to a no-DAG paper — auto-DAG must never break the rest of the
+pipeline. Pass ``llm_client=`` to override the resolver entirely.
+
+The proposed DAG is materialised as a ``statspai.dag.graph.DAG`` and
+attached to the ``PaperDraft``, so all downstream rendering (Quarto
+mermaid block, replication_pack lineage, Causal DAG appendix) flows
+through the existing Phase 3 plumbing — no new branches.
+
+### Added — `LLMClient.complete()` alias (latent bug fix)
+
+``llm_dag_propose`` / ``llm_dag_validate`` / ``llm_dag_constrained``
+all called ``client.complete(prompt)``, but the ``LLMClient`` base
+class only defined ``chat(role, prompt)`` and ``__call__(prompt)``.
+Any user passing a real ``openai_client`` / ``anthropic_client``
+into the LLM-DAG functions would have hit ``AttributeError``. Added
+``complete()`` as an alias on the base class — both names route
+through ``chat()``, so no concrete adapter needs changes.
+
+### Public exports
+
+``sp.causal_llm.get_llm_client``,
+``sp.causal_llm.list_available_providers``,
+``sp.causal_llm.configure_llm``,
+``sp.causal_llm.LLMConfigurationError``,
+``sp.causal_llm.llm_config_path``,
+``sp.causal_llm.load_llm_config``,
+``sp.causal_llm.DEFAULT_LLM_MODELS``.
+
+### Tests
+
+27 new tests (``tests/test_llm_resolver.py``):
+
+- Config file: XDG path, missing/malformed graceful fallback, save
+  round-trip, header comment warns against putting keys in the file.
+- Layered fallback: explicit client → explicit provider → env →
+  config tie-break → no-env-no-tty hard error → no-env-tty-no-keys
+  hard error → env-set skips prompt.
+- ``configure_llm`` round-trip + unknown-provider rejection.
+- ``LLMClient.complete()`` alias smoke.
+- ``sp.paper(llm='auto')`` integration: no-env falls back to
+  heuristic; explicit ``llm_client=`` populates the DAG.
+
+221 green across the new + adjacent paper / lineage /
+replication_pack / estimator-provenance / bibliography / gt suites.
+
 ## [Unreleased] — Phase 4: synth refactor + 5 more estimator provenance hookups
 
 Continues the v1.7.2 provenance rollout from Phase 3 (4 estimators

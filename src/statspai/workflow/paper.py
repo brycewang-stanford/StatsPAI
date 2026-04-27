@@ -875,6 +875,9 @@ def paper(
     cluster: Optional[str] = None,
     design: Optional[str] = None,
     dag=None,
+    llm: Optional[str] = None,
+    llm_client: Any = None,
+    llm_domain: str = "",
     fmt: str = 'markdown',
     output_path: Optional[str] = None,
     include_eda: bool = True,
@@ -979,6 +982,38 @@ def paper(
             "Could not determine the outcome `y`. Pass `y=...` explicitly "
             "or include 'effect of X on Y' in the question."
         )
+
+    # LLM-DAG auto-propose: when ``llm`` is requested and the user
+    # didn't pass an explicit ``dag``, ask the LLM (or fall back to the
+    # deterministic heuristic) to propose one. Resolution of provider
+    # / model / API key goes through the layered ``get_llm_client``
+    # — see ``statspai.causal_llm._resolver``.
+    if dag is None and llm:
+        try:
+            from ..causal_llm._resolver import get_llm_client
+            from ..causal_llm.llm_dag import llm_dag_propose
+            from ..dag.graph import DAG as _DAG
+            client = llm_client
+            # llm='auto' means "try to resolve a real client; fall back
+            # to the heuristic if none can be resolved". llm='heuristic'
+            # forces the offline backend regardless.
+            if client is None and str(llm).lower() != "heuristic":
+                try:
+                    client = get_llm_client(allow_interactive=False)
+                except Exception:
+                    # Hard error from resolver → fall back to heuristic
+                    # rather than blowing up the whole paper pipeline.
+                    client = None
+            proposal = llm_dag_propose(
+                variables=cols,
+                domain=llm_domain or (question or ""),
+                client=client,
+            )
+            if proposal.edges:
+                spec = "; ".join(f"{u} -> {v}" for u, v in proposal.edges)
+                dag = _DAG(spec)
+        except Exception:  # pragma: no cover — auto-DAG must never break
+            dag = None
 
     from .causal_workflow import causal as _causal
     workflow = _causal(

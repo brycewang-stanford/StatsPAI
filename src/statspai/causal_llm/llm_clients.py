@@ -68,6 +68,14 @@ class LLMClient:
     def __call__(self, prompt: str) -> str:
         return self.chat("user", prompt)
 
+    # Alias kept stable for ``llm_dag_propose`` / ``llm_dag_validate``
+    # / ``llm_dag_constrained`` and any third-party callers that
+    # follow the OpenAI-style ``client.complete(prompt)`` convention.
+    # Both ``__call__`` and ``complete`` route through ``chat()`` so
+    # subclasses only need to implement ``chat()``.
+    def complete(self, prompt: str) -> str:
+        return self.chat("user", prompt)
+
 
 # ---------------------------------------------------------------------------
 # OpenAI-style adapter (v1.x Python SDK)

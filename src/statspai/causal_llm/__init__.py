@@ -37,6 +37,15 @@ from .llm_dag_loop import (
     llm_dag_constrained, llm_dag_validate,
     LLMConstrainedDAGResult, DAGValidationResult,
 )
+from ._resolver import (
+    get_llm_client, list_available_providers,
+    configure_llm, LLMConfigurationError,
+)
+from ._config import (
+    config_path as llm_config_path,
+    load_config as load_llm_config,
+    DEFAULT_MODELS as DEFAULT_LLM_MODELS,
+)
 
 __all__ = [
     'llm_dag_propose', 'LLMDAGProposal',
@@ -46,4 +55,8 @@ __all__ = [
     'LLMClient', 'openai_client', 'anthropic_client', 'echo_client',
     'llm_dag_constrained', 'llm_dag_validate',
     'LLMConstrainedDAGResult', 'DAGValidationResult',
+    # v1.7.2: layered config + resolver.
+    'get_llm_client', 'list_available_providers',
+    'configure_llm', 'LLMConfigurationError',
+    'llm_config_path', 'load_llm_config', 'DEFAULT_LLM_MODELS',
 ]
