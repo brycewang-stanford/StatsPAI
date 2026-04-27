@@ -40,6 +40,15 @@ import pandas as pd
 
 from .demean import demean as _fast_demean
 
+# Optional Rust kernel for the weighted IRLS-internal demean. When available,
+# the dispatcher below routes to it; when not, the pure-NumPy fallback runs.
+try:
+    import statspai_hdfe as _rust_hdfe  # type: ignore
+    _HAS_RUST_HDFE = True
+except ImportError:  # pragma: no cover  - exercised in CI on no-Rust wheels
+    _rust_hdfe = None  # type: ignore
+    _HAS_RUST_HDFE = False
+
 
 # ---------------------------------------------------------------------------
 # Result type
@@ -201,7 +210,7 @@ def _aitken_extrapolate(
     return x0 - alpha * d1
 
 
-def _weighted_ap_demean(
+def _weighted_ap_demean_numpy(
     arr: np.ndarray,
     fe_codes_list: List[np.ndarray],
     counts_list: List[np.ndarray],
@@ -212,7 +221,7 @@ def _weighted_ap_demean(
     accelerate: bool = True,
     accel_period: int = 5,
 ) -> Tuple[np.ndarray, int, bool]:
-    """Weighted alternating-projection demean (one or more columns).
+    """Pure-NumPy weighted alternating-projection demean (canonical reference + Rust-unavailable fallback).
 
     Returns the residualised array (copy), iter count, and convergence
     flag. Used inside the IRLS loop where the weight vector ``w = mu``
@@ -285,6 +294,69 @@ def _weighted_ap_demean(
     if squeeze:
         return arr.ravel(), iters, converged_all
     return arr, iters, converged_all
+
+
+def _weighted_ap_demean(
+    arr: np.ndarray,
+    fe_codes_list: List[np.ndarray],
+    counts_list: List[np.ndarray],
+    weights: np.ndarray,
+    *,
+    max_iter: int = 1000,
+    tol: float = 1e-10,
+    accelerate: bool = True,
+    accel_period: int = 5,
+) -> Tuple[np.ndarray, int, bool]:
+    """Dispatcher: Rust when available, NumPy fallback otherwise.
+
+    Routes to ``statspai_hdfe.demean_2d_weighted`` when the compiled
+    extension is loadable (Phase A); falls back to
+    ``_weighted_ap_demean_numpy`` (the canonical reference) otherwise.
+    Output is bit-for-bit identical between paths within float-rounding;
+    parity is verified by ``test_rust_weighted_demean_matches_numpy_kernel``
+    at atol ≤ 1e-14.
+
+    K=0 (no-op) and K=1 (closed form) stay on the NumPy path because FFI
+    overhead would dominate. K ≥ 2 is where the Rust win lives.
+    """
+    K = len(fe_codes_list)
+    if not _HAS_RUST_HDFE or K < 2:
+        return _weighted_ap_demean_numpy(
+            arr, fe_codes_list, counts_list, weights,
+            max_iter=max_iter, tol=tol,
+            accelerate=accelerate, accel_period=accel_period,
+        )
+
+    if arr.ndim == 1:
+        squeeze = True
+        arr2d = arr.reshape(-1, 1).astype(np.float64, copy=True)
+    else:
+        squeeze = False
+        arr2d = arr.astype(np.float64, copy=True)
+
+    # The Rust path requires F-contiguous input. asfortranarray is a no-op
+    # if arr2d is already F-order, otherwise one allocation.
+    arr_F = np.asfortranarray(arr2d)
+
+    # Per-FE precompute of weighted group sums. K bincount calls per IRLS
+    # iter — O(n) each, negligible vs the sweep.
+    wsum_list = [
+        np.bincount(fe_codes_list[k], weights=weights,
+                    minlength=counts_list[k].size).astype(np.float64)
+        for k in range(K)
+    ]
+
+    infos = _rust_hdfe.demean_2d_weighted(
+        arr_F, list(fe_codes_list), wsum_list, weights,
+        int(max_iter), 0.0, float(tol), bool(accelerate), int(accel_period),
+    )
+
+    iters = max(int(d["iters"]) for d in infos) if infos else 0
+    converged_all = all(bool(d["converged"]) for d in infos) if infos else True
+
+    if squeeze:
+        return arr_F.ravel(), iters, converged_all
+    return arr_F, iters, converged_all
 
 
 # ---------------------------------------------------------------------------
