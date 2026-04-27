@@ -33,12 +33,15 @@ Notes on design
 """
 from __future__ import annotations
 
+import datetime as _dt
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
+
+from ..output._lineage import format_provenance, get_provenance
 
 
 __all__ = ["paper", "PaperDraft", "parse_question"]
@@ -263,15 +266,151 @@ class PaperDraft:
                     doc.add_paragraph(line)
         doc.save(path)
 
+    def to_qmd(
+        self,
+        *,
+        title: str = "Causal Analysis Draft",
+        author: Optional[str] = None,
+        formats: Optional[List[str]] = None,
+        bibliography: Optional[str] = None,
+        csl: Optional[str] = None,
+        include_provenance: bool = True,
+    ) -> str:
+        """Render to a Quarto (``.qmd``) document.
+
+        Quarto is the publication-grade default: a single source compiles
+        to PDF / HTML / DOCX / Beamer with cross-refs, citations (CSL),
+        and embedded code chunks. ``sp.paper()`` already produces all
+        the prose; this method just wraps it in the correct YAML
+        frontmatter so ``quarto render paper.qmd`` Just Works.
+
+        Parameters
+        ----------
+        title : str
+            ``title:`` field in the YAML frontmatter.
+        author : str, optional
+            ``author:``. When omitted, no author line is emitted (Quarto
+            handles that fine).
+        formats : list of str, optional
+            Output formats Quarto should support. Default
+            ``["pdf", "html", "docx"]`` covers the common journal
+            workflows. Pass e.g. ``["pdf", "beamer"]`` for slide decks.
+        bibliography : str, optional
+            Path Quarto should resolve for citation lookup, e.g.
+            ``"paper.bib"``. When omitted, the YAML omits the field
+            entirely (so Quarto won't error if no .bib file exists);
+            but if ``self.citations`` is non-empty we default to
+            ``"paper.bib"`` because :func:`sp.replication_pack` writes
+            citations there alongside the rendered draft.
+        csl : str, optional
+            CSL style file (e.g. ``"american-economic-association.csl"``).
+            Pure pass-through.
+        include_provenance : bool, default True
+            Append a Reproducibility appendix with
+            :func:`format_provenance` when ``self.workflow.result`` carries
+            a ``_provenance`` record.
+
+        Returns
+        -------
+        str
+            The complete ``.qmd`` document as a single string.
+
+        Notes
+        -----
+        - The body sections are the same as :meth:`to_markdown` —
+          standard markdown with ``## H2`` headers, which Quarto will
+          render natively.
+        - Code chunks are *not* injected by default. When the calling
+          script wants the ``.qmd`` to re-execute the analysis on each
+          render, pass it through :func:`sp.replication_pack` which
+          writes both the ``.qmd`` and a ``code/script.py`` reproducer.
+        """
+        formats = formats or ["pdf", "html", "docx"]
+        bib_path = bibliography
+        if bib_path is None and self.citations:
+            bib_path = "paper.bib"
+
+        yaml_lines: List[str] = ["---", f"title: {_yaml_str(title)}"]
+        if author:
+            yaml_lines.append(f"author: {_yaml_str(author)}")
+        yaml_lines.append(f"date: \"{_dt.date.today().isoformat()}\"")
+        if self.question:
+            yaml_lines.append(
+                f"subtitle: {_yaml_str(self.question)}"
+            )
+        # ``format:`` block.
+        if len(formats) == 1:
+            yaml_lines.append(f"format: {formats[0]}")
+        else:
+            yaml_lines.append("format:")
+            for f in formats:
+                yaml_lines.append(f"  {f}: default")
+        if bib_path:
+            yaml_lines.append(f"bibliography: {_yaml_str(bib_path)}")
+        if csl:
+            yaml_lines.append(f"csl: {_yaml_str(csl)}")
+        # Provenance into YAML for machine-readable traceability.
+        prov = self._workflow_provenance()
+        if include_provenance and prov is not None:
+            yaml_lines.append("statspai:")
+            yaml_lines.append(
+                f"  version: \"{prov.statspai_version}\""
+            )
+            yaml_lines.append(f"  run_id: \"{prov.run_id}\"")
+            if prov.data_hash:
+                yaml_lines.append(
+                    f"  data_hash: \"{prov.data_hash}\""
+                )
+        yaml_lines.append("---")
+        yaml = "\n".join(yaml_lines)
+
+        # Body — identical section ordering to to_markdown().
+        order = [
+            "Question", "Data", "Identification",
+            "Estimator", "Results", "Robustness", "References",
+        ]
+        chunks: List[str] = []
+        for t in order:
+            body = self.sections.get(t)
+            if not body:
+                continue
+            chunks.append(f"## {t}\n\n{body.rstrip()}\n")
+        for t, body in self.sections.items():
+            if t not in order and body:
+                chunks.append(f"## {t}\n\n{body.rstrip()}\n")
+
+        # Reproducibility appendix.
+        if include_provenance and prov is not None:
+            chunks.append(
+                "## Reproducibility {.appendix}\n\n"
+                "```\n"
+                f"{format_provenance(prov)}\n"
+                "```\n"
+            )
+
+        return yaml + "\n\n" + "\n".join(chunks)
+
+    def _workflow_provenance(self):
+        wf = self.workflow
+        if wf is None:
+            return None
+        result = getattr(wf, "result", None)
+        if result is None:
+            return None
+        return get_provenance(result)
+
     def write(self, path: str) -> None:
         """Write the draft to disk in the format inferred from the path
-        extension (``.md`` / ``.tex`` / ``.docx``)."""
+        extension (``.md`` / ``.tex`` / ``.docx`` / ``.qmd``)."""
         lower = path.lower()
         if lower.endswith('.tex'):
             with open(path, 'w', encoding='utf-8') as fh:
                 fh.write(self.to_tex())
         elif lower.endswith('.docx'):
             self.to_docx(path)
+        elif lower.endswith('.qmd'):
+            with open(path, 'w', encoding='utf-8') as fh:
+                fh.write(self.to_qmd())
         else:
             with open(path, 'w', encoding='utf-8') as fh:
                 fh.write(self.to_markdown())
@@ -301,6 +440,21 @@ class PaperDraft:
 # --------------------------------------------------------------------- #
 #  Helpers
 # --------------------------------------------------------------------- #
+
+
+def _yaml_str(value: str) -> str:
+    """Quote a string safely for inclusion in a YAML scalar value.
+
+    Always uses double-quotes and escapes any embedded ``"`` / ``\\``.
+    Newlines are folded to a literal space (Quarto YAML headers don't
+    play nicely with multi-line scalars in our context).
+    """
+    if value is None:
+        return '""'
+    s = str(value).replace("\n", " ").strip()
+    # Backslash first, then double-quote.
+    s = s.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{s}"'
 
 
 def _tex_escape(s: str) -> str:
@@ -649,9 +803,9 @@ def paper(
     The question parser is purely additive — explicit kwargs always win.
     Pass everything you know; the parser fills in only what's missing.
     """
-    if fmt not in {'markdown', 'tex', 'docx'}:
+    if fmt not in {'markdown', 'tex', 'docx', 'qmd'}:
         raise ValueError(
-            f"Unknown fmt={fmt!r}. Use 'markdown', 'tex', or 'docx'."
+            f"Unknown fmt={fmt!r}. Use 'markdown', 'tex', 'docx', or 'qmd'."
         )
 
     cols = list(data.columns)

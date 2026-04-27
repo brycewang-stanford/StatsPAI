@@ -2,6 +2,75 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Export trinity: numerical lineage + replication pack + Quarto emitter
+
+Pure-additive export-layer patch. **No numerical changes** to any
+estimator. Closes three concrete gaps between StatsPAI's export stack
+and the R / Posit publication tooling, and lays the foundation for the
+v1.7.2+ "agent-native paper" line.
+
+### Added — `sp.replication_pack()` (journal-ready archive)
+
+One-liner that bundles an analysis into the layout AEA / AEJ data
+editors expect:
+
+```python
+draft = sp.paper(df, "effect of trained on wage")
+sp.replication_pack(draft, "submission.zip",
+                    code="analysis.py", paper_format="qmd")
+```
+
+Produces a zip with `MANIFEST.json` (versions, timestamp, git SHA,
+per-file SHA-256), `README.md` (replication instructions), `data/`
+(CSV + schema manifest), `code/`, `env/requirements.txt` (from
+`pip freeze`, fallback `importlib.metadata`), `paper/` (rendered
+draft + `paper.bib`), and `lineage.json` (aggregated provenance from
+any results carrying `_provenance`). Tolerant by design — every
+sub-step that fails is logged in `MANIFEST.json["warnings"]` rather
+than aborting the archive.
+
+### Added — `sp.Provenance` / `sp.attach_provenance()` (numerical lineage)
+
+A small dataclass attached as `result._provenance` recording: function
+name, summarised params, 12-char SHA-256 of the input frame, run uuid,
+StatsPAI/Python versions, ISO-8601 timestamp. Hash is column-name +
+dtype + value sensitive. Estimators opt in by calling
+`attach_provenance(result, function="sp.did.foo", params=..., data=df)`
+at the end of their fit; backwards-compatible — unrecorded estimators
+still work, recorded ones gain free traceability into every downstream
+artifact (`replication_pack`, the Quarto appendix, table footers).
+
+### Added — `PaperDraft.to_qmd()` + `sp.paper(fmt='qmd')` (Quarto emitter)
+
+`sp.paper()` now produces a `.qmd` document directly:
+
+```python
+draft = sp.paper(df, "effect of trained on wage", fmt="qmd")
+draft.write("paper.qmd")  # quarto render paper.qmd
+```
+
+YAML frontmatter auto-emits `format: {pdf,html,docx}`,
+`bibliography: paper.bib` when citations exist, optional `csl:` for
+journal styles, and a `statspai:` block carrying `version` / `run_id`
+/ `data_hash` for machine-readable provenance. When the underlying
+workflow.result has a `_provenance` record, a `Reproducibility
+{.appendix}` section is appended automatically. YAML escaping is
+robust against quotes / colons / newlines in the question text.
+
+### Added — Public `sp.*` exports
+
+`Provenance`, `attach_provenance`, `get_provenance`,
+`compute_data_hash`, `format_provenance`, `lineage_summary`,
+`replication_pack`, `ReplicationPack`. Registry entry for
+`replication_pack` is full agent-native (params, returns, example,
+tags, assumptions, failure modes, alternatives).
+
+### Tests
+
+77 new tests (32 lineage + 18 replication pack + 27 Quarto), 232
+passing across new + adjacent paper/registry/help suites. Fast/ Rust
+HDFE territory untouched — runs independently of this patch.
+
 ## [1.7.1] — 2026-04-26 — `fmt="auto"` magnitude-adaptive formatting + unified book-tab xlsx style
 
 Pure-additive output-layer patch on top of v1.7.0. **No numerical changes** to

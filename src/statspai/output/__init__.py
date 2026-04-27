@@ -12,6 +12,15 @@ from .collection import Collection, CollectionItem, collect
 from .paper_tables import paper_tables, PaperTables, TEMPLATES as PAPER_TABLE_TEMPLATES
 from ._inline import cite
 from ._journals import JOURNALS, list_templates as list_journal_templates, get_template as get_journal_template
+from ._lineage import (
+    Provenance,
+    attach_provenance,
+    get_provenance,
+    compute_data_hash,
+    format_provenance,
+    lineage_summary,
+)
+from ._replication_pack import ReplicationPack, replication_pack
 
 __all__ = [
     "OutReg2",
@@ -39,4 +48,14 @@ __all__ = [
     "JOURNALS",
     "list_journal_templates",
     "get_journal_template",
+    # Lineage / provenance
+    "Provenance",
+    "attach_provenance",
+    "get_provenance",
+    "compute_data_hash",
+    "format_provenance",
+    "lineage_summary",
+    # Replication pack
+    "ReplicationPack",
+    "replication_pack",
 ]

@@ -4450,7 +4450,7 @@ def _build_registry():
                             "synth"]),
             ParamSpec("dag", "DAG", False),
             ParamSpec("fmt", "str", False, "markdown",
-                      enum=["markdown", "tex", "docx"]),
+                      enum=["markdown", "tex", "docx", "qmd"]),
             ParamSpec("output_path", "str", False),
             ParamSpec("include_eda", "bool", False, True),
             ParamSpec("include_robustness", "bool", False, True),
@@ -4497,6 +4497,80 @@ def _build_registry():
         alternatives=[
             "causal",       # workflow without paper rendering
             "recommend",    # estimator selection only
+            "replication_pack",  # bundle the draft into a journal-ready zip
+        ],
+    ))
+
+    # ------------------------------------------------------------------
+    # Export — replication packaging (v1.7.2 P1)
+    # ------------------------------------------------------------------
+    register(FunctionSpec(
+        name="replication_pack",
+        category="output",
+        description=(
+            "Package an analysis (PaperDraft / fitted result / list of "
+            "results) into a journal-ready replication zip: data CSV + "
+            "schema manifest, caller code, frozen environment, "
+            "rendered paper (md/qmd/tex/docx), citations, and an "
+            "aggregated lineage.json from any results carrying "
+            "Provenance. The archive's MANIFEST.json records SHA-256 "
+            "for every file plus the git SHA when available."
+        ),
+        params=[
+            ParamSpec("target", "object", True,
+                      description=(
+                          "PaperDraft, fitted result, list of results, "
+                          "or None for a data-only pack"
+                      )),
+            ParamSpec("output_path", "str", True,
+                      description="Destination .zip path"),
+            ParamSpec("data", "DataFrame", False,
+                      description=(
+                          "Explicit data; falls back to "
+                          "target.data / target.workflow.data"
+                      )),
+            ParamSpec("code", "str", False,
+                      description="Inline script or path to .py file"),
+            ParamSpec("env", "bool", False, True,
+                      description="Capture pip freeze of the runtime"),
+            ParamSpec("bib", "bool", False, True,
+                      description="Write paper/paper.bib from citations"),
+            ParamSpec("paper_format", "str", False, "auto",
+                      enum=["auto", "md", "qmd", "tex", "docx"]),
+            ParamSpec("title", "str", False, "Replication Pack"),
+            ParamSpec("extra_files", "dict", False),
+            ParamSpec("include_git_sha", "bool", False, True),
+            ParamSpec("overwrite", "bool", False, True),
+        ],
+        returns="ReplicationPack",
+        example=(
+            "draft = sp.paper(df, 'effect of trained on wage')\n"
+            "rp = sp.replication_pack(draft, 'submission.zip', "
+            "code='analysis.py')"
+        ),
+        tags=["output", "agent-native", "publication", "reproducibility",
+              "end_to_end", "journal"],
+        reference=(
+            "AEA / AEJ Data and Code Availability Policy (2019); "
+            "follows the layout journal data editors expect."
+        ),
+        assumptions=[
+            "data fits in memory and serialises to CSV (DataFrame/Series)",
+            "pip freeze available for env capture (fallback otherwise)",
+        ],
+        pre_conditions=[
+            "output_path's parent directory exists or can be created",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="FileExistsError on output_path",
+                exception="FileExistsError",
+                remedy="Pass overwrite=True or choose a different path",
+            ),
+        ],
+        alternatives=[
+            "paper",     # render just the draft, no archive
+            "regtable",  # for table-only exports
         ],
     ))
 

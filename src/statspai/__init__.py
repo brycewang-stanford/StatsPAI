@@ -145,6 +145,15 @@ from .output._journals import (
     list_templates as list_journal_templates,
     get_template as get_journal_template,
 )
+from .output._lineage import (
+    Provenance,
+    attach_provenance,
+    get_provenance,
+    compute_data_hash,
+    format_provenance,
+    lineage_summary,
+)
+from .output._replication_pack import ReplicationPack, replication_pack
 from .postestimation import margins, marginsplot, margins_at, margins_at_plot, contrast, pwcompare, test, lincom
 from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, effective_f_test, tF_critical_value, evalue, evalue_from_result, diagnose_result, estat, kitagawa_test, KitagawaResult, rosenbaum_bounds, rosenbaum_gamma, RosenbaumResult, weakrobust, WeakRobustResult
 from .inference import (
@@ -811,6 +820,16 @@ __all__ = [
     "JOURNAL_PRESETS",
     "list_journal_templates",
     "get_journal_template",
+    # Lineage / provenance (numerical traceability)
+    "Provenance",
+    "attach_provenance",
+    "get_provenance",
+    "compute_data_hash",
+    "format_provenance",
+    "lineage_summary",
+    # Replication pack (journal-ready zip)
+    "ReplicationPack",
+    "replication_pack",
     # Plots
     "binscatter",
     "set_theme",
