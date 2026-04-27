@@ -348,7 +348,15 @@ class PaperDraft:
         if bib_path:
             yaml_lines.append(f"bibliography: {_yaml_str(bib_path)}")
         if csl:
-            yaml_lines.append(f"csl: {_yaml_str(csl)}")
+            # Accept short journal names ('aer' / 'qje' / ...) and resolve
+            # them to the canonical .csl filename. Pre-existing .csl
+            # paths pass through untouched.
+            try:
+                from ..output._bibliography import csl_filename
+                resolved = csl_filename(csl)
+            except Exception:
+                resolved = csl
+            yaml_lines.append(f"csl: {_yaml_str(resolved)}")
         # Provenance into YAML for machine-readable traceability.
         prov = self._workflow_provenance()
         if include_provenance and prov is not None:
@@ -862,6 +870,32 @@ def paper(
             pipeline_errors.append(
                 f"`robustness()` failed: {type(exc).__name__}: {exc}"
             )
+
+    # Attach provenance to the workflow's result so downstream
+    # ``replication_pack`` / Quarto appendix / table footers can pick
+    # it up. Estimators that wire their own ``attach_provenance`` at
+    # ``fit()`` end already populate ``_provenance``; ``overwrite=False``
+    # preserves their (more specific) record.
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        if workflow.result is not None:
+            _attach_prov(
+                workflow.result,
+                function=f"sp.causal[{workflow.design or 'auto'}]",
+                params={
+                    "y": y_eff,
+                    "treatment": t_eff,
+                    "design": design_eff or workflow.design,
+                    "instrument": instrument_eff,
+                    "running_var": running_var_eff,
+                    "cutoff": cutoff_eff,
+                    "covariates": covariates,
+                },
+                data=data,
+                overwrite=False,
+            )
+    except Exception:  # pragma: no cover — provenance must never break the draft
+        pass
 
     sections: Dict[str, str] = {}
 

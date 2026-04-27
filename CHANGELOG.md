@@ -2,6 +2,92 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Phase 2: great_tables + CSL pipeline + paper auto-provenance
+
+Layered on top of the export trinity below. **No numerical changes**
+to any estimator. Three additions, all opt-in, all stdlib + soft
+optional deps.
+
+### Added — `sp.gt(result)` great_tables adapter
+
+Posit's ``great_tables`` is the Python port of R's gt — the
+publication-grade table grammar (cell-level styling, spanners,
+footnote marks, themes, multi-target HTML/LaTeX/RTF output). The new
+adapter dispatches on input type:
+
+- :class:`RegtableResult` → full-fidelity adapter (title, notes,
+  journal preset → gt theme via ``opt_footnote_marks`` and
+  ``tab_options(table_font_names=...)``).
+- :class:`PaperTables` → flattens panels into row groups via
+  ``GT(groupname_col=...)``.
+- :class:`MeanComparisonResult` → ``to_dataframe()`` round-trip.
+- ``pandas.DataFrame`` → wraps verbatim with optional ``rowname_col``.
+- Anything with ``to_dataframe()`` → duck-typed.
+
+Soft dep — ``great_tables`` is **not** required to import StatsPAI.
+``sp.is_great_tables_available()`` reports the dep; calling
+``sp.gt(...)`` without it raises a friendly ``ImportError`` pointing
+to ``pip install great_tables``. All 8 journal presets (AER / QJE /
+Econometrica / RestStat / JF / AEJA / JPE / RestUd) apply without
+crashing.
+
+### Added — `sp.csl_url()` / `sp.write_bib()` CSL pipeline
+
+Quarto needs a ``.bib`` and a ``.csl`` to render citations. StatsPAI
+captures citations as free-form strings on each estimator's
+``.cite()``; this layer bridges:
+
+- **CSL URL registry** — short journal names (``"aer"`` /
+  ``"econometrica"`` / ``"qje"`` / etc.) → canonical Zotero/styles
+  URLs. ``sp.csl_url('aer')`` returns the URL; we deliberately do
+  **not** bundle ``.csl`` files (CC-BY-SA-3.0, incompatible with
+  MIT). Users ``curl`` once at project setup.
+- **Citation → BibTeX** — best-effort regex parse of canonical
+  "Author Y (YEAR). Title. Journal." form into ``@article``
+  entries with stable ``firstauthor + year + first-title-word``
+  keys. Falls back to ``@misc`` for unparseable strings rather
+  than dropping them.
+- **`sp.write_bib(citations, path)`** — dedupes by computed key,
+  writes a clean ``paper.bib`` Quarto can resolve.
+- **Replication pack integration** — ``replication_pack`` now writes
+  a real BibTeX file (``paper/paper.bib``) instead of a free-text
+  dump.
+- **Quarto short names** — ``draft.to_qmd(csl='aer')`` now resolves
+  to ``csl: "american-economic-association.csl"`` automatically;
+  pre-existing ``.csl`` filenames pass through untouched.
+
+### Added — `sp.paper()` auto-attaches provenance
+
+``sp.paper()`` now calls ``attach_provenance()`` on ``workflow.result``
+after the estimate stage with ``overwrite=False``: estimators that
+wire their own provenance at ``fit()`` keep their (more specific)
+record; estimators that don't gain workflow-level provenance for
+free. Downstream consequences:
+
+- ``replication_pack`` now picks up provenance from a plain
+  ``draft = sp.paper(...)`` workflow with no further work — its
+  ``lineage.json`` becomes non-empty automatically.
+- ``draft.to_qmd()`` emits the ``statspai:`` YAML block
+  (``version`` / ``run_id`` / ``data_hash``) and the
+  ``Reproducibility {.appendix}`` body section automatically.
+
+This is the **aggregation-point pattern** for provenance rollout:
+v1.7.3+ instruments individual estimators (``sp.feols``,
+``sp.did.callaway_santanna``, ``sp.iv.tsls``, ``sp.rd.rdrobust``,
+``sp.synth``, …); the workflow-level hook here is the bridge.
+
+### Added — Public `sp.*` exports
+
+``gt``, ``is_great_tables_available``, ``csl_url``, ``csl_filename``,
+``list_csl_styles``, ``parse_citation_to_bib``, ``make_bib_key``,
+``citations_to_bib_entries``, ``write_bib``.
+
+### Tests
+
+46 new tests (20 gt adapter + 26 bibliography); 226 passing across
+the full new + adjacent surface. Fast/Rust HDFE territory still
+untouched — Phase 2 is fully orthogonal to the parallel work.
+
 ## [Unreleased] — Export trinity: numerical lineage + replication pack + Quarto emitter
 
 Pure-additive export-layer patch. **No numerical changes** to any

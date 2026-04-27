@@ -154,6 +154,16 @@ from .output._lineage import (
     lineage_summary,
 )
 from .output._replication_pack import ReplicationPack, replication_pack
+from .output._gt import to_gt as gt, is_great_tables_available
+from .output._bibliography import (
+    csl_url,
+    csl_filename,
+    list_csl_styles,
+    parse_citation_to_bib,
+    make_bib_key,
+    citations_to_bib_entries,
+    write_bib,
+)
 from .postestimation import margins, marginsplot, margins_at, margins_at_plot, contrast, pwcompare, test, lincom
 from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, effective_f_test, tF_critical_value, evalue, evalue_from_result, diagnose_result, estat, kitagawa_test, KitagawaResult, rosenbaum_bounds, rosenbaum_gamma, RosenbaumResult, weakrobust, WeakRobustResult
 from .inference import (
@@ -830,6 +840,17 @@ __all__ = [
     # Replication pack (journal-ready zip)
     "ReplicationPack",
     "replication_pack",
+    # great_tables adapter (publication-grade tables)
+    "gt",
+    "is_great_tables_available",
+    # Bibliography / CSL (Quarto citation pipeline)
+    "csl_url",
+    "csl_filename",
+    "list_csl_styles",
+    "parse_citation_to_bib",
+    "make_bib_key",
+    "citations_to_bib_entries",
+    "write_bib",
     # Plots
     "binscatter",
     "set_theme",
