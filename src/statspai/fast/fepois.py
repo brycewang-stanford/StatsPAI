@@ -333,6 +333,7 @@ def fepois(
     data: pd.DataFrame,
     *,
     vcov: str = "iid",
+    cluster: Optional[str] = None,
     weights: Optional[str] = None,
     maxiter: int = 50,
     tol: float = 1e-8,
@@ -355,8 +356,17 @@ def fepois(
         you need ``i()``, ``^``, IV, etc.
     data : pd.DataFrame
         Must contain all columns referenced in ``formula``.
-    vcov : {"iid", "hc1"}
-        Variance-covariance estimator. Cluster-robust comes in Phase 4.
+    vcov : {"iid", "hc1", "cr1"}
+        Variance-covariance estimator. ``"cr1"`` is one-way cluster-
+        robust (Liang-Zeger) with the FE-rank-aware small-sample factor
+        ``(G/(G-1)) * (n-1)/(n - p - Σ(G_k - 1))``. CR2/CR3 are not yet
+        wired in for fepois — the WLS leverage adjustment requires
+        weighting the H_gg matrix by ``μ`` (the IRLS working weight),
+        which the generic :func:`crve` doesn't separate from the score
+        weights. See :func:`crve` for OLS / linear cluster sandwich.
+    cluster : str, optional
+        Column name of cluster identifiers. Required when
+        ``vcov="cr1"``; rejected otherwise. NaN cluster values raise.
     weights : str, optional
         Column name of observation weights (e.g. survey / frequency
         weights). Each obs's contribution to the log-likelihood is
@@ -377,8 +387,15 @@ def fepois(
     -------
     FePoisResult
     """
-    if vcov not in ("iid", "hc1"):
-        raise ValueError(f"vcov={vcov!r}; supported: 'iid' or 'hc1'")
+    if vcov not in ("iid", "hc1", "cr1"):
+        raise ValueError(f"vcov={vcov!r}; supported: 'iid', 'hc1', or 'cr1'")
+    if vcov == "cr1" and cluster is None:
+        raise ValueError("vcov='cr1' requires cluster=<column name>")
+    if cluster is not None and vcov in ("iid", "hc1"):
+        raise ValueError(
+            f"cluster={cluster!r} provided but vcov={vcov!r}; "
+            "set vcov='cr1' to compute cluster-robust SE"
+        )
 
     lhs, rhs_terms, fe_terms = _parse_fepois_formula(formula)
 
@@ -391,6 +408,8 @@ def fepois(
     needed_cols = [lhs] + rhs_terms + fe_terms
     if weights is not None:
         needed_cols = needed_cols + [weights]
+    if cluster is not None:
+        needed_cols = needed_cols + [cluster]
     missing = [c for c in needed_cols if c not in data.columns]
     if missing:
         raise KeyError(f"columns missing from data: {missing}")
@@ -407,6 +426,19 @@ def fepois(
             raise ValueError(f"weights column {weights!r} contains non-finite values")
     else:
         obs_weights = None
+
+    if cluster is not None:
+        cluster_arr_full = data[cluster].to_numpy()
+        # Reject NaN: ambiguous treatment, force the user to handle upstream.
+        cluster_codes_check, _ = pd.factorize(
+            cluster_arr_full, sort=False, use_na_sentinel=True,
+        )
+        if (cluster_codes_check < 0).any():
+            raise ValueError(
+                f"cluster column {cluster!r} contains NaN; drop or impute upstream"
+            )
+    else:
+        cluster_arr_full = None
     X_user = data[rhs_terms].to_numpy(dtype=np.float64).copy() if rhs_terms else \
         np.empty((n_obs, 0), dtype=np.float64)
     if X_user.ndim == 1:
@@ -488,6 +520,8 @@ def fepois(
         X = X[keep]
         if obs_weights is not None:
             obs_weights = obs_weights[keep]
+        if cluster_arr_full is not None:
+            cluster_arr_full = cluster_arr_full[keep]
     else:
         fe_codes = []
         counts_list = []
@@ -588,7 +622,7 @@ def fepois(
         vcov_mat = XtWX_inv
         if df_resid > 0:
             vcov_mat = vcov_mat * (n / df_resid)
-    else:
+    elif vcov == "hc1":
         # HC1 sandwich: meat = Σ_i s_i s_i' where s_i is the score row.
         # Score = X_tilde * (y - mu).
         u = (y - mu)[:, None] * X_tilde
@@ -596,6 +630,26 @@ def fepois(
         vcov_mat = XtWX_inv @ meat @ XtWX_inv
         if df_resid > 0:
             vcov_mat = vcov_mat * (n / df_resid)
+    else:  # cr1 cluster-robust
+        # Poisson cluster meat: M = Σ_g (Σ_i w_i x̃_i (y_i - μ_i))²
+        # where w_i are the **observation** weights (frequency / survey),
+        # not the IRLS working weights μ. For unweighted MLE w_i ≡ 1.
+        # bread = (X̃' diag(μ * w) X̃)^{-1} (already in XtWX_inv).
+        # crve's score formula is `(u * weights)[:,None] * X` so passing
+        # weights=obs_weights produces obs_weights * (y - μ) * X̃ —
+        # exactly the weighted Poisson score row.
+        from .inference import crve as _crve
+        score_weights = (
+            obs_weights if obs_weights is not None
+            else np.ones(n, dtype=np.float64)
+        )
+        vcov_mat = _crve(
+            X_tilde, y - mu, cluster_arr_full,
+            weights=score_weights,
+            bread=XtWX_inv,
+            type="cr1",
+            extra_df=fe_dof,
+        )
 
     log_lik = float(np.sum(obs_weights * (
         y * np.log(np.maximum(mu, 1e-30)) - mu
