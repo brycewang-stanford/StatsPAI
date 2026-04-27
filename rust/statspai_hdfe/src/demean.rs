@@ -75,6 +75,56 @@ fn group_sweep(x: &mut [f64], codes: &[i64], counts: &[f64], scratch: &mut [f64]
     }
 }
 
+/// In-place weighted group de-mean: x[i] -= Σ_g(w_i * x_i) / Σ_g(w_i).
+///
+/// ``wsum[g]`` must be the precomputed weighted group sum
+/// (``Σ_{i ∈ g} weights[i]``). ``scratch`` must have length
+/// ``wsum.len()`` and is zero-filled on entry. Caller owns the
+/// allocation; this function never reallocates on the hot path.
+#[inline]
+fn weighted_group_sweep(
+    x: &mut [f64],
+    codes: &[i64],
+    weights: &[f64],
+    wsum: &[f64],
+    scratch: &mut [f64],
+) {
+    debug_assert_eq!(scratch.len(), wsum.len());
+    debug_assert_eq!(codes.len(), x.len());
+    debug_assert_eq!(weights.len(), x.len());
+
+    for s in scratch.iter_mut() {
+        *s = 0.0;
+    }
+    for i in 0..x.len() {
+        let g = codes[i] as usize;
+        scratch[g] += weights[i] * x[i];
+    }
+    for g in 0..scratch.len() {
+        let w = wsum[g];
+        if w > 0.0 {
+            scratch[g] /= w;
+        }
+    }
+    for i in 0..x.len() {
+        let g = codes[i] as usize;
+        x[i] -= scratch[g];
+    }
+}
+
+/// Sweep all K FE dimensions once, weighted variant.
+fn weighted_sweep_all_fe(
+    x: &mut [f64],
+    fe_codes: &[&[i64]],
+    weights: &[f64],
+    wsum: &[&[f64]],
+    scratch: &mut [Vec<f64>],
+) {
+    for k in 0..fe_codes.len() {
+        weighted_group_sweep(x, fe_codes[k], weights, wsum[k], &mut scratch[k]);
+    }
+}
+
 /// Sweep through all K FEs once.
 fn sweep_all_fe(
     x: &mut [f64],
@@ -165,6 +215,105 @@ pub fn demean_column_inplace(
     for it in 0..max_iter {
         before.copy_from_slice(x);
         sweep_all_fe(x, fe_codes, counts, scratch);
+
+        let mut local_max = 0.0_f64;
+        for i in 0..x.len() {
+            let d = (x[i] - before[i]).abs();
+            if d > local_max {
+                local_max = d;
+            }
+        }
+        max_dx = local_max;
+        iters = it + 1;
+
+        if max_dx <= stop {
+            converged = true;
+            break;
+        }
+
+        if accelerate {
+            hist.push(x.to_vec());
+            if hist.len() >= 3 && (it + 1) % accel_period == 0 {
+                let n = hist.len();
+                let acc = aitken_step(&hist[n - 3], &hist[n - 2], &hist[n - 1]);
+
+                let mut max_abs_acc = 0.0_f64;
+                for &v in &acc {
+                    let av = v.abs();
+                    if av > max_abs_acc {
+                        max_abs_acc = av;
+                    }
+                }
+                if max_abs_acc < 10.0 * base_scale {
+                    x.copy_from_slice(&acc);
+                }
+                hist.clear();
+            }
+        }
+    }
+
+    DemeanInfo {
+        iters,
+        converged,
+        max_dx,
+    }
+}
+
+/// Weighted demean a single column in place. ``scratch`` is a per-FE
+/// workspace owned by the caller; pre-allocating lets us reuse across
+/// columns. Mirrors `demean_column_inplace` exactly except for the
+/// weighted sweep math.
+#[allow(clippy::too_many_arguments)]
+pub fn weighted_demean_column_inplace(
+    x: &mut [f64],
+    fe_codes: &[&[i64]],
+    weights: &[f64],
+    wsum: &[&[f64]],
+    scratch: &mut [Vec<f64>],
+    max_iter: u32,
+    tol_abs: f64,
+    tol_rel: f64,
+    accelerate: bool,
+    accel_period: u32,
+) -> DemeanInfo {
+    let k = fe_codes.len();
+
+    if k == 0 {
+        return DemeanInfo {
+            iters: 0,
+            converged: true,
+            max_dx: 0.0,
+        };
+    }
+
+    if k == 1 {
+        weighted_sweep_all_fe(x, fe_codes, weights, wsum, scratch);
+        return DemeanInfo {
+            iters: 1,
+            converged: true,
+            max_dx: 0.0,
+        };
+    }
+
+    let mut base_scale = 0.0_f64;
+    for &v in x.iter() {
+        let av = v.abs();
+        if av > base_scale {
+            base_scale = av;
+        }
+    }
+    base_scale += 1e-30;
+    let stop = tol_abs + tol_rel * base_scale;
+
+    let mut hist: Vec<Vec<f64>> = Vec::with_capacity(3);
+    let mut max_dx = f64::INFINITY;
+    let mut converged = false;
+    let mut iters: u32 = 0;
+    let mut before: Vec<f64> = vec![0.0; x.len()];
+
+    for it in 0..max_iter {
+        before.copy_from_slice(x);
+        weighted_sweep_all_fe(x, fe_codes, weights, wsum, scratch);
 
         let mut local_max = 0.0_f64;
         for i in 0..x.len() {
@@ -342,5 +491,36 @@ mod tests {
         );
         assert!(info.converged);
         assert_eq!(x, vec![1.0, 2.0, 3.0]);
+    }
+
+    /// One-way weighted demean: x - weighted_mean(x | g) should be exact in one sweep.
+    #[test]
+    fn weighted_oneway_exact() {
+        // 4 obs, 2 groups, unequal weights
+        let mut x: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0];
+        let codes: Vec<i64> = vec![0, 0, 1, 1];
+        let weights: Vec<f64> = vec![1.0, 3.0, 2.0, 2.0];
+        // Σw per group: [4.0, 4.0]
+        // weighted means: g0 = (1*1 + 2*3)/4 = 7/4 = 1.75
+        //                 g1 = (3*2 + 4*2)/4 = 14/4 = 3.5
+        let wsum: Vec<f64> = vec![4.0, 4.0];
+        let mut scratch = vec![vec![0.0_f64; 2]];
+        let info = weighted_demean_column_inplace(
+            &mut x,
+            &[&codes],
+            &weights[..],
+            &[&wsum[..]],
+            &mut scratch,
+            100,
+            0.0,
+            1e-10,
+            true,
+            5,
+        );
+        assert!(info.converged);
+        let expected = vec![1.0 - 1.75, 2.0 - 1.75, 3.0 - 3.5, 4.0 - 3.5];
+        for (a, b) in x.iter().zip(expected.iter()) {
+            assert!((a - b).abs() < 1e-12, "{a} vs {b}");
+        }
     }
 }
