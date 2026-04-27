@@ -13,6 +13,7 @@ Phase 3 (`sp.within`), and Phase 5 (Polars/Arrow direct) sit on top of.
 from .bench import hdfe_bench, HDFEBenchResult
 from .demean import demean, DemeanInfo
 from .fepois import fepois, FePoisResult
+from .feols import feols, FeolsResult
 from .within import within, WithinTransformer
 from .dsl import i, fe_interact, sw, csw
 from .inference import (
@@ -21,6 +22,11 @@ from .inference import (
     BootTestResult,
     boottest_wald,
     BootWaldResult,
+    cluster_dof_bm,
+    cluster_dof_wald_bm,
+    cluster_dof_wald_htz,
+    cluster_wald_htz,
+    WaldTestResult,
 )
 from .event_study import event_study, EventStudyResult
 from .etable import etable
@@ -48,6 +54,8 @@ __all__ = [
     'DemeanInfo',
     'fepois',
     'FePoisResult',
+    'feols',
+    'FeolsResult',
     'within',
     'WithinTransformer',
     'i',
@@ -59,6 +67,11 @@ __all__ = [
     'BootTestResult',
     'boottest_wald',
     'BootWaldResult',
+    'cluster_dof_bm',
+    'cluster_dof_wald_bm',
+    'cluster_dof_wald_htz',
+    'cluster_wald_htz',
+    'WaldTestResult',
     'event_study',
     'EventStudyResult',
     'jax_device_info',
