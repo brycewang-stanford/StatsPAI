@@ -2,6 +2,82 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Phase 4: synth refactor + 5 more estimator provenance hookups
+
+Continues the v1.7.2 provenance rollout from Phase 3 (4 estimators
+instrumented). This round closes the deferred ``sp.synth`` dispatcher
+refactor and adds 4 more high-leverage estimators. **No numerical
+changes** to any estimator — total provenance coverage now **9/925**.
+
+### Changed — `sp.synth` dispatcher refactored for one-shot provenance
+
+The previous v1.7.2 instrumentation deferred ``sp.synth`` because its
+13 method branches each had their own ``return X(...)`` call site —
+sprinkling 13 ``attach_provenance`` calls would've been
+maintenance-hostile. Refactor splits responsibility:
+
+- ``_dispatch_synth_impl(...)`` — full dispatcher (former ``synth``
+  body), unchanged logic.
+- ``synth(...)`` — thin outer wrapper that captures kwargs, calls
+  impl, then attaches provenance **once** before returning.
+
+Public signature is **bit-identical**; the 145-test synth regression
+sweep passes with zero changes. All 13 SCM method variants
+(``classic`` / ``penalized`` / ``demeaned`` / ``unconstrained`` /
+``augmented`` / ``sdid`` / ``factor`` / ``staggered`` / ``mc`` /
+``discos`` / ``multi_outcome`` / ``scpi`` / ``bayesian`` / ``bsts`` /
+``penscm`` / ``fdid`` / ``cluster`` / ``sparse`` / ``kernel`` /
+``kernel_ridge``) now flow through the same provenance attach.
+
+### Added — Provenance instrumentation for 4 more estimators
+
+- ``sp.did.did_imputation`` — Borusyak-Jaravel-Spiess (2024) imputation.
+- ``sp.did.aggte`` — Callaway-Sant'Anna ATT(g, t) aggregation. Captures
+  ``upstream_run_id`` and ``upstream_function`` so downstream consumers
+  can trace the aggregation step back to the producing
+  ``callaway_santanna`` call (``sp.replication_pack``'s
+  ``lineage.json`` thus gets a chain, not just disconnected runs).
+- ``sp.did.did_multiplegt`` — de Chaisemartin-D'Haultfoeuille (2020).
+- ``sp.rd.rdrobust`` — Calonico-Cattaneo-Titiunik local-polynomial RD
+  with robust bias correction. Captures kernel / bwselect / fuzzy /
+  donut / weights for the full reproduction recipe.
+
+Each follows the established pattern: assign result to ``_result``,
+call ``attach_provenance`` with ``overwrite=False``, return. Any
+upstream-instrumented estimator (``sp.causal_question`` /
+``sp.paper`` / ``aggte``) preserves the inner record.
+
+### Tests
+
+9 new tests (3 synth + 1 did_imputation + 1 aggte upstream-linkage +
+1 did_multiplegt + 2 rdrobust + 1 multi-estimator integration). 166
+green across the DiD + RD + new provenance regression sweep
+(95s wall, 145 of which are synth — the refactor is paid for in
+test time once and forgotten).
+
+### Provenance coverage scorecard
+
+|              | v1.7.2 P3 | v1.7.2 P4 (this) |
+|---           |---        |---               |
+| Instrumented | 4/925     | **9/925**        |
+
+| Estimator                            | Status   |
+|---                                   |---       |
+| ``sp.regress``                       | P3 ✓     |
+| ``sp.callaway_santanna``             | P3 ✓     |
+| ``sp.did_2x2``                       | P3 ✓     |
+| ``statspai.regression.iv.iv``        | P3 ✓     |
+| ``sp.synth`` (13 method dispatcher)  | **P4 ✓** |
+| ``sp.did.did_imputation``            | **P4 ✓** |
+| ``sp.did.aggte`` (chain-aware)       | **P4 ✓** |
+| ``sp.did.did_multiplegt``            | **P4 ✓** |
+| ``sp.rd.rdrobust``                   | **P4 ✓** |
+
+Remaining 916 estimators bucket into v1.7.3 sprint themes:
+DiD long-tail (~20), IV variants (~15), synth sub-modules (already
+flow through dispatcher), DML / TMLE / metalearners (~50), panel /
+structural (~80), and the long tail (~750).
+
 ## [Unreleased] — Phase 3: estimand-first paper + estimator provenance + DAG appendix
 
 Layered on top of the Phase 1+2 export trinity. **No numerical changes**

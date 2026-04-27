@@ -267,7 +267,7 @@ def aggte(
         'source_method': result.method,
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method=f"Callaway and Sant'Anna (2021) — aggte[{type}]",
         estimand='ATT',
         estimate=overall_est,
@@ -281,6 +281,35 @@ def aggte(
         _influence_funcs=inf_matrix,
         _citation_key='callaway_santanna',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov, get_provenance
+        upstream = get_provenance(result)
+        _attach_prov(
+            _result,
+            function="sp.did.aggte",
+            params={
+                "type": type,
+                "balance_e": balance_e,
+                "min_e": min_e if not np.isinf(min_e) else None,
+                "max_e": max_e if not np.isinf(max_e) else None,
+                "na_rm": na_rm,
+                "bstrap": bstrap,
+                "boot_type": boot_type,
+                "n_boot": n_boot,
+                "cband": cband,
+                "alpha": alpha,
+                "random_state": random_state,
+                "upstream_run_id": upstream.run_id if upstream else None,
+                "upstream_function": upstream.function if upstream else None,
+            },
+            # aggte's input is the upstream CausalResult, not a frame —
+            # data_hash flows in via upstream_run_id.
+            data=None,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ======================================================================

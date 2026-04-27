@@ -346,7 +346,7 @@ def rdrobust(
     if rbc is not None:
         model_info['rbc_bootstrap'] = rbc
 
-    return CausalResult(
+    _result = CausalResult(
         method=f'{rd_type} RD Estimation',
         estimand=estimand_str,
         estimate=tau_bc,
@@ -359,6 +359,29 @@ def rdrobust(
         model_info=model_info,
         _citation_key='rdrobust',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.rd.rdrobust",
+            params={
+                "y": y, "x": x, "c": c,
+                "fuzzy": fuzzy, "deriv": deriv,
+                "p": p, "q": q,
+                "kernel": kernel, "bwselect": bwselect,
+                "h": h, "b": b,
+                "covs": covs, "cluster": cluster,
+                "donut": donut, "weights": weights,
+                "alpha": alpha,
+                "bootstrap": bootstrap, "n_boot": n_boot,
+                "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def rdplot(

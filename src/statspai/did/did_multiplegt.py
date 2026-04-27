@@ -294,7 +294,7 @@ def did_multiplegt(
         'avg_cumulative_effect': avg_cumulative,
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method="de Chaisemartin-D'Haultfoeuille (2020)",
         estimand='ATT',
         estimate=float(main['did_m']),
@@ -307,6 +307,25 @@ def did_multiplegt(
         model_info=model_info,
         _citation_key='did_multiplegt',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.did.did_multiplegt",
+            params={
+                "y": y, "group": group, "time": time,
+                "treatment": treatment,
+                "controls": controls,
+                "placebo": placebo, "dynamic": dynamic,
+                "cluster": cluster, "n_boot": n_boot,
+                "seed": seed, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ======================================================================

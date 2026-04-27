@@ -57,6 +57,71 @@ def synth(
     treatment: Optional[str] = None,
     **kwargs,
 ) -> CausalResult:
+    """Public ``sp.synth`` entry point — see ``_dispatch_synth_impl`` for
+    the full docstring on methods and parameters.
+
+    Thin wrapper around the multi-branch dispatcher that attaches a
+    :class:`Provenance` record to the returned result so downstream
+    ``replication_pack`` / Quarto appendix / table footers can pick up
+    the call (function name, args, data hash) without each individual
+    SCM backend having to opt in. The 20-method dispatcher itself
+    lives in :func:`_dispatch_synth_impl`.
+    """
+    _result = _dispatch_synth_impl(
+        data=data, outcome=outcome, unit=unit, time=time,
+        treated_unit=treated_unit, treatment_time=treatment_time,
+        method=method, covariates=covariates,
+        penalization=penalization, placebo=placebo, alpha=alpha,
+        inference=inference, treatment=treatment,
+        **kwargs,
+    )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.synth",
+            params={
+                "outcome": outcome,
+                "unit": unit,
+                "time": time,
+                "treated_unit": treated_unit,
+                "treatment_time": treatment_time,
+                "method": method,
+                "covariates": covariates,
+                "penalization": penalization,
+                "placebo": placebo,
+                "alpha": alpha,
+                "inference": inference,
+                "treatment": treatment,
+                **{k: v for k, v in kwargs.items()
+                   if k in ("n_factors", "outcomes", "v_method",
+                           "se_method", "se_type", "weights",
+                           "l2_penalty")},
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover — provenance must never break fit
+        pass
+    return _result
+
+
+def _dispatch_synth_impl(
+    data: pd.DataFrame,
+    outcome: str,
+    unit: str,
+    time: str,
+    treated_unit: Any = None,
+    treatment_time: Any = None,
+    method: str = "augmented",
+    covariates: Optional[List[str]] = None,
+    penalization: float = 0.0,
+    placebo: bool = True,
+    alpha: float = 0.05,
+    inference: Optional[str] = None,
+    treatment: Optional[str] = None,
+    **kwargs,
+) -> CausalResult:
     """
     Unified Synthetic Control estimator with multiple method variants.
 

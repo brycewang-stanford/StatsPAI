@@ -389,7 +389,7 @@ def did_imputation(
         model_info['pretrend_test'] = pretrend_test
 
     # ── Return CausalResult ────────────────────────────────────── #
-    return CausalResult(
+    _result = CausalResult(
         method='Borusyak, Jaravel & Spiess (2024) Imputation Estimator',
         estimand='ATT',
         estimate=att,
@@ -402,6 +402,23 @@ def did_imputation(
         model_info=model_info,
         _citation_key='did_imputation',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.did.did_imputation",
+            params={
+                "y": y, "group": group, "time": time,
+                "first_treat": first_treat,
+                "controls": controls, "horizon": horizon,
+                "cluster": cluster, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ══════════════════════════════════════════════════════════════════════
