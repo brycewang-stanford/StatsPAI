@@ -1286,7 +1286,20 @@ def cluster_wald_htz(
         )
 
     diff = R_arr @ beta - r                            # (q,)
-    Q = float(diff @ np.linalg.solve(V_R, diff))
+    # Short-circuit: if V_R is the zero matrix (zero residuals or fully
+    # degenerate sandwich), the Wald statistic is 0 by convention iff the
+    # diff is also 0; otherwise the test is undefined.
+    if not np.any(V_R):
+        if np.allclose(diff, 0.0):
+            Q = 0.0
+        else:
+            raise ValueError(
+                "HTZ: V_R is the zero matrix but R β̂ − r ≠ 0; "
+                "test is undefined (likely zero residuals with non-zero "
+                "constraint)."
+            )
+    else:
+        Q = float(diff @ np.linalg.solve(V_R, diff))
     F_stat = (eta - q + 1) / (eta * q) * Q
 
     from scipy.stats import f as _scipy_f
