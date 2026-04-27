@@ -1,0 +1,27 @@
+{
+  "dataset": "medium",
+  "backend": "fixest",
+  "warmup": 1,
+  "repeats": 2,
+  "n_rows": 1000000,
+  "load_seconds": 0.262,
+  "peak_rss_mb": 518.6,
+  "wall": {
+    "wall_runs": [
+      0.694,
+      0.594
+    ],
+    "wall_min": 0.594,
+    "wall_mean": 0.644,
+    "wall_max": 0.694
+  },
+  "coefs": {
+    "x1": 0.2985008604324,
+    "x2": -0.1993765854687
+  },
+  "se": {
+    "x1": 0.0007768538713504,
+    "x2": 0.0007762219125757
+  },
+  "iterations": 6
+}

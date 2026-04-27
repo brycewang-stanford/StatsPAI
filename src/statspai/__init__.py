@@ -1444,4 +1444,13 @@ def __getattr__(name):
         from .smart.benchmark import verify_benchmark as _vb
         globals()["verify_benchmark"] = _vb
         return _vb
+    if name == "fast":
+        # Submodule — load on demand so the Phase 1 Rust extension import
+        # (and its NumPy fallback path) only fires if a user touches
+        # ``sp.fast``. ``importlib.import_module`` bypasses our
+        # ``__getattr__`` so we don't re-enter this branch.
+        import importlib
+        _fast_mod = importlib.import_module(".fast", package=__name__)
+        globals()["fast"] = _fast_mod
+        return _fast_mod
     raise AttributeError(f"module 'statspai' has no attribute {name!r}")

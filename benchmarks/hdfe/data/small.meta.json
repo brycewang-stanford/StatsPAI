@@ -1,0 +1,19 @@
+{
+  "name": "small",
+  "n": 100000,
+  "fe1_cardinality": 1000,
+  "fe2_cardinality": 50,
+  "seed": 42,
+  "true_beta": {
+    "x1": 0.3,
+    "x2": -0.2
+  },
+  "y_mean": 1.95587,
+  "y_var": 4.099483537935379,
+  "y_zero_share": 0.24699,
+  "fe1_unique_observed": 1000,
+  "fe2_unique_observed": 50,
+  "bytes_compressed": 2249640,
+  "gen_seconds": 0.015,
+  "write_seconds": 0.406
+}

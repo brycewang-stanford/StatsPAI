@@ -1,0 +1,8 @@
+# Generated synthetic datasets — bit-deterministic from the seeds in
+# datasets.py, so regenerable on demand. The compressed CSVs are too
+# big to commit (24MB medium, ~500MB large).
+data/*.csv.gz
+data/*.csv
+
+# Per-(dataset, backend) result JSONs are intentionally tracked under
+# results/ — they are the historical record. Don't ignore them here.
