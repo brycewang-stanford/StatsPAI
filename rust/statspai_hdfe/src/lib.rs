@@ -1,12 +1,18 @@
 //! PyO3 bindings for StatsPAI's HDFE inner kernel.
 //!
 //! Phase 1 contents:
-//! - ``group_demean``  — single-FE, in-place column demean (legacy entry point).
-//! - ``demean_2d``     — K-way alternating-projection demean with Irons-Tuck
-//!                       acceleration; in-place on a Fortran-order matrix,
-//!                       parallel over columns via Rayon.
-//! - ``singleton_mask``— iterative K-way singleton-row detection; returns
-//!                       a boolean keep-mask.
+//! - ``group_demean``      — single-FE, in-place column demean (legacy entry point).
+//! - ``demean_2d``         — K-way alternating-projection demean with Irons-Tuck
+//!                           acceleration; in-place on a Fortran-order matrix,
+//!                           parallel over columns via Rayon.
+//! - ``singleton_mask``    — iterative K-way singleton-row detection; returns
+//!                           a boolean keep-mask.
+//!
+//! Phase A additions (v0.3.0, weighted variants for IRLS-internal demean):
+//! - ``demean_2d_weighted`` — same as ``demean_2d`` but takes per-observation
+//!                            weights and a caller-precomputed wsum
+//!                            (``Σ_{i ∈ g} weights[i]``); used by the IRLS
+//!                            inner loop in ``sp.fast.fepois``.
 //!
 //! All functions take pre-factorised int64 codes and float64 counts. The
 //! Python wrapper at ``statspai.fast.demean`` packs DataFrames / mixed
@@ -190,7 +196,9 @@ fn demean_2d<'py>(
 }
 
 /// K-way **weighted** alternating-projection demean of a Fortran-order
-/// (n, p) matrix in place.
+/// (n, p) matrix in place. Returns a list of dicts (one per column)
+/// with ``iters`` / ``converged`` / ``max_dx`` fields, mirroring
+/// ``demean_2d``.
 ///
 /// Parameters
 /// ----------
