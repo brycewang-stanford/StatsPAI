@@ -28,6 +28,7 @@ MacKinnon, J. G., Webb, M. D. (2018). The wild bootstrap for few
 """
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Optional, Tuple, Union
 
@@ -891,6 +892,142 @@ class WaldTestResult:
             "R": self.R.tolist(), "r": self.r.tolist(),
             "V_R": self.V_R.tolist(),
         }
+
+
+def _htz_per_cluster_quantities(
+    X: np.ndarray,
+    cluster: np.ndarray,
+    *,
+    R: np.ndarray,
+    weights: Optional[np.ndarray] = None,
+    bread: Optional[np.ndarray] = None,
+) -> dict:
+    """Internal helper: per-cluster lifted contributions for the HTZ test.
+
+    Computes the matrices that both :func:`cluster_dof_wald_htz` and
+    :func:`cluster_wald_htz` need:
+
+    Per cluster ``g``:
+        H_gg      = X_g · bread · X_g^T · diag(w_g)            (n_g × n_g)
+        A_g       = (I_g - 0.5(H_gg + H_gg^T))^{-1/2}          (n_g × n_g)
+        G_g       = R · bread · X_g^T · diag(√w_g)             (q × n_g)
+                    # No A_g — Ω = Σ_g G_g G_g^T = R · bread · R^T
+                    # under the working covariance Φ = I.
+        A_g_sqrtW = diag(√w_g) · A_g                           (n_g × n_g)
+                    # Applied to raw residuals: ẽ_g = A_g_sqrtW · u_g.
+                    # Then v_g = G_g · ẽ_g = R bread X_g^T diag(w_g) A_g u_g
+                    # — exactly the weighted CR2 score lifted to R-subspace,
+                    # matching :func:`crve` (CR2 path).
+
+    Aggregate:
+        Ω = Σ_g G_g G_g^T                                       (q × q)
+                    # Unweighted: Ω = R · (X'X)^{-1} · R^T.
+                    # Weighted:   Ω = R · (X'WX)^{-1} · R^T.
+
+    Eigenvalue floor 1e-12 on ``(I - Hsym)`` matches the convention in
+    :func:`crve` (CR2 path) and :func:`cluster_dof_wald_bm`.
+
+    Returns
+    -------
+    dict
+        Keys: ``"G_g"`` (list of q×n_g arrays per cluster, in cluster-code
+        order from ``pd.factorize(sort=False)``), ``"A_g_sqrtW"`` (list of
+        n_g×n_g arrays — same ordering), ``"Omega"`` (q×q),
+        ``"cluster_codes"`` (n-vector), ``"G"`` (cluster count), ``"q"``
+        (R rank), ``"bread"``.
+
+    Raises
+    ------
+    ValueError
+        If ``R`` is rank-deficient, ``G ≤ q``, or ``weights`` non-positive.
+    """
+    R = np.atleast_2d(np.asarray(R, dtype=np.float64))
+    n, k = X.shape
+    if R.shape[1] != k:
+        raise ValueError(f"R has {R.shape[1]} cols but X has k={k}")
+    q = R.shape[0]
+    if q < 1:
+        raise ValueError("R must have at least one row")
+    if q > k:
+        raise ValueError(f"R has {q} rows > k={k}; over-determined")
+    if np.linalg.matrix_rank(R) < q:
+        raise ValueError("R must have full row rank")
+
+    if weights is None:
+        weights = np.ones(n)
+    else:
+        weights = np.asarray(weights, dtype=np.float64).ravel()
+        if (weights <= 0).any():
+            raise ValueError("weights must be strictly positive")
+
+    cluster_codes, _ = pd.factorize(cluster, sort=False)
+    G_clusters = int(cluster_codes.max()) + 1 if cluster_codes.size else 0
+    if G_clusters < 2:
+        raise ValueError(
+            f"HTZ requires at least 2 clusters, got {G_clusters}"
+        )
+    if G_clusters <= q:
+        raise ValueError(
+            f"HTZ Wald requires G > q (got G={G_clusters}, q={q})"
+        )
+
+    if bread is None:
+        XtWX = X.T @ (X * weights[:, None])
+        bread = np.linalg.inv(XtWX)
+
+    R_bread = R @ bread                                  # (q, k)
+
+    G_list: list = []
+    Asw_list: list = []
+    Omega = np.zeros((q, q))
+
+    for cg in range(G_clusters):
+        mask = cluster_codes == cg
+        X_g = X[mask]
+        w_g = weights[mask]
+        n_g = X_g.shape[0]
+        if n_g == 1:
+            warnings.warn(
+                f"HTZ: singleton cluster (code={cg}, n_g=1); A_g floored",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+
+        Xb = X_g @ bread                                  # (n_g, k)
+        H_gg = Xb @ (X_g * w_g[:, None]).T                # (n_g, n_g)
+        Hsym = 0.5 * (H_gg + H_gg.T)
+        Msym = np.eye(n_g) - Hsym
+        evals, evecs = np.linalg.eigh(Msym)
+        evals = np.maximum(evals, 1e-12)
+        A_g = (evecs * (evals ** -0.5)) @ evecs.T          # (n_g, n_g)
+
+        sqrt_w = np.sqrt(w_g)
+        # G_g = R · bread · X_g^T · diag(√w_g)         (NO A_g)
+        RB_Xt = R_bread @ X_g.T                            # (q, n_g)
+        G_g = RB_Xt * sqrt_w                               # (q, n_g)
+
+        # A_g_sqrtW = diag(√w_g) · A_g  (applied LEFT-to-RIGHT to residuals)
+        # so that v_g = G_g · (A_g_sqrtW · u_g)
+        #             = R bread X_g^T √w_g · √w_g A_g u_g
+        #             = R bread X_g^T diag(w_g) A_g u_g    ← matches crve.
+        A_g_sqrtW = sqrt_w[:, None] * A_g                  # (n_g, n_g)
+
+        G_list.append(G_g)
+        Asw_list.append(A_g_sqrtW)
+        Omega += G_g @ G_g.T
+
+    # Symmetrize Ω against floating drift
+    Omega = 0.5 * (Omega + Omega.T)
+
+    return {
+        "G_g": G_list,
+        "A_g_sqrtW": Asw_list,
+        "Omega": Omega,
+        "cluster_codes": cluster_codes,
+        "G": G_clusters,
+        "q": q,
+        "bread": bread,
+    }
 
 
 def cluster_dof_wald_htz(
