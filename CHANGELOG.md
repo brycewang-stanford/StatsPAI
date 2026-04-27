@@ -2,6 +2,60 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — clubSandwich-equivalent HTZ Wald (independent PR)
+
+Adds a numerically-equivalent Python implementation of R
+``clubSandwich::Wald_test(..., test="HTZ")`` for cluster-robust Wald
+tests under CR2 sandwich. Closes the BM-vs-HTZ gap documented in
+``cluster_dof_wald_bm`` (which uses the BM 2002 simplified formula
+and can drift 50–100% from clubSandwich on multi-restriction tests).
+
+### Added
+
+- ``sp.fast.cluster_wald_htz()`` — full HTZ Wald test, returns
+  ``WaldTestResult`` (``test, q, eta, F_stat, p_value, Q, R, r, V_R``).
+- ``sp.fast.cluster_dof_wald_htz()`` — DOF-only helper mirroring the
+  ``cluster_dof_wald_bm`` signature for easy substitution.
+- ``sp.fast.WaldTestResult`` — frozen dataclass with ``.summary()``
+  and ``.to_dict()``.
+- Pustejovsky-Tipton 2018 §3.2 moment-matching DOF η computed as
+  ``q(q+1) / sum(var_mat)`` with ``var_mat`` derived from
+  cluster-pair contributions to ``R · V^CR2 · R^T`` under a working
+  covariance Φ = I (OLS+CR2; clubSandwich's default).
+- Hotelling-T² scaling: ``F_stat = (η - q + 1) / (η · q) · Q`` with
+  ``p_value = 1 - F_{q, η-q+1}.cdf(F_stat)``.
+
+### Verification
+
+- 3 frozen-fixture parity tests vs R clubSandwich 0.6.2 at
+  ``rtol < 1e-8`` (``q ∈ {1, 2, 3}``, balanced + unbalanced panels;
+  fixture in ``tests/fixtures/htz_clubsandwich.json``, no R required
+  in CI).
+- 3 live-R parity tests at ``rtol < 1e-8`` (skipif ``Rscript`` missing).
+- 14 unit tests: validation, invariance (X rescale + cluster relabel +
+  bread arg path), edge cases (singleton cluster warning, zero
+  residuals short-circuit, ``η ≤ q-1`` rejection, non-uniform weights
+  ``NotImplementedError``).
+- Total: 23/23 tests pass.
+
+### Scope (v1)
+
+- Standalone — no wiring into ``crve`` / ``feols`` / ``fepois`` /
+  ``event_study``. That's the next PR.
+- Working covariance ``Φ`` locked to ``I`` (OLS+CR2). Non-uniform
+  weights raise ``NotImplementedError`` with a pointer to v2.
+- HTZ test variant only; HTA / HTB / KZ / Naive / EDF deferred.
+
+### References
+
+- ``pustejovsky2018small`` added to ``paper.bib`` after Crossref
+  dual-source verification (DOI ``10.1080/07350015.2016.1247004``;
+  authors / year 2018 / vol 36(4) / pp 672–683 / title — all four
+  elements verified per CLAUDE.md §10).
+- Implementation derived 1:1 from Pustejovsky-Tipton 2018 §3.2 +
+  clubSandwich source (R Wald_testing / get_P_array / total_variance_mat).
+  No GPL code copied; clubSandwich used only as black-box reference.
+
 ## [Unreleased] — Phase 5: LLM-DAG closed loop + layered credential resolver
 
 Closes the LLM-DAG closed-loop deferred from Phases 2-4. **No

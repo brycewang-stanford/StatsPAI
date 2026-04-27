@@ -7,6 +7,17 @@
 > CR2 Bell-McCaffrey, multi-coef joint Wald bootstrap) all landed
 > in-tree. **231 tests pass** (was 208). See [`AUDIT.md`](AUDIT.md) for
 > per-round diffs and acceptance criteria.
+>
+> **Independent PR (2026-04-27)**: shipped the clubSandwich-equivalent
+> HTZ Wald test (`cluster_wald_htz` / `cluster_dof_wald_htz` /
+> `WaldTestResult`) — Pustejovsky-Tipton 2018 §3.2 moment-matching DOF
+> with Hotelling-T² scaling, numerically equivalent to R
+> `clubSandwich::Wald_test(test="HTZ")` to `rtol < 1e-8` on three
+> verified panels (q ∈ {1, 2, 3}, balanced + unbalanced). +23 tests.
+> No wiring into `crve` / `feols` / `event_study` (deferred to a
+> follow-up). Closes the BM-vs-HTZ gap documented in
+> `cluster_dof_wald_bm` (which used the BM 2002 simplified formula and
+> could drift 50–100% from clubSandwich on multi-restriction tests).
 
 This document is the single index for the 9-phase HDFE work that
 took StatsPAI from "thin wrapper around pyfixest" to "independent,

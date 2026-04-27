@@ -748,6 +748,9 @@ def cluster_dof_wald_bm(
     simplified ``(Σ tr)² / Σ ||·||_F²`` formula implemented here. On
     moderate panels the two can differ by 50–100%.
 
+    For the clubSandwich-equivalent HTZ DOF, see
+    :func:`cluster_dof_wald_htz` (matches R
+    ``clubSandwich::Wald_test(test="HTZ")`` to ``rtol < 1e-8``).
     For the strictest small-G inference prefer :func:`boottest_wald`,
     which avoids any asymptotic approximation.
 
