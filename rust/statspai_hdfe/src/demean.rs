@@ -406,6 +406,49 @@ pub fn demean_matrix_fortran_inplace(
         .collect()
 }
 
+/// Weighted demean of a column-major (n × p) matrix in place, parallel
+/// over columns. Mirrors `demean_matrix_fortran_inplace`; the only
+/// difference is the inner per-column kernel.
+#[allow(clippy::too_many_arguments)]
+pub fn weighted_demean_matrix_fortran_inplace(
+    mat: &mut [f64],
+    n: usize,
+    p: usize,
+    fe_codes: &[&[i64]],
+    weights: &[f64],
+    wsum: &[&[f64]],
+    wsum_lens: &[usize],
+    max_iter: u32,
+    tol_abs: f64,
+    tol_rel: f64,
+    accelerate: bool,
+    accel_period: u32,
+) -> Vec<DemeanInfo> {
+    debug_assert_eq!(mat.len(), n * p);
+    debug_assert_eq!(weights.len(), n);
+
+    let cols: Vec<&mut [f64]> = mat.chunks_mut(n).collect();
+
+    cols.into_par_iter()
+        .map(|col| {
+            let mut scratch: Vec<Vec<f64>> =
+                wsum_lens.iter().map(|&g| vec![0.0_f64; g]).collect();
+            weighted_demean_column_inplace(
+                col,
+                fe_codes,
+                weights,
+                wsum,
+                &mut scratch,
+                max_iter,
+                tol_abs,
+                tol_rel,
+                accelerate,
+                accel_period,
+            )
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
