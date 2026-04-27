@@ -409,6 +409,15 @@ pub fn demean_matrix_fortran_inplace(
 /// Weighted demean of a column-major (n × p) matrix in place, parallel
 /// over columns. Mirrors `demean_matrix_fortran_inplace`; the only
 /// difference is the inner per-column kernel.
+///
+/// `mat` is a flat slice of length `n*p` where column `j` occupies the
+/// range `[j*n, (j+1)*n)` (Fortran/column-major order, matching
+/// `np.asfortranarray` layout).
+///
+/// `wsum_lens[k]` must equal `wsum[k].len()` (the cardinality of FE
+/// dimension `k`). Passing it as a separate slice avoids repeated
+/// `.len()` calls inside the Rayon closure when sizing the per-thread
+/// scratch buffers.
 #[allow(clippy::too_many_arguments)]
 pub fn weighted_demean_matrix_fortran_inplace(
     mat: &mut [f64],
