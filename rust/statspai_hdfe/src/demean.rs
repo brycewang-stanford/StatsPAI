@@ -525,4 +525,98 @@ mod tests {
             assert!((a - b).abs() < 1e-12, "{a} vs {b}");
         }
     }
+
+    /// Two-way weighted: with weights ≡ 1, the result must match the unweighted path.
+    #[test]
+    fn weighted_twoway_matches_unweighted_when_weights_are_one() {
+        let mut x_w: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0];
+        let mut x_u: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0];
+        let codes_i: Vec<i64> = vec![0, 0, 1, 1];
+        let codes_t: Vec<i64> = vec![0, 1, 0, 1];
+        let counts_i: Vec<f64> = vec![2.0, 2.0];
+        let counts_t: Vec<f64> = vec![2.0, 2.0];
+        let weights: Vec<f64> = vec![1.0, 1.0, 1.0, 1.0];
+        // wsum == counts when all weights are 1.0
+        let wsum_i: Vec<f64> = counts_i.clone();
+        let wsum_t: Vec<f64> = counts_t.clone();
+
+        let mut scratch_w = vec![vec![0.0_f64; 2], vec![0.0_f64; 2]];
+        let info_w = weighted_demean_column_inplace(
+            &mut x_w,
+            &[&codes_i, &codes_t],
+            &weights[..],
+            &[&wsum_i[..], &wsum_t[..]],
+            &mut scratch_w,
+            500, 0.0, 1e-12, true, 5,
+        );
+
+        let mut scratch_u = vec![vec![0.0_f64; 2], vec![0.0_f64; 2]];
+        let info_u = demean_column_inplace(
+            &mut x_u,
+            &[&codes_i, &codes_t],
+            &[&counts_i[..], &counts_t[..]],
+            &mut scratch_u,
+            500, 0.0, 1e-12, true, 5,
+        );
+
+        assert!(info_w.converged && info_u.converged);
+        for (a, b) in x_w.iter().zip(x_u.iter()) {
+            assert!((a - b).abs() < 1e-12, "weighted={a} unweighted={b}");
+        }
+    }
+
+    /// Unequal weights: known closed-form on a 2×2 panel.
+    #[test]
+    fn weighted_unequal_weights_2x2() {
+        // Two units (i = 0,1), two periods (t = 0,1); 4 obs.
+        let mut x: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0];
+        let codes_i: Vec<i64> = vec![0, 0, 1, 1];
+        let codes_t: Vec<i64> = vec![0, 1, 0, 1];
+        let weights: Vec<f64> = vec![1.0, 3.0, 2.0, 2.0];
+        // Σw_i: g_i=0 → 1+3=4 ; g_i=1 → 2+2=4. Σw_t: g_t=0 → 1+2=3 ; g_t=1 → 3+2=5.
+        let wsum_i: Vec<f64> = vec![4.0, 4.0];
+        let wsum_t: Vec<f64> = vec![3.0, 5.0];
+
+        let mut scratch = vec![vec![0.0_f64; 2], vec![0.0_f64; 2]];
+        let info = weighted_demean_column_inplace(
+            &mut x,
+            &[&codes_i, &codes_t],
+            &weights[..],
+            &[&wsum_i[..], &wsum_t[..]],
+            &mut scratch,
+            500, 0.0, 1e-12, true, 5,
+        );
+        assert!(info.converged, "AP should converge on a 2×2 weighted problem");
+        for &v in x.iter() {
+            assert!(v.is_finite() && v.abs() < 100.0, "residual blew up: {v}");
+        }
+    }
+
+    /// Zero-weight group: must not panic, must not produce NaN.
+    #[test]
+    fn weighted_zero_group() {
+        let mut x: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0];
+        let codes: Vec<i64> = vec![0, 0, 1, 1];
+        let weights: Vec<f64> = vec![0.0, 0.0, 1.0, 1.0]; // group 0 all zero-weight
+        let wsum: Vec<f64> = vec![0.0, 2.0];
+
+        let mut scratch = vec![vec![0.0_f64; 2]];
+        let info = weighted_demean_column_inplace(
+            &mut x,
+            &[&codes],
+            &weights[..],
+            &[&wsum[..]],
+            &mut scratch,
+            100, 0.0, 1e-10, true, 5,
+        );
+        assert!(info.converged);
+        // Group 0: not updated (wsum = 0). Group 1: weighted mean = (3+4)/2 = 3.5.
+        assert!((x[0] - 1.0).abs() < 1e-12);
+        assert!((x[1] - 2.0).abs() < 1e-12);
+        assert!((x[2] - (-0.5)).abs() < 1e-12);
+        assert!((x[3] - 0.5).abs() < 1e-12);
+        for &v in x.iter() {
+            assert!(v.is_finite(), "NaN/Inf leaked: {v}");
+        }
+    }
 }
