@@ -187,3 +187,6 @@ audit_report.json
 
 # Ad-hoc citation-audit scratch (not from the tool)
 .citation_audit/
+
+# Paper JSS 
+Paper-JSS/
