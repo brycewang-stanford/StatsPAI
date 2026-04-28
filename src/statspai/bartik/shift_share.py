@@ -96,7 +96,28 @@ def bartik(
         regional_shocks=regional_shocks,
         robust=robust, alpha=alpha,
     )
-    return estimator.fit()
+    _result = estimator.fit()
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.bartik",
+            params={
+                "y": y, "endog": endog,
+                "covariates": list(covariates) if covariates else None,
+                "leave_one_out": leave_one_out,
+                "robust": robust, "alpha": alpha,
+                "shares_shape": list(shares.shape)
+                                 if hasattr(shares, "shape") else None,
+                "shocks_len": int(len(shocks))
+                              if hasattr(shocks, "__len__") else None,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 class BartikIV:

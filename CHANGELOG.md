@@ -2,6 +2,44 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Phase 10: provenance rollout to 54/925 (panel + decomp + mediation)
+
+Continues the v1.7.2 provenance rollout. **No numerical changes** to
+any estimator. 6 estimators instrumented; ``sp.panel`` refactored
+into outer wrapper + dispatcher (parallel to Phase 4 ``sp.synth`` and
+Phase 7 ``sp.etwfe``). Coverage 48/925 → **54/925**.
+
+### Added — Provenance for 6 estimators
+
+- ``sp.panel`` — multi-method panel dispatcher (FE / RE / BE / FD /
+  pooled / twoway / CRE / GMM). Refactored: outer ``panel`` wrapper
+  captures kwargs + calls ``_dispatch_panel_impl`` + attaches
+  provenance once. Public signature unchanged.
+- ``sp.causal_impact`` — Brodersen-Gallusser-Koehler-Remy-Scott
+  (2015) BSTS-style impact.
+- ``sp.mediate`` — Imai-Keele-Tingley (2010) mediation.
+- ``sp.mediate_interventional`` — VanderWeele-Vansteelandt-Robins
+  (2014) interventional (in)direct effects.
+- ``sp.bartik`` — Goldsmith-Pinkham-Sorkin-Swift (2020) shift-share IV.
+- ``sp.decompose`` — Oaxaca / FFL / DFL / RIF / gap-closing
+  dispatcher; ``Provenance.function`` surfaces the dispatched method
+  (e.g. ``"sp.decompose.oaxaca"``).
+
+### Skipped — `sp.did` top-level dispatcher
+
+The ``sp.did`` dispatcher delegates to already-instrumented inner
+estimators (``sp.did.callaway_santanna`` / ``sp.did.did_2x2`` /
+``sp.did.aggte`` / ``sp.sun_abraham`` / ``sp.synth(method='sdid')``).
+With the established ``overwrite=False`` semantics, the inner
+record's name (more specific) wins. Wrapping the dispatcher would
+add no information.
+
+### Tests
+
+8 new (6 per-estimator + 1 panel method-choice variant + 1
+multi-estimator integration). 111 green across the panel /
+causal_impact / mediation / decomposition / bartik regression sweep.
+
 ## [Unreleased] — Phase 9: provenance rollout to 48/925 (TMLE + forest + DR)
 
 Continues the v1.7.2 provenance rollout. **No numerical changes** to

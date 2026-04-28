@@ -115,4 +115,28 @@ def decompose(method: str, /, **kwargs) -> Any:
     import importlib
     mod = importlib.import_module(module_path)
     fn = getattr(mod, fn_name)
-    return fn(**kwargs)
+    _result = fn(**kwargs)
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        # Capture method + the kwargs (data is summarised separately if
+        # present). The dispatcher delegates to disparate sub-modules,
+        # each returning its own result type — provenance attaches
+        # generically via setattr; if the result type is immutable, the
+        # _lineage module silently no-ops.
+        _data = kwargs.get("data")
+        # Filter kwargs to scalar / list types for the params dict.
+        safe_kw = {
+            k: (list(v) if isinstance(v, (list, tuple)) else v)
+            for k, v in kwargs.items()
+            if k != "data" and isinstance(v, (str, int, float, bool, list, tuple, type(None)))
+        }
+        _attach_prov(
+            _result,
+            function=f"sp.decompose.{method}",
+            params={"method": method, **safe_kw},
+            data=_data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

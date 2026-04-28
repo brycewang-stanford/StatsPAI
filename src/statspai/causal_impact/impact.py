@@ -75,7 +75,25 @@ def causal_impact(
         covariates=covariates, alpha=alpha,
         n_seasons=n_seasons,
     )
-    return estimator.fit()
+    _result = estimator.fit()
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.causal_impact",
+            params={
+                "y": y, "time": time,
+                "intervention_time": intervention_time,
+                "covariates": list(covariates) if covariates else None,
+                "alpha": alpha,
+                "n_seasons": n_seasons,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 class CausalImpactEstimator:

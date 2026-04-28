@@ -378,7 +378,7 @@ So `lineage.json` traces the full chain: aggregate → producing CS run
 
 ## Provenance scorecard
 
-As of v1.7.2, **48 estimators** are instrumented:
+As of v1.7.2, **54 estimators** are instrumented:
 
 | Estimator                                                | Phase    |
 |---                                                       |---       |
@@ -430,8 +430,14 @@ As of v1.7.2, **48 estimators** are instrumented:
 | `sp.ipw` (Inverse Probability Weighting)                 | **P9**   |
 | `sp.g_computation` (parametric g-formula)                | **P9**   |
 | `sp.front_door` (Pearl front-door adjustment)            | **P9**   |
+| `sp.panel` (multi-method panel dispatcher, wrap pattern) | **P10**  |
+| `sp.causal_impact` (Brodersen et al. 2015 BSTS)          | **P10**  |
+| `sp.mediate` (Imai-Keele-Tingley)                        | **P10**  |
+| `sp.mediate_interventional` (VanderWeele 2014)           | **P10**  |
+| `sp.bartik` (Goldsmith-Pinkham-Sorkin-Swift 2020)        | **P10**  |
+| `sp.decompose` (Oaxaca / FFL / DFL / RIF dispatcher)     | **P10**  |
 
-The remaining ~877 estimators are scheduled for v1.7.3+ rollouts. To
+The remaining ~871 estimators are scheduled for v1.7.3+ rollouts. To
 check whether a specific estimator is instrumented:
 
 ```python

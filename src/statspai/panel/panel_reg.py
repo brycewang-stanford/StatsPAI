@@ -383,6 +383,60 @@ def panel(
     weights: Optional[str] = None,
     alpha: float = 0.05,
     balance: bool = False,
+    lags: int = 1,
+    gmm_lags: Tuple[int, int] = (2, 5),
+    twostep: bool = False,
+) -> PanelResults:
+    """Public ``sp.panel`` entry point — see ``_dispatch_panel_impl``
+    for the full docstring on methods and parameters.
+
+    Thin wrapper around the multi-branch dispatcher (FE / RE / BE /
+    FD / pooled / twoway / CRE / GMM) that attaches a
+    :class:`Provenance` record to the returned result so downstream
+    ``replication_pack`` / Quarto appendix / table footers can pick
+    up the call (function name, args, data hash) without each
+    individual panel backend having to opt in. The dispatcher itself
+    lives in :func:`_dispatch_panel_impl`.
+    """
+    _result = _dispatch_panel_impl(
+        data=data, formula=formula, entity=entity, time=time,
+        method=method, robust=robust, cluster=cluster,
+        weights=weights, alpha=alpha, balance=balance,
+        lags=lags, gmm_lags=gmm_lags, twostep=twostep,
+    )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.panel",
+            params={
+                "formula": formula,
+                "entity": entity, "time": time,
+                "method": method, "robust": robust,
+                "cluster": cluster, "weights": weights,
+                "alpha": alpha, "balance": balance,
+                "lags": lags, "gmm_lags": list(gmm_lags),
+                "twostep": twostep,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
+
+
+def _dispatch_panel_impl(
+    data: pd.DataFrame,
+    formula: str,
+    entity: str,
+    time: str,
+    method: str = 'fe',
+    robust: str = 'nonrobust',
+    cluster: Optional[str] = None,
+    weights: Optional[str] = None,
+    alpha: float = 0.05,
+    balance: bool = False,
     # Dynamic panel (AB/System GMM) options
     lags: int = 1,
     gmm_lags: Tuple[int, int] = (2, 5),

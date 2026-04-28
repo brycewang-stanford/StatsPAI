@@ -108,7 +108,24 @@ def mediate(
         covariates=covariates, n_boot=n_boot, alpha=alpha,
         pvalue_method=pvalue_method, seed=seed,
     )
-    return analysis.fit()
+    _result = analysis.fit()
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.mediate",
+            params={
+                "y": y, "treat": treat, "mediator": mediator,
+                "covariates": list(covariates) if covariates else None,
+                "n_boot": n_boot, "alpha": alpha,
+                "pvalue_method": pvalue_method, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 class MediationAnalysis:
@@ -594,7 +611,7 @@ def mediate_interventional(
     if n_failed > 0:
         model_info['first_bootstrap_error'] = first_err
 
-    return CausalResult(
+    _result = CausalResult(
         method='Interventional Mediation Analysis',
         estimand='IIE',
         estimate=iie_hat,
@@ -607,6 +624,25 @@ def mediate_interventional(
         model_info=model_info,
         _citation_key='mediation_interventional',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.mediate_interventional",
+            params={
+                "y": y, "treat": treat, "mediator": mediator,
+                "covariates": list(covariates) if covariates else None,
+                "tv_confounders": list(tv_confounders) if tv_confounders else None,
+                "n_mc": n_mc, "n_boot": n_boot,
+                "alpha": alpha,
+                "pvalue_method": pvalue_method, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 CausalResult._CITATIONS['mediation_interventional'] = (
