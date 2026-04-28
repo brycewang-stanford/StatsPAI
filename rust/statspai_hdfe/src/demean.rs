@@ -119,7 +119,7 @@ fn weighted_group_sweep(
 /// ``sort_perm::primary_fe_sort_perm`` before calling this. ``group_starts``
 /// has length ``n_groups + 1``, with ``group_starts[g]..group_starts[g+1]``
 /// the contiguous slice of obs belonging to group ``g``. ``wsum[g]`` is the
-/// precomputed weighted group sum.
+/// precomputed weighted group sum (``Σ_{i ∈ g} weights[i]``).
 ///
 /// Cost: O(n) sequential. No random-access into a per-group scratch buffer
 /// — the entire per-group accumulate / divide / subtract chain happens
@@ -135,6 +135,10 @@ pub fn weighted_group_sweep_sorted(
 ) {
     debug_assert_eq!(x.len(), weights.len());
     debug_assert_eq!(group_starts.len(), wsum.len() + 1);
+    debug_assert!(
+        group_starts.last().copied().unwrap_or(0) <= x.len(),
+        "group_starts terminal offset overflows x.len()"
+    );
 
     for g in 0..wsum.len() {
         let lo = group_starts[g];
@@ -744,6 +748,22 @@ mod tests {
         for (a, b) in x_sorted.iter().zip(x_rand.iter()) {
             assert!((a - b).abs() < 1e-15, "sorted={a} random={b}");
         }
+    }
+
+    /// Empty interior group (group_starts has adjacent equal entries): the
+    /// `lo == hi` skip branch must fire and the function must produce
+    /// correct residuals for the populated group.
+    #[test]
+    fn sorted_empty_interior_group_no_panic() {
+        // group_starts = [0, 0, 2]: group 0 has no obs, group 1 has [0, 1].
+        let mut x: Vec<f64> = vec![3.0, 4.0];
+        let weights: Vec<f64> = vec![1.0, 1.0];
+        let group_starts = vec![0usize, 0, 2];
+        let wsum: Vec<f64> = vec![0.0, 2.0];
+        weighted_group_sweep_sorted(&mut x, &weights, &group_starts, &wsum);
+        // Group 1 mean = (3 + 4) / 2 = 3.5; residuals [-0.5, +0.5].
+        assert!((x[0] - (-0.5)).abs() < 1e-15);
+        assert!((x[1] - 0.5).abs() < 1e-15);
     }
 
     /// Zero-weight group: must not panic, must not produce NaN, and must
