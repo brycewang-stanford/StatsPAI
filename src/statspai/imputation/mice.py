@@ -356,7 +356,7 @@ def mice(
 
         imputed_datasets.append(df_imp)
 
-    return MICEResult(
+    _result = MICEResult(
         imputed_datasets=imputed_datasets,
         n_imputations=m,
         n_obs=len(df),
@@ -365,6 +365,27 @@ def mice(
         methods=methods,
         convergence=True,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.imputation.mice",
+            params={
+                "m": m, "max_iter": max_iter,
+                "method": method if isinstance(method, str)
+                          else dict(method),
+                "predictors": (
+                    {k: list(v) for k, v in predictors.items()}
+                    if predictors else None
+                ),
+                "seed": seed, "print_progress": print_progress,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def mi_estimate(

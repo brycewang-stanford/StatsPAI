@@ -173,7 +173,7 @@ def lee_bounds(
         'n_control_observed': len(Y0),
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method='Lee Bounds (Lee 2009)',
         estimand='ATE (partially identified)',
         estimate=midpoint,
@@ -186,6 +186,24 @@ def lee_bounds(
         model_info=model_info,
         _citation_key='lee_bounds',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.bounds.lee_bounds",
+            params={
+                "y": y, "treat": treat, "selection": selection,
+                "covariates": list(covariates) if covariates else None,
+                "n_bootstrap": n_bootstrap,
+                "alpha": alpha,
+                "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def _compute_lee_bounds(Y1, Y0, p1, p0):
@@ -340,7 +358,7 @@ def manski_bounds(
         'mean_y_control': float(np.mean(Y0)),
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method=f'Manski Bounds (assumption={assumption})',
         estimand='ATE (partially identified)',
         estimate=midpoint,
@@ -353,6 +371,25 @@ def manski_bounds(
         model_info=model_info,
         _citation_key='manski_bounds',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.bounds.manski_bounds",
+            params={
+                "y": y, "treat": treat,
+                "y_lower": y_lower, "y_upper": y_upper,
+                "assumption": assumption,
+                "alpha": alpha,
+                "n_bootstrap": n_bootstrap,
+                "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def _compute_manski_bounds(Y1, Y0, p, y_lo, y_hi, assumption):

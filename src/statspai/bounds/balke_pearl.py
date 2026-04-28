@@ -184,7 +184,7 @@ def balke_pearl(
         }
     ).T.rename(columns={0: "probability"})
 
-    return BalkePearlResult(
+    _result = BalkePearlResult(
         lower=lb,
         upper=ub,
         width=ub - lb,
@@ -193,6 +193,21 @@ def balke_pearl(
         joint_probs=joint,
         n_obs=n,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.bounds.balke_pearl",
+            params={
+                "y": y, "treat": treat, "instrument": instrument,
+                "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["balke_pearl", "BalkePearlResult"]

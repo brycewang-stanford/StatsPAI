@@ -2,6 +2,24 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Phase 12: provenance rollout to 66/925 (bounds + randomization + imputation)
+
+Continues the v1.7.2 provenance rollout. **No numerical changes** to
+any estimator. 5 estimators instrumented spanning bounds /
+randomization inference / imputation. Coverage 61/925 → **66/925**.
+
+### Added — Provenance for 5 estimators
+
+- ``sp.balke_pearl`` — Balke-Pearl bounds on ATE under monotonicity.
+- ``sp.lee_bounds`` — Lee (2009) trimming bounds for selection.
+- ``sp.manski_bounds`` — Manski (1990) worst-case ATE bounds.
+- ``sp.fisher_exact`` — Fisher randomization test (permutation).
+- ``sp.imputation.mice`` — Multiple Imputation by Chained Equations.
+
+### Tests
+
+6 new (5 per-estimator + 1 multi-estimator integration). All pass.
+
 ## [Unreleased] — Phase 11: provenance rollout to 61/925 (spatial + qte + bootstrap + conformal)
 
 Continues the v1.7.2 provenance rollout. **No numerical changes** to

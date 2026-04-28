@@ -349,7 +349,7 @@ def fisher_exact(
             float(np.percentile(perm_stats, 100 * (1 - alpha / 2))),
         )
 
-    return FisherResult(
+    _result = FisherResult(
         statistic=obs_stat,
         p_value=p_two_sided,
         p_one_sided=p_one_sided,
@@ -360,6 +360,27 @@ def fisher_exact(
         n_obs=n,
         n_treated=n_treated,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.inference.fisher_exact",
+            params={
+                "y": y, "treatment": treatment,
+                "statistic": statistic,
+                "controls": list(controls) if controls else None,
+                "n_perm": n_perm,
+                "stratify": stratify,
+                "cluster": cluster,
+                "seed": seed,
+                "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def ri_test(

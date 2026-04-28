@@ -378,7 +378,7 @@ So `lineage.json` traces the full chain: aggregate → producing CS run
 
 ## Provenance scorecard
 
-As of v1.7.2, **61 estimators** are instrumented:
+As of v1.7.2, **66 estimators** are instrumented:
 
 | Estimator                                                | Phase    |
 |---                                                       |---       |
@@ -443,8 +443,13 @@ As of v1.7.2, **61 estimators** are instrumented:
 | `sp.qte.qte_hd_panel` (HD panel QTE via LASSO)           | **P11**  |
 | `sp.bootstrap` (general-purpose bootstrap)               | **P11**  |
 | `sp.conformal_cate` (conformal CATE intervals)           | **P11**  |
+| `sp.balke_pearl` (Balke-Pearl ATE bounds)                | **P12**  |
+| `sp.lee_bounds` (Lee 2009 trimming bounds)               | **P12**  |
+| `sp.manski_bounds` (Manski 1990 worst-case)              | **P12**  |
+| `sp.fisher_exact` (Fisher randomization test)            | **P12**  |
+| `sp.imputation.mice` (Multiple Imputation Chained Eq.)   | **P12**  |
 
-The remaining ~864 estimators are scheduled for v1.7.3+ rollouts. To
+The remaining ~859 estimators are scheduled for v1.7.3+ rollouts. To
 check whether a specific estimator is instrumented:
 
 ```python
