@@ -163,7 +163,7 @@ def gnn_causal(
     crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (ate - crit * se, ate + crit * se)
 
-    return GNNCausalResult(
+    _result = GNNCausalResult(
         ate=ate,
         se=se,
         ci=ci,
@@ -173,6 +173,25 @@ def gnn_causal(
         n_layers=n_layers,
         detail={"propensity_range": (float(e_hat.min()), float(e_hat.max()))},
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.neural_causal.gnn_causal",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "n_layers": n_layers, "n_trees": n_trees,
+                "min_leaf": min_leaf,
+                "propensity_bounds": list(propensity_bounds),
+                "random_state": random_state, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["gnn_causal", "GNNCausalResult"]

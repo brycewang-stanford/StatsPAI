@@ -378,7 +378,7 @@ So `lineage.json` traces the full chain: aggregate → producing CS run
 
 ## Provenance scorecard
 
-As of v1.7.2, **109 estimators** are instrumented (>12× original 9-baseline):
+As of v1.7.2, **112 estimators** are instrumented (>12× original 9-baseline):
 
 | Estimator                                                | Phase    |
 |---                                                       |---       |
@@ -491,8 +491,11 @@ As of v1.7.2, **109 estimators** are instrumented (>12× original 9-baseline):
 | `sp.causal_discovery.ges` (Greedy Equivalence Search)    | **P19**  |
 | `sp.causal_discovery.lingam` (LiNGAM)                    | **P19**  |
 | `sp.causal_discovery.dynotears` (dynamic NOTEARS)        | **P19**  |
+| `sp.causal_text.text_treatment_effect` (Veitch-Wang-Blei)| **P20**  |
+| `sp.neural_causal.gnn_causal` (GCN-AIPW under network)   | **P20**  |
+| `sp.fairness.demographic_parity`                         | **P20**  |
 
-The remaining ~815 estimators are scheduled for v1.7.3+ rollouts. To
+The remaining ~813 estimators are scheduled for v1.7.3+ rollouts. To
 check whether a specific estimator is instrumented:
 
 ```python

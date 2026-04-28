@@ -230,7 +230,7 @@ def text_treatment_effect(
         'method_family': 'text-as-treatment (Veitch-Wang-Blei 2020 MVP)',
     }
 
-    return TextTreatmentResult(
+    _result = TextTreatmentResult(
         method='text_treatment_effect',
         estimand='ATE',
         estimate=estimate,
@@ -243,3 +243,21 @@ def text_treatment_effect(
         embedder_name=embedder if isinstance(embedder, str) else 'callable',
         diagnostics=diagnostics,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.causal_text.text_treatment_effect",
+            params={
+                "text_col": text_col,
+                "outcome": outcome, "treatment": treatment,
+                "covariates": list(covariates) if covariates else None,
+                "embedder": embedder if isinstance(embedder, str) else "callable",
+                "n_components": n_components, "seed": seed, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

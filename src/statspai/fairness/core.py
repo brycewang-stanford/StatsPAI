@@ -157,7 +157,7 @@ def demographic_parity(
         per_group[g] = float(yhat[mask].mean()) if mask.any() else float("nan")
     rates = np.array(list(per_group.values()))
     gap = float(rates.max() - rates.min())
-    return FairnessResult(
+    _result = FairnessResult(
         metric="demographic_parity",
         value=gap,
         per_group=per_group,
@@ -168,6 +168,21 @@ def demographic_parity(
             "Gap is max - min across groups."
         ),
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.fairness.demographic_parity",
+            params={
+                "predictions": predictions, "protected": protected,
+                "threshold": threshold,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def equalized_odds(
