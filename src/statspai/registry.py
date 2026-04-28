@@ -6976,6 +6976,278 @@ def _build_registry():
         typical_n_min=200,
     ))
 
+    # ------------------------------------------------------------------ #
+    #  Production function estimators (proxy-variable identification)
+    # ------------------------------------------------------------------ #
+    register(FunctionSpec(
+        name="prod_fn",
+        category="structural",
+        description=(
+            "Production function estimator (Cobb-Douglas) — unified "
+            "method= dispatcher. Solves the simultaneity between input "
+            "choices and unobserved productivity by inverting an input "
+            "policy as a control function. method= selects: 'op' "
+            "(Olley-Pakes 1996, investment proxy), 'lp' (Levinsohn-Petrin "
+            "2003, intermediate-input proxy), 'acf' (Ackerberg-Caves-Frazer "
+            "2015, corrected identification — DEFAULT), 'wrdg' (Wooldridge "
+            "2009, one-step joint GMM)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True, description="Long panel: one row per (firm, year)."),
+            ParamSpec("output", "str", False, "y", "Log output column."),
+            ParamSpec("free", "list", False, None, "Free inputs, default ['l']."),
+            ParamSpec("state", "list", False, None, "State/predetermined inputs, default ['k']."),
+            ParamSpec("proxy", "str", False, None, "Proxy column. Defaults to 'i' for OP, 'm' otherwise."),
+            ParamSpec("panel_id", "str", False, "id", "Firm identifier column."),
+            ParamSpec("time", "str", False, "year", "Time identifier column."),
+            ParamSpec("method", "str", False, "acf", "Estimator", ["op", "lp", "acf", "wrdg"]),
+            ParamSpec("polynomial_degree", "int", False, 3, "Stage-1 polynomial degree."),
+            ParamSpec("productivity_degree", "int", False, 1, "Productivity AR polynomial degree (1=linear AR(1), recommended)."),
+            ParamSpec("functional_form", "str", False, "cobb-douglas",
+                      "Production function form (translog adds quadratic + cross terms).",
+                      ["cobb-douglas", "translog"]),
+            ParamSpec("boot_reps", "int", False, 0, "Firm-cluster bootstrap replications for SE."),
+            ParamSpec("seed", "int", False, None),
+        ],
+        returns="ProductionResult",
+        example=(
+            'sp.prod_fn(df, output="y", free="l", state="k", proxy="m", '
+            'panel_id="id", time="year", method="acf", '
+            'functional_form="translog", boot_reps=200, seed=0)'
+        ),
+        tags=["production", "tfp", "structural", "panel", "proxy",
+              "olley-pakes", "levinsohn-petrin", "ackerberg-caves-frazer",
+              "wooldridge", "markup"],
+        reference=(
+            "Olley & Pakes (1996, Econometrica); Levinsohn & Petrin "
+            "(2003, RES); Ackerberg, Caves & Frazer (2015, Econometrica); "
+            "Wooldridge (2009, EL)."
+        ),
+        pre_conditions=[
+            "Long panel with at least 2 consecutive years per firm (lag operator).",
+            "Log output and log inputs (labor, capital, materials/investment).",
+            "OP requires strictly positive investment (firms with i=0 are dropped).",
+            "Sufficient time series per firm (≥3 periods recommended) for AR identification.",
+        ],
+        assumptions=[
+            "Hicks-neutral productivity ω enters output additively in logs.",
+            "ω follows a first-order Markov process (linear AR(1) by default).",
+            "Capital is predetermined (chosen at t-1, observed at t).",
+            "Proxy variable strictly monotone in ω given state inputs — control function inversion.",
+            "ACF additionally: free input l_it depends on ω_it, so lagged labor instruments stage 2.",
+            "OP/LP β_l identification fails when labor responds linearly to current ω (use ACF instead — Ackerberg et al. 2015).",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="β_l estimate near OLS (large) and stable across methods",
+                exception="AssumptionWarning",
+                remedy="OP/LP identification likely failing (ACF critique). Switch method='acf' or 'wrdg'.",
+                alternative="sp.acf",
+            ),
+            FailureMode(
+                symptom="Optimization not converged (diagnostics['stage2_converged']=False)",
+                exception="ConvergenceWarning",
+                remedy="Reduce productivity_degree to 1 (linear AR(1)) or polynomial_degree to 2.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="Too few observations after lag (< 10)",
+                exception="ValueError",
+                remedy="Increase panel length per firm or pool more firms.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="OP estimator drops a large fraction of observations",
+                exception="AssumptionWarning",
+                remedy="Many firms have zero investment — switch to LP with method='lp', proxy='m'.",
+                alternative="sp.levinsohn_petrin",
+            ),
+        ],
+        alternatives=["frontier", "blp", "regress"],
+        typical_n_min=200,  # firm-year obs; ~50 firms × 4 years
+    ))
+
+    register(FunctionSpec(
+        name="olley_pakes",
+        category="structural",
+        description=(
+            "Olley-Pakes (1996) production function estimator. Two-stage "
+            "control function with INVESTMENT as the productivity proxy. "
+            "Drops zero-investment firms (required for the inversion). "
+            "Note: β_l identification can fail if labor responds to "
+            "current productivity (ACF critique) — prefer sp.acf for "
+            "modern work."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("output", "str", False, "y"),
+            ParamSpec("free", "list", False, None, "Default ['l']."),
+            ParamSpec("state", "list", False, None, "Default ['k']."),
+            ParamSpec("proxy", "str", False, "i", "Investment column (must be > 0)."),
+            ParamSpec("panel_id", "str", False, "id"),
+            ParamSpec("time", "str", False, "year"),
+            ParamSpec("polynomial_degree", "int", False, 3),
+            ParamSpec("productivity_degree", "int", False, 1),
+            ParamSpec("functional_form", "str", False, "cobb-douglas",
+                      "Production function form", ["cobb-douglas", "translog"]),
+            ParamSpec("boot_reps", "int", False, 0),
+            ParamSpec("seed", "int", False, None),
+            ParamSpec("drop_zero_proxy", "bool", False, True),
+        ],
+        returns="ProductionResult",
+        example='sp.olley_pakes(df, output="y", free="l", state="k", proxy="i", panel_id="id", time="year")',
+        tags=["production", "tfp", "olley-pakes", "structural", "panel"],
+        reference="Olley & Pakes (1996, Econometrica) [@olley1996dynamics]",
+        alternatives=["levinsohn_petrin", "ackerberg_caves_frazer", "wooldridge_prod"],
+        typical_n_min=200,
+    ))
+
+    register(FunctionSpec(
+        name="levinsohn_petrin",
+        category="structural",
+        description=(
+            "Levinsohn-Petrin (2003) production function estimator. Uses "
+            "intermediate inputs (materials/energy) as proxy — avoids the "
+            "OP zero-investment selection problem. Same ACF caveat applies "
+            "to β_l identification: prefer sp.acf for rigorous "
+            "identification."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("output", "str", False, "y"),
+            ParamSpec("free", "list", False, None, "Default ['l']."),
+            ParamSpec("state", "list", False, None, "Default ['k']."),
+            ParamSpec("proxy", "str", False, "m", "Intermediate input."),
+            ParamSpec("panel_id", "str", False, "id"),
+            ParamSpec("time", "str", False, "year"),
+            ParamSpec("polynomial_degree", "int", False, 3),
+            ParamSpec("productivity_degree", "int", False, 1),
+            ParamSpec("functional_form", "str", False, "cobb-douglas",
+                      "Production function form", ["cobb-douglas", "translog"]),
+            ParamSpec("boot_reps", "int", False, 0),
+            ParamSpec("seed", "int", False, None),
+        ],
+        returns="ProductionResult",
+        example='sp.levinsohn_petrin(df, output="y", free="l", state="k", proxy="m", panel_id="id", time="year")',
+        tags=["production", "tfp", "levinsohn-petrin", "structural", "panel"],
+        reference="Levinsohn & Petrin (2003, Rev. Econ. Stud.) [@levinsohn2003estimating]",
+        alternatives=["olley_pakes", "ackerberg_caves_frazer", "wooldridge_prod"],
+        typical_n_min=200,
+    ))
+
+    register(FunctionSpec(
+        name="ackerberg_caves_frazer",
+        category="structural",
+        description=(
+            "Ackerberg-Caves-Frazer (2015) production function estimator. "
+            "Modern default. Corrects the OP/LP identification problem: "
+            "all coefficient identification moves to stage 2, with free "
+            "inputs instrumented by their lagged values and state inputs "
+            "at the contemporaneous level. Aliased as sp.acf."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("output", "str", False, "y"),
+            ParamSpec("free", "list", False, None, "Default ['l']. Instrumented with lag in stage 2."),
+            ParamSpec("state", "list", False, None, "Default ['k']."),
+            ParamSpec("proxy", "str", False, "m"),
+            ParamSpec("panel_id", "str", False, "id"),
+            ParamSpec("time", "str", False, "year"),
+            ParamSpec("polynomial_degree", "int", False, 3),
+            ParamSpec("productivity_degree", "int", False, 1),
+            ParamSpec("functional_form", "str", False, "cobb-douglas",
+                      "Production function form", ["cobb-douglas", "translog"]),
+            ParamSpec("boot_reps", "int", False, 0),
+            ParamSpec("seed", "int", False, None),
+        ],
+        returns="ProductionResult",
+        example='sp.acf(df, output="y", free="l", state="k", proxy="m", panel_id="id", time="year", boot_reps=200, seed=0)',
+        tags=["production", "tfp", "ackerberg-caves-frazer", "acf", "structural", "panel"],
+        reference="Ackerberg, Caves & Frazer (2015, Econometrica) [@ackerberg2015identification]",
+        alternatives=["olley_pakes", "levinsohn_petrin", "wooldridge_prod"],
+        typical_n_min=200,
+    ))
+
+    register(FunctionSpec(
+        name="wooldridge_prod",
+        category="structural",
+        description=(
+            "Wooldridge (2009) one-step GMM production function "
+            "estimator. Stacks the level equation and the productivity-"
+            "substituted equation into a single nonlinear LS problem. "
+            "More efficient than two-step ACF; covariance matrix "
+            "available without bootstrap."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("output", "str", False, "y"),
+            ParamSpec("free", "list", False, None, "Default ['l']."),
+            ParamSpec("state", "list", False, None, "Default ['k']."),
+            ParamSpec("proxy", "str", False, "m"),
+            ParamSpec("panel_id", "str", False, "id"),
+            ParamSpec("time", "str", False, "year"),
+            ParamSpec("polynomial_degree", "int", False, 2, "Lower than ACF default — joint problem is higher-dimensional."),
+            ParamSpec("productivity_degree", "int", False, 2),
+            ParamSpec("boot_reps", "int", False, 0),
+            ParamSpec("seed", "int", False, None),
+        ],
+        returns="ProductionResult",
+        example='sp.wooldridge_prod(df, output="y", free="l", state="k", proxy="m", panel_id="id", time="year")',
+        tags=["production", "tfp", "wooldridge", "gmm", "structural", "panel"],
+        reference="Wooldridge (2009, Economics Letters) [@wooldridge2009estimating]",
+        alternatives=["ackerberg_caves_frazer", "olley_pakes", "levinsohn_petrin"],
+        typical_n_min=200,
+    ))
+
+    # Aliases for Stata / R compatibility ------------------------------ #
+    for alias, canonical in (
+        ("acf", "ackerberg_caves_frazer"),
+        ("opreg", "olley_pakes"),
+        ("levpet", "levinsohn_petrin"),
+    ):
+        if canonical in _REGISTRY:
+            base = _REGISTRY[canonical]
+            register(FunctionSpec(
+                name=alias,
+                category=base.category,
+                description=f"Alias for sp.{canonical}. " + base.description,
+                params=list(base.params),
+                returns=base.returns,
+                example=base.example.replace(canonical, alias),
+                tags=base.tags,
+                reference=base.reference,
+                pre_conditions=list(base.pre_conditions),
+                assumptions=list(base.assumptions),
+                failure_modes=list(base.failure_modes),
+                alternatives=list(base.alternatives),
+                typical_n_min=base.typical_n_min,
+            ))
+
+    register(FunctionSpec(
+        name="markup",
+        category="structural",
+        description=(
+            "De Loecker & Warzynski (2012) firm-time markup estimator. "
+            "Takes a fitted ProductionResult plus revenue and "
+            "input-cost columns; returns μ_it = θ_v_it · (PQ)/(P_v V) "
+            "where θ_v is the output elasticity of the flexible input. "
+            "Cobb-Douglas only for now (translog forthcoming)."
+        ),
+        params=[
+            ParamSpec("result", "ProductionResult", True),
+            ParamSpec("revenue", "str", True, description="Log revenue column."),
+            ParamSpec("input_cost", "str", True, description="Log expenditure on flexible input."),
+            ParamSpec("flexible_input", "str", False, "m"),
+            ParamSpec("correct_eta", "bool", False, True, "Subtract stage-1 i.i.d. shock from log revenue."),
+        ],
+        returns="pd.Series of firm-time markups",
+        example='mu = sp.markup(res, revenue="log_rev", input_cost="log_mat", flexible_input="m")',
+        tags=["markup", "deloecker-warzynski", "production", "structural"],
+        reference="De Loecker & Warzynski (2012, AER) [@deloecker2012markups]",
+        alternatives=["prod_fn"],
+        typical_n_min=200,
+    ))
+
     _BASE_REGISTRY_BUILT = True
 
 
