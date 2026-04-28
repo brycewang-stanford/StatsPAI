@@ -328,16 +328,11 @@ def _weighted_ap_demean(
             accelerate=accelerate, accel_period=accel_period,
         )
 
-    if arr.ndim == 1:
-        squeeze = True
-        arr2d = arr.reshape(-1, 1).astype(np.float64, copy=True)
-    else:
-        squeeze = False
-        arr2d = arr.astype(np.float64, copy=True)
-
-    # The Rust path requires F-contiguous input. asfortranarray is a no-op
-    # if arr2d is already F-order, otherwise one allocation.
-    arr_F = np.asfortranarray(arr2d)
+    squeeze = arr.ndim == 1
+    src = arr.reshape(-1, 1) if squeeze else arr
+    # Single allocation directly into F-order f64 (avoids the previous
+    # astype-then-asfortranarray double copy on the C-order hot path).
+    arr_F = np.array(src, dtype=np.float64, order="F", copy=True)
 
     # Per-FE precompute of weighted group sums. K bincount calls per IRLS
     # iter — O(n) each, negligible vs the sweep.

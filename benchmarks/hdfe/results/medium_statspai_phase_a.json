@@ -1,0 +1,18 @@
+{
+  "phase": "A",
+  "rust_crate_version": "0.3.0",
+  "statspai_version": "1.7.1",
+  "dataset": "medium",
+  "n": 1000000,
+  "n_repeats": 3,
+  "wall_seconds": [
+    2.4487253329716623,
+    2.361706375144422,
+    2.6484890419524163
+  ],
+  "wall_seconds_median": 2.4487253329716623,
+  "iterations": 6,
+  "converged": true,
+  "gate_seconds": 1.5,
+  "passes_gate": false
+}
