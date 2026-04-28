@@ -507,6 +507,138 @@ pub fn weighted_demean_matrix_fortran_inplace(
         .collect()
 }
 
+/// Sort-aware weighted demean of a column-major (n × p) matrix in place.
+///
+/// Operates on PRE-PERMUTED inputs: the caller applies π from
+/// ``sort_perm::primary_fe_sort_perm`` to ``mat`` (rows), ``weights``,
+/// the primary FE codes (now contiguously grouped), and the secondary
+/// FE codes (re-indexed under π). The primary FE sweep uses the
+/// sequential kernel (``weighted_group_sweep_sorted``); secondary FE
+/// sweeps use the random-scatter kernel because their cardinality is
+/// typically small enough that the bucket array fits in L1 (G2 = 1k →
+/// 8 KB).
+///
+/// `primary_starts` has length `G1 + 1`; `primary_wsum` has length `G1`.
+/// `secondary_codes` and `secondary_wsum` are slices of slices, K-1
+/// entries each (one per non-primary FE), all under π. `secondary_lens`
+/// gives per-FE cardinalities for non-primary FEs (used to size per-thread
+/// scratch). `weights_sorted` is the per-obs weight in π order.
+#[allow(clippy::too_many_arguments)]
+pub fn weighted_demean_matrix_fortran_inplace_sorted(
+    mat: &mut [f64],
+    n: usize,
+    p: usize,
+    primary_starts: &[usize],
+    primary_wsum: &[f64],
+    secondary_codes: &[&[i64]],
+    secondary_wsum: &[&[f64]],
+    secondary_lens: &[usize],
+    weights_sorted: &[f64],
+    max_iter: u32,
+    tol_abs: f64,
+    tol_rel: f64,
+    accelerate: bool,
+    accel_period: u32,
+) -> Vec<DemeanInfo> {
+    debug_assert_eq!(mat.len(), n * p);
+    debug_assert_eq!(weights_sorted.len(), n);
+    debug_assert_eq!(secondary_codes.len(), secondary_wsum.len());
+    debug_assert_eq!(secondary_codes.len(), secondary_lens.len());
+
+    let cols: Vec<&mut [f64]> = mat.chunks_mut(n).collect();
+
+    cols.into_par_iter()
+        .map(|col| {
+            // Per-thread scratch for non-primary FE dimensions only.
+            let mut sec_scratch: Vec<Vec<f64>> =
+                secondary_lens.iter().map(|&g| vec![0.0_f64; g]).collect();
+
+            // K==1 closed form: just the primary sequential sweep.
+            if secondary_codes.is_empty() {
+                weighted_group_sweep_sorted(col, weights_sorted, primary_starts, primary_wsum);
+                return DemeanInfo {
+                    iters: 1,
+                    converged: true,
+                    max_dx: 0.0,
+                };
+            }
+
+            // K>=2: AP loop with mixed sweeps.
+            let mut base_scale = 0.0_f64;
+            for &v in col.iter() {
+                let av = v.abs();
+                if av > base_scale {
+                    base_scale = av;
+                }
+            }
+            base_scale += 1e-30;
+            let stop = tol_abs + tol_rel * base_scale;
+
+            let mut hist: Vec<Vec<f64>> = Vec::with_capacity(3);
+            let mut max_dx = f64::INFINITY;
+            let mut converged = false;
+            let mut iters: u32 = 0;
+            let mut before: Vec<f64> = vec![0.0; col.len()];
+
+            for it in 0..max_iter {
+                before.copy_from_slice(col);
+                // Primary (sequential) first.
+                weighted_group_sweep_sorted(col, weights_sorted, primary_starts, primary_wsum);
+                // Secondary (random scatter) — small bucket arrays, L1-resident.
+                for k in 0..secondary_codes.len() {
+                    weighted_group_sweep(
+                        col,
+                        secondary_codes[k],
+                        weights_sorted,
+                        secondary_wsum[k],
+                        &mut sec_scratch[k],
+                    );
+                }
+
+                let mut local_max = 0.0_f64;
+                for i in 0..col.len() {
+                    let d = (col[i] - before[i]).abs();
+                    if d > local_max {
+                        local_max = d;
+                    }
+                }
+                max_dx = local_max;
+                iters = it + 1;
+
+                if max_dx <= stop {
+                    converged = true;
+                    break;
+                }
+
+                if accelerate {
+                    hist.push(col.to_vec());
+                    if hist.len() >= 3 && (it + 1) % accel_period == 0 {
+                        let n_h = hist.len();
+                        let acc = aitken_step(&hist[n_h - 3], &hist[n_h - 2], &hist[n_h - 1]);
+                        let mut max_abs_acc = 0.0_f64;
+                        for &v in &acc {
+                            let av = v.abs();
+                            if av > max_abs_acc {
+                                max_abs_acc = av;
+                            }
+                        }
+                        if max_abs_acc < 10.0 * base_scale {
+                            col.copy_from_slice(&acc);
+                        }
+                        hist.clear();
+                    }
+                }
+            }
+
+            DemeanInfo {
+                iters,
+                converged,
+                max_dx,
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
