@@ -162,7 +162,7 @@ def multi_arm_forest(
         crit = float(stats.norm.ppf(1 - alpha / 2))
         ci[k] = (ate[k] - crit * se, ate[k] + crit * se)
 
-    return MultiArmForestResult(
+    _result = MultiArmForestResult(
         arms=arms,
         ate=ate,
         ate_se=ate_se,
@@ -171,6 +171,25 @@ def multi_arm_forest(
         n_obs=n,
         detail={"propensity_ranges": {k: (float(pi[k].min()), float(pi[k].max())) for k in arms}},
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.multi_arm_forest",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "n_trees": n_trees, "min_leaf": min_leaf,
+                "max_depth": max_depth,
+                "propensity_bounds": list(propensity_bounds),
+                "random_state": random_state, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["multi_arm_forest", "MultiArmForestResult"]

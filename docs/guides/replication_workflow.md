@@ -378,7 +378,7 @@ So `lineage.json` traces the full chain: aggregate → producing CS run
 
 ## Provenance scorecard
 
-As of v1.7.2, **36 estimators** are instrumented:
+As of v1.7.2, **48 estimators** are instrumented:
 
 | Estimator                                                | Phase    |
 |---                                                       |---       |
@@ -418,8 +418,20 @@ As of v1.7.2, **36 estimators** are instrumented:
 | `sp.genmatch` (Diamond-Sekhon 2013 genetic)              | **P8**   |
 | `sp.sbw` (Zubizarreta 2015 Stable Balancing Weights)     | **P8**   |
 | `sp.dml` (Chernozhukov et al. 2018 DML dispatcher)       | **P8**   |
+| `sp.tmle` (van der Laan-Rose Targeted MLE)               | **P9**   |
+| `sp.tmle.ltmle` (Longitudinal TMLE)                      | **P9**   |
+| `sp.tmle.hal_tmle` (TMLE with HAL nuisance)              | **P9**   |
+| `sp.causal_forest` (GRF causal forest)                   | **P9**   |
+| `sp.multi_arm_forest` (Athey-Tibshirani-Wager)           | **P9**   |
+| `sp.iv_forest` (IV causal forest)                        | **P9**   |
+| `sp.metalearner` (S/T/X/R/DR dispatcher)                 | **P9**   |
+| `sp.bcf` (Hahn-Murray-Carvalho Bayesian Causal Forest)   | **P9**   |
+| `sp.aipw` (Augmented IPW, doubly robust)                 | **P9**   |
+| `sp.ipw` (Inverse Probability Weighting)                 | **P9**   |
+| `sp.g_computation` (parametric g-formula)                | **P9**   |
+| `sp.front_door` (Pearl front-door adjustment)            | **P9**   |
 
-The remaining ~889 estimators are scheduled for v1.7.3+ rollouts. To
+The remaining ~877 estimators are scheduled for v1.7.3+ rollouts. To
 check whether a specific estimator is instrumented:
 
 ```python

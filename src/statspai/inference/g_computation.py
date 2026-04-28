@@ -278,7 +278,7 @@ def g_computation(
         summary_ci = (float(ci_lo[0]), float(ci_hi[0]))
         label = estimand
 
-    return CausalResult(
+    _result = CausalResult(
         method='G-computation',
         estimand=label,
         estimate=summary_est,
@@ -291,6 +291,27 @@ def g_computation(
         model_info=model_info,
         _citation_key='g_computation',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.g_computation",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "estimand": estimand,
+                "treat_values": list(treat_values) if treat_values
+                                else None,
+                "ml_Q": type(ml_Q).__name__ if ml_Q is not None else None,
+                "n_boot": n_boot,
+                "alpha": alpha, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # Citation

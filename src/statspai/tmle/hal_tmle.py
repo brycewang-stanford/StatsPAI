@@ -277,4 +277,27 @@ def hal_tmle(
         info["projection_shrinkage"] = float(shrink)
 
     result.model_info = info
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            result,
+            function="sp.tmle.hal_tmle",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "variant": variant,
+                "lambda_outcome": lambda_outcome,
+                "C_propensity": C_propensity,
+                "max_anchors_per_col": max_anchors_per_col,
+                "n_folds": n_folds,
+                "estimand": estimand,
+                "alpha": alpha,
+                "propensity_bounds": list(propensity_bounds),
+                "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
     return result

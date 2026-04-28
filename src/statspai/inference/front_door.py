@@ -249,7 +249,7 @@ def front_door(
     if mediator_type == 'continuous':
         model_info['n_mc'] = n_mc
 
-    return CausalResult(
+    _result = CausalResult(
         method='Front-door adjustment',
         estimand='ATE',
         estimate=float(point),
@@ -261,6 +261,25 @@ def front_door(
         model_info=model_info,
         _citation_key='front_door',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.front_door",
+            params={
+                "y": y, "treat": treat, "mediator": mediator,
+                "covariates": list(covariates) if covariates else None,
+                "mediator_type": mediator_type,
+                "integrate_by": integrate_by,
+                "n_boot": n_boot, "n_mc": n_mc,
+                "alpha": alpha, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def _ols_fit(y, X):

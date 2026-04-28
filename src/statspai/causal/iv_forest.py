@@ -184,7 +184,7 @@ def iv_forest(
     crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (late - crit * se, late + crit * se)
 
-    return IVForestResult(
+    _result = IVForestResult(
         late=late,
         se=se,
         ci=ci,
@@ -195,6 +195,25 @@ def iv_forest(
             "first_stage_corr": float(np.corrcoef(Z_res, D_res)[0, 1]),
         },
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.iv_forest",
+            params={
+                "y": y, "treat": treat, "instrument": instrument,
+                "covariates": list(covariates),
+                "n_trees": n_trees, "min_leaf": min_leaf,
+                "max_depth": max_depth,
+                "n_bootstrap": n_bootstrap,
+                "random_state": random_state, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["iv_forest", "IVForestResult"]

@@ -158,7 +158,7 @@ def ipw(
         "n_bootstrap": n_bootstrap,
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method=f"IPW ({estimand})",
         estimand=estimand,
         estimate=estimate,
@@ -169,6 +169,25 @@ def ipw(
         n_obs=n,
         model_info=model_info,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.ipw",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "estimand": estimand,
+                "trim": trim, "normalize": normalize,
+                "n_bootstrap": n_bootstrap,
+                "alpha": alpha, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ====================================================================== #

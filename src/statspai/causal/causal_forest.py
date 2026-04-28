@@ -877,4 +877,24 @@ def causal_forest(
     )
     
     cf.fit(formula=formula, data=data, Y=Y, T=T, X=X, W=W)
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            cf,
+            function="sp.causal_forest",
+            params={
+                "formula": formula,
+                "n_estimators": n_estimators,
+                "min_samples_leaf": min_samples_leaf,
+                "max_depth": max_depth,
+                "model_y": type(model_y).__name__ if model_y is not None else None,
+                "model_t": type(model_t).__name__ if model_t is not None else None,
+                "discrete_treatment": discrete_treatment,
+                "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
     return cf

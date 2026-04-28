@@ -111,7 +111,34 @@ def tmle(
         propensity_bounds=propensity_bounds,
         random_state=random_state,
     )
-    return est.fit()
+    _result = est.fit()
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.tmle",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "n_folds": n_folds, "estimand": estimand,
+                "alpha": alpha,
+                "propensity_bounds": list(propensity_bounds),
+                "random_state": random_state,
+                "outcome_library": (
+                    [type(m).__name__ for m in outcome_library]
+                    if outcome_library else None
+                ),
+                "propensity_library": (
+                    [type(m).__name__ for m in propensity_library]
+                    if propensity_library else None
+                ),
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ======================================================================

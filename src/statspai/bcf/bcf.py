@@ -97,7 +97,28 @@ def bcf(
         n_bootstrap=n_bootstrap, n_folds=n_folds,
         alpha=alpha, random_state=random_state,
     )
-    return est.fit()
+    _result = est.fit()
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.bcf",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "n_trees_mu": n_trees_mu,
+                "n_trees_tau": n_trees_tau,
+                "n_bootstrap": n_bootstrap,
+                "n_folds": n_folds,
+                "alpha": alpha,
+                "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ======================================================================

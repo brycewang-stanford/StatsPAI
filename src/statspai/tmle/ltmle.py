@@ -441,7 +441,7 @@ def ltmle(
     def _serialise_regime(r: Regime) -> Any:
         return "dynamic-callable" if callable(r) else tuple(r)
 
-    return LTMLEResult(
+    _result = LTMLEResult(
         psi_treated=psi1,
         psi_control=psi0,
         ate=ate,
@@ -458,6 +458,29 @@ def ltmle(
             "regime_control_callable": callable(regime_control),
         },
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.tmle.ltmle",
+            params={
+                "y": y,
+                "treatments": list(treatments),
+                "covariates_time": [list(c) for c in covariates_time],
+                "baseline": list(baseline) if baseline else None,
+                "censoring": list(censoring) if censoring else None,
+                "regime_treated_callable": callable(regime_treated),
+                "regime_control_callable": callable(regime_control),
+                "propensity_bounds": list(propensity_bounds),
+                "outcome_type": outcome_type,
+                "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["ltmle", "LTMLEResult"]

@@ -168,7 +168,7 @@ def aipw(
         'mean_propensity': round(float(e_hat.mean()), 4),
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method='AIPW (Doubly Robust)',
         estimand=estimand,
         estimate=tau,
@@ -180,6 +180,24 @@ def aipw(
         model_info=model_info,
         _citation_key='aipw',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.aipw",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "estimand": estimand,
+                "n_folds": n_folds,
+                "alpha": alpha, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def _fit_propensity(X_train, D_train, X_test):

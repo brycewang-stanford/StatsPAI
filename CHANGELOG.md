@@ -2,6 +2,124 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Phase 9: provenance rollout to 48/925 (TMLE + forest + DR)
+
+Continues the v1.7.2 provenance rollout. **No numerical changes** to
+any estimator. 12 ML-causal + classical-identification estimators
+instrumented. Coverage 36/925 → **48/925**.
+
+### Added — Provenance for 12 estimators
+
+ML-causal (8):
+
+- ``sp.tmle`` — van der Laan & Rose Targeted MLE (with Super Learner).
+- ``sp.tmle.ltmle`` — Longitudinal TMLE for static regime contrasts.
+- ``sp.tmle.hal_tmle`` — TMLE with Highly Adaptive Lasso nuisance.
+- ``sp.causal_forest`` — GRF causal forest factory.
+- ``sp.multi_arm_forest`` — multi-arm causal forest.
+- ``sp.iv_forest`` — Athey-Tibshirani-Wager IV causal forest.
+- ``sp.metalearner`` — S/T/X/R/DR meta-learner dispatcher.
+- ``sp.bcf`` — Hahn-Murray-Carvalho Bayesian Causal Forest.
+
+Classical identification (4):
+
+- ``sp.aipw`` — Augmented IPW (doubly robust, cross-fit).
+- ``sp.ipw`` — Inverse Probability Weighting.
+- ``sp.g_computation`` — parametric g-formula.
+- ``sp.front_door`` — Pearl front-door adjustment.
+
+Pattern reuse: established Phase 3 idiom — assign to ``_result``,
+``attach_provenance(overwrite=False)``, return. The ``hal_tmle`` →
+``tmle`` cascade is handled correctly: inner ``sp.tmle`` record wins,
+matching the ``etwfe`` → ``wooldridge_did`` and ``lasso_iv`` → ``iv``
+patterns from earlier rounds.
+
+### Tests
+
+14 new (12 per-estimator + 1 metalearner choice variant + 1
+multi-estimator integration). 103 green across the
+hal_tmle / causal_forest / metalearner / bcf / front_door /
+g_computation regression sweep.
+
+## [Unreleased] — production function estimators (OP / LP / ACF / Wooldridge + translog + DLW markup)
+
+Adds proxy-variable production function estimation — Olley-Pakes,
+Levinsohn-Petrin, Ackerberg-Caves-Frazer, Wooldridge — plus
+Cobb-Douglas + translog functional forms and the De Loecker-Warzynski
+markup. Closes the long-standing gap that forced StatsPAI users to
+drop into R `prodest` or Stata `prodest` for productivity / TFP /
+markup work.
+
+### Added
+
+- `sp.prod_fn(method=..., functional_form=...)` — unified dispatcher
+  (`'op' | 'lp' | 'acf' | 'wrdg'`, `'cobb-douglas' | 'translog'`).
+- `sp.olley_pakes` (alias `sp.opreg`) — investment-proxy estimator
+  with strictly-positive-investment filter.
+- `sp.levinsohn_petrin` (alias `sp.levpet`) — intermediate-input proxy
+  (avoids OP zero-investment selection).
+- `sp.ackerberg_caves_frazer` (alias `sp.acf`) — modern default,
+  corrects the OP/LP labor-coefficient identification problem via
+  lagged-labor instruments.
+- `sp.wooldridge_prod` — joint stacked-NLS estimator (Cobb-Douglas
+  only; translog raises NotImplementedError; full-GMM Wooldridge on
+  roadmap).
+- `sp.markup` — De Loecker & Warzynski (2012) firm-time markup
+  μ_it = θ_v · (PQ) / (P_v V) with optional η-correction. Supports
+  both Cobb-Douglas (constant θ_v) and translog (firm-time θ_v_it
+  read from the elasticity panel attached to the result).
+- `sp.ProductionResult` — unified result class with `coef`, `tfp`,
+  `productivity_process`, `cite()`, `summary()`, plus
+  `model_info["elasticities"]` for translog firm-time elasticities.
+- Translog functional form: input matrix expanded to linear +
+  0.5*x_j² + cross-term basis; instrument matrix expanded by the
+  same polynomial; firm-time output elasticities computed from
+  ∂y/∂x_j = β_j + β_jj·x_j + Σ_{k≠j} β_jk·x_k.
+- Firm-cluster bootstrap SE (Wooldridge 2009 §4 convention) with
+  convergence filtering on each replicate.
+- Multi-start Nelder-Mead in stage 2 over 5 economic-prior starts
+  (the OLS warm start is intentionally avoided — it lands in a
+  spurious basin where the productivity AR overfits ω onto ω_lag at
+  implausible β).
+- UserWarning on non-consecutive panel time periods (lag operator
+  would silently treat gaps as 1-period lags otherwise).
+- 9 new registry entries (5 canonical + 3 aliases + markup) — total
+  rises to 964 functions.
+
+### References (verified via Crossref API on 2026-04-27)
+
+- Olley & Pakes (1996) Econometrica 64(6) 1263–1297, DOI 10.2307/2171831
+- Levinsohn & Petrin (2003) RES 70(2) 317–341, DOI 10.1111/1467-937X.00246
+- Ackerberg, Caves & Frazer (2015) Econometrica 83(6) 2411–2451, DOI 10.3982/ECTA13408
+- Wooldridge (2009) Economics Letters 104(3) 112–114, DOI 10.1016/j.econlet.2009.04.026
+- De Loecker & Warzynski (2012) AER 102(6) 2437–2471, DOI 10.1257/aer.102.6.2437
+
+### Tests
+
+- `tests/test_prod_fn.py` — 23 tests:
+  - Synthetic DGP recovery (ACF tight; OP/LP loose per ACF's
+    identification critique; Wooldridge feasible-range)
+  - Translog: 5-coef structure, dispatcher pass-through, CD-truth
+    nesting (β_ll/β_kk/β_lk near 0), markup with firm-time θ_v_it,
+    Wooldridge-translog raises, unknown functional_form raises
+  - Dispatcher, aliases, bootstrap SE, markup CD path, edge cases
+    (missing columns, too-few-obs, zero-proxy filter, time-gap
+    warning, registry presence, no-bootstrap diagnostics shape).
+
+### Notes
+
+- Default `productivity_degree=1` (linear AR(1)). Higher degrees can
+  overfit ω given ω_lag in finite samples and flatten the GMM
+  objective surface — see dispatcher docstring.
+- Translog identification caveat: stage-2 instruments are polynomial
+  transforms of the same raw (k, l_lag) pair, so the moment system
+  can be near-singular when state and lagged-free inputs are highly
+  correlated. Higher-order coefficients have larger finite-sample
+  variance than linear ones — bootstrap SEs recommended.
+- Gandhi-Navarro-Rivers (2020) flexible-input identification and
+  full efficient-GMM Wooldridge are roadmap items, not in this
+  release.
+
 ## [Unreleased] — Phase 8: provenance rollout to 36/925 (IV + matching + DML)
 
 Continues the v1.7.2 provenance rollout from Phases 3-4-7. **No

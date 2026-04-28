@@ -621,7 +621,7 @@ def metalearner(
         'n_control': int(np.sum(D == 0)),
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method=f'Meta-Learner ({learner_names[learner]})',
         estimand='ATE',
         estimate=ate,
@@ -634,6 +634,30 @@ def metalearner(
         model_info=model_info,
         _citation_key='metalearner',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.metalearner",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "learner": learner,
+                "n_folds": n_folds, "n_bootstrap": n_bootstrap,
+                "alpha": alpha,
+                "outcome_model": type(outcome_model).__name__
+                                  if outcome_model is not None else None,
+                "propensity_model": type(propensity_model).__name__
+                                     if propensity_model is not None else None,
+                "cate_model": type(cate_model).__name__
+                               if cate_model is not None else None,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # Register citation
