@@ -523,6 +523,14 @@ pub fn weighted_demean_matrix_fortran_inplace(
 /// entries each (one per non-primary FE), all under π. `secondary_lens`
 /// gives per-FE cardinalities for non-primary FEs (used to size per-thread
 /// scratch). `weights_sorted` is the per-obs weight in π order.
+///
+/// Note: floating-point summation order within each primary group differs
+/// from the random-scatter ``weighted_demean_matrix_fortran_inplace``
+/// because observations are accumulated in π order rather than original
+/// order. Per-group drift is therefore ≈ 1e-15 vs the unsorted path; the
+/// IRLS outer loop's relative-deviance tolerance comfortably absorbs
+/// this. Bit-equality is only guaranteed when input is already in π
+/// order (i.e., the perm is the identity).
 #[allow(clippy::too_many_arguments)]
 pub fn weighted_demean_matrix_fortran_inplace_sorted(
     mat: &mut [f64],
@@ -542,6 +550,15 @@ pub fn weighted_demean_matrix_fortran_inplace_sorted(
 ) -> Vec<DemeanInfo> {
     debug_assert_eq!(mat.len(), n * p);
     debug_assert_eq!(weights_sorted.len(), n);
+    debug_assert_eq!(
+        primary_starts.len(),
+        primary_wsum.len() + 1,
+        "primary_starts must have length G1+1, primary_wsum length G1"
+    );
+    debug_assert!(
+        !primary_wsum.is_empty(),
+        "sorted dispatch requires at least one primary FE group"
+    );
     debug_assert_eq!(secondary_codes.len(), secondary_wsum.len());
     debug_assert_eq!(secondary_codes.len(), secondary_lens.len());
 
