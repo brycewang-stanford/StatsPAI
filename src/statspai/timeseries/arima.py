@@ -148,7 +148,7 @@ def arima(
     k = sum(order) + 1
     aicc = res.aic + 2 * k * (k + 1) / max(n - k - 1, 1)
 
-    return ARIMAResult(
+    _result = ARIMAResult(
         order=order,
         seasonal_order=seasonal_order,
         params=pd.Series(res.params, index=res.param_names) if hasattr(res, "param_names") else pd.Series(res.params),
@@ -161,3 +161,20 @@ def arima(
         n=n,
         _model=res,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.timeseries.arima",
+            params={
+                "order": list(order),
+                "seasonal_order": list(seasonal_order) if seasonal_order else None,
+                "auto": auto,
+                "max_p": max_p, "max_q": max_q, "max_d": max_d,
+            },
+            data=None,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

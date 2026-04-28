@@ -136,7 +136,7 @@ def rddensity(
         'cutoff': c,
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method='CJM (2020) Density Test',
         estimand='T-statistic (density discontinuity)',
         estimate=float(T_stat),
@@ -148,6 +148,20 @@ def rddensity(
         model_info=model_info,
         _citation_key='rddensity',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.diagnostics.rddensity",
+            params={
+                "x": x, "c": c, "p": p, "h": h, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def _cjm_bandwidth(x, p):

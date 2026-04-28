@@ -191,7 +191,7 @@ def local_projections(
         n_used[h] = int(valid.sum())
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
-    return LocalProjectionsResult(
+    _result = LocalProjectionsResult(
         horizons=np.arange(horizons + 1),
         irf=irf,
         se=se,
@@ -202,3 +202,21 @@ def local_projections(
         outcome_name=outcome,
         n_obs_per_horizon=n_used,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.timeseries.local_projections",
+            params={
+                "outcome": outcome, "shock": shock,
+                "controls": list(controls) if controls else None,
+                "horizons": horizons,
+                "nw_lags": nw_lags,
+                "alpha": alpha, "cumulative": cumulative,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

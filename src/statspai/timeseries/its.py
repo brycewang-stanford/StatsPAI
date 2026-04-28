@@ -185,7 +185,7 @@ def its(
         "z": beta / np.maximum(se, 1e-12),
     })
 
-    return ITSResult(
+    _result = ITSResult(
         level_change=level,
         slope_change=slope,
         se_level=se_level,
@@ -198,6 +198,24 @@ def its(
         n_obs=n,
         intervention_time=int(intervention),
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.timeseries.its",
+            params={
+                "y": y, "time": time,
+                "intervention": intervention,
+                "seasonality_period": seasonality_period,
+                "seasonality_harmonics": seasonality_harmonics,
+                "hac_lag": hac_lag, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["its", "ITSResult"]

@@ -165,8 +165,20 @@ def garch(
     bic = -2 * ll + k_params * np.log(T)
     std_resid = eps / np.sqrt(s2)
 
-    return GARCHResult(
+    _result = GARCHResult(
         omega=omega, alpha=alpha, beta=beta, mu=mu,
         sigma2=s2, residuals=eps, std_residuals=std_resid,
         log_likelihood=ll, aic=aic, bic=bic, n=T, p=p, q=q,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.timeseries.garch",
+            params={"p": p, "q": q, "mean": mean},
+            data=None,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

@@ -378,7 +378,7 @@ So `lineage.json` traces the full chain: aggregate → producing CS run
 
 ## Provenance scorecard
 
-As of v1.7.2, **76 estimators** are instrumented:
+As of v1.7.2, **82 estimators** are instrumented:
 
 | Estimator                                                | Phase    |
 |---                                                       |---       |
@@ -458,8 +458,14 @@ As of v1.7.2, **76 estimators** are instrumented:
 | `sp.iv.many_weak_jive` (Phillips-Hale 2018 JIVE)         | **P13**  |
 | `sp.iv.many_weak_ar` (Mikusheva-Sun 2024 AR-CS)          | **P13**  |
 | `sp.iv.continuous_iv_late` (quantile-bin Wald)           | **P13**  |
+| `sp.timeseries.arima` (ARIMA / SARIMAX)                  | **P14**  |
+| `sp.timeseries.garch` (GARCH(p,q) MLE)                   | **P14**  |
+| `sp.timeseries.its` (interrupted time series)            | **P14**  |
+| `sp.timeseries.local_projections` (Jordà 2005 IRF)       | **P14**  |
+| `sp.mccrary_test` (RD density manipulation)              | **P14**  |
+| `sp.rddensity` (CJM 2020 density test)                   | **P14**  |
 
-The remaining ~849 estimators are scheduled for v1.7.3+ rollouts. To
+The remaining ~843 estimators are scheduled for v1.7.3+ rollouts. To
 check whether a specific estimator is instrumented:
 
 ```python

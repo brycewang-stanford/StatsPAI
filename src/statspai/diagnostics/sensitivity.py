@@ -363,7 +363,7 @@ def mccrary_test(
         'n_right': len(x_right),
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method='McCrary (2008) Density Test',
         estimand='Log Density Ratio',
         estimate=theta,
@@ -375,6 +375,21 @@ def mccrary_test(
         model_info=model_info,
         _citation_key='mccrary',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.diagnostics.mccrary_test",
+            params={
+                "x": x, "c": c, "bw": bw,
+                "n_bins": n_bins, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def _local_linear_density(
