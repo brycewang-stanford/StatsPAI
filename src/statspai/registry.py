@@ -1086,6 +1086,11 @@ def _build_registry():
             ParamSpec("escape", "bool", False, True,
                       "Auto-escape user-supplied label strings; pass False "
                       "to preserve raw LaTeX/HTML markup verbatim"),
+            ParamSpec("tests", "dict", False, None,
+                      "Hypothesis-test rows: {label: [(stat,p) | p | None per model]} "
+                      "(stars honour notation)"),
+            ParamSpec("fixef_sizes", "bool", False, False,
+                      "Auto-emit '# Firm: N' rows from model_info['n_fe_levels']"),
             ParamSpec("output", "str", False, "text", "Render format",
                       ["text", "latex", "html", "markdown", "word", "excel"]),
             ParamSpec("filename", "str", False, None, "File path; format inferred from extension"),
@@ -1097,7 +1102,8 @@ def _build_registry():
         ),
         tags=["output", "table", "publication", "journal", "diagnostics",
              "eform", "column-spanners", "coef-map", "depvar-mean",
-             "templates", "notation", "apply-coef", "escape"],
+             "templates", "notation", "apply-coef", "escape",
+             "tests-footer", "fixef-sizes"],
     ))
 
     register(FunctionSpec(

@@ -55,6 +55,147 @@ from ._repro import build_repro_note
 _MULTI_SE_BRACKETS = (("[", "]"), ("{", "}"), ("⟨", "⟩"), ("«", "»"))
 
 
+def _format_fe_label(token: str) -> str:
+    """``"firm"`` → ``"# Firm"``; ``"firm^year"`` → ``"# Firm × Year"``."""
+    parts = [p.strip() for p in token.split("^") if p.strip()]
+    if not parts:
+        return f"# {token}"
+    pretty = " × ".join(p[:1].upper() + p[1:] for p in parts)
+    return f"# {pretty}"
+
+
+def _build_fe_size_rows(
+    flat_results: Sequence[Any],
+) -> "OrderedDict[str, List[str]]":
+    """Build per-FE level-count rows for ``fixef_sizes=True``.
+
+    Reads ``model_info['n_fe_levels']`` from each result (a dict of
+    FE-name → int). Currently populated by count.py and the pyfixest
+    adapter family; other estimators silently contribute empty cells.
+    Rows that would be empty across every column are dropped so plain
+    OLS bundles stay clean.
+    """
+    rows: "OrderedDict[str, List[str]]" = OrderedDict()
+    union: List[str] = []
+    per_col: List[Dict[str, int]] = []
+    for r in flat_results:
+        mi = getattr(r, "model_info", {}) or {}
+        levels = mi.get("n_fe_levels") if isinstance(mi, dict) else None
+        if levels is None or not isinstance(levels, dict):
+            per_col.append({})
+            continue
+        coerced: Dict[str, int] = {}
+        for k, v in levels.items():
+            try:
+                coerced[str(k)] = int(v)
+            except (TypeError, ValueError):
+                continue
+        per_col.append(coerced)
+        for k in coerced:
+            if k not in union:
+                union.append(k)
+    if not union:
+        return rows
+    for tok in union:
+        cells: List[str] = []
+        for d in per_col:
+            cells.append(_fmt_int(d.get(tok)) if tok in d else "")
+        if any(c for c in cells):
+            rows[_format_fe_label(tok)] = cells
+    return rows
+
+
+def _resolve_tests(
+    tests: Dict[str, Sequence[Any]],
+    n_models: int,
+    *,
+    fmt: str,
+    stars: bool,
+    star_levels: Optional[Tuple[float, ...]],
+    notation: Union[str, Tuple[str, ...]],
+) -> List[Tuple[str, List[str]]]:
+    """Normalise ``tests=`` into ordered ``[(label, [cell_per_model, ...])]``.
+
+    Each per-model entry can be:
+
+    - ``(statistic, pvalue)`` tuple → ``"<stat>***"`` (stars from p)
+    - bare ``pvalue`` float        → ``"<p>***"``
+    - ``None`` / NaN               → empty cell
+    - any string                   → passed through as-is
+
+    Stars honour the configured ``notation`` family for cross-table
+    consistency.
+    """
+    if star_levels is None:
+        star_levels = (0.10, 0.05, 0.01)
+    # Resolve notation to its symbol triple via the same helper as
+    # ``RegtableResult._resolve_notation`` to guarantee consistency.
+    if isinstance(notation, str):
+        key = notation.lower()
+        if key == "stars":
+            ladder = ("*", "**", "***")
+        elif key == "symbols":
+            ladder = ("†", "‡", "§")
+        else:
+            ladder = ("*", "**", "***")
+    else:
+        try:
+            tup = tuple(str(s) for s in notation)
+        except TypeError:
+            tup = ("*", "**", "***")
+        ladder = tup if len(tup) == 3 else ("*", "**", "***")
+
+    def _stars_for(p: float) -> str:
+        if p is None or (isinstance(p, float) and np.isnan(p)):
+            return ""
+        out = ""
+        for i, lev in enumerate(sorted(star_levels, reverse=True)):
+            if p < lev:
+                out = ladder[i] if i < len(ladder) else ladder[-1]
+        return out
+
+    out: List[Tuple[str, List[str]]] = []
+    for label, seq in tests.items():
+        if not isinstance(label, str) or not label:
+            raise ValueError(f"tests keys must be non-empty strings, got {label!r}.")
+        items = list(seq)
+        if len(items) != n_models:
+            raise ValueError(
+                f"tests[{label!r}] has {len(items)} entries but there are "
+                f"{n_models} models."
+            )
+        cells: List[str] = []
+        for entry in items:
+            if entry is None:
+                cells.append("")
+                continue
+            if isinstance(entry, str):
+                cells.append(entry)
+                continue
+            # (stat, pvalue) tuple
+            if isinstance(entry, (tuple, list)) and len(entry) == 2:
+                stat, p = entry
+                try:
+                    s_txt = _fmt_val(float(stat), fmt)
+                except (TypeError, ValueError):
+                    s_txt = str(stat) if stat is not None else ""
+                marker = _stars_for(float(p)) if (stars and p is not None) else ""
+                cells.append(f"{s_txt}{marker}")
+                continue
+            # Bare scalar — treat as p-value
+            try:
+                p = float(entry)
+            except (TypeError, ValueError):
+                cells.append(str(entry))
+                continue
+            if not np.isfinite(p):
+                cells.append("")
+                continue
+            cells.append(f"{_fmt_val(p, fmt)}{_stars_for(p) if stars else ''}")
+        out.append((label, cells))
+    return out
+
+
 def _resolve_multi_se(
     multi_se: Optional[Dict[str, Sequence[Any]]],
     n_models: int,
@@ -138,6 +279,7 @@ class RegtableResult:
         apply_coef: Optional[Any] = None,
         apply_coef_deriv: Optional[Any] = None,
         escape: bool = True,
+        tests_rows: Optional[List[Tuple[str, List[str]]]] = None,
     ):
         if not 0.0 < alpha < 1.0:
             raise ValueError(f"alpha must be in (0, 1), got {alpha!r}")
@@ -246,6 +388,12 @@ class RegtableResult:
         # estimates, computed stat values) is still safe — it never
         # contains user-controlled metacharacters.
         self.escape = bool(escape)
+
+        # ── tests rows (footer) ────────────────────────────────────────────
+        # Pre-formatted hypothesis-test rows produced at the regtable()
+        # entry. Stored as ordered ``[(label, [cell_per_model, ...])]`` so
+        # rendering threads through the same code path as ``add_rows``.
+        self.tests_rows = tests_rows or []
 
         # Resolve stat keys once
         self._stat_keys = self._resolve_stat_keys()
@@ -716,6 +864,18 @@ class RegtableResult:
                 row += f"{self._stat_cell(m, key):>{col_w}}"
             lines.append(row)
 
+        # Hypothesis-test rows (Wald F, Hansen-J, etc.). They sit below
+        # the stats block and above the bottom rule so they read as part
+        # of the diagnostic strip — closer to AER convention than mixing
+        # them with the structural ``add_rows``.
+        if self.tests_rows:
+            for row_label, row_vals in self.tests_rows:
+                row = f"{row_label:<{label_w}}"
+                for i, m in enumerate(all_models):
+                    val = row_vals[i] if i < len(row_vals) else ""
+                    row += f"{val:>{col_w}}"
+                lines.append(row)
+
         lines.append(thick)
 
         # Notes
@@ -928,6 +1088,21 @@ class RegtableResult:
                 )
             lines.append("</tr>")
 
+        # Hypothesis-test rows
+        for row_label, row_vals in self.tests_rows:
+            lines.append("<tr>")
+            lines.append(
+                f'<td style="text-align:left; padding:1px 8px;">'
+                f'{self._esc_html(row_label)}</td>'
+            )
+            for i in range(len(all_models)):
+                val = row_vals[i] if i < len(row_vals) else ""
+                lines.append(
+                    f'<td style="text-align:center; padding:1px 12px;">'
+                    f'{self._esc_html(val)}</td>'
+                )
+            lines.append("</tr>")
+
         # Bottom border
         lines.append(
             f'<tr><td colspan="{ncols}" '
@@ -1098,6 +1273,16 @@ class RegtableResult:
             cells_s = [self._stat_cell(m, key) for m in all_models]
             lines.append(f"{disp} & " + " & ".join(cells_s) + " \\\\")
 
+        # Hypothesis-test rows
+        for row_label, row_vals in self.tests_rows:
+            cells_t: List[str] = []
+            for i in range(len(all_models)):
+                val = row_vals[i] if i < len(row_vals) else ""
+                cells_t.append(self._esc_latex(val))
+            lines.append(
+                f"{self._esc_latex(row_label)} & " + " & ".join(cells_t) + " \\\\"
+            )
+
         lines.append("\\hline\\hline")
 
         # Notes
@@ -1241,6 +1426,16 @@ class RegtableResult:
             disp = _STAT_DISPLAY.get(key, key)
             cells_s = [self._stat_cell(m, key) for m in all_models]
             lines.append(f"| {disp} |" + "|".join(f" {c} " for c in cells_s) + "|")
+
+        # Hypothesis-test rows
+        for row_label, row_vals in self.tests_rows:
+            cells_t = [
+                row_vals[i] if i < len(row_vals) else ""
+                for i in range(len(all_models))
+            ]
+            lines.append(
+                f"| {row_label} |" + "|".join(f" {c} " for c in cells_t) + "|"
+            )
 
         lines.append("")
         lines.append(f"*{self._se_label()} in parentheses*")
@@ -1390,6 +1585,13 @@ class RegtableResult:
             for i, m in enumerate(all_models):
                 row_s[self.model_labels[i]] = self._stat_cell(m, key)
             records.append(row_s)
+
+        # Hypothesis-test rows
+        for row_label, row_vals in self.tests_rows:
+            row_t: Dict[str, str] = {"": row_label}
+            for i, lbl in enumerate(self.model_labels):
+                row_t[lbl] = row_vals[i] if i < len(row_vals) else ""
+            records.append(row_t)
 
         df = pd.DataFrame(records)
         df = df.set_index("")
@@ -1711,6 +1913,8 @@ def regtable(
     apply_coef: Optional[Any] = None,
     apply_coef_deriv: Optional[Any] = None,
     escape: bool = True,
+    tests: Optional[Dict[str, Sequence[Any]]] = None,
+    fixef_sizes: bool = False,
 ) -> RegtableResult:
     """
     Unified publication-quality regression table.
@@ -1904,6 +2108,28 @@ def regtable(
         ``"<i>β</i>"``. Cell content (numeric estimates, computed
         stats) is unaffected; it never contains user-controlled
         metacharacters.
+    tests : dict, optional
+        Render hypothesis-test rows in the diagnostic strip below the
+        stats block. Keys are display labels ("F-test x1=0",
+        "Hansen J p-value", "Wald χ²"); values are sequences whose
+        length equals ``n_models``. Each per-model entry can be:
+
+        - ``(statistic, pvalue)`` tuple → ``"<stat>***"`` (stars from p)
+        - bare ``pvalue`` float        → ``"<p>***"``
+        - ``None`` / ``NaN``           → empty cell
+        - any string                   → passed through as-is
+
+        Stars honour the configured ``notation`` family for cross-table
+        consistency. Closes the gap to Stata ``estadd scalar`` /
+        ``test`` integration where reviewers expect Wald / Sargan /
+        Hansen-J / first-stage F right under the main results block.
+    fixef_sizes : bool, default False
+        Auto-emit "# Firm: 1,234" / "# Year: 30" rows showing the
+        number of distinct levels per fixed effect. Reads
+        ``model_info['n_fe_levels']`` from each result — currently
+        populated by ``count.py`` (Poisson/NegBin) and the pyfixest
+        adapter; other estimators silently no-op. Mirrors R fixest's
+        ``etable(..., fixef_sizes=TRUE)``.
 
     Returns
     -------
@@ -2118,6 +2344,25 @@ def regtable(
     for label, vals in user_rows.items():
         merged_add_rows[label] = list(vals)
 
+    # --- fixef_sizes: emit "# <FE>: count" rows ------------------------
+    # Reads ``model_info['n_fe_levels']`` (a dict of FE-name → integer
+    # count) per model — currently populated by count.py / nbreg /
+    # ppmlhdfe; other estimators are silent no-ops. Mirrors R fixest's
+    # ``fixef_sizes = TRUE``.
+    if fixef_sizes:
+        fe_size_rows = _build_fe_size_rows(flat_results)
+        for label, vals in fe_size_rows.items():
+            if label not in merged_add_rows:
+                merged_add_rows[label] = vals
+
+    # --- tests=: render hypothesis-test footer rows --------------------
+    tests_rows_norm: List[Tuple[str, List[str]]] = []
+    if tests:
+        tests_rows_norm = _resolve_tests(
+            tests, total_models, fmt=fmt, stars=stars,
+            star_levels=star_levels, notation=notation,
+        )
+
     # --- Resolve multi_se -----------------------------------------------
     multi_se_norm = _resolve_multi_se(multi_se, total_models)
 
@@ -2162,6 +2407,7 @@ def regtable(
         apply_coef=apply_coef,
         apply_coef_deriv=apply_coef_deriv,
         escape=escape,
+        tests_rows=tests_rows_norm,
     )
 
     # --- Output handling ---

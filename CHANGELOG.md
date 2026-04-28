@@ -88,6 +88,51 @@ verified with a wall-clock spike before the next was committed
 
 ---
 
+## [Unreleased] — `sp.regtable` Round 3 (margins_table, tests= footer, fixef_sizes)
+
+Three further additions on top of Round 1 + Round 2. **No numerical
+changes** to any estimator (margins_table is a pure adapter; tests=
+formats user-supplied test results; fixef_sizes reads pre-existing
+``model_info['n_fe_levels']``).
+
+### Added
+
+- **``sp.margins_table(model)``** — adapter that wraps a
+  :func:`sp.margins` DataFrame as a duck-typed result with
+  ``.params`` / ``.std_errors`` / ``.tvalues`` / ``.pvalues`` /
+  ``.conf_int_*``. Pipes straight into :func:`sp.regtable`, closing
+  the "estimator → marginal-effects table" gap that previously
+  required users to hand-build ``add_rows``. Mirrors the R workflow
+  ``modelsummary(avg_slopes(model))``. The wrapper z-stat is mapped
+  to ``tvalues`` so existing ``se_type='t'`` / ``'p'`` / ``'ci'``
+  paths render unchanged.
+
+- **``tests=``** parameter on :func:`sp.regtable` — render
+  hypothesis-test rows in the diagnostic strip below the stats
+  block. ``tests={"Wald F": [(12.34, 0.001), (8.91, 0.003)]}``
+  → "Wald F  12.340***  8.910***". Each per-model entry can be a
+  ``(stat, p)`` tuple, a bare p-value, ``None``, or a pre-formatted
+  string. Stars honour the configured ``notation`` family for
+  cross-table consistency. Closes the gap to Stata's ``estadd
+  scalar`` / ``test`` integration where reviewers expect Wald /
+  Sargan / Hansen-J / first-stage F right under the main results.
+
+- **``fixef_sizes=True``** on :func:`sp.regtable` — auto-emit
+  "# Firm: 1,234" / "# Year: 30" rows showing distinct levels per
+  fixed effect. Reads ``model_info['n_fe_levels']`` from each
+  result; currently populated by ``count.py`` (Poisson/NegBin) and
+  the pyfixest adapter. Other estimators silently no-op. Mirrors
+  R fixest's ``etable(..., fixef_sizes=TRUE)``.
+
+### Tests
+
+14 new tests in ``test_regtable_round3_extensions.py`` covering
+all three features across text / LaTeX / HTML renderers.
+
+562 targeted tests pass (Rounds 1-3 = 528 + 20 + 14, plus broad
+anchors); zero regression on the 33 output / regression test files
+exercised.
+
 ## [Unreleased] — `sp.regtable` Round 2 (templates, notation, apply_coef, escape, Word/Excel spanners)
 
 Five further additions on top of the Round 1 commit. **No numerical

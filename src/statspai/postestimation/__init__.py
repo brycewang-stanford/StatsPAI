@@ -10,7 +10,13 @@ Provides:
 Equivalent to Stata's ``margins``, ``test``, ``lincom`` commands.
 """
 
-from .margins import margins, marginsplot, margins_at, margins_at_plot, contrast, pwcompare
+from .margins import (
+    margins, margins_table, marginsplot, margins_at, margins_at_plot,
+    contrast, pwcompare,
+)
 from .hypothesis import test, lincom
 
-__all__ = ['margins', 'marginsplot', 'margins_at', 'margins_at_plot', 'contrast', 'pwcompare', 'test', 'lincom']
+__all__ = [
+    'margins', 'margins_table', 'marginsplot', 'margins_at', 'margins_at_plot',
+    'contrast', 'pwcompare', 'test', 'lincom',
+]

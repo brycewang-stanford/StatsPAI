@@ -769,3 +769,137 @@ def _adjusted_alpha(alpha, method, n_comparisons):
         return alpha / n_comparisons
     else:
         return alpha
+
+
+# ---------------------------------------------------------------------------
+# margins_table — adapter that wraps a margins DataFrame so it pipes
+# straight into sp.regtable for publication-quality marginal-effects
+# tables. Mirrors the R workflow ``modelsummary(avg_slopes(model))`` and
+# closes the "estimator → marginal-effects table" gap that previously
+# required users to hand-build add_rows.
+# ---------------------------------------------------------------------------
+
+class _MarginsResult:
+    """Duck-typed result wrapping a ``margins`` DataFrame.
+
+    Exposes the attributes ``_extract_model_data`` (in ``output/estimates``)
+    looks for: ``params`` / ``std_errors`` / ``tvalues`` / ``pvalues`` /
+    ``conf_int_lower`` / ``conf_int_upper`` / ``diagnostics`` /
+    ``data_info`` / ``model_info``. Behaves like an ``EconometricResults``
+    for the purposes of ``regtable``.
+    """
+
+    def __init__(
+        self,
+        margins_df: pd.DataFrame,
+        *,
+        n_obs: Optional[int] = None,
+        method: str = "ame",
+    ):
+        if "variable" not in margins_df.columns:
+            raise ValueError(
+                "margins_table requires a DataFrame with a 'variable' column "
+                "(produced by sp.margins). Got columns: "
+                f"{list(margins_df.columns)}"
+            )
+        idx = margins_df["variable"].astype(str).tolist()
+        # ``dy/dx`` may be NaN for binary/categorical rows that report a
+        # discrete change instead — the helper below is defensive.
+        col_dydx = "dy/dx" if "dy/dx" in margins_df.columns else "diff"
+        col_p = "pvalue_adj" if "pvalue_adj" in margins_df.columns else "pvalue"
+        self.params = pd.Series(
+            margins_df[col_dydx].astype(float).values, index=idx
+        )
+        self.std_errors = pd.Series(
+            margins_df["se"].astype(float).values, index=idx
+        )
+        # margins reports z-stat (z under normal); we name it tvalues so
+        # the rest of regtable's machinery treats it as a t-style ratio
+        # without special-casing.
+        z_col = "z" if "z" in margins_df.columns else "t"
+        if z_col in margins_df.columns:
+            self.tvalues = pd.Series(
+                margins_df[z_col].astype(float).values, index=idx
+            )
+        else:
+            self.tvalues = pd.Series(np.nan, index=idx)
+        self.pvalues = pd.Series(
+            margins_df[col_p].astype(float).values, index=idx
+        )
+        if "ci_lower" in margins_df.columns:
+            self.conf_int_lower = pd.Series(
+                margins_df["ci_lower"].astype(float).values, index=idx
+            )
+            self.conf_int_upper = pd.Series(
+                margins_df["ci_upper"].astype(float).values, index=idx
+            )
+        else:
+            self.conf_int_lower = pd.Series(np.nan, index=idx)
+            self.conf_int_upper = pd.Series(np.nan, index=idx)
+        # Minimal diagnostics so ``stats=["N"]`` still works.
+        self.diagnostics = {"N": n_obs} if n_obs is not None else {}
+        self.data_info = {"nobs": n_obs} if n_obs is not None else {}
+        # Tag so users can introspect (and we leave a breadcrumb in the
+        # rendered table footer via ``method`` later if desired).
+        self.model_info = {"model_type": f"Marginal effects ({method})"}
+        # df_resid omitted — margins inference is z-based, regtable falls
+        # back to standard normal which is correct here.
+
+    def __repr__(self) -> str:
+        n = len(self.params)
+        return f"<MarginsResult: {n} marginal effect{'s' if n != 1 else ''}>"
+
+
+def margins_table(
+    result,
+    data: Optional[pd.DataFrame] = None,
+    variables: Optional[List[str]] = None,
+    at: Optional[Dict[str, Any]] = None,
+    method: str = "ame",
+    eps: float = 1e-5,
+    alpha: float = 0.05,
+):
+    """Marginal-effects result that pipes straight into ``sp.regtable``.
+
+    Thin adapter over :func:`margins`: computes the marginal effects
+    (same kwargs), then wraps the resulting DataFrame in a
+    :class:`_MarginsResult` exposing ``params`` / ``std_errors`` /
+    ``tvalues`` / ``pvalues`` / ``conf_int_*`` so that
+    ``sp.regtable(margins_table(model))`` produces a publication-quality
+    marginal-effects table — closing the "estimator → margins table"
+    gap that previously required users to hand-build ``add_rows``.
+
+    Mirrors the R workflow ``modelsummary(avg_slopes(model))``.
+
+    Parameters
+    ----------
+    result : EconometricResults
+        Fitted model — same input ``sp.margins`` accepts.
+    data, variables, at, method, eps, alpha
+        Forwarded verbatim to :func:`margins`.
+
+    Returns
+    -------
+    _MarginsResult
+        A duck-typed result object usable directly as a positional
+        argument to :func:`sp.regtable`.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> m = sp.logit("y ~ x + z", data=df)
+    >>> mt = sp.margins_table(m)
+    >>> sp.regtable(mt, output="latex", filename="margins.tex")
+    """
+    df = margins(
+        result, data=data, variables=variables, at=at,
+        method=method, eps=eps, alpha=alpha,
+    )
+    n_obs = None
+    diag = getattr(result, "diagnostics", {}) or {}
+    dinfo = getattr(result, "data_info", {}) or {}
+    if isinstance(diag, dict) and diag.get("N") is not None:
+        n_obs = diag.get("N")
+    elif isinstance(dinfo, dict) and dinfo.get("nobs") is not None:
+        n_obs = dinfo.get("nobs")
+    return _MarginsResult(df, n_obs=n_obs, method=method)
