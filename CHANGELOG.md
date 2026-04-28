@@ -16,8 +16,8 @@ DiD long-tail (10):
 - `sp.cic` — Athey-Imbens (2006) Changes-in-Changes.
 - `sp.cohort_anchored_event_study` — staggered-robust ES
   (arXiv:2509.01829).
-- `sp.design_robust_event_study` — orthogonalised TWFE
-  (arXiv:2601.18801).
+- `sp.design_robust_event_study` (Wright 2026, arXiv:2601.18801) —
+  orthogonalised event-study under staggered adoption.
 - `sp.gardner_did` / `sp.did_2stage` — Gardner (2021) two-stage.
 - `sp.harvest_did` — Borusyak-Harmon-Hull-Jaravel-Spiess (2025)
   harvesting.
@@ -2415,7 +2415,7 @@ all routed through `sp.*` and registered in `sp.list_functions()`.
 
 - **DiD frontier** (`sp.did_*`): `did_bcf` (Forests for Differences,
   Wüthrich-Zhu 2025), `cohort_anchored_event_study` (arXiv 2509.01829),
-  `design_robust_event_study` (arXiv 2601.18801),
+  `design_robust_event_study` (Wright 2026, arXiv 2601.18801),
   `did_misclassified` (arXiv 2507.20415).
 - **Conformal frontier** (`sp.conformal_*`): `conformal_density_ite`
   (arXiv 2501.14933), `conformal_ite_multidp` (arXiv 2512.08828),

@@ -393,7 +393,7 @@ As of v1.7.2, **21 estimators** are instrumented:
 | `sp.rd.rdrobust`                                         | P4       |
 | `sp.cic` (Athey-Imbens 2006)                             | **P7**   |
 | `sp.cohort_anchored_event_study` (arXiv:2509.01829)      | **P7**   |
-| `sp.design_robust_event_study` (arXiv:2601.18801)        | **P7**   |
+| `sp.design_robust_event_study` (Wright 2026, 2601.18801) | **P7**   |
 | `sp.gardner_did` / `sp.did_2stage`                       | **P7**   |
 | `sp.harvest_did` (Borusyak et al. 2025)                  | **P7**   |
 | `sp.did_misclassified` (arXiv:2507.20415)                | **P7**   |

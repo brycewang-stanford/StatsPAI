@@ -1,5 +1,5 @@
 """
-Design-Robust Event-Study Estimation (arXiv 2601.18801, 2026). [@design_robust_es2026]
+Design-Robust Event-Study Estimation (Wright 2026, arXiv 2601.18801). [@design_robust_es2026]
 
 Provides design-consistent inference for TWFE event-study coefficients
 under staggered adoption. The key insight: under correct design (no
@@ -58,9 +58,8 @@ def design_robust_event_study(
 
     References
     ----------
-    arXiv 2601.18801, *Design-Robust Event-Study Estimation under
-    Staggered Adoption: Diagnostics, Sensitivity, and
-    Orthogonalisation* (2026).
+    Wright, C. S. (2026). arXiv 2601.18801. See ``design_robust_es2026``
+    bibkey at the bottom of this module for the full citation.
     """
     df = data[[y, treat, time, id] + ([cluster] if cluster else [])] \
         .dropna().reset_index(drop=True)
@@ -169,7 +168,7 @@ def design_robust_event_study(
             'event_study': es_df,
             'weights': weights,
             'diagnostics': diagnostics,
-            'reference': 'arXiv 2601.18801 (2026)',
+            'reference': 'Wright (2026), arXiv 2601.18801',
         },
         _citation_key='design_robust_es',
     )
