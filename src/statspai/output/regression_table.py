@@ -130,6 +130,8 @@ class RegtableResult:
         template: Optional[str] = None,
         quarto_label: Optional[str] = None,
         quarto_caption: Optional[str] = None,
+        eform_flags: Optional[List[bool]] = None,
+        column_spanners: Optional[List[Tuple[str, int]]] = None,
     ):
         if not 0.0 < alpha < 1.0:
             raise ValueError(f"alpha must be in (0, 1), got {alpha!r}")
@@ -170,6 +172,38 @@ class RegtableResult:
         # print(result).
         self._output = output
 
+        # Per-model eform flag (length n_models). When True for a model,
+        # the rendered point estimate becomes exp(b), the SE becomes
+        # exp(b)·SE(b) (delta method), and CI bounds become (exp(lo), exp(hi))
+        # of the original endpoints. t and p-values are unchanged because
+        # H0: b=0 is equivalent to H0: exp(b)=1.
+        if eform_flags is None:
+            eform_flags = [False] * self.n_models
+        if len(eform_flags) != self.n_models:
+            raise ValueError(
+                f"eform_flags has {len(eform_flags)} entries but "
+                f"there are {self.n_models} models."
+            )
+        self.eform_flags = [bool(f) for f in eform_flags]
+
+        # Column spanners: a list of ``(label, span)`` tuples where the
+        # spans must sum to n_models. Renders as a multi-row header above
+        # the model labels (LaTeX ``\multicolumn``, HTML ``colspan``,
+        # text-mode centered ASCII).
+        if column_spanners is not None:
+            total_span = sum(int(s) for _, s in column_spanners)
+            if total_span != self.n_models:
+                raise ValueError(
+                    f"column_spanners total span = {total_span} but there are "
+                    f"{self.n_models} models. The spans must partition the "
+                    f"columns exactly (consecutive grouping)."
+                )
+        self.column_spanners = (
+            [(str(lbl), int(s)) for lbl, s in column_spanners]
+            if column_spanners
+            else None
+        )
+
         # Resolve stat keys once
         self._stat_keys = self._resolve_stat_keys()
 
@@ -206,29 +240,55 @@ class RegtableResult:
             all_vars = ordered
         return all_vars
 
-    def _coef_cell(self, model: _ModelData, var: str) -> str:
+    def _model_eform(self, flat_idx: int) -> bool:
+        """Return whether model at flat position ``flat_idx`` uses eform."""
+        if not self.eform_flags:
+            return False
+        if 0 <= flat_idx < len(self.eform_flags):
+            return self.eform_flags[flat_idx]
+        return False
+
+    def _coef_cell(self, model: _ModelData, var: str, flat_idx: int = 0) -> str:
         if var not in model.params.index:
             return ""
-        val = model.params[var]
+        val = float(model.params[var])
+        if self._model_eform(flat_idx) and np.isfinite(val):
+            val = float(np.exp(val))
         txt = _fmt_val(val, self.fmt)
         if self.show_stars and var in model.pvalues.index:
             txt += _format_stars(model.pvalues[var], self.star_levels)
         return txt
 
-    def _se_cell(self, model: _ModelData, var: str) -> str:
+    def _se_cell(self, model: _ModelData, var: str, flat_idx: int = 0) -> str:
         if var not in model.params.index:
             return ""
+        eform = self._model_eform(flat_idx)
         if self.se_type == "ci":
             lo_v, hi_v = _ci_bounds(model, var, self.alpha)
+            if eform:
+                if not (lo_v is None or pd.isna(lo_v)):
+                    lo_v = float(np.exp(lo_v))
+                if not (hi_v is None or pd.isna(hi_v)):
+                    hi_v = float(np.exp(hi_v))
             lo = _fmt_val(lo_v, self.fmt)
             hi = _fmt_val(hi_v, self.fmt)
             return f"[{lo}, {hi}]"
         if self.se_type == "t":
+            # t = b / SE(b); the null H0: exp(b)=1 is equivalent to b=0,
+            # so the t and p statistics are unchanged under eform.
             return f"({_fmt_val(model.tvalues.get(var, np.nan), self.fmt)})"
         if self.se_type == "p":
             return f"({_fmt_val(model.pvalues.get(var, np.nan), self.fmt)})"
-        # default: standard error
-        return f"({_fmt_val(model.std_errors.get(var, np.nan), self.fmt)})"
+        # default: standard error (delta method under eform)
+        se_v = model.std_errors.get(var, np.nan)
+        if eform and not pd.isna(se_v):
+            b = float(model.params[var])
+            if np.isfinite(b):
+                se_v = float(np.exp(b)) * float(se_v)
+        return f"({_fmt_val(se_v, self.fmt)})"
+
+    def _has_any_eform(self) -> bool:
+        return any(self.eform_flags)
 
     def _se_label(self) -> str:
         if self._se_label_override is not None and self.se_type == "se":
@@ -245,8 +305,16 @@ class RegtableResult:
         per_model: Dict[str, float],
         var: str,
         bracket_idx: int,
+        model: Optional[_ModelData] = None,
+        flat_idx: int = 0,
     ) -> str:
-        """Render the bracket-wrapped extra-SE cell for one model column."""
+        """Render the bracket-wrapped extra-SE cell for one model column.
+
+        When eform is active for the column, the extra SE (bootstrap /
+        cluster / jackknife / etc.) is rescaled by ``exp(b)`` via the
+        same delta-method approximation used for the primary SE — keeps
+        the cells reading on a single scale.
+        """
         if var not in per_model:
             return ""
         try:
@@ -255,6 +323,14 @@ class RegtableResult:
             return ""
         if not np.isfinite(val):
             return ""
+        if (
+            self._model_eform(flat_idx)
+            and model is not None
+            and var in model.params.index
+        ):
+            b = float(model.params[var])
+            if np.isfinite(b):
+                val = float(np.exp(b)) * val
         lo, hi = _MULTI_SE_BRACKETS[bracket_idx % len(_MULTI_SE_BRACKETS)]
         return f"{lo}{_fmt_val(val, self.fmt)}{hi}"
 
@@ -291,26 +367,26 @@ class RegtableResult:
         panel_idx: int = 0,
     ) -> List[str]:
         lines: List[str] = []
+        base_idx = sum(len(p.models) for p in self.panels[:panel_idx])
         for var in var_list:
             label = self.coef_labels.get(var, var)
             row = f"{label:<{label_w}}"
-            for m in models:
-                row += f"{self._coef_cell(m, var):>{col_w}}"
+            for off, m in enumerate(models):
+                row += f"{self._coef_cell(m, var, base_idx + off):>{col_w}}"
             lines.append(row)
             # SE row
             row2 = " " * label_w
-            for m in models:
-                row2 += f"{self._se_cell(m, var):>{col_w}}"
+            for off, m in enumerate(models):
+                row2 += f"{self._se_cell(m, var, base_idx + off):>{col_w}}"
             lines.append(row2)
             # Extra SE rows from multi_se. Each label maps to one entry per
             # model across the WHOLE table, so we slice into the panel using
             # cumulative model offsets.
-            base_idx = sum(len(p.models) for p in self.panels[:panel_idx])
             for ext_idx, (_, per_model_list) in enumerate(self.multi_se):
                 row3 = " " * label_w
-                for off, _m in enumerate(models):
+                for off, m in enumerate(models):
                     per_model = per_model_list[base_idx + off]
-                    row3 += f"{self._multi_se_cell(per_model, var, ext_idx):>{col_w}}"
+                    row3 += f"{self._multi_se_cell(per_model, var, ext_idx, m, base_idx + off):>{col_w}}"
                 lines.append(row3)
             lines.append("")  # blank between vars
         return lines
@@ -340,6 +416,21 @@ class RegtableResult:
             lines.append("")
 
         lines.append(thick)
+
+        # Column spanners: a header row above the model-label row, with
+        # each label centered over its block of columns.
+        if self.column_spanners:
+            span_row = " " * label_w
+            for lbl, span in self.column_spanners:
+                block_w = col_w * span
+                span_row += f"{lbl:^{block_w}}"
+            lines.append(span_row)
+            # Thin underline beneath each spanner block (cmidrule analog)
+            rule_row = " " * label_w
+            for _, span in self.column_spanners:
+                block_w = col_w * span
+                rule_row += " " + "─" * (block_w - 2) + " "
+            lines.append(rule_row)
 
         # Header: model labels
         hdr = " " * label_w
@@ -397,12 +488,26 @@ class RegtableResult:
         for ext_idx, (label, _) in enumerate(self.multi_se):
             lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
             lines.append(f"{label} in {lo}…{hi}")
+        if self._has_any_eform():
+            lines.append(self._eform_note())
         if self.show_stars:
             lines.append(self._star_note())
         for note in self.notes:
             lines.append(note)
 
         return "\n".join(lines)
+
+    def _eform_note(self) -> str:
+        """Footer note explaining the eform transformation."""
+        if all(self.eform_flags):
+            return ("Coefficients reported as exp(b); standard errors via "
+                    "delta method (exp(b)·SE). Stars from p-values of the "
+                    "untransformed estimates.")
+        cols = [i + 1 for i, f in enumerate(self.eform_flags) if f]
+        col_str = ", ".join(f"({c})" for c in cols)
+        return (f"Columns {col_str} report exp(b) (delta-method SE); "
+                f"other columns report b. Stars from p-values of the "
+                f"untransformed estimates.")
 
     # ═══════════════════════════════════════════════════════════════════════
     # HTML (also _repr_html_)
@@ -426,14 +531,32 @@ class RegtableResult:
 
         # Header
         lines.append("<thead>")
+
+        # Column spanners (above the model-label row) when set
+        if self.column_spanners:
+            lines.append("<tr>")
+            lines.append(
+                '<th style="text-align:left; border-top:3px solid black; '
+                'padding:4px 8px;"></th>'
+            )
+            for lbl, span in self.column_spanners:
+                lines.append(
+                    f'<th colspan="{span}" style="text-align:center; '
+                    f'border-top:3px solid black; border-bottom:1px solid #999; '
+                    f'padding:4px 12px;">{_html_escape(lbl)}</th>'
+                )
+            lines.append("</tr>")
+
         lines.append("<tr>")
+        # When spanners present, the top rule already lives on the spanner row
+        top_rule = "" if self.column_spanners else "border-top:3px solid black; "
         lines.append(
-            '<th style="text-align:left; border-top:3px solid black; '
+            f'<th style="text-align:left; {top_rule}'
             'border-bottom:1px solid black; padding:4px 8px;"></th>'
         )
         for lbl in self.model_labels:
             lines.append(
-                f'<th style="text-align:center; border-top:3px solid black; '
+                f'<th style="text-align:center; {top_rule}'
                 f'border-bottom:1px solid black; padding:4px 12px;">'
                 f'{_html_escape(lbl)}</th>'
             )
@@ -474,33 +597,37 @@ class RegtableResult:
                     f'<td style="text-align:left; padding:1px 8px;">{label}</td>'
                 )
                 # Empty cells for models NOT in this panel
+                flat_idx = 0
                 for gi, p2 in enumerate(self.panels):
                     for m in p2.models:
                         if gi == pi:
                             lines.append(
                                 f'<td style="text-align:center; padding:1px 12px;">'
-                                f'{_html_escape(self._coef_cell(m, var))}</td>'
+                                f'{_html_escape(self._coef_cell(m, var, flat_idx))}</td>'
                             )
                         else:
                             lines.append(
                                 '<td style="text-align:center; padding:1px 12px;"></td>'
                             )
+                        flat_idx += 1
                 lines.append("</tr>")
                 # SE row
                 lines.append("<tr>")
                 lines.append("<td></td>")
+                flat_idx = 0
                 for gi, p2 in enumerate(self.panels):
                     for m in p2.models:
                         if gi == pi:
                             lines.append(
                                 f'<td style="text-align:center; padding:0 12px; '
                                 f'color:#555; font-size:12px;">'
-                                f'{_html_escape(self._se_cell(m, var))}</td>'
+                                f'{_html_escape(self._se_cell(m, var, flat_idx))}</td>'
                             )
                         else:
                             lines.append(
                                 '<td style="text-align:center; padding:0 12px;"></td>'
                             )
+                        flat_idx += 1
                 lines.append("</tr>")
                 # Extra SE rows from multi_se
                 base_idx = sum(len(p.models) for p in self.panels[:pi])
@@ -511,7 +638,9 @@ class RegtableResult:
                         for off, m in enumerate(p2.models):
                             if gi == pi:
                                 per_model = per_model_list[base_idx + off]
-                                cell = self._multi_se_cell(per_model, var, ext_idx)
+                                cell = self._multi_se_cell(
+                                    per_model, var, ext_idx, m, base_idx + off
+                                )
                                 lines.append(
                                     f'<td style="text-align:center; padding:0 12px; '
                                     f'color:#777; font-size:12px;">'
@@ -586,6 +715,11 @@ class RegtableResult:
                 f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
                 f'padding:0 8px;">{_html_escape(multi_note)}</td></tr>'
             )
+        if self._has_any_eform():
+            lines.append(
+                f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
+                f'padding:0 8px;">{_html_escape(self._eform_note())}</td></tr>'
+            )
         if self.show_stars:
             lines.append(
                 f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
@@ -615,6 +749,22 @@ class RegtableResult:
             lines.append(f"\\caption{{{_latex_escape(self.title)}}}")
         lines.append(f"\\begin{{tabular}}{{{col_spec}}}")
         lines.append("\\hline\\hline")
+
+        # Column spanners (above the model-label row) when set
+        if self.column_spanners:
+            cells_sp: List[str] = [""]
+            cmidrules: List[str] = []
+            cur_col = 2  # LaTeX column 1 is the row-label, models start at 2
+            for lbl, span in self.column_spanners:
+                cells_sp.append(
+                    f"\\multicolumn{{{span}}}{{c}}{{{_latex_escape(lbl)}}}"
+                )
+                cmidrules.append(
+                    f"\\cmidrule(lr){{{cur_col}-{cur_col + span - 1}}}"
+                )
+                cur_col += span
+            lines.append(" & ".join(cells_sp) + " \\\\")
+            lines.append("".join(cmidrules))
 
         # Header
         hdr = " & ".join(
@@ -646,32 +796,38 @@ class RegtableResult:
             for var in var_list:
                 label = _latex_escape(self.coef_labels.get(var, var))
                 cells: List[str] = []
+                flat_idx = 0
                 for gi, p2 in enumerate(self.panels):
                     for m in p2.models:
                         if gi == pi:
-                            cells.append(_latex_escape(self._coef_cell(m, var)))
+                            cells.append(_latex_escape(self._coef_cell(m, var, flat_idx)))
                         else:
                             cells.append("")
+                        flat_idx += 1
                 lines.append(f"{label} & " + " & ".join(cells) + " \\\\")
                 # SE row
                 cells2: List[str] = []
+                flat_idx = 0
                 for gi, p2 in enumerate(self.panels):
                     for m in p2.models:
                         if gi == pi:
-                            cells2.append(_latex_escape(self._se_cell(m, var)))
+                            cells2.append(_latex_escape(self._se_cell(m, var, flat_idx)))
                         else:
                             cells2.append("")
+                        flat_idx += 1
                 lines.append(" & " + " & ".join(cells2) + " \\\\")
                 # Extra SE rows (multi_se)
                 base_idx = sum(len(p.models) for p in self.panels[:pi])
                 for ext_idx, (_, per_model_list) in enumerate(self.multi_se):
                     cells_ext: List[str] = []
                     for gi, p2 in enumerate(self.panels):
-                        for off, _m in enumerate(p2.models):
+                        for off, m in enumerate(p2.models):
                             if gi == pi:
                                 per_model = per_model_list[base_idx + off]
                                 cells_ext.append(
-                                    _latex_escape(self._multi_se_cell(per_model, var, ext_idx))
+                                    _latex_escape(self._multi_se_cell(
+                                        per_model, var, ext_idx, m, base_idx + off
+                                    ))
                                 )
                             else:
                                 cells_ext.append("")
@@ -722,6 +878,11 @@ class RegtableResult:
                 f"\\multicolumn{{{n_cols}}}{{l}}"
                 f"{{\\footnotesize {_latex_escape(multi_note)}}} \\\\"
             )
+        if self._has_any_eform():
+            lines.append(
+                f"\\multicolumn{{{n_cols}}}{{l}}"
+                f"{{\\footnotesize {_latex_escape(self._eform_note())}}} \\\\"
+            )
         if self.show_stars:
             lines.append(
                 f"\\multicolumn{{{n_cols}}}{{l}}"
@@ -762,6 +923,20 @@ class RegtableResult:
             lines.append(f"**{self.title}**")
             lines.append("")
 
+        # Column spanners — Markdown has no native colspan, so we render
+        # each spanner block as repeated label cells (one per column it
+        # covers) inside a bold formatting band. Pandoc / GFM renderers
+        # show this as a centered visual group.
+        if self.column_spanners:
+            spanner_cells: List[str] = []
+            for lbl, span in self.column_spanners:
+                spanner_cells.extend([f"**{lbl}**"] * span)
+            lines.append(
+                "| |"
+                + "|".join(f" {c} " for c in spanner_cells)
+                + "|"
+            )
+
         # Header
         hdr = "| |" + "|".join(f" {n} " for n in self.model_labels) + "|"
         sep = "|---|" + "|".join("---:" for _ in self.model_labels) + "|"
@@ -781,31 +956,37 @@ class RegtableResult:
             for var in var_list:
                 label = self.coef_labels.get(var, var)
                 cells: List[str] = []
+                flat_idx = 0
                 for gi, p2 in enumerate(self.panels):
                     for m in p2.models:
                         if gi == pi:
-                            cells.append(self._coef_cell(m, var))
+                            cells.append(self._coef_cell(m, var, flat_idx))
                         else:
                             cells.append("")
+                        flat_idx += 1
                 lines.append(f"| {label} |" + "|".join(f" {c} " for c in cells) + "|")
                 # SE row
                 cells2: List[str] = []
+                flat_idx = 0
                 for gi, p2 in enumerate(self.panels):
                     for m in p2.models:
                         if gi == pi:
-                            cells2.append(self._se_cell(m, var))
+                            cells2.append(self._se_cell(m, var, flat_idx))
                         else:
                             cells2.append("")
+                        flat_idx += 1
                 lines.append("| |" + "|".join(f" {c} " for c in cells2) + "|")
                 # Extra SE rows from multi_se
                 base_idx = sum(len(p.models) for p in self.panels[:pi])
                 for ext_idx, (_, per_model_list) in enumerate(self.multi_se):
                     cells3: List[str] = []
                     for gi, p2 in enumerate(self.panels):
-                        for off, _m in enumerate(p2.models):
+                        for off, m in enumerate(p2.models):
                             if gi == pi:
                                 per_model = per_model_list[base_idx + off]
-                                cells3.append(self._multi_se_cell(per_model, var, ext_idx))
+                                cells3.append(self._multi_se_cell(
+                                    per_model, var, ext_idx, m, base_idx + off
+                                ))
                             else:
                                 cells3.append("")
                     lines.append("| |" + "|".join(f" {c} " for c in cells3) + "|")
@@ -831,6 +1012,8 @@ class RegtableResult:
         for ext_idx, (label, _) in enumerate(self.multi_se):
             lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
             lines.append(f"*{label} in {lo}…{hi}*")
+        if self._has_any_eform():
+            lines.append(f"*{self._eform_note()}*")
         if self.show_stars:
             lines.append(f"*{self._star_note()}*")
         for note in self.notes:
@@ -923,7 +1106,7 @@ class RegtableResult:
                     for m in p2.models:
                         col_name = self.model_labels[mi]
                         if gi == pi:
-                            row[col_name] = self._coef_cell(m, var)
+                            row[col_name] = self._coef_cell(m, var, mi)
                         else:
                             row[col_name] = ""
                         mi += 1
@@ -935,7 +1118,7 @@ class RegtableResult:
                     for m in p2.models:
                         col_name = self.model_labels[mi]
                         if gi == pi:
-                            row2[col_name] = self._se_cell(m, var)
+                            row2[col_name] = self._se_cell(m, var, mi)
                         else:
                             row2[col_name] = ""
                         mi += 1
@@ -946,11 +1129,13 @@ class RegtableResult:
                     row3: Dict[str, str] = {"": ""}
                     mi = 0
                     for gi, p2 in enumerate(self.panels):
-                        for off, _m in enumerate(p2.models):
+                        for off, m in enumerate(p2.models):
                             col_name = self.model_labels[mi]
                             if gi == pi:
                                 per_model = per_model_list[base_idx + off]
-                                row3[col_name] = self._multi_se_cell(per_model, var, ext_idx)
+                                row3[col_name] = self._multi_se_cell(
+                                    per_model, var, ext_idx, m, base_idx + off
+                                )
                             else:
                                 row3[col_name] = ""
                             mi += 1
@@ -1134,6 +1319,8 @@ class RegtableResult:
         for ext_idx, (label, _) in enumerate(self.multi_se):
             lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
             note_lines.append(f"{label} in {lo}…{hi}")
+        if self._has_any_eform():
+            note_lines.append(self._eform_note())
         if self.show_stars:
             note_lines.append(self._star_note())
         note_lines.extend(self.notes)
@@ -1234,6 +1421,10 @@ def regtable(
     repro: Union[bool, Dict[str, Any], None] = None,
     quarto_label: Optional[str] = None,
     quarto_caption: Optional[str] = None,
+    eform: Union[bool, Sequence[bool]] = False,
+    column_spanners: Optional[Sequence[Tuple[str, int]]] = None,
+    coef_map: Optional[Dict[str, str]] = None,
+    consistency_check: bool = True,
 ) -> RegtableResult:
     """
     Unified publication-quality regression table.
@@ -1348,6 +1539,42 @@ def regtable(
         seed and data hash, timestamp) as the last footer line. ``True``
         emits the version + timestamp only. Pass a dict to record more:
         ``{"data": df, "seed": 42, "extra": "git@<sha>"}``.
+    eform : bool or list of bool, default ``False``
+        Report exponentiated coefficients — odds ratios for ``logit`` /
+        ``probit``, incidence-rate ratios for ``poisson``, hazard ratios
+        for Cox-style models. Standard errors use the delta method
+        (``exp(b)·SE(b)``), CI bounds are ``(exp(lo), exp(hi))`` of the
+        original endpoints, and t / p values are unchanged because
+        ``H_0: b=0`` is equivalent to ``H_0: exp(b)=1``. Pass a per-model
+        list (length matches ``n_models``) to mix transformed and
+        untransformed columns (e.g. logit + OLS in the same table). A
+        footer note transparently flags which columns are exponentiated.
+    column_spanners : list of (label, span), optional
+        Multi-row header above the model labels — each tuple groups
+        ``span`` consecutive columns under ``label``. Spans must
+        partition all model columns (sum equals ``n_models``). Renders
+        as ``\\multicolumn{n}{c}{label}`` + ``\\cmidrule`` in LaTeX,
+        ``colspan="n"`` in HTML, repeated bold cells in Markdown,
+        and centered ASCII in text. Word and Excel exports inherit
+        ``to_dataframe()``'s flat column model and currently omit the
+        spanner row — use the LaTeX or HTML output for paper-grade
+        spanners. Mirrors Stata ``mgroups()`` and R ``modelsummary``'s
+        ``group`` argument. Example: ``column_spanners=[("OLS", 2),
+        ("IV", 2)]`` over four models.
+    coef_map : dict, optional
+        Single-shot rename + reorder + drop. Mirrors R
+        ``modelsummary``'s ``coef_map``: pass an ordered dict whose
+        keys are coefficient names to **keep** (in display order) and
+        values are the rendered labels. Variables not in ``coef_map``
+        are dropped. Mutually exclusive with ``coef_labels`` /
+        ``keep`` / ``drop`` / ``order`` — pass either the unified map
+        or the legacy four-parameter spec.
+    consistency_check : bool, default True
+        When two or more columns are passed and their sample sizes
+        differ, emit a ``UserWarning``. Reviewer red flag — disable by
+        setting ``False`` (or annotate with ``notes=[...]``) when the
+        N-mismatch is intentional (IV first stage on a subsample,
+        RD bandwidth restriction, etc.).
 
     Returns
     -------
@@ -1366,6 +1593,23 @@ def regtable(
     >>> sp.regtable(m1, m2, output="latex", filename="table1.tex")
     >>> sp.regtable([m1, m2], [m3, m4],
     ...     panel_labels=["Panel A: OLS", "Panel B: IV"])
+    >>>
+    >>> # Logit odds ratios
+    >>> sp.regtable(sp.logit("y ~ x", data=df), eform=True)
+    >>>
+    >>> # IV three-block table with column spanners
+    >>> sp.regtable(
+    ...     ols1, ols2, iv1, iv2,
+    ...     column_spanners=[("OLS", 2), ("IV", 2)],
+    ...     stats=["N", "R2", "depvar_mean", "depvar_sd"],
+    ... )
+    >>>
+    >>> # Unified coef_map (rename + order + drop in one shot)
+    >>> sp.regtable(m1, m2, coef_map={
+    ...     "x2": "Education",
+    ...     "x1": "Experience",
+    ...     "Intercept": "Constant",
+    ... })
     """
     if not args:
         raise ValueError("At least one model result is required.")
@@ -1403,6 +1647,28 @@ def regtable(
     if star_levels is None:
         star_levels = (0.10, 0.05, 0.01)
 
+    # --- coef_map shortcut (mirrors R modelsummary's three-in-one) ----
+    # When set, it simultaneously renames + reorders + drops via a single
+    # ordered dict. Conflicts with the legacy keep/drop/order/coef_labels
+    # parameters are rejected up front because resolving them is ambiguous
+    # and silent precedence would surprise users.
+    if coef_map is not None:
+        if coef_labels is not None:
+            raise ValueError(
+                "Pass either coef_map or coef_labels, not both. coef_map is "
+                "the unified shortcut (rename + order + drop); coef_labels "
+                "only renames."
+            )
+        if keep is not None or drop is not None or order is not None:
+            raise ValueError(
+                "coef_map already defines the keep / order behaviour "
+                "(via its insertion order and key set). Drop the explicit "
+                "keep/drop/order arguments when using coef_map."
+            )
+        coef_labels = dict(coef_map)
+        keep = list(coef_map.keys())
+        order = list(coef_map.keys())
+
     # --- Detect panel structure ---
     # If first arg is a list, treat each positional arg as a panel
     if isinstance(args[0], list):
@@ -1419,6 +1685,43 @@ def regtable(
         model_data_list = [_extract_model_data(r) for r in raw]
         panels.append(_PanelData(model_data_list))
         total_models += len(model_data_list)
+
+    # --- Resolve eform flags (one bool per flat model position) -------
+    if isinstance(eform, bool):
+        eform_flags = [eform] * total_models
+    else:
+        eform_seq = list(eform)
+        if len(eform_seq) != total_models:
+            raise ValueError(
+                f"eform list has {len(eform_seq)} entries but there are "
+                f"{total_models} models."
+            )
+        eform_flags = [bool(f) for f in eform_seq]
+
+    # --- Consistency checks: warn on N-mismatch -----------------------
+    # Mixed sample sizes across columns is a Reviewer red flag. We don't
+    # *block* (sometimes mixing is intentional — IV first stage on a
+    # subsample, RD bandwidth restriction); we warn so the user puts an
+    # explicit footnote.
+    if consistency_check and total_models >= 2:
+        ns = []
+        for p in panels:
+            for m in p.models:
+                n_val = m.stats.get("N")
+                if n_val is not None:
+                    try:
+                        ns.append(int(n_val))
+                    except (TypeError, ValueError):
+                        pass
+        if len(ns) >= 2 and (max(ns) - min(ns) > 0):
+            warnings.warn(
+                f"Sample sizes differ across columns (range "
+                f"{min(ns):,}–{max(ns):,}). If this is intentional (e.g. "
+                f"IV first stage on a subsample), add a footnote via "
+                f"notes=[...]; otherwise re-fit on a common sample.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     # Default model labels
     if model_labels is None:
@@ -1492,6 +1795,8 @@ def regtable(
         template=template,
         quarto_label=quarto_label,
         quarto_caption=quarto_caption,
+        eform_flags=eform_flags,
+        column_spanners=list(column_spanners) if column_spanners else None,
     )
 
     # --- Output handling ---

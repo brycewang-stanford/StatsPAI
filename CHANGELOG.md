@@ -2,6 +2,61 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — `sp.regtable` publication-quality extensions
+
+Five additions designed to close the remaining gap between
+``sp.regtable`` and Stata ``esttab`` / R ``modelsummary`` /
+R ``fixest::etable`` for empirical paper writing. **No numerical
+changes** to any estimator; output-layer only.
+
+### Added — Five regtable parameters
+
+- **``eform``** — report ``exp(b)`` (odds ratios for ``logit`` /
+  ``probit``, incidence-rate ratios for ``poisson``, hazard ratios
+  for Cox-style models). SE via delta method (``exp(b)·SE(b)``);
+  CI bounds via ``(exp(lo), exp(hi))`` of the original endpoints;
+  t and p unchanged because ``H_0: b=0`` is equivalent to
+  ``H_0: exp(b)=1``. Accepts ``bool`` (apply to all) or
+  ``List[bool]`` (per-model — mix logit OR with OLS coefs in the
+  same table). A footer note transparently flags which columns are
+  exponentiated. Mirrors Stata ``esttab, eform``.
+
+- **``column_spanners``** — multi-row header above the model labels.
+  Pass a list of ``(label, span)`` tuples whose spans partition all
+  model columns, e.g. ``[("OLS", 2), ("IV", 2)]``. Renders as
+  ``\multicolumn{n}{c}{label}`` + ``\cmidrule`` in LaTeX, ``colspan``
+  in HTML, repeated bold cells in Markdown, and centered ASCII in
+  text. Mirrors Stata ``mgroups()`` and R ``modelsummary``'s ``group``.
+
+- **``coef_map``** — single-shot rename + reorder + drop. Pass an
+  ordered dict whose keys are coefficients to keep (in display
+  order) and values are display labels. Variables not in the map
+  are dropped. Mutually exclusive with the legacy ``coef_labels``
+  / ``keep`` / ``drop`` / ``order`` quartet. Mirrors R
+  ``modelsummary``'s ``coef_map``.
+
+- **``stats=["depvar_mean", "depvar_sd"]``** — auto rows for the
+  dependent variable's sample mean and standard deviation, populated
+  from the result object's ``data_info['y']`` (or ``endog`` /
+  ``dep_var``) at extraction time. Rows render as "Mean of Y" and
+  "SD of Y". Top-5 economics journals routinely require these so
+  reviewers can sanity-check effect magnitudes against the
+  outcome's scale. Aliases: ``"ymean"`` / ``"ysd"``.
+
+- **``consistency_check``** (default ``True``) — emit a
+  ``UserWarning`` when sample sizes differ across columns. Disable
+  via ``consistency_check=False`` when the N-mismatch is
+  intentional (IV first stage on a subsample, RD bandwidth
+  restriction). Reviewer red flag silenced by default in v1.7.2,
+  surfaced now.
+
+### Tests
+
+23 new tests in ``test_regtable_publication_extensions.py`` covering
+all six format renderers (text / LaTeX / HTML / Markdown) plus the
+parameter validation paths. Existing 204 output-area tests
+unchanged.
+
 ## [Unreleased] — Phase 12: provenance rollout to 66/925 (bounds + randomization + imputation)
 
 Continues the v1.7.2 provenance rollout. **No numerical changes** to

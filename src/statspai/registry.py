@@ -1042,7 +1042,10 @@ def _build_registry():
             "Publication-quality multi-model regression table with auto-extracted "
             "diagnostic rows (FE/Cluster indicators, IV first-stage F, DiD pre-trend "
             "p, RD bandwidth/kernel/poly), journal presets (AER/QJE/Econometrica/JF/"
-            "AEJA/etc.), multi-SE side-by-side display, and reproducibility metadata."
+            "AEJA/etc.), multi-SE side-by-side display, eform odds-ratio / IRR / HR "
+            "transformation with delta-method SE, column spanners (\\multicolumn / "
+            "colspan / cmidrule), unified coef_map (rename + order + drop), "
+            "depvar_mean / depvar_sd auto rows, and N-mismatch consistency warnings."
         ),
         params=[
             ParamSpec("results", "list", True, None, "Model result objects (positional)"),
@@ -1056,6 +1059,17 @@ def _build_registry():
                       "Append reproducibility footer (version+seed+data hash)"),
             ParamSpec("se_type", "str", False, "se",
                       "Bottom-row content", ["se", "t", "p", "ci"]),
+            ParamSpec("eform", "bool|list", False, False,
+                      "Report exp(b) (OR/IRR/HR) with delta-method SE; "
+                      "pass per-model list to mix transformed/untransformed columns"),
+            ParamSpec("column_spanners", "list", False, None,
+                      "Multi-row header: list of (label, span) tuples whose spans "
+                      "partition the model columns (e.g. [('OLS', 2), ('IV', 2)])"),
+            ParamSpec("coef_map", "dict", False, None,
+                      "Single-shot rename + reorder + drop (mutually exclusive with "
+                      "coef_labels/keep/drop/order)"),
+            ParamSpec("consistency_check", "bool", False, True,
+                      "Warn when sample sizes differ across columns"),
             ParamSpec("output", "str", False, "text", "Render format",
                       ["text", "latex", "html", "markdown", "word", "excel"]),
             ParamSpec("filename", "str", False, None, "File path; format inferred from extension"),
@@ -1065,7 +1079,8 @@ def _build_registry():
             'sp.regtable(m_ols, m_iv, template="qje", multi_se={"Bootstrap SE": [se1, se2]}, '
             'repro={"data": df, "seed": 42}, filename="table1.tex")'
         ),
-        tags=["output", "table", "publication", "journal", "diagnostics"],
+        tags=["output", "table", "publication", "journal", "diagnostics",
+             "eform", "column-spanners", "coef-map", "depvar-mean"],
     ))
 
     register(FunctionSpec(

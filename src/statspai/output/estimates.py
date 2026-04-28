@@ -71,6 +71,16 @@ _STAT_ALIASES = {
     "bic": "BIC",
     "ll": "Log-Likelihood",
     "Log-Likelihood": "Log-Likelihood",
+    # Dependent-variable summary rows. Top-5 econ journals routinely require
+    # these so reviewers can sanity-check effect magnitudes against the
+    # outcome's scale; ``modelsummary`` exposes them via ``glance``,
+    # ``esttab`` via ``stats(ymean)``.
+    "depvar_mean": "Mean of Y",
+    "depvar_sd": "SD of Y",
+    "Mean of Y": "Mean of Y",
+    "SD of Y": "SD of Y",
+    "ymean": "Mean of Y",
+    "ysd": "SD of Y",
 }
 
 _STAT_DISPLAY = {
@@ -81,6 +91,8 @@ _STAT_DISPLAY = {
     "AIC": "AIC",
     "BIC": "BIC",
     "Log-Likelihood": "Log-Lik.",
+    "Mean of Y": "Mean of Y",
+    "SD of Y": "SD of Y",
 }
 
 
@@ -203,6 +215,28 @@ def _extract_model_data(result) -> _ModelData:
     for k in ("R-squared", "Adj. R-squared", "F-statistic", "AIC", "BIC", "Log-Likelihood"):
         if k in diag:
             stats[k] = diag[k]
+
+    # Dependent-variable mean / SD (sample, ddof=1). Looked up across the
+    # several conventions different StatsPAI estimators use to stash the
+    # outcome vector — ols stores ``data_info['y']``, IV uses ``y``, GLM
+    # uses ``endog``, advanced_iv uses ``dep_var``. When none are present
+    # we silently skip rather than fabricate.
+    y_vec = (
+        dinfo.get("y")
+        if isinstance(dinfo, dict)
+        else None
+    )
+    if y_vec is None and isinstance(dinfo, dict):
+        y_vec = dinfo.get("endog") or dinfo.get("dep_var") or dinfo.get("Y")
+    if y_vec is not None:
+        try:
+            y_arr = np.asarray(y_vec, dtype=float).ravel()
+            if y_arr.size > 0 and np.all(np.isfinite(y_arr)):
+                stats["Mean of Y"] = float(np.mean(y_arr))
+                if y_arr.size > 1:
+                    stats["SD of Y"] = float(np.std(y_arr, ddof=1))
+        except (TypeError, ValueError):
+            pass
     depvar = dinfo.get("dependent_var", "")
     df_resid = (
         getattr(result, "df_resid", None)
