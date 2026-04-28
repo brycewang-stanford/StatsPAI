@@ -583,3 +583,49 @@ def test_fepois_falls_back_when_rust_unavailable(monkeypatch):
         atol=1e-12, rtol=0,
         err_msg="Rust and NumPy fallback paths disagree",
     )
+
+
+def test_fepois_native_irls_vs_python_irls_parity(monkeypatch):
+    """Phase B1: native Rust IRLS (single PyO3 call via fepois_irls) must
+    match the Python IRLS for-loop (which uses the Phase B0 dispatcher
+    internally) at coef atol ≤ 1e-10 and SE atol ≤ 1e-7.
+
+    This is the explicit B1 parity gate: the entire IRLS state machine
+    in Rust vs the entire IRLS in Python should agree to within IRLS
+    convergence tolerance. The Python path itself is not the canonical
+    NumPy reference (it goes through the B0 sort-aware kernel), so
+    the relevant comparison is "did B1's port preserve correctness".
+    """
+    pytest.importorskip("statspai_hdfe")
+    import importlib
+    import statspai_hdfe
+    _fepois_mod = importlib.import_module("statspai.fast.fepois")
+
+    if not hasattr(statspai_hdfe, "fepois_irls"):
+        pytest.skip("statspai_hdfe wheel pre-dates B1.4 (no fepois_irls)")
+
+    df = _make_synthetic_panel(seed=2026)
+
+    # Native Rust IRLS path (default when fepois_irls is available).
+    fit_native = sp.fast.fepois("y ~ x1 + x2 | fe1 + fe2", data=df, vcov="iid")
+
+    # Force the Python IRLS for-loop fallback by hiding fepois_irls
+    # from the loaded module while keeping _HAS_RUST_HDFE = True (so the
+    # B0 dispatcher path inside the Python IRLS loop still runs through
+    # the Rust weighted demean).
+    real_fepois_irls = statspai_hdfe.fepois_irls
+    monkeypatch.delattr(_fepois_mod._rust_hdfe, "fepois_irls")
+    fit_py = sp.fast.fepois("y ~ x1 + x2 | fe1 + fe2", data=df, vcov="iid")
+    # Restore so subsequent tests see fepois_irls.
+    setattr(_fepois_mod._rust_hdfe, "fepois_irls", real_fepois_irls)
+
+    np.testing.assert_allclose(
+        fit_native.coef().values, fit_py.coef().values,
+        atol=1e-10, rtol=0,
+        err_msg="Native Rust IRLS coef diverges from Python IRLS for-loop",
+    )
+    np.testing.assert_allclose(
+        fit_native.se().values, fit_py.se().values,
+        atol=1e-7, rtol=0,
+        err_msg="Native Rust IRLS SE diverges from Python IRLS for-loop",
+    )
