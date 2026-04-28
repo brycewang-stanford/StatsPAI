@@ -28,7 +28,8 @@ mod cholesky;
 mod irls;
 
 use numpy::{
-    PyArray1, PyReadonlyArray1, PyReadwriteArray1, PyReadwriteArray2, PyUntypedArrayMethods,
+    PyArray1, PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray1,
+    PyReadwriteArray2, PyUntypedArrayMethods,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
@@ -442,6 +443,163 @@ fn demean_2d_weighted_sorted<'py>(
     Ok(out)
 }
 
+/// Native Rust Poisson IRLS for ``sp.fast.fepois``.
+///
+/// Single PyO3 entry point that runs the entire IRLS state machine
+/// in Rust — no per-iter FFI round-trips. The Python side parses the
+/// formula and runs the singleton/separation pre-passes; this function
+/// runs the IRLS body and returns the final β plus the demeaned X̃ and
+/// working weights so the caller can compute the requested vcov in
+/// Python.
+///
+/// Parameters
+/// ----------
+/// y : ndarray[float64, shape (n,)]
+///     Outcome vector (after pre-passes).
+/// x : ndarray[float64, shape (n, p)], Fortran-contiguous
+///     Regressor matrix. The function does NOT mutate `x`.
+/// fe_codes : list[ndarray[int64, shape (n,)]]
+///     K dense FE code arrays.
+/// g_per_fe : ndarray[int64, shape (K,)]
+///     Cardinality of each FE.
+/// obs_weights : ndarray[float64, shape (n,)]
+///     Per-observation weights. Pass an all-1 array for unweighted MLE.
+/// config : dict
+///     IRLS knobs: maxiter / tol / fe_tol / fe_maxiter / eta_clip /
+///     accel_period / max_halvings. Missing keys fall back to
+///     `FePoisIRLSConfig::default()`.
+///
+/// Returns
+/// -------
+/// dict with keys: ``beta`` (ndarray, shape (p,)),
+/// ``x_tilde_flat`` (ndarray, shape (n*p,), F-order data),
+/// ``x_tilde_n`` (int), ``x_tilde_p`` (int),
+/// ``w`` (shape (n,)), ``eta`` (shape (n,)), ``mu`` (shape (n,)),
+/// ``deviance`` (float), ``log_likelihood`` (float), ``iters`` (int),
+/// ``converged`` (bool), ``n_halvings`` (int), ``max_inner_dx`` (float).
+///
+/// Notes
+/// -----
+/// ``x_tilde`` is returned as a flat 1-D array in Fortran (column-major)
+/// order together with shape scalars ``x_tilde_n`` and ``x_tilde_p``.
+/// Reconstruct on the Python side with:
+/// ``x_tilde = result["x_tilde_flat"].reshape(result["x_tilde_p"],
+///              result["x_tilde_n"]).T``
+/// which produces a row-major (n, p) view of the F-order data.
+#[pyfunction]
+#[pyo3(signature = (y, x, fe_codes, g_per_fe, obs_weights, config))]
+fn fepois_irls<'py>(
+    py: Python<'py>,
+    y: PyReadonlyArray1<'py, f64>,
+    x: PyReadonlyArray2<'py, f64>,
+    fe_codes: &Bound<'py, PyList>,
+    g_per_fe: PyReadonlyArray1<'py, i64>,
+    obs_weights: PyReadonlyArray1<'py, f64>,
+    config: &Bound<'py, PyDict>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let y_view = y.as_slice()?;
+    let obs_w_view = obs_weights.as_slice()?;
+    let g_view = g_per_fe.as_slice()?;
+    let code_views = py_list_to_i64_views(fe_codes)?;
+
+    let arr = x.as_array();
+    let shape = arr.shape();
+    if shape.len() != 2 {
+        return Err(pyo3::exceptions::PyValueError::new_err("x must be 2-D"));
+    }
+    let n = shape[0];
+    let p = shape[1];
+
+    if y_view.len() != n {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "y length {} but x has {} rows", y_view.len(), n
+        )));
+    }
+    if obs_w_view.len() != n {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "obs_weights length {} but x has {} rows", obs_w_view.len(), n
+        )));
+    }
+    if g_view.len() != code_views.len() {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "len(g_per_fe)={} but len(fe_codes)={}",
+            g_view.len(), code_views.len()
+        )));
+    }
+    for v in &code_views {
+        if v.as_slice()?.len() != n {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "fe_codes entry has length {} but n={}",
+                v.as_slice()?.len(), n
+            )));
+        }
+    }
+    if !x.is_fortran_contiguous() {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "x must be Fortran-contiguous; pass np.asfortranarray(X)",
+        ));
+    }
+
+    // Read config knobs (each optional — fall back to default).
+    let mut cfg = irls::FePoisIRLSConfig::default();
+    if let Ok(Some(v)) = config.get_item("maxiter") {
+        cfg.maxiter = v.extract::<u32>()?;
+    }
+    if let Ok(Some(v)) = config.get_item("tol") {
+        cfg.tol = v.extract::<f64>()?;
+    }
+    if let Ok(Some(v)) = config.get_item("fe_tol") {
+        cfg.fe_tol = v.extract::<f64>()?;
+    }
+    if let Ok(Some(v)) = config.get_item("fe_maxiter") {
+        cfg.fe_maxiter = v.extract::<u32>()?;
+    }
+    if let Ok(Some(v)) = config.get_item("eta_clip") {
+        cfg.eta_clip = v.extract::<f64>()?;
+    }
+    if let Ok(Some(v)) = config.get_item("accel_period") {
+        cfg.accel_period = v.extract::<u32>()?;
+    }
+    if let Ok(Some(v)) = config.get_item("max_halvings") {
+        cfg.max_halvings = v.extract::<u32>()?;
+    }
+
+    // Build code slices + g_per_fe Vec.
+    let codes_slices: Vec<&[i64]> =
+        code_views.iter().map(|v| v.as_slice().unwrap()).collect();
+    let g_per_fe_vec: Vec<usize> = g_view.iter().map(|&g| g as usize).collect();
+
+    // Snapshot x into an owned Vec (the Rust IRLS doesn't mutate the
+    // input but needs slice access; the workspace handles π internally).
+    let x_owned = x.as_slice()?.to_vec();
+
+    let result = py.allow_threads(|| {
+        let mut ws = irls::FePoisIRLSWorkspace::new(
+            n, p, &codes_slices, &g_per_fe_vec,
+        );
+        irls::fepois_loop(y_view, &x_owned, obs_w_view, &cfg, &mut ws)
+    });
+
+    let out = PyDict::new_bound(py);
+    out.set_item("beta", PyArray1::from_vec_bound(py, result.beta))?;
+    // x_tilde is F-order flat Vec (length n*p). Return it as a 1-D array
+    // together with shape scalars so the Python caller can reconstruct:
+    //   x_tilde = result["x_tilde_flat"].reshape(p, n).T
+    out.set_item("x_tilde_flat", PyArray1::from_vec_bound(py, result.x_tilde))?;
+    out.set_item("x_tilde_n", n)?;
+    out.set_item("x_tilde_p", p)?;
+    out.set_item("w", PyArray1::from_vec_bound(py, result.w))?;
+    out.set_item("eta", PyArray1::from_vec_bound(py, result.eta))?;
+    out.set_item("mu", PyArray1::from_vec_bound(py, result.mu))?;
+    out.set_item("deviance", result.deviance)?;
+    out.set_item("log_likelihood", result.log_likelihood)?;
+    out.set_item("iters", result.iters)?;
+    out.set_item("converged", result.converged)?;
+    out.set_item("n_halvings", result.n_halvings)?;
+    out.set_item("max_inner_dx", result.max_inner_dx)?;
+    Ok(out)
+}
+
 /// Iterative K-way singleton detection. Returns a uint8 keep-mask
 /// (1 = keep, 0 = drop).
 #[pyfunction]
@@ -467,8 +625,9 @@ fn statspai_hdfe(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(group_demean, m)?)?;
     m.add_function(wrap_pyfunction!(demean_2d, m)?)?;
     m.add_function(wrap_pyfunction!(demean_2d_weighted, m)?)?;
-    m.add_function(wrap_pyfunction!(demean_2d_weighted_sorted, m)?)?;  // NEW B0.4
+    m.add_function(wrap_pyfunction!(demean_2d_weighted_sorted, m)?)?;
+    m.add_function(wrap_pyfunction!(fepois_irls, m)?)?;          // NEW B1.4
     m.add_function(wrap_pyfunction!(singleton_mask, m)?)?;
-    m.add("__version__", "0.4.0")?;  // BUMPED 0.3.0 → 0.4.0
+    m.add("__version__", "0.5.0")?;                              // BUMPED 0.4.0 → 0.5.0
     Ok(())
 }
