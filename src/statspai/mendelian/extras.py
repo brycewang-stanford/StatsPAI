@@ -162,7 +162,7 @@ def mr_mode(
     z = estimate / se if se > 0 else 0.0
     p = float(2 * (1 - stats.norm.cdf(abs(z))))
 
-    return ModeBasedResult(
+    _result = ModeBasedResult(
         estimate=float(estimate),
         se=se,
         ci=(float(ci[0]), float(ci[1])),
@@ -171,6 +171,21 @@ def mr_mode(
         bandwidth=bandwidth,
         method=f"{method}-mode",
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.mendelian.mr_mode",
+            params={
+                "method": method, "bandwidth": bandwidth,
+                "n_snps": len(bx),
+            },
+            data=None,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # --------------------------------------------------------------------------- #

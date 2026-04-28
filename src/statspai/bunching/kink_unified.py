@@ -126,10 +126,27 @@ def kink_unified(
     else:
         bunch_e = bunch_se = float('nan')
 
-    return KinkUnifiedResult(
+    _result = KinkUnifiedResult(
         rdd_effect=rdd_e, rdd_se=rdd_se,
         rkd_effect=rkd_e, rkd_se=rkd_se,
         bunching_elasticity=bunch_e, bunching_se=bunch_se,
         bandwidth=float(bandwidth),
         n_obs=n,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.bunching.kink_unified",
+            params={
+                "y": y, "running": running, "cutoff": cutoff,
+                "bandwidth": bandwidth, "bin_width": bin_width,
+                "polynomial_order": polynomial_order,
+                "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

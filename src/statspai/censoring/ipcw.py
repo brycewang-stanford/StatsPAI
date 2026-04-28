@@ -170,13 +170,31 @@ def ipcw(
         "effective_sample_size": float(w.sum() ** 2 / (w ** 2).sum()),
     }
 
-    return IPCWResult(
+    _result = IPCWResult(
         weights=w,
         stabilized=stabilize,
         summary_stats=summary,
         method=method,
         fitted_hazards=1.0 - p_uncensored_cond,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.censoring.ipcw",
+            params={
+                "time": time, "event": event,
+                "censor_covariates": list(censor_covariates),
+                "treatment_covariates": list(treatment_covariates) if treatment_covariates else None,
+                "stabilize": stabilize, "method": method,
+                "truncate": list(truncate) if truncate else None,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def _censor_indicator(event: np.ndarray) -> np.ndarray:

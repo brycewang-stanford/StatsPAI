@@ -309,7 +309,7 @@ def surrogate_index(
             if se > 0 else float("nan")
         )
 
-    return CausalResult(
+    _result = CausalResult(
         method="surrogate_index",
         estimand="ATE",
         estimate=est,
@@ -328,6 +328,26 @@ def surrogate_index(
             "resid_std_obs": float(resid_obs.std(ddof=1)),
         },
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.surrogate.surrogate_index",
+            params={
+                "treatment": treatment,
+                "surrogates": list(surrogates),
+                "long_term_outcome": long_term_outcome,
+                "covariates": list(covariates) if covariates else None,
+                "model": str(model),
+                "alpha": alpha, "n_boot": n_boot,
+                "random_state": random_state,
+            },
+            data=experimental,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ---------------------------------------------------------------------------
