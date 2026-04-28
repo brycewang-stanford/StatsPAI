@@ -766,60 +766,107 @@ def fepois(
     converged = False
     iters_used = 0
 
-    for it in range(maxiter):
-        z = eta + (y - mu) / mu             # working response (no weights here)
-        w = mu * obs_weights                 # working weight: μ_i * w_i
+    use_native_rust_irls = (
+        _HAS_RUST_HDFE
+        and hasattr(_rust_hdfe, "fepois_irls")
+        and len(fe_codes) >= 1
+    )
 
-        # Weighted within-transform of z and X by FE
-        z_tilde, _, _ = _weighted_ap_demean(
-            z, fe_codes, counts_list, w,
-            max_iter=fe_maxiter, tol=fe_tol,
+    if use_native_rust_irls:
+        # Native Rust IRLS path — single PyO3 call drives the entire
+        # state machine. Eliminates 12 FFI round-trips and per-iter
+        # Python overhead (z/w computation, dispatcher setup, asfortranarray,
+        # dict packing/unpacking).
+        x_F = np.asfortranarray(X)
+        g_per_fe_arr = np.array(
+            [int(np.unique(c).size) for c in fe_codes],
+            dtype=np.int64,
         )
-        X_tilde, _, _ = _weighted_ap_demean(
-            X, fe_codes, counts_list, w,
-            max_iter=fe_maxiter, tol=fe_tol,
+        config_dict = {
+            "maxiter": int(maxiter),
+            "tol": float(tol),
+            "fe_tol": float(fe_tol),
+            "fe_maxiter": int(fe_maxiter),
+            "eta_clip": 30.0,
+            "accel_period": 5,
+            "max_halvings": 10,
+        }
+        result = _rust_hdfe.fepois_irls(
+            np.ascontiguousarray(y, dtype=np.float64),
+            x_F,
+            list(fe_codes),
+            g_per_fe_arr,
+            np.ascontiguousarray(obs_weights, dtype=np.float64),
+            config_dict,
         )
+        beta = np.asarray(result["beta"], dtype=np.float64)
+        # x_tilde returned as flat F-order data; reshape to (n, p).
+        x_tilde_flat = np.asarray(result["x_tilde_flat"], dtype=np.float64)
+        x_tilde_n = int(result["x_tilde_n"])
+        x_tilde_p = int(result["x_tilde_p"])
+        X_tilde = x_tilde_flat.reshape(x_tilde_p, x_tilde_n).T  # (n, p) C-order
+        w = np.asarray(result["w"], dtype=np.float64)
+        eta = np.asarray(result["eta"], dtype=np.float64)
+        mu = np.asarray(result["mu"], dtype=np.float64)
+        deviance = float(result["deviance"])
+        iters_used = int(result["iters"])
+        converged = bool(result["converged"])
+    else:
+        # Python IRLS fallback (Phase A / B0 dispatcher path).
+        for it in range(maxiter):
+            z = eta + (y - mu) / mu             # working response (no weights here)
+            w = mu * obs_weights                 # working weight: μ_i * w_i
 
-        # WLS on demeaned: solve (X_tilde' W X_tilde) beta = X_tilde' W z_tilde
-        Xw = X_tilde * w[:, None]
-        XtWX = X_tilde.T @ Xw
-        XtWz = X_tilde.T @ (w * z_tilde)
-        try:
-            beta = np.linalg.solve(XtWX, XtWz)
-        except np.linalg.LinAlgError as exc:
-            raise RuntimeError(
-                f"WLS step failed at iter {it}: {exc}. Check for "
-                "perfect collinearity or all-zero weights."
-            ) from exc
+            # Weighted within-transform of z and X by FE
+            z_tilde, _, _ = _weighted_ap_demean(
+                z, fe_codes, counts_list, w,
+                max_iter=fe_maxiter, tol=fe_tol,
+            )
+            X_tilde, _, _ = _weighted_ap_demean(
+                X, fe_codes, counts_list, w,
+                max_iter=fe_maxiter, tol=fe_tol,
+            )
 
-        # eta_new such that eta_new = X*beta + alpha (FE) (Correia 2020, §3.1)
-        # Identity: P_FE^w(z - X*beta) = (z - X*beta) - (z_tilde - X_tilde*beta)
-        # so eta_new = X*beta + P_FE^w(z - X*beta) = z - (z_tilde - X_tilde @ beta)
-        eta_new = z - (z_tilde - X_tilde @ beta)
-        # Numerical guard on eta to keep mu in float64 range.
-        np.clip(eta_new, -30.0, 30.0, out=eta_new)
-        mu_new = np.exp(eta_new)
+            # WLS on demeaned: solve (X_tilde' W X_tilde) beta = X_tilde' W z_tilde
+            Xw = X_tilde * w[:, None]
+            XtWX = X_tilde.T @ Xw
+            XtWz = X_tilde.T @ (w * z_tilde)
+            try:
+                beta = np.linalg.solve(XtWX, XtWz)
+            except np.linalg.LinAlgError as exc:
+                raise RuntimeError(
+                    f"WLS step failed at iter {it}: {exc}. Check for "
+                    "perfect collinearity or all-zero weights."
+                ) from exc
 
-        # Step-halving if deviance non-decrease (rare but happens near boundary).
-        # Use the weighted deviance when ``weights=`` was supplied so the
-        # scalar tracks the actual log-likelihood we're optimising.
-        new_dev = _poisson_deviance(y, mu_new, obs_weights)
-        halvings = 0
-        while new_dev > deviance and halvings < 10 and np.isfinite(deviance):
-            eta_new = 0.5 * (eta_new + eta)
+            # eta_new such that eta_new = X*beta + alpha (FE) (Correia 2020, §3.1)
+            # Identity: P_FE^w(z - X*beta) = (z - X*beta) - (z_tilde - X_tilde*beta)
+            # so eta_new = X*beta + P_FE^w(z - X*beta) = z - (z_tilde - X_tilde @ beta)
+            eta_new = z - (z_tilde - X_tilde @ beta)
+            # Numerical guard on eta to keep mu in float64 range.
             np.clip(eta_new, -30.0, 30.0, out=eta_new)
             mu_new = np.exp(eta_new)
-            new_dev = _poisson_deviance(y, mu_new, obs_weights)
-            halvings += 1
 
-        rel = abs(new_dev - deviance) / max(1.0, abs(new_dev))
-        eta = eta_new
-        mu = mu_new
-        deviance = new_dev
-        iters_used = it + 1
-        if rel < tol:
-            converged = True
-            break
+            # Step-halving if deviance non-decrease (rare but happens near boundary).
+            # Use the weighted deviance when ``weights=`` was supplied so the
+            # scalar tracks the actual log-likelihood we're optimising.
+            new_dev = _poisson_deviance(y, mu_new, obs_weights)
+            halvings = 0
+            while new_dev > deviance and halvings < 10 and np.isfinite(deviance):
+                eta_new = 0.5 * (eta_new + eta)
+                np.clip(eta_new, -30.0, 30.0, out=eta_new)
+                mu_new = np.exp(eta_new)
+                new_dev = _poisson_deviance(y, mu_new, obs_weights)
+                halvings += 1
+
+            rel = abs(new_dev - deviance) / max(1.0, abs(new_dev))
+            eta = eta_new
+            mu = mu_new
+            deviance = new_dev
+            iters_used = it + 1
+            if rel < tol:
+                converged = True
+                break
 
     # ----- Variance-covariance -----
     # IID:  Var(beta) = sigma^2 * (X_tilde' W X_tilde)^-1 with sigma^2 = 1

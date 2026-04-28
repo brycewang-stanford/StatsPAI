@@ -1070,6 +1070,22 @@ def _build_registry():
                       "coef_labels/keep/drop/order)"),
             ParamSpec("consistency_check", "bool", False, True,
                       "Warn when sample sizes differ across columns"),
+            ParamSpec("estimate", "str", False, None,
+                      "Top-line cell template — placeholders {estimate} {stars} "
+                      "{std_error} {t_value} {p_value} {conf_low} {conf_high}"),
+            ParamSpec("statistic", "str", False, None,
+                      "Bottom-line cell template (same placeholders as estimate)"),
+            ParamSpec("notation", "str|tuple", False, "stars",
+                      "Significance marker family",
+                      ["stars", "symbols"]),
+            ParamSpec("apply_coef", "callable", False, None,
+                      "Arbitrary coefficient transform (generalises eform); "
+                      "mutually exclusive with eform"),
+            ParamSpec("apply_coef_deriv", "callable", False, None,
+                      "Derivative of apply_coef for delta-method SE rescaling"),
+            ParamSpec("escape", "bool", False, True,
+                      "Auto-escape user-supplied label strings; pass False "
+                      "to preserve raw LaTeX/HTML markup verbatim"),
             ParamSpec("output", "str", False, "text", "Render format",
                       ["text", "latex", "html", "markdown", "word", "excel"]),
             ParamSpec("filename", "str", False, None, "File path; format inferred from extension"),
@@ -1080,7 +1096,8 @@ def _build_registry():
             'repro={"data": df, "seed": 42}, filename="table1.tex")'
         ),
         tags=["output", "table", "publication", "journal", "diagnostics",
-             "eform", "column-spanners", "coef-map", "depvar-mean"],
+             "eform", "column-spanners", "coef-map", "depvar-mean",
+             "templates", "notation", "apply-coef", "escape"],
     ))
 
     register(FunctionSpec(

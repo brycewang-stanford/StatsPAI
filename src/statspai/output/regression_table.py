@@ -132,6 +132,12 @@ class RegtableResult:
         quarto_caption: Optional[str] = None,
         eform_flags: Optional[List[bool]] = None,
         column_spanners: Optional[List[Tuple[str, int]]] = None,
+        estimate_template: Optional[str] = None,
+        statistic_template: Optional[str] = None,
+        notation: Union[str, Tuple[str, ...]] = "stars",
+        apply_coef: Optional[Any] = None,
+        apply_coef_deriv: Optional[Any] = None,
+        escape: bool = True,
     ):
         if not 0.0 < alpha < 1.0:
             raise ValueError(f"alpha must be in (0, 1), got {alpha!r}")
@@ -204,6 +210,43 @@ class RegtableResult:
             else None
         )
 
+        # ── estimate / statistic templates ─────────────────────────────────
+        # When set, ``_coef_cell`` and ``_se_cell`` build a context dict and
+        # use ``str.format_map`` to produce the cell. Backward compat: when
+        # both are None, the legacy "{val}{stars}" / "({se})" path runs.
+        self.estimate_template = estimate_template
+        self.statistic_template = statistic_template
+
+        # ── notation (significance markers) ────────────────────────────────
+        # ``"stars"``  → ("*", "**", "***") — backward compatible
+        # ``"symbols"`` → ("†", "‡", "§")     — AER / JPE alternative
+        # tuple        → custom 3-tuple of strings
+        self._notation_symbols = self._resolve_notation(notation)
+
+        # ── apply_coef ────────────────────────────────────────────────────
+        # Generalised eform. Conflicts with eform_flags are caught up at the
+        # public regtable() entry. Optional ``apply_coef_deriv`` enables
+        # delta-method SE rescaling: SE → |f'(b)| · SE(b).
+        if apply_coef is not None and not callable(apply_coef):
+            raise TypeError(
+                f"apply_coef must be callable, got {type(apply_coef).__name__}"
+            )
+        if apply_coef_deriv is not None and not callable(apply_coef_deriv):
+            raise TypeError(
+                f"apply_coef_deriv must be callable, got "
+                f"{type(apply_coef_deriv).__name__}"
+            )
+        self.apply_coef = apply_coef
+        self.apply_coef_deriv = apply_coef_deriv
+
+        # ── escape ─────────────────────────────────────────────────────────
+        # When False, the LaTeX/HTML renderers skip ``_latex_escape`` /
+        # ``_html_escape`` on user-supplied label paths so users can pass
+        # raw markup (e.g. ``"$\\beta_1$"``). Cell content (numeric
+        # estimates, computed stat values) is still safe — it never
+        # contains user-controlled metacharacters.
+        self.escape = bool(escape)
+
         # Resolve stat keys once
         self._stat_keys = self._resolve_stat_keys()
 
@@ -248,21 +291,172 @@ class RegtableResult:
             return self.eform_flags[flat_idx]
         return False
 
+    @staticmethod
+    def _resolve_notation(
+        notation: Union[str, Tuple[str, ...]],
+    ) -> Tuple[str, str, str]:
+        """Map a notation spec to a 3-tuple ``(low, mid, high)`` symbols.
+
+        Mirrors the canonical Top-5 ladder where the *high* symbol marks
+        the strictest significance threshold. Three valid input shapes:
+
+        - ``"stars"`` (default) → ``("*", "**", "***")``
+        - ``"symbols"``        → ``("†", "‡", "§")`` (AER / JPE family)
+        - 3-tuple of strings   → custom (must be ordered low → high)
+        """
+        if isinstance(notation, str):
+            key = notation.lower()
+            if key == "stars":
+                return ("*", "**", "***")
+            if key == "symbols":
+                return ("†", "‡", "§")
+            raise ValueError(
+                f"notation={notation!r} unrecognised. Use 'stars', "
+                f"'symbols', or pass a 3-tuple of custom strings."
+            )
+        try:
+            tup = tuple(str(s) for s in notation)
+        except TypeError:
+            raise TypeError(
+                f"notation must be a string or 3-tuple, got "
+                f"{type(notation).__name__}"
+            )
+        if len(tup) != 3:
+            raise ValueError(
+                f"notation tuple must have exactly 3 entries (low, mid, "
+                f"high), got {len(tup)}."
+            )
+        return tup  # type: ignore[return-value]
+
+    def _format_marker(self, pvalue: float) -> str:
+        """Significance marker honouring the configured notation family."""
+        if pvalue is None or (isinstance(pvalue, float) and np.isnan(pvalue)):
+            return ""
+        # The shipping notation family is a 3-tuple ``(low, mid, high)``
+        # where *high* corresponds to the strictest threshold. Building
+        # via cumulative compare keeps semantics identical to the legacy
+        # ``_format_stars``: e.g. p<0.01 yields "***" when stars / "§"
+        # when symbols.
+        sorted_levels = sorted(self.star_levels, reverse=True)
+        out = ""
+        low, mid, high = self._notation_symbols
+        ladder = (low, mid, high)
+        for i, lev in enumerate(sorted_levels):
+            if pvalue < lev:
+                out = ladder[i] if i < len(ladder) else ladder[-1]
+        return out
+
+    def _apply_coef_transform(
+        self, b: float, se: Optional[float] = None,
+        flat_idx: int = 0,
+    ) -> Tuple[float, Optional[float]]:
+        """Apply (eform OR apply_coef) to a (coef, SE) pair.
+
+        Returns transformed ``(coef, se)``. eform and apply_coef are
+        mutually exclusive; eform_flags is per-model whereas apply_coef
+        is global. Delta method:
+
+        - eform:  b' = exp(b), se' = exp(b) * se
+        - apply_coef + apply_coef_deriv: b' = f(b), se' = |f'(b)| * se
+        - apply_coef alone:              b' = f(b), se' = se (unchanged,
+          user takes responsibility — flagged in footer note)
+        """
+        if self.apply_coef is not None:
+            try:
+                b_new = float(self.apply_coef(b))
+            except Exception:
+                b_new = b  # transform raised; leave unchanged
+            if se is not None and self.apply_coef_deriv is not None:
+                try:
+                    deriv = float(self.apply_coef_deriv(b))
+                    se_new: Optional[float] = abs(deriv) * float(se)
+                    return b_new, se_new
+                except Exception:
+                    pass
+            return b_new, se
+        if self._model_eform(flat_idx) and np.isfinite(b):
+            b_new = float(np.exp(b))
+            if se is not None and not pd.isna(se):
+                return b_new, float(np.exp(b)) * float(se)
+            return b_new, se
+        return b, se
+
+    def _build_cell_context(
+        self, model: _ModelData, var: str, flat_idx: int,
+    ) -> Dict[str, str]:
+        """Return the variable-substitution dict for template rendering.
+
+        Keys exposed (matching R ``modelsummary`` conventions):
+
+        - ``estimate``     — coefficient, after eform / apply_coef
+        - ``std_error``    — primary SE, delta-method-rescaled
+        - ``t_value``      — t-statistic (always on the original scale)
+        - ``p_value``      — p-value (always on the original scale)
+        - ``conf_low`` / ``conf_high`` — CI bounds, exp-rescaled under eform
+        - ``stars``        — significance marker (notation-aware)
+
+        We deliberately use underscore names (``std_error``, ``t_value``)
+        because Python's ``str.format`` syntax disallows dots in field
+        names; aliases ``std.error`` / ``t.statistic`` / ``conf.low`` /
+        ``conf.high`` are added so prose lifted from R templates "just
+        works".
+        """
+        if var not in model.params.index:
+            return {}
+        b = float(model.params[var])
+        se = model.std_errors.get(var, np.nan)
+        t_val = float(model.tvalues.get(var, np.nan))
+        p_val = float(model.pvalues.get(var, np.nan))
+        ci_lo, ci_hi = _ci_bounds(model, var, self.alpha)
+
+        b_new, se_new = self._apply_coef_transform(b, se, flat_idx)
+        if self._model_eform(flat_idx):
+            if not (ci_lo is None or pd.isna(ci_lo)):
+                ci_lo = float(np.exp(ci_lo))
+            if not (ci_hi is None or pd.isna(ci_hi)):
+                ci_hi = float(np.exp(ci_hi))
+        elif self.apply_coef is not None:
+            try:
+                ci_lo = float(self.apply_coef(ci_lo)) if not pd.isna(ci_lo) else ci_lo
+                ci_hi = float(self.apply_coef(ci_hi)) if not pd.isna(ci_hi) else ci_hi
+            except Exception:
+                pass
+
+        marker = self._format_marker(p_val) if self.show_stars else ""
+        ctx = {
+            "estimate": _fmt_val(b_new, self.fmt),
+            "std_error": _fmt_val(se_new if se_new is not None else np.nan, self.fmt),
+            "t_value": _fmt_val(t_val, self.fmt),
+            "p_value": _fmt_val(p_val, self.fmt),
+            "conf_low": _fmt_val(ci_lo, self.fmt),
+            "conf_high": _fmt_val(ci_hi, self.fmt),
+            "stars": marker,
+        }
+        return ctx
+
     def _coef_cell(self, model: _ModelData, var: str, flat_idx: int = 0) -> str:
         if var not in model.params.index:
             return ""
-        val = float(model.params[var])
-        if self._model_eform(flat_idx) and np.isfinite(val):
-            val = float(np.exp(val))
-        txt = _fmt_val(val, self.fmt)
+        if self.estimate_template is not None or self.statistic_template is not None:
+            ctx = self._build_cell_context(model, var, flat_idx)
+            template = self.estimate_template or "{estimate}{stars}"
+            return template.format_map(ctx)
+        # Legacy path
+        b = float(model.params[var])
+        b_new, _ = self._apply_coef_transform(b, None, flat_idx)
+        txt = _fmt_val(b_new, self.fmt)
         if self.show_stars and var in model.pvalues.index:
-            txt += _format_stars(model.pvalues[var], self.star_levels)
+            txt += self._format_marker(model.pvalues[var])
         return txt
 
     def _se_cell(self, model: _ModelData, var: str, flat_idx: int = 0) -> str:
         if var not in model.params.index:
             return ""
+        if self.statistic_template is not None:
+            ctx = self._build_cell_context(model, var, flat_idx)
+            return self.statistic_template.format_map(ctx)
         eform = self._model_eform(flat_idx)
+        apply_active = self.apply_coef is not None
         if self.se_type == "ci":
             lo_v, hi_v = _ci_bounds(model, var, self.alpha)
             if eform:
@@ -270,25 +464,66 @@ class RegtableResult:
                     lo_v = float(np.exp(lo_v))
                 if not (hi_v is None or pd.isna(hi_v)):
                     hi_v = float(np.exp(hi_v))
+            elif apply_active:
+                try:
+                    if not (lo_v is None or pd.isna(lo_v)):
+                        lo_v = float(self.apply_coef(lo_v))
+                    if not (hi_v is None or pd.isna(hi_v)):
+                        hi_v = float(self.apply_coef(hi_v))
+                except Exception:
+                    pass
             lo = _fmt_val(lo_v, self.fmt)
             hi = _fmt_val(hi_v, self.fmt)
             return f"[{lo}, {hi}]"
         if self.se_type == "t":
-            # t = b / SE(b); the null H0: exp(b)=1 is equivalent to b=0,
-            # so the t and p statistics are unchanged under eform.
             return f"({_fmt_val(model.tvalues.get(var, np.nan), self.fmt)})"
         if self.se_type == "p":
             return f"({_fmt_val(model.pvalues.get(var, np.nan), self.fmt)})"
-        # default: standard error (delta method under eform)
+        # default: standard error (delta method under eform / apply_coef_deriv)
+        b = float(model.params[var])
         se_v = model.std_errors.get(var, np.nan)
-        if eform and not pd.isna(se_v):
-            b = float(model.params[var])
-            if np.isfinite(b):
-                se_v = float(np.exp(b)) * float(se_v)
-        return f"({_fmt_val(se_v, self.fmt)})"
+        _, se_new = self._apply_coef_transform(b, se_v, flat_idx)
+        return f"({_fmt_val(se_new if se_new is not None else se_v, self.fmt)})"
 
     def _has_any_eform(self) -> bool:
         return any(self.eform_flags)
+
+    def _has_apply_coef_no_deriv(self) -> bool:
+        """True when apply_coef is set without a matching derivative.
+
+        Surface a footer note in this regime so reviewers know the SE
+        column is **not** rescaled by the transform — only the point
+        estimate is.
+        """
+        return self.apply_coef is not None and self.apply_coef_deriv is None
+
+    def _esc_latex(self, s: str) -> str:
+        """Escape ``s`` for LaTeX iff ``self.escape`` is True."""
+        return _latex_escape(s) if self.escape else (s or "")
+
+    def _esc_html(self, s: str) -> str:
+        """Escape ``s`` for HTML iff ``self.escape`` is True."""
+        return _html_escape(s) if self.escape else (s or "")
+
+    def _star_note_text(self) -> str:
+        """Render the notation-family footer line.
+
+        Reuses :func:`star_note_for` for the legacy ``"stars"`` family so
+        journal-template footnotes stay byte-aligned. For non-star
+        notations we build our own line listing each ``symbol`` against
+        its threshold.
+        """
+        low, mid, high = self._notation_symbols
+        if (low, mid, high) == ("*", "**", "***"):
+            return star_note_for(self.star_levels)
+        sorted_levels = sorted(self.star_levels, reverse=True)
+        ladder = [low, mid, high]
+        parts: List[str] = []
+        # Iterate in strict-first order to match _format_marker ordering
+        for i, lev in enumerate(sorted_levels):
+            sym = ladder[i] if i < len(ladder) else ladder[-1]
+            parts.append(f"{sym} p<{lev:g}")
+        return ", ".join(reversed(parts))
 
     def _se_label(self) -> str:
         if self._se_label_override is not None and self.se_type == "se":
@@ -343,10 +578,10 @@ class RegtableResult:
         return _fmt_val(float(val), "%.3f")
 
     def _star_note(self) -> str:
-        # Delegate to ``star_note_for`` so the renderer's footer line and the
-        # journal-template ``notes_default`` lines use the same strict-first
-        # convention ("*** p<0.01, ** p<0.05, * p<0.10"). Reduces drift.
-        return star_note_for(self.star_levels)
+        # Delegate to ``_star_note_text``, which understands both the legacy
+        # ``"stars"`` family (deferring to ``star_note_for`` so journal
+        # presets stay byte-aligned) and the alternative notation tuples.
+        return self._star_note_text()
 
     def _all_models_flat(self) -> List[_ModelData]:
         out: List[_ModelData] = []
@@ -526,7 +761,7 @@ class RegtableResult:
             lines.append(
                 f'<caption style="font-weight:bold; font-size:14px; '
                 f'margin-bottom:8px; caption-side:top;">'
-                f'{_html_escape(self.title)}</caption>'
+                f'{self._esc_html(self.title)}</caption>'
             )
 
         # Header
@@ -543,7 +778,7 @@ class RegtableResult:
                 lines.append(
                     f'<th colspan="{span}" style="text-align:center; '
                     f'border-top:3px solid black; border-bottom:1px solid #999; '
-                    f'padding:4px 12px;">{_html_escape(lbl)}</th>'
+                    f'padding:4px 12px;">{self._esc_html(lbl)}</th>'
                 )
             lines.append("</tr>")
 
@@ -558,7 +793,7 @@ class RegtableResult:
             lines.append(
                 f'<th style="text-align:center; {top_rule}'
                 f'border-bottom:1px solid black; padding:4px 12px;">'
-                f'{_html_escape(lbl)}</th>'
+                f'{self._esc_html(lbl)}</th>'
             )
         lines.append("</tr>")
 
@@ -570,7 +805,7 @@ class RegtableResult:
                 lines.append(
                     f'<th style="text-align:center; padding:2px 12px; '
                     f'font-style:italic; font-weight:normal;">'
-                    f'{_html_escape(dv)}</th>'
+                    f'{self._esc_html(dv)}</th>'
                 )
             lines.append("</tr>")
 
@@ -586,12 +821,12 @@ class RegtableResult:
                     f'<tr><td colspan="{ncols}" style="text-align:left; '
                     f'font-weight:bold; padding:6px 8px 2px 8px; '
                     f'border-top:1px solid #999;">'
-                    f'{_html_escape(self.panel_labels[pi])}</td></tr>'
+                    f'{self._esc_html(self.panel_labels[pi])}</td></tr>'
                 )
 
             var_list = self._resolve_vars(panel.models)
             for var in var_list:
-                label = _html_escape(self.coef_labels.get(var, var))
+                label = self._esc_html(self.coef_labels.get(var, var))
                 lines.append("<tr>")
                 lines.append(
                     f'<td style="text-align:left; padding:1px 8px;">{label}</td>'
@@ -663,13 +898,13 @@ class RegtableResult:
             lines.append("<tr>")
             lines.append(
                 f'<td style="text-align:left; padding:1px 8px;">'
-                f'{_html_escape(row_label)}</td>'
+                f'{self._esc_html(row_label)}</td>'
             )
             for i in range(len(all_models)):
                 val = row_vals[i] if i < len(row_vals) else ""
                 lines.append(
                     f'<td style="text-align:center; padding:1px 12px;">'
-                    f'{_html_escape(val)}</td>'
+                    f'{self._esc_html(val)}</td>'
                 )
             lines.append("</tr>")
 
@@ -746,7 +981,7 @@ class RegtableResult:
         lines.append("\\begin{table}[htbp]")
         lines.append("\\centering")
         if self.title:
-            lines.append(f"\\caption{{{_latex_escape(self.title)}}}")
+            lines.append(f"\\caption{{{self._esc_latex(self.title)}}}")
         lines.append(f"\\begin{{tabular}}{{{col_spec}}}")
         lines.append("\\hline\\hline")
 
@@ -757,7 +992,7 @@ class RegtableResult:
             cur_col = 2  # LaTeX column 1 is the row-label, models start at 2
             for lbl, span in self.column_spanners:
                 cells_sp.append(
-                    f"\\multicolumn{{{span}}}{{c}}{{{_latex_escape(lbl)}}}"
+                    f"\\multicolumn{{{span}}}{{c}}{{{self._esc_latex(lbl)}}}"
                 )
                 cmidrules.append(
                     f"\\cmidrule(lr){{{cur_col}-{cur_col + span - 1}}}"
@@ -768,14 +1003,14 @@ class RegtableResult:
 
         # Header
         hdr = " & ".join(
-            [""] + [_latex_escape(n) for n in self.model_labels]
+            [""] + [self._esc_latex(n) for n in self.model_labels]
         ) + " \\\\"
         lines.append(hdr)
 
         # Dep-var
         if self.dep_var_labels:
             dvr = " & ".join(
-                [""] + [f"\\textit{{{_latex_escape(dv)}}}" for dv in self.dep_var_labels]
+                [""] + [f"\\textit{{{self._esc_latex(dv)}}}" for dv in self.dep_var_labels]
             ) + " \\\\"
             lines.append(dvr)
 
@@ -787,14 +1022,14 @@ class RegtableResult:
             if multi and self.panel_labels and pi < len(self.panel_labels):
                 lines.append(
                     f"\\multicolumn{{{n_cols}}}{{l}}"
-                    f"{{\\textbf{{{_latex_escape(self.panel_labels[pi])}}}}}"
+                    f"{{\\textbf{{{self._esc_latex(self.panel_labels[pi])}}}}}"
                     " \\\\"
                 )
                 lines.append("\\hline")
 
             var_list = self._resolve_vars(panel.models)
             for var in var_list:
-                label = _latex_escape(self.coef_labels.get(var, var))
+                label = self._esc_latex(self.coef_labels.get(var, var))
                 cells: List[str] = []
                 flat_idx = 0
                 for gi, p2 in enumerate(self.panels):
@@ -843,9 +1078,9 @@ class RegtableResult:
             cells_ar: List[str] = []
             for i in range(len(all_models)):
                 val = row_vals[i] if i < len(row_vals) else ""
-                cells_ar.append(_latex_escape(val))
+                cells_ar.append(self._esc_latex(val))
             lines.append(
-                f"{_latex_escape(row_label)} & " + " & ".join(cells_ar) + " \\\\"
+                f"{self._esc_latex(row_label)} & " + " & ".join(cells_ar) + " \\\\"
             )
 
         if self.add_rows:
@@ -1206,8 +1441,25 @@ class RegtableResult:
         if self.title:
             row_idx = write_title(ws, row_idx, n_cols, self.title)
 
-        # Header row
+        # Column spanners (above the model-label header) when set —
+        # rendered as merged cells centered over each column block.
         header_top_row = row_idx
+        if self.column_spanners:
+            cur_col = 2  # col 1 reserved for row-label
+            for lbl, span in self.column_spanners:
+                top_cell = ws.cell(row=row_idx, column=cur_col, value=str(lbl))
+                top_cell.font = header_font
+                top_cell.alignment = center
+                if span > 1:
+                    ws.merge_cells(
+                        start_row=row_idx, start_column=cur_col,
+                        end_row=row_idx, end_column=cur_col + span - 1,
+                    )
+                cur_col += span
+            row_idx += 1
+
+        # Header row
+        header_label_row = row_idx
         c0 = ws.cell(row=row_idx, column=1, value="")
         c0.font = header_font
         for j, col in enumerate(df.columns, 2):
@@ -1295,24 +1547,52 @@ class RegtableResult:
             doc.add_heading(self.title, level=2)
 
         df = self.to_dataframe()
-        n_rows = len(df) + 1
+        # When column_spanners are set we add an extra header row above
+        # the model-label row and merge cells across each column block.
+        spanner_extra = 1 if self.column_spanners else 0
+        n_rows = len(df) + 1 + spanner_extra
         n_cols = len(df.columns) + 1
         table = doc.add_table(rows=n_rows, cols=n_cols)
         table.autofit = True
 
-        # Populate header
-        header_row = table.rows[0]
+        spanner_row_idx = 0 if self.column_spanners else None
+        header_row_idx = 1 if self.column_spanners else 0
+        body_start_idx = header_row_idx + 1
+
+        # Spanner row (above the model-label row) when set
+        if self.column_spanners:
+            cur_col = 1  # col 0 reserved for row-label
+            spanner_row = table.rows[spanner_row_idx]
+            spanner_row.cells[0].text = ""
+            for lbl, span in self.column_spanners:
+                spanner_row.cells[cur_col].text = str(lbl)
+                if span > 1:
+                    end_col = cur_col + span - 1
+                    spanner_row.cells[cur_col].merge(spanner_row.cells[end_col])
+                cur_col += span
+
+        # Populate header (model labels)
+        header_row = table.rows[header_row_idx]
         header_row.cells[0].text = ""
         for j, col in enumerate(df.columns, 1):
             header_row.cells[j].text = str(col)
         # Populate body
-        for i, (idx, row_data) in enumerate(df.iterrows(), 1):
+        for i, (idx, row_data) in enumerate(df.iterrows(), body_start_idx):
             table.rows[i].cells[0].text = str(idx)
             for j, val in enumerate(row_data, 1):
                 table.rows[i].cells[j].text = str(val)
 
-        style_word_table_typography(table, header_rows=(0,))
-        apply_word_booktab_rules(table, header_top_idx=0, header_bot_idx=0)
+        header_rows = (
+            (spanner_row_idx, header_row_idx)
+            if spanner_row_idx is not None
+            else (header_row_idx,)
+        )
+        style_word_table_typography(table, header_rows=header_rows)
+        apply_word_booktab_rules(
+            table,
+            header_top_idx=spanner_row_idx if spanner_row_idx is not None else header_row_idx,
+            header_bot_idx=header_row_idx,
+        )
 
         # Notes (italic, 8pt)
         note_lines = [f"{self._se_label()} in parentheses"]
@@ -1425,6 +1705,12 @@ def regtable(
     column_spanners: Optional[Sequence[Tuple[str, int]]] = None,
     coef_map: Optional[Dict[str, str]] = None,
     consistency_check: bool = True,
+    estimate: Optional[str] = None,
+    statistic: Optional[str] = None,
+    notation: Union[str, Tuple[str, ...]] = "stars",
+    apply_coef: Optional[Any] = None,
+    apply_coef_deriv: Optional[Any] = None,
+    escape: bool = True,
 ) -> RegtableResult:
     """
     Unified publication-quality regression table.
@@ -1575,6 +1861,49 @@ def regtable(
         setting ``False`` (or annotate with ``notes=[...]``) when the
         N-mismatch is intentional (IV first stage on a subsample,
         RD bandwidth restriction, etc.).
+    estimate : str, optional
+        Custom format string for the **top** (coefficient) line in
+        each cell. Mirrors R ``modelsummary``'s ``estimate=`` argument.
+        Placeholders: ``{estimate}``, ``{stars}``, ``{std_error}``,
+        ``{t_value}``, ``{p_value}``, ``{conf_low}``, ``{conf_high}``.
+        Default ``"{estimate}{stars}"``. Pass e.g. ``"{stars}{estimate}"``
+        for stars-first, or ``"{estimate} ({std_error}){stars}"`` for an
+        inline single-line cell.
+    statistic : str, optional
+        Custom format string for the **bottom** (statistic) line in
+        each cell. Same placeholders as ``estimate``. Default depends
+        on ``se_type``: ``"({std_error})"`` for ``se``, ``"[{conf_low},
+        {conf_high}]"`` for ``ci``, etc. Pass e.g. ``"t={t_value},
+        p={p_value}"`` for working-paper-style cells.
+    notation : ``"stars"`` | ``"symbols"`` | tuple of 3 strings
+        Family of significance markers used when ``stars=True``.
+        ``"stars"`` (default) → ``("*", "**", "***")``;
+        ``"symbols"`` → ``("†", "‡", "§")`` (AER / JPE alternative
+        when stars conflict with footnote markers); a 3-tuple of
+        custom strings is accepted, ordered low → high.
+    apply_coef : callable, optional
+        Apply an arbitrary transformation ``f(b)`` to each rendered
+        coefficient. Generalises ``eform`` (which is shorthand for
+        ``apply_coef=np.exp``). Useful for percentage transforms
+        (``apply_coef=lambda b: 100*b``), log scales, or signed
+        sqrt for distortion measures. Pair with ``apply_coef_deriv``
+        for delta-method SE rescaling.
+        Mutually exclusive with ``eform``.
+    apply_coef_deriv : callable, optional
+        Derivative ``f'(b)`` of the ``apply_coef`` callable. When
+        provided, SEs are rescaled as ``|f'(b)| · SE(b)``. When omitted,
+        SEs stay on the original scale and a footer warns the reader.
+    escape : bool, default True
+        Auto-escape user-supplied label strings (``coef_labels``,
+        ``model_labels``, ``panel_labels``, ``dep_var_labels``,
+        ``column_spanners`` labels, ``add_rows`` labels and values,
+        ``title``) for the active output format (LaTeX / HTML).
+        Pass ``escape=False`` when those strings already contain raw
+        markup you want to preserve verbatim — e.g. math-mode
+        coefficient names like ``"$\\beta_1$"``, or HTML tags like
+        ``"<i>β</i>"``. Cell content (numeric estimates, computed
+        stats) is unaffected; it never contains user-controlled
+        metacharacters.
 
     Returns
     -------
@@ -1698,6 +2027,36 @@ def regtable(
             )
         eform_flags = [bool(f) for f in eform_seq]
 
+    # eform and apply_coef are mutually exclusive — both transform the
+    # point estimate, and silently combining them would hide whichever
+    # the user listed second.
+    if apply_coef is not None and any(eform_flags):
+        raise ValueError(
+            "eform and apply_coef both transform the coefficient. "
+            "Pick one — eform=True is the canonical exp(b) shortcut "
+            "for logit/poisson/cox; apply_coef accepts an arbitrary "
+            "callable for percentage / log / signed-sqrt transforms."
+        )
+
+    # Validate template placeholders early — surface a KeyError at the
+    # regtable() call site rather than buried inside the renderer.
+    if estimate is not None or statistic is not None:
+        _allowed_keys = {
+            "estimate", "std_error", "t_value", "p_value",
+            "conf_low", "conf_high", "stars",
+        }
+        for tmpl_name, tmpl in (("estimate", estimate), ("statistic", statistic)):
+            if tmpl is None:
+                continue
+            try:
+                tmpl.format_map({k: "" for k in _allowed_keys})
+            except KeyError as exc:
+                raise KeyError(
+                    f"{tmpl_name}={tmpl!r} references unknown placeholder "
+                    f"{exc.args[0]!r}. Allowed placeholders: "
+                    f"{sorted(_allowed_keys)}."
+                ) from exc
+
     # --- Consistency checks: warn on N-mismatch -----------------------
     # Mixed sample sizes across columns is a Reviewer red flag. We don't
     # *block* (sometimes mixing is intentional — IV first stage on a
@@ -1797,6 +2156,12 @@ def regtable(
         quarto_caption=quarto_caption,
         eform_flags=eform_flags,
         column_spanners=list(column_spanners) if column_spanners else None,
+        estimate_template=estimate,
+        statistic_template=statistic,
+        notation=notation,
+        apply_coef=apply_coef,
+        apply_coef_deriv=apply_coef_deriv,
+        escape=escape,
     )
 
     # --- Output handling ---

@@ -2,6 +2,56 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — `sp.regtable` Round 2 (templates, notation, apply_coef, escape, Word/Excel spanners)
+
+Five further additions on top of the Round 1 commit. **No numerical
+changes** to any estimator; output-layer only.
+
+### Added — Five regtable parameters
+
+- **``estimate=`` / ``statistic=``** — flexible cell templates that
+  mirror R ``modelsummary``'s arguments. Placeholders: ``{estimate}``,
+  ``{stars}``, ``{std_error}``, ``{t_value}``, ``{p_value}``,
+  ``{conf_low}``, ``{conf_high}``. Examples:
+  - ``estimate="{stars}{estimate}"`` for stars-first.
+  - ``statistic="t={t_value}, p={p_value}"`` for working-paper cells.
+  - ``statistic="[{conf_low}, {conf_high}]"`` for inline CI without
+    needing ``se_type="ci"`` separately. Unknown placeholders raise a
+    ``KeyError`` at the ``regtable()`` call site.
+
+- **``notation=``** — alternative significance-marker family.
+  ``"stars"`` (default) keeps ``("*", "**", "***")``;
+  ``"symbols"`` swaps to ``("†", "‡", "§")`` for AER / JPE contexts
+  where star-shaped markers conflict with footnote symbols; pass a
+  custom 3-tuple for any ladder. The footer "p<0.01, ..." line
+  rebuilds itself to match.
+
+- **``apply_coef=`` / ``apply_coef_deriv=``** — generalise ``eform``
+  to any callable. ``apply_coef=lambda b: 100*b`` for a percentage
+  transform; ``apply_coef=np.log`` for log-scale; ``apply_coef_deriv``
+  enables delta-method SE rescaling (``|f'(b)|·SE``). Mutually
+  exclusive with ``eform`` — both transform the point estimate, and
+  silently combining them would hide whichever the user listed second.
+
+- **``escape=False``** — opt out of auto-escape so users can pass raw
+  LaTeX (e.g. ``"$\\beta_1$"``) or HTML (``"<i>β</i>"``) as labels.
+  Mirrors R ``kableExtra::escape`` and ``xtable::print``. Cell content
+  (numeric estimates, computed stats) is always safe — it never
+  contains user-controlled metacharacters.
+
+- **Word + Excel ``column_spanners`` rendering** — closes the format
+  parity gap left in Round 1. Word inserts an extra header row with
+  merged cells across each column block; Excel uses
+  ``ws.merge_cells`` and the spanner row sits above the model-label
+  row inside the booktab top-rule region.
+
+### Tests
+
+20 new tests in ``test_regtable_round2_extensions.py`` covering all
+five features across text / LaTeX / HTML / Word / Excel renderers.
+
+548 targeted tests pass (Round 1's 528 + 20 new), zero regression.
+
 ## [Unreleased] — `sp.regtable` publication-quality extensions
 
 Five additions designed to close the remaining gap between
