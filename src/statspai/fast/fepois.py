@@ -512,6 +512,37 @@ def _weighted_ap_demean(
 # Separation detection (Correia 2020 §3.4 informal heuristic)
 # ---------------------------------------------------------------------------
 
+def _drop_separation_dispatcher(
+    y: np.ndarray,
+    fe_codes: List[np.ndarray],
+) -> np.ndarray:
+    """Dispatcher: Rust ``statspai_hdfe.separation_mask`` when available;
+    falls back to the pure-NumPy ``_drop_separation`` reference otherwise.
+
+    Returns a length-n boolean keep-mask (True = keep, False = drop).
+    Output is bit-for-bit identical between paths within the iterative
+    fixed-point semantics (the order of inter-FE iterations may differ
+    by one pass when the cascade structure is degenerate, but the final
+    fixed-point set is identical — verified in
+    ``test_separation_rust_matches_python``).
+    """
+    if _HAS_RUST_HDFE and hasattr(_rust_hdfe, "separation_mask"):
+        # Rust path: pre-compute g_per_fe (cardinality per FE) the same
+        # way the NumPy reference does (max code + 1, since codes are
+        # dense in [0, G_k) by construction).
+        g_per_fe = np.array(
+            [int(c.max()) + 1 if c.size else 0 for c in fe_codes],
+            dtype=np.int64,
+        )
+        mask_u8 = _rust_hdfe.separation_mask(
+            np.ascontiguousarray(y, dtype=np.float64),
+            list(fe_codes),
+            g_per_fe,
+        )
+        return mask_u8.astype(bool, copy=False)
+    return _drop_separation(y, fe_codes)
+
+
 def _drop_separation(
     y: np.ndarray, fe_codes_list: List[np.ndarray]
 ) -> np.ndarray:
@@ -705,7 +736,7 @@ def fepois(
         # cleanly.
         sub_idx = np.where(keep)[0]
         sub_codes = [c[keep] for c in fe_codes_raw]
-        sub_keep = _drop_separation(y[keep], sub_codes)
+        sub_keep = _drop_separation_dispatcher(y[keep], sub_codes)
         n_dropped_separation = int((~sub_keep).sum())
         keep[sub_idx[~sub_keep]] = False
 

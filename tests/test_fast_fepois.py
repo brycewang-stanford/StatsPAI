@@ -629,3 +629,41 @@ def test_fepois_native_irls_vs_python_irls_parity(monkeypatch):
         atol=1e-7, rtol=0,
         err_msg="Native Rust IRLS SE diverges from Python IRLS for-loop",
     )
+
+
+def test_separation_rust_matches_python_fallback():
+    """Rust separation_mask must produce the same keep-mask as the
+    pure-NumPy ``_drop_separation`` reference across 10 random seeds
+    with injected zero-only FE clusters.
+    """
+    pytest.importorskip("statspai_hdfe")
+    import statspai_hdfe
+    if not hasattr(statspai_hdfe, "separation_mask"):
+        pytest.skip("statspai_hdfe wheel pre-dates the separation_mask binding")
+    from statspai.fast.fepois import (
+        _drop_separation as _numpy_path,
+        _drop_separation_dispatcher,
+    )
+
+    for seed in range(10):
+        rng = np.random.default_rng(seed)
+        n = 5000
+        G1, G2 = 200, 30
+        codes1 = rng.integers(0, G1, n).astype(np.int64)
+        codes2 = rng.integers(0, G2, n).astype(np.int64)
+        # Inject zero-only clusters: pick 5 random FE1 groups and force
+        # all their y to 0; pick 3 FE2 groups and force theirs to 0.
+        zero_groups_1 = set(rng.choice(G1, size=5, replace=False).tolist())
+        zero_groups_2 = set(rng.choice(G2, size=3, replace=False).tolist())
+        y = rng.poisson(2.0, n).astype(np.float64)
+        for i in range(n):
+            if int(codes1[i]) in zero_groups_1 or int(codes2[i]) in zero_groups_2:
+                y[i] = 0.0
+
+        ref_mask = _numpy_path(y, [codes1, codes2])
+        rust_mask = _drop_separation_dispatcher(y, [codes1, codes2])
+
+        np.testing.assert_array_equal(
+            rust_mask, ref_mask,
+            err_msg=f"seed={seed}: Rust separation mask diverges from NumPy reference",
+        )
