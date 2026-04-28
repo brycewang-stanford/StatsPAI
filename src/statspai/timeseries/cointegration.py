@@ -154,7 +154,7 @@ def engle_granger(
 
     reject = adf_stat < cvs[1]
 
-    return CointegrationResult(
+    _result = CointegrationResult(
         test_type='Engle-Granger',
         test_stats=adf_stat,
         critical_values=cvs,
@@ -165,6 +165,21 @@ def engle_granger(
         n_vars=k,
         lags=max_lag,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.timeseries.engle_granger",
+            params={
+                "variables": list(variables) if variables else None,
+                "lags": lags, "trend": trend, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def johansen(
@@ -325,7 +340,7 @@ def johansen(
             else:
                 break
 
-    return CointegrationResult(
+    _result = CointegrationResult(
         test_type=f'Johansen ({test})',
         test_stats=test_stats,
         critical_values=cvs,
@@ -336,3 +351,19 @@ def johansen(
         n_vars=k,
         lags=lags,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.timeseries.johansen",
+            params={
+                "variables": list(variables) if variables else None,
+                "lags": lags, "trend": trend,
+                "test": test, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

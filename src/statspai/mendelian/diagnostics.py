@@ -118,7 +118,22 @@ def mr_heterogeneity(
     df = max(df, 1)
     p = float(1 - stats.chi2.cdf(Q, df))
     I2 = float(max(0.0, (Q - df) / Q * 100.0)) if Q > 0 else 0.0
-    return HeterogeneityResult(Q=Q, Q_df=df, Q_p=p, I2=I2, method=method)
+    _result = HeterogeneityResult(Q=Q, Q_df=df, Q_p=p, I2=I2, method=method)
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.mendelian.mr_heterogeneity",
+            params={
+                "method": method,
+                "n_snps": int(len(beta_exposure)),
+            },
+            data=None,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # --------------------------------------------------------------------------- #
