@@ -203,6 +203,10 @@ def test_csw_cumulative():
 
 def test_sw_drives_multiple_regressions():
     """End-to-end: use sw() to fit several specs, collect results."""
+    pytest.importorskip(
+        "pyfixest",
+        reason="sp.feols wraps pyfixest; install via .[fixest] extra",
+    )
     df = _panel(seed=9)
 
     results = []

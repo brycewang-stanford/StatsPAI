@@ -187,5 +187,6 @@ suitable for round-tripping through agent tool calls.
 **Alternatives (ranked)**
 - `sp.causal`
 - `sp.recommend`
+- `sp.replication_pack`
 
 <!-- AGENT-BLOCK-END -->
