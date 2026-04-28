@@ -310,7 +310,7 @@ def network_exposure(
 
     contrasts = pd.DataFrame(contrasts_rows)
 
-    return NetworkExposureResult(
+    _result = NetworkExposureResult(
         estimates=est,
         contrasts=contrasts,
         exposure_levels=levels,
@@ -320,6 +320,23 @@ def network_exposure(
         mapping=mapping,
         detail={"adjacency_density": float(A.sum() / (n * (n - 1)) if n > 1 else 0.0)},
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.interference.network_exposure",
+            params={
+                "mapping": mapping,
+                "p_treat": p_treat,
+                "design": design,
+                "n_sim": n_sim, "seed": seed,
+            },
+            data=None,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["network_exposure", "NetworkExposureResult"]

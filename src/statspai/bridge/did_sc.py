@@ -149,7 +149,7 @@ def did_sc_bridge(
         diff_p,
     )
 
-    return BridgeResult(
+    _result = BridgeResult(
         kind="did_sc",
         path_a_name="DiD (parallel trends)",
         path_b_name="Synthetic Control (factor model)",
@@ -166,3 +166,20 @@ def did_sc_bridge(
         detail=sc_detail,
         reference="Sun, Xie & Zhang (2025), arXiv 2503.11375",
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.bridge.did_sc_bridge",
+            params={
+                "y": y, "unit": unit, "time": time,
+                "treatment_time": int(treatment_time),
+                "covariates": list(covariates) if covariates else None,
+                "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

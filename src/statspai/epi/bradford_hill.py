@@ -195,7 +195,7 @@ def bradford_hill(
                 f"Unknown viewpoint in notes: {k!r}"
             )
 
-    return BradfordHillResult(
+    _result = BradfordHillResult(
         scores=full_scores,
         evidence={vp: ev_notes.get(vp, "") for vp in VIEWPOINTS},
         total=total,
@@ -203,3 +203,15 @@ def bradford_hill(
         verdict=verdict,
         missing_prerequisites=missing_prereqs,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.epi.bradford_hill",
+            params={"viewpoints_with_evidence": list(full_scores.keys())},
+            data=None,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

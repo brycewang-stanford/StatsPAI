@@ -311,7 +311,7 @@ def odds_ratio(
         except Exception as exc:  # pragma: no cover - scipy always has fisher_exact
             raise RuntimeError(f"scipy.stats.fisher_exact failed: {exc}")
 
-    return OR2x2Result(
+    _result = OR2x2Result(
         estimate=float(or_point),
         se_log=se_log,
         ci=ci,
@@ -319,6 +319,18 @@ def odds_ratio(
         a=a, b=b, c=c, d=d,
         method=method,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.epi.odds_ratio",
+            params={"method": method, "alpha": alpha},
+            data=None,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # --------------------------------------------------------------------------- #

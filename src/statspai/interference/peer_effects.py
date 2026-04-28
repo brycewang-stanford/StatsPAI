@@ -162,7 +162,7 @@ def peer_effects(
         elif name in cov:
             direct[name] = float(beta[i])
 
-    return PeerEffectsResult(
+    _result = PeerEffectsResult(
         endogenous_peer=beta_peer,
         contextual_peer=contextual,
         direct=direct,
@@ -172,6 +172,23 @@ def peer_effects(
         coefficients=coef_df,
         detail={"include_contextual": include_contextual},
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.interference.peer_effects",
+            params={
+                "y": y,
+                "covariates": list(covariates),
+                "include_contextual": include_contextual,
+                "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["peer_effects", "PeerEffectsResult"]
