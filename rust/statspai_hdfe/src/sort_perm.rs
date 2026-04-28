@@ -26,6 +26,9 @@ pub fn primary_fe_sort_perm(codes: &[i64], n_groups: usize) -> Vec<usize> {
     debug_assert_eq!(acc, n);
     // Phase 3: place each obs into its group's slot.
     let mut perm = vec![0usize; n];
+    // ``cursor`` tracks the next-free slot per group; we clone ``starts`` so
+    // the prefix-sum offsets remain available to callers that want both
+    // ``perm`` and the group-starts layout.
     let mut cursor = starts.clone();
     for i in 0..n {
         let g = codes[i] as usize;
@@ -35,10 +38,13 @@ pub fn primary_fe_sort_perm(codes: &[i64], n_groups: usize) -> Vec<usize> {
     perm
 }
 
-/// Returns the (start, len) per-group offsets corresponding to a permutation
-/// produced by `primary_fe_sort_perm`. Caller may also reconstruct from
-/// `counts` via prefix-sum; this helper is for callers that only have
-/// already-permuted `codes_sorted`.
+/// Returns a length-(n_groups + 1) start-index array such that group g
+/// occupies the half-open range ``codes_sorted[starts[g]..starts[g+1]]``.
+/// Empty groups (no observations with that code) collapse to
+/// ``starts[g] == starts[g+1]`` and yield an empty slice.
+///
+/// Caller may also reconstruct this from `counts` via prefix-sum; this
+/// helper is for callers that only have already-permuted `codes_sorted`.
 pub fn group_starts_from_codes_sorted(codes_sorted: &[i64], n_groups: usize) -> Vec<usize> {
     let n = codes_sorted.len();
     let mut starts = vec![n; n_groups + 1];
@@ -84,5 +90,14 @@ mod tests {
         let codes_sorted: Vec<i64> = vec![0, 0, 0, 1, 1, 2, 2];
         let starts = group_starts_from_codes_sorted(&codes_sorted, 3);
         assert_eq!(starts, vec![0, 3, 5, 7]);
+    }
+
+    /// Group 1 has no observations: its half-open range
+    /// ``codes_sorted[starts[1]..starts[2]]`` collapses to empty.
+    #[test]
+    fn group_starts_handles_empty_interior_group() {
+        let codes_sorted: Vec<i64> = vec![0, 0, 2, 2];
+        let starts = group_starts_from_codes_sorted(&codes_sorted, 3);
+        assert_eq!(starts, vec![0, 2, 2, 4]);
     }
 }
