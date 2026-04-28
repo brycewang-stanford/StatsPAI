@@ -207,7 +207,7 @@ def panel_fgls(
     rss = np.sum(resid_final**2)
     r2 = 1 - rss / tss
 
-    return EconometricResults(
+    _result = EconometricResults(
         params=params,
         std_errors=std_errors,
         model_info={
@@ -229,3 +229,20 @@ def panel_fgls(
             'mean_rho': np.mean(list(rho_i.values())) if corr != 'independent' else 0,
         },
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.panel.panel_fgls",
+            params={
+                "y": y, "x": list(x),
+                "id": id, "time": time,
+                "panels": panels, "corr": corr,
+                "maxiter": maxiter, "tol": tol, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

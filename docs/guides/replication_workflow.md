@@ -378,7 +378,7 @@ So `lineage.json` traces the full chain: aggregate → producing CS run
 
 ## Provenance scorecard
 
-As of v1.7.2, **103 estimators** are instrumented (>10× original 9-baseline):
+As of v1.7.2, **109 estimators** are instrumented (>12× original 9-baseline):
 
 | Estimator                                                | Phase    |
 |---                                                       |---       |
@@ -485,8 +485,14 @@ As of v1.7.2, **103 estimators** are instrumented (>10× original 9-baseline):
 | `sp.bunching.kink_unified` (RDD+RKD+bunching)            | **P18**  |
 | `sp.censoring.ipcw` (IPCW weights)                       | **P18**  |
 | `sp.surrogate.surrogate_index` (Athey-Chetty-Imbens)     | **P18**  |
+| `sp.panel.panel_fgls` (FGLS panel)                       | **P19**  |
+| `sp.timeseries.bvar` (Minnesota-prior Bayesian VAR)      | **P19**  |
+| `sp.causal_discovery.fci` (Fast Causal Inference)        | **P19**  |
+| `sp.causal_discovery.ges` (Greedy Equivalence Search)    | **P19**  |
+| `sp.causal_discovery.lingam` (LiNGAM)                    | **P19**  |
+| `sp.causal_discovery.dynotears` (dynamic NOTEARS)        | **P19**  |
 
-The remaining ~821 estimators are scheduled for v1.7.3+ rollouts. To
+The remaining ~815 estimators are scheduled for v1.7.3+ rollouts. To
 check whether a specific estimator is instrumented:
 
 ```python

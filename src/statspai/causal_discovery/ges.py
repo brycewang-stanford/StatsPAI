@@ -152,4 +152,16 @@ def ges(data, max_iter: int = 500) -> GESResult:
         adj[best_edge[0], best_edge[1]] = 0
         best_bic = best_new_bic
 
-    return GESResult(adjacency=adj, names=names, bic=best_bic)
+    _result = GESResult(adjacency=adj, names=names, bic=best_bic)
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.causal_discovery.ges",
+            params={"max_iter": max_iter},
+            data=data if hasattr(data, 'columns') else None,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

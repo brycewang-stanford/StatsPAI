@@ -414,7 +414,7 @@ def fci(
         for (i, j), s in sep_sets.items()
     }
 
-    return FCIResult(
+    _result = FCIResult(
         variables=variables,
         skeleton=skeleton_df,
         pag_left=left_df,
@@ -425,6 +425,23 @@ def fci(
         alpha=alpha,
         ci_test=ci_test,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.causal_discovery.fci",
+            params={
+                "variables": list(variables) if variables else None,
+                "alpha": alpha,
+                "max_cond_size": max_cond_size,
+                "ci_test": ci_test,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["fci", "FCIResult"]

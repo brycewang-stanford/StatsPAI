@@ -220,6 +220,18 @@ def lingam(data, standardize: bool = True) -> LiNGAMResult:
     else:
         resid = resid_std
 
-    return LiNGAMResult(
+    _result = LiNGAMResult(
         order=order, adjacency=B, names=names, residuals=resid,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.causal_discovery.lingam",
+            params={"standardize": standardize},
+            data=data if hasattr(data, 'columns') else None,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

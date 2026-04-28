@@ -259,7 +259,7 @@ def dynotears(
     A = np.where(np.abs(A) > threshold, A, 0.0) if lag > 0 else A
     loss = float(result.fun)
 
-    return DYNOTEARSResult(
+    _result = DYNOTEARSResult(
         variables=variables,
         W=W,
         A=A,
@@ -267,3 +267,21 @@ def dynotears(
         threshold=threshold,
         loss=loss,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.causal_discovery.dynotears",
+            params={
+                "variables": list(variables) if variables else None,
+                "lag": lag,
+                "lambda_w": lambda_w, "lambda_a": lambda_a,
+                "max_iter": max_iter, "threshold": threshold,
+                "h_tol": h_tol, "rho_max": rho_max,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

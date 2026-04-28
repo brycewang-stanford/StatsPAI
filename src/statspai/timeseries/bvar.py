@@ -166,9 +166,21 @@ def bvar(
     E_post = Y - X @ B_post
     Sigma_post = E_post.T @ E_post / n
 
-    return BVARResult(
+    _result = BVARResult(
         coef=B_post, sigma=Sigma_post,
         fitted=X @ B_post, residuals=E_post,
         var_names=var_names, lags=lags, n=n,
         lambda1=lambda1, lambda2=lambda2,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.timeseries.bvar",
+            params={"lags": lags, "lambda1": lambda1, "lambda2": lambda2},
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
