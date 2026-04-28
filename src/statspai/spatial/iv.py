@@ -157,12 +157,32 @@ def spatial_iv(
         rho = float("nan")
         rho_se = float("nan")
 
-    return SpatialIVResult(
+    _result = SpatialIVResult(
         rho=rho,
         rho_se=rho_se,
         coefficients=coef_df,
         n_obs=n,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.spatial.spatial_iv",
+            params={
+                "y": y,
+                "endog": list(endog),
+                "exog": list(exog),
+                "instruments": list(instruments) if instruments else None,
+                "include_WY": include_WY,
+                "alpha": alpha,
+                "W_shape": list(W.shape) if hasattr(W, "shape") else None,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["spatial_iv", "SpatialIVResult"]

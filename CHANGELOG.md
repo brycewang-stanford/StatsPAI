@@ -2,6 +2,26 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Phase 11: provenance rollout to 61/925 (spatial + qte + bootstrap + conformal)
+
+Continues the v1.7.2 provenance rollout. **No numerical changes** to
+any estimator. 7 estimators instrumented spanning spatial / quantile
+/ distributional / bootstrap / conformal. Coverage 54/925 → **61/925**.
+
+### Added — Provenance for 7 estimators
+
+- ``sp.spatial.spatial_did`` — spatial-lag DiD with spillover decomposition.
+- ``sp.spatial.spatial_iv`` — spatial 2SLS.
+- ``sp.qte.dist_iv`` — distributional IV / quantile LATE.
+- ``sp.qte.beyond_average_late`` — quantile LATE under fuzzy compliance.
+- ``sp.qte.qte_hd_panel`` — high-dim panel QTE via LASSO controls.
+- ``sp.bootstrap`` — general-purpose bootstrap inference.
+- ``sp.conformal_cate`` — conformal prediction intervals for CATE.
+
+### Tests
+
+8 new (7 per-estimator + 1 multi-estimator integration). All pass.
+
 ## [Unreleased] — Phase 10: provenance rollout to 54/925 (panel + decomp + mediation)
 
 Continues the v1.7.2 provenance rollout. **No numerical changes** to

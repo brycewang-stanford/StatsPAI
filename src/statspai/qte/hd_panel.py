@@ -148,7 +148,7 @@ def qte_hd_panel(
     ci_low = qte_arr - z_crit * se_arr
     ci_high = qte_arr + z_crit * se_arr
 
-    return HDPanelQTEResult(
+    _result = HDPanelQTEResult(
         quantiles=quantiles,
         qte=qte_arr,
         se=se_arr,
@@ -157,3 +157,24 @@ def qte_hd_panel(
         selected_controls=sel_names,
         n_obs=n,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.qte.qte_hd_panel",
+            params={
+                "y": y, "treat": treat,
+                "unit": unit, "time": time,
+                "covariates": list(covariates),
+                "quantiles": list(quantiles) if quantiles is not None
+                              and hasattr(quantiles, "__iter__") else None,
+                "alpha": alpha,
+                "lasso_alpha": lasso_alpha,
+                "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

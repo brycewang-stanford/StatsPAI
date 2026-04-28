@@ -124,7 +124,7 @@ def dist_iv(
     ci_low = late_q - z_crit * se_q
     ci_high = late_q + z_crit * se_q
 
-    return DistIVResult(
+    _result = DistIVResult(
         quantiles=quantiles,
         late_q=late_q,
         se_q=se_q,
@@ -132,6 +132,25 @@ def dist_iv(
         ci_high=ci_high,
         n_obs=n,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.qte.dist_iv",
+            params={
+                "y": y, "treat": treat, "instrument": instrument,
+                "covariates": list(covariates) if covariates else None,
+                "quantiles": list(quantiles) if quantiles is not None
+                              and hasattr(quantiles, "__iter__") else None,
+                "alpha": alpha,
+                "n_boot": n_boot, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def kan_dlate(

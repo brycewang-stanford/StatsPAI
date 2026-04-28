@@ -191,7 +191,7 @@ def spatial_did(
         "se": se,
     })
 
-    return SpatialDiDResult(
+    _result = SpatialDiDResult(
         direct_effect=direct,
         spillover_effect=spill,
         se_direct=se_d,
@@ -203,6 +203,24 @@ def spatial_did(
         coefficients=coef_df,
         n_obs=n,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.spatial.spatial_did",
+            params={
+                "y": y, "treat": treat,
+                "unit": unit, "time": time,
+                "covariates": list(covariates) if covariates else None,
+                "cluster": cluster, "alpha": alpha,
+                "W_shape": list(W.shape) if hasattr(W, "shape") else None,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["spatial_did", "SpatialDiDResult"]

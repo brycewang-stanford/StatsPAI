@@ -158,7 +158,7 @@ def bootstrap(
     pvalue = float(np.mean(np.abs(centered) >= abs(theta_hat - null_value)))
     pvalue = max(pvalue, 1 / (n_valid + 1))  # minimum p-value
 
-    return BootstrapResult(
+    _result = BootstrapResult(
         estimate=theta_hat,
         se=se,
         ci_lower=ci_lower,
@@ -169,6 +169,25 @@ def bootstrap(
         boot_distribution=boot_stats,
         ci_method=ci_method,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.bootstrap",
+            params={
+                "statistic": getattr(statistic, "__name__", "anonymous"),
+                "n_boot": n_boot,
+                "cluster": cluster, "block": block,
+                "ci_method": ci_method,
+                "alpha": alpha, "seed": seed,
+                "null_value": null_value,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ====================================================================== #

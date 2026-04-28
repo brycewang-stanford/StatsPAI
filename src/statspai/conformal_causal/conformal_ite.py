@@ -91,7 +91,26 @@ def conformal_cate(
         model=model, alpha=alpha, calib_fraction=calib_fraction,
         random_state=random_state,
     )
-    return est.fit()
+    _result = est.fit()
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.conformal_cate",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "model": type(model).__name__ if model is not None else None,
+                "alpha": alpha,
+                "calib_fraction": calib_fraction,
+                "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ======================================================================

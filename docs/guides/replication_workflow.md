@@ -378,7 +378,7 @@ So `lineage.json` traces the full chain: aggregate → producing CS run
 
 ## Provenance scorecard
 
-As of v1.7.2, **54 estimators** are instrumented:
+As of v1.7.2, **61 estimators** are instrumented:
 
 | Estimator                                                | Phase    |
 |---                                                       |---       |
@@ -436,8 +436,15 @@ As of v1.7.2, **54 estimators** are instrumented:
 | `sp.mediate_interventional` (VanderWeele 2014)           | **P10**  |
 | `sp.bartik` (Goldsmith-Pinkham-Sorkin-Swift 2020)        | **P10**  |
 | `sp.decompose` (Oaxaca / FFL / DFL / RIF dispatcher)     | **P10**  |
+| `sp.spatial.spatial_did` (spatial-lag DiD + spillover)   | **P11**  |
+| `sp.spatial.spatial_iv` (spatial 2SLS)                   | **P11**  |
+| `sp.qte.dist_iv` (distributional IV / quantile LATE)     | **P11**  |
+| `sp.qte.beyond_average_late` (quantile LATE, fuzzy)      | **P11**  |
+| `sp.qte.qte_hd_panel` (HD panel QTE via LASSO)           | **P11**  |
+| `sp.bootstrap` (general-purpose bootstrap)               | **P11**  |
+| `sp.conformal_cate` (conformal CATE intervals)           | **P11**  |
 
-The remaining ~871 estimators are scheduled for v1.7.3+ rollouts. To
+The remaining ~864 estimators are scheduled for v1.7.3+ rollouts. To
 check whether a specific estimator is instrumented:
 
 ```python
