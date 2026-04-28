@@ -246,7 +246,7 @@ def causal_survival_forest(
 
     cate = mu1 - mu0
 
-    return CausalSurvivalForestResult(
+    _result = CausalSurvivalForestResult(
         ate_rmst=ate,
         se=se,
         ci=ci,
@@ -260,6 +260,26 @@ def causal_survival_forest(
             "pseudo_outcome_range": (float(pseudo.min()), float(pseudo.max())),
         },
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.survival.causal_survival_forest",
+            params={
+                "time": time, "event": event, "treat": treat,
+                "covariates": list(covariates),
+                "horizon": horizon,
+                "n_trees": n_trees, "min_leaf": min_leaf,
+                "max_depth": max_depth,
+                "propensity_bounds": list(propensity_bounds),
+                "random_state": random_state, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # Backward-compatible alias matching grf naming.

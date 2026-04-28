@@ -134,7 +134,7 @@ def kernel_iv(
     ci_low = h_hat - sup_band * sd
     ci_high = h_hat + sup_band * sd
 
-    return KernelIVResult(
+    _result = KernelIVResult(
         grid=grid,
         h_hat=h_hat,
         ci_low=ci_low,
@@ -142,3 +142,21 @@ def kernel_iv(
         bandwidth=float(bandwidth),
         n_obs=n,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.iv.kernel_iv",
+            params={
+                "y": y, "treat": treat, "instrument": instrument,
+                "bandwidth": bandwidth,
+                "ridge": ridge,
+                "alpha": alpha,
+                "n_boot": n_boot, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

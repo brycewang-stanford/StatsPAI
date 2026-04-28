@@ -403,7 +403,22 @@ def kaplan_meier(
         for g_val, gdf in data.groupby(group):
             tables[str(g_val)] = _km_table(gdf[duration].values, gdf[event].values, alpha)
 
-    return KMResult(tables, alpha=alpha)
+    _result = KMResult(tables, alpha=alpha)
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.survival.kaplan_meier",
+            params={
+                "duration": duration, "event": event,
+                "group": group, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ===================================================================
@@ -1002,7 +1017,7 @@ def cox(
         "BIC": -2 * loglik + np.log(E.sum()) * p,
     }
 
-    return CoxResult(
+    _result = CoxResult(
         params=params_s,
         std_errors=se_s,
         model_info=model_info,
@@ -1016,6 +1031,25 @@ def cox(
         _hazard_ratios=hr,
         _hr_ci=hr_ci,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.survival.cox",
+            params={
+                "formula": formula,
+                "duration": duration, "event": event,
+                "x": list(x) if x else None,
+                "ties": ties, "strata": strata,
+                "robust": robust, "cluster": cluster,
+                "hazard_ratio": hazard_ratio, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ===================================================================

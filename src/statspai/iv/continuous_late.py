@@ -112,10 +112,27 @@ def continuous_iv_late(
     se = float(np.nanstd(boot, ddof=1)) or 1e-6
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (estimate - z_crit * se, estimate + z_crit * se)
-    return ContinuousLATEResult(
+    _result = ContinuousLATEResult(
         estimate=estimate,
         se=se,
         ci=ci,
         complier_share=complier,
         n_obs=n,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.iv.continuous_iv_late",
+            params={
+                "y": y, "treat": treat, "instrument": instrument,
+                "n_quantiles": n_quantiles,
+                "alpha": alpha,
+                "n_boot": n_boot, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

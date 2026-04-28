@@ -378,7 +378,7 @@ So `lineage.json` traces the full chain: aggregate → producing CS run
 
 ## Provenance scorecard
 
-As of v1.7.2, **66 estimators** are instrumented:
+As of v1.7.2, **76 estimators** are instrumented:
 
 | Estimator                                                | Phase    |
 |---                                                       |---       |
@@ -448,8 +448,18 @@ As of v1.7.2, **66 estimators** are instrumented:
 | `sp.manski_bounds` (Manski 1990 worst-case)              | **P12**  |
 | `sp.fisher_exact` (Fisher randomization test)            | **P12**  |
 | `sp.imputation.mice` (Multiple Imputation Chained Eq.)   | **P12**  |
+| `sp.kaplan_meier` (KM survival)                          | **P13**  |
+| `sp.cox` (Cox proportional hazards)                      | **P13**  |
+| `sp.survival.aft` (Accelerated Failure Time)             | **P13**  |
+| `sp.survival.cox_frailty` (Cox + gamma frailty)          | **P13**  |
+| `sp.survival.causal_survival_forest`                     | **P13**  |
+| `sp.iv.kernel_iv` (Singh-Sahani-Gretton kernel IV)       | **P13**  |
+| `sp.iv.npiv` (sieve nonparametric IV)                    | **P13**  |
+| `sp.iv.many_weak_jive` (Phillips-Hale 2018 JIVE)         | **P13**  |
+| `sp.iv.many_weak_ar` (Mikusheva-Sun 2024 AR-CS)          | **P13**  |
+| `sp.iv.continuous_iv_late` (quantile-bin Wald)           | **P13**  |
 
-The remaining ~859 estimators are scheduled for v1.7.3+ rollouts. To
+The remaining ~849 estimators are scheduled for v1.7.3+ rollouts. To
 check whether a specific estimator is instrumented:
 
 ```python

@@ -242,7 +242,7 @@ def npiv(
     h_var = np.einsum("ij,jk,ik->i", Phi_grid, cov_theta, Phi_grid)
     h_se = np.sqrt(np.maximum(h_var, 0))
 
-    return NPIVResult(
+    _result = NPIVResult(
         h_values=h_grid,
         h_se=h_se,
         d_grid=d_grid,
@@ -255,6 +255,25 @@ def npiv(
         residuals=residuals,
         extra={"theta": theta, "pi_hat": pi_hat, "D_hat": Dt_hat},
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.iv.npiv",
+            params={
+                "y": y if isinstance(y, str) else None,
+                "endog": endog if isinstance(endog, str) else None,
+                "k_d": k_d, "k_z": k_z,
+                "basis": basis,
+                "regularization": regularization,
+                "add_const": add_const,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["npiv", "NPIVResult"]

@@ -157,9 +157,21 @@ def aft(
     aic = -2 * ll + 2 * n_params
     bic = -2 * ll + n_params * np.log(n)
 
-    return AFTResult(
+    _result = AFTResult(
         beta=beta, se=se, sigma=sigma,
         var_names=["Intercept"] + covariates,
         family=family, log_likelihood=ll,
         aic=aic, bic=bic, n=n, n_events=n_events,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.survival.aft",
+            params={"formula": formula, "family": family},
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

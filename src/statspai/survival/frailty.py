@@ -175,9 +175,24 @@ def cox_frailty(
 
     ll = float(-_cox_neg_logpl_efron(beta, X, T, E))
 
-    return FrailtyResult(
+    _result = FrailtyResult(
         beta=beta, se=se, var_names=covariates,
         theta=theta, frailties=z, cluster_ids=uniq_clusters,
         log_likelihood=ll, n=n, n_events=n_events,
         n_clusters=n_clusters, concordance=concordance,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.survival.cox_frailty",
+            params={
+                "formula": formula, "cluster": cluster,
+                "alpha": alpha, "maxiter": maxiter, "tol": tol,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

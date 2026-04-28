@@ -119,7 +119,7 @@ def jive(
     crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (estimate - crit * se_est, estimate + crit * se_est)
 
-    return ManyWeakIVResult(
+    _result = ManyWeakIVResult(
         estimator="JIVE",
         estimate=estimate,
         se=se_est,
@@ -127,6 +127,23 @@ def jive(
         n_obs=n,
         n_instruments=int(len(instruments)),
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.iv.many_weak_jive",
+            params={
+                "y": y, "endog": endog,
+                "instruments": list(instruments),
+                "exog": list(exog) if exog else None,
+                "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def many_weak_ar(
@@ -196,7 +213,7 @@ def many_weak_ar(
     else:
         lo = hi = point = float(beta_grid[int(np.argmin(stats_grid))])
 
-    return ManyWeakIVResult(
+    _result = ManyWeakIVResult(
         estimator="Jackknife AR (grid CS)",
         estimate=point,
         se=(hi - lo) / (2 * 1.96) if hi > lo else float("nan"),
@@ -205,6 +222,23 @@ def many_weak_ar(
         n_instruments=K,
         detail={"n_grid": int(len(beta_grid))},
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.iv.many_weak_ar",
+            params={
+                "y": y, "endog": endog,
+                "instruments": list(instruments),
+                "exog": list(exog) if exog else None,
+                "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["jive", "many_weak_ar", "ManyWeakIVResult"]
