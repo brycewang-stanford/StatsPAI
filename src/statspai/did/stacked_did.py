@@ -288,7 +288,7 @@ def stacked_did(
         "event_study_se": es_se,
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method="Stacked DID (Cengiz et al. 2019)",
         estimand="ATT",
         estimate=float(att),
@@ -301,6 +301,26 @@ def stacked_did(
         model_info=model_info,
         _citation_key="stacked_did",
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.did.stacked_did",
+            params={
+                "y": y, "group": group, "time": time,
+                "first_treat": first_treat,
+                "window": list(window),
+                "controls": controls,
+                "cluster": cluster,
+                "never_treated_only": never_treated_only,
+                "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ──────────────────────────────────────────────────────────────────── #

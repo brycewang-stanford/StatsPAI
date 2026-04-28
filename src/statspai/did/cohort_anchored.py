@@ -196,7 +196,7 @@ def cohort_anchored_event_study(
     z = att_avg / se_avg if se_avg > 0 else 0.0
     pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
 
-    return CausalResult(
+    _result = CausalResult(
         method="Cohort-Anchored Event Study (staggered-robust)",
         estimand="ATT (avg post)",
         estimate=att_avg,
@@ -213,6 +213,22 @@ def cohort_anchored_event_study(
         },
         _citation_key='cohort_anchored',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.did.cohort_anchored_event_study",
+            params={
+                "y": y, "treat": treat, "time": time, "id": id,
+                "leads": leads, "lags": lags,
+                "cluster": cluster, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 CausalResult._CITATIONS['cohort_anchored'] = (

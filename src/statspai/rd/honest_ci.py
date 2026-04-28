@@ -412,7 +412,7 @@ def rd_honest(
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
     )
 
-    return CausalResult(
+    _result = CausalResult(
         method="Honest CI for RD (Armstrong & Kolesar, 2020)",
         estimand="LATE",
         estimate=tau_hat,
@@ -438,3 +438,19 @@ def rd_honest(
             "summary_str": summary_str,
         },
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.rd.rd_honest",
+            params={
+                "y": y, "x": x, "c": c,
+                "M": M, "kernel": kernel, "h": h,
+                "alpha": alpha, "opt_criterion": opt_criterion,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

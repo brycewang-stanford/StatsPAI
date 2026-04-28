@@ -337,7 +337,7 @@ def gardner_did(
         ),
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method="Gardner 2021 two-stage DID (did2s)",
         estimand="ATT",
         estimate=att_overall,
@@ -348,6 +348,24 @@ def gardner_did(
         n_obs=int(len(df)),
         model_info=model_info,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.did.gardner_did",
+            params={
+                "y": y, "group": group, "time": time,
+                "first_treat": first_treat,
+                "controls": controls,
+                "event_study": event_study, "horizon": horizon,
+                "cluster": cluster, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # Convenience alias aligned with the R package ``did2s``.

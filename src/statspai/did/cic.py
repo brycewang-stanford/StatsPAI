@@ -318,6 +318,22 @@ def cic(
         return out
 
     result.summary = _cic_summary
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            result,
+            function="sp.did.cic",
+            params={
+                "y": y, "group": group, "time": time,
+                "quantiles": list(quantiles) if quantiles else None,
+                "n_boot": n_boot, "alpha": alpha,
+                "seed": seed, "n_grid": n_grid,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
     return result
 
 

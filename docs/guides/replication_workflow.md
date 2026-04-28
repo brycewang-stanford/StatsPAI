@@ -54,7 +54,7 @@ sp.replication_pack(draft, "submission.zip",
 
 Open `submission.zip` and you'll find:
 
-```
+```text
 submission.zip
 ├── MANIFEST.json          versions, timestamp, git SHA, per-file SHA-256
 ├── README.md              replication instructions
@@ -131,12 +131,12 @@ your IRB / journal preregistration.
 `PaperDraft` exposes four renderers (route via `.write()` extension or
 explicit method):
 
-| Format | Method | When |
-|---|---|---|
-| Markdown | `to_markdown()` / `.md` | Quick review, GitHub gist |
-| Quarto | `to_qmd()` / `.qmd` | Publication-grade pipeline (recommended) |
-| LaTeX | `to_tex()` / `.tex` | Direct overleaf submission |
-| Word | `to_docx(path)` / `.docx` | Co-authors who only edit in Word |
+| Format   | Method                       | When                                    |
+| ---      | ---                          | ---                                     |
+| Markdown | `to_markdown()` / `.md`      | Quick review, GitHub gist               |
+| Quarto   | `to_qmd()` / `.qmd`          | Publication-grade pipeline (recommended)|
+| LaTeX    | `to_tex()` / `.tex`          | Direct overleaf submission              |
+| Word     | `to_docx(path)` / `.docx`    | Co-authors who only edit in Word        |
 
 ```python
 draft.write("paper.qmd")    # → quarto render paper.qmd
@@ -182,7 +182,7 @@ Notable bits:
   `replication_pack` writes the actual `paper.bib` next to the qmd.
 - **`csl:`** accepts short names — `csl='aer'` resolves to
   `american-economic-association.csl`. See the
-  [CSL section below](#cite-style-csl-bibliography).
+  [CSL section below](#cite-style-csl-and-bibliography).
 - **`statspai:` block** carries `version` / `run_id` / `data_hash` so
   any reader can audit "is this paper running on the same code +
   data I have?".
@@ -191,10 +191,10 @@ When the underlying `result` carries a `_provenance` (any of the 9
 instrumented estimators — see
 [provenance scorecard](#provenance-scorecard)), the qmd auto-appends:
 
-```markdown
+````markdown
 ## Reproducibility {.appendix}
 
-```
+```text
 Provenance
   function   : sp.did.callaway_santanna
   run_id     : 9c3aa1bf
@@ -205,6 +205,7 @@ Provenance
     - g = 'first_treat'
     ...
 ```
+````
 
 ## Causal DAG appendix
 
@@ -269,7 +270,7 @@ To pin the offline heuristic backend (no API call):
 draft = sp.paper(..., llm="heuristic")
 ```
 
-## Cite style (CSL) + bibliography
+## Cite style (CSL) and bibliography
 
 StatsPAI auto-emits `paper/paper.bib` from estimator `cite()` strings
 inside `replication_pack`. To pick a journal style, pass `csl=` to
@@ -377,21 +378,33 @@ So `lineage.json` traces the full chain: aggregate → producing CS run
 
 ## Provenance scorecard
 
-As of v1.7.2, **9 estimators** are instrumented:
+As of v1.7.2, **21 estimators** are instrumented:
 
-| Estimator                                | Phase |
-|---                                       |---    |
-| `sp.regress`                             | P3    |
-| `sp.callaway_santanna`                   | P3    |
-| `sp.did_2x2`                             | P3    |
-| `statspai.regression.iv.iv`              | P3    |
-| `sp.synth` (13-method dispatcher)        | P4    |
-| `sp.did.did_imputation`                  | P4    |
-| `sp.did.aggte` (chain-aware)             | P4    |
-| `sp.did.did_multiplegt`                  | P4    |
-| `sp.rd.rdrobust`                         | P4    |
+| Estimator                                                | Phase    |
+|---                                                       |---       |
+| `sp.regress`                                             | P3       |
+| `sp.callaway_santanna`                                   | P3       |
+| `sp.did_2x2`                                             | P3       |
+| `statspai.regression.iv.iv`                              | P3       |
+| `sp.synth` (13-method dispatcher)                        | P4       |
+| `sp.did.did_imputation`                                  | P4       |
+| `sp.did.aggte` (chain-aware)                             | P4       |
+| `sp.did.did_multiplegt`                                  | P4       |
+| `sp.rd.rdrobust`                                         | P4       |
+| `sp.cic` (Athey-Imbens 2006)                             | **P7**   |
+| `sp.cohort_anchored_event_study` (arXiv:2509.01829)      | **P7**   |
+| `sp.design_robust_event_study` (arXiv:2601.18801)        | **P7**   |
+| `sp.gardner_did` / `sp.did_2stage`                       | **P7**   |
+| `sp.harvest_did` (Borusyak et al. 2025)                  | **P7**   |
+| `sp.did_misclassified` (arXiv:2507.20415)                | **P7**   |
+| `sp.stacked_did` (Cengiz et al. 2019)                    | **P7**   |
+| `sp.wooldridge_did` (Wooldridge 2021 ETWFE)              | **P7**   |
+| `sp.etwfe` (4-branch dispatcher, wrap pattern)           | **P7**   |
+| `sp.drdid` (Sant'Anna-Zhao 2020 DR)                      | **P7**   |
+| `sp.rd_honest` (Armstrong-Kolesar 2018, 2020)            | **P7**   |
+| `sp.rkd` (Card et al. 2015 Regression Kink)              | **P7**   |
 
-The remaining 916 estimators are scheduled for v1.7.3+ rollouts. To
+The remaining ~904 estimators are scheduled for v1.7.3+ rollouts. To
 check whether a specific estimator is instrumented:
 
 ```python

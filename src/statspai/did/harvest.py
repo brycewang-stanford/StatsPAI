@@ -371,7 +371,7 @@ def harvest_did(
     ci = (agg - z * agg_se, agg + z * agg_se)
     pval = 2 * (1 - norm.cdf(abs(agg) / agg_se)) if agg_se > 0 else float("nan")
 
-    return CausalResult(
+    _result = CausalResult(
         method="harvest_did",
         estimand="ATT (post-treatment average)",
         estimate=agg,
@@ -391,6 +391,26 @@ def harvest_did(
         },
         _citation_key="harvest_did",
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.did.harvest_did",
+            params={
+                "unit": unit, "time": time, "outcome": outcome,
+                "treat": treat, "cohort": cohort,
+                "never_value": never_value,
+                "horizons": list(horizons) if horizons else None,
+                "reference": int(reference),
+                "alpha": alpha,
+                "weighting": weighting,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def _weights(sub: pd.DataFrame, scheme: str) -> np.ndarray:

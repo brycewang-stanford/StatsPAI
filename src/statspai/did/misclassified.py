@@ -216,7 +216,7 @@ def did_misclassified(
     z = corrected_att / se if se > 0 else 0.0
     pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
 
-    return CausalResult(
+    _result = CausalResult(
         method="Staggered DiD with Misclassification + Anticipation",
         estimand="ATT (corrected)",
         estimate=corrected_att,
@@ -236,6 +236,23 @@ def did_misclassified(
         },
         _citation_key='did_misclassified',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.did.did_misclassified",
+            params={
+                "y": y, "treat": treat, "time": time, "id": id,
+                "pi_misclass": pi_misclass,
+                "anticipation_periods": anticipation_periods,
+                "cluster": cluster, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 CausalResult._CITATIONS['did_misclassified'] = (

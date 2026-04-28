@@ -2,6 +2,129 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Phase 7: provenance rollout to 21/925 (DiD long-tail + RD)
+
+Continues the v1.7.2 provenance rollout established in Phases 3-4.
+**No numerical changes** to any estimator. 12 more estimators
+instrumented; `sp.etwfe` refactored into wrapper + dispatcher
+(parallel to the Phase 4 `sp.synth` move). Coverage now **21/925**.
+
+### Added — Provenance instrumentation for 12 more estimators
+
+DiD long-tail (10):
+
+- `sp.cic` — Athey-Imbens (2006) Changes-in-Changes.
+- `sp.cohort_anchored_event_study` — staggered-robust ES
+  (arXiv:2509.01829).
+- `sp.design_robust_event_study` — orthogonalised TWFE
+  (arXiv:2601.18801).
+- `sp.gardner_did` / `sp.did_2stage` — Gardner (2021) two-stage.
+- `sp.harvest_did` — Borusyak-Harmon-Hull-Jaravel-Spiess (2025)
+  harvesting.
+- `sp.did_misclassified` — staggered DiD with treatment
+  misclassification + anticipation (arXiv:2507.20415).
+- `sp.stacked_did` — Cengiz-Dube-Lindner-Zipperer (2019) stacked.
+- `sp.wooldridge_did` — Wooldridge (2021) Extended TWFE.
+- `sp.etwfe` — refactored into outer wrapper + 4-branch
+  `_dispatch_etwfe_impl` so the (with-xvar / never-only / notyet /
+  repeated-cross-section) routing attaches provenance once on the
+  way out. Same pattern as Phase 4's `sp.synth` move.
+- `sp.drdid` — Sant'Anna-Zhao (2020) doubly robust DiD.
+
+RD (2):
+
+- `sp.rd_honest` — Armstrong-Kolesar (2018, 2020) honest CIs.
+- `sp.rkd` — Card-Lee-Pei-Weber (2015) Regression Kink Design.
+
+Each follows the established Phase 3 idiom: assign result to
+`_result`, call `attach_provenance(overwrite=False)`, return.
+`overwrite=False` semantics preserve the inner-most record so
+estimand-first / `sp.causal` / `sp.paper` wrappers don't clobber
+the more-specific call name.
+
+### Changed — `sp.etwfe` refactored into outer wrapper + dispatcher
+
+Mirrors Phase 4's `sp.synth` refactor. The previous `etwfe` had 4
+return sites (one per `(panel × cgroup × xvar)` branch), which
+made naive instrumentation maintenance-hostile. New layout:
+
+- `_dispatch_etwfe_impl(...)` — full dispatcher (former `etwfe`
+  body), unchanged logic.
+- `etwfe(...)` — thin outer wrapper that captures kwargs, calls
+  impl, attaches provenance once before returning.
+
+Public signature is bit-identical; the existing wooldridge / etwfe
+test sweep passes with zero changes.
+
+### Tests
+
+14 new tests (12 per-estimator + 1 `did_2stage` alias check + 1
+multi-estimator `replication_pack` integration). 346 green across
+the DiD + RD + paper regression sweep (DiD: 214, paper+remaining:
+132). Zero regressions across either family.
+
+### Documentation
+
+`docs/guides/replication_workflow.md` scorecard updated to reflect
+the new 21/925 coverage. Users running `get_provenance(result)`
+can verify any estimator's status locally.
+
+## [Unreleased] — production function estimators
+
+Adds proxy-variable production function estimation — Olley-Pakes,
+Levinsohn-Petrin, Ackerberg-Caves-Frazer, Wooldridge — plus the
+De Loecker-Warzynski markup. Closes the long-standing gap that
+forced StatsPAI users to drop into R `prodest` or Stata `prodest`
+for productivity / TFP / markup work.
+
+### Added
+
+- `sp.prod_fn(method=...)` — unified Cobb-Douglas dispatcher
+  (`'op' | 'lp' | 'acf' | 'wrdg'`).
+- `sp.olley_pakes` (alias `sp.opreg`) — investment-proxy estimator
+  with strictly-positive-investment filter.
+- `sp.levinsohn_petrin` (alias `sp.levpet`) — intermediate-input proxy
+  (avoids OP zero-investment selection).
+- `sp.ackerberg_caves_frazer` (alias `sp.acf`) — modern default,
+  corrects the OP/LP labor-coefficient identification problem via
+  lagged-labor instruments.
+- `sp.wooldridge_prod` — joint stacked-NLS estimator (one-step GMM
+  with identity weighting and instruments = regressors; full
+  efficient-GMM variant on the roadmap).
+- `sp.markup` — De Loecker & Warzynski (2012) firm-time markup
+  μ_it = θ_v · (PQ) / (P_v V) with optional η-correction.
+- `sp.ProductionResult` — unified result class with `coef`, `tfp`,
+  `productivity_process`, `cite()`, `summary()`.
+- Firm-cluster bootstrap SE (Wooldridge 2009 §4 convention) with
+  convergence filtering on each replicate.
+- Multi-start Nelder-Mead in stage 2 to dodge the upward-biased
+  OLS warm start (positive selection of labor on ω).
+- UserWarning on non-consecutive panel time periods (lag operator
+  would silently treat gaps as 1-period lags otherwise).
+
+### References (verified via Crossref API on 2026-04-27)
+
+- Olley & Pakes (1996) Econometrica 64(6) 1263–1297, DOI 10.2307/2171831
+- Levinsohn & Petrin (2003) RES 70(2) 317–341, DOI 10.1111/1467-937X.00246
+- Ackerberg, Caves & Frazer (2015) Econometrica 83(6) 2411–2451, DOI 10.3982/ECTA13408
+- Wooldridge (2009) Economics Letters 104(3) 112–114, DOI 10.1016/j.econlet.2009.04.026
+- De Loecker & Warzynski (2012) AER 102(6) 2437–2471, DOI 10.1257/aer.102.6.2437
+
+### Tests
+
+- `tests/test_prod_fn.py` — synthetic DGP recovery (ACF tight, OP/LP
+  loose per ACF's identification critique), dispatcher, aliases,
+  bootstrap SE, markup, edge cases (missing columns, too-few-obs,
+  zero-proxy filter, time-gap warning, registry presence). 18 tests.
+
+### Notes
+
+- Default `productivity_degree=1` (linear AR(1)). Higher degrees can
+  overfit ω given ω_lag in finite samples and flatten the GMM
+  objective surface — see dispatcher docstring.
+- Translog and Gandhi-Navarro-Rivers (2020) production functions
+  are roadmap items, not in this release.
+
 ## [Unreleased] — clubSandwich-equivalent HTZ Wald (independent PR)
 
 Adds a numerically-equivalent Python implementation of R

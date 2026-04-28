@@ -289,6 +289,22 @@ def rkd(
     result.summary = lambda alpha_=None: _rkd_summary(result, alpha_)
     result.plot = lambda **kw: _rkd_plot(result, **kw)
 
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            result,
+            function="sp.rd.rkd",
+            params={
+                "y": y, "x": x, "c": c,
+                "treatment": treatment,
+                "h": h, "kernel": kernel, "p": p,
+                "cluster": cluster, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
     return result
 
 

@@ -349,7 +349,7 @@ def wooldridge_did(
         model_info["event_study"] = event_study_df
         model_info["event_vcov"] = event_vcov  # H1: proper aggregation SE
 
-    return CausalResult(
+    _result = CausalResult(
         method="Wooldridge (2021) Extended TWFE",
         estimand="ATT",
         estimate=att_overall,
@@ -362,9 +362,76 @@ def wooldridge_did(
         model_info=model_info,
         _citation_key="wooldridge_twfe",
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.did.wooldridge_did",
+            params={
+                "y": y, "group": group, "time": time,
+                "first_treat": first_treat,
+                "controls": controls,
+                "cluster": cluster, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def etwfe(
+    data: pd.DataFrame,
+    y: str,
+    group: str,
+    time: str,
+    first_treat: str,
+    controls: Optional[List[str]] = None,
+    cluster: Optional[str] = None,
+    alpha: float = 0.05,
+    xvar: Optional[Any] = None,
+    panel: bool = True,
+    cgroup: str = "notyet",
+) -> CausalResult:
+    """Public ``sp.etwfe`` entry point — see ``_dispatch_etwfe_impl`` for
+    the full docstring on options and behaviour.
+
+    Thin wrapper around the 4-branch dispatcher (panel-with-xvar /
+    panel-never-only / panel-notyet / repeated-cross-section) that
+    attaches a :class:`Provenance` record to the returned result so
+    downstream replication_pack / Quarto appendix / table footers
+    can pick up the call without each branch having to opt in.
+    """
+    _result = _dispatch_etwfe_impl(
+        data=data, y=y, group=group, time=time,
+        first_treat=first_treat,
+        controls=controls, cluster=cluster, alpha=alpha,
+        xvar=xvar, panel=panel, cgroup=cgroup,
+    )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.etwfe",
+            params={
+                "y": y, "group": group, "time": time,
+                "first_treat": first_treat,
+                "controls": controls, "cluster": cluster,
+                "alpha": alpha,
+                "xvar": list(xvar) if isinstance(xvar, (list, tuple))
+                        else xvar,
+                "panel": panel, "cgroup": cgroup,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
+
+
+def _dispatch_etwfe_impl(
     data: pd.DataFrame,
     y: str,
     group: str,
@@ -1159,7 +1226,7 @@ def drdid(
     }
 
     method_label = "Improved" if method == "imp" else "Traditional"
-    return CausalResult(
+    _result = CausalResult(
         method=f"Doubly Robust DID ({method_label}, Sant'Anna & Zhao 2020)",
         estimand="ATT",
         estimate=att_hat,
@@ -1172,6 +1239,25 @@ def drdid(
         model_info=model_info,
         _citation_key="drdid",
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.did.drdid",
+            params={
+                "y": y, "group": group, "time": time,
+                "covariates": covariates,
+                "method": method,
+                "alpha": alpha, "n_boot": n_boot,
+                "random_state": random_state,
+                "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def _logistic_fit(X: np.ndarray, y: np.ndarray, max_iter: int = 50) -> np.ndarray:
