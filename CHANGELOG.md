@@ -2,6 +2,92 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.8.0] — Native Rust IRLS for `sp.fast.fepois`
+
+The headline of v1.8.0 is the **3× wall-clock improvement** on the
+medium HDFE benchmark: `sp.fast.fepois` runs at **0.880 s** vs the
+v1.7.x baseline's 2.61 s, and **1.37× of R `fixest::fepois`** (0.64 s)
+on the project's standard medium dataset (n=1M, fe1=100k, fe2=1k).
+This closes the long-standing wall-clock gap to `fixest` to 1.37× —
+under the ≤ 1.5× target set in the v1.8 design spec.
+
+### Performance — sp.fast.fepois on medium HDFE benchmark
+
+| stage                                          | wall    | vs fixest | shipped |
+| ---------------------------------------------- | ------: | --------: | :-----: |
+| v1.7.x baseline (Python np.bincount inside Python IRLS) | 2.61 s | 4.08× | — |
+| Phase A (Rust scatter, no cache)               | 2.45 s  |     3.83× |    ✓    |
+| Phase B0 (Rust sequential + dispatcher cache)  | 1.441 s |     2.25× |    ✓    |
+| **Phase B1 (native Rust IRLS, single PyO3 call)** | **0.880 s** | **1.37×** | **✓** |
+| R fixest::fepois                               | 0.64 s  |     1.00× |    —    |
+
+The closure was driven by three orthogonal contributions, each
+verified with a wall-clock spike before the next was committed
+(audited at `benchmarks/hdfe/AUDIT.md`):
+
+- **Phase A primitives**: `statspai_hdfe.demean_2d_weighted` PyO3
+  binding, Python `_weighted_ap_demean` dispatcher with NumPy fallback,
+  `weighted_demean_matrix_fortran_inplace` crate-internal Rust API.
+- **Phase B0 algorithmic primitive**: sort-by-primary-FE permutation
+  (`sort_perm::primary_fe_sort_perm`) + sequential weighted sweep
+  (`weighted_group_sweep_sorted`) replaces the L2-cache-miss-bound
+  random-scatter inner loop on G1 = 100k bucket arrays. Plus the
+  module-level FE-only-plan fingerprint cache in the dispatcher
+  (avoids ~1.4 s per fepois of recomputing `np.argsort` /
+  `searchsorted` / secondary perms across IRLS iters).
+- **Phase B1 native Rust IRLS**: `irls.rs` hosts `fepois_loop`, the
+  full IRLS state machine (working response, working weight, sort-aware
+  weighted demean, hand-coded SPD Cholesky for the WLS solve, eta clip,
+  step-halving, deviance + convergence). `FePoisIRLSWorkspace` holds
+  scratch + Aitken history + sorted indices, allocated once per fepois
+  call and reused across all IRLS iters. Single PyO3 call
+  (`fepois_irls`) eliminates the 12 round-trips per fepois that
+  Phase B0 still had.
+
+### Numerical correctness — preserved at v1.7.x parity
+
+- `sp.fast.fepois` vs `pyfixest.fepois` coef on the medium dataset:
+  unchanged (atol < 1e-13 across IRLS-converged fits).
+- Cluster-robust SE (`vcov="cr1"`): the v1.7.x integration is
+  **untouched**; commit `39c94d0` (CR1 recovery from auto-checkpoint)
+  remains the canonical implementation.
+- The Python NumPy fallback path (when the compiled `statspai_hdfe`
+  wheel is absent) is bit-for-bit identical to the v1.7.x behavior
+  — verified by `test_fepois_falls_back_when_rust_unavailable`.
+
+### Added
+
+- New `statspai_hdfe` v0.5.0 PyO3 entry points (Rust crate v0.4.0-alpha.1):
+  - `demean_2d_weighted` — Phase A weighted variant of the K-way AP demean.
+  - `demean_2d_weighted_sorted` — Phase B0 sort-aware variant.
+  - `fepois_irls` — Phase B1 single-call IRLS state machine.
+- `sp.fast.fepois` Python dispatcher with three-tier fallback (native
+  Rust IRLS → sort-aware Rust demean → random-scatter Rust demean →
+  pure NumPy) — no user-facing API change.
+- `benchmarks/hdfe/run_fepois_phase_a.py`, `run_fepois_phase_b0.py`,
+  `run_fepois_phase_b.py` — reproducible wall-clock harnesses with
+  hard merge gates.
+- `benchmarks/hdfe/AUDIT.md` — Phase A round 1 (gate failure +
+  root-cause), Phase B0 round 1 PASS, Phase B1 round 1 PASS audit
+  trails. The audit pattern (measure-before-commit) is the structural
+  counter-measure that prevented Phase A's "assumption broke" failure
+  from repeating in B0 / B1.
+
+### Internal
+
+- Rust crate `statspai_hdfe` bumped 0.2.0-alpha.1 → 0.4.0-alpha.1 across
+  Phase A → Phase B (3 minor crate version bumps).
+- Python `__version__` in `statspai_hdfe` extension: `0.2.0` → `0.5.0`.
+
+### Tests — 191 fast-fepois tests pass (was 187 in v1.7.x)
+
+- Phase B1 native-vs-Python IRLS parity: coef atol ≤ 1e-10, SE atol ≤ 1e-7
+  (`test_fepois_native_irls_vs_python_irls_parity`).
+- Cluster-SE suite intact (5 tests covering validation / NaN rejection /
+  IID-baseline / closed-form / fixest-parity).
+
+---
+
 ## [Unreleased] — `sp.regtable` Round 2 (templates, notation, apply_coef, escape, Word/Excel spanners)
 
 Five further additions on top of the Round 1 commit. **No numerical

@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "1.7.1"
+__version__ = "1.8.0"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -575,8 +575,17 @@ from .qte import (
     qte_hd_panel, HDPanelQTEResult,
     beyond_average_late, BeyondAverageResult,
 )
-# Structural Estimation (BLP)
+# Structural Estimation (BLP, production functions)
 from .structural import blp, BLPResult
+from .structural import (
+    prod_fn,
+    olley_pakes, opreg,
+    levinsohn_petrin, levpet,
+    ackerberg_caves_frazer, acf,
+    wooldridge_prod,
+    markup,
+    ProductionResult,
+)
 
 # === Smart Workflow Engine (unique to StatsPAI) ===
 from .smart import (
@@ -1188,6 +1197,14 @@ __all__ = [
     "distributional_te", "DTEResult",
     # Structural Estimation
     "blp", "BLPResult",
+    # Production functions (proxy-variable estimators)
+    "prod_fn",
+    "olley_pakes", "opreg",
+    "levinsohn_petrin", "levpet",
+    "ackerberg_caves_frazer", "acf",
+    "wooldridge_prod",
+    "markup",
+    "ProductionResult",
     # === Smart Workflow Engine (unique to StatsPAI) ===
     "recommend", "RecommendationResult",
     "check_identification", "IdentificationReport", "DiagnosticFinding",

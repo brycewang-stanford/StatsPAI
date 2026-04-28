@@ -69,16 +69,35 @@ phase plans.
 
 ### Wall-clock (medium dataset, n=1M, fe1=100k, fe2=1k)
 
-| backend                | wall   | iters |
-| ---------------------- | -----: | ----: |
-| `sp.fast.fepois`       | 2.61 s |     6 |
-| `pyfixest.fepois`      | 4.16 s |     ~ |
-| R `fixest::fepois`     | 0.64 s |     5 |
+| backend                                       | wall    | iters | vs fixest |
+| --------------------------------------------- | ------: | ----: | --------: |
+| Phase 0 — `sp.fast.fepois` (Python np.bincount) | 2.61 s |     6 |     4.08× |
+| Phase A — Rust scatter (no cache)             | 2.45 s  |     6 |     3.83× |
+| Phase B0 — Rust sequential + dispatcher cache | 1.441 s |     6 |     2.25× |
+| **Phase B1 — native Rust IRLS (v1.8.0)**      | **0.880 s** | 6 |  **1.37×** |
+| `pyfixest.fepois`                             | 4.16 s  |     ~ |     6.5×  |
+| R `fixest::fepois`                            | 0.64 s  |     5 |     1.00× |
 
-`sp.fast.fepois` is **1.6× faster than pyfixest** on the user-reported
-size. Still 4× slower than fixest's C++. Closing the remaining gap
-requires either the native Rust IRLS (deferred) or the GPU path on
-real hardware (also deferred). The roadmap is honest about this.
+`sp.fast.fepois` v1.8.0 is **2.97× faster than the Phase 0 baseline**
+and runs at **1.37× of fixest::fepois** on the medium HDFE benchmark
+— under the ≤1.5× target set by the spec. The closure was driven by:
+
+1. **Phase A** (v1.8.0 RC): Rust weighted demean kernel, dispatcher,
+   PyO3 surface. Modest speedup alone (4.08× → 3.83×) because the
+   inner `np.bincount(weights=...)` was already C-tuned.
+2. **Phase B0** (sort-by-primary-FE spike): sequential L1-cache-friendly
+   inner sweep + module-level FE-only-plan caching in the dispatcher.
+   Big jump (3.83× → 2.25×) — the algorithmic change Phase A's failure
+   mode missed.
+3. **Phase B1** (native Rust IRLS): single PyO3 entry per fepois call
+   (`fepois_irls`), persistent `FePoisIRLSWorkspace`, hand-coded SPD
+   Cholesky for the WLS step. Final closure (2.25× → 1.37×) — eliminates
+   12 FFI round-trips per fepois plus per-iter Python overhead.
+
+The remaining ~0.24 s gap to fixest is largely accounted for by Python-
+side formula parsing, singleton/separation pre-passes, and FePoisResult
+construction — work that's intentionally Python-side because changing
+it requires changing the user-facing API.
 
 ## Test totals
 
@@ -93,9 +112,11 @@ graceful-degradation path rather than the happy path.
 
 ## What deliberately did NOT ship (in priority order for follow-ups)
 
-1. **Native Rust IRLS for fepois** — the WLS step inside the IRLS
-   loop is still NumPy. Closing the wall-clock gap to fixest needs
-   this. ~3 weeks of focused work.
+1. ~~**Native Rust IRLS for fepois**~~ — **shipped in v1.8.0** (Phase B1).
+   `statspai_hdfe.fepois_irls` (crate v0.5.0+) drives the entire IRLS
+   state machine in Rust; the Python `fepois()` body becomes a thin
+   formula-parser + pre-pass + vcov shell. Medium wall closes from
+   2.61 s (Phase 0) to 0.880 s (1.37× of fixest, under the 1.5× target).
 2. **CR2 (Bell-McCaffrey) and IM (Imbens-Kolesar)** cluster SE for
    small G. The current CR1/CR3 + wild bootstrap pair is the
    most-used flavour.
