@@ -219,3 +219,67 @@ The honest options are (per spec §5.7):
 - **C. Invest in Rust-kernel optimization (sort-by-FE-code, SIMD intrinsics) before Phase B.** Multi-day effort with diminishing returns; might or might not close to 1.5 s. Defers Phase B.
 
 The spec explicitly forbids silently widening the gate. The user's call.
+
+---
+
+## Phase B0 round 1 — wall-clock gate PASSED (2026-04-27)
+
+After the Phase A round 1 audit identified sort-by-primary-FE as the load-bearing missing piece, Phase B0 was implemented as a 5-task spike to validate the assumption in isolation before committing to the full B1 (native Rust IRLS) investment.
+
+### Numbers
+
+| stage                                              | medium wall | iters | vs fixest 0.64 s | gate         |
+| -------------------------------------------------- | ----------: | ----: | ---------------: | ------------ |
+| Phase 0 baseline (Python `np.bincount`)            |     2.61 s  |     6 |            4.08× | —            |
+| Phase A (Rust scatter, no cache)                   |     2.45 s  |     6 |            3.83× | ❌ FAIL      |
+| **Phase B0 (Rust sequential + dispatcher cache)**  | **1.441 s** |     6 |        **2.25×** | **✅ PASS**  |
+| Phase A / B0 gate target                           |   ≤ 1.50 s  |     — |          ≤ 2.34× | —            |
+| R `fixest::fepois`                                 |     0.64 s  |     5 |            1.00× | —            |
+
+Phase B0 delivers a **44 % wall reduction over Phase 0** (2.61 → 1.44 s) and **closes the gap to fixest by 41 %** (3.83× → 2.25×). The gate target ≤ 1.50 s is met by 4 % margin (median 1.441 s, all 3 reps in [1.426, 1.450]).
+
+### Where the win came from
+
+Decomposition of the ~1.0 s improvement vs Phase A (2.45 s → 1.44 s):
+
+1. **Sort-aware sequential primary sweep** (~0.5 s saved). The B0.2 / B0.3 kernels replace the random-scatter inner loop's L2-cache-miss pattern (the bottleneck Phase A round 1 surfaced) with an O(n) sequential sweep that fits in L1 for any reasonable group size. On the medium benchmark (G1 = 100k → 800 KB scratch), this is the single largest line item.
+
+2. **FE-only-plan caching in the dispatcher** (~0.5 s saved). The first B0.4 implementation recomputed `np.argsort(primary_codes, kind="stable")` + inverse perm + secondary-code permutations + `np.searchsorted(primary_starts)` on every IRLS iter — work that depends solely on FE codes, not on weights. Direct measurement at n=1M, G1=100k showed 127 ms per dispatcher call × 12 calls = **1.525 s of pure overhead**, which alone exceeded the entire 1.5 s gate budget. The B0.4-review-driven refactor moves this work into a `_SortedDemeanPlan` dataclass cached at module level via a fingerprint (data pointer + size + first/last element per FE array) and rebuilt only when the caller passes new arrays. The plan is rebuilt naturally on every `fepois()` call's first dispatcher hit, since fingerprints differ across calls; cache hits within a single `fepois` reuse the plan across all ~12 IRLS dispatcher calls.
+
+The two changes are complementary: the sequential sweep is the algorithmic primitive; the cache makes it economically usable inside a Python-orchestrated IRLS without paying setup overhead per iter.
+
+### What the assumption-was-actually-correct-this-time check looks like
+
+| assumption from the plan                                                         | predicted   | measured  | verdict |
+| -------------------------------------------------------------------------------- | ----------- | --------- | ------- |
+| Sort-by-primary-FE delivers ≥ 2× speedup on the FE1 sweep portion                | ≥ 2×        | ~3×       | ✅      |
+| Caching the FE-only setup avoids ~840 ms / fepois (B0.4 review R2 estimate)      | ~840 ms     | ~1.4 s    | ✅      |
+| End-to-end wall ≤ 1.5 s (the original Phase A gate)                              | ~1.0–1.4 s  | 1.441 s   | ✅      |
+| The B0 spike scales risk: 4 tasks × ~1 hour each vs. blind 2-week B1 investment  | ✅          | ✅        | ✅      |
+
+The Phase B plan's structural counter-measure to Phase A's failure mode (the B0 spike before B1) worked as designed: we measured before committing.
+
+### What this enables — Phase B1 is justified
+
+The remaining ~0.8 s gap to fixest::fepois (1.44 s vs 0.64 s = 2.25×) is now attributable to specific, identified, addressable sources:
+
+1. **12 PyO3 round-trips per fepois** (Python ↔ Rust). Each crossing has a small fixed cost; multiplying by 12 hides cycles.
+2. **Per-iter Python overhead in the IRLS body**: WLS solve, step-halving, deviance computation, eta clip, mu update, weights_p / wsum / arr_F_p allocations.
+3. **Per-iter scratch / Aitken history allocation in the Rust kernel**: each `weighted_demean_matrix_fortran_inplace_sorted` call allocates a fresh `Vec<Vec<f64>>` for secondary scratch and a fresh `Vec<Vec<f64>>` for Aitken history.
+
+Phase B1 addresses all three:
+- Single PyO3 call per `fepois` (the entire IRLS state machine moves into Rust).
+- `FePoisIRLSWorkspace` holds scratch + Aitken history + sorted indices + per-iter buffers — allocated once at fepois entry, reused across iters.
+- Hand-coded k×k SPD Cholesky for the WLS solve (no new dependency).
+
+With these, the path to ≤ 0.95 s = ≤ 1.5× fixest is plausible.
+
+### Decision surface — the user's call
+
+Phase B0 has shipped. The user's options:
+
+- **A. Approve B1.** ~1-2 weeks of subagent-driven Rust IRLS work; gate is medium wall ≤ 0.95 s. Spike now justifies the investment.
+- **B. Ship Phase B0 alone as v1.8.0.** 1.44 s on medium with 1.81× speedup vs Phase 0 is a meaningful improvement on its own. CHANGELOG honest about the 2.25× gap to fixest with B1 flagged as the next milestone.
+- **C. Pause both and refocus elsewhere.** The Phase A primitives + cluster-SE recovery + Phase B0 sort-aware kernel + dispatcher cache stay on `main`; v1.8.0 release defers indefinitely.
+
+The plan recommends A but explicitly defers the call to the user, since v1.8.0 release timing is a product decision, not an engineering one.
