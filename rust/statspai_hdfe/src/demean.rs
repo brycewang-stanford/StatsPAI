@@ -112,6 +112,51 @@ fn weighted_group_sweep(
     }
 }
 
+/// Sequential weighted group de-mean for input pre-sorted by `codes`.
+///
+/// Caller is responsible for permuting `x`, `weights` (and any other
+/// per-observation arrays) by the perm from
+/// ``sort_perm::primary_fe_sort_perm`` before calling this. ``group_starts``
+/// has length ``n_groups + 1``, with ``group_starts[g]..group_starts[g+1]``
+/// the contiguous slice of obs belonging to group ``g``. ``wsum[g]`` is the
+/// precomputed weighted group sum.
+///
+/// Cost: O(n) sequential. No random-access into a per-group scratch buffer
+/// — the entire per-group accumulate / divide / subtract chain happens
+/// within one contiguous slice that fits in L1 for any reasonably-sized
+/// group, replacing the L2-cache-miss pattern of the random-scatter
+/// `weighted_group_sweep` on high-cardinality primary FEs.
+#[inline]
+pub fn weighted_group_sweep_sorted(
+    x: &mut [f64],
+    weights: &[f64],
+    group_starts: &[usize],
+    wsum: &[f64],
+) {
+    debug_assert_eq!(x.len(), weights.len());
+    debug_assert_eq!(group_starts.len(), wsum.len() + 1);
+
+    for g in 0..wsum.len() {
+        let lo = group_starts[g];
+        let hi = group_starts[g + 1];
+        if lo == hi {
+            continue;
+        }
+        let w = wsum[g];
+        if w <= 0.0 {
+            continue;
+        }
+        let mut acc = 0.0_f64;
+        for i in lo..hi {
+            acc += weights[i] * x[i];
+        }
+        let mean = acc / w;
+        for i in lo..hi {
+            x[i] -= mean;
+        }
+    }
+}
+
 /// Sweep all K FE dimensions once, weighted variant.
 fn weighted_sweep_all_fe(
     x: &mut [f64],
@@ -672,6 +717,51 @@ mod tests {
         assert!((x[1] - 2.0).abs() < 1e-12);
         assert!((x[2] - (-0.5)).abs() < 1e-12);
         assert!((x[3] - 0.5).abs() < 1e-12);
+        for &v in x.iter() {
+            assert!(v.is_finite(), "NaN/Inf leaked: {v}");
+        }
+    }
+
+    /// Sort-aware sweep on already-grouped input must match the random-scatter
+    /// version on the same logical data.
+    #[test]
+    fn sorted_matches_random_scatter() {
+        // 4 obs, 2 groups, unequal weights — same setup as weighted_oneway_exact.
+        let codes: Vec<i64> = vec![0, 0, 1, 1];
+        let weights: Vec<f64> = vec![1.0, 3.0, 2.0, 2.0];
+        let wsum: Vec<f64> = vec![4.0, 4.0];
+
+        // Sorted-input path: codes are already grouped; group_starts = [0, 2, 4].
+        let mut x_sorted: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0];
+        let group_starts = vec![0usize, 2, 4];
+        weighted_group_sweep_sorted(&mut x_sorted, &weights, &group_starts, &wsum);
+
+        // Random-scatter path on the same data.
+        let mut x_rand: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0];
+        let mut scratch = vec![0.0_f64; 2];
+        weighted_group_sweep(&mut x_rand, &codes, &weights, &wsum, &mut scratch);
+
+        for (a, b) in x_sorted.iter().zip(x_rand.iter()) {
+            assert!((a - b).abs() < 1e-15, "sorted={a} random={b}");
+        }
+    }
+
+    /// Zero-weight group: must not panic, must not produce NaN, and must
+    /// leave the zero-weight group unchanged.
+    #[test]
+    fn sorted_zero_weight_group_no_panic() {
+        // codes = [0, 0, 1, 1] with weights = [0, 0, 1, 1]: group 0 is
+        // entirely zero-weight and must be left untouched; group 1 has
+        // weighted mean (3+4)/2 = 3.5 and residuals [-0.5, +0.5].
+        let mut x: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0];
+        let weights: Vec<f64> = vec![0.0, 0.0, 1.0, 1.0];
+        let group_starts = vec![0usize, 2, 4];
+        let wsum: Vec<f64> = vec![0.0, 2.0];
+        weighted_group_sweep_sorted(&mut x, &weights, &group_starts, &wsum);
+        assert!((x[0] - 1.0).abs() < 1e-15);
+        assert!((x[1] - 2.0).abs() < 1e-15);
+        assert!((x[2] - (-0.5)).abs() < 1e-15);
+        assert!((x[3] - 0.5).abs() < 1e-15);
         for &v in x.iter() {
             assert!(v.is_finite(), "NaN/Inf leaked: {v}");
         }
