@@ -637,7 +637,9 @@ fn separation_mask<'py>(
     let code_views = py_list_to_i64_views(fe_codes)?;
 
     if code_views.is_empty() {
-        return Ok(PyArray1::<u8>::zeros_bound(py, y_view.len(), false));
+        // No FE → no separation possible; keep every row.
+        let all_keep: Vec<u8> = vec![1u8; y_view.len()];
+        return Ok(PyArray1::from_vec_bound(py, all_keep));
     }
     if g_view.len() != code_views.len() {
         return Err(pyo3::exceptions::PyValueError::new_err(format!(
