@@ -64,13 +64,25 @@ def direct_method(
         V += pi_e[:, a] * reward_model(X, a)
     val = float(V.mean())
     se = float(V.std(ddof=1) / np.sqrt(max(n, 1)))
-    return OPEResult(
+    _result = OPEResult(
         method="DM",
         value=val,
         se=se,
         ci=(val - 1.96 * se, val + 1.96 * se),
         diagnostics={"n": int(n)},
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.ope.direct_method",
+            params={"n_actions": int(K), "n_obs": int(n)},
+            data=None,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def ips(

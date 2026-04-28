@@ -151,13 +151,29 @@ def sharp_ope_unobserved(
     upper_w = np.where(R >= 0, hi, lo)
     lower_bound = float(np.mean(lower_w * R))
     upper_bound = float(np.mean(upper_w * R))
-    return SharpOPEResult(
+    _result = SharpOPEResult(
         gamma=gamma,
         point_estimate=ips,
         lower_bound=lower_bound,
         upper_bound=upper_bound,
         n=n,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.ope.sharp_ope_unobserved",
+            params={
+                "actions": actions, "rewards": rewards,
+                "logging_prob": logging_prob, "target_prob": target_prob,
+                "gamma": gamma,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ---------------------------------------------------------------------------

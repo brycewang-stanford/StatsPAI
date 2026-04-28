@@ -378,7 +378,7 @@ So `lineage.json` traces the full chain: aggregate → producing CS run
 
 ## Provenance scorecard
 
-As of v1.7.2, **138 estimators** are instrumented (>15× original 9-baseline):
+As of v1.7.2, **142 estimators** are instrumented (>15× original 9-baseline):
 
 | Estimator                                                | Phase    |
 |---                                                       |---       |
@@ -520,8 +520,12 @@ As of v1.7.2, **138 estimators** are instrumented (>15× original 9-baseline):
 | `sp.timeseries.engle_granger` (cointegration test)       | **P25**  |
 | `sp.timeseries.johansen` (cointegration rank)            | **P25**  |
 | `sp.mendelian.mr_heterogeneity` (Cochran Q / Rücker Q')  | **P25**  |
+| `sp.ope.sharp_ope_unobserved` (Kallus-Mao-Uehara 2025)   | **P26**  |
+| `sp.ope.direct_method` (DM plug-in OPE)                  | **P26**  |
+| `sp.conformal_causal.conformal_counterfactual`           | **P26**  |
+| `sp.conformal_causal.conformal_ite_interval`             | **P26**  |
 
-The remaining ~787 estimators are scheduled for v1.7.3+ rollouts. To
+The remaining ~783 estimators are scheduled for v1.7.3+ rollouts. To
 check whether a specific estimator is instrumented:
 
 ```python

@@ -327,13 +327,31 @@ def conformal_counterfactual(
     # theory gives finite-sample coverage in expectation; trying to
     # estimate it empirically on the calibration set conflates the
     # nominal level with sample noise, so we simply echo the target.
-    return ConformalCounterfactualResult(
+    _result = ConformalCounterfactualResult(
         X=X_test_arr,
         lower_Y1=lo1, upper_Y1=hi1,
         lower_Y0=lo0, upper_Y0=hi0,
         alpha=alpha,
         marginal_coverage_estimate=1.0 - alpha,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.conformal_causal.conformal_counterfactual",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "alpha": alpha, "calib_frac": calib_frac,
+                "model": type(model).__name__ if model is not None else None,
+                "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def conformal_ite_interval(
@@ -386,13 +404,31 @@ def conformal_ite_interval(
     half_0 = 0.5 * (cf.upper_Y0 - cf.lower_Y0)
     point_tau = point_1 - point_0
     half_tau = half_1 + half_0
-    return ConformalITEResult(
+    _result = ConformalITEResult(
         X=cf.X,
         lower=point_tau - half_tau,
         upper=point_tau + half_tau,
         point=point_tau,
         alpha=alpha,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.conformal_causal.conformal_ite_interval",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "alpha": alpha, "calib_frac": calib_frac,
+                "model": type(model).__name__ if model is not None else None,
+                "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = [
