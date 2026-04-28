@@ -462,7 +462,7 @@ def gformula_mc(
         se_c = np.nan if control_strategy is not None else None
         ci_c = (np.nan, np.nan) if control_strategy is not None else None
 
-    return MCGFormulaResult(
+    _result = MCGFormulaResult(
         value=float(val_t),
         se=float(se_t),
         ci=(float(ci_t[0]), float(ci_t[1])),
@@ -479,6 +479,26 @@ def gformula_mc(
         },
         trajectories=traj_t if return_trajectories else None,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.gformula.gformula_mc",
+            params={
+                "treatment_cols": list(treatment_cols),
+                "outcome_col": outcome_col,
+                "id_col": id_col, "time_col": time_col,
+                "n_simulations": n_simulations,
+                "bootstrap": bootstrap,
+                "alpha": alpha,
+                "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["gformula_mc", "MCGFormulaResult"]

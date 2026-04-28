@@ -115,12 +115,29 @@ def ice(
         )
         ci = (val - 1.96 * se, val + 1.96 * se)
 
-    return ICEResult(
+    _result = ICEResult(
         strategy=list(strategy),
         value=float(val),
         se=se,
         ci=(float(ci[0]), float(ci[1])),
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.gformula.ice",
+            params={
+                "id_col": id_col, "time_col": time_col,
+                "treatment_cols": list(treatment_cols),
+                "outcome_col": outcome_col,
+                "bootstrap": bootstrap, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def gformula_ice(*args, **kwargs) -> ICEResult:

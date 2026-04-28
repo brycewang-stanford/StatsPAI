@@ -273,7 +273,7 @@ def msm(
         'cluster_var': id,
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method='Marginal Structural Model (IPTW)',
         estimand='marginal ' + exposure,
         estimate=coef,
@@ -286,6 +286,26 @@ def msm(
         model_info=model_info,
         _citation_key='msm',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.msm",
+            params={
+                "y": y, "treat": treat,
+                "id": id, "time": time,
+                "time_varying": list(time_varying),
+                "baseline": list(baseline) if baseline else None,
+                "exposure": exposure, "treat_type": treat_type,
+                "trim": trim, "trim_per_period": trim_per_period,
+                "alpha": alpha, "family": family,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 class MarginalStructuralModel:

@@ -100,7 +100,7 @@ def pci_mtp(
     z = tau / se if se > 0 else 0.0
     pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
 
-    return CausalResult(
+    _result = CausalResult(
         method="PCI for Modified Treatment Policy (shift δ)",
         estimand=f"E[Y(D+{delta})] - E[Y(D)]",
         estimate=tau,
@@ -116,6 +116,24 @@ def pci_mtp(
         },
         _citation_key='pci_mtp',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.proximal.pci_mtp",
+            params={
+                "y": y, "treat": treat,
+                "proxy_z": list(proxy_z), "proxy_w": list(proxy_w),
+                "delta": delta,
+                "covariates": list(covariates) if covariates else None,
+                "alpha": alpha, "n_boot": n_boot, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 CausalResult._CITATIONS['pci_mtp'] = (

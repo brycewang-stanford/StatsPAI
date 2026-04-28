@@ -105,7 +105,7 @@ def bidirectional_pci(
     z = tau / se if se > 0 else 0.0
     pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
 
-    return CausalResult(
+    _result = CausalResult(
         method="Bidirectional Proximal Causal Inference",
         estimand="ATE",
         estimate=tau,
@@ -120,6 +120,23 @@ def bidirectional_pci(
         },
         _citation_key='bidirectional_pci',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.proximal.bidirectional_pci",
+            params={
+                "y": y, "treat": treat,
+                "proxy_z": list(proxy_z), "proxy_w": list(proxy_w),
+                "covariates": list(covariates) if covariates else None,
+                "alpha": alpha, "n_boot": n_boot, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 CausalResult._CITATIONS['bidirectional_pci'] = (

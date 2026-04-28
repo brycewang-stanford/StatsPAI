@@ -252,7 +252,7 @@ def proximal(
         if boot_failed > 0 and first_err:
             model_info['first_bootstrap_error'] = first_err
 
-    return CausalResult(
+    _result = CausalResult(
         method='Proximal Causal Inference (linear 2SLS)',
         estimand='ATE',
         estimate=tau,
@@ -264,6 +264,24 @@ def proximal(
         model_info=model_info,
         _citation_key='proximal',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.proximal.proximal",
+            params={
+                "y": y, "treat": treat,
+                "proxy_z": list(proxy_z), "proxy_w": list(proxy_w),
+                "covariates": list(covariates) if covariates else None,
+                "bridge": bridge, "n_boot": n_boot,
+                "alpha": alpha, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 class ProximalCausalInference:
