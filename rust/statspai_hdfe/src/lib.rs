@@ -24,6 +24,8 @@
 mod demean;
 mod singletons;
 mod sort_perm;
+mod cholesky;
+mod irls;
 
 use numpy::{
     PyArray1, PyReadonlyArray1, PyReadwriteArray1, PyReadwriteArray2, PyUntypedArrayMethods,
