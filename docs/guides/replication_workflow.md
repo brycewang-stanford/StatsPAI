@@ -378,7 +378,7 @@ So `lineage.json` traces the full chain: aggregate → producing CS run
 
 ## Provenance scorecard
 
-As of v1.7.2, **82 estimators** are instrumented:
+As of v1.7.2, **85 estimators** are instrumented:
 
 | Estimator                                                | Phase    |
 |---                                                       |---       |
@@ -464,8 +464,11 @@ As of v1.7.2, **82 estimators** are instrumented:
 | `sp.timeseries.local_projections` (Jordà 2005 IRF)       | **P14**  |
 | `sp.mccrary_test` (RD density manipulation)              | **P14**  |
 | `sp.rddensity` (CJM 2020 density test)                   | **P14**  |
+| `sp.pate` (population ATE; Hartman-Hidalgo 2018)         | **P15**  |
+| `sp.jackknife_se` (cluster jackknife variance)           | **P15**  |
+| `sp.cr2_se` (Bell-McCaffrey 2002 CR2)                    | **P15**  |
 
-The remaining ~843 estimators are scheduled for v1.7.3+ rollouts. To
+The remaining ~840 estimators are scheduled for v1.7.3+ rollouts. To
 check whether a specific estimator is instrumented:
 
 ```python

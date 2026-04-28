@@ -120,7 +120,26 @@ def pate(
         seed=seed,
         trim=trim,
     )
-    return estimator.fit()
+    _result = estimator.fit()
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.inference.pate",
+            params={
+                "y": y, "treatment": treatment,
+                "covariates": list(covariates) if covariates else None,
+                "method": method,
+                "n_boot": n_boot,
+                "alpha": alpha,
+                "seed": seed, "trim": trim,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 class PATEEstimator:

@@ -160,13 +160,25 @@ def jackknife_se(
     diagnostics['n_clusters'] = G
     diagnostics['effective_dof'] = df_resid
 
-    return EconometricResults(
+    _result = EconometricResults(
         params=params_series,
         std_errors=se_series,
         model_info=model_info,
         data_info=data_info,
         diagnostics=diagnostics,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.inference.jackknife_se",
+            params={"cluster": cluster, "alpha": alpha},
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def cr2_se(
@@ -286,13 +298,25 @@ def cr2_se(
     diagnostics['n_clusters'] = G
     diagnostics['satterthwaite_dof'] = {var_names[i]: float(dof[i]) for i in range(len(dof))}
 
-    return EconometricResults(
+    _result = EconometricResults(
         params=result.params.copy(),
         std_errors=se_series,
         model_info=model_info,
         data_info=data_info,
         diagnostics=diagnostics,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.inference.cr2_se",
+            params={"cluster": cluster, "alpha": alpha},
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def wild_cluster_boot(
