@@ -236,7 +236,7 @@ def event_study(
 
     n_clusters = len(np.unique(cluster_ids))
 
-    return CausalResult(
+    _result = CausalResult(
         method="OLS Event Study (TWFE)",
         estimand="ATT",
         estimate=att,
@@ -258,6 +258,26 @@ def event_study(
             "weights": weights,
         },
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.did.event_study",
+            params={
+                "y": y, "treat_time": treat_time,
+                "time": time, "unit": unit,
+                "window": list(window),
+                "ref_period": ref_period,
+                "covariates": list(covariates) if covariates else None,
+                "cluster": cluster, "alpha": alpha,
+                "weights": weights,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ====================================================================== #

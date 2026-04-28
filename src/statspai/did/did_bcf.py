@@ -174,7 +174,7 @@ def did_bcf(
     z = att / se if se > 0 else 0.0
     pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
 
-    return CausalResult(
+    _result = CausalResult(
         method="DiD-BCF (Forests for Differences)",
         estimand="ATT",
         estimate=att,
@@ -192,6 +192,22 @@ def did_bcf(
         },
         _citation_key='did_bcf',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.did.did_bcf",
+            params={
+                "y": y, "treat": treat, "time": time, "id": id,
+                "covariates": list(covariates) if covariates else None,
+                "n_trees": n_trees, "alpha": alpha, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # Citation

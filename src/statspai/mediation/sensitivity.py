@@ -149,9 +149,25 @@ def mediate_sensitivity(
             rho_at_zero = float(rho_grid[k] + frac * (rho_grid[k + 1] - rho_grid[k]))
             break
 
-    return MediateSensitivityResult(
+    _result = MediateSensitivityResult(
         rho_grid=rho_grid,
         acme_at_rho=acme_at_rho,
         rho_at_zero=rho_at_zero,
         acme_at_zero=float(acme_naive),
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.mediation.mediate_sensitivity",
+            params={
+                "y": y, "treat": treat, "mediator": mediator,
+                "covariates": list(covariates) if covariates else None,
+                "rho_range": list(rho_range), "n_grid": n_grid,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

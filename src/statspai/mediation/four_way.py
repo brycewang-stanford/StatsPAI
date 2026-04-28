@@ -141,7 +141,7 @@ def four_way_decomposition(
     else:
         prop = {"cde": 0.0, "int_ref": 0.0, "int_med": 0.0, "pie": 0.0}
 
-    return FourWayResult(
+    _result = FourWayResult(
         cde=float(cde),
         int_ref=float(int_ref),
         int_med=float(int_med),
@@ -154,6 +154,22 @@ def four_way_decomposition(
             "beta": [beta0, beta1],
         },
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.mediation.four_way_decomposition",
+            params={
+                "y": y, "treat": treat, "mediator": mediator,
+                "covariates": list(covariates) if covariates else None,
+                "a0": a0, "a1": a1, "m0": m0,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["four_way_decomposition", "FourWayResult"]

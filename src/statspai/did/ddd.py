@@ -264,7 +264,7 @@ def ddd(
         'weights': weights,
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method='Triple Differences (DDD)',
         estimand='ATT',
         estimate=estimate,
@@ -277,3 +277,21 @@ def ddd(
         model_info=model_info,
         _citation_key='ddd',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.did.ddd",
+            params={
+                "y": y, "treat": treat, "time": time,
+                "subgroup": subgroup,
+                "covariates": list(covariates) if covariates else None,
+                "cluster": cluster, "robust": robust,
+                "alpha": alpha, "weights": weights,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

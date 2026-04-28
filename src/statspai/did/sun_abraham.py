@@ -294,7 +294,7 @@ def sun_abraham(
         'n_coeffs': int(k_int),
     }
 
-    return CausalResult(
+    _result = CausalResult(
         method='Sun and Abraham (2021)',
         estimand='ATT',
         estimate=att,
@@ -307,6 +307,24 @@ def sun_abraham(
         model_info=model_info,
         _citation_key='sun_abraham',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.did.sun_abraham",
+            params={
+                "y": y, "g": g, "t": t, "i": i,
+                "event_window": list(event_window) if event_window else None,
+                "control_group": control_group,
+                "covariates": list(covariates) if covariates else None,
+                "cluster": cluster, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ======================================================================

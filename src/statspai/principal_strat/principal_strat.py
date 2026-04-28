@@ -583,7 +583,7 @@ def survivor_average_causal_effect(
         'bounds_width': hi - lo,
         **ps.model_info,
     }
-    return CausalResult(
+    _result = CausalResult(
         method='SACE (Zhang-Rubin sharp bounds)',
         estimand='SACE',
         estimate=midpoint,
@@ -595,6 +595,21 @@ def survivor_average_causal_effect(
         model_info=model_info,
         _citation_key='principal_strat',
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.principal_strat.survivor_average_causal_effect",
+            params={
+                "y": y, "treat": treat, "survival": survival,
+                "alpha": alpha, "n_boot": n_boot, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ---------------------------------------------------------------------
