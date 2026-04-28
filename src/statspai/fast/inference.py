@@ -1213,10 +1213,8 @@ def cluster_dof_wald_htz(
 
     References
     ----------
-    Pustejovsky, J. E., Tipton, E. (2018). Small-sample methods for
-    cluster-robust variance estimation and hypothesis testing in fixed
-    effects models. *Journal of Business & Economic Statistics* 36(4),
-    672-683. DOI: 10.1080/07350015.2016.1247004.
+    Pustejovsky and Tipton (2018) — see ``pustejovsky2018small`` in
+    ``paper.bib`` for the canonical citation.
     """
     qty = _htz_per_cluster_quantities(
         X, cluster, R=R, weights=weights, bread=bread,

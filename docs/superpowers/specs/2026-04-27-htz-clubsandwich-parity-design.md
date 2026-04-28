@@ -348,7 +348,7 @@ src/statspai/registry.py          +3 rich-spec entries (CLAUDE.md §4 hard requi
 src/statspai/__init__.py          (no change — sp.fast namespace already exposed)
 CHANGELOG.md                      v1.6.4 entry: "Added: cluster_wald_htz / cluster_dof_wald_htz / WaldTestResult — clubSandwich-equivalent HTZ Wald (Pustejovsky-Tipton 2018, JBES 36(4))"
 benchmarks/hdfe/SUMMARY.md        update §"What deliberately did NOT ship" — HTZ moves out of follow-up backlog
-paper.bib                         add pustejovsky2018small (DOI: 10.1080/07350015.2016.1247004) — refs verified per CLAUDE.md §10
+paper.bib                         add pustejovsky2018small bibkey — refs verified per CLAUDE.md §10 (see §7 below)
 ```
 
 ### 6.2 New
@@ -503,8 +503,9 @@ clubSandwich source, add 2-3 hours buffer. Honest worst case: ~12 hours.
 - Pustejovsky, J. E., Tipton, E. (2018). Small-sample methods for
   cluster-robust variance estimation and hypothesis testing in fixed
   effects models. *Journal of Business & Economic Statistics* 36(4),
-  672-683. DOI: 10.1080/07350015.2016.1247004. **(To be added to
-  paper.bib at commit time after Crossref verification — CLAUDE.md §10.)**
+  672-683. (Authors: Pustejovsky and Tipton; DOI 10.1080/07350015.2016.1247004.)
+  **(To be added to paper.bib at commit time after Crossref verification
+  — CLAUDE.md §10.)**
 - R package: `clubSandwich` (Pustejovsky 2017+). License: GPL-2 — used
   **only** as a black-box reference for fixture generation, **not**
   copied or ported.
