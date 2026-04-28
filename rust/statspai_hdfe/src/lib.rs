@@ -26,6 +26,7 @@ mod singletons;
 mod sort_perm;
 mod cholesky;
 mod irls;
+mod separation;
 
 use numpy::{
     PyArray1, PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray1,
@@ -619,6 +620,54 @@ fn singleton_mask<'py>(
     Ok(PyArray1::from_vec_bound(py, as_u8))
 }
 
+/// Iterative Poisson-separation detection. Returns a uint8 keep-mask
+/// (1 = keep, 0 = drop). Drops rows whose FE group has a zero y-sum;
+/// iterates until fixed point. The Python wrapper at
+/// ``statspai.fast.fepois._drop_separation_dispatcher`` falls back to
+/// a pure-NumPy implementation when this entry point is missing.
+#[pyfunction]
+fn separation_mask<'py>(
+    py: Python<'py>,
+    y: PyReadonlyArray1<'py, f64>,
+    fe_codes: &Bound<'py, PyList>,
+    g_per_fe: PyReadonlyArray1<'py, i64>,
+) -> PyResult<Bound<'py, PyArray1<u8>>> {
+    let y_view = y.as_slice()?;
+    let g_view = g_per_fe.as_slice()?;
+    let code_views = py_list_to_i64_views(fe_codes)?;
+
+    if code_views.is_empty() {
+        return Ok(PyArray1::<u8>::zeros_bound(py, y_view.len(), false));
+    }
+    if g_view.len() != code_views.len() {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "len(g_per_fe)={} but len(fe_codes)={}",
+            g_view.len(),
+            code_views.len()
+        )));
+    }
+    let n = y_view.len();
+    for v in &code_views {
+        if v.as_slice()?.len() != n {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "fe_codes entry has length {} but n={}",
+                v.as_slice()?.len(),
+                n
+            )));
+        }
+    }
+
+    let codes_slices: Vec<&[i64]> =
+        code_views.iter().map(|v| v.as_slice().unwrap()).collect();
+    let g_per_fe_vec: Vec<usize> = g_view.iter().map(|&g| g as usize).collect();
+
+    let keep = py.allow_threads(|| {
+        separation::separation_mask(y_view, &codes_slices, &g_per_fe_vec)
+    });
+    let as_u8: Vec<u8> = keep.into_iter().map(|b| if b { 1 } else { 0 }).collect();
+    Ok(PyArray1::from_vec_bound(py, as_u8))
+}
+
 /// Python module definition.
 #[pymodule]
 fn statspai_hdfe(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -626,8 +675,9 @@ fn statspai_hdfe(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(demean_2d, m)?)?;
     m.add_function(wrap_pyfunction!(demean_2d_weighted, m)?)?;
     m.add_function(wrap_pyfunction!(demean_2d_weighted_sorted, m)?)?;
-    m.add_function(wrap_pyfunction!(fepois_irls, m)?)?;          // NEW B1.4
+    m.add_function(wrap_pyfunction!(fepois_irls, m)?)?;
     m.add_function(wrap_pyfunction!(singleton_mask, m)?)?;
-    m.add("__version__", "0.5.0")?;                              // BUMPED 0.4.0 → 0.5.0
+    m.add_function(wrap_pyfunction!(separation_mask, m)?)?;  // NEW
+    m.add("__version__", "0.6.0")?;                          // BUMPED 0.5.0 → 0.6.0
     Ok(())
 }
