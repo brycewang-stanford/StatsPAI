@@ -244,7 +244,7 @@ def sbw(
     else:
         estimate = se = pval = low = high = np.nan
 
-    return SBWResult(
+    _result = SBWResult(
         method=f"SBW-{estimand.upper()} ({objective})",
         estimand=estimand.upper(),
         estimate=float(estimate),
@@ -258,6 +258,29 @@ def sbw(
         balance=bal,
         solver_status=solver_status,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.matching.sbw",
+            params={
+                "treat": treat,
+                "covariates": list(covariates),
+                "y": y,
+                "estimand": estimand,
+                "delta": delta if isinstance(delta, (int, float))
+                         else list(delta),
+                "objective": objective,
+                "tolerance_scale": tolerance_scale,
+                "include_squares": include_squares,
+                "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ═══════════════════════════════════════════════════════════════════════

@@ -180,7 +180,30 @@ def match(
         bias_correction=bias_correction, ps_poly=ps_poly,
         n_strata=n_strata, n_bins=n_bins, alpha=alpha,
     )
-    return estimator.fit()
+    _result = estimator.fit()
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.matching.match",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates) if covariates else None,
+                "distance": distance, "method": method,
+                "estimand": estimand,
+                "n_matches": n_matches, "caliper": caliper,
+                "replace": replace,
+                "bias_correction": bias_correction,
+                "ps_poly": ps_poly,
+                "n_strata": n_strata, "n_bins": n_bins,
+                "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ======================================================================

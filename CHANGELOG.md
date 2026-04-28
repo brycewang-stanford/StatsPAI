@@ -2,6 +2,137 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — Phase 8: provenance rollout to 36/925 (IV + matching + DML)
+
+Continues the v1.7.2 provenance rollout from Phases 3-4-7. **No
+numerical changes** to any estimator. 12 instrumentation points added
+(15 user-facing functions, since the JIVE family of 4 share a single
+``_run`` instrumentation). Coverage 21/925 → **36/925**.
+
+### Added — Provenance instrumentation for 12 more points
+
+IV family (9 user-facing names):
+
+- ``sp.liml`` — Limited Information Maximum Likelihood / Fuller.
+- ``sp.jive`` — legacy single-method JIVE (regression/advanced_iv).
+- ``sp.lasso_iv`` — Belloni-Chen-Chernozhukov-Hansen (2012). The
+  pre-existing ``iv()`` API drift bug here was also repaired —
+  ``lasso_iv`` now builds a formula string for the formula-only
+  ``sp.iv()`` API and maps the legacy ``robust='robust'`` kwarg to
+  the modern ``hc1`` enum.
+- ``sp.iv.bayesian_iv`` — Chernozhukov-Hong (2003) Anderson-Rubin
+  posterior with Metropolis-Hastings.
+- ``sp.iv.jive1`` / ``sp.iv.ujive`` / ``sp.iv.ijive`` /
+  ``sp.iv.rjive`` — all four flow through the shared ``_run``
+  dispatcher; ``method`` arg discriminates and surfaces in
+  ``Provenance.function`` (``"sp.iv.jive1"`` / ``"sp.iv.ujive"`` /
+  …). One instrumentation point covers four user-facing names.
+- ``sp.iv.mte`` — Brinch-Mogstad-Wiswall (2017) polynomial Marginal
+  Treatment Effect.
+
+Matching family (5):
+
+- ``sp.match`` — main matching dispatcher (PSM / mahalanobis / CEM
+  / strata / coarsened).
+- ``sp.optimal_match`` — Hungarian-algorithm 1:1 with caliper.
+- ``sp.cardinality_match`` — Zubizarreta (2014) LP with SMD
+  tolerance.
+- ``sp.genmatch`` — Diamond-Sekhon (2013) genetic matching.
+- ``sp.sbw`` — Zubizarreta (2015) Stable Balancing Weights.
+
+DML (1):
+
+- ``sp.dml`` — Chernozhukov et al. (2018) Double ML dispatcher
+  covering plr / irm / pliv / iivm. Single-exit pattern.
+
+Pattern reuse: each follows the established Phase 3 idiom — assign
+result to ``_result``, call ``attach_provenance(overwrite=False)``,
+return. ``overwrite=False`` semantics preserve the inner-most record
+when an outer wrapper (e.g. ``lasso_iv`` calling ``sp.iv``) is also
+instrumented.
+
+### Fixed — `sp.lasso_iv` API drift (pre-existing)
+
+Independent fix: ``sp.lasso_iv`` was calling the legacy ``iv(y=,
+x_endog=, x_exog=, z=)`` signature which is no longer accepted. Now
+builds a Patsy-style formula (``y ~ (endog ~ z) + exog``) for the
+current formula-only ``sp.iv()`` API.
+
+### Tests
+
+16 new tests (12 per-estimator + 4 JIVE variants confirming each
+gets the right ``method``-discriminated function name + 1
+multi-estimator integration). 155 green across the IV + matching +
+DML + provenance regression sweep:
+
+- IV: ``test_iv.py`` and ``test_iv_frontiers.py``.
+- Matching: ``test_matching.py`` and ``test_matching_optimal.py``.
+- DML: ``test_dml.py``, ``test_dml_iivm.py``, ``test_dml_panel.py``,
+  ``test_dml_split.py``.
+- Provenance: rounds 1+2+3+4.
+
+### Documentation
+
+``docs/guides/replication_workflow.md`` scorecard updated to 36/925.
+
+## [Unreleased] — production function estimators
+
+Adds proxy-variable production function estimation — Olley-Pakes,
+Levinsohn-Petrin, Ackerberg-Caves-Frazer, Wooldridge — plus the
+De Loecker-Warzynski markup. Closes the long-standing gap that
+forced StatsPAI users to drop into R `prodest` or Stata `prodest`
+for productivity / TFP / markup work.
+
+### Added
+
+- `sp.prod_fn(method=...)` — unified Cobb-Douglas dispatcher
+  (`'op' | 'lp' | 'acf' | 'wrdg'`).
+- `sp.olley_pakes` (alias `sp.opreg`) — investment-proxy estimator
+  with strictly-positive-investment filter.
+- `sp.levinsohn_petrin` (alias `sp.levpet`) — intermediate-input proxy
+  (avoids OP zero-investment selection).
+- `sp.ackerberg_caves_frazer` (alias `sp.acf`) — modern default,
+  corrects the OP/LP labor-coefficient identification problem via
+  lagged-labor instruments.
+- `sp.wooldridge_prod` — joint stacked-NLS estimator (one-step GMM
+  with identity weighting and instruments = regressors; full
+  efficient-GMM variant on the roadmap).
+- `sp.markup` — De Loecker & Warzynski (2012) firm-time markup
+  μ_it = θ_v · (PQ) / (P_v V) with optional η-correction.
+- `sp.ProductionResult` — unified result class with `coef`, `tfp`,
+  `productivity_process`, `cite()`, `summary()`.
+- Firm-cluster bootstrap SE (Wooldridge 2009 §4 convention) with
+  convergence filtering on each replicate.
+- Multi-start Nelder-Mead in stage 2 to dodge the upward-biased
+  OLS warm start (positive selection of labor on ω).
+- UserWarning on non-consecutive panel time periods (lag operator
+  would silently treat gaps as 1-period lags otherwise).
+- 9 new registry entries (5 canonical + 3 aliases + markup), bringing
+  total to 964 functions.
+
+### References (verified via Crossref API on 2026-04-27)
+
+- Olley & Pakes (1996) Econometrica 64(6) 1263–1297, DOI 10.2307/2171831
+- Levinsohn & Petrin (2003) RES 70(2) 317–341, DOI 10.1111/1467-937X.00246
+- Ackerberg, Caves & Frazer (2015) Econometrica 83(6) 2411–2451, DOI 10.3982/ECTA13408
+- Wooldridge (2009) Economics Letters 104(3) 112–114, DOI 10.1016/j.econlet.2009.04.026
+- De Loecker & Warzynski (2012) AER 102(6) 2437–2471, DOI 10.1257/aer.102.6.2437
+
+### Tests
+
+- `tests/test_prod_fn.py` — synthetic DGP recovery (ACF tight, OP/LP
+  loose per ACF's identification critique), dispatcher, aliases,
+  bootstrap SE, markup, edge cases (missing columns, too-few-obs,
+  zero-proxy filter, time-gap warning, registry presence). 18 tests.
+
+### Notes
+
+- Default `productivity_degree=1` (linear AR(1)). Higher degrees can
+  overfit ω given ω_lag in finite samples and flatten the GMM
+  objective surface — see dispatcher docstring.
+- Translog and Gandhi-Navarro-Rivers (2020) production functions
+  are roadmap items, not in this release.
+
 ## [Unreleased] — Phase 7: provenance rollout to 21/925 (DiD long-tail + RD)
 
 Continues the v1.7.2 provenance rollout established in Phases 3-4.

@@ -329,7 +329,7 @@ def mte(
     curve["ci_lower"] = curve["mte"] - 1.96 * curve["se"]
     curve["ci_upper"] = curve["mte"] + 1.96 * curve["se"]
 
-    return MTEResult(
+    _result = MTEResult(
         poly_degree=K,
         theta0=theta0,
         theta1=theta1,
@@ -347,6 +347,30 @@ def mte(
         treated_share=float(D.mean()),
         extra={"p_hat": p_hat, "keep_mask": keep, **boot_extra},
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.iv.mte",
+            params={
+                "y": y if isinstance(y, str) else None,
+                "treatment": treatment if isinstance(treatment, str) else None,
+                "instruments": instruments
+                               if isinstance(instruments, (str, list)) else None,
+                "exog": exog if isinstance(exog, (str, list)) else None,
+                "poly_degree": poly_degree,
+                "add_const": add_const,
+                "propensity_model": propensity_model,
+                "trim": trim,
+                "bootstrap": bootstrap,
+                "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def _fit_propensity(D: np.ndarray, Z: np.ndarray, model: str = "logit") -> np.ndarray:

@@ -117,7 +117,33 @@ def dml(
         ml_g=ml_g, ml_m=ml_m, ml_r=ml_r,
         n_folds=n_folds, n_rep=n_rep, alpha=alpha,
     )
-    return estimator.fit()
+    _result = estimator.fit()
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.dml",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "model": model,
+                "instrument": instrument
+                              if isinstance(instrument, (str, list))
+                              else None,
+                "n_folds": n_folds, "n_rep": n_rep,
+                "alpha": alpha,
+                # Learner classes are objects — capture only their type
+                # names so the provenance dict stays JSON-serialisable.
+                "ml_g": type(ml_g).__name__ if ml_g is not None else None,
+                "ml_m": type(ml_m).__name__ if ml_m is not None else None,
+                "ml_r": type(ml_r).__name__ if ml_r is not None else None,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 class DoubleML:

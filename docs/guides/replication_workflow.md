@@ -378,7 +378,7 @@ So `lineage.json` traces the full chain: aggregate → producing CS run
 
 ## Provenance scorecard
 
-As of v1.7.2, **21 estimators** are instrumented:
+As of v1.7.2, **36 estimators** are instrumented:
 
 | Estimator                                                | Phase    |
 |---                                                       |---       |
@@ -391,20 +391,35 @@ As of v1.7.2, **21 estimators** are instrumented:
 | `sp.did.aggte` (chain-aware)                             | P4       |
 | `sp.did.did_multiplegt`                                  | P4       |
 | `sp.rd.rdrobust`                                         | P4       |
-| `sp.cic` (Athey-Imbens 2006)                             | **P7**   |
-| `sp.cohort_anchored_event_study` (arXiv:2509.01829)      | **P7**   |
-| `sp.design_robust_event_study` (Wright 2026, 2601.18801) | **P7**   |
-| `sp.gardner_did` / `sp.did_2stage`                       | **P7**   |
-| `sp.harvest_did` (Borusyak et al. 2025)                  | **P7**   |
-| `sp.did_misclassified` (arXiv:2507.20415)                | **P7**   |
-| `sp.stacked_did` (Cengiz et al. 2019)                    | **P7**   |
-| `sp.wooldridge_did` (Wooldridge 2021 ETWFE)              | **P7**   |
-| `sp.etwfe` (4-branch dispatcher, wrap pattern)           | **P7**   |
-| `sp.drdid` (Sant'Anna-Zhao 2020 DR)                      | **P7**   |
-| `sp.rd_honest` (Armstrong-Kolesar 2018, 2020)            | **P7**   |
-| `sp.rkd` (Card et al. 2015 Regression Kink)              | **P7**   |
+| `sp.cic` (Athey-Imbens 2006)                             | P7       |
+| `sp.cohort_anchored_event_study` (arXiv:2509.01829)      | P7       |
+| `sp.design_robust_event_study` (Wright 2026, 2601.18801) | P7       |
+| `sp.gardner_did` / `sp.did_2stage`                       | P7       |
+| `sp.harvest_did` (Borusyak et al. 2025)                  | P7       |
+| `sp.did_misclassified` (arXiv:2507.20415)                | P7       |
+| `sp.stacked_did` (Cengiz et al. 2019)                    | P7       |
+| `sp.wooldridge_did` (Wooldridge 2021 ETWFE)              | P7       |
+| `sp.etwfe` (4-branch dispatcher, wrap pattern)           | P7       |
+| `sp.drdid` (Sant'Anna-Zhao 2020 DR)                      | P7       |
+| `sp.rd_honest` (Armstrong-Kolesar 2018, 2020)            | P7       |
+| `sp.rkd` (Card et al. 2015 Regression Kink)              | P7       |
+| `sp.liml` (LIML / Fuller)                                | **P8**   |
+| `sp.jive` (legacy single-method JIVE)                    | **P8**   |
+| `sp.lasso_iv` (Belloni-Chen-Chernozhukov-Hansen 2012)    | **P8**   |
+| `sp.iv.bayesian_iv` (Chernozhukov-Hong 2003 AR)          | **P8**   |
+| `sp.iv.jive1` (Angrist-Imbens-Krueger 1999)              | **P8**   |
+| `sp.iv.ujive` (Kolesar 2013)                             | **P8**   |
+| `sp.iv.ijive` (Ackerberg-Devereux 2009)                  | **P8**   |
+| `sp.iv.rjive` (Hansen-Kozbur 2014 ridge-JIVE)            | **P8**   |
+| `sp.iv.mte` (Brinch-Mogstad-Wiswall 2017)                | **P8**   |
+| `sp.match` (matching dispatcher)                         | **P8**   |
+| `sp.optimal_match` (Hungarian 1:1)                       | **P8**   |
+| `sp.cardinality_match` (Zubizarreta 2014 LP)             | **P8**   |
+| `sp.genmatch` (Diamond-Sekhon 2013 genetic)              | **P8**   |
+| `sp.sbw` (Zubizarreta 2015 Stable Balancing Weights)     | **P8**   |
+| `sp.dml` (Chernozhukov et al. 2018 DML dispatcher)       | **P8**   |
 
-The remaining ~904 estimators are scheduled for v1.7.3+ rollouts. To
+The remaining ~889 estimators are scheduled for v1.7.3+ rollouts. To
 check whether a specific estimator is instrumented:
 
 ```python

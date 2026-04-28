@@ -247,7 +247,7 @@ def _run(method, y, endog, instruments, exog, data, add_const, ridge):
     tvals = params / se.replace(0, np.nan)
     pvals = 2 * (1 - stats.norm.cdf(np.abs(tvals.values)))
 
-    return JIVEResult(
+    _result = JIVEResult(
         method={"jive1": "JIVE1 (AIK 1999)",
                 "ujive": "UJIVE (Kolesár 2013)",
                 "ijive": "IJIVE (Ackerberg-Devereux 2009)",
@@ -264,6 +264,29 @@ def _run(method, y, endog, instruments, exog, data, add_const, ridge):
         first_stage_f=res["first_stage_f"],
         extra={"var_cov": res["var_cov"], "sigma2": res["sigma2"]},
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        # The four public entry points (jive1 / ujive / ijive / rjive)
+        # all flow through ``_run``; the ``method`` arg discriminates.
+        _attach_prov(
+            _result,
+            function=f"sp.iv.{method}",
+            params={
+                "y": y if isinstance(y, str) else None,
+                "endog": endog if isinstance(endog, (str, list)) else None,
+                "instruments": instruments
+                               if isinstance(instruments, (str, list)) else None,
+                "exog": exog if isinstance(exog, (str, list)) else None,
+                "add_const": add_const,
+                "ridge": ridge,
+                "method": method,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def jive1(y, endog, instruments, exog=None, data=None, add_const=True):

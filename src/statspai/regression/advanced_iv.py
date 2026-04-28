@@ -215,7 +215,7 @@ def liml(
 
     model_name = 'LIML' if fuller is None else f'Fuller (a={fuller})'
 
-    return EconometricResults(
+    _result = EconometricResults(
         params=params,
         std_errors=std_errors,
         model_info={
@@ -238,6 +238,25 @@ def liml(
             'n_endogenous': len(x_endog),
         },
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.iv.liml",
+            params={
+                "formula": formula,
+                "y": y, "x_endog": list(x_endog) if x_endog else None,
+                "x_exog": list(x_exog) if x_exog else None,
+                "z": list(z) if z else None,
+                "robust": robust, "cluster": cluster,
+                "fuller": fuller, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def jive(
@@ -349,7 +368,7 @@ def jive(
     params = pd.Series(beta, index=var_names)
     std_errors = pd.Series(se, index=var_names)
 
-    return EconometricResults(
+    _result = EconometricResults(
         params=params,
         std_errors=std_errors,
         model_info={
@@ -362,6 +381,24 @@ def jive(
         data_info={'n_obs': n, 'df_resid': n - k, 'dep_var': y},
         diagnostics={'n_instruments': len(z), 'n_endogenous': len(x_endog)},
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.iv.jive",
+            params={
+                "y": y, "x_endog": list(x_endog),
+                "x_exog": list(x_exog) if x_exog else None,
+                "z": list(z) if z else None,
+                "robust": robust, "cluster": cluster,
+                "variant": variant, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def lasso_iv(
@@ -469,10 +506,17 @@ def lasso_iv(
         warnings.warn("LASSO selected no instruments. Using all instruments.")
         selected_z = z
 
-    # 2SLS with selected instruments
+    # 2SLS with selected instruments. Build a formula string to drive the
+    # current ``sp.iv`` formula-only API (``y ~ (endog ~ z) + exog``).
+    # Map legacy ``robust='robust'`` to the modern HC1 enum.
     from ..regression.iv import iv
-    result = iv(data=df, y=y, x_endog=x_endog, x_exog=x_exog,
-                z=selected_z, robust=robust, cluster=cluster, alpha=alpha)
+    endog_str = " + ".join(x_endog)
+    z_str = " + ".join(selected_z)
+    exog_str = (" + " + " + ".join(x_exog)) if x_exog else ""
+    formula = f"{y} ~ ({endog_str} ~ {z_str}){exog_str}"
+    iv_robust = "hc1" if robust == "robust" else robust
+    result = iv(formula=formula, data=df,
+                robust=iv_robust, cluster=cluster)
 
     # Add LASSO-specific info
     result.model_info['model_type'] = 'LASSO-IV (2SLS with selected instruments)'
@@ -482,4 +526,22 @@ def lasso_iv(
     result.model_info['selected_instruments'] = selected_z
     result.model_info['selection_criterion'] = penalty
 
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            result,
+            function="sp.iv.lasso_iv",
+            params={
+                "y": y, "x_endog": list(x_endog),
+                "x_exog": list(x_exog) if x_exog else None,
+                "z_candidates": list(z),
+                "selected_instruments": list(selected_z),
+                "penalty": penalty,
+                "robust": robust, "cluster": cluster, "alpha": alpha,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
     return result

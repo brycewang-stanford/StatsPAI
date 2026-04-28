@@ -242,7 +242,7 @@ def bayesian_iv(
 
     lo, hi = _hpd(draws, hpd_level)
 
-    return BayesianIVResult(
+    _result = BayesianIVResult(
         posterior_draws=draws,
         posterior_mean=float(draws.mean()),
         posterior_sd=float(draws.std(ddof=1)),
@@ -254,6 +254,29 @@ def bayesian_iv(
         ess=_ess(draws),
         extra={"beta_init": beta_init, "proposal_sd": proposal_sd},
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        # ``y`` / ``endog`` / ``instruments`` may be column names OR
+        # raw arrays — capture summarisable form only.
+        _attach_prov(
+            _result,
+            function="sp.iv.bayesian_iv",
+            params={
+                "y": y if isinstance(y, str) else None,
+                "endog": endog if isinstance(endog, str) else None,
+                "instruments": instruments if isinstance(instruments, list)
+                              else None,
+                "n_draws": n_draws, "n_warmup": n_warmup,
+                "proposal_sd": proposal_sd, "prior_sd": prior_sd,
+                "hpd_level": hpd_level, "add_const": add_const,
+                "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["bayesian_iv", "BayesianIVResult"]

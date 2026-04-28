@@ -128,13 +128,29 @@ def optimal_match(
     diffs = y[pairs["treated_idx"].values] - y[pairs["control_idx"].values]
     ate = float(diffs.mean())
     se = float(diffs.std(ddof=1) / np.sqrt(len(diffs)))
-    return OptimalMatchResult(
+    _result = OptimalMatchResult(
         pairs=pairs,
         distances=dists,
         ate=ate, se=se,
         n_treated=len(treated_idx),
         n_matched=len(pairs),
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.matching.optimal_match",
+            params={
+                "treatment": treatment, "outcome": outcome,
+                "covariates": list(covariates),
+                "metric": metric, "caliper": caliper,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # --------------------------------------------------------------------- #
@@ -256,10 +272,26 @@ def cardinality_match(
                          "|SMD|": abs(float(smd))})
     balance = pd.DataFrame(bal_rows)
 
-    return CardinalityMatchResult(
+    _result = CardinalityMatchResult(
         treated_matched=np.asarray(pair_treated),
         control_matched=np.asarray(pair_control),
         ate=ate, se=se,
         n_matched_pairs=len(pair_treated),
         balance=balance,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.matching.cardinality_match",
+            params={
+                "treatment": treatment, "outcome": outcome,
+                "covariates": list(covariates),
+                "smd_tolerance": smd_tolerance,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

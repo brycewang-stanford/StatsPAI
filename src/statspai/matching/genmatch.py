@@ -214,7 +214,7 @@ def genmatch(
     crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (att - crit * att_se, att + crit * att_se)
 
-    return GenMatchResult(
+    _result = GenMatchResult(
         att=att,
         att_se=att_se,
         ci=ci,
@@ -226,6 +226,27 @@ def genmatch(
         n_obs=len(df),
         detail={"fitness": float(fitness.max())},
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.matching.genmatch",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "k": k,
+                "population_size": population_size,
+                "generations": generations,
+                "mutation_rate": mutation_rate,
+                "alpha": alpha,
+                "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 __all__ = ["genmatch", "GenMatchResult"]
