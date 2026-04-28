@@ -297,6 +297,107 @@ def _weighted_ap_demean_numpy(
     return arr, iters, converged_all
 
 
+@dataclass
+class _SortedDemeanPlan:
+    """FE-code-only setup for the sort-aware Rust dispatcher path.
+
+    Caches the work that depends solely on the FE codes (the permutation,
+    inverse permutation, primary group_starts, π-order secondary codes).
+    The IRLS outer loop changes ``weights`` every iter but the codes are
+    fixed, so this plan is built once per ``fepois`` call and reused
+    across all ~12 dispatcher calls.
+
+    Without caching, ``np.argsort`` + per-FE indexing + ``searchsorted``
+    cost ~127 ms per call on the medium benchmark (n=1M, G1=100k); 12
+    calls = ~1.5 s, which alone exceeds the Phase A wall-clock target.
+    """
+
+    primary_idx: int
+    primary_G: int
+    perm: np.ndarray             # int64, length n
+    inv_perm: np.ndarray         # int64, length n
+    primary_starts: np.ndarray   # int64, length primary_G + 1
+    secondary_codes_p: List[np.ndarray]  # each int64, in π order
+    secondary_G: List[int]       # cardinality of each non-primary FE
+
+
+# Module-level single-slot fingerprint cache for ``_SortedDemeanPlan``.
+# Key is a tuple of (data-pointer, size, first-elem, last-elem) per FE
+# code array — the combination is bulletproof against false positives
+# within a Python session because matching data pointer + size + boundary
+# elements is astronomically unlikely after garbage-collected reuse.
+_PLAN_CACHE_KEY: Optional[Tuple[Tuple[int, int, int, int], ...]] = None
+_PLAN_CACHE_VALUE: Optional[_SortedDemeanPlan] = None
+
+
+def _fe_codes_fingerprint(
+    fe_codes_list: List[np.ndarray],
+) -> Tuple[Tuple[int, int, int, int], ...]:
+    """Lightweight fingerprint identifying an FE-codes list.
+
+    Combines (data-pointer, size, first-elem, last-elem) per array.
+    O(K) with no per-element work — safe to call on every dispatcher hit.
+    """
+    return tuple(
+        (
+            int(c.ctypes.data),
+            int(c.size),
+            int(c[0]) if c.size > 0 else -1,
+            int(c[-1]) if c.size > 0 else -1,
+        )
+        for c in fe_codes_list
+    )
+
+
+def _build_sorted_demean_plan(
+    fe_codes_list: List[np.ndarray],
+    counts_list: List[np.ndarray],
+) -> _SortedDemeanPlan:
+    """Build the FE-only setup for the sorted dispatcher path.
+
+    Picks the highest-cardinality FE as primary, computes the stable
+    sort permutation, the inverse permutation, primary group_starts via
+    searchsorted, and the π-order secondary codes.
+    """
+    K = len(fe_codes_list)
+    primary_idx = int(np.argmax([c.size for c in counts_list]))
+    primary_codes = fe_codes_list[primary_idx]
+    primary_G = int(counts_list[primary_idx].size)
+
+    perm = np.argsort(primary_codes, kind="stable")
+    inv_perm = np.empty_like(perm)
+    inv_perm[perm] = np.arange(perm.size, dtype=perm.dtype)
+
+    primary_codes_p = primary_codes[perm]
+    primary_starts = np.empty(primary_G + 1, dtype=np.int64)
+    primary_starts[:primary_G] = np.searchsorted(
+        primary_codes_p,
+        np.arange(primary_G, dtype=primary_codes_p.dtype),
+        side="left",
+    )
+    primary_starts[primary_G] = primary_codes_p.size
+
+    secondary_codes_p: List[np.ndarray] = []
+    secondary_G: List[int] = []
+    for k in range(K):
+        if k == primary_idx:
+            continue
+        secondary_codes_p.append(
+            np.ascontiguousarray(fe_codes_list[k][perm], dtype=np.int64)
+        )
+        secondary_G.append(int(counts_list[k].size))
+
+    return _SortedDemeanPlan(
+        primary_idx=primary_idx,
+        primary_G=primary_G,
+        perm=perm,
+        inv_perm=inv_perm,
+        primary_starts=primary_starts,
+        secondary_codes_p=secondary_codes_p,
+        secondary_G=secondary_G,
+    )
+
+
 def _weighted_ap_demean(
     arr: np.ndarray,
     fe_codes_list: List[np.ndarray],
@@ -308,18 +409,34 @@ def _weighted_ap_demean(
     accelerate: bool = True,
     accel_period: int = 5,
 ) -> Tuple[np.ndarray, int, bool]:
-    """Dispatcher: Rust when available, NumPy fallback otherwise.
+    """Dispatcher: sort-aware Rust when available, NumPy fallback otherwise.
 
-    Routes to ``statspai_hdfe.demean_2d_weighted`` when the compiled
-    extension is loadable (Phase A); falls back to
-    ``_weighted_ap_demean_numpy`` (the canonical reference) otherwise.
-    Output is bit-for-bit identical between paths within float-rounding;
-    parity is verified by ``test_rust_weighted_demean_matches_numpy_kernel``
-    at atol ≤ 1e-14.
+    Routing (post-Phase-B0):
+    - K=0 (no-op) and K=1 (closed form) stay on the NumPy path because
+      FFI overhead would dominate.
+    - K≥2 with the sort-aware Rust kernel
+      (``statspai_hdfe.demean_2d_weighted_sorted``, crate v0.4.0+):
+      pick the highest-cardinality FE as primary, apply the sort
+      permutation π once, run the sequential L1-cache-friendly inner
+      sweep, apply π⁻¹ to restore caller's row order.
+    - K≥2 on older wheels (only ``demean_2d_weighted`` available):
+      fall back to the random-scatter Phase A path bit-for-bit.
+    - Rust unavailable: ``_weighted_ap_demean_numpy`` (canonical
+      NumPy reference).
 
-    K=0 (no-op) and K=1 (closed form) stay on the NumPy path because FFI
-    overhead would dominate. K ≥ 2 is where the Rust win lives.
+    The FE-code-only setup (perm, inv_perm, primary_starts, secondary
+    codes in π order) is cached at module level via a fingerprint of
+    each FE array's data pointer + size + boundary elements; it is
+    rebuilt only when the caller passes new arrays. Reuse across the
+    ~12 IRLS dispatcher calls saves ~1.4 s per ``fepois`` call on the
+    medium benchmark.
+
+    Numerical parity (Rust ↔ NumPy at atol ≤ 1e-14) is verified by
+    ``test_rust_weighted_demean_matches_numpy_kernel``. Output is
+    bit-for-bit identical to the NumPy reference within float rounding.
     """
+    global _PLAN_CACHE_KEY, _PLAN_CACHE_VALUE
+
     K = len(fe_codes_list)
     if not _HAS_RUST_HDFE or K < 2:
         return _weighted_ap_demean_numpy(
@@ -328,82 +445,50 @@ def _weighted_ap_demean(
             accelerate=accelerate, accel_period=accel_period,
         )
 
-    # Phase B0: route through the sort-aware Rust path when available.
-    # Fall back to the random-scatter Rust path on older statspai_hdfe.
-    use_sorted = _HAS_RUST_HDFE and hasattr(_rust_hdfe, "demean_2d_weighted_sorted")
+    use_sorted = hasattr(_rust_hdfe, "demean_2d_weighted_sorted")
 
     squeeze = arr.ndim == 1
     src = arr.reshape(-1, 1) if squeeze else arr
 
     if use_sorted:
-        # 1. Pick the highest-cardinality FE as primary.
-        primary_idx = int(np.argmax([c.size for c in counts_list]))
-        primary_codes = fe_codes_list[primary_idx]
-        primary_G = int(counts_list[primary_idx].size)
+        # Cached FE-only plan: rebuild only if codes changed.
+        fp = _fe_codes_fingerprint(fe_codes_list)
+        if fp == _PLAN_CACHE_KEY and _PLAN_CACHE_VALUE is not None:
+            plan = _PLAN_CACHE_VALUE
+        else:
+            plan = _build_sorted_demean_plan(fe_codes_list, counts_list)
+            _PLAN_CACHE_KEY = fp
+            _PLAN_CACHE_VALUE = plan
 
-        # 2. Counting-sort permutation by the primary FE codes (Python
-        #    side; np.argsort is fine and matches the Rust counting-sort
-        #    output up to within-group order, which only affects float
-        #    summation by ≈1e-15 per group — well below IRLS tolerance).
-        perm = np.argsort(primary_codes, kind="stable")
-        inv_perm = np.empty_like(perm)
-        inv_perm[perm] = np.arange(perm.size, dtype=perm.dtype)
-
-        # 3. Apply π once to all per-obs arrays.
-        weights_p = np.ascontiguousarray(weights[perm])
-        primary_codes_p = primary_codes[perm]   # now monotone non-decreasing
-        secondary_codes_p = [
-            np.ascontiguousarray(fe_codes_list[k][perm], dtype=np.int64)
-            for k in range(K) if k != primary_idx
+        # Weight-dependent setup (must rebuild every IRLS iter — w changes).
+        weights_p = np.ascontiguousarray(weights[plan.perm])
+        primary_codes_p = fe_codes_list[plan.primary_idx][plan.perm]
+        primary_wsum = np.bincount(
+            primary_codes_p, weights=weights_p, minlength=plan.primary_G,
+        ).astype(np.float64)
+        secondary_wsum = [
+            np.bincount(plan.secondary_codes_p[i], weights=weights_p,
+                        minlength=plan.secondary_G[i]).astype(np.float64)
+            for i in range(len(plan.secondary_codes_p))
         ]
 
-        # 4. group_starts from the now-sorted primary codes.
-        primary_starts = np.zeros(primary_G + 1, dtype=np.int64)
-        # np.searchsorted gives the leftmost index where each group ID
-        # would be inserted to keep order — this is exactly group_starts.
-        primary_starts[:primary_G] = np.searchsorted(
-            primary_codes_p, np.arange(primary_G, dtype=primary_codes_p.dtype),
-            side="left",
-        )
-        primary_starts[primary_G] = primary_codes_p.size
+        # F-contig src in π order; Rust mutates this in place.
+        arr_F_p = np.array(src[plan.perm], dtype=np.float64, order="F", copy=True)
 
-        # 5. wsum arrays in π order. bincount is order-agnostic for the
-        #    primary (sum is associative + permutation-invariant), but we
-        #    use the permuted codes for symmetry / clarity. Secondary
-        #    wsum uses the permuted codes (must, since they're under π).
-        primary_wsum = np.bincount(
-            primary_codes_p, weights=weights_p, minlength=primary_G,
-        ).astype(np.float64)
-        secondary_wsum = []
-        sec_idx = 0
-        for k in range(K):
-            if k == primary_idx:
-                continue
-            G_k = int(counts_list[k].size)
-            secondary_wsum.append(
-                np.bincount(secondary_codes_p[sec_idx], weights=weights_p,
-                            minlength=G_k).astype(np.float64)
-            )
-            sec_idx += 1
-
-        # 6. F-contig src in π order.
-        arr_F_p = np.array(src[perm], dtype=np.float64, order="F", copy=True)
-
-        # 7. Rust call (in-place on arr_F_p).
         infos = _rust_hdfe.demean_2d_weighted_sorted(
             arr_F_p,
-            primary_starts,
+            plan.primary_starts,
             primary_wsum,
-            secondary_codes_p,
+            plan.secondary_codes_p,
             secondary_wsum,
             weights_p,
             int(max_iter), 0.0, float(tol), bool(accelerate), int(accel_period),
         )
 
-        # 8. Apply π⁻¹ to restore caller's row order.
-        arr_F = np.array(arr_F_p[inv_perm], dtype=np.float64, order="F", copy=True)
+        # π⁻¹ restores caller's row order.
+        arr_F = np.array(arr_F_p[plan.inv_perm], dtype=np.float64, order="F", copy=True)
     else:
-        # Pre-B0 fallback: random-scatter Rust path (Phase A behavior).
+        # Pre-B0 fallback: random-scatter Rust path (Phase A behaviour).
         arr_F = np.array(src, dtype=np.float64, order="F", copy=True)
         wsum_list = [
             np.bincount(fe_codes_list[k], weights=weights,
