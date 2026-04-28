@@ -134,7 +134,7 @@ def pate(
                 "alpha": alpha,
                 "seed": seed, "trim": trim,
             },
-            data=data,
+            data=data_experiment,
             overwrite=False,
         )
     except Exception:  # pragma: no cover
