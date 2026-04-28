@@ -933,16 +933,36 @@ def _htz_per_cluster_quantities(
     Returns
     -------
     dict
-        Keys: ``"G_g"`` (list of q×n_g arrays per cluster, in cluster-code
-        order from ``pd.factorize(sort=False)``), ``"A_g_sqrtW"`` (list of
-        n_g×n_g arrays — same ordering), ``"Omega"`` (q×q),
-        ``"cluster_codes"`` (n-vector), ``"G"`` (cluster count), ``"q"``
-        (R rank), ``"bread"``.
+        Keys (cluster-list ordering follows ``pd.factorize(sort=False)``):
+
+        - ``"G_g"``         list of (q × n_g) arrays per cluster
+                            — V_R-decomposition lift (no A_g embedded).
+        - ``"A_g_sqrtW"``   list of (n_g × n_g) arrays per cluster
+                            — applied to raw residuals: ẽ_g = A_g_sqrtW · u_g.
+        - ``"A_g_raw"``     list of (n_g × n_g) arrays per cluster
+                            — bare A_g for HTZ η formula
+                            (clubSandwich convention rebuild).
+        - ``"X_g_list"``    list of (n_g × k) arrays per cluster
+                            — for H_g_cs = G_cs · X_g · L^T inside
+                            :func:`_htz_eta_from_quantities`.
+        - ``"R"``           (q × k) array — cached for η helper.
+        - ``"weights"``     (n,) array — for η to detect Φ ≠ I (raises).
+        - ``"Omega"``       (q × q) — V_R-style aggregate.
+        - ``"cluster_codes"`` (n,) — pd.factorize codes.
+        - ``"G"``           int — cluster count.
+        - ``"q"``           int — R rank.
+        - ``"bread"``       (k × k) — (X' W X)^{-1}.
 
     Raises
     ------
     ValueError
-        If ``R`` is rank-deficient, ``G ≤ q``, or ``weights`` non-positive.
+        On any of: ``R.shape[1] != k``, ``q < 1``, ``q > k``,
+        ``R`` rank-deficient, fewer than 2 clusters, ``G ≤ q``,
+        or ``(weights <= 0).any()``.
+    NotImplementedError
+        If non-uniform ``weights`` are passed (v1 locks Φ = I; the
+        clubSandwich-equivalent η formula assumes a uniform working
+        covariance).
     """
     R = np.atleast_2d(np.asarray(R, dtype=np.float64))
     n, k = X.shape
@@ -962,6 +982,16 @@ def _htz_per_cluster_quantities(
         weights = np.asarray(weights, dtype=np.float64).ravel()
         if (weights <= 0).any():
             raise ValueError("weights must be strictly positive")
+        # Fail fast at the helper boundary rather than after one O(G·n_g²·k)
+        # loop: v1 locks Φ = I (HTZ paper-faithful path) and the η formula
+        # in :func:`_htz_eta_from_quantities` would reject non-uniform
+        # weights anyway. Earlier exception keeps the stack trace clean.
+        if not np.allclose(weights, 1.0):
+            raise NotImplementedError(
+                "HTZ with non-uniform weights is not implemented in v1 "
+                "(working covariance Φ = I, OLS+CR2 only). "
+                "Use boottest_wald or open a v2 issue."
+            )
 
     cluster_codes, _ = pd.factorize(cluster, sort=False)
     G_clusters = int(cluster_codes.max()) + 1 if cluster_codes.size else 0
@@ -1079,15 +1109,13 @@ def _htz_eta_from_quantities(qty: dict) -> float:
     X_g_list = qty["X_g_list"]
     bread = qty["bread"]
     R_arr = np.atleast_2d(np.asarray(qty["R"], dtype=np.float64))
-    weights = qty["weights"]
     J = qty["G"]
     q = qty["q"]
-
-    if not np.allclose(weights, 1.0):
-        raise NotImplementedError(
-            "HTZ with non-uniform weights is not implemented in v1 "
-            "(working covariance Φ=I, OLS+CR2 only)."
-        )
+    # weights uniformity is enforced upstream in
+    # :func:`_htz_per_cluster_quantities`; assertion left as a self-check.
+    assert np.allclose(qty["weights"], 1.0), (
+        "internal: helper let non-uniform weights through"
+    )
 
     # Lower-triangular Cholesky of bread: L · L^T = bread.
     L = np.linalg.cholesky(bread)
