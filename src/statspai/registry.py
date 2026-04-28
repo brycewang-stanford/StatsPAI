@@ -1091,6 +1091,11 @@ def _build_registry():
                       "(stars honour notation)"),
             ParamSpec("fixef_sizes", "bool", False, False,
                       "Auto-emit '# Firm: N' rows from model_info['n_fe_levels']"),
+            ParamSpec("vcov", "str", False, None,
+                      "Recompute SE/t/p/CI at print time (OLS-only)",
+                      ["HC0", "HC1", "HC2", "HC3", "robust"]),
+            ParamSpec("transpose", "bool", False, False,
+                      "Pivot rows<->columns (single-panel; rejects multi_se)"),
             ParamSpec("output", "str", False, "text", "Render format",
                       ["text", "latex", "html", "markdown", "word", "excel"]),
             ParamSpec("filename", "str", False, None, "File path; format inferred from extension"),
@@ -1103,7 +1108,8 @@ def _build_registry():
         tags=["output", "table", "publication", "journal", "diagnostics",
              "eform", "column-spanners", "coef-map", "depvar-mean",
              "templates", "notation", "apply-coef", "escape",
-             "tests-footer", "fixef-sizes"],
+             "tests-footer", "fixef-sizes", "vcov-recompute",
+             "transpose", "event-study"],
     ))
 
     register(FunctionSpec(

@@ -13,6 +13,7 @@ Supports:
 - Interaction effects
 """
 
+import re
 from typing import Optional, List, Dict, Any, Union, Tuple
 from itertools import product as itertools_product
 import numpy as np
@@ -848,6 +849,140 @@ class _MarginsResult:
     def __repr__(self) -> str:
         n = len(self.params)
         return f"<MarginsResult: {n} marginal effect{'s' if n != 1 else ''}>"
+
+
+def event_study_table(
+    result,
+    *,
+    regex: Optional[str] = None,
+    label_fmt: str = "t={t}",
+    include_reference: bool = False,
+):
+    """Adapter that turns an event-study fit into a regtable input.
+
+    Two extraction paths:
+
+    1. **CausalResult fast path** — when ``result.model_info`` carries an
+       ``"event_study"`` DataFrame (the canonical shape produced by
+       :func:`sp.event_study`), read its ``relative_time`` /
+       ``estimate`` / ``se`` / ``ci_lower`` / ``ci_upper`` / ``pvalue``
+       columns directly. Reference period (``estimate==0`` and
+       ``se==0``) is dropped by default (set ``include_reference=True``
+       to keep it visible).
+
+    2. **Regex path** — when ``regex`` is provided, scan
+       ``result.params.index`` for coefficients matching the pattern
+       and use the first capture group as the relative time.
+
+    Rows are sorted by relative time (so the rendered table reads
+    ``t=-3, t=-2, …, t=+3`` regardless of the underlying coefficient
+    name encoding).
+
+    Parameters
+    ----------
+    result : CausalResult or EconometricResults
+        Fitted model. The CausalResult fast path is used automatically
+        when ``model_info['event_study']`` is present.
+    regex : str, optional
+        Pattern with one capture group that matches the relative time
+        in coefficient names. Required when the CausalResult fast path
+        is not applicable. Examples: ``r"^tau_(-?\\d+)$"``,
+        ``r"^lag(\\d+)$"``, ``r"::(-?\\d+)$"``.
+    label_fmt : str, default ``"t={t}"``
+        Format string for the row label of each event-time bin. The
+        ``{t}`` placeholder receives the integer relative time.
+    include_reference : bool, default False
+        Whether to render the reference period row (typically
+        ``t=-1``) where the estimate is identically zero.
+
+    Returns
+    -------
+    _MarginsResult
+        Duck-typed result accepted directly by :func:`sp.regtable`.
+
+    Examples
+    --------
+    >>> r = sp.event_study(panel, y="y", treat_time="treat_time",
+    ...                    time="time", unit="unit", window=(-3, 3))
+    >>> sp.regtable(sp.event_study_table(r), title="Event study")
+    """
+    mi = getattr(result, "model_info", {}) or {}
+    es_df = mi.get("event_study") if isinstance(mi, dict) else None
+    rows: List[Tuple[int, float, float, float, float, float]] = []
+
+    if isinstance(es_df, pd.DataFrame) and "relative_time" in es_df.columns:
+        for _, row in es_df.iterrows():
+            t = int(row["relative_time"])
+            est = float(row.get("estimate", row.get("dy/dx", np.nan)))
+            se = float(row.get("se", np.nan))
+            lo = float(row.get("ci_lower", np.nan))
+            hi = float(row.get("ci_upper", np.nan))
+            pv = float(row.get("pvalue", np.nan))
+            if not include_reference and abs(est) < 1e-15 and abs(se) < 1e-15:
+                continue
+            rows.append((t, est, se, lo, hi, pv))
+    elif regex is not None:
+        params = getattr(result, "params", None)
+        if params is None:
+            raise ValueError(
+                "event_study_table: result has no .params; cannot use "
+                "regex extraction path."
+            )
+        std_errors = getattr(result, "std_errors", pd.Series())
+        pvalues = getattr(result, "pvalues", pd.Series())
+        ci_lo = getattr(result, "conf_int_lower", pd.Series())
+        ci_hi = getattr(result, "conf_int_upper", pd.Series())
+        rx = re.compile(regex)
+        for name in params.index:
+            m = rx.search(str(name))
+            if not m:
+                continue
+            try:
+                t = int(m.group(1))
+            except (IndexError, ValueError):
+                continue
+            est = float(params.get(name, np.nan))
+            se = float(std_errors.get(name, np.nan)) if name in std_errors.index else np.nan
+            pv = float(pvalues.get(name, np.nan)) if name in pvalues.index else np.nan
+            lo = float(ci_lo.get(name, np.nan)) if name in ci_lo.index else np.nan
+            hi = float(ci_hi.get(name, np.nan)) if name in ci_hi.index else np.nan
+            rows.append((t, est, se, lo, hi, pv))
+    else:
+        raise ValueError(
+            "event_study_table: result has no model_info['event_study'] "
+            "DataFrame and no `regex` was provided. Pass regex=... to "
+            "extract event-time coefficients from result.params.index."
+        )
+
+    if not rows:
+        raise ValueError(
+            "event_study_table: no event-time rows extracted. Check "
+            "the regex pattern or include_reference=True."
+        )
+
+    rows.sort(key=lambda r: r[0])
+    labels = [label_fmt.format(t=t) for t, *_ in rows]
+    df = pd.DataFrame({
+        "variable": labels,
+        "dy/dx": [r[1] for r in rows],
+        "se": [r[2] for r in rows],
+        "ci_lower": [r[3] for r in rows],
+        "ci_upper": [r[4] for r in rows],
+        "pvalue": [r[5] for r in rows],
+    })
+    # Synthesise a z-stat for the ``tvalues`` slot (regtable uses it
+    # only when se_type='t', and event studies almost always show
+    # estimates with SE — but populate consistently).
+    with np.errstate(divide="ignore", invalid="ignore"):
+        df["z"] = df["dy/dx"] / df["se"]
+    n_obs = None
+    diag = getattr(result, "diagnostics", {}) or {}
+    dinfo = getattr(result, "data_info", {}) or {}
+    if isinstance(diag, dict) and diag.get("N") is not None:
+        n_obs = diag.get("N")
+    elif isinstance(dinfo, dict) and dinfo.get("nobs") is not None:
+        n_obs = dinfo.get("nobs")
+    return _MarginsResult(df, n_obs=n_obs, method="event-study")
 
 
 def margins_table(

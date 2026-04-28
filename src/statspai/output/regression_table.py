@@ -55,6 +55,129 @@ from ._repro import build_repro_note
 _MULTI_SE_BRACKETS = (("[", "]"), ("{", "}"), ("⟨", "⟩"), ("«", "»"))
 
 
+def _hc_recompute_se(model_data: _ModelData, raw_result: Any, vcov: str) -> Optional[Dict[str, Any]]:
+    """Recompute HC0/HC1/HC2/HC3 SE/t/p/CI for an OLS-style result.
+
+    Returns ``{'std_errors', 'tvalues', 'pvalues', 'conf_int_lower',
+    'conf_int_upper'}`` keyed by variable name, or ``None`` when the
+    raw result lacks the required ``data_info`` keys (X / residuals).
+
+    Algorithm:
+
+    - HC0: Omega = diag(e_i^2)
+    - HC1: HC0 * n / (n - k)        (Stata ``robust`` default)
+    - HC2: Omega = diag(e_i^2 / (1 - h_ii))
+    - HC3: Omega = diag(e_i^2 / (1 - h_ii)^2)
+
+    The leverage diagonal ``h_ii`` is computed from
+    ``H_ij = X_ij · ((X'X)^{-1} X')_ji`` without forming the full
+    n×n hat matrix.
+    """
+    dinfo = getattr(raw_result, "data_info", None)
+    if not isinstance(dinfo, dict):
+        return None
+    X = dinfo.get("X")
+    e = dinfo.get("residuals")
+    if X is None or e is None:
+        return None
+    X_arr = np.asarray(X, dtype=float)
+    e_arr = np.asarray(e, dtype=float).ravel()
+    if X_arr.ndim != 2 or X_arr.shape[0] != e_arr.shape[0]:
+        return None
+    n, k = X_arr.shape
+    if n <= k:
+        return None
+    XtX_inv = np.linalg.pinv(X_arr.T @ X_arr)
+    if vcov.upper() in ("HC2", "HC3"):
+        # h_ii = sum_j X_ij * (X · XtX_inv)_ij
+        H_full = X_arr @ XtX_inv  # n×k
+        h_ii = np.einsum("ij,ij->i", X_arr, H_full)
+        h_ii = np.clip(h_ii, 0.0, 1.0 - 1e-10)
+    if vcov.upper() == "HC0":
+        omega = e_arr ** 2
+    elif vcov.upper() in ("HC1", "ROBUST"):
+        omega = (e_arr ** 2) * (n / (n - k))
+    elif vcov.upper() == "HC2":
+        omega = (e_arr ** 2) / (1.0 - h_ii)
+    elif vcov.upper() == "HC3":
+        omega = (e_arr ** 2) / ((1.0 - h_ii) ** 2)
+    else:
+        raise ValueError(
+            f"vcov={vcov!r} not supported for OLS recompute. Choose "
+            f"from 'HC0', 'HC1' (Stata robust), 'HC2', 'HC3', 'robust'."
+        )
+    XtOX = X_arr.T @ (omega[:, None] * X_arr)
+    V = XtX_inv @ XtOX @ XtX_inv
+    se_arr = np.sqrt(np.maximum(np.diag(V), 0.0))
+    var_names = list(model_data.params.index)
+    if len(var_names) != len(se_arr):
+        # var_cov ordering vs params ordering mismatch; use data_info if present
+        dvn = dinfo.get("var_names")
+        if dvn is not None and len(dvn) == len(se_arr):
+            var_names = list(dvn)
+        else:
+            return None
+    se_series = pd.Series(se_arr, index=var_names)
+    b = pd.Series(np.asarray(model_data.params, dtype=float), index=var_names)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t_arr = b.values / se_arr
+    tvalues = pd.Series(t_arr, index=var_names)
+    df_resid = getattr(model_data, "df_resid", None)
+    if df_resid is None or not np.isfinite(df_resid) or df_resid <= 0:
+        df_resid = float(n - k)
+    pvalues = pd.Series(
+        2.0 * (1.0 - sp_stats.t.cdf(np.abs(t_arr), df_resid)),
+        index=var_names,
+    )
+    crit = sp_stats.t.ppf(0.975, df_resid)
+    ci_lo = pd.Series(b.values - crit * se_arr, index=var_names)
+    ci_hi = pd.Series(b.values + crit * se_arr, index=var_names)
+    return {
+        "std_errors": se_series,
+        "tvalues": tvalues,
+        "pvalues": pvalues,
+        "conf_int_lower": ci_lo,
+        "conf_int_upper": ci_hi,
+    }
+
+
+def _apply_vcov_to_panels(
+    panels: List["_PanelData"],
+    flat_results: List[Any],
+    vcov: str,
+) -> None:
+    """Mutate each ``_ModelData`` in ``panels`` to substitute the recomputed
+    HC SEs / t / p / CI bounds. No-op for results lacking the required
+    ``data_info`` keys (other than emitting a UserWarning so users know
+    the column was left unchanged).
+    """
+    flat_idx = 0
+    skipped: List[int] = []
+    for panel in panels:
+        for md in panel.models:
+            raw = flat_results[flat_idx]
+            recompute = _hc_recompute_se(md, raw, vcov)
+            if recompute is None:
+                skipped.append(flat_idx + 1)
+                flat_idx += 1
+                continue
+            object.__setattr__(md, "std_errors", recompute["std_errors"])
+            object.__setattr__(md, "tvalues", recompute["tvalues"])
+            object.__setattr__(md, "pvalues", recompute["pvalues"])
+            object.__setattr__(md, "conf_int_lower", recompute["conf_int_lower"])
+            object.__setattr__(md, "conf_int_upper", recompute["conf_int_upper"])
+            flat_idx += 1
+    if skipped:
+        cols = ", ".join(f"({c})" for c in skipped)
+        warnings.warn(
+            f"vcov={vcov!r}: recompute skipped for column{'s' if len(skipped)!=1 else ''} "
+            f"{cols} — the result lacks data_info['X']/['residuals'] needed for "
+            f"HC reweighting. Those columns retain their fit-time SEs.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 def _format_fe_label(token: str) -> str:
     """``"firm"`` → ``"# Firm"``; ``"firm^year"`` → ``"# Firm × Year"``."""
     parts = [p.strip() for p in token.split("^") if p.strip()]
@@ -280,6 +403,7 @@ class RegtableResult:
         apply_coef_deriv: Optional[Any] = None,
         escape: bool = True,
         tests_rows: Optional[List[Tuple[str, List[str]]]] = None,
+        transpose: bool = False,
     ):
         if not 0.0 < alpha < 1.0:
             raise ValueError(f"alpha must be in (0, 1), got {alpha!r}")
@@ -394,6 +518,12 @@ class RegtableResult:
         # entry. Stored as ordered ``[(label, [cell_per_model, ...])]`` so
         # rendering threads through the same code path as ``add_rows``.
         self.tests_rows = tests_rows or []
+
+        # ── transpose ──────────────────────────────────────────────────────
+        # Single-panel-only pivot: rows become models, columns become
+        # variables. The validation lives at the regtable() entry; here
+        # we just store the flag for renderers.
+        self.transpose = bool(transpose)
 
         # Resolve stat keys once
         self._stat_keys = self._resolve_stat_keys()
@@ -775,6 +905,8 @@ class RegtableResult:
         return lines
 
     def to_text(self) -> str:
+        if self.transpose:
+            return self._to_text_transposed()
         col_w = 14
         all_models = self._all_models_flat()
         all_vars_set: set = set()
@@ -892,6 +1024,212 @@ class RegtableResult:
 
         return "\n".join(lines)
 
+    # ═══════════════════════════════════════════════════════════════════════
+    # Transposed renderers (single-panel pivot — rows ↔ models)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def _transposed_var_list(self) -> List[str]:
+        """All variable names that the (single) panel renders, in order."""
+        panel = self.panels[0]
+        return self._resolve_vars(panel.models)
+
+    def _to_text_transposed(self) -> str:
+        col_w = 14
+        panel = self.panels[0]
+        models = panel.models
+        var_list = self._transposed_var_list()
+        # Each variable contributes one cell per model; we render the
+        # estimate (with stars) and SE on a single row to keep the
+        # transposed form compact, then a SE row for every model row.
+        var_labels = [self.coef_labels.get(v, v) for v in var_list]
+        # Width of leftmost column (model labels)
+        label_w = max(
+            (len(l) for l in self.model_labels),
+            default=4,
+        )
+        label_w = max(label_w + 2, 8)
+
+        total_w = label_w + col_w * len(var_list) + 4
+        thick = "━" * total_w
+        thin = "─" * total_w
+        lines: List[str] = []
+        if self.title:
+            lines.append(f"  {self.title}")
+            lines.append("")
+        lines.append(thick)
+        # Header: blank + variable labels
+        hdr = " " * label_w
+        for vl in var_labels:
+            hdr += f"{vl:>{col_w}}"
+        lines.append(hdr)
+        lines.append(thick)
+        # Body: one (estimate, SE) pair of rows per model
+        for mi, m in enumerate(models):
+            row_e = f"{self.model_labels[mi]:<{label_w}}"
+            for var in var_list:
+                row_e += f"{self._coef_cell(m, var, mi):>{col_w}}"
+            lines.append(row_e)
+            row_s = " " * label_w
+            for var in var_list:
+                row_s += f"{self._se_cell(m, var, mi):>{col_w}}"
+            lines.append(row_s)
+        lines.append(thick)
+        # Stats: one row per stat — N, R², Adj. R², F (each cell is the
+        # value for that model under the corresponding column? No — in
+        # transposed form, stats need to live somewhere new. Convention
+        # we adopt: append a *trailing* per-model column for each stat
+        # would over-stuff the header; instead emit a final block where
+        # each stat name is a *new column* on the right, holding the
+        # per-model value.
+        if self._stat_keys:
+            # Re-render header with stats appended for visibility
+            stat_disp = [_STAT_DISPLAY.get(k, k) for k in self._stat_keys]
+            stat_hdr = " " * (label_w + col_w * len(var_list))
+            for sd in stat_disp:
+                stat_hdr += f"{sd:>{col_w}}"
+            # Splice stat columns into existing rows
+            new_lines: List[str] = []
+            row_idx = 0
+            for ln in lines:
+                if ln == thick or ln == thin or ln == "" or ln.startswith("  "):
+                    new_lines.append(ln)
+                    continue
+                # First data row after the second thick is the header;
+                # the body rows alternate (est, se). Append stat values
+                # only on est rows.
+                pass
+            # Simpler: rebuild header + body with stat columns
+            # ────────────────────────────────────────────────────────
+            # Reset lines and rebuild fresh
+            lines = []
+            if self.title:
+                lines.append(f"  {self.title}")
+                lines.append("")
+            total_w_full = label_w + col_w * (len(var_list) + len(self._stat_keys))
+            thick = "━" * total_w_full
+            lines.append(thick)
+            # Combined header
+            hdr = " " * label_w
+            for vl in var_labels:
+                hdr += f"{vl:>{col_w}}"
+            for sd in stat_disp:
+                hdr += f"{sd:>{col_w}}"
+            lines.append(hdr)
+            lines.append(thick)
+            # Body
+            for mi, m in enumerate(models):
+                row_e = f"{self.model_labels[mi]:<{label_w}}"
+                for var in var_list:
+                    row_e += f"{self._coef_cell(m, var, mi):>{col_w}}"
+                for k in self._stat_keys:
+                    row_e += f"{self._stat_cell(m, k):>{col_w}}"
+                lines.append(row_e)
+                row_s = " " * label_w
+                for var in var_list:
+                    row_s += f"{self._se_cell(m, var, mi):>{col_w}}"
+                for _ in self._stat_keys:
+                    row_s += f"{'':>{col_w}}"
+                lines.append(row_s)
+            lines.append(thick)
+        # Notes
+        lines.append(f"{self._se_label()} in parentheses")
+        if self._has_any_eform():
+            lines.append(self._eform_note())
+        if self.show_stars:
+            lines.append(self._star_note())
+        for note in self.notes:
+            lines.append(note)
+        return "\n".join(lines)
+
+    def _to_html_transposed(self) -> str:
+        panel = self.panels[0]
+        models = panel.models
+        var_list = self._transposed_var_list()
+        var_labels = [self.coef_labels.get(v, v) for v in var_list]
+        stat_disp = [_STAT_DISPLAY.get(k, k) for k in self._stat_keys]
+        ncols = 1 + len(var_list) + len(self._stat_keys)
+        lines: List[str] = []
+        lines.append(
+            '<table class="regtable regtable-transposed" '
+            'style="border-collapse:collapse; '
+            'font-family:\'Times New Roman\', serif; font-size:13px;">'
+        )
+        if self.title:
+            lines.append(
+                f'<caption style="font-weight:bold; font-size:14px; '
+                f'caption-side:top;">{self._esc_html(self.title)}</caption>'
+            )
+        lines.append("<thead>")
+        lines.append("<tr>")
+        lines.append(
+            '<th style="border-top:3px solid black; border-bottom:1px solid black; '
+            'padding:4px 8px;"></th>'
+        )
+        for vl in var_labels:
+            lines.append(
+                f'<th style="border-top:3px solid black; border-bottom:1px solid black; '
+                f'padding:4px 12px;">{self._esc_html(vl)}</th>'
+            )
+        for sd in stat_disp:
+            lines.append(
+                f'<th style="border-top:3px solid black; border-bottom:1px solid black; '
+                f'padding:4px 12px; font-style:italic;">{self._esc_html(sd)}</th>'
+            )
+        lines.append("</tr>")
+        lines.append("</thead>")
+        lines.append("<tbody>")
+        for mi, m in enumerate(models):
+            # Estimate row
+            lines.append("<tr>")
+            lines.append(
+                f'<td style="text-align:left; padding:1px 8px;">'
+                f'{self._esc_html(self.model_labels[mi])}</td>'
+            )
+            for var in var_list:
+                lines.append(
+                    f'<td style="text-align:center; padding:1px 12px;">'
+                    f'{_html_escape(self._coef_cell(m, var, mi))}</td>'
+                )
+            for k in self._stat_keys:
+                lines.append(
+                    f'<td style="text-align:center; padding:1px 12px;">'
+                    f'{self._stat_cell(m, k)}</td>'
+                )
+            lines.append("</tr>")
+            # SE row
+            lines.append("<tr>")
+            lines.append("<td></td>")
+            for var in var_list:
+                lines.append(
+                    f'<td style="text-align:center; padding:0 12px; '
+                    f'color:#555; font-size:12px;">'
+                    f'{_html_escape(self._se_cell(m, var, mi))}</td>'
+                )
+            for _ in self._stat_keys:
+                lines.append("<td></td>")
+            lines.append("</tr>")
+        # Bottom rule
+        lines.append(
+            f'<tr><td colspan="{ncols}" '
+            f'style="border-top:3px solid black; padding:0;"></td></tr>'
+        )
+        lines.append("</tbody>")
+        # Notes
+        lines.append("<tfoot>")
+        note = f"{self._se_label()} in parentheses"
+        lines.append(
+            f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
+            f'padding:4px 8px 0 8px;">{_html_escape(note)}</td></tr>'
+        )
+        if self.show_stars:
+            lines.append(
+                f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
+                f'padding:0 8px;">{_html_escape(self._star_note())}</td></tr>'
+            )
+        lines.append("</tfoot>")
+        lines.append("</table>")
+        return "\n".join(lines)
+
     def _eform_note(self) -> str:
         """Footer note explaining the eform transformation."""
         if all(self.eform_flags):
@@ -909,6 +1247,8 @@ class RegtableResult:
     # ═══════════════════════════════════════════════════════════════════════
 
     def to_html(self) -> str:
+        if self.transpose:
+            return self._to_html_transposed()
         all_models = self._all_models_flat()
         ncols = len(all_models) + 1
         lines: List[str] = []
@@ -1915,6 +2255,8 @@ def regtable(
     escape: bool = True,
     tests: Optional[Dict[str, Sequence[Any]]] = None,
     fixef_sizes: bool = False,
+    vcov: Optional[str] = None,
+    transpose: bool = False,
 ) -> RegtableResult:
     """
     Unified publication-quality regression table.
@@ -2130,6 +2472,28 @@ def regtable(
         populated by ``count.py`` (Poisson/NegBin) and the pyfixest
         adapter; other estimators silently no-op. Mirrors R fixest's
         ``etable(..., fixef_sizes=TRUE)``.
+    vcov : str, optional
+        Recompute the SE / t / p / 95% CI columns at print time using
+        a different variance estimator. Currently supports OLS-style
+        results that store ``data_info['X']`` and
+        ``data_info['residuals']``:
+
+        - ``"HC0"``                 — White heteroskedasticity-robust
+        - ``"HC1"`` / ``"robust"``  — Stata's ``robust`` (HC0 × n/(n-k))
+        - ``"HC2"``                 — leverage-weighted
+        - ``"HC3"``                 — leverage-squared (recommended for
+          small samples; Long-Ervin)
+
+        Columns whose underlying result lacks the X/residuals fields
+        emit a ``UserWarning`` and retain their fit-time SEs, so a
+        heterogeneous mix of OLS + non-OLS does not blow up — the
+        warning lists the affected columns so the user can audit.
+    transpose : bool, default False
+        Render with axes swapped: rows become models, columns become
+        variables. Single-panel only; multi-panel input or
+        ``multi_se=`` is rejected with ``NotImplementedError`` to keep
+        the layout pivot semantics tight. Currently supports text and
+        HTML renderers.
 
     Returns
     -------
@@ -2240,6 +2604,37 @@ def regtable(
         model_data_list = [_extract_model_data(r) for r in raw]
         panels.append(_PanelData(model_data_list))
         total_models += len(model_data_list)
+
+    # --- vcov= : recompute SE / t / p / CI for OLS-style results ------
+    # The recompute happens *after* extraction so that journal templates
+    # and other pre-extraction logic stay untouched. Non-OLS results
+    # whose data_info lacks X / residuals are silently skipped (with a
+    # UserWarning) so heterogeneous tables don't blow up — the user can
+    # audit which columns retained their fit-time SEs.
+    if vcov is not None:
+        valid = {"HC0", "HC1", "HC2", "HC3", "ROBUST"}
+        if vcov.upper() not in valid:
+            raise ValueError(
+                f"vcov={vcov!r} not supported. Valid choices: "
+                f"{sorted(valid)} (Stata's 'robust' is an alias for HC1)."
+            )
+        _apply_vcov_to_panels(panels, flat_results, vcov)
+
+    # --- transpose validation (must run BEFORE we lose multi-panel info) ----
+    if transpose:
+        if isinstance(args[0], list) and len(args) > 1:
+            raise NotImplementedError(
+                "transpose=True is single-panel only. Multi-panel "
+                "input is rejected to keep the layout pivot semantics "
+                "tight; render each panel as its own transposed table."
+            )
+        if multi_se:
+            raise NotImplementedError(
+                "transpose=True is incompatible with multi_se: extra "
+                "SE specs are bracket-rendered below the primary SE in "
+                "the conventional layout, and there is no equally clean "
+                "convention for the transposed view."
+            )
 
     # --- Resolve eform flags (one bool per flat model position) -------
     if isinstance(eform, bool):
@@ -2408,6 +2803,7 @@ def regtable(
         apply_coef_deriv=apply_coef_deriv,
         escape=escape,
         tests_rows=tests_rows_norm,
+        transpose=transpose,
     )
 
     # --- Output handling ---

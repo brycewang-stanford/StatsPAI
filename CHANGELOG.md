@@ -2,6 +2,57 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased] — `sp.regtable` Round 4 (event_study_table, vcov= recompute, transpose)
+
+Three further additions on top of Rounds 1-3. **No numerical
+changes** to any estimator; the ``vcov=`` recompute reuses the
+fit-time X + residuals already stored on OLS results.
+
+### Added
+
+- **``sp.event_study_table(result, *, regex=None, label_fmt="t={t}",
+  include_reference=False)``** — adapter that turns an event-study
+  fit into a regtable input. Two extraction paths:
+
+  - **CausalResult fast path** when ``model_info['event_study']``
+    holds the canonical ``relative_time`` / ``estimate`` / ``se`` /
+    ``ci_lower`` / ``ci_upper`` / ``pvalue`` DataFrame produced by
+    :func:`sp.event_study`.
+  - **Regex path** when raw coefficient names like ``"tau_-3"``,
+    ``"lag_-2"``, ``"::-1"`` need to be parsed; the first capture
+    group becomes the relative time. Rows are sorted in event-time
+    order regardless of input ordering.
+
+- **``vcov=``** parameter on :func:`sp.regtable` — recompute SE / t /
+  p / 95% CI at print time without re-fitting. Currently supports
+  OLS-style results that store ``data_info['X']`` and
+  ``data_info['residuals']``:
+
+  - ``"HC0"`` — White heteroskedasticity-robust
+  - ``"HC1"`` / ``"robust"`` — Stata's ``robust`` (HC0 × n/(n-k))
+  - ``"HC2"`` — leverage-weighted
+  - ``"HC3"`` — leverage-squared (recommended for small samples;
+    Long-Ervin 2000)
+
+  Columns whose underlying result lacks the X/residuals fields emit
+  a ``UserWarning`` and retain their fit-time SEs, so a
+  heterogeneous mix of OLS + non-OLS does not blow up.
+
+- **``transpose=True``** on :func:`sp.regtable` — rows become models,
+  columns become variables. Single-panel only; multi-panel input or
+  ``multi_se=`` is rejected with ``NotImplementedError`` to keep the
+  layout pivot semantics tight. Renders in text and HTML.
+
+### Tests
+
+15 new tests in ``test_regtable_round4_extensions.py`` covering all
+three features, including HC0/HC1/HC2/HC3 ordering verification
+under heteroskedasticity, regex extraction fallback, and pivot
+guards on multi-panel / multi_se.
+
+577 targeted tests pass (Rounds 1-4 = 528 + 20 + 14 + 15, plus broad
+anchors). Zero regression.
+
 ## [1.8.0] — Native Rust IRLS for `sp.fast.fepois` + production-function module
 
 The headline of v1.8.0 is the **3× wall-clock improvement** on the
