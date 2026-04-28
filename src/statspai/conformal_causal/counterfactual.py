@@ -344,6 +344,10 @@ def conformal_counterfactual(
                 "covariates": list(covariates),
                 "alpha": alpha, "calib_frac": calib_frac,
                 "model": type(model).__name__ if model is not None else None,
+                "propensity_model": (
+                    type(propensity_model).__name__
+                    if propensity_model is not None else None
+                ),
                 "random_state": random_state,
             },
             data=data,
@@ -421,6 +425,10 @@ def conformal_ite_interval(
                 "covariates": list(covariates),
                 "alpha": alpha, "calib_frac": calib_frac,
                 "model": type(model).__name__ if model is not None else None,
+                "propensity_model": (
+                    type(propensity_model).__name__
+                    if propensity_model is not None else None
+                ),
                 "random_state": random_state,
             },
             data=data,
