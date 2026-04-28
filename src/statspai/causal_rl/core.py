@@ -157,12 +157,28 @@ def causal_bandit(
         ])
         expected[i] = float(draws.mean())
     best = int(expected.argmax())
-    return CausalBanditResult(
+    _result = CausalBanditResult(
         optimal_arm=best,
         expected_rewards=expected,
         arm_labels=list(arms),
         context=dict(context) if context else None,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.causal_rl.causal_bandit",
+            params={
+                "arms": list(arms),
+                "n_samples": n_samples,
+                "rng_seed": rng_seed,
+            },
+            data=None,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ---------------------------------------------------------------------------

@@ -125,7 +125,7 @@ def cb_ipw_bridge(
         ate_ipw, se_ipw, ate_cb, se_cb, diff_p
     )
 
-    return BridgeResult(
+    _result = BridgeResult(
         kind="cb_ipw",
         path_a_name="IPW (Hájek-normalised)",
         path_b_name="Entropy Balancing weighted DIM",
@@ -142,3 +142,19 @@ def cb_ipw_bridge(
         detail={},
         reference="Słoczyński, Uysal & Wooldridge (2023), arXiv 2310.18563",
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.bridge.cb_ipw_bridge",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "alpha": alpha, "n_boot": n_boot, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

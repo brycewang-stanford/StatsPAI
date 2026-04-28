@@ -99,10 +99,27 @@ def causal_dqn(
         final_err = float(np.mean(td ** 2))
 
     policy = Q.argmax(axis=1)
-    return CausalDQNResult(
+    _result = CausalDQNResult(
         q_table=Q,
         policy=policy,
         gamma_bound=gamma_bound,
         n_iter=n_iter,
         final_bellman_error=final_err,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.causal_rl.causal_dqn",
+            params={
+                "state": state, "action": action,
+                "reward": reward, "next_state": next_state,
+                "gamma_bound": gamma_bound, "discount": discount,
+                "n_iter": n_iter, "lr": lr, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

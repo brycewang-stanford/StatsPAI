@@ -102,7 +102,7 @@ def dr_calib_bridge(
     diff, diff_se, diff_p = _agreement_test(ate_aipw, se_a, ate_cal, se_c)
     est_dr, se_dr = _dr_combine(ate_aipw, se_a, ate_cal, se_c, diff_p)
 
-    return BridgeResult(
+    _result = BridgeResult(
         kind="dr_calib",
         path_a_name="AIPW (vanilla)",
         path_b_name="AIPW (calibrated)",
@@ -119,3 +119,19 @@ def dr_calib_bridge(
         detail={},
         reference="van der Laan, Luedtke & Carone (2024), arXiv 2411.02771",
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.bridge.dr_calib_bridge",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "alpha": alpha, "n_boot": n_boot, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

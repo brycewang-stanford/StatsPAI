@@ -95,7 +95,25 @@ def mc_panel(
         max_iter=max_iter, tol=tol, n_bootstrap=n_bootstrap,
         alpha=alpha, random_state=random_state,
     )
-    return est.fit()
+    _result = est.fit()
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.matrix_completion.mc_panel",
+            params={
+                "y": y, "unit": unit, "time": time, "treat": treat,
+                "lambda_reg": lambda_reg, "max_rank": max_rank,
+                "max_iter": max_iter, "tol": tol,
+                "n_bootstrap": n_bootstrap,
+                "alpha": alpha, "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ======================================================================
