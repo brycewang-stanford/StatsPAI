@@ -308,6 +308,138 @@ fn demean_2d_weighted<'py>(
     Ok(out)
 }
 
+/// Sort-aware weighted demean of a Fortran-order (n, p) matrix in place.
+/// Caller has applied the primary-FE sort permutation π to ``x`` (rows),
+/// ``weights``, and the secondary FE codes; this function does NOT
+/// permute. Result is in π-order; caller applies π⁻¹ on return.
+///
+/// Parameters
+/// ----------
+/// x : 2-D float64 ndarray, shape (n, p), Fortran-contiguous, in π order.
+/// primary_starts : ndarray[int64, shape (G1+1,)]
+///     Group-start offsets for the primary FE (caller computes once via
+///     ``primary_fe_sort_perm`` + cumulative count).
+/// primary_wsum : ndarray[float64, shape (G1,)]
+///     Weighted group sums for the primary FE, computed in π order
+///     (i.e., ``np.bincount(codes_perm, weights=weights_perm)``).
+/// secondary_codes : list[ndarray[int64, shape (n,)]]
+///     K-1 arrays, one per non-primary FE; codes are under π.
+/// secondary_wsum : list[ndarray[float64, shape (G_k,)]]
+///     Weighted group sums for non-primary FEs.
+/// weights_sorted : ndarray[float64, shape (n,)]
+///     Per-obs weights in π order.
+/// max_iter, tol_abs, tol_rel, accelerate, accel_period :
+///     Same semantics as ``demean_2d_weighted``.
+#[pyfunction]
+#[pyo3(signature = (x, primary_starts, primary_wsum, secondary_codes, secondary_wsum, weights_sorted, max_iter, tol_abs, tol_rel, accelerate, accel_period))]
+#[allow(clippy::too_many_arguments)]
+fn demean_2d_weighted_sorted<'py>(
+    py: Python<'py>,
+    mut x: PyReadwriteArray2<'py, f64>,
+    primary_starts: PyReadonlyArray1<'py, i64>,
+    primary_wsum: PyReadonlyArray1<'py, f64>,
+    secondary_codes: &Bound<'py, PyList>,
+    secondary_wsum: &Bound<'py, PyList>,
+    weights_sorted: PyReadonlyArray1<'py, f64>,
+    max_iter: u32,
+    tol_abs: f64,
+    tol_rel: f64,
+    accelerate: bool,
+    accel_period: u32,
+) -> PyResult<Bound<'py, PyList>> {
+    if secondary_codes.len() != secondary_wsum.len() {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "len(secondary_codes)={} but len(secondary_wsum)={}",
+            secondary_codes.len(),
+            secondary_wsum.len()
+        )));
+    }
+
+    let primary_starts_view = primary_starts.as_slice()?;
+    let primary_wsum_view = primary_wsum.as_slice()?;
+    let weights_view = weights_sorted.as_slice()?;
+    let sec_code_views = py_list_to_i64_views(secondary_codes)?;
+    let sec_wsum_views = py_list_to_f64_views(secondary_wsum)?;
+
+    let arr = x.as_array();
+    let shape = arr.shape();
+    if shape.len() != 2 {
+        return Err(pyo3::exceptions::PyValueError::new_err("x must be 2-D"));
+    }
+    let n = shape[0];
+    let p = shape[1];
+
+    if weights_view.len() != n {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "weights_sorted length {} but n={}",
+            weights_view.len(),
+            n
+        )));
+    }
+    if primary_starts_view.len() != primary_wsum_view.len() + 1 {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "primary_starts length {} but expected {} (= primary_wsum.len + 1)",
+            primary_starts_view.len(),
+            primary_wsum_view.len() + 1
+        )));
+    }
+    for v in &sec_code_views {
+        if v.as_slice()?.len() != n {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "secondary_codes entry has length {} but n={}",
+                v.as_slice()?.len(),
+                n
+            )));
+        }
+    }
+
+    if !x.is_fortran_contiguous() {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "x must be Fortran-contiguous; pass np.asfortranarray(X)",
+        ));
+    }
+    let mat = x.as_slice_mut()?;
+
+    // Convert primary_starts (passed as i64 from Python) to usize.
+    let primary_starts_usize: Vec<usize> =
+        primary_starts_view.iter().map(|&v| v as usize).collect();
+
+    let sec_codes_slices: Vec<&[i64]> =
+        sec_code_views.iter().map(|v| v.as_slice().unwrap()).collect();
+    let sec_wsum_slices: Vec<&[f64]> =
+        sec_wsum_views.iter().map(|v| v.as_slice().unwrap()).collect();
+    let sec_lens: Vec<usize> = sec_wsum_slices.iter().map(|s| s.len()).collect();
+
+    let infos = py.allow_threads(|| {
+        demean::weighted_demean_matrix_fortran_inplace_sorted(
+            mat,
+            n,
+            p,
+            &primary_starts_usize,
+            primary_wsum_view,
+            &sec_codes_slices,
+            &sec_wsum_slices,
+            &sec_lens,
+            weights_view,
+            max_iter,
+            tol_abs,
+            tol_rel,
+            accelerate,
+            accel_period,
+        )
+    });
+
+    let out = PyList::empty_bound(py);
+    for info in &infos {
+        let d = PyDict::new_bound(py);
+        d.set_item("iters", info.iters)?;
+        d.set_item("converged", info.converged)?;
+        d.set_item("max_dx", info.max_dx)?;
+        out.append(d)?;
+    }
+    Ok(out)
+}
+
 /// Iterative K-way singleton detection. Returns a uint8 keep-mask
 /// (1 = keep, 0 = drop).
 #[pyfunction]
@@ -333,7 +465,8 @@ fn statspai_hdfe(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(group_demean, m)?)?;
     m.add_function(wrap_pyfunction!(demean_2d, m)?)?;
     m.add_function(wrap_pyfunction!(demean_2d_weighted, m)?)?;
+    m.add_function(wrap_pyfunction!(demean_2d_weighted_sorted, m)?)?;  // NEW B0.4
     m.add_function(wrap_pyfunction!(singleton_mask, m)?)?;
-    m.add("__version__", "0.3.0")?;
+    m.add("__version__", "0.4.0")?;  // BUMPED 0.3.0 → 0.4.0
     Ok(())
 }

@@ -328,24 +328,92 @@ def _weighted_ap_demean(
             accelerate=accelerate, accel_period=accel_period,
         )
 
+    # Phase B0: route through the sort-aware Rust path when available.
+    # Fall back to the random-scatter Rust path on older statspai_hdfe.
+    use_sorted = _HAS_RUST_HDFE and hasattr(_rust_hdfe, "demean_2d_weighted_sorted")
+
     squeeze = arr.ndim == 1
     src = arr.reshape(-1, 1) if squeeze else arr
-    # Single allocation directly into F-order f64 (avoids the previous
-    # astype-then-asfortranarray double copy on the C-order hot path).
-    arr_F = np.array(src, dtype=np.float64, order="F", copy=True)
 
-    # Per-FE precompute of weighted group sums. K bincount calls per IRLS
-    # iter — O(n) each, negligible vs the sweep.
-    wsum_list = [
-        np.bincount(fe_codes_list[k], weights=weights,
-                    minlength=counts_list[k].size).astype(np.float64)
-        for k in range(K)
-    ]
+    if use_sorted:
+        # 1. Pick the highest-cardinality FE as primary.
+        primary_idx = int(np.argmax([c.size for c in counts_list]))
+        primary_codes = fe_codes_list[primary_idx]
+        primary_G = int(counts_list[primary_idx].size)
 
-    infos = _rust_hdfe.demean_2d_weighted(
-        arr_F, list(fe_codes_list), wsum_list, weights,
-        int(max_iter), 0.0, float(tol), bool(accelerate), int(accel_period),
-    )
+        # 2. Counting-sort permutation by the primary FE codes (Python
+        #    side; np.argsort is fine and matches the Rust counting-sort
+        #    output up to within-group order, which only affects float
+        #    summation by ≈1e-15 per group — well below IRLS tolerance).
+        perm = np.argsort(primary_codes, kind="stable")
+        inv_perm = np.empty_like(perm)
+        inv_perm[perm] = np.arange(perm.size, dtype=perm.dtype)
+
+        # 3. Apply π once to all per-obs arrays.
+        weights_p = np.ascontiguousarray(weights[perm])
+        primary_codes_p = primary_codes[perm]   # now monotone non-decreasing
+        secondary_codes_p = [
+            np.ascontiguousarray(fe_codes_list[k][perm], dtype=np.int64)
+            for k in range(K) if k != primary_idx
+        ]
+
+        # 4. group_starts from the now-sorted primary codes.
+        primary_starts = np.zeros(primary_G + 1, dtype=np.int64)
+        # np.searchsorted gives the leftmost index where each group ID
+        # would be inserted to keep order — this is exactly group_starts.
+        primary_starts[:primary_G] = np.searchsorted(
+            primary_codes_p, np.arange(primary_G, dtype=primary_codes_p.dtype),
+            side="left",
+        )
+        primary_starts[primary_G] = primary_codes_p.size
+
+        # 5. wsum arrays in π order. bincount is order-agnostic for the
+        #    primary (sum is associative + permutation-invariant), but we
+        #    use the permuted codes for symmetry / clarity. Secondary
+        #    wsum uses the permuted codes (must, since they're under π).
+        primary_wsum = np.bincount(
+            primary_codes_p, weights=weights_p, minlength=primary_G,
+        ).astype(np.float64)
+        secondary_wsum = []
+        sec_idx = 0
+        for k in range(K):
+            if k == primary_idx:
+                continue
+            G_k = int(counts_list[k].size)
+            secondary_wsum.append(
+                np.bincount(secondary_codes_p[sec_idx], weights=weights_p,
+                            minlength=G_k).astype(np.float64)
+            )
+            sec_idx += 1
+
+        # 6. F-contig src in π order.
+        arr_F_p = np.array(src[perm], dtype=np.float64, order="F", copy=True)
+
+        # 7. Rust call (in-place on arr_F_p).
+        infos = _rust_hdfe.demean_2d_weighted_sorted(
+            arr_F_p,
+            primary_starts,
+            primary_wsum,
+            secondary_codes_p,
+            secondary_wsum,
+            weights_p,
+            int(max_iter), 0.0, float(tol), bool(accelerate), int(accel_period),
+        )
+
+        # 8. Apply π⁻¹ to restore caller's row order.
+        arr_F = np.array(arr_F_p[inv_perm], dtype=np.float64, order="F", copy=True)
+    else:
+        # Pre-B0 fallback: random-scatter Rust path (Phase A behavior).
+        arr_F = np.array(src, dtype=np.float64, order="F", copy=True)
+        wsum_list = [
+            np.bincount(fe_codes_list[k], weights=weights,
+                        minlength=counts_list[k].size).astype(np.float64)
+            for k in range(K)
+        ]
+        infos = _rust_hdfe.demean_2d_weighted(
+            arr_F, list(fe_codes_list), wsum_list, weights,
+            int(max_iter), 0.0, float(tol), bool(accelerate), int(accel_period),
+        )
 
     iters = max(int(d["iters"]) for d in infos) if infos else 0
     converged_all = all(bool(d["converged"]) for d in infos) if infos else True
