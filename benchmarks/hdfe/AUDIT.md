@@ -140,3 +140,82 @@ measured directly because the audit fix is in the same patch series.
 
 These remain in [`SUMMARY.md`](SUMMARY.md)'s "what deliberately did NOT
 ship" list with the same priorities.
+
+---
+
+## Phase A round 1 — wall-clock gate FAILED (2026-04-27)
+
+The Phase A spec (`docs/superpowers/specs/2026-04-27-native-rust-irls-fepois-design.md` §5.7) set a **merge blocker** of medium wall ≤ 1.5 s. The actual measurement was **2.449 s** (median of 3 reps). Per spec we MUST NOT silently widen the gate; instead we record findings here and surface to the user for a brainstorm-level decision.
+
+### Numbers
+
+| stage                                   | medium wall | iters | vs fixest 0.64 s |
+| --------------------------------------- | ----------: | ----: | ---------------: |
+| Phase 0 baseline (Python `np.bincount`) |      2.61 s |     6 |            4.08× |
+| Phase A (Rust `demean_2d_weighted`)     | **2.45 s**  |     6 |       **3.83×**  |
+| Phase A gate target                     |   ≤ 1.50 s  |     — |          ≤ 2.34× |
+| R `fixest::fepois`                      |      0.64 s |     5 |            1.00× |
+
+Phase A delivers a **6.1 % wall reduction** (2.61 → 2.45 s), not the projected ~50 % (which would have landed at ~1.4 s).
+
+### What broke — the assumption
+
+The plan assumed the IRLS-internal weighted demean was ~80 % of wall and that a Rust port would deliver ~3-5× over Python. With those numbers, end-to-end wall was projected at ~1.4 s.
+
+What the profile actually shows (cProfile on a single timed `fepois` call, 2.789 s total):
+
+```
+ncalls   tottime  cumtime  filename:lineno(function)
+     1   0.216    2.789    fepois.py:404(fepois)
+    12   0.088    2.293    fepois.py:300(_weighted_ap_demean)        ← dispatcher
+    12   2.190    2.190    {built-in: statspai_hdfe.demean_2d_weighted}  ← Rust kernel
+     6   0.113    0.115    fepois.py:751(_poisson_deviance)
+```
+
+Two findings:
+
+1. **The Rust kernel is 78.5 % of wall (2.19 s of 2.79 s).** The dispatcher overhead (`np.asfortranarray`, `np.bincount` for `wsum`, list packing) is only 0.088 s — i.e., the projected "Python overhead" we'd save by going to Rust was already small. The dominant cost is the Rust AP loop itself, not the Python glue.
+
+2. **Per-Rust-call wall is ~155-318 ms** with AP iters in [14, 16]. For 1M rows × K=2 FEs × p ∈ {1,2}, that is **~5-10× slower than the fixest C++ kernel** (which does similar work in ~50 ms on similar hardware). The bottleneck is the random-scatter inner loop (`scratch[codes[i]] += weights[i] * x[i]`) hitting cache-miss territory on the G1=100k FE bucket array (800 KB scratch, exceeds L1, lives in L2 with mostly-random access pattern).
+
+The honest reframe of the gap:
+
+```
+fixest C++   ----  hand-tuned scatter-gather + likely SIMD + sort-by-FE-code
+np.bincount  ----  hand-tuned C scatter-gather (Python NumPy)
+Phase A Rust ----  straight Rust scatter-gather, Rayon column-parallel
+```
+
+NumPy's `np.bincount` with float weights is already a hand-tuned C loop that does roughly what our Rust kernel does. Phase A's Rust port wins by ~2.35× over the NumPy path on the kernel itself (verified via the `_HAS_RUST_HDFE = False` diagnostic), but that is FAR less than the projected 3-5×, because we are not beating an already-optimized C loop by a large margin — we are matching it.
+
+### What value Phase A still ships
+
+Even with the gate failing, the Phase A work delivers:
+
+- **Reusable crate-internal Rust primitive** (`pub fn weighted_demean_matrix_fortran_inplace`) that Phase B's native Rust IRLS will call **without** going through PyO3 — eliminating the 12 FFI round-trips per `fepois` call and the GIL release/reacquire per call.
+- **PyO3 surface** (`statspai_hdfe.demean_2d_weighted`) for any future Python caller that wants weighted within-transform.
+- **Crate v0.3.0** with tested binding, abi3-py39 wheel building reproducibly via `maturin build --interpreter`.
+- **Python dispatcher with NumPy fallback** (`_HAS_RUST_HDFE` flag, graceful degradation on no-Rust wheels).
+- **3 end-to-end parity tests** vs `pyfixest.fepois` at coef atol ≤ 1e-13 (IID + weighted + fallback) — confirmed Phase A introduces no numerical regression.
+- **CR1 cluster-robust SE recovery** (commit `39c94d0`) — the user's HTZ track WIP that was destroyed by an earlier `git reset --hard` was recovered from a Claude Code auto-checkpoint dangling commit and restored. With this restore, the cluster-SE tests already committed in `8432c0d` pass, and `vcov="cr1"` is wired in.
+- **Honest measurement methodology**: `run_fepois_phase_a.py` documents the exact procedure (warmup + 3 reps, JSON output, hard gate); reproducible.
+
+### What Phase B has to do to actually close the gap
+
+The 78.5%-Rust-kernel finding is the dominant input to Phase B's design:
+
+- **Eliminate the 12 FFI round-trips per `fepois`** — the Rust IRLS keeps `mu`, `eta`, `z`, `w`, `X_tilde` in Rust, sweeps once per outer iter without crossing the Python boundary. Saves ~88 ms of dispatcher overhead, but more importantly enables the next two:
+- **Reuse scratch + Aitken history across IRLS iters** — currently each Rust call allocates fresh `Vec<Vec<f64>>` scratch and `Vec<Vec<f64>>` Aitken history. Phase B's persistent `IRLSWorkspace` allocates these once, saves ~12 × 24 MB allocation pressure.
+- **Sort observations by primary FE code once before IRLS** — converts the random-scatter inner loop into a sequential one, removing the L2 cache-miss bottleneck. Expected ~3-5× speedup on the kernel itself. This is the algorithmic change the projected ~50 % reduction was actually depending on.
+
+With Phase B, the path to ≤ 0.95 s (≤ 1.5× fixest) is plausible. The path to ≤ 1.5 s via Phase A alone is not, given that the kernel already beats NumPy's `np.bincount` by 2.35×.
+
+### Decision surface
+
+The honest options are (per spec §5.7):
+
+- **A. Do not merge Phase A; preserve work-in-place; pivot to Phase B.** Phase A's commits stay on `main` (already pushed) but `1.8.0` is not released until Phase B lands. The user's CR1 cluster-SE recovery (`39c94d0`) is independent and should land regardless.
+- **B. Merge Phase A with the failing gate; document the gap honestly in CHANGELOG.** Ship the correctness validation, the reusable Rust primitive, and the dispatcher; absorb the 6 % wall improvement; flag Phase B as the gate-closer in the CHANGELOG.
+- **C. Invest in Rust-kernel optimization (sort-by-FE-code, SIMD intrinsics) before Phase B.** Multi-day effort with diminishing returns; might or might not close to 1.5 s. Defers Phase B.
+
+The spec explicitly forbids silently widening the gate. The user's call.
