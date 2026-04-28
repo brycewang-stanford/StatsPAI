@@ -2,14 +2,18 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [1.8.0] — Native Rust IRLS for `sp.fast.fepois`
+## [1.8.0] — Native Rust IRLS for `sp.fast.fepois` + production-function module
 
 The headline of v1.8.0 is the **3× wall-clock improvement** on the
-medium HDFE benchmark: `sp.fast.fepois` runs at **0.880 s** vs the
-v1.7.x baseline's 2.61 s, and **1.37× of R `fixest::fepois`** (0.64 s)
+medium HDFE benchmark: `sp.fast.fepois` runs at **0.855 s** vs the
+v1.7.x baseline's 2.61 s, and **1.34× of R `fixest::fepois`** (0.64 s)
 on the project's standard medium dataset (n=1M, fe1=100k, fe2=1k).
-This closes the long-standing wall-clock gap to `fixest` to 1.37× —
-under the ≤ 1.5× target set in the v1.8 design spec.
+This closes the long-standing wall-clock gap to `fixest` to 1.34× —
+well under the ≤ 1.5× target set in the v1.8 design spec.
+
+Plus a new structural-estimation module: `sp.prod_fn` ships four
+production-function estimators (Olley-Pakes, Levinsohn-Petrin,
+Ackerberg-Caves-Frazer, Wooldridge) + De Loecker-Warzynski markup.
 
 ### Performance — sp.fast.fepois on medium HDFE benchmark
 
@@ -18,7 +22,8 @@ under the ≤ 1.5× target set in the v1.8 design spec.
 | v1.7.x baseline (Python np.bincount inside Python IRLS) | 2.61 s | 4.08× | — |
 | Phase A (Rust scatter, no cache)               | 2.45 s  |     3.83× |    ✓    |
 | Phase B0 (Rust sequential + dispatcher cache)  | 1.441 s |     2.25× |    ✓    |
-| **Phase B1 (native Rust IRLS, single PyO3 call)** | **0.880 s** | **1.37×** | **✓** |
+| Phase B1 (native Rust IRLS, single PyO3 call)  | 0.880 s |     1.37× |    ✓    |
+| **Path A (B1 + Rust separation pre-pass)**     | **0.855 s** | **1.34×** | **✓** |
 | R fixest::fepois                               | 0.64 s  |     1.00× |    —    |
 
 The closure was driven by three orthogonal contributions, each
@@ -43,6 +48,14 @@ verified with a wall-clock spike before the next was committed
   call and reused across all IRLS iters. Single PyO3 call
   (`fepois_irls`) eliminates the 12 round-trips per fepois that
   Phase B0 still had.
+- **Path A — Rust separation pre-pass**: the iterative Poisson-
+  separation drop (drops rows in FE groups whose total y-sum is zero —
+  Poisson cannot identify them) was the last meaningful Python-side
+  O(n log n) overhead inside fepois (np.unique + np.isin per pass).
+  The Rust port (`separation::separation_mask`) replaces it with an
+  O(n × n_iter × K) bincount loop. ~25 ms additional wall reduction
+  on the medium benchmark; closes 1.37× → 1.34× of fixest. Reusable
+  by future `feglm` GLM families.
 
 ### Numerical correctness — preserved at v1.7.x parity
 
@@ -57,10 +70,20 @@ verified with a wall-clock spike before the next was committed
 
 ### Added
 
-- New `statspai_hdfe` v0.5.0 PyO3 entry points (Rust crate v0.4.0-alpha.1):
+- New `statspai_hdfe` v0.6.0 PyO3 entry points (Rust crate v0.5.0-alpha.1):
   - `demean_2d_weighted` — Phase A weighted variant of the K-way AP demean.
   - `demean_2d_weighted_sorted` — Phase B0 sort-aware variant.
   - `fepois_irls` — Phase B1 single-call IRLS state machine.
+  - `separation_mask` — Path A iterative Poisson separation detector.
+
+- **`sp.prod_fn`** unified production-function estimator dispatcher with
+  four named entry points (`olley_pakes` / `opreg`, `levinsohn_petrin` /
+  `levpet`, `ackerberg_caves_frazer` / `acf`, `wooldridge_prod`) plus
+  `markup` (De Loecker-Warzynski) and `ProductionResult`. Cobb-Douglas
+  default + translog functional form; firm-cluster bootstrap SE; full
+  registry coverage. References: Olley-Pakes (1996), Levinsohn-Petrin
+  (2003), Ackerberg-Caves-Frazer (2015), Wooldridge (2009),
+  De Loecker-Warzynski (2012). 23 dedicated tests.
 - `sp.fast.fepois` Python dispatcher with three-tier fallback (native
   Rust IRLS → sort-aware Rust demean → random-scatter Rust demean →
   pure NumPy) — no user-facing API change.
@@ -75,16 +98,22 @@ verified with a wall-clock spike before the next was committed
 
 ### Internal
 
-- Rust crate `statspai_hdfe` bumped 0.2.0-alpha.1 → 0.4.0-alpha.1 across
-  Phase A → Phase B (3 minor crate version bumps).
-- Python `__version__` in `statspai_hdfe` extension: `0.2.0` → `0.5.0`.
+- Rust crate `statspai_hdfe` bumped 0.2.0-alpha.1 → 0.5.0-alpha.1 across
+  Phase A → Phase B → Path A (4 minor crate version bumps).
+- Python `__version__` in `statspai_hdfe` extension: `0.2.0` → `0.6.0`.
 
-### Tests — 191 fast-fepois tests pass (was 187 in v1.7.x)
+### Tests — 192 fast-fepois tests pass (was 187 in v1.7.x) + 23 prod_fn tests
 
 - Phase B1 native-vs-Python IRLS parity: coef atol ≤ 1e-10, SE atol ≤ 1e-7
   (`test_fepois_native_irls_vs_python_irls_parity`).
+- Path A separation parity: 10 random seeds with synthetic zero-cluster
+  injection; Rust ↔ NumPy mask agreement element-wise
+  (`test_separation_rust_matches_python_fallback`).
 - Cluster-SE suite intact (5 tests covering validation / NaN rejection /
   IID-baseline / closed-form / fixest-parity).
+- New 23-test prod_fn suite covering OP / LP / ACF / Wooldridge / markup
+  on synthetic Cobb-Douglas / translog DGPs + edge cases + bootstrap-SE
+  reproducibility.
 
 ---
 

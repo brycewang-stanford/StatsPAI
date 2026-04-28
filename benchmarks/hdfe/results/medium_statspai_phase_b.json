@@ -1,21 +1,21 @@
 {
   "phase": "B1",
-  "rust_crate_version": "0.5.0",
-  "statspai_version": "1.7.1",
+  "rust_crate_version": "0.6.0",
+  "statspai_version": "1.8.0",
   "dataset": "medium",
   "n": 1000000,
   "n_repeats": 3,
   "wall_seconds": [
-    0.8794356249272823,
-    0.8796408749185503,
-    0.881474208086729
+    0.8456840419676155,
+    0.8652055419515818,
+    0.8547985418699682
   ],
-  "wall_seconds_median": 0.8796408749185503,
+  "wall_seconds_median": 0.8547985418699682,
   "iterations": 6,
   "converged": true,
   "gate_seconds": 0.95,
   "passes_gate": true,
-  "speedup_vs_phase0": 2.9671199627253237,
-  "speedup_vs_phase_b0": 1.638168531144518,
-  "vs_fixest_064s": 1.3744388670602348
+  "speedup_vs_phase0": 3.053351020335541,
+  "speedup_vs_phase_b0": 1.6857773257867872,
+  "vs_fixest_064s": 1.3356227216718253
 }

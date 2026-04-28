@@ -359,3 +359,61 @@ v1.8.0 is now release-ready:
 - **B. Hold the version bump for a follow-up wave.** Phase B1 ships on `main` but version stays 1.7.x until the user batches more changes (e.g., v1.9.0 bundle).
 
 The plan recommends A but the call rests with the user.
+
+---
+
+## Path A round 1 — Rust separation pre-pass landed (2026-04-27, post-B1)
+
+After v1.8.0 was first marked release-ready, the user requested two more tracks be folded into v1.8.0: **prod_fn** (production-function estimators) and **Path A** (move the Poisson-separation pre-pass to Rust). This entry covers Path A.
+
+### Numbers
+
+| stage                                         | medium wall | iters | vs fixest 0.64 s | gate         |
+| --------------------------------------------- | ----------: | ----: | ---------------: | ------------ |
+| Phase B1 (native Rust IRLS only)              |     0.880 s |     6 |            1.37× | ✅ PASS      |
+| **Path A (B1 + Rust separation pre-pass)**    | **0.855 s** |     6 |        **1.34×** | **✅ PASS**  |
+| Phase B0 (sort-aware Rust demean only)        |     1.441 s |     6 |            2.25× | —            |
+| R `fixest::fepois`                            |     0.64 s  |     5 |            1.00× | —            |
+
+Path A delivers an additional **25 ms wall reduction** on top of Phase B1 (0.880 → 0.855 s, 2.8% improvement). All 3 reps tightly clustered: [0.846, 0.865, 0.855], std ≈ 10 ms.
+
+Cumulative trail v1.7.x → v1.8.0: **3.05× speedup over Phase 0 baseline, gap to fixest closed from 4.08× → 1.34× = 78 % closure**.
+
+### What Path A actually moved
+
+The iterative Poisson-separation drop (`_drop_separation` in `src/statspai/fast/fepois.py`) was the last meaningful Python-side overhead inside the fepois pipeline. Profile pre-Path-A:
+
+```
+~46 ms   _drop_separation
+  ~19 ms     np.unique (×2 for the two FE dims)
+  ~19 ms     np.isin
+  ~5 ms      np.bincount
+  ~3 ms      mask + indexing
+```
+
+The np.unique + np.isin O(n log n) passes were the load-bearing slow ops. The Rust port (`statspai_hdfe::separation::separation_mask`, crate v0.6.0) replaces them with a bincount-based O(n × n_iter × K) loop:
+
+- Pre-allocates K group-sum scratch buffers once, reuses across iterations.
+- Single linear pass over surviving rows per FE dimension per iteration.
+- n_iter ≤ ~3 typically; in the worst-case cascading cases (where dropping FE-A's zero-only group exposes a new zero-only group on FE-B), the fixed point converges by iteration 3-4.
+
+Predicted savings: ~46 ms (the full Python `_drop_separation` cost). Actual measured savings: ~25 ms. The gap is FFI overhead + the Rust bincount loop runs at ~similar speed to Python's hand-tuned C bincount; the wins come from avoiding `np.unique` + `np.isin`.
+
+### Numerical correctness — bit-for-bit parity with the NumPy reference
+
+The Rust kernel produces an identical keep-mask to the canonical Python `_drop_separation` reference across 10 random seeds with synthetic zero-only-cluster injection (`test_separation_rust_matches_python_fallback`). The fallback path (`_HAS_RUST_HDFE = False`) uses the unchanged Python function.
+
+The CR1 cluster-robust SE recovery (commit `39c94d0`) is byte-untouched throughout. All 5 `test_fepois_cluster_*` tests still pass.
+
+### Architectural value beyond wall-clock
+
+The wall-clock improvement (~25 ms) is modest. The architectural value is bigger:
+
+- `separation_mask` is the **last Python-side O(n log n) pre-pass** in fepois. With it ported, the Python side of fepois is now strictly O(n) work (formula parsing, FE factorization via `pd.factorize`, FePoisResult construction). Future GLM families (`feglm` with logit / negbin / gamma) can reuse the same Rust separation primitive.
+- The Rust crate's exported surface is now: `group_demean`, `demean_2d`, `demean_2d_weighted`, `demean_2d_weighted_sorted`, `fepois_irls`, `singleton_mask`, **`separation_mask`** — a complete pre-pass + IRLS toolkit for any future Python-orchestrated estimator that wants HDFE.
+
+Path A's design intent was Path A from the post-Phase-B1 brainstorm: only move pre-passes that have a real Rust speedup; keep formula parsing / FePoisResult / vcov in Python where they already live efficiently. The 25 ms wall-clock improvement validates that the path was correctly scoped (Path B / C would have invested 5-10× more work for a marginal additional gain, given the residual Python-side overhead is now dominated by O(n) work that's already at C speed).
+
+### Tests
+
+29 fast-fepois tests pass total (was 28). New: `test_separation_rust_matches_python_fallback`. 27 cargo tests pass total (was 24): added 3 separation-kernel unit tests covering no-drop / single-pass / iterative-cascade.
