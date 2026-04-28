@@ -194,7 +194,7 @@ def vcnet(
     q_lo = np.quantile(boot_curves, alpha / 2, axis=0)
     q_hi = np.quantile(boot_curves, 1 - alpha / 2, axis=0)
 
-    return VCNetResult(
+    _result = VCNetResult(
         t_grid=t_grid,
         mu_hat=mu_hat,
         se=se,
@@ -205,6 +205,24 @@ def vcnet(
         n_basis=n_basis,
         detail={"ridge": ridge, "degree": spline_degree},
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.dose_response.vcnet",
+            params={
+                "y": y, "treatment": treatment,
+                "covariates": list(covariates),
+                "n_basis": n_basis, "spline_degree": spline_degree,
+                "ridge": ridge, "n_bootstrap": n_bootstrap,
+                "alpha": alpha, "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # --------------------------------------------------------------------

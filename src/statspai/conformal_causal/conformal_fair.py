@@ -169,7 +169,7 @@ def conformal_fair_ite(
 
     group_targets = {str(g): 1 - alpha for g in np.unique(G)}
 
-    return FairConformalResult(
+    _result = FairConformalResult(
         intervals=intervals,
         point_estimate=point,
         group_assignment=Gt,
@@ -177,3 +177,20 @@ def conformal_fair_ite(
         group_coverage_targets=group_targets,
         coverage_target=alpha,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.conformal_causal.conformal_fair_ite",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "protected": protected,
+                "alpha": alpha, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

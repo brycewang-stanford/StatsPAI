@@ -182,10 +182,28 @@ def conformal_continuous(
                 })
         curves = pd.DataFrame(curve_rows)
 
-    return ContinuousConformalResult(
+    _result = ContinuousConformalResult(
         alpha=alpha, quantile=q, predictions=test_out,
         model=estimator, dose_grid=dose, dose_curves=curves,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.conformal_causal.conformal_continuous",
+            params={
+                "y": y, "treatment": treatment,
+                "covariates": list(covariates),
+                "alpha": alpha,
+                "calibration_frac": calibration_frac,
+                "random_state": random_state,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # -------------------------------------------------------------------------

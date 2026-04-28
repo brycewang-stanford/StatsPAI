@@ -114,7 +114,7 @@ def clone_censor_weight(
         stabilize=stabilize,
     )
 
-    return CloneCensorWeightResult(
+    _result = CloneCensorWeightResult(
         cloned_data=cloned,
         strategies=list(strategies.keys()),
         n_originals=data[id_col].nunique(),
@@ -125,3 +125,21 @@ def clone_censor_weight(
             "min": float(cloned["_ipcw"].min()),
         },
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.target_trial.clone_censor_weight",
+            params={
+                "id_col": id_col, "time_col": time_col,
+                "treatment_col": treatment_col,
+                "strategies": list(strategies.keys()),
+                "censor_covariates": list(censor_covariates) if censor_covariates else None,
+                "stabilize": stabilize,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

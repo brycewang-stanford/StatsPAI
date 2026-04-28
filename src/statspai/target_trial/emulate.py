@@ -121,7 +121,7 @@ def emulate(
     se = float(np.sqrt(v1 + v0))
     ci = (estimate - 1.96 * se, estimate + 1.96 * se)
 
-    return TargetTrialResult(
+    _result = TargetTrialResult(
         protocol=protocol,
         estimate=estimate,
         se=se,
@@ -131,3 +131,20 @@ def emulate(
         weights=w,
         method=protocol.analysis_plan,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.target_trial.emulate",
+            params={
+                "outcome_col": outcome_col,
+                "treatment_col": treatment_col,
+                "n_eligible": int(n_eligible),
+                "analysis_plan": str(protocol.analysis_plan),
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

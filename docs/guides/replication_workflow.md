@@ -378,7 +378,7 @@ So `lineage.json` traces the full chain: aggregate → producing CS run
 
 ## Provenance scorecard
 
-As of v1.7.2, **91 estimators** are instrumented:
+As of v1.7.2, **99 estimators** are instrumented:
 
 | Estimator                                                | Phase    |
 |---                                                       |---       |
@@ -473,8 +473,16 @@ As of v1.7.2, **91 estimators** are instrumented:
 | `sp.gformula.ice` (parametric g-formula)                 | **P16**  |
 | `sp.gformula.gformula_mc` (Monte-Carlo g-formula)        | **P16**  |
 | `sp.msm` (Marginal Structural Model, IPTW)               | **P16**  |
+| `sp.conformal_causal.conformal_debiased_ml`              | **P17**  |
+| `sp.conformal_causal.conformal_density_ite`              | **P17**  |
+| `sp.conformal_causal.conformal_fair_ite`                 | **P17**  |
+| `sp.conformal_causal.conformal_continuous`               | **P17**  |
+| `sp.transport.transport_weights`                         | **P17**  |
+| `sp.target_trial.emulate`                                | **P17**  |
+| `sp.target_trial.clone_censor_weight`                    | **P17**  |
+| `sp.dose_response.vcnet` (Varying-coefficient DR)        | **P17**  |
 
-The remaining ~834 estimators are scheduled for v1.7.3+ rollouts. To
+The remaining ~826 estimators are scheduled for v1.7.3+ rollouts. To
 check whether a specific estimator is instrumented:
 
 ```python

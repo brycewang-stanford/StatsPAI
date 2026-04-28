@@ -112,7 +112,7 @@ def transport_weights(
     se = float(np.sqrt(v1 + v0))
     ess = float(w.sum() ** 2 / (w ** 2).sum())
 
-    return TransportWeightResult(
+    _result = TransportWeightResult(
         weights=w,
         ess=ess,
         max_weight=float(w.max()),
@@ -120,6 +120,24 @@ def transport_weights(
         effect_transported=float(transported),
         se_transported=se,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.transport.transport_weights",
+            params={
+                "features": list(features),
+                "treatment": treatment, "outcome": outcome,
+                "truncate": list(truncate) if truncate else None,
+                "n_source": int(len(source)),
+                "n_target": int(len(target)),
+            },
+            data=source,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def _wmean(y: np.ndarray, a: np.ndarray) -> float:

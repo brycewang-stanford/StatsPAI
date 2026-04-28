@@ -178,10 +178,26 @@ def conformal_density_ite(
             # Apply the HDR offsets (around zero) to each test point
             intervals = np.column_stack([point + best_lo, point + best_hi])
 
-    return ConformalDensityResult(
+    _result = ConformalDensityResult(
         intervals=intervals,
         point_estimate=point,
         coverage_target=alpha,
         n_calibration=n_cal,
         n_test=len(test_df),
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.conformal_causal.conformal_density_ite",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "alpha": alpha, "bandwidth": bandwidth, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

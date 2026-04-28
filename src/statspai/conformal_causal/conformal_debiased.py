@@ -128,10 +128,26 @@ def conformal_debiased_ml(
 
     intervals = np.column_stack([ite_test - q, ite_test + q])
 
-    return DebiasedConformalResult(
+    _result = DebiasedConformalResult(
         intervals=intervals,
         point_estimate=ite_test,
         coverage_target=alpha,
         n_calibration=len(cal),
         n_test=len(intervals),
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.conformal_causal.conformal_debiased_ml",
+            params={
+                "y": y, "treat": treat,
+                "covariates": list(covariates),
+                "alpha": alpha, "n_folds": n_folds, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
