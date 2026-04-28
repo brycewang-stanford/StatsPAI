@@ -86,7 +86,7 @@ NBER_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-DOI_RE = re.compile(r"\b(?P<id>10\.\d{4,9}/[^\s)\"'`,;}]+?)(?=[\s)\"'`,;}]|\.(?:$|\s|[^\d])|$)")
+DOI_RE = re.compile(r"\b(?P<id>10\.\d{4,9}/[^\s)\"'`,;}]+?)\.?(?=[\s)\"'`,;}]|$)")
 
 YEAR_RE = re.compile(r"\b(19\d{2}|20\d{2})\b")
 
@@ -158,6 +158,8 @@ SURNAME_STOPWORDS = {
     "event", "series", "acronym", "framework", "library",
     "survey", "generation", "evidence", "designs", "design",
     "algorithm", "algorithms", "tree", "forests",
+    # title-word fragments (paper titles quoted in docs / specs)
+    "simple", "globally", "convergent", "accelerating", "convergence",
     # ML method/architecture tokens that hyphenate into faux-surnames
     "q-network", "q-networks", "q-learning", "q-function", "q-functions",
     "deep-q", "dqn", "ddqn", "ppo", "a3c", "trpo",
