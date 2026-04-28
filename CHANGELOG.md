@@ -2,7 +2,7 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased] — `sp.regtable` Round 4 (event_study_table, vcov= recompute, transpose)
+## [1.8.0] — `sp.regtable` Round 4 (event_study_table, vcov= recompute, transpose)
 
 Three further additions on top of Rounds 1-3. **No numerical
 changes** to any estimator; the ``vcov=`` recompute reuses the
@@ -53,7 +53,7 @@ guards on multi-panel / multi_se.
 577 targeted tests pass (Rounds 1-4 = 528 + 20 + 14 + 15, plus broad
 anchors). Zero regression.
 
-## [1.8.0] — Native Rust IRLS for `sp.fast.fepois` + production-function module
+## [1.8.0] — 2026-04-28 — Native Rust IRLS for `sp.fast.fepois` + production-function module
 
 The headline of v1.8.0 is the **3× wall-clock improvement** on the
 medium HDFE benchmark: `sp.fast.fepois` runs at **0.855 s** vs the
@@ -168,7 +168,7 @@ verified with a wall-clock spike before the next was committed
 
 ---
 
-## [Unreleased] — `sp.regtable` Round 3 (margins_table, tests= footer, fixef_sizes)
+## [1.8.0] — `sp.regtable` Round 3 (margins_table, tests= footer, fixef_sizes)
 
 Three further additions on top of Round 1 + Round 2. **No numerical
 changes** to any estimator (margins_table is a pure adapter; tests=
@@ -213,7 +213,7 @@ all three features across text / LaTeX / HTML renderers.
 anchors); zero regression on the 33 output / regression test files
 exercised.
 
-## [Unreleased] — `sp.regtable` Round 2 (templates, notation, apply_coef, escape, Word/Excel spanners)
+## [1.8.0] — `sp.regtable` Round 2 (templates, notation, apply_coef, escape, Word/Excel spanners)
 
 Five further additions on top of the Round 1 commit. **No numerical
 changes** to any estimator; output-layer only.
@@ -263,7 +263,7 @@ five features across text / LaTeX / HTML / Word / Excel renderers.
 
 548 targeted tests pass (Round 1's 528 + 20 new), zero regression.
 
-## [Unreleased] — `sp.regtable` publication-quality extensions
+## [1.8.0] — `sp.regtable` publication-quality extensions
 
 Five additions designed to close the remaining gap between
 ``sp.regtable`` and Stata ``esttab`` / R ``modelsummary`` /
@@ -318,7 +318,7 @@ all six format renderers (text / LaTeX / HTML / Markdown) plus the
 parameter validation paths. Existing 204 output-area tests
 unchanged.
 
-## [Unreleased] — Phase 12: provenance rollout to 66/925 (bounds + randomization + imputation)
+## [1.8.0] — Phase 12: provenance rollout to 66/925 (bounds + randomization + imputation)
 
 Continues the v1.7.2 provenance rollout. **No numerical changes** to
 any estimator. 5 estimators instrumented spanning bounds /
@@ -336,7 +336,7 @@ randomization inference / imputation. Coverage 61/925 → **66/925**.
 
 6 new (5 per-estimator + 1 multi-estimator integration). All pass.
 
-## [Unreleased] — Phase 11: provenance rollout to 61/925 (spatial + qte + bootstrap + conformal)
+## [1.8.0] — Phase 11: provenance rollout to 61/925 (spatial + qte + bootstrap + conformal)
 
 Continues the v1.7.2 provenance rollout. **No numerical changes** to
 any estimator. 7 estimators instrumented spanning spatial / quantile
@@ -356,7 +356,7 @@ any estimator. 7 estimators instrumented spanning spatial / quantile
 
 8 new (7 per-estimator + 1 multi-estimator integration). All pass.
 
-## [Unreleased] — Phase 10: provenance rollout to 54/925 (panel + decomp + mediation)
+## [1.8.0] — Phase 10: provenance rollout to 54/925 (panel + decomp + mediation)
 
 Continues the v1.7.2 provenance rollout. **No numerical changes** to
 any estimator. 6 estimators instrumented; ``sp.panel`` refactored
@@ -394,7 +394,7 @@ add no information.
 multi-estimator integration). 111 green across the panel /
 causal_impact / mediation / decomposition / bartik regression sweep.
 
-## [Unreleased] — Phase 9: provenance rollout to 48/925 (TMLE + forest + DR)
+## [1.8.0] — Phase 9: provenance rollout to 48/925 (TMLE + forest + DR)
 
 Continues the v1.7.2 provenance rollout. **No numerical changes** to
 any estimator. 12 ML-causal + classical-identification estimators
@@ -433,7 +433,7 @@ multi-estimator integration). 103 green across the
 hal_tmle / causal_forest / metalearner / bcf / front_door /
 g_computation regression sweep.
 
-## [Unreleased] — production function estimators (OP / LP / ACF / Wooldridge + translog + DLW markup)
+## [1.8.0] — production function estimators (OP / LP / ACF / Wooldridge + translog + DLW markup)
 
 Adds proxy-variable production function estimation — Olley-Pakes,
 Levinsohn-Petrin, Ackerberg-Caves-Frazer, Wooldridge — plus
@@ -512,7 +512,7 @@ markup work.
   full efficient-GMM Wooldridge are roadmap items, not in this
   release.
 
-## [Unreleased] — Phase 8: provenance rollout to 36/925 (IV + matching + DML)
+## [1.8.0] — Phase 8: provenance rollout to 36/925 (IV + matching + DML)
 
 Continues the v1.7.2 provenance rollout from Phases 3-4-7. **No
 numerical changes** to any estimator. 12 instrumentation points added
@@ -585,7 +585,7 @@ DML + provenance regression sweep:
 
 ``docs/guides/replication_workflow.md`` scorecard updated to 36/925.
 
-## [Unreleased] — production function estimators
+## [1.8.0] — production function estimators
 
 Adds proxy-variable production function estimation — Olley-Pakes,
 Levinsohn-Petrin, Ackerberg-Caves-Frazer, Wooldridge — plus the
@@ -643,7 +643,7 @@ for productivity / TFP / markup work.
 - Translog and Gandhi-Navarro-Rivers (2020) production functions
   are roadmap items, not in this release.
 
-## [Unreleased] — Phase 7: provenance rollout to 21/925 (DiD long-tail + RD)
+## [1.8.0] — Phase 7: provenance rollout to 21/925 (DiD long-tail + RD)
 
 Continues the v1.7.2 provenance rollout established in Phases 3-4.
 **No numerical changes** to any estimator. 12 more estimators
@@ -710,7 +710,7 @@ the DiD + RD + paper regression sweep (DiD: 214, paper+remaining:
 the new 21/925 coverage. Users running `get_provenance(result)`
 can verify any estimator's status locally.
 
-## [Unreleased] — production function estimators
+## [1.8.0] — production function estimators
 
 Adds proxy-variable production function estimation — Olley-Pakes,
 Levinsohn-Petrin, Ackerberg-Caves-Frazer, Wooldridge — plus the
@@ -766,7 +766,7 @@ for productivity / TFP / markup work.
 - Translog and Gandhi-Navarro-Rivers (2020) production functions
   are roadmap items, not in this release.
 
-## [Unreleased] — clubSandwich-equivalent HTZ Wald (independent PR)
+## [1.8.0] — clubSandwich-equivalent HTZ Wald (independent PR)
 
 Adds a numerically-equivalent Python implementation of R
 ``clubSandwich::Wald_test(..., test="HTZ")`` for cluster-robust Wald
@@ -820,7 +820,7 @@ and can drift 50–100% from clubSandwich on multi-restriction tests).
   clubSandwich source (R Wald_testing / get_P_array / total_variance_mat).
   No GPL code copied; clubSandwich used only as black-box reference.
 
-## [Unreleased] — Phase 5: LLM-DAG closed loop + layered credential resolver
+## [1.8.0] — Phase 5: LLM-DAG closed loop + layered credential resolver
 
 Closes the LLM-DAG closed-loop deferred from Phases 2-4. **No
 numerical changes** to any estimator. The export pipeline can now
@@ -912,7 +912,7 @@ through ``chat()``, so no concrete adapter needs changes.
 221 green across the new + adjacent paper / lineage /
 replication_pack / estimator-provenance / bibliography / gt suites.
 
-## [Unreleased] — Phase 4: synth refactor + 5 more estimator provenance hookups
+## [1.8.0] — Phase 4: synth refactor + 5 more estimator provenance hookups
 
 Continues the v1.7.2 provenance rollout from Phase 3 (4 estimators
 instrumented). This round closes the deferred ``sp.synth`` dispatcher
@@ -988,7 +988,7 @@ DiD long-tail (~20), IV variants (~15), synth sub-modules (already
 flow through dispatcher), DML / TMLE / metalearners (~50), panel /
 structural (~80), and the long tail (~750).
 
-## [Unreleased] — Phase 3: estimand-first paper + estimator provenance + DAG appendix
+## [1.8.0] — Phase 3: estimand-first paper + estimator provenance + DAG appendix
 
 Layered on top of the Phase 1+2 export trinity. **No numerical changes**
 to any estimator. Three additions, each gated to **opt-in** call sites
@@ -1075,7 +1075,7 @@ explicit choice.
 paper_dag_section). 295 green across the full Phase 1+2+3 + adjacent
 paper / registry / help / output / workflow surface.
 
-## [Unreleased] — v1.8.1: HDFE silent-bug fix + completeness pass
+## [1.8.0] — HDFE silent-bug fix + completeness pass
 
 Layered on top of the v1.8 RC `sp.fast.*` HDFE stack. **One ⚠️
 correctness fix** (`event_study` cluster SE), the rest is additive.
@@ -1199,7 +1199,7 @@ Total: `pytest tests/test_fast_*.py tests/test_hdfe_native.py
 tests/test_registry*.py tests/test_help.py` — **267 passed,
 2 graceful-skip** (was 133 at end of Phase 8).
 
-## [Unreleased] — Phase 2: great_tables + CSL pipeline + paper auto-provenance
+## [1.8.0] — Phase 2: great_tables + CSL pipeline + paper auto-provenance
 
 Layered on top of the export trinity below. **No numerical changes**
 to any estimator. Three additions, all opt-in, all stdlib + soft
@@ -1285,7 +1285,7 @@ v1.7.3+ instruments individual estimators (``sp.feols``,
 the full new + adjacent surface. Fast/Rust HDFE territory still
 untouched — Phase 2 is fully orthogonal to the parallel work.
 
-## [Unreleased] — Export trinity: numerical lineage + replication pack + Quarto emitter
+## [1.8.0] — Export trinity: numerical lineage + replication pack + Quarto emitter
 
 Pure-additive export-layer patch. **No numerical changes** to any
 estimator. Closes three concrete gaps between StatsPAI's export stack

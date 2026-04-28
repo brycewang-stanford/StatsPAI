@@ -123,7 +123,20 @@ StatsPAI's focus is **causal inference** — and on this axis we aim to be the m
 
 ---
 
-**🎉 NEW in v1.7 — Phase 2 Output Overhaul (journal presets · auto-diagnostics · multi-SE · `sp.cite()` · reproducibility footer · `fmt="auto"` · unified book-tab xlsx)**
+**🎉 NEW in v1.8 — Native Rust IRLS for `sp.fast.fepois` · `sp.prod_fn` production functions · `regtable` Rounds 1-4 · estimator provenance 142/925**
+
+StatsPAI 1.8.0 (2026-04-28) lands a 3× wall-clock speed-up on the medium HDFE benchmark and a brand-new structural-estimation module. **No numerical changes** to existing v1.7.x estimators — the Rust IRLS path is bit-for-bit identical to the NumPy fallback (verified by `test_fepois_native_irls_vs_python_irls_parity`).
+
+| Area | v1.8 Highlights |
+| --- | --- |
+| **Native Rust IRLS** | `sp.fast.fepois` runs at **0.855 s** on the standard medium dataset (n=1M, fe1=100k, fe2=1k) vs the v1.7.x baseline 2.61 s — **3.05× speed-up**, and **1.34× of R `fixest::fepois`** (well under the ≤ 1.5× target). Closes the long-standing wall-clock gap to `fixest`. Three orthogonal contributions: Phase A (Rust scatter), Phase B0 (sort-by-FE sequential sweep + dispatcher cache), Phase B1 (single-PyO3-call `fepois_irls` state machine), Path A (Rust separation pre-pass). All audited at `benchmarks/hdfe/AUDIT.md`. |
+| **Production functions** | New `sp.prod_fn` dispatcher: `olley_pakes` / `levinsohn_petrin` / `ackerberg_caves_frazer` / `wooldridge_prod` + De Loecker-Warzynski `markup`. Cobb-Douglas default + translog functional form; firm-cluster bootstrap SE; full registry coverage. References (all Crossref-verified): Olley-Pakes (1996), Levinsohn-Petrin (2003), Ackerberg-Caves-Frazer (2015), Wooldridge (2009), De Loecker-Warzynski (2012). |
+| **`regtable` Rounds 1-4** | Round 1: `eform` (odds/IRR/HR), `column_spanners`, `coef_map`, `depvar_mean/sd`, N-mismatch warning. Round 2: estimate/statistic templates, `notation`, `apply_coef`, escape, Word/Excel spanners. Round 3: `margins_table`, `tests=` footer, `fixef_sizes`. Round 4: `sp.event_study_table`, `vcov=` print-time recompute (HC0/HC1/HC2/HC3), `transpose=True`. Closes the remaining gap with Stata `esttab` / R `modelsummary` / `fixest::etable`. |
+| **Estimator provenance** | Phase 2-26 instrumented **142 / 925** estimators with structured `provenance` blocks (input data hash · estimator name + version · IRLS iteration count · cluster vars · FE structure · seed · timestamp). Spans DiD long-tail, IV, matching, DML, TMLE, forest, DR, panel, decomposition, mediation, spatial, qte, bootstrap, conformal, bounds, RI, imputation, mendelian, bunching, censoring, surrogate, transport, target_trial, vcnet, proximal, gformula, msm, pate, jackknife, cr2, timeseries, diagnostics, survival, IV variants, fairness, neural-causal, causal-text, bvar, causal-discovery, epi, bridge, interference, causal_rl, matrix_completion, principal_strat, spatial models, selection, cointegration, mr_heterogeneity, ope, conformal counterfactual. |
+| **Output trinity** | Phase 2 great_tables + CSL pipeline + paper auto-provenance · Phase 3 estimand-first paper + DAG appendix · Phase 4 synth refactor · Export trinity (numerical lineage + replication pack + Quarto emitter). |
+| **HTZ Wald + LLM-DAG closed loop** | clubSandwich-equivalent `cluster_wald_htz` with `rtol < 1e-8` R `clubSandwich::Wald_test` parity. Phase 5 LLM-DAG closed loop + layered credential resolver. |
+
+**Previously in v1.7 — Phase 2 Output Overhaul (journal presets · auto-diagnostics · multi-SE · `sp.cite()` · reproducibility footer · `fmt="auto"` · unified book-tab xlsx)**
 
 StatsPAI 1.7.x closes the remaining gap between StatsPAI's table layer and `R::modelsummary` / `fixest::etable` / Stata `esttab`. **Pure-additive** — no numerical changes to any estimator. v1.6.x call sites produce byte-identical regression output.
 
