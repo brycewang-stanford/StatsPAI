@@ -118,7 +118,7 @@ def general_bunching(
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (corrected - z_crit * se, corrected + z_crit * se)
 
-    return GeneralBunchingResult(
+    _result = GeneralBunchingResult(
         naive_elasticity=naive if naive == naive else corrected,
         bias_corrected_elasticity=corrected,
         se=se,
@@ -126,3 +126,20 @@ def general_bunching(
         polynomial_order=polynomial_order,
         n_obs=n,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.bunching.general_bunching",
+            params={
+                "running": running, "cutoff": cutoff,
+                "bandwidth": bandwidth, "bin_width": bin_width,
+                "polynomial_order": polynomial_order,
+                "alpha": alpha, "n_boot": n_boot, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

@@ -436,7 +436,7 @@ def stepwise(
     coefs = dict(zip(names, final_stats["beta"]))
 
     dropped = [v for v in candidates if v not in included]
-    return SelectionResult(
+    _result = SelectionResult(
         selected=included,
         dropped=dropped,
         history=pd.DataFrame(history_rows),
@@ -444,6 +444,22 @@ def stepwise(
         method=method,
         coefficients=coefs,
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.selection.stepwise",
+            params={
+                "y": y, "x": list(x),
+                "method": method, "criterion": criterion,
+                "alpha_in": alpha_in, "alpha_out": alpha_out,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ---------------------------------------------------------------------------
@@ -706,7 +722,7 @@ def lasso_select(
         print(f"  Selected ({len(selected)}): {', '.join(selected) if selected else '(none)'}")
         print(f"  Dropped  ({len(dropped)}): {', '.join(dropped) if dropped else '(none)'}")
 
-    return SelectionResult(
+    _result = SelectionResult(
         selected=selected,
         dropped=dropped,
         history=pd.DataFrame(history_rows),
@@ -719,3 +735,20 @@ def lasso_select(
             "lambda_best": best_lambda,
         },
     )
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.selection.lasso_select",
+            params={
+                "y": y, "x": list(x),
+                "method": method, "n_folds": n_folds,
+                "n_lambda": n_lambda, "eps": eps,
+                "max_iter": max_iter, "tol": tol, "seed": seed,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result

@@ -378,7 +378,7 @@ So `lineage.json` traces the full chain: aggregate → producing CS run
 
 ## Provenance scorecard
 
-As of v1.7.2, **129 estimators** are instrumented (>14× original 9-baseline):
+As of v1.7.2, **135 estimators** are instrumented (>15× original 9-baseline):
 
 | Estimator                                                | Phase    |
 |---                                                       |---       |
@@ -511,8 +511,14 @@ As of v1.7.2, **129 estimators** are instrumented (>14× original 9-baseline):
 | `sp.mediation.four_way_decomposition`                    | **P23**  |
 | `sp.mediation.mediate_sensitivity`                       | **P23**  |
 | `sp.principal_strat.survivor_average_causal_effect`      | **P23**  |
+| `sp.spatial.sar` (Spatial Autoregressive)                | **P24**  |
+| `sp.spatial.sem` (Spatial Error Model)                   | **P24**  |
+| `sp.spatial.sdm` (Spatial Durbin Model)                  | **P24**  |
+| `sp.bunching.general_bunching` (high-order bunching)     | **P24**  |
+| `sp.selection.stepwise` (stepwise variable selection)    | **P24**  |
+| `sp.selection.lasso_select` (LASSO variable selection)   | **P24**  |
 
-The remaining ~796 estimators are scheduled for v1.7.3+ rollouts. To
+The remaining ~790 estimators are scheduled for v1.7.3+ rollouts. To
 check whether a specific estimator is instrumented:
 
 ```python

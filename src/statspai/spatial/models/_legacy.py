@@ -68,7 +68,23 @@ def sar(
     """
     model = SpatialModel(W, data, formula, model_type="sar",
                          row_normalize=row_normalize, alpha=alpha)
-    return model.fit()
+    _result = model.fit()
+    try:
+        from ...output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.spatial.sar",
+            params={
+                "formula": formula,
+                "row_normalize": row_normalize, "alpha": alpha,
+                "W_shape": list(W.shape) if hasattr(W, "shape") else None,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def sem(
@@ -92,7 +108,23 @@ def sem(
     """
     model = SpatialModel(W, data, formula, model_type="sem",
                          row_normalize=row_normalize, alpha=alpha)
-    return model.fit()
+    _result = model.fit()
+    try:
+        from ...output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.spatial.sem",
+            params={
+                "formula": formula,
+                "row_normalize": row_normalize, "alpha": alpha,
+                "W_shape": list(W.shape) if hasattr(W, "shape") else None,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 def sdm(
@@ -120,7 +152,23 @@ def sdm(
     """
     model = SpatialModel(W, data, formula, model_type="sdm",
                          row_normalize=row_normalize, alpha=alpha)
-    return model.fit()
+    _result = model.fit()
+    try:
+        from ...output._lineage import attach_provenance as _attach_prov
+        _attach_prov(
+            _result,
+            function="sp.spatial.sdm",
+            params={
+                "formula": formula,
+                "row_normalize": row_normalize, "alpha": alpha,
+                "W_shape": list(W.shape) if hasattr(W, "shape") else None,
+            },
+            data=data,
+            overwrite=False,
+        )
+    except Exception:  # pragma: no cover
+        pass
+    return _result
 
 
 # ====================================================================== #
