@@ -152,6 +152,43 @@ discovery / orchestration / output layer.
 
 ### Added
 
+- **`sp.match()` `method=` expanded to cover the full matching
+  toolkit.** ``sp.match`` was already a function with built-in
+  ``method=`` for classical algorithms (nearest / stratify / cem /
+  psm / mahalanobis); the table now reaches every
+  matching/weighting estimator in ``statspai.matching`` from a
+  single entry point:
+
+  - **Classical:** ``nearest`` (default), ``stratify`` /
+    ``subclass`` / ``subclassification``, ``cem`` /
+    ``coarsened_exact``, ``psm``, ``mahalanobis``.
+  - **Weighting:** ``ebalance`` / ``entropy`` /
+    ``entropy_balancing`` (Hainmueller 2012),
+    ``cbps`` (Imai-Ratkovic 2014),
+    ``sbw`` / ``stable_balancing`` (Zubizarreta 2015),
+    ``overlap`` / ``ow`` / ``overlap_weights`` (LMZ 2018).
+  - **Genetic:** ``genmatch`` / ``genetic`` (Diamond-Sekhon 2013).
+  - **Optimization-based:** ``optimal`` / ``optimal_match``
+    (Rosenbaum 1989), ``cardinality`` / ``cardinality_match``
+    (Zubizarreta 2014).
+
+  The dispatcher translates ``treat`` ↔ ``treatment`` and ``y``
+  ↔ ``outcome`` for the few estimators that internally use the
+  alternate names (``optimal_match``, ``cardinality_match``).
+  Standalone access (``sp.ebalance``, ``sp.cbps``, ``sp.genmatch``,
+  ``sp.sbw``, ``sp.optimal_match``, ``sp.cardinality_match``,
+  ``sp.overlap_weights``) is unchanged.
+
+  The dispatcher refuses to silently swallow nonsense: passing a
+  classical-matching kwarg (``caliper=`` / ``replace=`` /
+  ``n_matches=`` / ``bias_correction=`` / ``ps_poly=`` /
+  ``n_strata=`` / ``n_bins=``) with ``method='ebalance'`` etc.
+  raises ``TypeError: does not accept these classical-matching
+  kwargs``.
+
+  Regression-guarded by ``tests/test_match_dispatcher.py`` (31
+  new tests); 76 existing matching-family tests still pass.
+
 - **`sp.rd()` is now callable with a unified `method=` table.** Same
   PEP 562 callable-module pattern used for ``sp.iv`` in this
   release: the ``statspai.rd`` subpackage itself dispatches calls,
