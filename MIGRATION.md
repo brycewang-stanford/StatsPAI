@@ -76,7 +76,7 @@ The 422 new tests include explicit regression guards on these
 contracts. If your code depended on any of them, nothing changes.
 
 - ``CausalResult.to_dict()`` with no kwargs is **byte-identical**
-  to ``cite(detail="standard")`` — the legacy default. The new
+  to ``to_dict(detail="standard")`` — the legacy default. The new
   ``detail`` parameter is keyword-only and adds three documented
   levels (``"minimal"`` / ``"standard"`` / ``"agent"``).
 - ``CausalResult.cite()`` with no kwargs still returns a BibTeX

@@ -85,12 +85,42 @@ class TestToolsList:
             assert canonical in names
 
     def test_every_tool_has_data_path_param(self):
+        # Every tool must EXPOSE the ``data_path`` property so MCP
+        # clients can load a CSV server-side. ``required`` membership
+        # is conditional — dataless tools (honest_did, sensitivity)
+        # leave it optional so strict-schema clients don't refuse to
+        # dispatch when no CSV is supplied.
+        from statspai.agent.mcp_server import _DATALESS_TOOLS
         msg = _rpc("tools/list", {})
-        tools = msg["result"]["tools"]
-        for t in tools:
+        for t in msg["result"]["tools"]:
             schema = t["inputSchema"]
             assert "data_path" in schema["properties"]
-            assert "data_path" in schema["required"]
+            if t["name"] in _DATALESS_TOOLS:
+                assert "data_path" not in schema["required"], (
+                    f"{t['name']!r} is dataless but its schema still "
+                    "marks data_path required")
+            else:
+                assert "data_path" in schema["required"]
+
+    def test_dataless_tools_omit_data_path_required(self):
+        # Regression guard for the 1.9.1 schema fix: honest_did and
+        # sensitivity must dispatch through MCP without a CSV path.
+        msg = _rpc("tools/list", {})
+        by_name = {t["name"]: t for t in msg["result"]["tools"]}
+        for n in ("honest_did", "sensitivity"):
+            if n not in by_name:
+                continue  # not in the merged manifest in this env
+            assert "data_path" not in (
+                by_name[n]["inputSchema"]["required"]), (
+                    f"{n!r} schema must NOT require data_path")
+
+    def test_tools_call_missing_name_returns_invalid_params(self):
+        # Regression guard for the 1.9.1 typed-error fix: a missing
+        # `name` field should return -32602 (invalid params), not
+        # -32000 (generic server fallback).
+        msg = _rpc("tools/call", {"arguments": {}}, request_id=99)
+        assert "error" in msg
+        assert msg["error"]["code"] == -32602
 
 
 # ---------------------------------------------------------------------------

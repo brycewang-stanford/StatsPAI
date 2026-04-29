@@ -2,6 +2,41 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.9.1] — MCP schema + JSON-RPC error polish
+
+Patch release on top of 1.9.0. **No estimator numerical paths
+changed.** Two MCP-server fixes surfaced by strict-schema clients
+(Claude Desktop / Cursor) plus one docs typo.
+
+### Fixed
+
+- **MCP `tools/list` schema — dataless tools no longer require
+  `data_path`.** Tools whose underlying StatsPAI function does not
+  consume a DataFrame (currently ``honest_did`` and ``sensitivity``)
+  used to be advertised with ``data_path`` in ``required``. Strict-
+  schema MCP clients refused to dispatch the call without a CSV
+  path the estimator never reads. ``data_path`` is still exposed as
+  an optional property for clients that always send it; only the
+  ``required`` list is conditional now. New
+  ``_DATALESS_TOOLS = {"honest_did", "sensitivity"}`` is the single
+  source of truth in
+  [`src/statspai/agent/mcp_server.py`](src/statspai/agent/mcp_server.py)
+  — keep in sync with ``TOOL_REGISTRY`` in ``agent/tools.py``.
+
+- **MCP `tools/call` typed error — missing `name` returns -32602.**
+  Previously a ``tools/call`` request without a ``name`` field
+  raised a generic ``ValueError``, which the dispatcher surfaced as
+  ``-32000`` (server fallback). 1.9.0 already promised typed
+  JSON-RPC errors for invalid params (``-32602``); this fixes the
+  one path that escaped the audit. Regression-guarded by
+  ``test_tools_call_missing_name_returns_invalid_params``.
+
+### Docs
+
+- **MIGRATION.md** — fixed a typo in the 1.9.0 ``CausalResult.to_dict``
+  byte-identity note: the no-kwargs default is identical to
+  ``to_dict(detail="standard")``, not ``cite(detail="standard")``.
+
 ## [1.9.0] — Agent-native API surface: 12 modules across 4 phases
 
 The 1.9.0 line ships StatsPAI's first deliberately agent-shaped API

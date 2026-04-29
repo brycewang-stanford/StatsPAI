@@ -168,6 +168,16 @@ _RESERVED_ARG_NAMES = ("data_path", "detail")
 #: Allowed values for ``detail`` (mirrors ``CausalResult.to_dict``).
 _DETAIL_LEVELS = ("minimal", "standard", "agent")
 
+#: Tools whose underlying StatsPAI function does NOT take a DataFrame
+#: as input (they consume pre-computed statistics or string handles).
+#: ``data_path`` is still injected into their schema as an OPTIONAL
+#: convenience for clients that always send it, but it MUST NOT be
+#: marked required — strict-schema MCP clients (e.g. Claude Desktop)
+#: would otherwise refuse to dispatch the call without a CSV path that
+#: the estimator never reads. Keep this set in sync with the
+#: ``TOOL_REGISTRY`` in ``agent/tools.py``.
+_DATALESS_TOOLS = frozenset({"honest_did", "sensitivity"})
+
 
 def _build_mcp_tools() -> List[Dict[str, Any]]:
     """Convert the StatsPAI agent-tool manifest into MCP tool specs.
@@ -196,7 +206,12 @@ def _build_mcp_tools() -> List[Dict[str, Any]]:
                                "local filesystem; the server will "
                                "load it into a DataFrame.",
             }
-            required.append("data_path")
+            # Mark required ONLY for tools whose underlying function
+            # actually takes a DataFrame; dataless tools (honest_did,
+            # sensitivity, …) leave ``data_path`` optional so strict-
+            # schema MCP clients don't refuse to dispatch them.
+            if t["name"] not in _DATALESS_TOOLS:
+                required.append("data_path")
         if "detail" not in props:
             props["detail"] = {
                 "type": "string",
@@ -368,7 +383,8 @@ def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
     name = params.get("name")
     arguments = dict(params.get("arguments") or {})
     if not isinstance(name, str):
-        raise ValueError("`name` is required")
+        raise _InvalidParamsError(
+            "`name` is required and must be a string")
 
     # Server-handled args are stripped before estimator dispatch — the
     # estimator's signature has no ``data_path`` / ``detail`` and would
