@@ -1,0 +1,23 @@
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lcc}
+\hline\hline
+ & (1) & (2) \\
+\hline
+Intercept & 0.364*** & 0.367*** \\
+ & (0.051) & (0.049) \\
+x1 & 1.071*** & 1.098*** \\
+ & (0.054) & (0.052) \\
+x2 & -0.687*** & -0.677*** \\
+ & (0.050) & (0.049) \\
+x3 &  & 0.281*** \\
+ &  & (0.050) \\
+\hline
+n\_obs &  &  \\
+r\_squared &  &  \\
+adj\_r\_squared &  &  \\
+\hline\hline
+\multicolumn{3}{l}{\footnotesize Standard errors in parentheses} \\
+\multicolumn{3}{l}{\footnotesize *** p<0.00, ** p<0.01, * p<0.05} \\
+\end{tabular}
+\end{table}
