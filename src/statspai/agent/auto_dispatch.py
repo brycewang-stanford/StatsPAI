@@ -113,12 +113,18 @@ def dispatch_registry_tool(
     if not isinstance(out, dict):
         out = {'value': out}
 
+    rid: Optional[str] = None
     if as_handle:
         rid = RESULT_CACHE.put(result, tool=name,
                                 arguments={k: v for k, v in arguments.items()
                                             if not isinstance(v, pd.DataFrame)})
         out['result_id'] = rid
         out['result_uri'] = f"statspai://result/{rid}"
+
+    from ._enrichment import enrich_payload
+    enrich_payload(out, tool_name=name, result_id=rid,
+                   base_args={k: v for k, v in arguments.items()
+                              if not isinstance(v, pd.DataFrame)})
 
     return out
 

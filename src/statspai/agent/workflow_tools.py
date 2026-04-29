@@ -230,6 +230,42 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
     # Citation tool — the kill-switch for citation hallucination.
     # ------------------------------------------------------------------
     {
+        'name': 'plot_from_result',
+        'description': (
+            "Render the canonical diagnostic plot for a fitted result "
+            "and return it as an inline PNG image content block. "
+            "MCP clients with vision (Claude Desktop, vision-capable "
+            "agents) get the plot for free; clients that don't support "
+            "image content see only the JSON metadata. Plot kind is "
+            "auto-selected from the result type: event-study for DID, "
+            "rdplot for RD, gap plot for synth, balance plot for "
+            "matching, ROC for classification, etc."
+        ),
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'result_id': {
+                    'type': 'string',
+                    'description': "Handle to a fitted result.",
+                },
+                'kind': {
+                    'type': 'string',
+                    'description': (
+                        "Override the auto-detected plot kind. "
+                        "Common values: 'event_study', 'rdplot', "
+                        "'synth_gap', 'love_plot', 'coef_plot'."
+                    ),
+                },
+                'figsize': {
+                    'type': 'array',
+                    'items': {'type': 'number'},
+                    'description': "Width, height in inches (default [8,5]).",
+                },
+            },
+            'required': ['result_id'],
+        },
+    },
+    {
         'name': 'bibtex',
         'description': (
             "Return verified BibTeX entries from paper.bib (StatsPAI's "
@@ -300,6 +336,9 @@ def execute_workflow_tool(
 
     if name == 'bibtex':
         return _tool_bibtex(arguments)
+
+    if name == 'plot_from_result':
+        return _tool_plot_from_result(rid_arg, arguments)
 
     if name == 'detect_design':
         return _tool_detect_design(arguments, data, detail=detail,
@@ -448,11 +487,23 @@ def _tool_sensitivity_from_result(rid: Optional[str],
     if not isinstance(out, dict):
         out = {'value': out}
     out['source_result_id'] = rid
+    new_rid: Optional[str] = None
     if as_handle:
         new_rid = RESULT_CACHE.put(result, tool='sensitivity_from_result',
                                      arguments={'source': rid, 'method': method})
         out['result_id'] = new_rid
         out['result_uri'] = f"statspai://result/{new_rid}"
+    from ._enrichment import enrich_payload
+    # Enrichment uses the underlying sensitivity method as the tool key
+    # (evalue / oster / cinelli_hazlett / sensitivity) so citations point
+    # to the correct paper.
+    enrich_key = method if method in {'evalue', 'oster_bounds',
+                                       'sensemakr', 'sensitivity'} else 'sensitivity'
+    if method == 'oster':
+        enrich_key = 'oster_bounds'
+    elif method == 'cinelli_hazlett':
+        enrich_key = 'sensemakr'
+    enrich_payload(out, tool_name=enrich_key, result_id=new_rid)
     return out
 
 
@@ -504,11 +555,14 @@ def _tool_honest_did_from_result(rid: Optional[str],
     out['source_result_id'] = rid
     out['extracted_n_pre'] = int(n_pre)
     out['extracted_n_post'] = int(n_post)
+    new_rid: Optional[str] = None
     if as_handle:
         new_rid = RESULT_CACHE.put(result, tool='honest_did_from_result',
                                      arguments={'source': rid, 'method': method})
         out['result_id'] = new_rid
         out['result_uri'] = f"statspai://result/{new_rid}"
+    from ._enrichment import enrich_payload
+    enrich_payload(out, tool_name='honest_did', result_id=new_rid)
     return out
 
 
@@ -627,6 +681,169 @@ def _tool_preflight(arguments: Dict[str, Any],
         result_dict['result_id'] = rid
         result_dict['result_uri'] = f"statspai://result/{rid}"
     return result_dict
+
+
+# ----------------------------------------------------------------------
+# plot_from_result — emit a PNG image content block
+# ----------------------------------------------------------------------
+
+#: Map from result class-name patterns → plot kind. Highest-priority
+#: match wins, so order matters: more-specific patterns first.
+_PLOT_KIND_BY_CLASS: List = [
+    ("CallawaySantannaResult", "event_study"),
+    ("EventStudyResult", "event_study"),
+    ("DIDResult", "event_study"),
+    ("HonestDIDResult", "honest_did"),
+    ("BaconDecompositionResult", "bacon"),
+    ("RDResult", "rdplot"),
+    ("RDRobustResult", "rdplot"),
+    ("RDDensityResult", "rddensity"),
+    ("SynthResult", "synth_gap"),
+    ("SynthDIDResult", "synth_gap"),
+    ("MatchingResult", "love_plot"),
+    ("EBalanceResult", "love_plot"),
+    ("CausalForestResult", "cate_plot"),
+    ("MetalearnerResult", "cate_plot"),
+    ("CausalResult", "coef_plot"),
+    ("EconometricResults", "coef_plot"),
+]
+
+
+def _detect_plot_kind(obj: Any) -> str:
+    cls_name = type(obj).__name__
+    for pattern, kind in _PLOT_KIND_BY_CLASS:
+        if pattern in cls_name:
+            return kind
+    return "coef_plot"
+
+
+def _render_plot_png(obj: Any, kind: str,
+                      figsize=(8, 5)) -> Optional[bytes]:
+    """Best-effort rendering of ``obj`` to a PNG byte string.
+
+    Returns ``None`` when matplotlib isn't installed or the result
+    type doesn't expose a plot path. The caller should treat ``None``
+    as "rendered nothing" and emit a JSON-only response.
+    """
+    try:
+        import matplotlib
+        matplotlib.use("Agg", force=False)
+        import matplotlib.pyplot as plt
+    except Exception:
+        return None
+
+    import io
+    fig = None
+    try:
+        # Preferred: result-attached plot methods. The CausalResult class
+        # exposes ``.plot()``; some result types accept a ``kind=`` kwarg.
+        plot_fn = getattr(obj, "plot", None)
+        if callable(plot_fn):
+            try:
+                ret = plot_fn(kind=kind, figsize=figsize)
+            except TypeError:
+                # Older signature without ``kind``/``figsize``
+                try:
+                    ret = plot_fn()
+                except TypeError:
+                    ret = None
+            fig = _coerce_to_fig(ret)
+
+        if fig is None:
+            # Fallback to family-specific plot helpers on statspai.
+            import statspai as sp
+            helper = None
+            if kind == "event_study":
+                helper = (getattr(sp, "event_study_table", None)
+                          or getattr(sp, "enhanced_event_study_plot", None)
+                          or getattr(sp, "cohort_event_study_plot", None))
+            elif kind == "rdplot":
+                helper = getattr(sp, "rdplot", None)
+            elif kind == "rddensity":
+                helper = getattr(sp, "rdplotdensity", None)
+            elif kind == "synth_gap":
+                helper = getattr(sp, "synthdid_plot", None)
+            elif kind == "love_plot":
+                helper = getattr(sp, "love_plot", None) or getattr(sp, "balanceplot", None)
+            elif kind == "cate_plot":
+                helper = getattr(sp, "cate_plot", None)
+            elif kind == "bacon":
+                helper = getattr(sp, "bacon_plot", None)
+            if callable(helper):
+                try:
+                    ret = helper(obj)
+                except Exception:
+                    ret = None
+                fig = _coerce_to_fig(ret)
+
+        if fig is None:
+            return None
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+        plt.close(fig)
+        return buf.getvalue()
+    except Exception:
+        if fig is not None:
+            try:
+                plt.close(fig)
+            except Exception:
+                pass
+        return None
+
+
+def _coerce_to_fig(ret: Any):
+    """Best-effort: turn whatever a plot helper returned into a Figure."""
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib.figure import Figure
+        from matplotlib.axes import Axes
+    except Exception:
+        return None
+    if isinstance(ret, Figure):
+        return ret
+    if isinstance(ret, Axes):
+        return ret.figure
+    if isinstance(ret, (list, tuple)) and ret:
+        for item in ret:
+            fig = _coerce_to_fig(item)
+            if fig is not None:
+                return fig
+    # No useful return; rely on the active figure if matplotlib has one.
+    return plt.gcf() if plt.get_fignums() else None
+
+
+def _tool_plot_from_result(rid: Optional[str],
+                            arguments: Dict[str, Any]) -> Dict[str, Any]:
+    obj = _need_result(rid)
+    if isinstance(obj, dict) and 'error' in obj:
+        return obj
+    kind = arguments.get('kind') or _detect_plot_kind(obj)
+    figsize = arguments.get('figsize') or (8, 5)
+    if isinstance(figsize, list):
+        figsize = tuple(figsize[:2]) if len(figsize) >= 2 else (8, 5)
+
+    png = _render_plot_png(obj, kind, figsize=figsize)
+    if png is None:
+        return {
+            'error': ("Could not render a plot for this result. "
+                      "matplotlib may not be installed, or the result "
+                      "class does not expose a plot path."),
+            'result_class': type(obj).__name__,
+            'attempted_kind': kind,
+            'fix': "pip install matplotlib  # or pass kind='coef_plot'",
+        }
+    return {
+        'result_id': rid,
+        'kind': kind,
+        'figsize': list(figsize),
+        'mime_type': 'image/png',
+        'image_bytes': len(png),
+        # The MCP server promotes ``_plot_png`` to an image content
+        # block; the underscore-prefixed key is dropped from the JSON
+        # text payload so the agent doesn't see raw base64 in chat.
+        '_plot_png': png,
+    }
 
 
 # ----------------------------------------------------------------------

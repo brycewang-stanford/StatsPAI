@@ -263,6 +263,7 @@ _DATALESS_OVERRIDES = frozenset({"honest_did", "sensitivity",
                                   "audit_result", "brief_result",
                                   "sensitivity_from_result",
                                   "honest_did_from_result",
+                                  "plot_from_result",
                                   "bibtex"})
 
 

@@ -983,6 +983,7 @@ def execute_tool(name: str,
     # so the next tools/call can reach it without re-loading the CSV
     # and re-fitting. This is the foundational primitive for chained
     # workflows (did → audit → sensitivity → honest_did_from_result).
+    rid: Optional[str] = None
     if as_handle:
         from ._result_cache import RESULT_CACHE
         rid = RESULT_CACHE.put(
@@ -992,4 +993,14 @@ def execute_tool(name: str,
         )
         out['result_id'] = rid
         out['result_uri'] = f"statspai://result/{rid}"
+
+    # Output enrichment: pre-built next_calls + verified citations +
+    # short narrative. Agents on per-call billing get more value per
+    # roundtrip; agents on per-token billing can request
+    # detail='minimal' to skip these or strip them client-side.
+    from ._enrichment import enrich_payload
+    enrich_payload(out, tool_name=name, result_id=rid,
+                   base_args={k: v for k, v in arguments.items()
+                              if not isinstance(v, pd.DataFrame)})
+
     return out
