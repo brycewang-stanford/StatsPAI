@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai.causal.forest_inference import calibration_test, rate, honest_variance
+from statspai.forest.forest_inference import calibration_test, rate, honest_variance
 
 
 def _sim_hte(n=600, seed=0):

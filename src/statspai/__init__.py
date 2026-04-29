@@ -48,12 +48,12 @@ from .regression.ols import regress
 # Importing the function at the top level would shadow the subpackage and
 # break ``sp.iv("y ~ (d ~ z)", data=df)``.
 from .regression.iv import ivreg, IVRegression
-from .causal.causal_forest import CausalForest, causal_forest
-from .causal.forest_inference import (
+from .forest.causal_forest import CausalForest, causal_forest
+from .forest.forest_inference import (
     calibration_test, test_calibration, rate, honest_variance,
 )
-from .causal.multi_arm_forest import multi_arm_forest, MultiArmForestResult
-from .causal.iv_forest import iv_forest, IVForestResult
+from .forest.multi_arm_forest import multi_arm_forest, MultiArmForestResult
+from .forest.iv_forest import iv_forest, IVForestResult
 from .did import (
     did, did_2x2, overlap_weighted_did, dl_propensity_score,
     ddd, callaway_santanna, sun_abraham,

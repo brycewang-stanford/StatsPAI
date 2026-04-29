@@ -100,7 +100,7 @@ class CausalForest(BaseModel):
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from statspai.causal import CausalForest
+    >>> from statspai.forest import CausalForest
     >>> 
     >>> # Generate sample data
     >>> np.random.seed(42)
@@ -843,7 +843,7 @@ def causal_forest(
     --------
     >>> import pandas as pd
     >>> import numpy as np
-    >>> from statspai.causal import causal_forest
+    >>> from statspai.forest import causal_forest
     >>> 
     >>> # Generate sample data
     >>> np.random.seed(42)

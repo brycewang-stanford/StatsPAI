@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from statspai.causal.causal_forest import CausalForest
+from statspai.forest.causal_forest import CausalForest
 
 
 @pytest.fixture(scope="module")

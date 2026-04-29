@@ -264,7 +264,7 @@ class SklearnCausalForest(BaseEstimator, RegressorMixin):
 
     def fit(self, X, y, **fit_params):
         _check_sklearn()
-        from ..causal.causal_forest import CausalForest
+        from ..forest.causal_forest import CausalForest
 
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y, dtype=np.float64).ravel()
