@@ -712,6 +712,41 @@ def _handle_tools_list(params: Dict[str, Any]) -> Dict[str, Any]:
     return {"tools": _build_mcp_tools()}
 
 
+#: Module-global pointer to the active stdout sink, set by
+#: :func:`serve_stdio`. ``_handle_tools_call`` reads it to write
+#: ``notifications/progress`` mid-call without going through the
+#: per-request return value (which is reserved for the final result).
+#: ``None`` when the server is invoked outside the stdio loop (e.g.
+#: by a unit test calling ``handle_request`` directly) — in that case
+#: progress notifications are dropped silently, which is the right
+#: thing for in-process tests.
+_PROGRESS_SINK = None
+
+
+def _make_progress_drain():
+    """Return a callable that writes a progress notification to the
+    active stdio sink. Returns a no-op if no sink is registered."""
+    sink = _PROGRESS_SINK
+    if sink is None:
+        return lambda payload: None
+
+    def _drain(payload):
+        msg = json.dumps({
+            "jsonrpc": "2.0",
+            "method": "notifications/progress",
+            "params": payload,
+        }, default=_json_default)
+        try:
+            sink.write(msg + "\n")
+            sink.flush()
+        except Exception:
+            # If stdout is closed mid-call, drop the notification —
+            # the next handle_request will surface the real error.
+            pass
+
+    return _drain
+
+
 def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
     name = params.get("name")
     arguments = dict(params.get("arguments") or {})
@@ -727,6 +762,13 @@ def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
     data_sample_n = arguments.pop("data_sample_n", None)
     result_id = arguments.pop("result_id", None)
     as_handle = bool(arguments.pop("as_handle", False))
+
+    # MCP ``_meta.progressToken`` is the standard handshake the client
+    # uses to opt in to receiving progress notifications. It's set
+    # OUTSIDE the ``arguments`` block (per spec) — pull it from
+    # ``params['_meta']``.
+    meta = params.get("_meta") or {}
+    progress_token = meta.get("progressToken") if isinstance(meta, dict) else None
 
     df = None
     if data_path:
@@ -747,11 +789,36 @@ def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
             f"got {detail!r}"
         )
 
-    result = execute_tool(name, arguments,
-                           data=df,
-                           detail=detail,
-                           result_id=result_id,
-                           as_handle=as_handle)
+    # Run the actual estimator under the timeout-enforcing runner so
+    # MCP can stay responsive during long calls (BCF / spec_curve /
+    # synthdid_placebo / dml). Tools that don't hit ``progress(...)``
+    # see no behaviour change.
+    from ._runner import run_with_progress, tool_timeout
+
+    def _do():
+        return execute_tool(name, arguments,
+                             data=df,
+                             detail=detail,
+                             result_id=result_id,
+                             as_handle=as_handle)
+
+    drain = _make_progress_drain() if progress_token is not None else None
+
+    ok, payload = run_with_progress(
+        _do,
+        progress_token=progress_token,
+        timeout=tool_timeout(),
+        drain=drain,
+    )
+
+    if not ok:
+        if isinstance(payload, TimeoutError):
+            raise _RpcError(str(payload))
+        # Unexpected exception — re-raise so the outer ``handle_request``
+        # turns it into a clean ``-32000`` JSON-RPC error.
+        raise payload
+
+    result = payload
     text = json.dumps(result, indent=2, default=_json_default)
 
     content: List[Dict[str, Any]] = [{"type": "text", "text": text}]
@@ -1373,15 +1440,20 @@ def serve_stdio(
     if stdout is None:
         stdout = sys.stdout
 
-    for raw in stdin:
-        line = raw.strip()
-        if not line:
-            continue
-        response = handle_request(line)
-        if response is None:
-            continue
-        stdout.write(response + "\n")
-        stdout.flush()
+    global _PROGRESS_SINK
+    _PROGRESS_SINK = stdout
+    try:
+        for raw in stdin:
+            line = raw.strip()
+            if not line:
+                continue
+            response = handle_request(line)
+            if response is None:
+                continue
+            stdout.write(response + "\n")
+            stdout.flush()
+    finally:
+        _PROGRESS_SINK = None
 
 
 def main() -> None:  # pragma: no cover
