@@ -6,13 +6,14 @@ Similar to Stata's outreg2 command
 import pandas as pd
 import numpy as np
 from typing import List, Dict, Any, Optional, Union
-import openpyxl
-from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
-from openpyxl.utils.dataframe import dataframe_to_rows
 from pathlib import Path
 import warnings
 
 from ..core.results import EconometricResults
+
+# openpyxl is imported lazily inside ``_export_with_formatting`` —
+# importing it at module load drags in PIL/Pillow (~700 ms cold start)
+# and ``outreg2`` is rarely the entry point for a session.
 
 
 class OutReg2:
@@ -385,9 +386,12 @@ class OutReg2:
         :mod:`statspai.output`. Font is Times New Roman to match
         ``regtable`` / ``sumstats`` / ``paper_tables`` / ``collection``.
         """
+        import openpyxl
+        from openpyxl.styles import Font, Alignment
+
         from ._excel_style import (
             TIMES, BODY_PT, HEADER_PT, NOTES_PT,
-            apply_booktab_borders, autofit_columns, write_title,
+            apply_booktab_borders, autofit_columns,
         )
 
         wb = openpyxl.Workbook()
