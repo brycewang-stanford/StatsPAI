@@ -2,6 +2,106 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.11.1] — 2026-04-29
+
+Polish patch for the v1.11 agent surface. Closes the four
+"留意 / 没做" items from the v1.11 release notes: mcp_server.py
+1,475-line bloat, from_stata Tier 3, deeper from_r, and the MCP
+sampling abstraction layer. **No estimator numerics changed**.
+
+### Added — `from_stata` Tier 3 (long-tail, ~95% coverage)
+
+- `ppmlhdfe` → `sp.ppmlhdfe` (Correia-Guimarães-Zylkin Poisson-PML
+  with HDFE, multi-FE absorb).
+- `mlogit` / `oprobit` → `sp.glm(family='multinomial' /
+  'ordered_probit')` with a translation note pointing strict
+  diagnostics at `result.raw_model`.
+- `xtabond` / `xtdpdsys` → `sp.xtabond` / `sp.xtdpdsys` (Arellano-
+  Bond difference / Blundell-Bond system GMM).
+- `bunching` → `sp.bunching` (Saez 2010, Kleven-Waseem 2013).
+- `boottest` → `sp.wild_cluster_bootstrap` (Roodman-Webb wild-cluster
+  bootstrap; takes a fitted result).
+- `mi estimate: <inner>` → translation hint pointing at
+  `sp.mi_estimate` (Stata's nested grammar isn't auto-parsed).
+- 33 alias entries / 29 distinct handlers total.
+
+### Added — `from_r` deepening (5 → 11 callables)
+
+- `glm` with smart routing: `family=binomial` → `sp.logit`,
+  `family=binomial(link="probit")` → `sp.probit`,
+  `family=poisson` → `sp.poisson`, otherwise `sp.glm`.
+- `lmer` → `sp.multilevel`; `glmer` → `sp.glmer`.
+- `plm(formula, data=df, model='within', index=c('id','t'))` →
+  `sp.panel(method='within', id='id', time='t')`.
+- `matchit(treat ~ x, data=df, method='nearest')` → `sp.match`
+  with method-name aliasing (nearest→nn, genetic→genmatch).
+- R Synth synth() now emits a structured field-mapping note
+  (predictors → predictors, dependent → outcome, unit.variable →
+  unit, time.variable → time, treatment.identifier →
+  treated_unit, time.predictors.prior[max] + 1 → treatment_time).
+
+### Added — MCP `sampling/createMessage` abstraction (opt-in)
+
+- New `agent/_sampling.py`:
+  - `request_sampling(messages, max_tokens, ...)` — server-to-client
+    LLM request; blocks until response or timeout.
+  - `set_capability(bool)` / `get_capability()` — client capability
+    advertisement flag.
+  - `set_writer(callable)` / `route_response(message)` — stdio
+    writer registration + reply matcher.
+- Wire-up:
+  - `_handle_initialize` reads `params.capabilities.sampling`.
+  - `handle_request` routes JSON-RPC replies to pending sampling
+    requests via `route_response`.
+  - `serve_stdio` registers / clears the writer + capability flag.
+- Fail-closed: `UnsupportedSamplingError` raised when no capability
+  is advertised OR no writer is registered, so existing LLM helpers
+  (`llm_dag_propose` / `llm_evalue` / `llm_sensitivity`) keep
+  working via their user-API-key paths until clients (Claude
+  Desktop, Cursor, …) advertise `sampling`.
+- `STATSPAI_MCP_SAMPLING_TIMEOUT_SECONDS` (default `60`) caps every
+  request; `SamplingTimeoutError` on overage.
+
+### Changed — `mcp_server.py` split into leaf modules
+
+- v1.11.0: `mcp_server.py` was 1,475 lines.
+- v1.11.1: split into 5 leaf modules:
+  - `_errors.py` (35 LOC) — `RpcError` / `InvalidParamsError` /
+    `ResourceNotFoundError` typed taxonomy.
+  - `_prompts.py` (344 LOC) — 10 prompt templates plus `SafeDict`,
+    `handle_prompts_list`, `handle_prompts_get`.
+  - `_resources.py` (313 LOC) — catalog text / function detail /
+    handle reads / templates list. Handlers accept `json_default`
+    plus error classes via dependency injection (no circular import).
+  - `_data_loader.py` (176 LOC) — `load_dataframe` / size cap /
+    LRU cache / remote-URL routing.
+  - `_sampling.py` (227 LOC) — see above.
+  - `mcp_server.py` shrunk to **817 lines** (well under the
+    CLAUDE.md §4 ~800-line guideline).
+- All v1.x private names re-exported via thin import shims so
+  external code reaching for `_PROMPTS` / `_load_dataframe` /
+  `_RpcError` etc. still works.
+- Test fixture compatibility preserved: `monkeypatch.setattr(
+  agent.tools, '_resolve_fn', …)` continues to take effect because
+  the dispatch path looks up `_resolve_fn` via the parent package
+  namespace at call time (carried over from the v1.11.0 split).
+
+### Tests
+
+- `test_mcp_sampling.py` (10 cases, new):
+  - Fail-closed when capability or writer unset.
+  - Round-trip via mock client thread (success + error envelope).
+  - Timeout via env-var override.
+  - serve_stdio integration (capability + writer lifecycle).
+  - Unsolicited / malformed reply handling.
+- `test_translation.py` extended:
+  - 8 new Stata Tier-3 round-trips + 3 edge cases.
+  - 10 new R round-trips.
+  - 61 → 82 cases; coverage assertion checks every distinct handler.
+
+424/424 pass across all agent + MCP + translation + runner +
+sampling suites.
+
 ## [1.11.0] — 2026-04-29
 
 Agent-native infrastructure follow-up to v1.10. Closes the four
