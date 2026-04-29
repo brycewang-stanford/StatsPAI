@@ -4,7 +4,59 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Performance
+
+- **`import statspai` cold-start: ~2,070 ms → ~1,680 ms (-19%).**
+  ``output/outreg2.py`` now imports ``openpyxl`` lazily inside
+  ``_export_with_formatting`` instead of at module load. Top-level
+  ``import openpyxl`` was transitively pulling ``PIL`` / ``Pillow``
+  via ``openpyxl.drawing.image`` on every session even when the user
+  never touched ``outreg2`` (4 references in repo vs 163 for
+  ``regtable``). After the fix, no heavy modules
+  (``openpyxl`` / ``docx`` / ``PIL`` / ``matplotlib``) are eagerly
+  loaded at top level. Also drops unused symbol imports
+  (``Border`` / ``Side`` / ``PatternFill`` / ``dataframe_to_rows`` /
+  ``write_title``).
+
 ### Changed
+
+- **Output module: shared formatter helpers.** New
+  ``output/_format.py`` houses the canonical ``format_stars`` /
+  ``fmt_val`` / ``fmt_int`` / ``fmt_auto`` / ``is_missing``
+  implementations. ``estimates._format_stars/_fmt_val/_fmt_int/_fmt_auto``
+  are now thin re-exports under their legacy underscore names; existing
+  ``regression_table`` / ``_inline`` imports are unchanged.
+  ``outreg2._format_number/_format_pvalue`` and
+  ``modelsummary._format_num`` delegate to the canonical helpers.
+  Net effect: ~80 lines of duplicate formatters removed; bug fixes in
+  one place propagate to every backend.
+
+- **Output module: ``modelsummary._stars_str`` dead code removed.**
+  The original implementation had two ``for`` loops where the first
+  used ``for/else`` that always overwrote ``best`` to ``''`` before
+  the second loop ran — making the first loop unreachable. Cleaned
+  to keep only the working logic. Behavior identical for all valid
+  inputs.
+
+- **Output module: ``MeanComparisonResult`` extracted.**
+  ``output/regression_table.py`` had grown to 3,335 lines and held
+  two unrelated result classes. Moved ``MeanComparisonResult`` and
+  the public ``mean_comparison()`` API to ``output/mean_comparison.py``
+  (510 lines). ``regression_table.py`` is now 2,831 lines (-15%).
+  Re-exported from ``regression_table`` for back-compat;
+  ``from statspai.output.regression_table import MeanComparisonResult``
+  still works. ``sp.list_functions()`` count unchanged.
+
+- **Output module: ``__init__.py`` reorganised.** Imports and
+  ``__all__`` are grouped by purpose (regression-table renderers /
+  single-table helpers / multi-table bundles / provenance /
+  bibliography / adapters), with a docstring documenting that
+  ``regtable`` is the canonical regression-table renderer and that
+  ``esttab`` / ``modelsummary`` / ``outreg2`` are Stata/R compatibility
+  surfaces (full consolidation tracked in
+  [``docs/rfc/output_pr_b_consolidation.md``](docs/rfc/output_pr_b_consolidation.md)).
+  No symbols added or removed; ``sp.list_functions()`` unchanged at
+  973.
 
 - **Top-level `__init__.py` deduplication.** Removed redundant
   ``from .regression.glm`` / ``logit_probit`` / ``count`` imports
