@@ -2,6 +2,32 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.11.2] — 2026-04-29
+
+Internal refactor only — collapses `esttab`, `modelsummary`, and
+`outreg2` to thin facades over the shared `regtable` engine.  No API
+changes, no estimator numerics changed.
+
+### Changed — output layer facades collapsed into `regtable`
+
+- `outreg2` → thin `regtable` facade; all formatting delegated to
+  `regtable.py` (shared `FormatOptions` / star formatter / numeric
+  formatter).  Old `outreg2.py` retained as import shim for backward
+  compatibility.
+- `modelsummary` → thin `regtable` facade; the summary layout logic is
+  now `regtable.FormatOptions` driven.  Old `modelsummary.py` kept as
+  import shim.
+- `esttab` / `EstimateTable` → thin `regtable` facade; identical
+  dispatch path as `outreg2` and `modelsummary`.
+- The `regtable` snapshot baselines added in `c608528` ensure any
+  future drift is caught by the test suite.
+
+### Tests
+
+- `test_regtable.py` (new): 12 snapshot cases covering every
+  `fmt` variant, star placement, confidence-interval style, and
+  `reorder` / `drop` / `keep` path.
+
 ## [1.11.1] — 2026-04-29
 
 Polish patch for the v1.11 agent surface. Closes the four
