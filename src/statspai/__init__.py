@@ -42,7 +42,12 @@ from .exceptions import (
     AssumptionWarning,
 )
 from .regression.ols import regress
-from .regression.iv import iv, ivreg, IVRegression
+# NB: ``iv`` is intentionally NOT imported here.  ``sp.iv`` resolves to the
+# callable :mod:`statspai.iv` subpackage (loaded via ``from .iv.* import``
+# below), which dispatches ``method=``/2sls/liml/fuller/gmm/jive/kernel/...
+# Importing the function at the top level would shadow the subpackage and
+# break ``sp.iv("y ~ (d ~ z)", data=df)``.
+from .regression.iv import ivreg, IVRegression
 from .causal.causal_forest import CausalForest, causal_forest
 from .causal.forest_inference import (
     calibration_test, test_calibration, rate, honest_variance,

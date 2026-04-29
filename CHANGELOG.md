@@ -2,6 +2,63 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **`sp.iv()` is now callable.** Prior to this release, the
+  ``statspai.iv`` subpackage *shadowed* the function exposed at
+  line 45 of ``statspai/__init__.py`` (because Python attaches an
+  imported subpackage to its parent's namespace, and the subpackage
+  load happened *after* the function bind). The result was that
+  every advertised callsite — registry examples, agent summaries,
+  MCP server docs, replication examples, and the live call in
+  [`src/statspai/question/question.py:505`](src/statspai/question/question.py#L505)
+  — raised ``TypeError: 'module' object is not callable``. Fixed by
+  installing a tiny ``ModuleType`` subclass with ``__call__`` on
+  ``statspai.iv`` (PEP 562-style) and removing ``iv`` from the
+  ``regression.iv`` import line so the subpackage isn't shadowed in
+  reverse. Regression-guarded by
+  ``tests/test_iv_dispatcher.py::test_sp_iv_is_callable`` (33 new
+  tests total).
+
+### Changed
+
+- **Unified IV dispatcher.** ``sp.iv(formula, data, method=...)`` now
+  routes 25+ method aliases (case- and dash-insensitive) to 19
+  canonical estimators across the ``regression.iv`` /
+  ``regression.advanced_iv`` / ``iv/`` / ``deepiv`` / ``bartik``
+  modules:
+
+  - **K-class formula path:** ``2sls`` (a.k.a. ``tsls``, ``iv``),
+    ``liml``, ``fuller``, ``gmm``, ``jive``.
+  - **Modern JIVE:** ``jive1``, ``ujive``, ``ijive``, ``rjive``.
+  - **Many-weak:** ``jive_mw``, ``many_weak_ar``.
+  - **Lasso:** ``lasso``, ``post_lasso`` (a.k.a. ``bch``).
+  - **ML/nonparametric:** ``kernel``, ``npiv``, ``ivdml``,
+    ``deepiv``.
+  - **Bayesian:** ``bayes``.
+  - **LATE/MTE:** ``continuous_late``, ``mte``, ``ivmte_bounds``.
+  - **Quantile IV:** ``ivqreg``.
+  - **Plausibly exogenous sensitivity:** ``plausibly_exog_uci``,
+    ``plausibly_exog_ltz``.
+  - **Shift-share:** ``shift_share`` (a.k.a. ``bartik``).
+
+  The dispatcher normalises common alias names (``endog`` →
+  ``treat``/``treatment`` for kernel-style methods, ``exog`` →
+  ``covariates`` for ``ivdml``, singleton ``instruments=['z']`` →
+  ``instrument='z'`` for singular-instrument methods), and refuses
+  ambiguous combinations with ``TypeError: Got both 'endog' and
+  'treat'``. Standalone access (``sp.iv.kernel_iv``,
+  ``sp.iv.bayesian_iv``, ``sp.ivreg``,
+  ``from statspai.regression.iv import iv``) is unchanged.
+  ``sp.iv.fit(...)`` remains as an explicit alias for the dispatcher.
+
+  Diagnostics functions (``anderson_rubin_test``, ``effective_f_test``,
+  ``kleibergen_paap_rk``, ``sanderson_windmeijer``,
+  ``conditional_lr_test``) are intentionally *not* in the
+  ``method=`` table — they are not estimators.
+
 ## [1.9.1] — MCP schema + JSON-RPC error polish
 
 Patch release on top of 1.9.0. **No estimator numerical paths
