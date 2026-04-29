@@ -152,6 +152,50 @@ discovery / orchestration / output layer.
 
 ### Added
 
+- **`sp.panel()` `method=` expanded with friendly aliases + HDFE.**
+  ``sp.panel`` already supported a ``method=`` table of 10 classical
+  + dynamic estimators (``fe``/``re``/``be``/``fd``/``pooled``/
+  ``twoway``/``mundlak``/``chamberlain``/``ab``/``system``).  The
+  table is now case-insensitive and accepts intuitive aliases that
+  match what users already write (instead of forcing the two-letter
+  Stata shorthand):
+
+  - ``fe`` ← ``fixed`` / ``fixed_effects`` / ``within``
+  - ``re`` ← ``random`` / ``random_effects``
+  - ``be`` ← ``between`` / ``between_effects``
+  - ``fd`` ← ``first_difference`` / ``first_diff``
+  - ``pooled`` ← ``pooled_ols`` / ``pols`` / ``ols``
+  - ``twoway`` ← ``two_way`` / ``two_way_fe`` / ``2way``
+  - ``ab`` ← ``arellano_bond`` / ``gmm`` / ``diff_gmm``
+  - ``system`` ← ``blundell_bond`` / ``bb`` / ``system_gmm``
+
+  Plus a new ``method='hdfe'`` (a.k.a. ``feols`` / ``reghdfe`` /
+  ``absorbed_ols``) route that delegates to ``feols.hdfe_ols`` for
+  high-dimensional fixed-effects absorption.  When the formula has
+  no ``|`` separator, the dispatcher bolts the ``entity`` and
+  ``time`` columns on automatically, so
+
+  ```python
+  sp.panel(df, "wage ~ exp", entity='id', time='year', method='hdfe')
+  ```
+
+  is equivalent to
+
+  ```python
+  sp.hdfe_ols("wage ~ exp | id + year", data=df)
+  ```
+
+  This closes the Stata ``reghdfe`` / R ``fixest::feols`` slot in
+  the ``sp.panel`` namespace without forcing users to switch APIs.
+
+  ``sp.panel_logit`` / ``sp.panel_probit`` / ``sp.interactive_fe`` /
+  ``sp.panel_unitroot`` are intentionally NOT in the ``method=``
+  table — they have a different ``(data, y, x, id, time)``-style
+  signature and remain accessible as standalone functions.
+
+  Regression-guarded by ``tests/test_panel_dispatcher.py`` (37 new
+  tests); 31 existing panel-family tests pass.
+
 - **`sp.match()` `method=` expanded to cover the full matching
   toolkit.** ``sp.match`` was already a function with built-in
   ``method=`` for classical algorithms (nearest / stratify / cem /
