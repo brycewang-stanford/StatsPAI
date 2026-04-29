@@ -179,6 +179,32 @@ R_ROUND_TRIPS = [
     ("att_gt(yname=\"y\", gname=\"g\", tname=\"t\", idname=\"id\", data=df)",
      "callaway_santanna",
      {"y": "y", "g": "g", "t": "t", "i": "id"}),
+    # GLM family — recognised binomial/poisson route to the
+    # specialised sp helper.
+    ("glm(y ~ x, family = binomial, data = df)",
+     "logit", {"formula": "y ~ x"}),
+    ("glm(y ~ x, family = binomial(link = \"probit\"), data = df)",
+     "probit", {"formula": "y ~ x"}),
+    ("glm(counts ~ x, family = poisson, data = df)",
+     "poisson", {"formula": "counts ~ x"}),
+    ("glm(y ~ x, family = gaussian, data = df)",
+     "glm", {"formula": "y ~ x", "family": "gaussian"}),
+    # Multilevel / GLMM
+    ("lmer(y ~ x + (1|group), data = df)",
+     "multilevel", {"formula": "y ~ x + (1|group)"}),
+    ("glmer(y ~ x + (1|group), family = binomial, data = df)",
+     "glmer", {"formula": "y ~ x + (1|group)", "family": "binomial"}),
+    # Panel
+    ("plm(y ~ x, data = df, model = \"within\", index = c(\"id\", \"t\"))",
+     "panel", {"formula": "y ~ x", "method": "within",
+                "id": "id", "time": "t"}),
+    ("plm(y ~ x, data = df, model = \"random\")",
+     "panel", {"formula": "y ~ x", "method": "random"}),
+    # MatchIt
+    ("matchit(treat ~ x1 + x2, data = df, method = \"nearest\")",
+     "match", {"formula": "treat ~ x1 + x2", "method": "nn"}),
+    ("matchit(treat ~ x1, data = df, method = \"genetic\")",
+     "match", {"formula": "treat ~ x1", "method": "genmatch"}),
 ]
 
 

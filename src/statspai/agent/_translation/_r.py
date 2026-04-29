@@ -229,13 +229,132 @@ def _h_did(pos: List[str], kw: Dict[str, str], _) -> Dict[str, Any]:
     return _emit("callaway_santanna", args, python)
 
 
+def _h_glm(pos: List[str], kw: Dict[str, str], _) -> Dict[str, Any]:
+    """R `glm(y ~ x, family=binomial, data=df)` → ``sp.glm`` (or sp.logit
+    / sp.probit / sp.poisson when the family resolves to one of those).
+    """
+    formula = pos[0] if pos else kw.get("formula")
+    if not formula:
+        return _emit_error("glm requires a formula as the first argument")
+    formula = _strip_quotes(formula)
+    family = _strip_quotes(kw.get("family", "gaussian")) if kw.get("family") else "gaussian"
+    # Recognise common family/link combos so we can route to the
+    # specialised sp helper rather than the generic GLM.
+    fam_lower = family.lower().strip()
+    if "binomial" in fam_lower and ("logit" in fam_lower or fam_lower == "binomial"):
+        return _emit("logit", {"formula": formula},
+                      f"sp.logit({formula!r}, data=df)")
+    if "binomial" in fam_lower and "probit" in fam_lower:
+        return _emit("probit", {"formula": formula},
+                      f"sp.probit({formula!r}, data=df)")
+    if "poisson" in fam_lower:
+        return _emit("poisson", {"formula": formula},
+                      f"sp.poisson({formula!r}, data=df)")
+    args: Dict[str, Any] = {"formula": formula, "family": family}
+    python = f"sp.glm({formula!r}, data=df, family={family!r})"
+    return _emit("glm", args, python)
+
+
+def _h_glmer(pos: List[str], kw: Dict[str, str], _) -> Dict[str, Any]:
+    """R `lme4::glmer(y ~ x + (1|group), family=binomial, data=df)` →
+    ``sp.glmer`` / multilevel GLM. The ``(1|group)`` random-effect
+    syntax passes through verbatim — sp's multilevel module accepts
+    the same shape."""
+    formula = pos[0] if pos else kw.get("formula")
+    if not formula:
+        return _emit_error("glmer requires a formula as the first argument")
+    formula = _strip_quotes(formula)
+    family = _strip_quotes(kw.get("family", "gaussian")) if kw.get("family") else "gaussian"
+    args: Dict[str, Any] = {"formula": formula, "family": family}
+    notes: List[str] = []
+    code_pairs = ["data=df", f"family={family!r}"]
+    python = f"sp.glmer({formula!r}, {', '.join(code_pairs)})"
+    return _emit("glmer", args, python, notes)
+
+
+def _h_lmer(pos: List[str], kw: Dict[str, str], _) -> Dict[str, Any]:
+    """R `lme4::lmer(y ~ x + (1|group), data=df)` → ``sp.multilevel`` /
+    Gaussian random effects."""
+    formula = pos[0] if pos else kw.get("formula")
+    if not formula:
+        return _emit_error("lmer requires a formula as the first argument")
+    formula = _strip_quotes(formula)
+    args: Dict[str, Any] = {"formula": formula}
+    python = f"sp.multilevel({formula!r}, data=df)"
+    return _emit("multilevel", args, python)
+
+
+def _h_plm(pos: List[str], kw: Dict[str, str], _) -> Dict[str, Any]:
+    """R `plm(y ~ x, data=df, model='within', index=c('id','t'))` →
+    ``sp.panel`` with the chosen estimator."""
+    formula = pos[0] if pos else kw.get("formula")
+    if not formula:
+        return _emit_error("plm requires a formula as the first argument")
+    formula = _strip_quotes(formula)
+    model = _strip_quotes(kw.get("model", "within")).lower() if kw.get("model") else "within"
+    index = kw.get("index")
+    panel_keys: List[str] = []
+    if index:
+        panel_keys = _parse_c_vector(index)
+    args: Dict[str, Any] = {"formula": formula, "method": model}
+    if panel_keys:
+        args["id"] = panel_keys[0]
+        if len(panel_keys) > 1:
+            args["time"] = panel_keys[1]
+    code_pairs = ["data=df", f"method={model!r}"]
+    if "id" in args:
+        code_pairs.append(f"id={args['id']!r}")
+    if "time" in args:
+        code_pairs.append(f"time={args['time']!r}")
+    python = f"sp.panel({formula!r}, {', '.join(code_pairs)})"
+    return _emit("panel", args, python)
+
+
+def _h_matchit(pos: List[str], kw: Dict[str, str], _) -> Dict[str, Any]:
+    """R `MatchIt::matchit(treat ~ x1 + x2, data=df, method='nearest')` →
+    ``sp.match``."""
+    formula = pos[0] if pos else kw.get("formula")
+    if not formula:
+        return _emit_error("matchit requires a formula as the first argument")
+    formula = _strip_quotes(formula)
+    method = _strip_quotes(kw.get("method", "nearest")).lower() if kw.get("method") else "nearest"
+    # Map MatchIt method names → sp.match method names where they differ.
+    method_alias = {
+        "nearest": "nn", "exact": "exact", "cem": "cem",
+        "subclass": "subclass", "optimal": "optimal", "full": "full",
+        "genetic": "genmatch",
+    }
+    sp_method = method_alias.get(method, method)
+    args: Dict[str, Any] = {"formula": formula, "method": sp_method}
+    notes: List[str] = []
+    if method != sp_method:
+        notes.append(f"MatchIt method '{method}' mapped to sp.match "
+                      f"method='{sp_method}'.")
+    distance = kw.get("distance")
+    if distance:
+        args["distance"] = _strip_quotes(distance)
+    python = f"sp.match({formula!r}, data=df, method={sp_method!r})"
+    return _emit("match", args, python, notes)
+
+
 def _h_synth(pos: List[str], kw: Dict[str, str], _) -> Dict[str, Any]:
-    """R `Synth::synth` — minimal pass-through; many fields require panel structure."""
+    """R `Synth::synth(data.prep.obj=dataprep_out)` → translation note
+    pointing at sp.synth's flat API.
+
+    R's Synth requires a separate ``dataprep()`` call producing the
+    object that ``synth()`` then consumes. We don't have access to
+    that earlier call here, so emit a structured hint instead of a
+    half-finished translation.
+    """
     return _emit_error(
         "R `Synth::synth` translation needs explicit unit / time / treated / "
         "treatment_time mapping which the R API splits across "
         "`dataprep()` and `synth()`. Please call sp.synth() directly with "
-        "outcome / unit / time / treated_unit / treatment_time kwargs.",
+        "outcome / unit / time / treated_unit / treatment_time kwargs. "
+        "If the dataprep() call is in scope, the relevant fields are: "
+        "predictors → predictors, dependent → outcome, unit.variable → "
+        "unit, time.variable → time, treatment.identifier → "
+        "treated_unit, time.predictors.prior[max] + 1 → treatment_time.",
         command="synth")
 
 
@@ -243,6 +362,11 @@ R_FUNCTION_MAP: Dict[str, Callable] = {
     "feols": _h_feols,
     "felm": _h_felm,
     "lm": _h_lm,
+    "glm": _h_glm,
+    "glmer": _h_glmer,
+    "lmer": _h_lmer,
+    "plm": _h_plm,
+    "matchit": _h_matchit,
     "att_gt": _h_did,
     "did": _h_did,
     "synth": _h_synth,
