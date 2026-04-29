@@ -230,6 +230,52 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
     # Citation tool — the kill-switch for citation hallucination.
     # ------------------------------------------------------------------
     {
+        'name': 'from_stata',
+        'description': (
+            "Translate a single Stata command to a verified StatsPAI "
+            "tool-call payload. Returns ``python_code`` (string for "
+            "chat replies) AND ``arguments`` (ready-to-dispatch JSON-RPC "
+            "for tools/call). Tier-1 commands: regress / xtreg / "
+            "reghdfe / ivreg2 / csdid / did_imputation / synth / "
+            "rdrobust. Unrecognised commands return close-match "
+            "suggestions instead of guessing."
+        ),
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'command': {
+                    'type': 'string',
+                    'description': ("One Stata command, e.g. "
+                                     "'reghdfe y x, absorb(id year) "
+                                     "cluster(id)'. Multi-command lines "
+                                     "must be split by the caller."),
+                },
+            },
+            'required': ['command'],
+        },
+    },
+    {
+        'name': 'from_r',
+        'description': (
+            "Translate a single R / fixest / felm / did expression to a "
+            "verified StatsPAI tool-call payload. Returns the same shape "
+            "as from_stata. Supported callables: feols / felm / lm / "
+            "att_gt / did. Pass ONE expression — no assignment, no piping."
+        ),
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'expression': {
+                    'type': 'string',
+                    'description': ("One R expression, e.g. "
+                                     "'feols(y ~ x | id^year, "
+                                     "data=df, cluster=\"id\")'."),
+                },
+            },
+            'required': ['expression'],
+        },
+    },
+    {
         'name': 'plot_from_result',
         'description': (
             "Render the canonical diagnostic plot for a fitted result "
@@ -339,6 +385,12 @@ def execute_workflow_tool(
 
     if name == 'plot_from_result':
         return _tool_plot_from_result(rid_arg, arguments)
+
+    if name == 'from_stata':
+        return _tool_from_stata(arguments)
+
+    if name == 'from_r':
+        return _tool_from_r(arguments)
 
     if name == 'detect_design':
         return _tool_detect_design(arguments, data, detail=detail,
@@ -844,6 +896,38 @@ def _tool_plot_from_result(rid: Optional[str],
         # text payload so the agent doesn't see raw base64 in chat.
         '_plot_png': png,
     }
+
+
+# ----------------------------------------------------------------------
+# from_stata / from_r — Stata/R command translators
+# ----------------------------------------------------------------------
+
+def _tool_from_stata(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    cmd = arguments.get('command') or arguments.get('line') or ''
+    if not isinstance(cmd, str) or not cmd.strip():
+        return {
+            'error': "`command` is required (one Stata command).",
+            'example': {'command': 'reghdfe y x, absorb(id year) cluster(id)'},
+        }
+    from ._translation import from_stata
+    out = from_stata(cmd)
+    out['source'] = 'stata'
+    out['input'] = cmd
+    return out
+
+
+def _tool_from_r(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    expr = arguments.get('expression') or arguments.get('line') or ''
+    if not isinstance(expr, str) or not expr.strip():
+        return {
+            'error': "`expression` is required (one R expression).",
+            'example': {'expression': 'feols(y ~ x | id, data=df, cluster="id")'},
+        }
+    from ._translation import from_r
+    out = from_r(expr)
+    out['source'] = 'r'
+    out['input'] = expr
+    return out
 
 
 # ----------------------------------------------------------------------

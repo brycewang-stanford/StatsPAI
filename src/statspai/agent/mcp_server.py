@@ -264,7 +264,8 @@ _DATALESS_OVERRIDES = frozenset({"honest_did", "sensitivity",
                                   "sensitivity_from_result",
                                   "honest_did_from_result",
                                   "plot_from_result",
-                                  "bibtex"})
+                                  "bibtex",
+                                  "from_stata", "from_r"})
 
 
 #: Backwards-compatible alias for the old hand-curated set. New code
