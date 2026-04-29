@@ -4,6 +4,52 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`sp.rd()` is now callable with a unified `method=` table.** Same
+  PEP 562 callable-module pattern used for ``sp.iv`` in this
+  release: the ``statspai.rd`` subpackage itself dispatches calls,
+  while ``sp.rd.rdrobust`` / ``sp.rd.rdplot`` / ``sp.rd.rdsummary``
+  and all 35+ existing names continue to resolve. The default
+  ``sp.rd(data, y, x, c)`` call equals
+  ``sp.rd.rdrobust(data, y, x, c)`` (CCT 2014 local polynomial). 18
+  canonical ``method=`` aliases route to:
+
+  - **Local polynomial:** ``rdrobust`` / ``default`` / ``rd`` /
+    ``robust`` / ``local_poly`` (CCT 2014).
+  - **Honest CIs:** ``honest`` / ``armstrong_kolesar`` / ``ak``.
+  - **Local randomisation:** ``randinf`` / ``random`` /
+    ``local_randomization``.
+  - **Heterogeneous effects:** ``hte`` / ``cate``.
+  - **ML+RD:** ``forest`` / ``causal_forest``, ``boost`` / ``gbm``,
+    ``lasso``.
+  - **Bayesian HTE:** ``bayes_hte`` / ``bayes``.
+  - **2D / boundary RD:** ``rd2d`` / ``2d`` / ``boundary``.
+  - **Multi-cutoff:** ``rdmc`` / ``multi_cutoff``.
+  - **Multi-score / geographic:** ``rdms`` / ``geographic`` /
+    ``multi_score``.
+  - **Kink (RKD):** ``rkd`` / ``kink``.
+  - **RD-in-time:** ``rdit`` / ``time``.
+  - **Extrapolation:** ``extrapolate``, ``multi_extrapolate``.
+  - **Spillover/interference:** ``interference`` / ``spillover``.
+  - **Distributional:** ``distribution``,
+    ``distributional_design``.
+  - **External validity:** ``external_validity``.
+
+  The dispatcher normalises ``x`` ↔ ``running`` and ``c`` ↔
+  ``cutoff`` for methods that use the alternate names internally
+  (``rd_bayes_hte``, ``rd_interference``, ``rd_distribution``,
+  ``rd_distributional_design``).
+
+  Diagnostics-only functions (``rdbwselect``, ``rdbwsensitivity``,
+  ``rdbalance``, ``rdplacebo``, ``rdsummary``, ``rdplotdensity``,
+  ``rdpower``, ``rdsampsi``, ``rdwinselect``, ``rdsensitivity``,
+  ``rdrbounds``) are intentionally NOT in the ``method=`` table —
+  they are not estimators of treatment effects.
+
+  Regression-guarded by ``tests/test_rd_dispatcher.py`` (22 new
+  tests); 78 existing rd-family tests still pass.
+
 ### Performance
 
 - **`import statspai` cold-start: ~2,070 ms → ~1,680 ms (-19%).**
