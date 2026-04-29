@@ -1,154 +1,233 @@
+"""R ``modelsummary`` compatibility surface — thin facade over :func:`regtable`.
+
+Historically this module shipped its own ~700-line renderer pipeline
+(``_build_coef_rows`` / ``_build_stat_rows`` / ``_to_text`` /
+``_to_latex`` / ``_to_html`` / ``_to_excel`` / ``_to_word`` …) that
+re-implemented coefficient extraction, star formatting, three-line
+table styling and every export format — duplicating code already
+maintained by :func:`statspai.output.regtable`.
+
+In the PR-B output consolidation (see
+``docs/rfc/output_pr_b_consolidation.md``) we collapse the module to a
+thin facade that translates R-flavoured kwargs and forwards to
+:func:`regtable`. The user-visible API (``modelsummary`` function name
+and parameter spelling) is preserved; the *rendered output* now matches
+:func:`regtable` exactly — strictly cleaner (book-tab three-line table,
+publication-quality star legend, fixed labels) but NOT byte-identical
+to the legacy bespoke renderer.
+
+:func:`coefplot` is independent of the table renderer and is kept here
+unchanged.
+
+A :class:`DeprecationWarning` is emitted on first call pointing users
+to :func:`sp.regtable`. Plan to remove the facade in two minor releases
+(per CLAUDE.md §3.8).
+
+Migration notes
+---------------
+- ``stars=True`` / ``stars=False`` work the same. The dict form
+  (``stars={"*": 0.10, "**": 0.05, "***": 0.01}``) is reinterpreted —
+  only the threshold *values* are used, the symbol overrides are
+  dropped (regtable's ladder is ``*/**/***`` by convention; symbol
+  control is via ``notation='symbols'`` for ``†/‡/§``).
+- ``se_type='parentheses'`` (default) and ``se_type='none'`` work as
+  before. ``se_type='brackets'`` is no longer a separate render mode —
+  emits ``UserWarning`` and falls back to parentheses. Use
+  ``show_ci=True`` (which renders ``[lo, hi]``) if you want brackets
+  to convey actual information.
+- ``output='dataframe'`` returns a :class:`pandas.DataFrame` (same as
+  before).
+- ``output='<filename>.xlsx|.docx'`` writes the file and returns a
+  confirmation string.
+- All other ``output=`` strings (``"text"``, ``"latex"``, ``"html"``,
+  ``"markdown"``) return the rendered string.
+- Stat keys map: ``nobs`` → ``N``; ``r_squared`` / ``adj_r_squared``
+  / ``f_stat`` / ``aic`` / ``bic`` → their canonical regtable
+  equivalents.
 """
-Publication-quality multi-model comparison tables.
 
-Equivalent to R's modelsummary() / fixest::etable() / Stata's esttab.
-Accepts any mix of EconometricResults and CausalResult objects and
-produces side-by-side tables in text, LaTeX, HTML, or DataFrame format.
+from __future__ import annotations
 
-References
-----------
-Arel-Bundock, V. (2022). "modelsummary: Data and Model Summaries in R."
-*Journal of Statistical Software*, 103(1), 1-23. [@arelbundock2022modelsummary]
-"""
+import warnings
+from typing import Any, Dict, List, Optional, Union
 
-from typing import Optional, List, Dict, Any, Union, Sequence
 import numpy as np
 import pandas as pd
 
+_DEPRECATION_MSG = (
+    "modelsummary() is now a thin wrapper over sp.regtable() and will "
+    "be removed in a future minor release. Migrate to "
+    "sp.regtable(*models, ...) for the same output with full control "
+    "over labels, journal templates, and SE formats. "
+    "See docs/rfc/output_pr_b_consolidation.md for migration."
+)
+_DEPRECATION_EMITTED = False
 
-# ======================================================================
-# Public API
-# ======================================================================
+
+def _warn_once() -> None:
+    global _DEPRECATION_EMITTED
+    if not _DEPRECATION_EMITTED:
+        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=3)
+        _DEPRECATION_EMITTED = True
+
+
+# Stat-key translation: modelsummary R-style → regtable canonical.
+# Regtable's ``_STAT_ALIASES`` already accepts ``nobs``/``aic``/``bic``,
+# but not the longer ``r_squared`` / ``adj_r_squared`` / ``f_stat``
+# variants R users type. Normalise here so the facade doesn't surprise
+# anyone migrating from R modelsummary.
+_STATS_TRANSLATION = {
+    "nobs": "N",
+    "n": "N",
+    "r_squared": "r2",
+    "rsquared": "r2",
+    "r2": "r2",
+    "adj_r_squared": "adj_r2",
+    "adj_rsquared": "adj_r2",
+    "adj_r2": "adj_r2",
+    "f_stat": "F",
+    "fstat": "F",
+    "f": "F",
+    "aic": "aic",
+    "bic": "bic",
+    # Modelsummary-only keys with no regtable equivalent — silently
+    # dropped here; users wanting these can build a custom regtable
+    # ``add_rows={}`` or extract from the result directly.
+    "method": None,
+    "bandwidth": None,
+    "estimand": None,
+}
+
+
+def _translate_stats(stats: Optional[List[str]]) -> Optional[List[str]]:
+    if stats is None:
+        return None
+    out: List[str] = []
+    for s in stats:
+        canonical = _STATS_TRANSLATION.get(s.lower(), s)
+        if canonical is None:
+            continue  # silently drop modelsummary-only keys
+        if canonical not in out:
+            out.append(canonical)
+    return out
+
 
 def modelsummary(
     *models,
     model_names: Optional[List[str]] = None,
     stars: Union[bool, Dict[str, float]] = True,
-    se_type: str = 'parentheses',
+    se_type: str = "parentheses",
     show_ci: bool = False,
     stats: Optional[List[str]] = None,
-    output: str = 'text',
-    title: str = '',
+    output: str = "text",
+    title: str = "",
     notes: Optional[List[str]] = None,
-    fmt: str = '%.4f',
+    fmt: str = "%.4f",
     coef_map: Optional[Dict[str, str]] = None,
     add_rows: Optional[Dict[str, List[str]]] = None,
 ) -> Union[str, pd.DataFrame]:
-    """
-    Generate publication-quality multi-model comparison table.
+    """Multi-model comparison table — R ``modelsummary`` compatibility surface.
 
-    Accepts any combination of EconometricResults and CausalResult objects
-    and produces a formatted comparison table.
+    .. deprecated::
+        Now a thin wrapper over :func:`statspai.output.regtable`. Use
+        ``sp.regtable(*models, ...)`` directly for full control. See
+        the module docstring for parameter mapping.
 
-    Parameters
-    ----------
-    *models
-        Model result objects (EconometricResults, CausalResult, or anything
-        with ``.params`` and ``.std_errors`` Series attributes).
-    model_names : list of str, optional
-        Column headers. Defaults to ``(1), (2), ...``.
-    stars : bool or dict, default True
-        Significance stars. True for default thresholds.
-        Dict maps symbol to threshold: ``{'*': 0.1, '**': 0.05, '***': 0.01}``.
-    se_type : str, default 'parentheses'
-        ``'parentheses'``, ``'brackets'``, or ``'none'``.
-    show_ci : bool, default False
-        Show 95% confidence intervals instead of standard errors.
-    stats : list of str, optional
-        Bottom-row statistics to include. Available keys:
-        ``'nobs'``, ``'r_squared'``, ``'adj_r_squared'``, ``'f_stat'``,
-        ``'aic'``, ``'bic'``, ``'method'``, ``'bandwidth'``, ``'estimand'``.
-        Defaults to ``['nobs', 'r_squared']``.
-    output : str, default 'text'
-        ``'text'``, ``'latex'``, ``'html'``, or ``'dataframe'``.
-    title : str
-        Table title / caption.
-    notes : list of str, optional
-        Footnotes. A significance note is auto-appended when ``stars=True``.
-    fmt : str, default '%.4f'
-        Number format for coefficients and SEs.
-    coef_map : dict, optional
-        Rename / reorder coefficients: ``{'x1': 'Education'}``.
-        Variables not in the map are kept in original order; set value
-        to ``None`` to drop a variable.
-    add_rows : dict, optional
-        Extra rows: ``{'FE: Year': ['Yes', 'No', 'Yes']}``.
-
-    Returns
-    -------
-    str or pd.DataFrame
-        Formatted table (text/LaTeX/HTML string, or DataFrame).
-
-    Examples
-    --------
-    >>> import statspai as sp
-    >>> r1 = sp.regress("y ~ x1 + x2", data=df)
-    >>> r2 = sp.regress("y ~ x1 + x2 + x3", data=df, robust='hc1')
-    >>> r3 = sp.did(df, y='y', treat='d', time='t')
-    >>> print(sp.modelsummary(r1, r2, r3))
+    Parameters mirror R ``modelsummary``; see the module docstring for
+    the exact mapping to regtable.
     """
     if len(models) == 0:
         raise ValueError("At least one model required.")
 
-    # Defaults
-    if model_names is None:
-        model_names = [f'({i + 1})' for i in range(len(models))]
-    if len(model_names) != len(models):
-        raise ValueError("Length of model_names must match number of models.")
-    if stats is None:
-        stats = ['nobs', 'r_squared']
-    if notes is None:
-        notes = []
+    _warn_once()
 
-    star_thresholds = (
-        {'***': 0.01, '**': 0.05, '*': 0.1}
-        if stars is True
-        else (stars if isinstance(stars, dict) else {})
+    from .regression_table import regtable
+
+    # ── star handling ────────────────────────────────────────────────
+    if isinstance(stars, dict):
+        if stars:
+            star_levels = tuple(sorted(stars.values()))
+            show_stars = True
+        else:
+            star_levels = None
+            show_stars = False
+    else:
+        star_levels = None
+        show_stars = bool(stars)
+
+    # ── SE / CI handling ─────────────────────────────────────────────
+    if show_ci:
+        rt_se_type = "ci"
+    else:
+        st = se_type.lower()
+        if st == "brackets":
+            warnings.warn(
+                "modelsummary(se_type='brackets') is no longer a "
+                "separate render mode; SE will display in parentheses. "
+                "Use show_ci=True to render [lo, hi] instead.",
+                UserWarning,
+                stacklevel=3,
+            )
+            rt_se_type = "se"
+        elif st == "none":
+            warnings.warn(
+                "modelsummary(se_type='none') is no longer supported; "
+                "the SE row will remain. Use sp.regtable(...) directly "
+                "if you need a different uncertainty cell.",
+                UserWarning,
+                stacklevel=3,
+            )
+            rt_se_type = "se"
+        else:
+            rt_se_type = "se"
+
+    # ── stat keys translation ────────────────────────────────────────
+    rt_stats = _translate_stats(stats)
+
+    # ── model labels ─────────────────────────────────────────────────
+    rt_labels = list(model_names) if model_names else None
+
+    # ── build the regtable call ──────────────────────────────────────
+    kwargs: Dict[str, Any] = dict(
+        model_labels=rt_labels,
+        title=title or None,
+        notes=notes,
+        stars=show_stars,
+        se_type=rt_se_type,
+        fmt=fmt,
+        coef_map=coef_map,
+        add_rows=add_rows,
     )
+    if star_levels is not None:
+        kwargs["star_levels"] = star_levels
+    if rt_stats is not None:
+        kwargs["stats"] = rt_stats
 
-    # 1. Extract coefficient data from each model
-    coef_data = [_extract_coefs(m) for m in models]
+    table = regtable(list(models), **kwargs)
 
-    # 2. Determine variable ordering
-    all_vars = _collect_variables(coef_data, coef_map)
-
-    # 3. Build coefficient rows
-    rows = _build_coef_rows(
-        all_vars, coef_data, model_names,
-        star_thresholds, se_type, show_ci, fmt, coef_map,
-    )
-
-    # 4. Build statistics rows
-    stat_rows = _build_stat_rows(models, model_names, stats, fmt)
-
-    # 5. Build custom rows
-    custom_rows = []
-    if add_rows:
-        for label, vals in add_rows.items():
-            row = [label] + list(vals)
-            while len(row) < len(model_names) + 1:
-                row.append('')
-            custom_rows.append(row)
-
-    # 6. Format output
-    all_rows = rows + [None] + stat_rows + custom_rows  # None = separator
-    columns = [''] + model_names
-
-    if output == 'dataframe':
-        return _to_dataframe(all_rows, columns)
-    elif output == 'latex':
-        return _to_latex(all_rows, columns, title, notes, star_thresholds)
-    elif output == 'html':
-        return _to_html(all_rows, columns, title, notes, star_thresholds)
-    elif output.endswith('.xlsx'):
-        _to_excel(all_rows, columns, title, notes, star_thresholds, output)
+    # ── output dispatch ──────────────────────────────────────────────
+    out = output.lower()
+    if out == "dataframe":
+        return table.to_dataframe()
+    if out == "latex":
+        return table.to_latex()
+    if out == "html":
+        return table.to_html()
+    if out == "markdown":
+        return table.to_markdown()
+    if output.lower().endswith(".xlsx"):
+        table.to_excel(output)
         return f"Table exported to: {output}"
-    elif output.endswith('.docx'):
-        _to_word(all_rows, columns, title, notes, star_thresholds, output)
+    if output.lower().endswith(".docx"):
+        table.to_word(output)
         return f"Table exported to: {output}"
-    else:  # text
-        return _to_text(all_rows, columns, title, notes, star_thresholds)
+    # default: text
+    return table.to_text()
 
+
+# ======================================================================
+# coefplot — independent of the table renderer; kept verbatim
+# ======================================================================
 
 def coefplot(
     *models,
@@ -253,17 +332,17 @@ def coefplot(
     return fig, ax
 
 
-# ======================================================================
-# Extraction helpers
-# ======================================================================
-
 def _extract_coefs(model) -> Dict[str, tuple]:
-    """Extract {var_name: (coef, se, pvalue)} from a model object."""
-    result = {}
+    """Extract {var_name: (coef, se, pvalue)} from a model object.
 
-    params = getattr(model, 'params', None)
-    std_errors = getattr(model, 'std_errors', None)
-    pvalues = getattr(model, 'pvalues', None)
+    Used by :func:`coefplot`. Coefficient extraction for the table
+    pipeline now lives in ``regression_table`` / ``estimates``.
+    """
+    result: Dict[str, tuple] = {}
+
+    params = getattr(model, "params", None)
+    std_errors = getattr(model, "std_errors", None)
+    pvalues = getattr(model, "pvalues", None)
 
     if params is None:
         return result
@@ -271,575 +350,29 @@ def _extract_coefs(model) -> Dict[str, tuple]:
     if isinstance(params, pd.Series):
         for var in params.index:
             coef = float(params[var])
-            se = float(std_errors[var]) if std_errors is not None and var in std_errors.index else np.nan
+            se = float(std_errors[var]) if (
+                std_errors is not None and var in std_errors.index
+            ) else np.nan
+            pv = np.nan
             if pvalues is not None:
                 if isinstance(pvalues, pd.Series) and var in pvalues.index:
                     pv = float(pvalues[var])
                 elif isinstance(pvalues, np.ndarray):
                     idx = list(params.index).index(var)
-                    pv = float(pvalues[idx]) if idx < len(pvalues) else np.nan
-                else:
-                    pv = np.nan
-            else:
-                pv = np.nan
+                    if idx < len(pvalues):
+                        pv = float(pvalues[idx])
             result[var] = (coef, se, pv)
-    elif isinstance(params, (int, float)):
-        name = getattr(model, 'estimand', 'estimate')
-        se = float(std_errors) if std_errors is not None else np.nan
-        pv = float(pvalues) if pvalues is not None else np.nan
-        result[name] = (float(params), se, pv)
+        return result
 
+    # CausalResult-style (single estimate)
+    estimand = getattr(model, "estimand", None)
+    estimate = getattr(model, "estimate", None)
+    se_val = getattr(model, "se", None)
+    pv_val = getattr(model, "pvalue", None)
+    if estimand is not None and estimate is not None:
+        result[str(estimand)] = (
+            float(estimate),
+            float(se_val) if se_val is not None else np.nan,
+            float(pv_val) if pv_val is not None else np.nan,
+        )
     return result
-
-
-def _extract_stat(model, stat_name: str) -> Any:
-    """Extract a named statistic from a model."""
-    # Try diagnostics (EconometricResults)
-    diag = getattr(model, 'diagnostics', {})
-    if isinstance(diag, dict):
-        mapping = {
-            'r_squared': ['R-squared', 'r_squared'],
-            'adj_r_squared': ['Adj. R-squared', 'adj_r_squared'],
-            'f_stat': ['F-statistic', 'f_stat'],
-            'aic': ['AIC', 'aic'],
-            'bic': ['BIC', 'bic'],
-        }
-        for key in mapping.get(stat_name, [stat_name]):
-            if key in diag:
-                return diag[key]
-
-    # Try model_info (CausalResult)
-    mi = getattr(model, 'model_info', {})
-    if isinstance(mi, dict):
-        direct_map = {
-            'r_squared': 'r_squared',
-            'bandwidth': 'bandwidth_h',
-            'method': 'method',
-            'estimand': 'estimand',
-        }
-        key = direct_map.get(stat_name, stat_name)
-        if key in mi:
-            return mi[key]
-
-    # Try data_info
-    di = getattr(model, 'data_info', {})
-    if isinstance(di, dict) and stat_name == 'nobs' and 'nobs' in di:
-        return di['nobs']
-
-    # Try direct attribute
-    if stat_name == 'nobs':
-        return getattr(model, 'n_obs', None)
-
-    return None
-
-
-# ======================================================================
-# Table construction
-# ======================================================================
-
-def _collect_variables(
-    coef_data: List[Dict[str, tuple]],
-    coef_map: Optional[Dict[str, str]],
-) -> List[str]:
-    """Collect and order variable names across models."""
-    seen = {}  # var → first appearance order
-    for cd in coef_data:
-        for var in cd:
-            if var not in seen:
-                seen[var] = len(seen)
-
-    if coef_map:
-        # Reorder: mapped variables first (in map order), then remainder
-        ordered = []
-        for old_name in coef_map:
-            if old_name in seen and coef_map[old_name] is not None:
-                ordered.append(old_name)
-        for var in sorted(seen, key=seen.get):
-            if var not in ordered:
-                if coef_map is None or var not in coef_map or coef_map[var] is not None:
-                    ordered.append(var)
-        return ordered
-    else:
-        return sorted(seen, key=seen.get)
-
-
-def _format_num(value: float, fmt: str) -> str:
-    """Numeric cell formatter (delegates to canonical :func:`_format.fmt_val`)."""
-    from ._format import fmt_val
-    return fmt_val(value, fmt)
-
-
-def _stars_str(pvalue: float, thresholds: Dict[str, float]) -> str:
-    """Pick the symbol with the most stars among ``thresholds`` that ``pvalue`` clears.
-
-    ``thresholds`` is a ``{symbol: cutoff}`` mapping (modelsummary uses this
-    dict-based form rather than the canonical positional ``levels`` tuple
-    in :func:`_format.format_stars` because R's ``modelsummary`` exposes
-    custom symbol overrides via the same dict).
-    """
-    if not thresholds:
-        return ''
-    from ._format import is_missing
-    if is_missing(pvalue):
-        return ''
-    best = ''
-    for symbol, thresh in sorted(thresholds.items(), key=lambda x: x[1]):
-        if pvalue < thresh and len(symbol) > len(best):
-            best = symbol
-    return best
-
-
-def _build_coef_rows(
-    variables, coef_data, model_names,
-    star_thresholds, se_type, show_ci, fmt, coef_map,
-):
-    """Build coefficient + SE rows."""
-    rows = []
-    for var in variables:
-        display_name = var
-        if coef_map and var in coef_map:
-            display_name = coef_map[var]
-            if display_name is None:
-                continue
-
-        # Coefficient row
-        coef_row = [display_name]
-        for cd in coef_data:
-            if var in cd:
-                coef, se, pv = cd[var]
-                s = _stars_str(pv, star_thresholds)
-                coef_row.append(_format_num(coef, fmt) + s)
-            else:
-                coef_row.append('')
-        rows.append(coef_row)
-
-        # SE / CI row
-        if se_type != 'none':
-            se_row = ['']
-            for cd in coef_data:
-                if var in cd:
-                    _, se, _ = cd[var]
-                    if show_ci:
-                        from scipy import stats as sp_stats
-                        z = sp_stats.norm.ppf(0.975)
-                        coef = cd[var][0]
-                        lo, hi = coef - z * se, coef + z * se
-                        cell = f'[{_format_num(lo, fmt)}, {_format_num(hi, fmt)}]'
-                    else:
-                        wrap = '({})' if se_type == 'parentheses' else '[{}]'
-                        cell = wrap.format(_format_num(se, fmt))
-                    se_row.append(cell)
-                else:
-                    se_row.append('')
-            rows.append(se_row)
-
-    return rows
-
-
-def _build_stat_rows(models, model_names, stats, fmt):
-    """Build bottom statistics rows."""
-    rows = []
-
-    stat_labels = {
-        'nobs': 'Observations',
-        'r_squared': 'R²',
-        'adj_r_squared': 'Adj. R²',
-        'f_stat': 'F-statistic',
-        'aic': 'AIC',
-        'bic': 'BIC',
-        'method': 'Method',
-        'bandwidth': 'Bandwidth',
-        'estimand': 'Estimand',
-    }
-
-    for stat in stats:
-        label = stat_labels.get(stat, stat)
-        row = [label]
-        for model in models:
-            val = _extract_stat(model, stat)
-            if val is None:
-                row.append('')
-            elif isinstance(val, float):
-                if stat == 'nobs':
-                    row.append(f'{int(val):,}')
-                else:
-                    row.append(_format_num(val, fmt))
-            elif isinstance(val, int):
-                row.append(f'{val:,}')
-            else:
-                row.append(str(val))
-        rows.append(row)
-
-    return rows
-
-
-# ======================================================================
-# Output formatters
-# ======================================================================
-
-def _to_dataframe(all_rows, columns):
-    """Convert to pandas DataFrame."""
-    clean = [r for r in all_rows if r is not None]
-    df = pd.DataFrame(clean, columns=columns)
-    return df
-
-
-def _to_text(all_rows, columns, title, notes, star_thresholds):
-    """Format as plain text table."""
-    # Compute column widths
-    n_cols = len(columns)
-    widths = [0] * n_cols
-    for row in all_rows:
-        if row is None:
-            continue
-        for j, cell in enumerate(row):
-            widths[j] = max(widths[j], len(str(cell)))
-    for j, col in enumerate(columns):
-        widths[j] = max(widths[j], len(col))
-
-    # Add padding
-    widths = [w + 2 for w in widths]
-    total_width = sum(widths) + n_cols - 1
-
-    lines = []
-    if title:
-        lines.append(title)
-        lines.append('')
-
-    lines.append('=' * total_width)
-
-    # Header
-    header = ''
-    for j, col in enumerate(columns):
-        if j == 0:
-            header += col.ljust(widths[j])
-        else:
-            header += col.rjust(widths[j])
-    lines.append(header)
-    lines.append('-' * total_width)
-
-    # Rows
-    for row in all_rows:
-        if row is None:
-            lines.append('-' * total_width)
-            continue
-        line = ''
-        for j, cell in enumerate(row):
-            cell_str = str(cell)
-            if j == 0:
-                line += cell_str.ljust(widths[j])
-            else:
-                line += cell_str.rjust(widths[j])
-        lines.append(line)
-
-    lines.append('=' * total_width)
-
-    # Notes
-    if star_thresholds:
-        star_note = '; '.join(
-            f'{sym} p<{thresh}' for sym, thresh in
-            sorted(star_thresholds.items(), key=lambda x: -len(x[0]))
-        )
-        lines.append(star_note)
-    for note in notes:
-        lines.append(note)
-
-    return '\n'.join(lines)
-
-
-def _to_latex(all_rows, columns, title, notes, star_thresholds):
-    """Format as LaTeX table."""
-    n_cols = len(columns)
-    spec = 'l' + 'c' * (n_cols - 1)
-
-    lines = [
-        '\\begin{table}[htbp]',
-        '\\centering',
-    ]
-    if title:
-        lines.append(f'\\caption{{{title}}}')
-
-    lines += [
-        f'\\begin{{tabular}}{{{spec}}}',
-        '\\hline\\hline',
-    ]
-
-    # Header
-    lines.append(' & '.join(columns) + ' \\\\')
-    lines.append('\\hline')
-
-    # Rows
-    for row in all_rows:
-        if row is None:
-            lines.append('\\hline')
-            continue
-        cells = []
-        for cell in row:
-            s = str(cell)
-            # Escape LaTeX special chars in variable names
-            s = s.replace('_', '\\_').replace('%', '\\%').replace('&', '\\&')
-            cells.append(s)
-        lines.append(' & '.join(cells) + ' \\\\')
-
-    lines += [
-        '\\hline\\hline',
-        '\\end{tabular}',
-    ]
-
-    # Notes
-    note_lines = []
-    if star_thresholds:
-        star_note = '; '.join(
-            f'{sym} p<{thresh}' for sym, thresh in
-            sorted(star_thresholds.items(), key=lambda x: -len(x[0]))
-        )
-        note_lines.append(star_note)
-    note_lines.extend(notes or [])
-    if note_lines:
-        lines.append('\\begin{tablenotes}')
-        lines.append('\\footnotesize')
-        for n in note_lines:
-            lines.append(f'\\item {n}')
-        lines.append('\\end{tablenotes}')
-
-    lines.append('\\end{table}')
-    return '\n'.join(lines)
-
-
-def _to_html(all_rows, columns, title, notes, star_thresholds):
-    """Format as HTML table."""
-    lines = ['<table style="border-collapse:collapse; font-family:serif;">']
-    if title:
-        lines.append(f'<caption style="font-weight:bold; font-size:14px;">{title}</caption>')
-
-    # Header
-    lines.append('<thead><tr>')
-    for j, col in enumerate(columns):
-        align = 'left' if j == 0 else 'center'
-        lines.append(f'  <th style="text-align:{align}; border-bottom:2px solid black; '
-                     f'padding:4px 8px;">{col}</th>')
-    lines.append('</tr></thead>')
-
-    # Body
-    lines.append('<tbody>')
-    for row in all_rows:
-        if row is None:
-            lines.append('<tr><td colspan="{}" style="border-bottom:1px solid black;"></td></tr>'
-                         .format(len(columns)))
-            continue
-        lines.append('<tr>')
-        for j, cell in enumerate(row):
-            align = 'left' if j == 0 else 'center'
-            lines.append(f'  <td style="text-align:{align}; padding:2px 8px;">{cell}</td>')
-        lines.append('</tr>')
-    lines.append('</tbody>')
-
-    # Footer
-    lines.append('<tfoot><tr><td colspan="{}" style="border-top:2px solid black; '
-                 'font-size:11px; padding-top:4px;">'.format(len(columns)))
-    if star_thresholds:
-        star_note = '; '.join(
-            f'{sym} p&lt;{thresh}' for sym, thresh in
-            sorted(star_thresholds.items(), key=lambda x: -len(x[0]))
-        )
-        lines.append(star_note + '<br/>')
-    for n in (notes or []):
-        lines.append(n + '<br/>')
-    lines.append('</td></tr></tfoot>')
-
-    lines.append('</table>')
-    return '\n'.join(lines)
-
-
-def _to_excel(all_rows, columns, title, notes, star_thresholds, filename):
-    """Export to publication-quality Excel using shared book-tab style.
-
-    Conforms to the AER/QJE three-line convention via primitives in
-    :mod:`._excel_style` so output is visually identical to ``regtable``,
-    ``sumstats``, ``tab``, and ``paper_tables``.
-    """
-    import openpyxl
-    from openpyxl.styles import Alignment, Font
-
-    from ._excel_style import (
-        TIMES, BODY_PT, HEADER_PT, NOTES_PT, TITLE_PT,
-        apply_booktab_borders, autofit_columns, write_title,
-    )
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = 'Results'
-
-    n_cols = len(columns)
-    row_idx = 1
-    if title:
-        row_idx = write_title(ws, row_idx, n_cols, title)
-
-    # Header
-    header_top_row = row_idx
-    header_font = Font(bold=True, name=TIMES, size=HEADER_PT)
-    body_font = Font(name=TIMES, size=BODY_PT)
-    notes_font = Font(italic=True, name=TIMES, size=NOTES_PT)
-    center = Alignment(horizontal='center')
-    left = Alignment(horizontal='left')
-
-    for j, col in enumerate(columns, 1):
-        cell = ws.cell(row=row_idx, column=j, value=col)
-        cell.font = header_font
-        cell.alignment = center
-    header_bot_row = row_idx
-    row_idx += 1
-
-    body_top_row = row_idx
-    last_data_row = row_idx
-    for row in all_rows:
-        if row is None:
-            # Separator: leave the row blank — booktab style avoids
-            # internal horizontal rules. Skip without advancing borders.
-            row_idx += 1
-            continue
-        for j, val in enumerate(row, 1):
-            cell = ws.cell(row=row_idx, column=j, value=str(val))
-            cell.font = body_font
-            cell.alignment = left if j == 1 else center
-        last_data_row = row_idx
-        row_idx += 1
-    body_bot_row = last_data_row
-
-    apply_booktab_borders(
-        ws,
-        header_top_row=header_top_row,
-        header_bot_row=header_bot_row,
-        body_top_row=body_top_row,
-        body_bot_row=body_bot_row,
-        n_cols=n_cols,
-    )
-
-    # Notes
-    note_row = body_bot_row + 1
-    if star_thresholds:
-        star_note = '; '.join(
-            f'{sym} p<{thresh}' for sym, thresh in
-            sorted(star_thresholds.items(), key=lambda x: -len(x[0])))
-        cell = ws.cell(row=note_row, column=1, value=star_note)
-        cell.font = notes_font
-        note_row += 1
-    for note in (notes or []):
-        cell = ws.cell(row=note_row, column=1, value=note)
-        cell.font = notes_font
-        note_row += 1
-
-    autofit_columns(ws, n_cols)
-    wb.save(filename)
-
-
-def _to_word(all_rows, columns, title, notes, star_thresholds, filename):
-    """Export to publication-quality Word (.docx)."""
-    try:
-        from docx import Document
-        from docx.shared import Pt
-        from docx.enum.text import WD_ALIGN_PARAGRAPH
-        from docx.enum.table import WD_TABLE_ALIGNMENT
-        from docx.oxml.ns import qn
-        from docx.oxml import OxmlElement
-    except ImportError:
-        raise ImportError(
-            "python-docx required for Word export. "
-            "Install: pip install python-docx")
-
-    doc = Document()
-
-    # Title
-    if title:
-        p = doc.add_paragraph()
-        run = p.add_run(title)
-        run.bold = True
-        run.font.size = Pt(12)
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    # Count actual rows (skip None separators, use border instead)
-    data_rows = [r for r in all_rows if r is not None]
-    sep_indices = set()
-    count = 0
-    for i, r in enumerate(all_rows):
-        if r is None:
-            sep_indices.add(count)
-        else:
-            count += 1
-
-    n_rows = len(data_rows) + 1  # +1 for header
-    n_cols = len(columns)
-    table = doc.add_table(rows=n_rows, cols=n_cols)
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
-
-    # Header
-    for j, col in enumerate(columns):
-        cell = table.rows[0].cells[j]
-        cell.text = str(col)
-        for para in cell.paragraphs:
-            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            for run in para.runs:
-                run.bold = True
-                run.font.size = Pt(10)
-
-    # Data rows
-    for i, row in enumerate(data_rows):
-        for j, val in enumerate(row):
-            cell = table.rows[i + 1].cells[j]
-            cell.text = str(val) if val else ''
-            for para in cell.paragraphs:
-                para.alignment = (WD_ALIGN_PARAGRAPH.LEFT if j == 0
-                                  else WD_ALIGN_PARAGRAPH.CENTER)
-                for run in para.runs:
-                    run.font.size = Pt(9)
-
-    # APA borders
-    def _set_border(cell, top=None, bottom=None):
-        tc = cell._tc
-        tcPr = tc.get_or_add_tcPr()
-        borders = OxmlElement('w:tcBorders')
-        for edge, val in [('top', top), ('bottom', bottom)]:
-            if val:
-                el = OxmlElement(f'w:{edge}')
-                el.set(qn('w:val'), val.get('val', 'single'))
-                el.set(qn('w:sz'), val.get('sz', '4'))
-                el.set(qn('w:color'), '000000')
-                el.set(qn('w:space'), '0')
-                borders.append(el)
-        for edge in ['start', 'end']:
-            el = OxmlElement(f'w:{edge}')
-            el.set(qn('w:val'), 'none')
-            el.set(qn('w:sz'), '0')
-            el.set(qn('w:space'), '0')
-            borders.append(el)
-        tcPr.append(borders)
-
-    thick = {'val': 'single', 'sz': '12'}
-    thin = {'val': 'single', 'sz': '4'}
-
-    for j in range(n_cols):
-        # Top of table
-        _set_border(table.rows[0].cells[j], top=thick, bottom=thin)
-        # Bottom of table
-        _set_border(table.rows[-1].cells[j], bottom=thick)
-        # Separator rows
-        for si in sep_indices:
-            if si + 1 < n_rows:
-                _set_border(table.rows[si + 1].cells[j], top=thin)
-
-    # Notes
-    if star_thresholds or notes:
-        p = doc.add_paragraph()
-        if star_thresholds:
-            star_note = '; '.join(
-                f'{sym} p<{thresh}' for sym, thresh in
-                sorted(star_thresholds.items(), key=lambda x: -len(x[0])))
-            run = p.add_run(star_note + '\n')
-            run.italic = True
-            run.font.size = Pt(8)
-        for note in (notes or []):
-            run = p.add_run(note + '\n')
-            run.italic = True
-            run.font.size = Pt(8)
-
-    doc.save(filename)

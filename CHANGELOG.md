@@ -352,6 +352,26 @@ discovery / orchestration / output layer.
 
 ### Changed — output module PR-B (continuation of v1.11.x cleanup)
 
+- **`modelsummary` is now a thin facade over `regtable`.** The R-style
+  ``modelsummary()`` previously shipped a ~700-line renderer pipeline
+  (``_build_coef_rows`` / ``_to_text`` / ``_to_latex`` / ``_to_html``
+  / ``_to_excel`` / ``_to_word``) that re-implemented coefficient
+  extraction, star formatting, three-line table styling, and every
+  export format — duplicating code already maintained by
+  ``sp.regtable``.
+  - Net code: ``output/modelsummary.py`` 845 → 378 lines (-55%;
+    remainder is module docstring + ``coefplot`` kept verbatim +
+    ``_extract_coefs`` for ``coefplot``).
+  - Rendered output now matches ``regtable`` exactly. The dict form
+    of ``stars=`` is reinterpreted (only threshold values used; symbol
+    overrides dropped — use ``regtable(notation='symbols')`` for
+    ``†/‡/§``). ``se_type='brackets'`` is no longer a separate render
+    mode (emits ``UserWarning`` and falls back to parens; use
+    ``show_ci=True`` for ``[lo, hi]``). ``se_type='none'`` likewise
+    keeps the SE row.
+  - First call emits ``DeprecationWarning`` pointing to ``sp.regtable``.
+  - ``coefplot`` is unchanged (independent of the table renderer).
+
 - **`outreg2` is now a thin facade over `regtable`.** The Stata-style
   `OutReg2` class and `outreg2()` function previously shipped a
   bespoke 800-line renderer that re-implemented coefficient

@@ -5,6 +5,50 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## v1.11 → v1.12 — `modelsummary` becomes a thin facade over `regtable`
+
+The R-style `modelsummary()` previously shipped a ~700-line renderer
+pipeline that re-implemented coefficient extraction, star formatting,
+three-line table styling and every export format. PR-B/5b in v1.12
+collapses it to a thin facade that translates R-flavoured kwargs and
+forwards to `sp.regtable`.
+
+**API is unchanged**, but rendered output now matches `regtable` (book-tab
+three-line, publication-quality star legend). A `DeprecationWarning` is
+emitted on first use; plan to migrate to `sp.regtable(...)` directly
+within the next two minor releases.
+
+### Behaviour changes
+
+| Old | New |
+| --- | --- |
+| `stars={"*": 0.10, "**": 0.05, "***": 0.01}` | only the threshold *values* are kept; the symbol overrides are dropped (regtable's ladder is `*/**/***` by convention; use `regtable(notation='symbols')` for `†/‡/§`) |
+| `se_type='brackets'` | downgraded to parens with `UserWarning`; use `show_ci=True` for `[lo, hi]` if you want brackets to convey actual information |
+| `se_type='none'` | downgraded to parens with `UserWarning`; the SE row stays |
+| Stat keys `nobs/r_squared/adj_r_squared/f_stat` | translated to regtable canonical (`N`/`r2`/`adj_r2`/`F`) |
+| Stat keys `method`/`bandwidth`/`estimand` | silently dropped (modelsummary-only; build a custom `add_rows={}` if needed) |
+
+`coefplot` is unchanged — independent of the table renderer.
+
+### Side-by-side migration
+
+```python
+# Before — R-style functional API
+sp.modelsummary(m1, m2, m3,
+                model_names=["Base", "Mid", "Full"],
+                stats=["nobs", "r_squared", "adj_r_squared"],
+                output="latex")
+
+# After — direct regtable call (same LaTeX output, full control)
+sp.regtable(
+    [m1, m2, m3],
+    model_labels=["Base", "Mid", "Full"],
+    stats=["N", "r2", "adj_r2"],
+).to_latex()
+```
+
+---
+
 ## v1.11 → v1.12 — `outreg2` becomes a thin facade over `regtable`
 
 The Stata-style `OutReg2` class and `outreg2()` function previously

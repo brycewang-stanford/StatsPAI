@@ -170,9 +170,15 @@ class TestModelsummaryOptions:
 
     def test_se_brackets(self, ols_models):
         r1, _, _, _ = ols_models
-        output = modelsummary(r1, se_type='brackets', output='text')
-        # Should have bracket-style SEs
-        assert '[' in output
+        # PR-B/5b: ``modelsummary`` is now a facade over ``regtable``,
+        # which has no separate brackets-around-SE render mode. The
+        # facade downgrades to parentheses and emits a UserWarning.
+        # Verify the deprecation contract instead of the legacy
+        # bracket character.
+        with pytest.warns(UserWarning, match="se_type='brackets'"):
+            output = modelsummary(r1, se_type='brackets', output='text')
+        assert isinstance(output, str)
+        assert '(' in output and ')' in output  # parens fallback
 
     def test_extra_stats(self, ols_models):
         r1, r2, _, _ = ols_models
