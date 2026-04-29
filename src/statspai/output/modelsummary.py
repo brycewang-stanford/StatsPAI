@@ -364,28 +364,28 @@ def _collect_variables(
 
 
 def _format_num(value: float, fmt: str) -> str:
-    if np.isnan(value):
-        return ''
-    if fmt == "auto":
-        from .estimates import _fmt_auto
-        return _fmt_auto(value)
-    return fmt % value
+    """Numeric cell formatter (delegates to canonical :func:`_format.fmt_val`)."""
+    from ._format import fmt_val
+    return fmt_val(value, fmt)
 
 
 def _stars_str(pvalue: float, thresholds: Dict[str, float]) -> str:
-    if not thresholds or np.isnan(pvalue):
+    """Pick the symbol with the most stars among ``thresholds`` that ``pvalue`` clears.
+
+    ``thresholds`` is a ``{symbol: cutoff}`` mapping (modelsummary uses this
+    dict-based form rather than the canonical positional ``levels`` tuple
+    in :func:`_format.format_stars` because R's ``modelsummary`` exposes
+    custom symbol overrides via the same dict).
+    """
+    if not thresholds:
         return ''
-    for symbol in sorted(thresholds, key=lambda s: thresholds[s]):
-        if pvalue < thresholds[symbol]:
-            best = symbol
-    else:
-        best = ''
-    # Find the most stars that apply
+    from ._format import is_missing
+    if is_missing(pvalue):
+        return ''
     best = ''
     for symbol, thresh in sorted(thresholds.items(), key=lambda x: x[1]):
-        if pvalue < thresh:
-            if len(symbol) > len(best):
-                best = symbol
+        if pvalue < thresh and len(symbol) > len(best):
+            best = symbol
     return best
 
 

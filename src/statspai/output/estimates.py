@@ -252,53 +252,15 @@ def _extract_model_data(result) -> _ModelData:
                       stats, depvar, df_resid=df_resid)
 
 
-def _format_stars(pvalue: float, levels: Tuple[float, ...] = (0.10, 0.05, 0.01)) -> str:
-    """Return significance stars for *pvalue* given threshold *levels*."""
-    if pvalue is None or (isinstance(pvalue, float) and np.isnan(pvalue)):
-        return ""
-    stars = ""
-    for lev in sorted(levels, reverse=True):
-        if pvalue < lev:
-            stars += "*"
-    return stars
-
-
-def _fmt_auto(value: float) -> str:
-    """Magnitude-adaptive numeric formatting.
-
-    Picks decimal precision per |value| so a single table can mix
-    dollar-magnitude coefficients (e.g. ``1521``) and elasticity-magnitude
-    coefficients (e.g. ``0.288``) without one side being rounded to zero.
-    """
-    if value is None or (isinstance(value, float) and np.isnan(value)):
-        return ""
-    av = abs(float(value))
-    if av >= 1000:
-        return f"{value:,.0f}"
-    if av >= 100:
-        return f"{value:.0f}"
-    if av >= 10:
-        return f"{value:.1f}"
-    if av >= 1:
-        return f"{value:.2f}"
-    return f"{value:.3f}"
-
-
-def _fmt_val(value: float, fmt: str = "%.4f") -> str:
-    if value is None or (isinstance(value, float) and np.isnan(value)):
-        return ""
-    if fmt == "auto":
-        return _fmt_auto(value)
-    return fmt % value
-
-
-def _fmt_int(value) -> str:
-    if value is None:
-        return ""
-    try:
-        return f"{int(value):,}"
-    except (ValueError, TypeError):
-        return str(value)
+# Canonical formatters live in ``_format`` — re-exported here under
+# their legacy underscore names so that ``regression_table`` / ``_inline``
+# / external callers that imported them keep working unchanged.
+from ._format import (
+    format_stars as _format_stars,
+    fmt_auto as _fmt_auto,
+    fmt_val as _fmt_val,
+    fmt_int as _fmt_int,
+)
 
 
 # ---------------------------------------------------------------------------

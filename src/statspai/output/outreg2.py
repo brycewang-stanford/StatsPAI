@@ -60,25 +60,14 @@ class OutReg2:
         self.notes.append(note)
     
     def _format_number(self, value: float, decimal_places: int = 3) -> str:
-        """Format numbers for display"""
-        if pd.isna(value) or np.isnan(value):
-            return ""
-        return f"{value:.{decimal_places}f}"
-    
+        """Format numbers for display."""
+        from ._format import fmt_val
+        return fmt_val(value, f"%.{decimal_places}f")
+
     def _format_pvalue(self, pvalue: float) -> str:
-        """Format p-values with stars"""
-        if pd.isna(pvalue) or np.isnan(pvalue):
-            return ""
-
-        stars = ""
-        if pvalue < 0.01:
-            stars = "***"
-        elif pvalue < 0.05:
-            stars = "**"
-        elif pvalue < 0.1:
-            stars = "*"
-
-        return stars
+        """Return significance stars (``"***"`` / ``"**"`` / ``"*"`` / ``""``)."""
+        from ._format import format_stars
+        return format_stars(pvalue, (0.10, 0.05, 0.01))
 
     def _is_causal_forest(self, result) -> bool:
         """Check if result is a Causal Forest model"""
