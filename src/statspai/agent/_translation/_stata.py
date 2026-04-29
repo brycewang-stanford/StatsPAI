@@ -623,6 +623,205 @@ def _h_xtset(cmd: StataCommand) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Tier-3 handlers — long-tail GMM / multinomial / bunching / boottest /
+# Poisson HDFE / mi_estimate
+# ---------------------------------------------------------------------------
+
+def _h_ppmlhdfe(cmd: StataCommand) -> Dict[str, Any]:
+    """``ppmlhdfe y x, absorb(id year) cluster(id)`` → ``sp.ppmlhdfe`` (or
+    sp.poisson with FE if ppmlhdfe unavailable). Correia-Guimarães-Zylkin
+    Poisson PML with HDFE."""
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error("ppmlhdfe requires an outcome variable",
+                            command="ppmlhdfe")
+    absorb = cmd.options.get("absorb") or ""
+    fe_list = [v for v in absorb.split() if v]
+    cluster = _vce_cluster(cmd) or cmd.options.get("cluster")
+    if cluster:
+        cluster = cluster.split()[0]
+    formula = _build_formula(y, xs)
+    args: Dict[str, Any] = {"formula": formula, "fe": fe_list}
+    if cluster:
+        args["cluster"] = cluster
+    code_pairs = ["data=df", f"fe={fe_list!r}"]
+    if cluster:
+        code_pairs.append(f"cluster={cluster!r}")
+    python = f"sp.ppmlhdfe({formula!r}, {', '.join(code_pairs)})"
+    notes: List[str] = []
+    if not fe_list:
+        notes.append("ppmlhdfe with no absorb() degenerates to "
+                      "sp.poisson — consider using that directly.")
+    return _emit("ppmlhdfe", args, python, notes)
+
+
+def _h_mlogit(cmd: StataCommand) -> Dict[str, Any]:
+    """``mlogit choice age income, baseoutcome(1)`` → multinomial logit.
+
+    No 1:1 sp helper exists; we translate to a ``method='mlogit'``
+    GLM call as a fallback and surface a note. Users with strict
+    multinomial needs should fall back to statsmodels via the result.
+    """
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error("mlogit requires an outcome variable",
+                            command="mlogit")
+    formula = _build_formula(y, xs)
+    args: Dict[str, Any] = {
+        "formula": formula,
+        "family": "multinomial",
+    }
+    base = cmd.options.get("baseoutcome")
+    if base is not None:
+        args["base_outcome"] = _coerce_scalar(base)
+    notes = ["StatsPAI doesn't ship a dedicated mlogit; "
+             "sp.glm(family='multinomial') is the closest. "
+             "For full diagnostics use statsmodels.MNLogit on the "
+             "fitted result via .raw_model."]
+    code_kwargs = ", ".join(
+        ["data=df", "family='multinomial'"]
+        + ([f"base_outcome={args['base_outcome']!r}"]
+            if "base_outcome" in args else [])
+    )
+    python = f"sp.glm({formula!r}, {code_kwargs})"
+    return _emit("glm", args, python, notes)
+
+
+def _h_oprobit(cmd: StataCommand) -> Dict[str, Any]:
+    """``oprobit grade x1 x2`` → ordered probit via sp.glm(family='ordered_probit')."""
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error("oprobit requires an outcome variable",
+                            command="oprobit")
+    formula = _build_formula(y, xs)
+    args: Dict[str, Any] = {
+        "formula": formula,
+        "family": "ordered_probit",
+    }
+    notes = ["StatsPAI's ordered probit lives behind "
+             "sp.glm(family='ordered_probit'). Use sp.cloglog for "
+             "complementary log-log."]
+    python = f"sp.glm({formula!r}, data=df, family='ordered_probit')"
+    return _emit("glm", args, python, notes)
+
+
+def _h_xtabond_family(cmd: StataCommand, *, sp_kind: str) -> Dict[str, Any]:
+    """Common scaffold for ``xtabond`` / ``xtdpdsys`` (Arellano-Bond /
+    Blundell-Bond difference / system GMM) → ``sp.xtabond`` /
+    ``sp.xtdpdsys``."""
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error(f"{sp_kind} requires an outcome variable",
+                            command=sp_kind)
+    panel_id = cmd.options.get("i") or cmd.options.get("id") or "<panel_id>"
+    args: Dict[str, Any] = {
+        "y": y,
+        "x": xs,
+        "id": panel_id if panel_id != "<panel_id>" else None,
+        "twostep": "twostep" in cmd.options,
+        "robust": "robust" in cmd.options or _opt_matches(cmd.options.get("vce"), "robust"),
+    }
+    if cmd.options.get("lags"):
+        try:
+            args["lags"] = int(cmd.options["lags"])
+        except (TypeError, ValueError):
+            pass
+    notes: List[str] = []
+    if panel_id == "<panel_id>":
+        notes.append("Stata's `xtset id [t]` set the panel id; replace "
+                      "<panel_id> with your unit-id column.")
+    code_pairs = [
+        f"data=df", f"y={y!r}",
+        f"x={xs!r}",
+    ]
+    if args["id"]:
+        code_pairs.append(f"id={args['id']!r}")
+    if args["twostep"]:
+        code_pairs.append("twostep=True")
+    if args["robust"]:
+        code_pairs.append("robust=True")
+    python = f"sp.{sp_kind}({', '.join(code_pairs)})"
+    return _emit(sp_kind, args, python, notes)
+
+
+def _h_xtabond(cmd: StataCommand) -> Dict[str, Any]:
+    return _h_xtabond_family(cmd, sp_kind="xtabond")
+
+
+def _h_xtdpdsys(cmd: StataCommand) -> Dict[str, Any]:
+    return _h_xtabond_family(cmd, sp_kind="xtdpdsys")
+
+
+def _h_bunching(cmd: StataCommand) -> Dict[str, Any]:
+    """``bunching y, c(0) bw(0.05)`` → ``sp.bunching``. Chetty-style
+    bunching estimators (Saez 2010, Kleven-Waseem 2013)."""
+    if not cmd.varlist:
+        return _emit_error("bunching requires a running-variable column",
+                            command="bunching")
+    x = cmd.varlist[0]
+    cutoff = cmd.options.get("c", "0")
+    try:
+        c = float(cutoff) if cutoff is not None else 0.0
+    except (TypeError, ValueError):
+        c = 0.0
+    bandwidth = cmd.options.get("bw") or cmd.options.get("bandwidth")
+    args: Dict[str, Any] = {"x": x, "c": c}
+    if bandwidth:
+        try:
+            args["bandwidth"] = float(bandwidth)
+        except (TypeError, ValueError):
+            pass
+    code_pairs = [f"data=df", f"x={x!r}", f"c={c}"]
+    if "bandwidth" in args:
+        code_pairs.append(f"bandwidth={args['bandwidth']}")
+    python = f"sp.bunching({', '.join(code_pairs)})"
+    return _emit("bunching", args, python)
+
+
+def _h_mi_estimate(cmd: StataCommand) -> Dict[str, Any]:
+    """``mi estimate: <inner_command>`` → multiple-imputation wrapper.
+
+    We don't try to translate Stata's nested ``mi estimate: reg y x``
+    grammar; we just emit a hint pointing the agent at sp.mi_estimate
+    and ask them to fit the underlying model first.
+    """
+    notes = ["Stata's `mi estimate: <cmd>` wraps an inner command — "
+             "translate the inner command first, then wrap with "
+             "sp.mi_estimate(model_fn, data=df_imputed_list)."]
+    return _emit("mi_estimate",
+                  {"hint": "translate inner command first"},
+                  "# sp.mi_estimate wraps a sequence of fits — see docs.",
+                  notes)
+
+
+def _h_boottest(cmd: StataCommand) -> Dict[str, Any]:
+    """``boottest x1=0, reps(999)`` → ``sp.wild_cluster_bootstrap``.
+
+    Stata's boottest is Roodman-Webb-MacKinnon-Nielsen wild-cluster
+    bootstrap. sp ships an equivalent.
+    """
+    args: Dict[str, Any] = {"hypothesis": cmd.varlist}
+    reps = cmd.options.get("reps")
+    if reps:
+        try:
+            args["B"] = int(reps)
+        except (TypeError, ValueError):
+            pass
+    cluster = cmd.options.get("cluster") or _vce_cluster(cmd)
+    if cluster:
+        args["cluster"] = cluster.split()[0]
+    notes = ["sp.wild_cluster_bootstrap takes a fitted result as the "
+             "first arg — pipe the previous estimator's result_id."]
+    code_pairs = ["result"]
+    if "B" in args:
+        code_pairs.append(f"B={args['B']}")
+    if "cluster" in args:
+        code_pairs.append(f"cluster={args['cluster']!r}")
+    python = f"sp.wild_cluster_bootstrap({', '.join(code_pairs)})"
+    return _emit("wild_cluster_bootstrap", args, python, notes)
+
+
+# ---------------------------------------------------------------------------
 # Command dispatch table
 # ---------------------------------------------------------------------------
 
@@ -655,6 +854,15 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "contrast": _h_contrast,
     "test": _h_test,
     "xtset": _h_xtset, "tsset": _h_xtset,
+    # Tier 3 — long-tail (8 handlers)
+    "ppmlhdfe": _h_ppmlhdfe,
+    "mlogit": _h_mlogit,
+    "oprobit": _h_oprobit,
+    "xtabond": _h_xtabond,
+    "xtdpdsys": _h_xtdpdsys,
+    "bunching": _h_bunching,
+    "mi": _h_mi_estimate,  # ``mi estimate: <inner>`` — we get the head
+    "boottest": _h_boottest,
 }
 
 

@@ -306,6 +306,74 @@ TIER2_ROUND_TRIPS = [
 ]
 
 
+TIER3_ROUND_TRIPS = [
+    # Poisson HDFE
+    ("ppmlhdfe trade gravity, absorb(orig dest year) cluster(orig)",
+     "ppmlhdfe",
+     {"formula": "trade ~ gravity",
+      "fe": ["orig", "dest", "year"], "cluster": "orig"}),
+    # Multinomial / ordinal
+    ("mlogit choice age income, baseoutcome(1)",
+     "glm", {"formula": "choice ~ age + income",
+              "family": "multinomial", "base_outcome": 1}),
+    ("oprobit grade x1 x2",
+     "glm", {"formula": "grade ~ x1 + x2",
+              "family": "ordered_probit"}),
+    # Dynamic panel GMM
+    ("xtabond y x1 x2, twostep robust i(firm)",
+     "xtabond",
+     {"y": "y", "x": ["x1", "x2"], "id": "firm",
+      "twostep": True, "robust": True}),
+    ("xtdpdsys y x1, twostep i(unit)",
+     "xtdpdsys",
+     {"y": "y", "x": ["x1"], "id": "unit", "twostep": True}),
+    # Bunching
+    ("bunching income, c(50000) bw(2000)",
+     "bunching", {"x": "income", "c": 50000.0, "bandwidth": 2000.0}),
+    # boottest (post-estimation)
+    ("boottest x1=0, reps(999) cluster(id)",
+     "wild_cluster_bootstrap",
+     {"hypothesis": ["x1=0"], "B": 999, "cluster": "id"}),
+    # mi estimate: passes through with a translation note.
+    ("mi estimate: reg y x", "mi_estimate", {}),
+]
+
+
+@pytest.mark.parametrize("stata,tool,subset", TIER3_ROUND_TRIPS)
+def test_tier3_round_trip(stata, tool, subset):
+    out = from_stata(stata)
+    assert out["ok"] is True, out
+    assert out["tool"] == tool, out
+    for k, v in subset.items():
+        assert out["arguments"].get(k) == v, (
+            f"{stata!r}: arguments[{k!r}] = "
+            f"{out['arguments'].get(k)!r}, expected {v!r}")
+    json.dumps(out)
+
+
+class TestTier3EdgeCases:
+    def test_mi_estimate_emits_hint(self):
+        out = from_stata("mi estimate: reg y x")
+        # ``mi estimate: reg`` parses as ``mi`` command (Stata abbreviation
+        # parsing) → the handler emits a translation hint instead of
+        # silently dropping the inner command.
+        assert out["ok"] is True
+        assert out["tool"] == "mi_estimate"
+        assert any("inner command" in n for n in out["notes"])
+
+    def test_xtabond_without_panel_id_emits_placeholder(self):
+        out = from_stata("xtabond y x")
+        assert out["ok"] is True
+        # Panel id is unknown — handler leaves a placeholder + note.
+        assert out["arguments"]["id"] is None
+        assert any("xtset" in n for n in out["notes"])
+
+    def test_bunching_default_cutoff(self):
+        out = from_stata("bunching income")
+        assert out["ok"] is True
+        assert out["arguments"]["c"] == 0.0
+
+
 @pytest.mark.parametrize("stata,tool,subset", TIER2_ROUND_TRIPS)
 def test_tier2_round_trip(stata, tool, subset):
     out = from_stata(stata)
@@ -359,7 +427,8 @@ class TestStataHandlerCoverage:
         # appear in TIER1_ROUND_TRIPS or TIER2_ROUND_TRIPS at least once.
         covered = set()
         import re
-        for stata, _, _ in TIER1_ROUND_TRIPS + TIER2_ROUND_TRIPS:
+        for stata, _, _ in (TIER1_ROUND_TRIPS + TIER2_ROUND_TRIPS
+                             + TIER3_ROUND_TRIPS):
             head = stata.split()[0]
             # Strip trailing punctuation: ``margins, dydx(...)`` →
             # ``margins`` (the comma is the option-separator, not part
