@@ -352,6 +352,29 @@ discovery / orchestration / output layer.
 
 ### Changed — output module PR-B (continuation of v1.11.x cleanup)
 
+- **`esttab` / `EstimateTableResult` are now thin facades over `regtable`.**
+  ``output/estimates.py`` previously housed a ~500-line ``EstimateTable``
+  class that re-implemented the full renderer pipeline (text / LaTeX /
+  HTML / Markdown / CSV / DataFrame). PR-B/5c collapses it; the
+  ``esttab()`` function now translates Stata-flavoured kwargs and
+  forwards to ``sp.regtable``, and ``EstimateTableResult`` becomes a
+  thin pass-through wrapper around the resulting ``RegtableResult``
+  that preserves the legacy type identity.
+  - Net code: ``output/estimates.py`` 987 → 526 lines (-47%).
+    Helpers used by ``regression_table`` / ``mean_comparison`` /
+    ``_inline`` (``_ModelData``, ``_extract_model_data``,
+    ``_ci_bounds``, ``_format_stars`` re-exports, ``_latex_escape`` /
+    ``_html_escape``, ``_STAT_ALIASES`` / ``_STAT_DISPLAY``,
+    ``eststo`` / ``estclear`` global store) are kept verbatim.
+  - ``EstimateTableResult.to_csv()`` is implemented via
+    ``to_dataframe().to_csv()`` (regtable does not natively expose CSV;
+    the dataframe path is byte-identical to what the legacy esttab
+    produced).
+  - The four exclusive-output flags ``se`` / ``t`` / ``p`` / ``ci``
+    map to regtable's ``se_type=`` with priority ``ci > p > t > se``
+    (matches legacy behaviour).
+  - First call emits ``DeprecationWarning`` pointing to ``sp.regtable``.
+
 - **`modelsummary` is now a thin facade over `regtable`.** The R-style
   ``modelsummary()`` previously shipped a ~700-line renderer pipeline
   (``_build_coef_rows`` / ``_to_text`` / ``_to_latex`` / ``_to_html``

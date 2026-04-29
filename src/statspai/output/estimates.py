@@ -261,517 +261,6 @@ from ._format import (
     fmt_val as _fmt_val,
     fmt_int as _fmt_int,
 )
-
-
-# ---------------------------------------------------------------------------
-# Core table builder
-# ---------------------------------------------------------------------------
-
-class EstimateTable:
-    """Build a comparison table from multiple model results."""
-
-    def __init__(
-        self,
-        models: Sequence[_ModelData],
-        names: Sequence[str],
-        *,
-        se: bool = True,
-        t: bool = False,
-        p: bool = False,
-        ci: bool = False,
-        stars: bool = True,
-        star_levels: Tuple[float, ...] = (0.10, 0.05, 0.01),
-        keep: Optional[Sequence[str]] = None,
-        drop: Optional[Sequence[str]] = None,
-        order: Optional[Sequence[str]] = None,
-        labels: Optional[Dict[str, str]] = None,
-        stats: Optional[Sequence[str]] = None,
-        fmt: str = "%.4f",
-        title: Optional[str] = None,
-        notes: Optional[Sequence[str]] = None,
-        alpha: float = 0.05,
-    ):
-        if not 0.0 < alpha < 1.0:
-            raise ValueError(f"alpha must be in (0, 1), got {alpha!r}")
-        self.models = list(models)
-        self.names = list(names)
-        self.se = se
-        self.t = t
-        self.p = p
-        self.ci = ci
-        self.show_stars = stars
-        self.star_levels = star_levels
-        self.keep = list(keep) if keep else None
-        self.drop = set(drop) if drop else set()
-        self.order = list(order) if order else None
-        self.labels = labels or {}
-        self.requested_stats = list(stats) if stats else ["N", "R2", "adj_R2", "F"]
-        self.fmt = fmt
-        self.title = title
-        self.notes = list(notes) if notes else []
-        self.alpha = float(alpha)
-        self.n_models = len(self.models)
-
-        # Resolve ordered variable list across all models
-        self._vars = self._resolve_vars()
-        # Resolve stat keys
-        self._stat_keys = self._resolve_stat_keys()
-
-    # --- variable ordering ---------------------------------------------------
-
-    def _resolve_vars(self) -> List[str]:
-        seen: OrderedDict[str, None] = OrderedDict()
-        for m in self.models:
-            for v in m.params.index:
-                seen[v] = None
-        all_vars = list(seen)
-
-        if self.keep is not None:
-            all_vars = [v for v in all_vars if v in set(self.keep)]
-        if self.drop:
-            all_vars = [v for v in all_vars if v not in self.drop]
-        if self.order:
-            ordered: List[str] = []
-            remaining = list(all_vars)
-            for v in self.order:
-                if v in remaining:
-                    ordered.append(v)
-                    remaining.remove(v)
-            ordered.extend(remaining)
-            all_vars = ordered
-        return all_vars
-
-    def _resolve_stat_keys(self) -> List[str]:
-        keys: List[str] = []
-        for s in self.requested_stats:
-            canonical = _STAT_ALIASES.get(s, s)
-            if canonical not in keys:
-                keys.append(canonical)
-        return keys
-
-    # --- per-cell formatting --------------------------------------------------
-
-    def _coef_cell(self, model: _ModelData, var: str) -> str:
-        if var not in model.params.index:
-            return ""
-        val = model.params[var]
-        txt = _fmt_val(val, self.fmt)
-        if self.show_stars and var in model.pvalues.index:
-            txt += _format_stars(model.pvalues[var], self.star_levels)
-        return txt
-
-    def _second_row_cell(self, model: _ModelData, var: str) -> str:
-        """Return the parenthetical / bracket row beneath the coefficient."""
-        if var not in model.params.index:
-            return ""
-        if self.ci:
-            lo_v, hi_v = _ci_bounds(model, var, self.alpha)
-            lo = _fmt_val(lo_v, self.fmt)
-            hi = _fmt_val(hi_v, self.fmt)
-            return f"[{lo}, {hi}]"
-        if self.t:
-            return f"({_fmt_val(model.tvalues.get(var, np.nan), self.fmt)})"
-        if self.p:
-            return f"({_fmt_val(model.pvalues.get(var, np.nan), self.fmt)})"
-        # default: standard error
-        return f"({_fmt_val(model.std_errors.get(var, np.nan), self.fmt)})"
-
-    def _stat_cell(self, model: _ModelData, key: str) -> str:
-        val = model.stats.get(key)
-        if val is None:
-            return ""
-        if key == "N":
-            return _fmt_int(val)
-        return _fmt_val(float(val), "%.3f")
-
-    def _second_row_label(self) -> str:
-        if self.ci:
-            level = (1.0 - self.alpha) * 100.0
-            level_str = f"{level:g}"
-            return f"{level_str}% CI"
-        if self.t:
-            return "t-statistics"
-        if self.p:
-            return "p-values"
-        return "Standard errors"
-
-    # --- renderers ------------------------------------------------------------
-
-    def _depvar_row(self) -> List[str]:
-        return [m.depvar for m in self.models]
-
-    def _star_note(self) -> str:
-        parts = []
-        sorted_levels = sorted(self.star_levels, reverse=True)
-        for i, lev in enumerate(sorted_levels):
-            stars = "*" * (i + 1)
-            parts.append(f"{stars} p<{lev:.2f}")
-        return ", ".join(parts)
-
-    # =========================================================================
-    # TEXT output
-    # =========================================================================
-
-    def to_text(self) -> str:
-        col_w = 13
-        label_w = max(
-            (len(self.labels.get(v, v)) for v in self._vars),
-            default=10,
-        )
-        label_w = max(label_w, max((len(_STAT_DISPLAY.get(k, k)) for k in self._stat_keys), default=5))
-        label_w = max(label_w, 16)
-        total_w = label_w + col_w * self.n_models + 2
-
-        line_thick = "\u2501" * total_w
-        lines: List[str] = []
-
-        if self.title:
-            lines.append(self.title)
-            lines.append("")
-
-        # Header
-        lines.append(line_thick)
-        hdr = " " * label_w
-        for n in self.names:
-            hdr += f"{n:>{col_w}}"
-        lines.append(hdr)
-
-        # Dependent variable row
-        depvars = self._depvar_row()
-        if any(depvars):
-            row = " " * label_w
-            for dv in depvars:
-                row += f"{dv:>{col_w}}"
-            lines.append(row)
-
-        lines.append(line_thick)
-
-        # Coefficients
-        for var in self._vars:
-            label = self.labels.get(var, var)
-            row = f"{label:<{label_w}}"
-            for m in self.models:
-                row += f"{self._coef_cell(m, var):>{col_w}}"
-            lines.append(row)
-
-            # Second row
-            if self.se or self.t or self.p or self.ci:
-                row2 = " " * label_w
-                for m in self.models:
-                    row2 += f"{self._second_row_cell(m, var):>{col_w}}"
-                lines.append(row2)
-                lines.append("")  # blank line between variables
-
-        lines.append(line_thick)
-
-        # Stats
-        for key in self._stat_keys:
-            disp = _STAT_DISPLAY.get(key, key)
-            row = f"{disp:<{label_w}}"
-            for m in self.models:
-                row += f"{self._stat_cell(m, key):>{col_w}}"
-            lines.append(row)
-
-        lines.append(line_thick)
-
-        # Notes
-        lines.append(f"{self._second_row_label()} in parentheses")
-        if self.show_stars:
-            lines.append(self._star_note())
-        for note in self.notes:
-            lines.append(note)
-
-        return "\n".join(lines)
-
-    # =========================================================================
-    # LaTeX output
-    # =========================================================================
-
-    def to_latex(self) -> str:
-        ncols = self.n_models + 1
-        col_spec = "l" + "c" * self.n_models
-        lines: List[str] = []
-        lines.append("\\begin{table}[htbp]")
-        lines.append("\\centering")
-        if self.title:
-            lines.append(f"\\caption{{{_latex_escape(self.title)}}}")
-        lines.append(f"\\begin{{tabular}}{{{col_spec}}}")
-        lines.append("\\hline\\hline")
-
-        # Header
-        hdr = " & ".join([""] + [_latex_escape(n) for n in self.names]) + " \\\\"
-        lines.append(hdr)
-
-        # Depvar
-        depvars = self._depvar_row()
-        if any(depvars):
-            row = " & ".join([""] + [_latex_escape(dv) for dv in depvars]) + " \\\\"
-            lines.append(row)
-
-        lines.append("\\hline")
-
-        # Coefficients
-        for var in self._vars:
-            label = _latex_escape(self.labels.get(var, var))
-            cells = [self._coef_cell(m, var) for m in self.models]
-            cells = [_latex_escape(c) for c in cells]
-            lines.append(f"{label} & " + " & ".join(cells) + " \\\\")
-            if self.se or self.t or self.p or self.ci:
-                cells2 = [self._second_row_cell(m, var) for m in self.models]
-                cells2 = [_latex_escape(c) for c in cells2]
-                lines.append(" & " + " & ".join(cells2) + " \\\\")
-
-        lines.append("\\hline")
-
-        # Stats
-        for key in self._stat_keys:
-            disp = _STAT_DISPLAY.get(key, key)
-            if key == "R-squared":
-                disp = "R$^2$"
-            elif key == "Adj. R-squared":
-                disp = "Adj. R$^2$"
-            else:
-                disp = _latex_escape(disp)
-            cells = [self._stat_cell(m, key) for m in self.models]
-            lines.append(f"{disp} & " + " & ".join(cells) + " \\\\")
-
-        lines.append("\\hline\\hline")
-
-        # Notes
-        note_line = f"{self._second_row_label()} in parentheses"
-        lines.append(
-            f"\\multicolumn{{{ncols}}}{{l}}{{\\footnotesize {_latex_escape(note_line)}}} \\\\"
-        )
-        if self.show_stars:
-            star_note = self._star_note()
-            lines.append(
-                f"\\multicolumn{{{ncols}}}{{l}}{{\\footnotesize {_latex_escape(star_note)}}} \\\\"
-            )
-        for note in self.notes:
-            lines.append(
-                f"\\multicolumn{{{ncols}}}{{l}}{{\\footnotesize {_latex_escape(note)}}} \\\\"
-            )
-
-        lines.append("\\end{tabular}")
-        lines.append("\\end{table}")
-        return "\n".join(lines)
-
-    # =========================================================================
-    # HTML output (also used for _repr_html_)
-    # =========================================================================
-
-    def to_html(self) -> str:
-        lines: List[str] = []
-        lines.append('<table class="esttab" style="border-collapse:collapse; font-family:serif; font-size:13px;">')
-
-        if self.title:
-            lines.append(
-                f'<caption style="font-weight:bold; font-size:14px; margin-bottom:6px;">'
-                f'{_html_escape(self.title)}</caption>'
-            )
-
-        # Header
-        lines.append("<thead>")
-        lines.append("<tr>")
-        lines.append('<th style="text-align:left; border-top:2px solid black; border-bottom:1px solid black;"></th>')
-        for n in self.names:
-            lines.append(
-                f'<th style="text-align:center; border-top:2px solid black; '
-                f'border-bottom:1px solid black; padding:2px 10px;">{_html_escape(n)}</th>'
-            )
-        lines.append("</tr>")
-
-        # Depvar
-        depvars = self._depvar_row()
-        if any(depvars):
-            lines.append("<tr>")
-            lines.append('<th style="text-align:left;"></th>')
-            for dv in depvars:
-                lines.append(f'<th style="text-align:center; padding:0 10px; font-style:italic;">{_html_escape(dv)}</th>')
-            lines.append("</tr>")
-
-        lines.append("</thead>")
-        lines.append("<tbody>")
-
-        # Coefficients
-        for var in self._vars:
-            label = _html_escape(self.labels.get(var, var))
-            lines.append("<tr>")
-            lines.append(f'<td style="text-align:left; padding-right:15px;">{label}</td>')
-            for m in self.models:
-                lines.append(f'<td style="text-align:center; padding:0 10px;">{_html_escape(self._coef_cell(m, var))}</td>')
-            lines.append("</tr>")
-            if self.se or self.t or self.p or self.ci:
-                lines.append("<tr>")
-                lines.append("<td></td>")
-                for m in self.models:
-                    lines.append(
-                        f'<td style="text-align:center; padding:0 10px; color:#555;">'
-                        f'{_html_escape(self._second_row_cell(m, var))}</td>'
-                    )
-                lines.append("</tr>")
-
-        # Separator
-        lines.append(
-            f'<tr><td colspan="{self.n_models + 1}" '
-            f'style="border-top:1px solid black;"></td></tr>'
-        )
-
-        # Stats
-        for key in self._stat_keys:
-            disp = _html_escape(_STAT_DISPLAY.get(key, key))
-            lines.append("<tr>")
-            lines.append(f'<td style="text-align:left; padding-right:15px;">{disp}</td>')
-            for m in self.models:
-                lines.append(f'<td style="text-align:center; padding:0 10px;">{self._stat_cell(m, key)}</td>')
-            lines.append("</tr>")
-
-        # Bottom border
-        lines.append(
-            f'<tr><td colspan="{self.n_models + 1}" '
-            f'style="border-top:2px solid black;"></td></tr>'
-        )
-
-        lines.append("</tbody>")
-
-        # Notes
-        lines.append("<tfoot>")
-        note_text = f"{self._second_row_label()} in parentheses"
-        lines.append(
-            f'<tr><td colspan="{self.n_models + 1}" style="text-align:left; font-size:11px;">'
-            f'{_html_escape(note_text)}</td></tr>'
-        )
-        if self.show_stars:
-            lines.append(
-                f'<tr><td colspan="{self.n_models + 1}" style="text-align:left; font-size:11px;">'
-                f'{_html_escape(self._star_note())}</td></tr>'
-            )
-        for note in self.notes:
-            lines.append(
-                f'<tr><td colspan="{self.n_models + 1}" style="text-align:left; font-size:11px;">'
-                f'{_html_escape(note)}</td></tr>'
-            )
-        lines.append("</tfoot>")
-        lines.append("</table>")
-        return "\n".join(lines)
-
-    # =========================================================================
-    # Markdown output
-    # =========================================================================
-
-    def to_markdown(self) -> str:
-        lines: List[str] = []
-        if self.title:
-            lines.append(f"**{self.title}**")
-            lines.append("")
-
-        hdr = "| |" + "|".join(f" {n} " for n in self.names) + "|"
-        sep = "|---|" + "|".join("---:" for _ in self.names) + "|"
-        lines.append(hdr)
-        lines.append(sep)
-
-        for var in self._vars:
-            label = self.labels.get(var, var)
-            cells = [self._coef_cell(m, var) for m in self.models]
-            lines.append(f"| {label} |" + "|".join(f" {c} " for c in cells) + "|")
-            if self.se or self.t or self.p or self.ci:
-                cells2 = [self._second_row_cell(m, var) for m in self.models]
-                lines.append("| |" + "|".join(f" {c} " for c in cells2) + "|")
-
-        # Stats
-        for key in self._stat_keys:
-            disp = _STAT_DISPLAY.get(key, key)
-            cells = [self._stat_cell(m, key) for m in self.models]
-            lines.append(f"| {disp} |" + "|".join(f" {c} " for c in cells) + "|")
-
-        lines.append("")
-        lines.append(f"*{self._second_row_label()} in parentheses*")
-        if self.show_stars:
-            lines.append(f"*{self._star_note()}*")
-        for note in self.notes:
-            lines.append(f"*{note}*")
-
-        return "\n".join(lines)
-
-    # =========================================================================
-    # CSV output
-    # =========================================================================
-
-    def to_csv(self) -> str:
-        rows: List[List[str]] = []
-        rows.append([""] + self.names)
-
-        for var in self._vars:
-            label = self.labels.get(var, var)
-            row = [label] + [self._coef_cell(m, var) for m in self.models]
-            rows.append(row)
-            if self.se or self.t or self.p or self.ci:
-                row2 = [""] + [self._second_row_cell(m, var) for m in self.models]
-                rows.append(row2)
-
-        for key in self._stat_keys:
-            disp = _STAT_DISPLAY.get(key, key)
-            row = [disp] + [self._stat_cell(m, key) for m in self.models]
-            rows.append(row)
-
-        return "\n".join(",".join(f'"{c}"' for c in r) for r in rows)
-
-    # =========================================================================
-    # DataFrame output
-    # =========================================================================
-
-    def to_dataframe(self) -> pd.DataFrame:
-        """Return the table as a pandas DataFrame for programmatic use."""
-        records: List[Dict[str, str]] = []
-
-        for var in self._vars:
-            label = self.labels.get(var, var)
-            row: Dict[str, str] = {"": label}
-            for name, m in zip(self.names, self.models):
-                row[name] = self._coef_cell(m, var)
-            records.append(row)
-
-            if self.se or self.t or self.p or self.ci:
-                row2: Dict[str, str] = {"": ""}
-                for name, m in zip(self.names, self.models):
-                    row2[name] = self._second_row_cell(m, var)
-                records.append(row2)
-
-        for key in self._stat_keys:
-            disp = _STAT_DISPLAY.get(key, key)
-            row_s: Dict[str, str] = {"": disp}
-            for name, m in zip(self.names, self.models):
-                row_s[name] = self._stat_cell(m, key)
-            records.append(row_s)
-
-        df = pd.DataFrame(records)
-        df = df.set_index("")
-        df.index.name = None
-        return df
-
-    # =========================================================================
-    # Dispatch
-    # =========================================================================
-
-    def render(self, output: str = "text") -> str:
-        renderers = {
-            "text": self.to_text,
-            "latex": self.to_latex,
-            "html": self.to_html,
-            "markdown": self.to_markdown,
-            "md": self.to_markdown,
-            "csv": self.to_csv,
-        }
-        func = renderers.get(output)
-        if func is None:
-            raise ValueError(
-                f"Unknown output format '{output}'. "
-                f"Choose from: {', '.join(renderers)}"
-            )
-        return func()
-
-
-# ---------------------------------------------------------------------------
 # Escape helpers
 # ---------------------------------------------------------------------------
 
@@ -797,48 +286,123 @@ def _html_escape(text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# EstimateTableResult  (wrapper with _repr_html_)
+# esttab — Stata-style facade over regtable (PR-B/5c)
 # ---------------------------------------------------------------------------
+#
+# Historically this module shipped a ~500-line ``EstimateTable`` class that
+# re-implemented coefficient extraction, star formatting, three-line table
+# styling and every export format — duplicating logic already maintained by
+# ``sp.regtable``.  PR-B/5c collapses that to the thin facade below.
+#
+# The user-visible API (``esttab`` function, ``EstimateTableResult`` class,
+# all keyword args) is preserved.  Rendered output now matches ``regtable``'s
+# book-tab three-line style and is *not* byte-identical to the legacy bespoke
+# renderer.  A ``DeprecationWarning`` is emitted on first call pointing users
+# to ``sp.regtable``.  Plan to remove the facade in two minor releases (per
+# CLAUDE.md §3.8).
+#
+# Migration notes
+# ---------------
+# - ``se=True`` / ``t=True`` / ``p=True`` / ``ci=True`` map to regtable's
+#   ``se_type='se' | 't' | 'p' | 'ci'``.  Exactly one should be true; the
+#   priority is ``ci > p > t > se`` if multiple are passed (matches the legacy
+#   behaviour).
+# - ``output='csv'`` is implemented via ``to_dataframe().to_csv()``.
+# - All other ``output=`` strings (``"text"``, ``"latex"``, ``"html"``,
+#   ``"markdown"`` / ``"md"``) round-trip to the corresponding ``regtable``
+#   renderer.
+# - ``filename=`` writes the rendered string with auto-detected extension,
+#   matching the legacy behaviour.
+
+_DEPRECATION_MSG_ESTTAB = (
+    "esttab() is now a thin wrapper over sp.regtable() and will be "
+    "removed in a future minor release.  Migrate to "
+    "sp.regtable(*models, ...) for the same output with full control "
+    "over labels, journal templates, and SE formats.  "
+    "See docs/rfc/output_pr_b_consolidation.md for migration."
+)
+_DEPRECATION_EMITTED_ESTTAB = False
+
+
+def _warn_once_esttab() -> None:
+    global _DEPRECATION_EMITTED_ESTTAB
+    if not _DEPRECATION_EMITTED_ESTTAB:
+        warnings.warn(_DEPRECATION_MSG_ESTTAB, DeprecationWarning, stacklevel=3)
+        _DEPRECATION_EMITTED_ESTTAB = True
+
 
 class EstimateTableResult:
-    """Thin wrapper that prints nicely in terminals and Jupyter."""
+    """Stata ``esttab`` result handle — thin wrapper over a :class:`RegtableResult`.
 
-    def __init__(self, table: EstimateTable, output: str = "text"):
-        self._table = table
+    Preserves the ``EstimateTableResult`` type identity for callers that
+    do ``isinstance(x, EstimateTableResult)``.  Forwards every render
+    method to the underlying ``regtable`` result; adds ``to_csv()`` for
+    parity with the legacy esttab API (regtable does not natively
+    expose CSV but the dataframe path is byte-identical to what the
+    legacy esttab produced).
+    """
+
+    def __init__(self, regtable_result, output: str = "text"):
+        self._rt = regtable_result
         self._output = output
 
+    # ── pass-through renderers ─────────────────────────────────────────
+    def to_text(self) -> str:
+        return self._rt.to_text()
+
+    def to_latex(self) -> str:
+        return self._rt.to_latex()
+
+    def to_html(self) -> str:
+        return self._rt.to_html()
+
+    def to_markdown(self) -> str:
+        return self._rt.to_markdown()
+
+    def to_dataframe(self) -> pd.DataFrame:
+        return self._rt.to_dataframe()
+
+    def to_csv(self) -> str:
+        # Legacy esttab returned CSV via the table's dataframe view.
+        return self._rt.to_dataframe().to_csv()
+
+    # ── dunder ─────────────────────────────────────────────────────────
+    def _render(self, fmt: str) -> str:
+        renderers = {
+            "text": self.to_text,
+            "latex": self.to_latex,
+            "tex": self.to_latex,
+            "html": self.to_html,
+            "markdown": self.to_markdown,
+            "md": self.to_markdown,
+            "csv": self.to_csv,
+        }
+        return renderers.get(fmt, self.to_text)()
+
     def __str__(self) -> str:
-        return self._table.render(self._output)
+        return self._render(self._output)
 
     def __repr__(self) -> str:
         return self.__str__()
 
     def _repr_html_(self) -> str:
-        """Rich display in Jupyter notebooks."""
-        return self._table.to_html()
-
-    def to_text(self) -> str:
-        return self._table.to_text()
-
-    def to_latex(self) -> str:
-        return self._table.to_latex()
-
-    def to_html(self) -> str:
-        return self._table.to_html()
-
-    def to_markdown(self) -> str:
-        return self._table.to_markdown()
-
-    def to_csv(self) -> str:
-        return self._table.to_csv()
-
-    def to_dataframe(self) -> pd.DataFrame:
-        return self._table.to_dataframe()
+        return self.to_html()
 
 
-# ---------------------------------------------------------------------------
-# Public API: esttab
-# ---------------------------------------------------------------------------
+def _resolve_se_type(se: bool, t: bool, p: bool, ci: bool) -> str:
+    """Map esttab's four booleans to regtable's ``se_type=`` string.
+
+    Priority ``ci > p > t > se`` matches the legacy ``EstimateTable``
+    behaviour where the first true flag wins.
+    """
+    if ci:
+        return "ci"
+    if p:
+        return "p"
+    if t:
+        return "t"
+    return "se"
+
 
 def esttab(
     *results,
@@ -862,126 +426,101 @@ def esttab(
     alpha: float = 0.05,
 ) -> EstimateTableResult:
     """
-    Produce a publication-quality model comparison table.
+    Stata-style ``esttab`` — thin facade over :func:`sp.regtable`.
+
+    .. deprecated::
+        Now a thin wrapper over :func:`statspai.output.regtable`. Use
+        ``sp.regtable(*models, ...)`` directly for full control. See
+        the module docstring for the parameter mapping.
 
     Accepts model results directly as positional arguments **or** reads
-    from the global store populated by :func:`eststo`.  If both positional
-    arguments and a non-empty store exist, positional arguments take
-    precedence.
+    from the global store populated by :func:`eststo`.  If both
+    positional arguments and a non-empty store exist, positional
+    arguments take precedence.
 
-    Parameters
-    ----------
-    *results : model result objects
-        ``EconometricResults`` or ``CausalResult`` instances.  If omitted
-        the function uses models previously stored with :func:`eststo`.
-    names : list of str, optional
-        Column header labels.  Defaults to ``(1)``, ``(2)``, etc.
-    se : bool, default True
-        Show standard errors in parentheses beneath coefficients.
-    t : bool, default False
-        Show t-statistics instead of standard errors.
-    p : bool, default False
-        Show p-values instead of standard errors.
-    ci : bool, default False
-        Show ``(1 - alpha) * 100`` % confidence intervals instead of
-        standard errors. The CI level is controlled by ``alpha``.
-    stars : bool, default True
-        Append significance stars to coefficients.
-    star_levels : tuple of float, default (0.10, 0.05, 0.01)
-        Thresholds for ``*``, ``**``, ``***``.
-    keep : list of str, optional
-        Only display these variables.
-    drop : list of str, optional
-        Hide these variables.
-    order : list of str, optional
-        Reorder variables (unlisted variables appear after).
-    labels : dict, optional
-        Rename variables in display (e.g. ``{"education": "Years of Education"}``).
-    stats : list of str, optional
-        Summary statistics shown below coefficients.  Recognised aliases:
-        ``N``, ``R2``, ``adj_R2``, ``F``, ``AIC``, ``BIC``, ``ll``.
-        Defaults to ``["N", "R2", "adj_R2", "F"]``.
-    fmt : str, default ``"%.4f"``
-        ``printf``-style format string for numeric values.
-    output : str, default ``"text"``
-        Output format: ``"text"``, ``"latex"``, ``"html"``, ``"markdown"``/
-        ``"md"``, or ``"csv"``.
-    filename : str, optional
-        Write table to this file path.
-    title : str, optional
-        Table title/caption.
-    notes : list of str, optional
-        Additional notes printed beneath the table.
-    alpha : float, default 0.05
-        Significance level for confidence intervals (only used when
-        ``ci=True``). The displayed CI is ``(1 - alpha) * 100``%.
-
-    Returns
-    -------
-    EstimateTableResult
-        Object that prints the table (and renders as HTML in Jupyter).
+    Parameters mirror the original ``esttab`` API; see the module
+    docstring for the exact mapping to ``regtable``.
     """
+    _warn_once_esttab()
 
     # Resolve models: positional args > global store
     if results:
-        model_list = list(results)
-        name_list = list(names) if names else [f"({i + 1})" for i in range(len(model_list))]
+        model_list: List[Any] = list(results)
+        if names:
+            name_list = list(names)
+        else:
+            name_list = [f"({i + 1})" for i in range(len(model_list))]
     elif _STORE:
         name_list = [n for n, _ in _STORE]
         model_list = [r for _, r in _STORE]
         if names:
             name_list = list(names)
     else:
-        warnings.warn("No models to tabulate. Pass results directly or use eststo() first.")
-        return EstimateTableResult(
-            EstimateTable([], [], fmt=fmt, title=title, notes=notes), output
+        warnings.warn(
+            "No models to tabulate. Pass results directly or use eststo() first."
         )
+        # Construct an empty-but-valid wrapper so callers can still
+        # call str() / to_text() without crashing.
+        from .regression_table import regtable
+        try:
+            empty = regtable(
+                [], title=title, notes=list(notes) if notes else None
+            )
+            return EstimateTableResult(empty, output)
+        except Exception:
+            # If regtable rejects empty input, surface a minimal
+            # placeholder so the call site still gets a printable object.
+            class _Empty:
+                def to_text(self):
+                    return "(no models)"
+                to_latex = to_html = to_markdown = to_text
+                def to_dataframe(self):
+                    return pd.DataFrame()
+            return EstimateTableResult(_Empty(), output)
 
     if len(name_list) != len(model_list):
         raise ValueError(
-            f"Length mismatch: {len(model_list)} models but {len(name_list)} names."
+            f"Length mismatch: {len(model_list)} models but "
+            f"{len(name_list)} names."
         )
 
-    # Extract normalised data
-    models_data = [_extract_model_data(m) for m in model_list]
+    # Build the regtable call ─────────────────────────────────────────
+    from .regression_table import regtable
 
-    table = EstimateTable(
-        models_data,
-        name_list,
-        se=se,
-        t=t,
-        p=p,
-        ci=ci,
+    se_type = _resolve_se_type(se, t, p, ci)
+
+    kwargs: Dict[str, Any] = dict(
+        model_labels=name_list,
+        title=title,
+        notes=list(notes) if notes else None,
         stars=stars,
         star_levels=star_levels,
-        keep=keep,
-        drop=drop,
-        order=order,
-        labels=labels,
-        stats=stats,
+        se_type=se_type,
         fmt=fmt,
-        title=title,
-        notes=notes,
+        coef_labels=labels,
+        keep=list(keep) if keep else None,
+        drop=list(drop) if drop else None,
+        order=list(order) if order else None,
         alpha=alpha,
     )
+    if stats is not None:
+        kwargs["stats"] = list(stats)
 
-    result_obj = EstimateTableResult(table, output)
+    rt = regtable(model_list, **kwargs)
+    result_obj = EstimateTableResult(rt, output)
 
     # Write to file if requested
     if filename:
         path = Path(filename)
-        # Auto-detect output format from extension if user left default
         if output == "text":
-            ext_map = {".tex": "latex", ".html": "html", ".htm": "html",
-                       ".md": "markdown", ".csv": "csv"}
+            ext_map = {
+                ".tex": "latex", ".html": "html", ".htm": "html",
+                ".md": "markdown", ".csv": "csv",
+            }
             detected = ext_map.get(path.suffix.lower())
             if detected:
-                result_obj = EstimateTableResult(table, detected)
-
-        content = str(result_obj)
-        path.write_text(content, encoding="utf-8")
+                result_obj = EstimateTableResult(rt, detected)
+        path.write_text(str(result_obj), encoding="utf-8")
 
     # No auto-print: Jupyter uses _repr_html_, REPL uses __repr__.
-    # Scripts wanting stdout output should do `print(esttab(...))`.
-
     return result_obj

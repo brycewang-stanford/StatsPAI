@@ -5,6 +5,50 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## v1.11 → v1.12 — `esttab` becomes a thin facade over `regtable`
+
+The Stata-style `esttab()` previously shipped a ~500-line
+`EstimateTable` class that re-implemented the full renderer pipeline.
+PR-B/5c in v1.12 collapses it to a thin facade that translates
+Stata-flavoured kwargs and forwards to `sp.regtable`.
+
+**API is unchanged**, including `eststo()` / `estclear()` global store,
+`isinstance(x, EstimateTableResult)` type identity, and all
+`esttab(*results, se=, t=, p=, ci=, stats=, output=, ...)` keyword
+spellings. Rendered output now matches `regtable`'s book-tab style.
+A `DeprecationWarning` is emitted on first use; plan to migrate to
+`sp.regtable(...)` directly within the next two minor releases.
+
+### Behaviour changes
+
+| Old | New |
+| --- | --- |
+| `se=True/t=True/p=True/ci=True` exclusive flags | translated to `regtable(se_type='se' \| 't' \| 'p' \| 'ci')`. Priority `ci > p > t > se` if multiple are passed (matches legacy). |
+| `output='csv'` | implemented via `result.to_dataframe().to_csv()`. |
+| `output='markdown'` / `'md'` / `'tex'` aliases | unchanged, all forward to the corresponding regtable renderer. |
+| `filename=` extension auto-detect | unchanged (`.tex` → latex, `.html` → html, `.md` → markdown, `.csv` → csv). |
+
+### Side-by-side migration
+
+```python
+# Before — Stata-style stateful workflow
+sp.eststo(m1, name="(1)")
+sp.eststo(m2, name="(2)")
+sp.esttab(stats=["N", "R2", "adj_R2"], output="latex",
+          filename="table1.tex")
+sp.estclear()
+
+# After — direct regtable call (same LaTeX, no global state)
+sp.regtable(
+    [m1, m2],
+    model_labels=["(1)", "(2)"],
+    stats=["N", "R2", "adj_R2"],
+    filename="table1.tex",
+)
+```
+
+---
+
 ## v1.11 → v1.12 — `modelsummary` becomes a thin facade over `regtable`
 
 The R-style `modelsummary()` previously shipped a ~700-line renderer
