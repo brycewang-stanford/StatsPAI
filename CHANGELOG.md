@@ -2,6 +2,152 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.10.0] — 2026-04-29
+
+Agent-native / MCP layer overhaul. Closes the chained-workflow gap that
+the v1.9 stateless tools couldn't span and turns the `sp.agent` /
+`statspai.agent.mcp_server` surface into a proper experimentation
+workbench. **No estimator numerics changed**; this is purely the
+discovery / orchestration / output layer.
+
+### Added
+
+- **Result handles (`as_handle=True`)** — every `execute_tool` /
+  `tools/call` invocation can now return a `result_id` /
+  `result_uri` (`statspai://result/<id>`) pointing to the fitted
+  object. Backed by an in-process LRU cache (`agent/_result_cache.py`,
+  default 32 entries, env override `STATSPAI_MCP_RESULT_CACHE_SIZE`).
+  Resource read returns the agent-detail `to_dict` payload + a
+  provenance block (originating tool + arguments + class name).
+- **Handle-based workflow tools** — `audit_result`, `brief_result`,
+  `sensitivity_from_result`, `honest_did_from_result` accept a
+  `result_id` instead of forcing the LLM to ferry betas/sigma
+  arrays back across turns. `honest_did_from_result` auto-extracts
+  `betas` / `sigma` / `num_pre_periods` / `num_post_periods` from
+  the cached result (CallawaySantanna, EventStudy, BJS, SA shapes
+  supported via best-effort attribute walk).
+- **First-class workflow primitives** — `audit`, `preflight`,
+  `detect_design`, `brief` are now hand-curated MCP tools (previously
+  surfaced only via the auto-generated manifest with one-line
+  descriptions). Schemas describe expected columns explicitly.
+- **`bibtex` tool** — pulls verified BibTeX entries from `paper.bib`
+  (single source of truth per CLAUDE.md §10). Unknown keys return
+  empty bodies + close-match suggestions, never fabricated entries.
+  Closes the citation-hallucination loophole at the source.
+- **Composite pipelines** — `pipeline_did` / `pipeline_iv` /
+  `pipeline_rd` run preflight + estimator + audit + sensitivity +
+  brief in one call, return a markdown narrative + cached
+  `result_id` + per-stage status. `pipeline_rd` attaches an
+  `rdplot` PNG as MCP image content.
+- **Image content blocks** — `_handle_tools_call` promotes any
+  `_plot_png` bytes returned by a tool to a second
+  `{type: "image", mimeType: "image/png"}` content block (Claude
+  vision and any MCP image-capable client renders it inline). New
+  `plot_from_result` tool renders the canonical diagnostic plot for
+  a cached result (event-study / rdplot / synth-gap / love-plot /
+  cate-plot / coef-plot — auto-detected by class name).
+- **Output enrichment** — every tool return now carries:
+  - `next_calls` — pre-built `tools/call` payloads with `result_id`
+    and forwarded base args; agents copy-paste verbatim.
+  - `citations` — verified bib keys (static map; empty list ⇒
+    intentionally absent, never invent) + BibTeX bodies pulled from
+    `paper.bib`.
+  - `narrative` — short markdown digest (method + estimate + CI +
+    N + violations).
+- **Expanded prompt templates** — `prompts/list` jumps from 3 to 10:
+  `audit_did_result` (rewired to `pipeline_did`),
+  `audit_iv_result`, `audit_rd_result`, `design_then_estimate`,
+  `robustness_followup`, `paper_render`, `compare_methods`,
+  `policy_evaluation`, `synth_full`, `decompose_inequality`.
+- **Schema injections** — every MCP tool now exposes:
+  - `data_path` (URL-aware: `s3://`, `gs://`, `https://`, plus
+    `.dta` / `.feather` / `.arrow` / `.jsonl` in addition to the
+    legacy `.csv` / `.parquet` / `.xlsx` / `.json`).
+  - `data_columns` — column projection for parquet / feather / stata
+    fast partial reads.
+  - `data_sample_n` — deterministic uniform random subsample (seed=0)
+    for fast iteration on large panels.
+  - `result_id` — handle reference for chained calls.
+  - `as_handle` — opt-in result caching.
+- **`initialize` returns a session-level `instructions` block**
+  describing the recommended workflow (detect_design → preflight →
+  fit `as_handle=true` → `audit_result` → `*_from_result` →
+  `bibtex`).
+- **`statspai://result/{id}` URI template** advertised via
+  `resources/templates/list`.
+
+### Changed
+
+- **`_DATALESS_TOOLS` is now registry-derived.** A new
+  `_dataless_tool_names()` helper walks the registry and marks any
+  spec without a required `data` parameter as dataless; the
+  hand-curated `_DATALESS_OVERRIDES` set covers stub-backed tools the
+  registry can't reach (workflow / handle / bibtex / plot tools). The
+  legacy `_DATALESS_TOOLS` constant stays as a backward-compat alias.
+- **`auto_tool_manifest(max_tools=...)` default bumped 250 → 500**
+  and emits a `RuntimeWarning` when more eligible tools exist than
+  the cap admits — silent truncation was hiding registry growth.
+- **`tool_manifest()` no longer silently swallows auto-merge
+  failures.** A `RuntimeWarning` fires before the curated-only
+  fallback so operators / CI log scrapers can detect registry
+  introspection regressions.
+- **`_load_dataframe` is LRU-cached by `(path, mtime, columns)`**
+  so repeated `tools/call` invocations on the same file are O(1)
+  after the first load. New 2 GiB default file-size cap (env
+  override `STATSPAI_MCP_MAX_DATA_BYTES`; set to `0` to disable).
+- **Bad/missing `data_path` now surfaces as JSON-RPC `-32602`
+  (invalid params)** rather than the generic `-32000`. Clients
+  branching on error codes get a cleaner signal.
+- **Traceback exposure on `-32000` errors gated by
+  `STATSPAI_MCP_DEBUG=1`.** Production deployments no longer leak
+  internal paths / class names through the JSON-RPC error envelope
+  by default.
+- **`_json_default` covers every type we've actually seen leak
+  through** the agent / MCP wire: `np.bool_`, `np.complexfloating`,
+  `np.datetime64`, `np.timedelta64`, NaN / Inf → `null`,
+  `pd.Index` / `Timedelta` / `Categorical` / `Interval`,
+  `set` / `frozenset`, `bytes` (b64-wrapped),
+  `Decimal`, `pathlib.PurePath`, `Enum`, dataclasses.
+- **`oaxaca`-style estimators with their own `detail` parameter
+  shadowed via MCP.** The schema's `detail` enum is server-side
+  control (forwarded to `result.to_dict(detail=...)`); collisions
+  are resolved by force-overwriting the registry's version. Affected
+  estimators remain reachable via the direct Python API.
+
+### Tests
+
+- New: `test_mcp_result_handle.py` (31 cases) — result-cache LRU,
+  resource read, handle-based workflows, `_json_default` types,
+  `STATSPAI_MCP_DEBUG` gating.
+- New: `test_mcp_enrichment.py` (14 cases) — `next_calls` /
+  `citations` / `narrative` shape; `bibtex` round-trip.
+- New: `test_mcp_image_content.py` (4 cases) — PNG promotion to
+  MCP image content block.
+- New: `test_mcp_pipelines.py` (7 cases) — pipeline_did / iv / rd.
+- New: `test_mcp_prompts_expanded.py` (5 cases) — full 10-prompt
+  template surface.
+- Existing `test_mcp_protocol.py` updated to use the registry-derived
+  `_dataless_tool_names()` helper rather than the static override
+  set.
+
+321/321 pass across all `tests/test_*agent*.py` + `test_mcp_*.py` +
+`test_registry.py` + `test_help.py` + `test_exceptions.py`.
+
+### New modules
+
+- `src/statspai/agent/_result_cache.py` — bounded LRU cache + entry
+  metadata.
+- `src/statspai/agent/auto_dispatch.py` — registry-driven dispatch
+  for non-curated tools (filters kwargs against `ParamSpec`).
+- `src/statspai/agent/workflow_tools.py` — handle-based + workflow
+  primitive tools (audit_result / brief_result / *_from_result /
+  audit / preflight / detect_design / brief / plot_from_result /
+  bibtex).
+- `src/statspai/agent/pipeline_tools.py` — pipeline_did / pipeline_iv
+  / pipeline_rd composites.
+- `src/statspai/agent/_enrichment.py` — `next_calls` + `citations` +
+  `narrative` builder.
+
 ## [Unreleased]
 
 ### Added

@@ -780,11 +780,16 @@ def tool_manifest(*, curated_only: bool = False) -> List[Dict[str, Any]]:
     # so collisions on auto-generated stubs of the same name resolve to
     # the hand-curated version.
     from .workflow_tools import workflow_tool_manifest
+    from .pipeline_tools import pipeline_tool_manifest
     seen = {t['name'] for t in curated}
     for wt in workflow_tool_manifest():
         if wt['name'] not in seen:
             curated.append(wt)
             seen.add(wt['name'])
+    for pt in pipeline_tool_manifest():
+        if pt['name'] not in seen:
+            curated.append(pt)
+            seen.add(pt['name'])
 
     if curated_only:
         return curated
@@ -868,6 +873,19 @@ def execute_tool(name: str,
             name, arguments,
             data=data, detail=detail,
             result_id=result_id, as_handle=as_handle,
+        )
+
+    # Composite pipeline tools (pipeline_did / pipeline_iv / pipeline_rd
+    # — multi-stage end-to-end workflows). They embed result-cache
+    # writes themselves, so we don't re-cache here.
+    from .pipeline_tools import (
+        PIPELINE_TOOL_NAMES,
+        execute_pipeline_tool,
+    )
+    if name in PIPELINE_TOOL_NAMES:
+        return execute_pipeline_tool(
+            name, arguments,
+            data=data, detail=detail, as_handle=as_handle,
         )
 
     spec = next((t for t in TOOL_REGISTRY if t['name'] == name), None)
