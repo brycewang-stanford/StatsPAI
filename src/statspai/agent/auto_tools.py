@@ -241,7 +241,8 @@ def auto_tool_manifest(
     categories: Optional[Iterable[str]] = None,
     exclude: Optional[Iterable[str]] = None,
     *,
-    max_tools: int = 250,
+    max_tools: int = 500,
+    warn_on_truncate: bool = True,
 ) -> List[Dict[str, Any]]:
     """Return MCP tool specs for every agent-safe registered function.
 
@@ -252,9 +253,14 @@ def auto_tool_manifest(
         :data:`DEFAULT_WHITELIST`.
     exclude : iterable of str, optional
         Extra names to skip in addition to :data:`DEFAULT_EXCLUDE`.
-    max_tools : int, default 250
+    max_tools : int, default 500
         Cap on output size.  Keeps the manifest under Anthropic/OpenAI
-        tool-list payload limits.
+        tool-list payload limits. A warning fires when more eligible
+        tools exist than the cap admits — see ``warn_on_truncate``.
+    warn_on_truncate : bool, default True
+        Emit a ``RuntimeWarning`` when the eligible-tool count exceeds
+        ``max_tools``. Set False in code paths that intentionally crop
+        the manifest.
 
     Returns
     -------
@@ -273,6 +279,7 @@ def auto_tool_manifest(
         ex |= set(exclude)
 
     out: List[Dict[str, Any]] = []
+    eligible_total = 0
     for name, spec in _REGISTRY.items():
         if name in ex:
             continue
@@ -280,6 +287,9 @@ def auto_tool_manifest(
             continue
         if not _is_agent_safe(name, spec):
             continue
+        eligible_total += 1
+        if len(out) >= max_tools:
+            continue  # keep counting so the warning shows the gap
         try:
             schema = spec.to_openai_schema()
         except Exception:
@@ -295,8 +305,19 @@ def auto_tool_manifest(
         if not tool.get('name'):
             continue
         out.append(tool)
-        if len(out) >= max_tools:
-            break
+
+    if warn_on_truncate and eligible_total > len(out):
+        # Loud failure per CLAUDE.md §3 #7: silently truncating the
+        # auto manifest is exactly the kind of degradation that hides
+        # real problems (registry growth past the cap, mis-categorised
+        # entries flooding the count). Operators want to know.
+        import warnings
+        warnings.warn(
+            f"auto_tool_manifest truncated to {len(out)} tools out of "
+            f"{eligible_total} eligible (max_tools={max_tools}). "
+            f"Raise the cap or narrow the category whitelist.",
+            RuntimeWarning, stacklevel=2,
+        )
 
     # Stable ordering so downstream diffs are readable.
     out.sort(key=lambda t: t['name'])

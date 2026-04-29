@@ -86,21 +86,29 @@ class TestToolsList:
 
     def test_every_tool_has_data_path_param(self):
         # Every tool must EXPOSE the ``data_path`` property so MCP
-        # clients can load a CSV server-side. ``required`` membership
-        # is conditional — dataless tools (honest_did, sensitivity)
-        # leave it optional so strict-schema clients don't refuse to
-        # dispatch when no CSV is supplied.
-        from statspai.agent.mcp_server import _DATALESS_TOOLS
+        # clients can load a data file server-side. ``required``
+        # membership is conditional — dataless tools (honest_did,
+        # sensitivity, audit_result, brief_result, bibtex, …) leave
+        # it optional so strict-schema clients don't refuse to dispatch
+        # when no path is supplied. The dataless set is auto-derived
+        # from the registry (any spec without a required ``data`` param)
+        # plus a small hand-curated override list — see
+        # ``_dataless_tool_names``.
+        from statspai.agent.mcp_server import _dataless_tool_names
+        dataless = _dataless_tool_names()
         msg = _rpc("tools/list", {})
         for t in msg["result"]["tools"]:
             schema = t["inputSchema"]
             assert "data_path" in schema["properties"]
-            if t["name"] in _DATALESS_TOOLS:
+            if t["name"] in dataless:
                 assert "data_path" not in schema["required"], (
                     f"{t['name']!r} is dataless but its schema still "
                     "marks data_path required")
             else:
-                assert "data_path" in schema["required"]
+                assert "data_path" in schema["required"], (
+                    f"{t['name']!r} is data-bound (registry has a "
+                    "required ``data`` param) but its schema does not "
+                    "mark data_path required")
 
     def test_dataless_tools_omit_data_path_required(self):
         # Regression guard for the 1.9.1 schema fix: honest_did and
