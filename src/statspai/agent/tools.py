@@ -59,28 +59,49 @@ def _scalar_or_none(v) -> Optional[float]:
 #   'statspai_fn'     : path resolved lazily
 #   'serializer'      : optional callable (result -> JSON-friendly dict)
 
-def _default_serializer(r) -> Dict[str, Any]:
+def _default_serializer(r, *, detail: str = "agent") -> Dict[str, Any]:
     """Serialise a ``CausalResult`` / ``EconometricResults`` to a JSON dict.
 
     LLM tool-use protocol requires JSON-serialisable return values.
-    Prefers ``result.to_dict()`` (defined on both result classes) so
-    serialisation logic lives in one place; falls back to the legacy
-    field-by-field extraction for any future result type that doesn't
-    implement ``to_dict``.
+    Prefers ``result.to_dict(detail=detail)`` so the LLM gets the
+    payload size it asked for through MCP — ``"minimal"`` for cheap
+    sub-step calls, ``"standard"`` for normal use, ``"agent"`` (the
+    default) when violations + next-step hints + suggested-functions
+    should ride along. Falls back to the legacy ``to_dict()`` signature
+    for older result types that don't accept the ``detail`` kwarg, and
+    finally to the field-by-field extraction below.
+
+    Parameters
+    ----------
+    r : CausalResult or EconometricResults
+        Any fitted StatsPAI result.
+    detail : {"minimal", "standard", "agent"}, default ``"agent"``
+        Forwarded to ``r.to_dict(detail=...)``. Agents pass this
+        through ``tools/call`` arguments to control token cost per
+        call; the MCP server strips it before estimator dispatch.
     """
-    # Canonical path: both CausalResult and EconometricResults now expose
-    # to_dict() — use it so the agent output matches result.to_dict()
-    # called directly by a user.
     to_dict = getattr(r, 'to_dict', None)
     if callable(to_dict):
+        # Preferred: caller-chosen detail level. Use ``inspect.signature``
+        # to decide whether the result class supports the ``detail``
+        # kwarg — that's a precise discriminant, unlike a blanket
+        # ``except TypeError`` which would also swallow internal
+        # serialisation bugs that happen to raise TypeError.
+        import inspect
         try:
+            params = inspect.signature(to_dict).parameters
+        except (TypeError, ValueError):
+            params = {}
+        if "detail" in params:
+            out = to_dict(detail=detail)
+        else:
+            # Legacy result type that predates the unified ``detail``
+            # parameter. Call the zero-arg form; any exception here is
+            # a real bug — let it propagate so ``execute_tool``'s
+            # outer error envelope reports it cleanly.
             out = to_dict()
-            if isinstance(out, dict) and out:
-                return out
-        except Exception:
-            # Fall through to legacy path rather than leak an internal
-            # serialisation error back to the agent as a "tool error".
-            pass
+        if isinstance(out, dict) and out:
+            return out
 
     import pandas as _pd
 
@@ -773,7 +794,9 @@ def _resolve_fn(fn_name: str) -> Callable:
 
 def execute_tool(name: str,
                  arguments: Dict[str, Any],
-                 data: Optional[pd.DataFrame] = None) -> Dict[str, Any]:
+                 data: Optional[pd.DataFrame] = None,
+                 *,
+                 detail: str = "agent") -> Dict[str, Any]:
     """Dispatch a tool call to the right StatsPAI function.
 
     Parameters
@@ -784,6 +807,14 @@ def execute_tool(name: str,
         Tool-call arguments as provided by the LLM (JSON object).
     data : pd.DataFrame, optional
         Dataset the estimator runs on.  Required by most tools.
+    detail : {"minimal", "standard", "agent"}, default ``"agent"``
+        Payload depth requested by the caller. Forwarded to the
+        default serializer's ``r.to_dict(detail=...)`` so MCP-mediated
+        agents can pick a cheaper level for sub-step calls without
+        paying for violations + next_steps every round-trip. Custom
+        serializers in ``TOOL_REGISTRY`` (e.g. for the ``causal``
+        orchestrator or ``recommend``) ignore this — they emit a
+        fixed shape by design.
 
     Returns
     -------
@@ -809,17 +840,80 @@ def execute_tool(name: str,
     if data is not None:
         kwargs['data'] = data
 
+    def _serialize(result_obj):
+        """Invoke ``serialize`` with ``detail=`` when supported.
+
+        Custom serializers in TOOL_REGISTRY (e.g. for ``causal``,
+        ``recommend``) emit a fixed shape and don't accept ``detail`` —
+        forwarding the kwarg would crash them. We use
+        ``inspect.signature`` to decide rather than catching
+        ``TypeError``; the latter would silently swallow genuine
+        ``TypeError`` bugs raised inside the serializer body.
+        """
+        if serialize is _default_serializer:
+            return serialize(result_obj, detail=detail)
+        import inspect
+        try:
+            params = inspect.signature(serialize).parameters
+        except (TypeError, ValueError):
+            # Built-in / C-extension callable without an introspectable
+            # signature — assume it takes only the result.
+            return serialize(result_obj)
+        if "detail" in params or any(
+                p.kind == inspect.Parameter.VAR_KEYWORD
+                for p in params.values()):
+            return serialize(result_obj, detail=detail)
+        return serialize(result_obj)
+
+    # Estimator call. Any failure here is attributed to the estimator
+    # itself — that's where structured StatsPAIError instances come from.
     try:
         result = fn(**kwargs)
-        return serialize(result)
     except Exception as e:
-        # Lazy import to avoid cycles
         from .remediation import remediate as _remediate
-        return {
+        envelope: Dict[str, Any] = {
             'error': f"{type(e).__name__}: {e}",
             'tool': name,
             'arguments': {k: v for k, v in arguments.items()
                           if not isinstance(v, pd.DataFrame)},
             'remediation': _remediate(e, context={'tool': name,
                                                    'arguments': arguments}),
+        }
+        # Surface the structured StatsPAIError payload alongside the
+        # legacy fields so MCP-mediated agents can branch on
+        # ``error_kind`` (e.g. ``"assumption_violation"``,
+        # ``"identification_failure"``) without parsing free-text
+        # messages, and read ``recovery_hint`` / ``diagnostics`` /
+        # ``alternative_functions`` directly from ``error_payload``.
+        from ..exceptions import StatsPAIError
+        if isinstance(e, StatsPAIError):
+            try:
+                envelope['error_kind'] = e.code
+                envelope['error_payload'] = e.to_dict()
+            except Exception:
+                # Defensive fallback: a malformed diagnostics dict (e.g.
+                # a live DataFrame) shouldn't crash the error handler
+                # and lose the original exception. ``e.code`` is a
+                # class attribute with a string default on every
+                # ``StatsPAIError`` subclass, so reading it cannot fail.
+                envelope['error_kind'] = e.code
+                envelope['error_payload'] = {
+                    'kind': e.code,
+                    'class': type(e).__name__,
+                    'message': str(e),
+                }
+        return envelope
+
+    # Result serialization. A failure here is a *serializer* bug, not
+    # an estimator failure — attribute it accordingly so agents don't
+    # see misleading ``remediation`` advice for working call args.
+    try:
+        return _serialize(result)
+    except Exception as e:
+        return {
+            'error': f"serializer_error: {type(e).__name__}: {e}",
+            'tool': name,
+            'arguments': {k: v for k, v in arguments.items()
+                          if not isinstance(v, pd.DataFrame)},
+            'stage': 'serializer',
         }

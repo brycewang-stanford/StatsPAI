@@ -14,6 +14,13 @@ No other econometrics package offers these:
 from .recommend import recommend, RecommendationResult
 from .compare import compare_estimators, ComparisonResult
 from .assumptions import assumption_audit, AssumptionResult
+from .audit import audit
+from .brief import brief
+from .citations import bib_for, render_citation
+from .detect_design import detect_design
+from .examples import examples
+from .preflight import preflight
+from .session import session
 from .sensitivity import sensitivity_dashboard, SensitivityDashboard
 from .publication import pub_ready, PubReadyResult
 from .replicate import replicate, list_replications
@@ -33,6 +40,14 @@ __all__ = [
     "recommend", "RecommendationResult",
     "compare_estimators", "ComparisonResult",
     "assumption_audit", "AssumptionResult",
+    "audit",
+    "bib_for",
+    "brief",
+    "detect_design",
+    "examples",
+    "preflight",
+    "render_citation",
+    "session",
     "sensitivity_dashboard", "SensitivityDashboard",
     "pub_ready", "PubReadyResult",
     "replicate", "list_replications",

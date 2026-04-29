@@ -456,7 +456,7 @@ class EconometricResults:
 
     def to_agent_summary(self) -> Dict[str, Any]:
         """
-        JSON-ready structured summary for agent consumption.
+        JSON-ready *nested* summary for agent consumption.
 
         Unlike ``summary()`` (prose for humans) and ``tidy()`` (long-form
         DataFrame), this returns a plain ``dict`` with coefficients,
@@ -469,6 +469,16 @@ class EconometricResults:
             Keys: ``kind``, ``model_type``, ``robust``, ``n_obs``,
             ``df_resid``, ``dependent_var``, ``coefficients``,
             ``diagnostics``, ``violations``, ``next_steps``.
+
+        See Also
+        --------
+        to_dict :
+            Canonical *flat* agent payload — prefer
+            ``to_dict(detail="agent")`` for new code.
+            ``to_agent_summary`` is kept because it surfaces a richer
+            ``kind`` / ``model_type`` / ``robust`` triplet that ``to_dict``
+            collapses into a single ``method`` field; two methods, two
+            intentionally different shapes.
 
         Examples
         --------
@@ -496,28 +506,75 @@ class EconometricResults:
     # Agent-native serialisation
     # ------------------------------------------------------------------
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self, *, detail: str = "standard") -> Dict[str, Any]:
         """Return a JSON-safe dict representation of the regression result.
 
-        Keys
-        ----
-        method, model_type, dependent_var : str | None
-        n_obs : int | None
-        coefficients : dict[term, {estimate, std_error, t_statistic,
-                                   p_value, conf_low, conf_high}]
-        diagnostics : dict[str, scalar]  (R², F, AIC, BIC, …)
-        glance : dict                    (broom-style one-row model summary)
+        Parameters
+        ----------
+        detail : {"minimal", "standard", "agent"}, default ``"standard"``
+            Payload depth, bounded by approximate token budget:
+
+            - ``"minimal"`` (~ < 600 chars / < 150 tokens) — identity
+              only: ``method``, ``model_type``, ``dependent_var``,
+              ``n_obs``, plus ``fit_stats`` (R², F, AIC, BIC) when
+              available.  No coefficient table.
+            - ``"standard"`` (variable, ~ 50 chars × n_terms) — full
+              coefficient table + diagnostics + glance row.  Matches
+              the legacy ``to_dict()`` shape.
+            - ``"agent"`` — standard + ``violations`` + ``warnings`` +
+              ``next_steps`` + ``suggested_functions``.  Equivalent to
+              legacy :meth:`for_agent` and the form returned by
+              ``sp.agent.execute_tool`` and the MCP server.
+
+        Returns
+        -------
+        dict
+            JSON-safe and bounded — round-trips through ``json.dumps``.
 
         Notes
         -----
-        Used by ``sp.agent.execute_tool`` to send results back to an LLM.
-        Also useful for caching / pickling-free persistence.
+        Used by ``sp.agent.execute_tool`` to send results back to an
+        LLM, and useful for caching / pickling-free persistence.
         """
+        if detail not in ("minimal", "standard", "agent"):
+            raise ValueError(
+                "detail must be 'minimal', 'standard', or 'agent'; "
+                f"got {detail!r}"
+            )
+
         try:
             glance_row = self.glance().iloc[0].to_dict()
         except Exception:
             glance_row = {}
 
+        base: Dict[str, Any] = {
+            'method': str(self.model_info.get(
+                'method', self.model_info.get('model_type', ''))),
+            'model_type': str(self.model_info.get('model_type', '')),
+            'dependent_var': _to_jsonable(
+                self.data_info.get('dependent_var')),
+            'n_obs': _to_jsonable(self.data_info.get('nobs')),
+        }
+
+        if detail == "minimal":
+            # Compact subset of glance fit stats so agents can decide
+            # whether to drill in (low R² → call diagnostics).
+            fit_keys = (
+                'r_squared', 'r.squared', 'r2',
+                'adj_r_squared', 'adj.r.squared',
+                'f_statistic', 'f.statistic',
+                'aic', 'AIC', 'bic', 'BIC',
+                'log_likelihood', 'logLik',
+            )
+            fit_stats: Dict[str, Any] = {}
+            for k in fit_keys:
+                if k in glance_row:
+                    fit_stats[k] = _to_jsonable(glance_row[k])
+            if fit_stats:
+                base['fit_stats'] = fit_stats
+            return base
+
+        # standard: + full coefficient table + diagnostics + glance
         coefs: Dict[str, Dict[str, Any]] = {}
         try:
             terms = list(self.params.index)
@@ -545,44 +602,21 @@ class EconometricResults:
         except Exception:
             coefs = {}
 
-        return {
-            'method': str(self.model_info.get(
-                'method', self.model_info.get('model_type', ''))),
-            'model_type': str(self.model_info.get('model_type', '')),
-            'dependent_var': _to_jsonable(
-                self.data_info.get('dependent_var')),
-            'n_obs': _to_jsonable(self.data_info.get('nobs')),
+        base.update({
             'coefficients': coefs,
             'diagnostics': _filter_jsonable_scalars(self.diagnostics),
             'glance': _to_jsonable(glance_row),
-        }
+        })
 
-    def for_agent(self) -> Dict[str, Any]:
-        """Agent-ready payload: ``to_dict()`` plus violations + next steps.
+        if detail == "standard":
+            return base
 
-        Adds to :meth:`to_dict`:
-
-        - ``violations`` : list[dict]  — delegated to :meth:`violations`
-          so assumption-check logic stays in one place.
-        - ``warnings`` : list[str]     — human-readable messages flattened
-          out of ``violations`` for agents that don't parse the full
-          structured form.
-        - ``next_steps`` : list[dict]  — compact ``next_steps()`` output.
-        - ``suggested_functions`` : list[str] — ``sp.xxx`` hints deduped
-          from ``next_steps`` + ``violations.alternatives``.
-
-        The method delegates to :meth:`violations` and :meth:`next_steps`
-        rather than re-checking diagnostics inline, so the thresholds
-        defined in ``core/_agent_summary.py`` remain the single source
-        of truth.
-        """
-        base = self.to_dict()
-
+        # agent: + violations + warnings + next_steps + suggested_functions
         try:
             viols = self.violations() or []
         except Exception:
             viols = []
-        warnings: List[str] = [
+        warns: List[str] = [
             v.get('message', '') for v in viols if v.get('message')
         ]
 
@@ -603,11 +637,30 @@ class EconometricResults:
 
         base.update({
             'violations': _to_jsonable(viols),
-            'warnings': warnings,
+            'warnings': warns,
             'next_steps': steps[:8],
             'suggested_functions': suggested,
         })
         return base
+
+    def for_agent(self) -> Dict[str, Any]:
+        """Agent-ready payload — alias for ``to_dict(detail="agent")``.
+
+        Kept for backward compatibility with code written before the
+        unified ``detail`` parameter.  New code should prefer
+        ``to_dict(detail="agent")`` for explicit semantics.
+        """
+        return self.to_dict(detail="agent")
+
+    def brief(self) -> str:
+        """One-line dashboard status string (≤ ~120 chars).
+
+        Surfaces the most-significant non-intercept coefficient so
+        agents scanning a list of regressions can spot the active
+        finding without paying a full ``to_dict`` round-trip.
+        """
+        from ..smart.brief import brief as _brief
+        return _brief(self)
 
     def to_json(self, indent: Optional[int] = None) -> str:
         """Serialise :meth:`to_dict` via ``json.dumps``."""
@@ -1540,15 +1593,62 @@ class CausalResult:
         ]
         return '\n'.join(lines)
 
-    def cite(self) -> str:
-        """Return BibTeX citation for the method."""
+    def cite(self, format: str = "bibtex") -> Any:
+        """Return the canonical citation for this estimator.
+
+        Parameters
+        ----------
+        format : {"bibtex", "apa", "json"}, default ``"bibtex"``
+            - ``"bibtex"`` — full ``@article{...}`` / ``@book{...}``
+              entry (the form used in :file:`paper.bib`).
+            - ``"apa"`` — APA-style prose for inline use:
+              ``"Callaway, B., & Sant'Anna, P. H. C. (2021). Title.
+              Journal, vol(num), pages."``.
+            - ``"json"`` — structured payload with parsed
+              ``authors`` / ``year`` / ``title`` / ``journal`` / ...
+              for agent consumption.
+
+        Returns
+        -------
+        str | dict
+            ``"bibtex"`` / ``"apa"`` → ``str``; ``"json"`` → ``dict``.
+
+        Notes
+        -----
+        Citations are zero-hallucination per the project's policy
+        (CLAUDE.md §10): every entry comes from the hand-curated
+        ``_CITATIONS`` table on the result class, which mirrors
+        :file:`paper.bib`. APA / JSON forms are derived by parsing
+        that single source — never by generating new bibliographic
+        facts.
+        """
         key = self._citation_key or self.method.lower().replace(' ', '_')
+        bibtex: Optional[str] = None
         if key in self._CITATIONS:
-            return self._CITATIONS[key]
-        for k, v in self._CITATIONS.items():
-            if k in key or key in k:
-                return v
-        return f"% No citation registered for method: {self.method}"
+            bibtex = self._CITATIONS[key]
+        else:
+            for k, v in self._CITATIONS.items():
+                if k in key or key in k:
+                    bibtex = v
+                    break
+        if bibtex is None:
+            placeholder = (
+                f"% No citation registered for method: {self.method}"
+            )
+            if format == "bibtex":
+                return placeholder
+            if format == "apa":
+                return placeholder
+            if format == "json":
+                return {"type": None, "key": None, "authors": [],
+                        "fields": {}, "raw": placeholder,
+                        "note": "no citation registered"}
+            raise ValueError(
+                f"format must be 'bibtex', 'apa' or 'json'; "
+                f"got {format!r}"
+            )
+        from ..smart.citations import render_citation
+        return render_citation(bibtex, fmt=format)
 
     def pretrend_test(self) -> Dict[str, Any]:
         """Return pre-trend test results (DID methods)."""
@@ -1616,7 +1716,7 @@ class CausalResult:
 
     def to_agent_summary(self) -> Dict[str, Any]:
         """
-        JSON-ready structured summary for agent consumption.
+        JSON-ready *nested* summary for agent consumption.
 
         Returns a plain dict with point estimate, CI, scalar diagnostics,
         violations (via :meth:`violations`), and recommended next steps
@@ -1631,6 +1731,16 @@ class CausalResult:
             ``n_obs``, ``diagnostics``, ``violations``, ``next_steps``,
             ``citation_key``.
 
+        See Also
+        --------
+        to_dict :
+            Canonical *flat* agent payload — prefer
+            ``to_dict(detail="agent")`` for new code.
+            ``to_agent_summary`` is kept because it groups the point
+            estimate under a ``point`` sub-dict (handy for templating
+            tables) and surfaces a ``method_family`` field that ``to_dict``
+            does not. Two methods, two intentionally different shapes.
+
         Examples
         --------
         >>> r = sp.did(df, y='wage', treat='treated', time='post')
@@ -1640,29 +1750,54 @@ class CausalResult:
         from ._agent_summary import causal_agent_summary
         return causal_agent_summary(self)
 
-    def to_dict(self, detail_head: int = 5) -> Dict[str, Any]:
+    def to_dict(self, *, detail_head: int = 5,
+                detail: str = "standard") -> Dict[str, Any]:
         """Return a JSON-safe flat dict representation of the causal result.
 
         Parameters
         ----------
         detail_head : int, default 5
-            Rows of ``self.detail`` to include (0 to omit). Payload must
-            stay LLM-tool-sized, so we expose only a head.
+            Rows of ``self.detail`` to include in the ``"standard"`` and
+            ``"agent"`` levels (0 to omit). Ignored when
+            ``detail="minimal"``.
+        detail : {"minimal", "standard", "agent"}, default ``"standard"``
+            Payload depth, bounded by approximate token budget so agents
+            running on token-metered APIs can pick the right level:
+
+            - ``"minimal"`` (~ < 600 chars / < 150 tokens) — bare answer:
+              ``method``, ``estimand``, ``estimate``, ``se``, ``pvalue``,
+              ``ci``, ``alpha``, ``n_obs``, ``citation_key``.  No
+              diagnostics, no detail rows.  For sub-step calls where
+              the agent only needs the point estimate to decide what
+              to do next.
+            - ``"standard"`` (~ < 4 000 chars / < 1 000 tokens) — the
+              legacy default: minimal + scalar diagnostics +
+              ``detail_head`` rows.
+            - ``"agent"`` (~ < 8 000 chars / < 2 000 tokens) — standard
+              + ``violations`` + ``warnings`` + ``next_steps`` +
+              ``suggested_functions``.  This is what
+              ``sp.agent.execute_tool`` and the MCP server emit by
+              default so a tool-using agent gets violations + workflow
+              hints in one round-trip.  Equivalent to legacy
+              :meth:`for_agent`.
 
         Returns
         -------
         dict
-            Flat keys: ``method``, ``estimand``, ``estimate``, ``se``,
-            ``pvalue``, ``ci``, ``alpha``, ``n_obs``, ``diagnostics``,
-            ``citation_key``, optionally ``detail_head``.
+            JSON-safe and bounded — round-trips through ``json.dumps``.
 
         Notes
         -----
-        Complementary to :meth:`to_agent_summary`, which returns a nested
-        payload (``point`` / ``violations`` / …).  ``to_dict`` is the
-        flatter form used by ``sp.agent.execute_tool`` — round-trips
-        through ``json.dumps`` by construction.
+        :meth:`to_agent_summary` returns a *nested* payload (``point`` /
+        ``violations`` / …).  ``to_dict`` is the flat form used by the
+        agent / MCP layer.
         """
+        if detail not in ("minimal", "standard", "agent"):
+            raise ValueError(
+                "detail must be 'minimal', 'standard', or 'agent'; "
+                f"got {detail!r}"
+            )
+
         ci = self.ci
         if (ci is not None
                 and not isinstance(ci, (pd.Series, pd.DataFrame))
@@ -1683,10 +1818,14 @@ class CausalResult:
             'ci': ci_out,
             'alpha': _to_jsonable(self.alpha),
             'n_obs': _to_jsonable(self.n_obs),
-            'diagnostics': _filter_jsonable_scalars(self.model_info),
             'citation_key': _to_jsonable(self._citation_key),
         }
 
+        if detail == "minimal":
+            return out
+
+        # standard: + scalar diagnostics + detail_head rows
+        out['diagnostics'] = _filter_jsonable_scalars(self.model_info)
         if detail_head and self.detail is not None:
             try:
                 head = self.detail.head(int(detail_head))
@@ -1695,31 +1834,15 @@ class CausalResult:
             except Exception:
                 pass
 
-        return out
+        if detail == "standard":
+            return out
 
-    def for_agent(self, detail_head: int = 5) -> Dict[str, Any]:
-        """Agent-ready payload: ``to_dict()`` + violations + next-step hints.
-
-        Extends :meth:`to_dict` with:
-
-        - ``violations`` : list[dict]  — delegated to :meth:`violations`
-          (single source of truth for assumption checks, defined in
-          ``core/_agent_summary.py``).
-        - ``warnings`` : list[str]     — flattened violation messages.
-        - ``next_steps`` : list[dict]  — compact ``next_steps()`` output.
-        - ``suggested_functions`` : list[str] — ``sp.xxx`` hints deduped
-          from ``next_steps`` + ``violations.alternatives``.
-
-        The payload is JSON-safe and bounded — drop directly into an
-        agent's tool-result channel.
-        """
-        base = self.to_dict(detail_head=detail_head)
-
+        # agent: + violations + warnings + next_steps + suggested_functions
         try:
             viols = self.violations() or []
         except Exception:
             viols = []
-        warnings: List[str] = [
+        warns: List[str] = [
             v.get('message', '') for v in viols if v.get('message')
         ]
 
@@ -1738,13 +1861,32 @@ class CausalResult:
                 if alt and alt not in suggested:
                     suggested.append(alt)
 
-        base.update({
+        out.update({
             'violations': _to_jsonable(viols),
-            'warnings': warnings,
+            'warnings': warns,
             'next_steps': steps[:8],
             'suggested_functions': suggested,
         })
-        return base
+        return out
+
+    def for_agent(self, detail_head: int = 5) -> Dict[str, Any]:
+        """Agent-ready payload — alias for ``to_dict(detail="agent")``.
+
+        Kept for backward compatibility with code written before the
+        unified ``detail`` parameter.  New code should prefer
+        ``to_dict(detail="agent")`` for explicit semantics.
+        """
+        return self.to_dict(detail_head=detail_head, detail="agent")
+
+    def brief(self) -> str:
+        """One-line dashboard status string (≤ ~120 chars).
+
+        Cheaper than ``summary()`` (multi-line prose) and
+        ``to_dict(detail="minimal")`` (JSON ~ 300 chars). Use in
+        agent dashboards or ``for r in results: print(r.brief())``.
+        """
+        from ..smart.brief import brief as _brief
+        return _brief(self)
 
     def to_json(self, indent: Optional[int] = None,
                  detail_head: int = 5) -> str:

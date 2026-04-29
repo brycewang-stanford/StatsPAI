@@ -210,7 +210,19 @@ interface: `.summary()`, `.plot()`, `.to_latex()`, `.to_docx()`, and
    supports `.to_latex()`, `.to_docx()`, and `.cite()`.
 4. An **agent-native API** with `sp.function_schema()` returning JSON
    schemas for all 550+ functions, and `sp.list_functions()` /
-   `sp.describe_function()` for discoverability.
+   `sp.describe_function()` for discoverability. Since v1.9.0 this
+   surface includes `sp.detect_design()` (heuristic shape
+   identification), `sp.preflight()` (cheap pre-estimation gate),
+   `sp.audit()` (missing-evidence checklist for fitted results),
+   `sp.session()` (deterministic-RNG context manager),
+   `result.brief()` (one-line dashboard view),
+   `result.cite(format="bibtex"|"apa"|"json")` and `sp.bib_for()`
+   (zero-hallucination multi-format citations), `sp.examples()`
+   (runnable code snippets), plus a Model Context Protocol server
+   (`statspai-mcp`) exposing every estimator as a typed tool with
+   structured exception envelopes (`error_kind` /
+   `recovery_hint` / `alternative_functions`) so LLM agents can
+   branch on typed failure codes rather than regex-parsing prose.
 
 The package is implemented in pure Python atop NumPy, SciPy, Pandas,
 statsmodels, scikit-learn, and linearmodels, with optional PyTorch and

@@ -57,6 +57,75 @@ without clustering). See the cross-solver parity suite in
 
 ---
 
+## v1.8.0 → v1.9.0 — Agent-native API surface (no breaking changes)
+
+**Strictly additive release.** Twelve new agent-shaped APIs land
+under ``sp.``: ``audit``, ``bib_for``, ``brief``, ``detect_design``,
+``examples``, ``preflight``, ``session`` (the seven new top-level
+functions), plus ``result.brief()`` / ``result.cite(format=...)``
+methods, plus three MCP-server features (``statspai-mcp`` console
+script, ``prompts/list``, per-function ``statspai://function/{name}``
+resources). **No estimator numerical paths changed**; every
+coefficient / SE / CI / p-value is byte-identical to v1.8.0. See
+the v1.9.0 [CHANGELOG](CHANGELOG.md#190--agent-native-api-surface-12-modules-across-4-phases)
+entry for the full surface.
+
+### Backward-compat invariants the test suite pins
+
+The 422 new tests include explicit regression guards on these
+contracts. If your code depended on any of them, nothing changes.
+
+- ``CausalResult.to_dict()`` with no kwargs is **byte-identical**
+  to ``cite(detail="standard")`` — the legacy default. The new
+  ``detail`` parameter is keyword-only and adds three documented
+  levels (``"minimal"`` / ``"standard"`` / ``"agent"``).
+- ``CausalResult.cite()`` with no kwargs still returns a BibTeX
+  string. The new ``format=`` keyword adds ``"apa"`` / ``"json"``
+  options without changing the default.
+- ``result.for_agent()`` is now a thin alias for
+  ``result.to_dict(detail="agent")`` and produces the same dict.
+  Existing callers see no change; new code should prefer the
+  explicit form for readability.
+- ``result.to_agent_summary()`` is unchanged. Its docstring now
+  cross-references ``to_dict(detail="agent")`` so future readers
+  know the distinction (``to_agent_summary`` is the *nested*
+  schema with a ``point`` sub-dict; ``to_dict(detail="agent")`` is
+  the *flat* schema). Both round-trip through ``json.dumps``.
+- ``execute_tool``'s exception envelope still carries the legacy
+  ``error`` / ``tool`` / ``arguments`` / ``remediation`` fields
+  unchanged. Two new fields — ``error_kind`` and ``error_payload``
+  — are added **only** when the caught exception is a
+  ``StatsPAIError`` subclass, so any agent that previously branched
+  on ``"error_kind" in out`` to detect structured errors gets a
+  clean signal.
+
+### One subtle widening to be aware of
+
+- ``sp.agent.execute_tool``'s default serializer now invokes
+  ``r.to_dict(detail="agent")`` instead of ``r.to_dict()``. The
+  result dict is a strict superset of the previous shape — every
+  pre-1.9 key is still present at the same path; ``violations``,
+  ``warnings``, ``next_steps``, and ``suggested_functions`` are
+  added. The MCP ``tools/call`` payload is therefore ~3× larger by
+  default. Agents that need the smaller form should pass
+  ``detail="standard"`` (or ``"minimal"``) in the ``tools/call``
+  arguments — the MCP input schema documents this.
+
+### New entry points worth knowing about
+
+- Agents handed unfamiliar data → ``sp.detect_design(df)``.
+- Before an expensive call → ``sp.preflight(df, "did", y=..., ...)``.
+- After fitting → ``result.brief()`` for dashboards,
+  ``sp.audit(result)`` for the missing-evidence checklist,
+  ``result.cite(format="apa")`` for prose citations.
+- Reproducible RNG → ``with sp.session(seed=42): ...``.
+- One-shot install for MCP clients → ``pip install statspai`` now
+  exposes ``statspai-mcp`` on PATH (Claude Desktop /
+  ``claude_desktop_config.json`` example in
+  [agent/mcp_server.py](src/statspai/agent/mcp_server.py)).
+
+---
+
 ## v1.6.5 → v1.6.6 — ⚠️ Heckman two-step SE correctness fix (+ HDFE solver option)
 
 **Two-part release.** (1) Correctness fix for `sp.heckman` standard

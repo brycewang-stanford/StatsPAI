@@ -2,6 +2,146 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.9.0] — Agent-native API surface: 12 modules across 4 phases
+
+The 1.9.0 line ships StatsPAI's first deliberately agent-shaped API
+surface — 12 new top-level entry points designed for Claude Code /
+Cursor / Copilot CLI workflows where the LLM, not a human, is doing
+the calling. **No estimator numerical paths changed**; all
+additions are new functions or strictly additive parameters with
+``"agent"`` as the default so existing behaviour is byte-identical.
+
+### Added — Agent serialization & error envelope (Phase 1)
+
+- **``CausalResult.to_dict(detail=...)``** and
+  **``EconometricResults.to_dict(detail=...)``** — unified payload
+  control with three documented levels:
+
+  - ``"minimal"`` (~150 tokens) — bare answer; no diagnostics.
+  - ``"standard"`` (~250 tokens) — current default; coefficients +
+    scalar diagnostics + ``detail_head`` rows. Byte-identical to
+    legacy ``to_dict()``.
+  - ``"agent"`` (~620 tokens) — adds ``violations`` / ``warnings``
+    / ``next_steps`` / ``suggested_functions`` so an LLM can plan
+    its next call without another round-trip.
+
+  ``for_agent()`` is now a thin alias for ``to_dict(detail="agent")``;
+  ``to_agent_summary()`` is unchanged but its docstring now points
+  at ``to_dict(detail="agent")`` as the canonical flat form.
+
+- **``execute_tool`` MCP error envelope** — when an estimator raises
+  a structured ``StatsPAIError`` subclass, the MCP ``tools/call``
+  response now surfaces ``error_kind`` (e.g.
+  ``"method_incompatibility"``) plus the full ``error_payload``
+  dict (``code`` / ``recovery_hint`` / ``diagnostics`` /
+  ``alternative_functions``). Legacy ``error`` / ``remediation``
+  fields preserved.
+
+### Added — MCP server polish (Phase 1)
+
+- **``statspai-mcp`` console script** wired in ``pyproject.toml`` so
+  ``pip install statspai`` exposes it on PATH.
+- **``statspai://function/{name}``** per-function resources surfacing
+  the registry's full agent-card (description, signature,
+  assumptions, failure_modes, alternatives, typical_n_min, example).
+  Listed via the new ``resources/templates/list`` handler.
+- **``statspai://functions``** machine-readable JSON index for
+  one-shot tool discovery.
+- **Typed JSON-RPC errors** mapped to canonical MCP codes:
+  ``-32002`` (resource not found), ``-32602`` (invalid params),
+  ``-32000`` (server fallback). Replaces the previous blanket
+  ``-32000``.
+- **``notifications/*`` silenced** — Claude Desktop / Cursor send
+  ``notifications/initialized`` after the handshake; the server now
+  drops any method whose name starts with ``notifications/`` per
+  the MCP spec, instead of replying with ``-32601`` noise on every
+  session.
+- **MCP-level ``detail`` parameter** on ``tools/call`` — agents pick
+  ``detail="minimal" | "standard" | "agent"`` per call to control
+  token cost. Validation rejects invalid values with ``-32602``.
+
+### Added — Workflow primitives (Phases 2-4)
+
+- **``sp.audit(result)``** — *missing-evidence* checklist (the
+  read-only counterpart to ``sp.assumption_audit``): inspects what
+  robustness / sensitivity diagnostics are stored on a fitted
+  result and surfaces which method-family checks are still
+  missing. Returns ``{checks: [{name, question, status, severity,
+  importance, suggest_function, ...}], summary, coverage}`` with
+  18 curated checks across DID/RD/IV/synth/matching/OLS.
+
+- **``sp.detect_design(data, **hints)``** — heuristic design
+  identifier: returns ``{design, confidence, identified, candidates,
+  n_obs, columns}`` with ``design ∈ {"panel", "rd",
+  "cross_section"}``. Symmetric ``(unit, time)`` pair dedup; RD
+  confidence capped at 0.30 without explicit hint to avoid
+  noise-data false positives.
+
+- **``sp.preflight(data, method, **kwargs)``** — method-specific
+  pre-estimation diagnostics distinct from
+  ``sp.check_identification`` (design-level) and
+  ``sp.assumption_audit`` (re-runs tests). Cheap shape / column /
+  treatment-binarity / sample-size checks per method family;
+  returns ``{verdict: "PASS" | "WARN" | "FAIL", checks, summary,
+  known_method}``.
+
+- **``CausalResult.cite(format=...)``** and
+  **``sp.bib_for(result)``** — multi-format citations:
+  ``"bibtex"`` (default, byte-identical to legacy ``cite()``),
+  ``"apa"`` (parsed prose), ``"json"`` (structured ``{type, key,
+  authors, year, title, journal, volume, number, pages,
+  publisher, fields}``). LaTeX-diacritic normalisation
+  (``{\\"o}`` → ``ö``); multi-entry BibTeX strings (e.g.
+  ``twfe_decomposition`` cites both Goodman-Bacon 2021 AND de
+  Chaisemartin & D'Haultfœuille 2020) round-trip both authors —
+  zero hallucination per CLAUDE.md §10.
+
+- **``sp.examples(name)``** — runnable code snippets for any
+  registered function; 10 hand-curated flagship snippets, falls
+  back to ``registry.example`` for the rest.
+
+- **``sp.session(seed=42)``** — deterministic-RNG context manager
+  snapshotting Python ``random`` and NumPy's legacy global MT19937
+  generator; restores prior state on exit even when an exception
+  is raised inside the block. Lazy torch / jax interop — never
+  auto-imports. Documented escape hatch for
+  ``np.random.default_rng()`` (which is *not* covered — pass
+  ``state.seed`` explicitly).
+
+- **``result.brief()`` / ``sp.brief(result)``** — one-line
+  dashboard string (~95 chars typical, ≤ 140 hard cap) for
+  multi-result agent loops.
+
+- **MCP ``prompts/list`` + ``prompts/get``** — three curated
+  workflow prompt templates (``audit_did_result`` /
+  ``design_then_estimate`` / ``robustness_followup``) surfaced as
+  one-click buttons in MCP-compliant clients.
+
+### Changed
+
+- ``CausalResult.to_dict`` / ``EconometricResults.to_dict`` now
+  accept a keyword-only ``detail`` parameter. Default ``"standard"``
+  preserves the legacy shape exactly. ``CausalResult``'s
+  ``detail_head`` is also keyword-only now (was positional-or-
+  keyword) to close the ``to_dict("agent")`` foot-gun.
+
+- ``CausalResult.cite()`` now accepts ``format=`` keyword; zero-arg
+  call still returns BibTeX, byte-identical to
+  ``cite(format="bibtex")``.
+
+### Tests
+
+**+422 targeted tests** across the agent stack, all passing.
+Token-budget assertions pin the size of every ``detail`` level so
+future changes can't accidentally bloat the LLM tool-result channel.
+
+### No numerical changes
+
+Every estimator's coefficient / SE / CI / p-value path is byte-
+identical to 1.8.0. The 12 new modules are introspection,
+serialization, prompt-rendering, and RNG-management primitives —
+they read from existing result state, never recompute it.
+
 ## [1.8.0] — `sp.regtable` Round 4 (event_study_table, vcov= recompute, transpose)
 
 Three further additions on top of Rounds 1-3. **No numerical

@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -592,6 +592,13 @@ from .smart import (
     recommend, RecommendationResult,
     compare_estimators, ComparisonResult,
     assumption_audit, AssumptionResult,
+    audit,
+    bib_for,
+    brief,
+    detect_design,
+    examples,
+    preflight,
+    session,
     sensitivity_dashboard, SensitivityDashboard,
     pub_ready, PubReadyResult,
     replicate, list_replications,
@@ -1213,6 +1220,13 @@ __all__ = [
     "IdentificationError",
     "compare_estimators", "ComparisonResult",
     "assumption_audit", "AssumptionResult",
+    "audit",
+    "bib_for",
+    "brief",
+    "detect_design",
+    "examples",
+    "preflight",
+    "session",
     "sensitivity_dashboard", "SensitivityDashboard",
     "pub_ready", "PubReadyResult",
     "replicate", "list_replications",

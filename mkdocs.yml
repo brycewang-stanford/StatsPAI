@@ -80,6 +80,7 @@ nav:
       - "v1.6 P1: Causal text MVP (text-as-treatment / LLM-annotator MEC) — experimental": guides/causal_text_family.md
       - "v1.7.2 export trinity: replication_pack + Provenance + Quarto + great_tables + CSL": guides/replication_workflow.md
       - "v1.7.2 LLM-DAG setup: providers, env vars, configure_llm(), sp.paper(llm='auto')": guides/llm_dag_setup.md
+      - "v1.9.0 Agent-native API surface: detect_design / preflight / audit / brief / cite / examples / session / MCP prompts": guides/agent_api.md
   - Reference:
       - "Overview": reference/index.md
       - "Difference-in-differences": reference/did.md
