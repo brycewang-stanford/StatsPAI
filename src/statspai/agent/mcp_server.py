@@ -502,6 +502,15 @@ _SESSION_INSTRUCTIONS = (
 
 
 def _handle_initialize(params: Dict[str, Any]) -> Dict[str, Any]:
+    # Snapshot the client's capability advertisement so server-side
+    # sampling helpers can route to ``sampling/createMessage`` when
+    # supported. ``_sampling.set_capability(False)`` is the safe
+    # default (the LLM helpers fall through to the user-API-key
+    # fallback path).
+    from . import _sampling
+    client_caps = (params.get("capabilities") or {}) if isinstance(params, dict) else {}
+    has_sampling = isinstance(client_caps, dict) and "sampling" in client_caps
+    _sampling.set_capability(has_sampling)
     return {
         "protocolVersion": MCP_PROTOCOL_VERSION,
         "capabilities": {
@@ -718,6 +727,15 @@ def handle_request(line: str) -> Optional[str]:
     except json.JSONDecodeError as e:
         return _jsonrpc_error(None, -32700, f"Parse error: {e}")
 
+    # JSON-RPC reply (no ``method``) — likely a response to a
+    # server-initiated ``sampling/createMessage`` request. Route it
+    # to the sampling matcher; if no pending request matches, fall
+    # through to the regular notification-drop path.
+    if isinstance(msg, dict) and "method" not in msg and "id" in msg:
+        from . import _sampling
+        if _sampling.route_response(msg):
+            return None
+
     request_id = msg.get("id")
     method = msg.get("method")
     params = msg.get("params") or {}
@@ -784,6 +802,20 @@ def serve_stdio(
 
     global _PROGRESS_SINK
     _PROGRESS_SINK = stdout
+
+    # Register a writer for server-initiated ``sampling/createMessage``
+    # requests. Helpers that need to invoke the client's LLM go through
+    # ``_sampling.request_sampling`` which fails closed (raises
+    # ``UnsupportedSamplingError``) when this writer isn't set OR the
+    # client never advertised the capability — i.e. server-side
+    # sampling is opt-in on both sides.
+    from . import _sampling
+
+    def _writer(line: str) -> None:
+        stdout.write(line + "\n")
+        stdout.flush()
+
+    _sampling.set_writer(_writer)
     try:
         for raw in stdin:
             line = raw.strip()
@@ -796,6 +828,8 @@ def serve_stdio(
             stdout.flush()
     finally:
         _PROGRESS_SINK = None
+        _sampling.set_writer(None)
+        _sampling.set_capability(False)
 
 
 def main() -> None:  # pragma: no cover
