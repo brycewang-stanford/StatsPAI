@@ -5,6 +5,60 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## v1.11 → v1.12 — `outreg2` becomes a thin facade over `regtable`
+
+The Stata-style `OutReg2` class and `outreg2()` function previously
+shipped a bespoke 800-line renderer that re-implemented coefficient
+extraction, star formatting, three-line table styling, and Excel /
+Word / LaTeX export. PR-B in v1.12 collapses that to ~150 lines of
+glue that translates Stata-flavoured kwargs and forwards to
+`sp.regtable`.
+
+**API is unchanged**, but rendered output now matches `regtable`'s
+canonical book-tab style. The visible label changes are listed below.
+A `DeprecationWarning` is emitted on first use; plan to migrate to
+`sp.regtable(...)` directly within the next two minor releases.
+
+### Label / format changes
+
+| Legacy outreg2 output | New (regtable canonical) |
+| --- | --- |
+| `Variables` column header | blank (book-tab convention) |
+| `R-squared` | `R²` |
+| `Adj. R-squared` | `Adj. R²` |
+| `Observations` | `N` |
+| `F-statistic / Trees` | `F` *(bug fix: "/ Trees" only applied to causal-forest results)* |
+| LaTeX missing star legend | proper `\multicolumn` legend below the rule |
+| LaTeX `& None & None \\` junk row | gone *(bug fix: spurious empty ATE row)* |
+
+### Removed parameter
+
+| Old | New |
+| --- | --- |
+| `show_se=False` | no longer supported. Emits `UserWarning`; the SE row stays. Use `sp.regtable(..., se_type='t' \| 'p' \| 'ci')` directly if you need a different cell. |
+
+### Side-by-side migration
+
+```python
+# Before — Stata-style stateful builder
+o = sp.OutReg2()
+o.set_title("Wage Regressions")
+o.add_model(m1, "Baseline")
+o.add_model(m2, "Full")
+o.add_note("Robust SE in parentheses")
+o.to_excel("table1.xlsx")
+
+# After — direct regtable call (same Excel output, full control)
+sp.regtable(
+    [m1, m2],
+    title="Wage Regressions",
+    model_labels=["Baseline", "Full"],
+    notes=["Robust SE in parentheses"],
+).to_excel("table1.xlsx")
+```
+
+---
+
 ## Migrating from `pyreghdfe`
 
 `pyreghdfe` (`pip install pyreghdfe`) is a Python port of Stata's

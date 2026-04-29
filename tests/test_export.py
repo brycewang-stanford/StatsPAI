@@ -111,9 +111,13 @@ class TestOutreg2Word:
         # Check table exists with expected structure
         assert len(doc.tables) == 1
         table = doc.tables[0]
-        # Header should have "Variables", "Model 1", "Model 2"
+        # Header is book-tab style: blank row-label column then model
+        # numbers (regtable canonical, since outreg2 became a facade
+        # over regtable in PR-B). Legacy "Variables" column header was
+        # dropped — the bespoke renderer's quirk.
         header_text = [cell.text for cell in table.rows[0].cells]
-        assert 'Variables' in header_text
+        assert any('Model' in h or '(1)' in h or '(2)' in h
+                   for h in header_text), header_text
 
 
 # ================================================================

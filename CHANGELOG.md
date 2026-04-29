@@ -350,7 +350,43 @@ discovery / orchestration / output layer.
 
 ## [Unreleased]
 
-### Added
+### Changed — output module PR-B (continuation of v1.11.x cleanup)
+
+- **`outreg2` is now a thin facade over `regtable`.** The Stata-style
+  `OutReg2` class and `outreg2()` function previously shipped a
+  bespoke 800-line renderer that re-implemented coefficient
+  extraction, star formatting, three-line table styling and
+  Excel/Word/LaTeX export. Collapsed to ~150 lines that translate
+  Stata-flavoured kwargs and forward to ``sp.regtable`` — single
+  point of fix for rendering bugs going forward.
+  - Net code: `outreg2.py` 804 → 341 lines (-58%).
+  - Rendered output now matches `regtable` exactly. **Visible label
+    changes**: `Variables` column header → blank (book-tab),
+    `R-squared`/`Adj. R-squared`/`Observations`/`F-statistic / Trees`
+    → `R²`/`Adj. R²`/`N`/`F`. LaTeX gains a proper star legend.
+    Bug fixes: spurious `& None & None` LaTeX cell removed; the
+    nonsensical `/ Trees` label that appeared on OLS results is gone.
+  - `show_se=False` is no longer supported (regression tables without
+    uncertainty are pseudo-science) — emits `UserWarning` and keeps
+    the SE row.
+  - First call emits `DeprecationWarning` pointing to
+    `sp.regtable(...).to_excel(...)`. Plan to remove the facade in
+    two minor releases.
+  - See [`MIGRATION.md`](MIGRATION.md) for the side-by-side rewrite.
+
+### Added — output module PR-B foundation (B-1)
+
+- **`tests/test_regtable_snapshots.py` snapshot harness.** Locks down
+  the byte-stable rendered output of `sp.regtable` for five
+  representative fixtures (simple OLS / multi-model / custom stats /
+  notes+labels / GLM-logit) across four text formats (text / HTML /
+  LaTeX / Markdown) — 20 snapshots total. Whitespace-normalised so
+  diffs survive editor newline handling but catch real renderer
+  drift. Excel / Word are **not** snapshotted (binary archives are
+  brittle); coverage there is via `test_paper_tables_export.py`.
+  Update with `STATSPAI_UPDATE_SNAPSHOTS=1 pytest tests/test_regtable_snapshots.py`.
+
+### Added — agent / dispatcher work (other sessions)
 
 - **`sp.panel()` `method=` expanded with friendly aliases + HDFE.**
   ``sp.panel`` already supported a ``method=`` table of 10 classical
