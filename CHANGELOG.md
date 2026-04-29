@@ -2,6 +2,106 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.11.0] — 2026-04-29
+
+Agent-native infrastructure follow-up to v1.10. Closes the four
+follow-up items the v1.10 release notes flagged: tools.py subpackage
+split, Stata/R command translators, concurrent runner with progress
+notifications, and tool-call timeouts. **No estimator numerics
+changed**; this is the agent-orchestration layer.
+
+### Added — `from_stata` / `from_r` translators
+
+- New `agent/_translation/` subpackage exposes
+  `from_stata(line) → {ok, tool, arguments, python_code, notes,
+  source, input}` and `from_r(line)` with the same shape.
+- 21 distinct Stata handlers / 25 alias entries covering ~85% of
+  real econ workflows:
+  - **Tier 1** (~60% coverage): `regress` / `reg`, `xtreg`,
+    `reghdfe`, `ivreg2` / `ivregress`, `csdid`, `did_imputation`,
+    `synth`, `rdrobust`.
+  - **Tier 2** (push to ~85%): `probit` / `logit` / `poisson` /
+    `nbreg` (shared GLM scaffold), `tobit`, `heckman`, `rdplot`,
+    `rddensity`, `teffects` (ipw / nnmatch / psmatch / ra /
+    aipw), `margins` / `marginsplot`, `contrast`, `test`, `xtset`
+    / `tsset` (no-op note).
+- 5 R handlers: `feols`, `felm`, `lm`, `att_gt` / `did`. fixest's
+  `y ~ x | id^year | (d ~ z) | cluster` pipe-form decomposition
+  preserved.
+- Returns close-match `suggestions` for unrecognised commands —
+  never silently guesses.
+- Surfaces `notes` for partial mappings (e.g. Stata `if` clause
+  → `df.query(...)` instructions).
+- Tests: `tests/test_translation.py` — 61 cases, every distinct
+  Stata handler covered by ≥1 round-trip.
+
+### Added — concurrent runner + progress notifications + timeouts
+
+- New `agent/_runner.py`:
+  - `run_with_progress(work, progress_token, timeout, drain)` —
+    zero-arg `work()` runs in a worker thread; main loop drains a
+    thread-safe queue.
+  - `progress(value, total, message)` — tool-side helper. No-op
+    when no channel is registered (safe for in-process tests /
+    direct `execute_tool` callers).
+  - `tool_timeout()` — reads `STATSPAI_MCP_TOOL_TIMEOUT_SECONDS`
+    (default `600`; `0` disables). Hard wall-clock cap; `TimeoutError`
+    surfaces as `-32000` with the env-var name embedded.
+- `_handle_tools_call` runs every dispatch through the runner;
+  reads `params._meta.progressToken` per MCP 2024-11-05.
+- `_make_progress_drain` writes `notifications/progress` JSON-RPC
+  messages to the active stdio sink mid-call.
+- `serve_stdio` registers / unregisters the stdout sink so
+  in-process tests don't accidentally write to a closed handle.
+- Threading rather than asyncio for cross-platform reliability —
+  decision documented in `_runner.py`.
+
+### Changed — `tools.py` split into `agent/tools/` subpackage
+
+- Pre-1.11: `agent/tools.py` was 1,024 lines.
+- v1.11 layout:
+
+  ```text
+  agent/tools/
+  ├── __init__.py        # public API + legacy private re-exports
+  ├── _helpers.py        # _scalar_or_none / _default_serializer / _identification_serializer
+  ├── _dispatch.py       # tool_manifest / execute_tool / _resolve_fn
+  └── _specs/            # TOOL_REGISTRY split by family
+      ├── _regression.py / _did.py / _iv.py / _rd.py
+      └── _matching.py / _diag.py / _orchestrate.py
+  ```
+
+- Public API unchanged (`from statspai.agent.tools import
+  tool_manifest, execute_tool, TOOL_REGISTRY`).
+- Legacy private imports preserved (`from .tools import
+  _default_serializer` continues to resolve).
+- Test-fixture hook preserved: `monkeypatch.setattr(agent.tools,
+  '_resolve_fn', …)` works because `execute_tool` looks up
+  `_resolve_fn` via the parent package namespace at call time.
+- `causal` / `recommend` bespoke serializers promoted from inline
+  lambdas to module-level functions (readable in stack traces).
+
+### MCP wire-up
+
+- `from_stata` / `from_r` registered as workflow tools in
+  `WORKFLOW_TOOL_NAMES`, dataless override list, and surface in
+  `tools/list`.
+- 393/393 pass across `test_mcp_protocol.py` /
+  `test_mcp_error_envelope.py` / `test_mcp_result_handle.py` /
+  `test_mcp_enrichment.py` / `test_mcp_image_content.py` /
+  `test_mcp_pipelines.py` / `test_mcp_prompts_expanded.py` /
+  `test_mcp_runner.py` (new) / `test_translation.py` (new) plus
+  the existing agent + registry + help + exceptions suites.
+
+### Known follow-ups (not in 1.11)
+
+- `mcp_server.py` is now 1,475 lines — the 10 prompt-template
+  dictionaries account for most of the bloat. Splitting them into
+  `_prompts.py` is a half-day mechanical follow-up.
+- MCP `sampling/createMessage` server-initiated LLM requests (for
+  `llm_dag_propose` etc. to reuse the client's auth) deferred
+  pending Claude Desktop / Cursor capability advertisement.
+
 ## [1.10.0] — 2026-04-29
 
 Agent-native / MCP layer overhaul. Closes the chained-workflow gap that
