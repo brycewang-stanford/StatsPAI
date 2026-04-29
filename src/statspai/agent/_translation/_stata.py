@@ -377,6 +377,252 @@ def _h_rdrobust(cmd: StataCommand) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Tier-2 handlers — observational + RD ancillary + diagnostics
+# ---------------------------------------------------------------------------
+
+def _h_probit(cmd: StataCommand) -> Dict[str, Any]:
+    return _h_glm_like(cmd, sp_fn="probit", display_name="probit")
+
+
+def _h_logit(cmd: StataCommand) -> Dict[str, Any]:
+    return _h_glm_like(cmd, sp_fn="logit", display_name="logit")
+
+
+def _h_poisson(cmd: StataCommand) -> Dict[str, Any]:
+    return _h_glm_like(cmd, sp_fn="poisson", display_name="poisson")
+
+
+def _h_nbreg(cmd: StataCommand) -> Dict[str, Any]:
+    return _h_glm_like(cmd, sp_fn="nbreg", display_name="nbreg")
+
+
+def _h_glm_like(cmd: StataCommand, *, sp_fn: str,
+                  display_name: str) -> Dict[str, Any]:
+    """Common scaffold for probit / logit / poisson / nbreg."""
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error(f"{display_name} requires an outcome variable",
+                            command=display_name)
+    formula = _build_formula(y, xs)
+    cluster = _vce_cluster(cmd)
+    robust = _robust_kind(cmd)
+    args: Dict[str, Any] = {"formula": formula}
+    if robust != "nonrobust":
+        args["robust"] = robust
+    if cluster:
+        args["cluster"] = cluster
+    code_pairs = ["data=df"]
+    if cluster:
+        code_pairs.append(f"cluster={cluster!r}")
+    python = (f"sp.{sp_fn}({formula!r}, "
+               + ", ".join(code_pairs) + ")")
+    return _emit(sp_fn, args, python)
+
+
+def _h_tobit(cmd: StataCommand) -> Dict[str, Any]:
+    """``tobit y x, ll(0) ul(100)`` → ``sp.tobit``."""
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error("tobit requires an outcome variable",
+                            command="tobit")
+    args: Dict[str, Any] = {"formula": _build_formula(y, xs)}
+    ll = cmd.options.get("ll")
+    ul = cmd.options.get("ul")
+    if ll is not None:
+        try:
+            args["lower"] = float(ll)
+        except (TypeError, ValueError):
+            pass
+    if ul is not None:
+        try:
+            args["upper"] = float(ul)
+        except (TypeError, ValueError):
+            pass
+    code_pairs = ["data=df"]
+    if "lower" in args:
+        code_pairs.append(f"lower={args['lower']}")
+    if "upper" in args:
+        code_pairs.append(f"upper={args['upper']}")
+    python = f"sp.tobit({args['formula']!r}, {', '.join(code_pairs)})"
+    return _emit("tobit", args, python)
+
+
+def _h_heckman(cmd: StataCommand) -> Dict[str, Any]:
+    """``heckman y x, select(employed = age kids)`` → ``sp.heckman``."""
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error("heckman requires an outcome variable",
+                            command="heckman")
+    formula = _build_formula(y, xs)
+    select = cmd.options.get("select")
+    if not select:
+        return _emit_error(
+            "heckman needs `select(<eq>)` (selection equation).",
+            command="heckman")
+    # Stata syntax: ``select(d = z1 z2)`` or just ``select(z1 z2)``
+    import re
+    m = re.match(r"^\s*(\S+)\s*=\s*(.+)$", select)
+    if m:
+        select_lhs, select_rhs = m.group(1), m.group(2).strip()
+        select_formula = f"{select_lhs} ~ {select_rhs.replace(' ', ' + ')}"
+    else:
+        return _emit_error(
+            "heckman select() must be `selectvar = covariates`",
+            command="heckman")
+    args: Dict[str, Any] = {
+        "formula": formula,
+        "select_formula": select_formula,
+    }
+    python = (f"sp.heckman({formula!r}, "
+               f"select_formula={select_formula!r}, data=df)")
+    return _emit("heckman", args, python)
+
+
+def _h_rdplot(cmd: StataCommand) -> Dict[str, Any]:
+    if len(cmd.varlist) < 2:
+        return _emit_error(
+            "rdplot needs y + running variable: `rdplot y x, c(<v>)`",
+            command="rdplot")
+    y, x = cmd.varlist[0], cmd.varlist[1]
+    c_raw = cmd.options.get("c", "0")
+    try:
+        c = float(c_raw) if c_raw is not None else 0.0
+    except (TypeError, ValueError):
+        c = 0.0
+    args: Dict[str, Any] = {"y": y, "x": x, "c": c}
+    python = f"sp.rdplot(data=df, y={y!r}, x={x!r}, c={c})"
+    return _emit("rdplot", args, python)
+
+
+def _h_rddensity(cmd: StataCommand) -> Dict[str, Any]:
+    if not cmd.varlist:
+        return _emit_error("rddensity requires a running variable",
+                            command="rddensity")
+    x = cmd.varlist[0]
+    c_raw = cmd.options.get("c", "0")
+    try:
+        c = float(c_raw) if c_raw is not None else 0.0
+    except (TypeError, ValueError):
+        c = 0.0
+    args: Dict[str, Any] = {"x": x, "c": c}
+    python = f"sp.rddensity(data=df, x={x!r}, c={c})"
+    return _emit("rddensity", args, python)
+
+
+def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
+    """``teffects ipw (y) (treat z1 z2)`` / ``teffects nnmatch (y x) (treat)``
+    / ``teffects psmatch (y) (treat z)``.
+
+    The Stata grammar nests parens around outcome-eq and treatment-eq
+    blocks; we parse them via the original raw line rather than the
+    flat varlist (which loses parenthesis structure).
+    """
+    raw = cmd.raw or ""
+    import re
+    m = re.match(
+        r"^\s*teffects\s+(\w+)\s+\((.+?)\)\s+\((.+?)\)(.*)$",
+        raw, flags=re.I)
+    if not m:
+        return _emit_error(
+            "teffects: expected `teffects <method> (out_eq) (treat_eq) [, opts]`",
+            command="teffects")
+    method = m.group(1).lower()
+    out_eq_tokens = m.group(2).split()
+    treat_eq_tokens = m.group(3).split()
+    if not out_eq_tokens or not treat_eq_tokens:
+        return _emit_error("teffects: outcome / treatment equations are empty",
+                            command="teffects")
+    y = out_eq_tokens[0]
+    out_xs = out_eq_tokens[1:]
+    treat = treat_eq_tokens[0]
+    treat_xs = treat_eq_tokens[1:]
+
+    # Choose the closest sp helper per teffects method.
+    if method in {"ipw", "ipwra"}:
+        sp_fn = "ipw"
+        args: Dict[str, Any] = {"y": y, "treat": treat,
+                                  "covariates": treat_xs}
+        python = (f"sp.ipw(data=df, y={y!r}, treat={treat!r}, "
+                   f"covariates={treat_xs!r})")
+    elif method in {"nnmatch", "psmatch", "match"}:
+        sp_fn = "match"
+        args = {"y": y, "treat": treat,
+                "covariates": treat_xs or out_xs,
+                "method": ("ps" if method == "psmatch" else "nn")}
+        python = (f"sp.match(data=df, y={y!r}, treat={treat!r}, "
+                   f"covariates={args['covariates']!r}, "
+                   f"method={args['method']!r})")
+    elif method == "ra":
+        sp_fn = "regress"
+        formula = _build_formula(y, [treat] + out_xs)
+        args = {"formula": formula}
+        python = f"sp.regress({formula!r}, data=df)"
+    elif method in {"aipw", "drdid"}:
+        sp_fn = "aipw"
+        args = {"y": y, "treat": treat, "covariates": treat_xs}
+        python = (f"sp.aipw(data=df, y={y!r}, treat={treat!r}, "
+                   f"covariates={treat_xs!r})")
+    else:
+        return _emit_error(f"teffects method {method!r} not supported "
+                            f"(known: ipw / nnmatch / psmatch / ra / aipw)",
+                            command="teffects")
+    return _emit(sp_fn, args, python)
+
+
+def _h_margins(cmd: StataCommand) -> Dict[str, Any]:
+    """Stata `margins`/`marginsplot` — emit a hint to use sp.margins()."""
+    targets = cmd.varlist or []
+    args: Dict[str, Any] = {"variables": targets}
+    if "dydx" in cmd.options and cmd.options["dydx"]:
+        args["dydx"] = cmd.options["dydx"].split()
+    if "at" in cmd.options:
+        args["at"] = cmd.options["at"]
+    python = (f"sp.margins(result, variables={targets!r})"
+               if targets else "sp.margins(result)")
+    notes = ["sp.margins takes a fitted result, not data — pipe the "
+             "previous estimator's result_id (or fit a model first)."]
+    return _emit("margins", args, python, notes)
+
+
+def _h_contrast(cmd: StataCommand) -> Dict[str, Any]:
+    """Stata `contrast` — pairwise comparisons of a categorical."""
+    targets = cmd.varlist or []
+    args: Dict[str, Any] = {"terms": targets}
+    python = f"sp.contrast(result, terms={targets!r})"
+    notes = ["sp.contrast takes a fitted result; pipe the previous "
+             "estimator's result_id."]
+    return _emit("contrast", args, python, notes)
+
+
+def _h_test(cmd: StataCommand) -> Dict[str, Any]:
+    """Stata `test x1 x2` — Wald test of joint significance."""
+    args: Dict[str, Any] = {"terms": cmd.varlist}
+    python = f"sp.test(result, terms={cmd.varlist!r})"
+    notes = ["sp.test takes a fitted result; pipe the previous "
+             "estimator's result_id."]
+    return _emit("test", args, python, notes)
+
+
+def _h_xtset(cmd: StataCommand) -> Dict[str, Any]:
+    """``xtset id year`` — Stata panel declaration. Pure metadata."""
+    if not cmd.varlist:
+        return _emit_error("xtset requires panel id (and optionally time)",
+                            command="xtset")
+    panel_id = cmd.varlist[0]
+    panel_time = cmd.varlist[1] if len(cmd.varlist) > 1 else None
+    notes = [(f"sp doesn't need an `xtset`-style declaration — pass "
+                f"id={panel_id!r}"
+                + (f" and time={panel_time!r}" if panel_time else "")
+                + " to estimators directly. This translation is a no-op "
+                "but lets agents acknowledge the panel structure.")]
+    args: Dict[str, Any] = {"id": panel_id}
+    if panel_time:
+        args["time"] = panel_time
+    python = ("# xtset is a no-op in StatsPAI; pass id + time directly to estimators.")
+    return _emit("xtset", args, python, notes)
+
+
+# ---------------------------------------------------------------------------
 # Command dispatch table
 # ---------------------------------------------------------------------------
 
@@ -385,7 +631,7 @@ def _h_rdrobust(cmd: StataCommand) -> Dict[str, Any]:
 #: explicitly to keep the dispatch O(1) instead of running prefix
 #: matching at lookup time.
 STATA_COMMAND_MAP: Dict[str, Handler] = {
-    # Tier 1 — flagship 8
+    # Tier 1 — flagship 8 (60% of econ workflows)
     "regress": _h_regress, "reg": _h_regress,
     "xtreg": _h_xtreg,
     "reghdfe": _h_reghdfe,
@@ -394,6 +640,21 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "did_imputation": _h_did_imputation,
     "synth": _h_synth,
     "rdrobust": _h_rdrobust,
+    # Tier 2 — 12 follow-on commands (push coverage to ~85%)
+    "probit": _h_probit,
+    "logit": _h_logit,
+    "poisson": _h_poisson,
+    "nbreg": _h_nbreg,
+    "tobit": _h_tobit,
+    "heckman": _h_heckman,
+    "rdplot": _h_rdplot,
+    "rddensity": _h_rddensity,
+    "teffects": _h_teffects,
+    "margins": _h_margins,
+    "marginsplot": _h_margins,
+    "contrast": _h_contrast,
+    "test": _h_test,
+    "xtset": _h_xtset, "tsset": _h_xtset,
 }
 
 

@@ -262,26 +262,111 @@ class TestRpcSurface:
 
 
 # ----------------------------------------------------------------------
+# Tier-2 round-trip dictionary
+# ----------------------------------------------------------------------
+
+TIER2_ROUND_TRIPS = [
+    # GLM family
+    ("probit y x1 x2", "probit", {"formula": "y ~ x1 + x2"}),
+    ("logit treated age income, vce(cluster fid)",
+     "logit", {"formula": "treated ~ age + income", "cluster": "fid"}),
+    ("poisson visits age, robust",
+     "poisson", {"formula": "visits ~ age", "robust": "hc1"}),
+    ("nbreg counts x1 x2",
+     "nbreg", {"formula": "counts ~ x1 + x2"}),
+    # Censored regression
+    ("tobit hours wage kids, ll(0) ul(80)",
+     "tobit", {"formula": "hours ~ wage + kids",
+                "lower": 0.0, "upper": 80.0}),
+    # Selection
+    ("heckman wage education, select(employed = age kids)",
+     "heckman",
+     {"formula": "wage ~ education",
+      "select_formula": "employed ~ age + kids"}),
+    # RD ancillary
+    ("rdplot y x, c(0)", "rdplot", {"y": "y", "x": "x", "c": 0.0}),
+    ("rddensity x, c(0.5)", "rddensity", {"x": "x", "c": 0.5}),
+    # teffects
+    ("teffects ipw (y) (treat z1 z2)",
+     "ipw", {"y": "y", "treat": "treat", "covariates": ["z1", "z2"]}),
+    ("teffects nnmatch (y x1) (treat)",
+     "match",
+     {"y": "y", "treat": "treat", "method": "nn"}),
+    # Postestimation
+    ("margins, dydx(treat)",
+     "margins", {"variables": [], "dydx": ["treat"]}),
+    ("contrast x1",
+     "contrast", {"terms": ["x1"]}),
+    ("test x1 x2",
+     "test", {"terms": ["x1", "x2"]}),
+    # Panel declaration (no-op)
+    ("xtset id year",
+     "xtset", {"id": "id", "time": "year"}),
+    ("tsset year", "xtset", {"id": "year"}),
+]
+
+
+@pytest.mark.parametrize("stata,tool,subset", TIER2_ROUND_TRIPS)
+def test_tier2_round_trip(stata, tool, subset):
+    out = from_stata(stata)
+    assert out["ok"] is True, out
+    assert out["tool"] == tool, out
+    for k, v in subset.items():
+        assert out["arguments"].get(k) == v, (
+            f"{stata!r}: arguments[{k!r}] = "
+            f"{out['arguments'].get(k)!r}, expected {v!r}")
+    json.dumps(out)
+
+
+class TestTier2EdgeCases:
+    def test_heckman_without_select(self):
+        out = from_stata("heckman y x")
+        assert out["ok"] is False
+        assert "select" in out["error"]
+
+    def test_heckman_malformed_select(self):
+        # No `=` in select() — must be `select(d = z)`
+        out = from_stata("heckman y x, select(z1 z2)")
+        assert out["ok"] is False
+        assert "selectvar" in out["error"]
+
+    def test_teffects_unsupported_method(self):
+        out = from_stata("teffects ml (y x) (treat)")
+        assert out["ok"] is False
+        assert "ml" in out["error"]
+
+    def test_xtset_handles_time_only_form(self):
+        out = from_stata("tsset year")
+        assert out["ok"] is True
+        assert out["arguments"]["id"] == "year"
+
+    def test_tobit_string_bounds_ignored(self):
+        # ``ll(.)`` is Stata's missing literal; we should ignore.
+        out = from_stata("tobit y x, ll(.) ul(.)")
+        assert out["ok"] is True
+        # Neither lower nor upper survives — that's correct.
+        assert "lower" not in out["arguments"]
+        assert "upper" not in out["arguments"]
+
+
+# ----------------------------------------------------------------------
 # Coverage — every Tier-1 entry has a test
 # ----------------------------------------------------------------------
 
-class TestTier1Coverage:
-    def test_every_tier1_command_has_round_trip(self):
-        # Every command in the dispatch map (de-duped by handler) must
-        # appear in the round-trip dictionary at least once.
+class TestStataHandlerCoverage:
+    def test_every_handler_has_round_trip(self):
+        # Every handler in the dispatch map (de-duped by handler id) must
+        # appear in TIER1_ROUND_TRIPS or TIER2_ROUND_TRIPS at least once.
         covered = set()
-        for stata, _, _ in TIER1_ROUND_TRIPS:
-            cmd = stata.split()[0].lower()
+        import re
+        for stata, _, _ in TIER1_ROUND_TRIPS + TIER2_ROUND_TRIPS:
+            head = stata.split()[0]
+            # Strip trailing punctuation: ``margins, dydx(...)`` →
+            # ``margins`` (the comma is the option-separator, not part
+            # of the command name).
+            cmd = re.sub(r"[^a-z_].*$", "", head.lower())
             covered.add(cmd)
-        # Aliased entries map to the same handler — collapse to one
-        # canonical representative per handler.
-        canonical = {
-            id(h): name for name, h in STATA_COMMAND_MAP.items()
-        }
-        canonicals = set(STATA_COMMAND_MAP.keys())
-        # Each handler should have at least one alias covered
-        # (e.g. either "regress" OR "reg" appearing in TIER1_ROUND_TRIPS
-        # is sufficient).
+        # Each handler should have at least one alias covered.
         handler_to_aliases = {}
         for alias, h in STATA_COMMAND_MAP.items():
             handler_to_aliases.setdefault(id(h), []).append(alias)
