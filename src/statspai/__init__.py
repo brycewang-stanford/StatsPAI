@@ -491,14 +491,13 @@ from ._auto_estimators import (
 )
 
 # === NEW MODULES (v0.6) ===
-# GLM & Discrete Choice
-from .regression.glm import glm, GLMEstimator
-from .regression.logit_probit import logit, probit, cloglog
+# GLM & Discrete Choice — ``glm``/``logit``/``probit``/``cloglog``/
+# ``poisson``/``nbreg``/``ppmlhdfe`` are already imported above in the
+# core regression block; we only add what's new here.
 from .regression.multinomial import mlogit, ologit, oprobit, clogit
 from .regression.mixed_logit import mixlogit
 from .regression.iv_quantile import ivqreg
 # Count Data
-from .regression.count import poisson, nbreg, ppmlhdfe
 from .regression.zeroinflated import zip_model, zinb, hurdle
 # Advanced IV
 from .regression.advanced_iv import liml, jive, lasso_iv

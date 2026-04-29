@@ -4,6 +4,16 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Top-level `__init__.py` deduplication.** Removed redundant
+  ``from .regression.glm`` / ``logit_probit`` / ``count`` imports
+  that re-bound the same names twice (lines 245-247 vs 495-501).
+  No public name was added or removed; ``sp.glm``, ``sp.logit``,
+  ``sp.poisson`` etc. resolve identically to the earlier (canonical)
+  binding. Same number of registered functions (973). Net: −5 LOC,
+  −5 redundant import statements, identical behaviour.
+
 ### Fixed
 
 - **`sp.iv()` is now callable.** Prior to this release, the
