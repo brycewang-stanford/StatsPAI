@@ -68,19 +68,16 @@ SERVER_NAME = "statspai"
 # decide whether to retry, prompt the user, or surface a friendly
 # error — typing the exception keeps the protocol semantically rich.
 
-class _RpcError(Exception):
-    """Internal exception carrying an explicit JSON-RPC error code."""
-    code: int = -32000  # generic server-defined error
-
-
-class _InvalidParamsError(_RpcError):
-    """``-32602`` per JSON-RPC 2.0 — caller-supplied params are wrong."""
-    code = -32602
-
-
-class _ResourceNotFoundError(_RpcError):
-    """``-32002`` per MCP 2024-11-05 — URI does not resolve to a resource."""
-    code = -32002
+# JSON-RPC error taxonomy lives in ``_errors`` so split helper modules
+# (``_resources``, ``_prompts``, …) can raise the same typed errors
+# without forming a circular import through ``mcp_server``. The
+# underscore-prefixed aliases preserve the v1.x private surface for
+# tests / agents that subclass.
+from ._errors import (
+    RpcError as _RpcError,
+    InvalidParamsError as _InvalidParamsError,
+    ResourceNotFoundError as _ResourceNotFoundError,
+)
 
 
 def _resolve_server_version() -> str:
@@ -420,153 +417,16 @@ def _build_mcp_tools() -> List[Dict[str, Any]]:
     return out
 
 
-#: Default max file size (bytes) the server will load. A misconfigured
-#: client pointing at a 50GB parquet will OOM the host otherwise.
-#: Override via ``STATSPAI_MCP_MAX_DATA_BYTES`` (e.g. ``5_000_000_000``);
-#: set to ``0`` to disable the check.
-_DEFAULT_MAX_DATA_BYTES = 2 * 1024 * 1024 * 1024  # 2 GiB
 
-
-def _max_data_bytes() -> int:
-    raw = os.environ.get("STATSPAI_MCP_MAX_DATA_BYTES")
-    if raw is None:
-        return _DEFAULT_MAX_DATA_BYTES
-    try:
-        return max(0, int(raw))
-    except (TypeError, ValueError):
-        return _DEFAULT_MAX_DATA_BYTES
-
-
-def _is_remote_url(path: str) -> bool:
-    return path.startswith(("s3://", "gs://", "https://", "http://",
-                             "file://"))
-
-
-def _load_dataframe(path: str,
-                    columns: Optional[List[str]] = None,
-                    sample_n: Optional[int] = None):
-    """Load a DataFrame from a local path or remote URL.
-
-    Parameters
-    ----------
-    path : str
-        Absolute filesystem path or one of: ``file://``, ``s3://``,
-        ``gs://``, ``https://``, ``http://``.
-    columns : list of str, optional
-        Column projection. Honoured by parquet / feather / stata
-        readers; for CSV we read all columns then sub-select (read_csv's
-        ``usecols`` would also work but mismatched names raise; we want
-        the server to be permissive and let the estimator surface
-        column-name errors with rich remediation).
-    sample_n : int, optional
-        Uniform random subsample size (seed=0, deterministic).
-        Applied AFTER the projection.
-
-    Notes
-    -----
-    Caches the materialised frame keyed by ``(path, mtime, columns)``
-    so repeated tool calls on the same file are O(1) after the first
-    load. The cache is bounded — see ``_LOAD_CACHE_SIZE``.
-    """
-    if _is_remote_url(path):
-        # Remote — defer all guard rails to the underlying loader; we
-        # can't ``os.path.exists`` an s3 URL, and pandas/storage_options
-        # error messages are rich enough.
-        df = _load_remote(path, columns=columns)
-    else:
-        if not os.path.isabs(path):
-            raise ValueError(
-                f"data_path must be absolute or a URL, got {path!r}")
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"No such file: {path}")
-        size = os.path.getsize(path)
-        cap = _max_data_bytes()
-        if cap and size > cap:
-            raise ValueError(
-                f"data file is {size:,} bytes; exceeds "
-                f"STATSPAI_MCP_MAX_DATA_BYTES={cap:,}. "
-                f"Pass data_sample_n=<N> for a random subsample, or "
-                f"raise the limit with the env var."
-            )
-        mtime = os.path.getmtime(path)
-        df = _load_local_cached(path, mtime, tuple(columns or ()))
-
-    if columns:
-        keep = [c for c in columns if c in df.columns]
-        if keep:
-            df = df[keep]
-    if sample_n is not None and len(df) > sample_n:
-        df = df.sample(n=int(sample_n), random_state=0).reset_index(drop=True)
-    return df
-
-
-import functools as _functools
-
-
-@_functools.lru_cache(maxsize=8)
-def _load_local_cached(path: str, mtime: float,
-                       columns_key: tuple):  # noqa: ARG001 — mtime invalidates
-    """LRU-cached local loader. ``mtime`` busts the cache on file edits."""
-    import pandas as pd
-    lower = path.lower()
-    cols = list(columns_key) or None
-    if lower.endswith((".csv", ".tsv", ".txt")):
-        sep = "\t" if lower.endswith(".tsv") else ","
-        return pd.read_csv(path, sep=sep, usecols=cols)
-    if lower.endswith((".parquet", ".pq")):
-        return pd.read_parquet(path, columns=cols)
-    if lower.endswith((".feather", ".arrow")):
-        return pd.read_feather(path, columns=cols)
-    if lower.endswith((".xlsx", ".xls")):
-        return pd.read_excel(path, usecols=cols)
-    if lower.endswith(".dta"):
-        # Stata native — alignment with Stata is StatsPAI's tagline,
-        # so being able to read .dta is non-negotiable.
-        return pd.read_stata(path, columns=cols)
-    if lower.endswith(".jsonl"):
-        df = pd.read_json(path, lines=True)
-        return df[cols] if cols else df
-    if lower.endswith(".json"):
-        df = pd.read_json(path)
-        return df[cols] if cols else df
-    raise ValueError(
-        f"Unsupported file extension: {path!r}. Supported: "
-        ".csv/.tsv/.txt/.parquet/.pq/.feather/.arrow/.xlsx/.xls/.dta/"
-        ".json/.jsonl"
-    )
-
-
-def _load_remote(url: str, columns: Optional[List[str]] = None):
-    """Load a DataFrame from a remote URL via pandas storage backends.
-
-    Pandas dispatches s3:// / gs:// / https:// to fsspec. Authentication
-    is configured by the host environment (e.g. AWS credentials chain);
-    we don't smuggle secrets through the MCP layer.
-    """
-    import pandas as pd
-    lower = url.split("?", 1)[0].lower()
-    cols = list(columns) if columns else None
-    if lower.endswith((".csv", ".tsv", ".txt")):
-        sep = "\t" if lower.endswith(".tsv") else ","
-        return pd.read_csv(url, sep=sep, usecols=cols)
-    if lower.endswith((".parquet", ".pq")):
-        return pd.read_parquet(url, columns=cols)
-    if lower.endswith((".feather", ".arrow")):
-        return pd.read_feather(url, columns=cols)
-    if lower.endswith(".dta"):
-        return pd.read_stata(url, columns=cols)
-    if lower.endswith(".jsonl"):
-        df = pd.read_json(url, lines=True)
-        return df[cols] if cols else df
-    if lower.endswith(".json"):
-        df = pd.read_json(url)
-        return df[cols] if cols else df
-    if lower.endswith((".xlsx", ".xls")):
-        return pd.read_excel(url, usecols=cols)
-    raise ValueError(
-        f"Unsupported remote extension in {url!r}. "
-        f"See _load_dataframe docs for supported formats."
-    )
+# Data-file loading moved to ``_data_loader``. The shim below
+# preserves the v1.x private names tests + downstream callers
+# reach for.
+from ._data_loader import (
+    DEFAULT_MAX_DATA_BYTES as _DEFAULT_MAX_DATA_BYTES,
+    max_data_bytes as _max_data_bytes,
+    is_remote_url as _is_remote_url,
+    load_dataframe as _load_dataframe,
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -586,85 +446,34 @@ def _load_remote(url: str, columns: Optional[List[str]] = None):
 #                                      assumptions, failure_modes,
 #                                      alternatives, typical_n_min, example)
 
-_FUNCTION_URI_PREFIX = "statspai://function/"
-_RESULT_URI_PREFIX = "statspai://result/"
+
+# Resource catalog / function detail / templates moved to
+# ``_resources``. The shim below preserves the v1.x private names
+# the test suite + downstream callers reach for.
+from ._resources import (
+    FUNCTION_URI_PREFIX as _FUNCTION_URI_PREFIX,
+    RESULT_URI_PREFIX as _RESULT_URI_PREFIX,
+    catalog_text as _catalog_text_impl,
+    functions_index as _functions_index,
+    function_detail as _function_detail,
+    handle_resources_list as _handle_resources_list,
+    handle_resources_read as _resources_read_impl,
+    handle_resources_templates_list as _handle_resources_templates_list,
+)
 
 
-def _catalog_text() -> str:
-    """Return a Markdown catalog of every StatsPAI tool."""
-    manifest = tool_manifest()
-    lines = [
-        "# StatsPAI tool catalog",
-        "",
-        f"Version: {SERVER_VERSION}. {len(manifest)} tools registered.",
-        "",
-        "**Per-function detail**: read "
-        f"`{_FUNCTION_URI_PREFIX}<name>` for the full agent card "
-        "(assumptions, failure modes, alternatives, typical_n_min, "
-        "example) of any tool listed below.",
-        "",
-        "**Machine-readable index**: read `statspai://functions` for a "
-        "JSON array of `{name, description}` entries.",
-        "",
-    ]
-    for t in manifest:
-        lines.append(f"## {t['name']}")
-        lines.append("")
-        desc = t.get("description", "").strip()
-        if desc:
-            lines.append(desc)
-            lines.append("")
-    return "\n".join(lines)
+def _catalog_text():
+    return _catalog_text_impl(SERVER_VERSION)
 
 
-def _functions_index() -> List[Dict[str, str]]:
-    """Return a JSON-ready ``[{name, description}, …]`` list."""
-    return [
-        {"name": t["name"],
-         "description": (t.get("description") or "").strip()}
-        for t in tool_manifest()
-    ]
-
-
-def _function_detail(name: str) -> Optional[Dict[str, Any]]:
-    """Return the rich agent card for one tool, or ``None`` if unknown.
-
-    Prefers ``statspai.registry.agent_card`` (full card with
-    assumptions / failure_modes / alternatives / typical_n_min) and
-    falls back to the manifest entry for tools that exist in the
-    auto-generated layer but lack a hand-curated registry spec.
-    """
-    # Try the registry first — it has the agent-native metadata.
-    try:
-        from ..registry import agent_card as _agent_card
-        card = _agent_card(name)
-        if card:
-            return card
-    except Exception:
-        pass
-
-    # Fallback: synthesise from the merged manifest so any registered
-    # tool — even auto-generated ones without a curated spec — still
-    # resolves to *something* readable.
-    for t in tool_manifest():
-        if t["name"] == name:
-            return {
-                "name": t["name"],
-                "description": (t.get("description") or "").strip(),
-                "signature": {
-                    "name": t["name"],
-                    "description": (t.get("description") or "").strip(),
-                    "parameters": t.get("input_schema") or {},
-                },
-                "pre_conditions": [],
-                "assumptions": [],
-                "failure_modes": [],
-                "alternatives": [],
-                "typical_n_min": None,
-                "reference": "",
-                "example": "",
-            }
-    return None
+def _handle_resources_read(params):
+    return _resources_read_impl(
+        params,
+        json_default=_json_default,
+        server_version=SERVER_VERSION,
+        InvalidParamsError=_InvalidParamsError,
+        ResourceNotFoundError=_ResourceNotFoundError,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -849,133 +658,6 @@ def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _handle_resources_list(params: Dict[str, Any]) -> Dict[str, Any]:
-    """Enumerate the top-level resources only.
-
-    Per-function URIs (``statspai://function/<name>``) are intentionally
-    *not* listed — there are 100+ of them and putting each in a client
-    UI is noise. The catalog explicitly documents the pattern, and
-    ``resources/read`` accepts any valid name on demand.
-    """
-    return {
-        "resources": [
-            {
-                "uri": "statspai://catalog",
-                "name": "StatsPAI estimator catalog",
-                "mimeType": "text/markdown",
-                "description": "Markdown list of every registered "
-                               "StatsPAI estimator with its description "
-                               "and a pointer to the per-function "
-                               "agent-card URI pattern.",
-            },
-            {
-                "uri": "statspai://functions",
-                "name": "StatsPAI tool index (machine-readable)",
-                "mimeType": "application/json",
-                "description": "JSON array of {name, description} "
-                               "entries. Read this once during session "
-                               "setup to enumerate available tools.",
-            },
-        ],
-    }
-
-
-def _handle_resources_read(params: Dict[str, Any]) -> Dict[str, Any]:
-    uri = params.get("uri")
-    if not isinstance(uri, str):
-        raise _InvalidParamsError(
-            f"`uri` must be a string; got {uri!r}")
-
-    if uri == "statspai://catalog":
-        return {
-            "contents": [
-                {
-                    "uri": uri,
-                    "mimeType": "text/markdown",
-                    "text": _catalog_text(),
-                },
-            ],
-        }
-    if uri == "statspai://functions":
-        return {
-            "contents": [
-                {
-                    "uri": uri,
-                    "mimeType": "application/json",
-                    "text": json.dumps(_functions_index(),
-                                       default=_json_default),
-                },
-            ],
-        }
-    if uri.startswith(_FUNCTION_URI_PREFIX):
-        name = uri[len(_FUNCTION_URI_PREFIX):]
-        if not name:
-            raise _InvalidParamsError(
-                f"Function name is empty in URI {uri!r}; "
-                f"expected {_FUNCTION_URI_PREFIX}<name>")
-        # Embedded slashes are not part of the {name} template — surface
-        # the malformed-URI condition as -32602 (invalid params), not
-        # -32002 (resource not found), so clients don't auto-retry with
-        # a "did you mean" prompt.
-        if "/" in name:
-            raise _InvalidParamsError(
-                f"Function name in URI {uri!r} must not contain '/'; "
-                f"the URI template is {_FUNCTION_URI_PREFIX}{{name}}.")
-        # Named ``card`` (not ``detail``) so reading this function
-        # in isolation doesn't suggest a connection to the
-        # serialisation-level ``detail`` parameter threaded elsewhere
-        # through the MCP layer.
-        card = _function_detail(name)
-        if card is None:
-            raise _ResourceNotFoundError(
-                f"Unknown StatsPAI tool: {name!r}. "
-                f"Read statspai://functions for the full index.")
-        return {
-            "contents": [
-                {
-                    "uri": uri,
-                    "mimeType": "application/json",
-                    "text": json.dumps(card, default=_json_default),
-                },
-            ],
-        }
-
-    if uri.startswith(_RESULT_URI_PREFIX):
-        rid = uri[len(_RESULT_URI_PREFIX):]
-        if not rid or "/" in rid:
-            raise _InvalidParamsError(
-                f"Result handle in URI {uri!r} is empty or malformed; "
-                f"expected {_RESULT_URI_PREFIX}<id>.")
-        from ._result_cache import RESULT_CACHE
-        entry = RESULT_CACHE.get_entry(rid)
-        if entry is None:
-            raise _ResourceNotFoundError(
-                f"Result {rid!r} not in server cache. LRU cache evicts "
-                f"oldest entries; re-fit with as_handle=true for a "
-                f"fresh handle.")
-        # Render the result the same way an agent would have seen it
-        # at fit time: registry-style ``to_dict(detail='agent')`` if
-        # available, else a structural summary.
-        from .tools import _default_serializer
-        try:
-            payload = _default_serializer(entry.obj, detail="agent")
-        except Exception:  # pragma: no cover — fallback for odd objects
-            payload = {"result_class": type(entry.obj).__name__}
-        if not isinstance(payload, dict):
-            payload = {"value": payload}
-        payload["provenance"] = entry.to_metadata()
-        payload["result_id"] = rid
-        return {
-            "contents": [
-                {
-                    "uri": uri,
-                    "mimeType": "application/json",
-                    "text": json.dumps(payload, default=_json_default),
-                },
-            ],
-        }
-
-    raise _ResourceNotFoundError(f"Unknown resource: {uri!r}")
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -992,361 +674,21 @@ def _handle_resources_read(params: Dict[str, Any]) -> Dict[str, Any]:
 # - ``prompts/get`` takes {name, arguments} and returns
 #   {description, messages: [{role, content}]}
 
-_PROMPTS: List[Dict[str, Any]] = [
-    {
-        "name": "audit_did_result",
-        "description": ("Run a DID estimator on a CSV, surface the "
-                         "estimate, and walk through every "
-                         "reviewer-checklist gap. Uses pipeline_did "
-                         "to consolidate preflight + estimate + audit "
-                         "+ honest-DID + Bacon into one call."),
-        "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "y", "required": True, "description": "Outcome column."},
-            {"name": "treat", "required": True,
-             "description": "Binary 0/1 treatment indicator."},
-            {"name": "time", "required": True, "description": "Time column."},
-        ],
-        "_template": (
-            "Call `pipeline_did` with data_path={data_path}, y={y}, "
-            "treat={treat}, time={time}. The pipeline returns a "
-            "markdown narrative with the canonical reviewer-grade "
-            "DID workflow already executed (preflight, estimator, "
-            "audit, honest-DID, Bacon decomposition, brief). Quote "
-            "the narrative verbatim; for any high-importance check "
-            "the audit flagged as missing, dispatch the corresponding "
-            "entry in `next_calls`. End with a `bibtex` lookup of the "
-            "keys in `citations.keys` so the user gets verified "
-            "references."
-        ),
-    },
-    {
-        "name": "audit_iv_result",
-        "description": ("End-to-end IV workflow: 2SLS + first-stage F + "
-                         "Anderson-Rubin CI + e-value sensitivity, all "
-                         "wrapped in pipeline_iv."),
-        "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "formula", "required": True,
-             "description": "'y ~ x + (d ~ z)' Wilkinson-style."},
-        ],
-        "_template": (
-            "Call `pipeline_iv` with data_path={data_path}, "
-            "formula='{formula}'. Read `effective_F` from the "
-            "response: < 10 means the Staiger-Stock weak-IV threshold "
-            "is breached and you should foreground the "
-            "Anderson-Rubin CI in your reply (it is in the "
-            "`anderson_rubin` field) instead of the 2SLS point "
-            "estimate. Cite via `bibtex(keys=...)` from the "
-            "`citations.keys` list."
-        ),
-    },
-    {
-        "name": "audit_rd_result",
-        "description": ("End-to-end RD workflow: rdrobust + rdplot "
-                         "(image content) + density test + bandwidth "
-                         "sensitivity via pipeline_rd."),
-        "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "y", "required": True,
-             "description": "Outcome column."},
-            {"name": "x", "required": True,
-             "description": "Running variable column."},
-            {"name": "c", "required": False,
-             "description": "Cutoff value (default 0)."},
-        ],
-        "_template": (
-            "Call `pipeline_rd` with data_path={data_path}, y={y}, "
-            "x={x}, c={c}. Use the `rdplot` image content block (PNG) "
-            "to anchor your reply visually. If the McCrary-style "
-            "density test rejects (`rddensity` p < 0.05) flag "
-            "manipulation; recommend `rdplacebo` and `rdrbounds` "
-            "(emit them via `next_calls`)."
-        ),
-    },
-    {
-        "name": "design_then_estimate",
-        "description": ("Given an unfamiliar CSV, auto-detect the "
-                         "study design, recommend an estimator, run "
-                         "it with diagnostics."),
-        "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "outcome", "required": True,
-             "description": "Outcome column."},
-            {"name": "treatment", "required": False,
-             "description": "Treatment column (optional)."},
-        ],
-        "_template": (
-            "1. Call `detect_design` with data_path={data_path}.\n"
-            "2. Call `recommend` with y={outcome} (and "
-            "treatment={treatment} when supplied). Read the top "
-            "recommendation's `reasoning`.\n"
-            "3. If the recommendation is DID/CS, call `pipeline_did`. "
-            "If RD, call `pipeline_rd`. If IV, call `pipeline_iv`. "
-            "Otherwise, call the recommended estimator with "
-            "as_handle=true and follow up with `audit_result`.\n"
-            "4. Quote the resulting `narrative`; emit the first "
-            "two entries of `next_calls` for the user to consider."
-        ),
-    },
-    {
-        "name": "robustness_followup",
-        "description": ("Take an existing fitted result handle and "
-                         "run all high-importance follow-up "
-                         "sensitivities the audit identifies as "
-                         "missing."),
-        "arguments": [
-            {"name": "result_id", "required": True,
-             "description": ("Handle from an earlier estimator call "
-                              "(as_handle=true).")},
-        ],
-        "_template": (
-            "1. Call `audit_result` with result_id={result_id}; read "
-            "`items` (or `checks`) and collect every entry with "
-            "status='missing' AND importance in {{'high', 'critical'}}.\n"
-            "2. For each, dispatch the `suggest_function` it names. "
-            "If the function takes a fitted result, pass "
-            "result_id={result_id}; otherwise re-load the data via "
-            "data_path.\n"
-            "3. For each follow-up result, call `brief_result` and "
-            "report whether the new estimate overturns the original "
-            "conclusion (sign change / CI exclusion of zero)."
-        ),
-    },
-    {
-        "name": "paper_render",
-        "description": ("Compose a paper-style memo from a fitted "
-                         "result handle: estimate, diagnostics, "
-                         "robustness, BibTeX. The output is a "
-                         "ready-to-paste markdown section."),
-        "arguments": [
-            {"name": "result_id", "required": True,
-             "description": ("Handle to a fitted result (returned by an "
-                              "earlier estimator call with as_handle=true).")},
-        ],
-        "_template": (
-            "Given result_id={result_id}:\n"
-            "1. Call `brief_result` for a one-paragraph summary.\n"
-            "2. Call `audit_result`; pull the audit's items with "
-            "status='present' (the diagnostics that DID run) into a "
-            "bulleted list.\n"
-            "3. Call `plot_from_result` (auto-detects the right plot) "
-            "and embed the resulting image.\n"
-            "4. Call `bibtex(keys=...)` on the citation keys returned "
-            "earlier; include the BibTeX bodies in a final "
-            "`### References` section.\n"
-            "5. Format as: '## Estimate' / '## Diagnostics' / "
-            "'## Robustness' / '## Figure' / '## References'."
-        ),
-    },
-    {
-        "name": "compare_methods",
-        "description": ("Run two or more estimators on the same data "
-                         "and compare conclusions side by side."),
-        "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "y", "required": True,
-             "description": "Outcome column."},
-            {"name": "treat", "required": True,
-             "description": "Binary treatment indicator."},
-            {"name": "time", "required": False,
-             "description": "Time column for panel methods."},
-        ],
-        "_template": (
-            "Run all three: `did`, `callaway_santanna` (if cohort/id "
-            "available), `did_imputation`. Use as_handle=true for "
-            "each so you collect three result_ids. Then call "
-            "`brief_result` on each, and report a markdown table "
-            "with rows = method, columns = (estimate, 95% CI, "
-            "violations flagged). Highlight any sign disagreement."
-        ),
-    },
-    {
-        "name": "policy_evaluation",
-        "description": ("Causal-forest-driven policy evaluation: "
-                         "fit causal_forest, summarise CATE, evaluate "
-                         "a candidate policy."),
-        "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "formula", "required": True,
-             "description": "'y ~ d | x1 + x2 + ...' (treatment | covariates)"},
-        ],
-        "_template": (
-            "1. Call `causal_forest` with formula='{formula}' and "
-            "as_handle=true.\n"
-            "2. Call `cate_summary` with the result_id; report ATE + "
-            "the CATE quantiles.\n"
-            "3. Call `blp_test` to test whether heterogeneity is "
-            "real, and `calibration_test` to check predictive quality.\n"
-            "4. Call `policy_value` to estimate the value of treating "
-            "everyone with positive predicted CATE."
-        ),
-    },
-    {
-        "name": "synth_full",
-        "description": ("End-to-end Synthetic Control workflow: synth "
-                         "fit + placebo + synthdid + permutation."),
-        "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "outcome", "required": True,
-             "description": "Outcome column."},
-            {"name": "unit", "required": True,
-             "description": "Unit identifier column."},
-            {"name": "time", "required": True,
-             "description": "Time column."},
-            {"name": "treated_unit", "required": True,
-             "description": "Identifier of the treated unit."},
-            {"name": "treatment_time", "required": True,
-             "description": "First post-treatment period."},
-        ],
-        "_template": (
-            "1. Call `synth` with the canonical args; as_handle=true.\n"
-            "2. Call `synthdid_estimate` for the synthetic-DID "
-            "alternative — the two estimates should bracket the truth.\n"
-            "3. Call `synthdid_placebo` for in-space placebo "
-            "inference.\n"
-            "4. Call `plot_from_result` (kind='synth_gap') to "
-            "visualise the treated-vs-synthetic series."
-        ),
-    },
-    {
-        "name": "decompose_inequality",
-        "description": ("RIF / FFL / Oaxaca-Blinder decomposition of "
-                         "an outcome gap."),
-        "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "y", "required": True,
-             "description": "Outcome column."},
-            {"name": "group", "required": True,
-             "description": "Binary group indicator (e.g. gender, race)."},
-            {"name": "covariates", "required": False,
-             "description": "Comma-separated covariate columns."},
-        ],
-        "_template": (
-            "Call `decompose` with method='oaxaca' (or method='rif' "
-            "for distributional decomposition). Report explained vs "
-            "unexplained share. If the user mentions wage gap, also "
-            "run method='ffl' for the Firpo-Fortin-Lemieux variant."
-        ),
-    },
-]
+from ._prompts import (
+    PROMPTS as _PROMPTS,
+    SafeDict as _SafeDict,
+    handle_prompts_list as _prompts_list_impl,
+    handle_prompts_get as _prompts_get_impl,
+)
 
 
-def _handle_prompts_list(params: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        "prompts": [
-            {
-                "name": p["name"],
-                "description": p["description"],
-                "arguments": p["arguments"],
-            }
-            for p in _PROMPTS
-        ],
-    }
+def _handle_prompts_list(params):
+    return _prompts_list_impl(params)
 
 
-def _handle_prompts_get(params: Dict[str, Any]) -> Dict[str, Any]:
-    name = params.get("name")
-    if not isinstance(name, str):
-        raise _InvalidParamsError("`name` is required and must be a string")
-    spec = next((p for p in _PROMPTS if p["name"] == name), None)
-    if spec is None:
-        raise _ResourceNotFoundError(
-            f"Unknown prompt: {name!r}. Read prompts/list for the "
-            "available templates."
-        )
-    args = dict(params.get("arguments") or {})
-    # Validate required arguments (omit MCP would otherwise leave the
-    # template with literal ``{x}`` placeholders).
-    missing = [
-        a["name"] for a in spec["arguments"]
-        if a.get("required") and a["name"] not in args
-    ]
-    if missing:
-        raise _InvalidParamsError(
-            f"prompt {name!r} missing required arguments: {missing}"
-        )
-    # Fill the template safely. ``str.format_map`` is single-pass —
-    # it scans the *template* once for placeholders and substitutes
-    # values verbatim without re-parsing the substituted text. So a
-    # user value containing a literal ``{y}`` is preserved as-is in
-    # the output (verified by ``test_get_with_brace_in_user_value...``).
-    # ``_SafeDict`` keeps unknown placeholders literal so missing
-    # required-arg bugs surface instead of being silently dropped.
-    template = spec["_template"]
-    try:
-        rendered = template.format_map(_SafeDict(args))
-    except Exception as e:
-        raise _InvalidParamsError(
-            f"Failed to render prompt {name!r}: "
-            f"{type(e).__name__}: {e}"
-        )
-    return {
-        "description": spec["description"],
-        "messages": [
-            {"role": "user",
-             "content": {"type": "text", "text": rendered}},
-        ],
-    }
+def _handle_prompts_get(params):
+    return _prompts_get_impl(params, _InvalidParamsError, _ResourceNotFoundError)
 
-
-class _SafeDict(dict):
-    """Format-map helper that leaves unknown placeholders literal."""
-    def __missing__(self, key: str) -> str:  # type: ignore[override]
-        return "{" + key + "}"
-
-
-def _handle_resources_templates_list(
-        params: Dict[str, Any]) -> Dict[str, Any]:
-    """Expose the parameterised ``statspai://function/{name}`` URI.
-
-    Per MCP 2024-11-05, ``resources/templates/list`` is the protocol-
-    level mechanism for parameterised resources. Clients that do
-    autocomplete on resource URIs use this; the static ``resources/list``
-    entries above don't enumerate per-function URIs (would be 100+
-    items in client UIs) so a template is the right vehicle.
-    """
-    return {
-        "resourceTemplates": [
-            {
-                "uriTemplate": _FUNCTION_URI_PREFIX + "{name}",
-                "name": "StatsPAI function agent card",
-                "mimeType": "application/json",
-                "description": (
-                    "Agent-native detail card for one tool: "
-                    "description, JSON-schema signature, identifying "
-                    "assumptions, common failure modes with recovery "
-                    "hints, ranked alternatives, typical_n_min, and "
-                    "an example call. Read "
-                    "statspai://functions for the list of valid "
-                    "{name} values."
-                ),
-            },
-            {
-                "uriTemplate": _RESULT_URI_PREFIX + "{id}",
-                "name": "StatsPAI fitted-result handle",
-                "mimeType": "application/json",
-                "description": (
-                    "Read a server-cached fitted result by id. The id "
-                    "is returned by any tools/call invoked with "
-                    "as_handle=true. Body shape mirrors the original "
-                    "tool output (estimate / SE / CI / diagnostics) "
-                    "plus a provenance block tagging the tool + args "
-                    "that produced it. Cache is LRU; missing handles "
-                    "raise -32002 (resource not found) — re-fit with "
-                    "as_handle=true to refresh."
-                ),
-            },
-        ],
-    }
 
 
 _METHODS = {
