@@ -1,0 +1,26 @@
+{
+  "bjs": {
+    "meta": {
+      "available": true,
+      "version": "0.5.1"
+    },
+    "estimate": 2.74676615775482,
+    "se": 0.0909744739449655
+  },
+  "gardner": {
+    "meta": {
+      "available": true,
+      "version": "1.2.1"
+    },
+    "estimate": 2.74676615775482,
+    "se": 0.0960548250958012
+  },
+  "etwfe": {
+    "meta": {
+      "available": true,
+      "version": "0.6.2"
+    },
+    "estimate": 2.74672845925539,
+    "se": 0.183810593595711
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "meta": {
+    "R_version": "R version 4.5.2 (2025-10-31)",
+    "fixest_version": "0.14.0",
+    "formula": "y ~ x1 + x2 | id + year",
+    "cluster": "id"
+  },
+  "twfe_clustered": {
+    "x1": {
+      "coef": 0.490625036615964,
+      "se": 0.0196312187079926
+    },
+    "x2": {
+      "coef": -0.312902744930612,
+      "se": 0.0191753119947409
+    }
+  },
+  "n_obs": 800,
+  "fes": {
+    "id": 80,
+    "year": 10
+  }
+}

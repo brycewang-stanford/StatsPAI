@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "R_version": "R version 4.5.2 (2025-10-31)",
+    "DoubleML_version": "1.0.2",
+    "mlr3_version": "1.6.0",
+    "mlr3learners_version": "0.14.0",
+    "seed": 42,
+    "n_folds": 5,
+    "n_rep": 1,
+    "learner": "cv_glmnet"
+  },
+  "plr": {
+    "coef": 0.536758776829623,
+    "se": 0.0334984290283179
+  },
+  "irm": {
+    "coef": 0.00663988335033373,
+    "se": 0.0744342862256807
+  }
+}
