@@ -203,6 +203,37 @@ def ltmle(
     Returns
     -------
     LTMLEResult
+
+    Notes
+    -----
+    **SE caveat — simplified influence function.** The reported SE uses
+    the in-sample empirical variance of the regime-marginalised
+    pseudo-outcome :math:`Q_1^*` minus the plug-in estimate
+    (``ic = Q - psi``). The full LTMLE EIF (van der Laan & Gruber 2012)
+    is
+
+    .. math::
+
+       D^*(O) = \\sum_{k=1}^{K} H_k \\cdot \\mathbb{1}\\{\\bar A_{1:k}=\\bar a,
+                                                         \\bar C_{1:k}=1\\}
+                                  (Q_{k+1}^* - Q_k^*) + (Q_1^* - \\psi)
+
+    The first sum is in-sample zero ONLY when the targeting equation
+    has been iterated to convergence at every time point. This module
+    uses a one-step linear (or quasi-logistic) approximation, so the
+    sum is *near* zero but not identically zero. The reported SE
+    therefore drops a finite-sample residual and is mildly
+    **anti-conservative** when nuisance models are flexible — CI
+    coverage may be below the nominal :math:`1-\\alpha`. For inference
+    that requires honest coverage with rich ML nuisances, use the
+    full CV-LTMLE / iterated-targeting path (not yet exposed; tracked
+    as a follow-up).
+
+    **Binary-outcome targeting** uses a one-step linear approximation
+    to the Bernoulli MLE
+    :math:`\\hat\\epsilon \\approx \\sum H \\cdot (\\mathrm{logit}(Y) -
+    \\mathrm{logit}(\\hat Q)) / \\sum H^2`, which is accurate near
+    :math:`\\epsilon=0` but biased for moderate :math:`\\epsilon`.
     """
     treatments = list(treatments)
     covariates_time = [list(c) for c in covariates_time]
@@ -369,8 +400,20 @@ def ltmle(
                 Q_hat_regime = m.predict(X_q_regime)
 
             # --- Targeting step -------------------------------------
-            # Clever covariate H_k = I(A_1:k = regime_1:k)/prod g_k * 1/prod p_c
-            indicator = cum_follow & (A_k == a_target)
+            # Clever covariate H_k = I(A_1:k = regime_1:k, C_1:k = 1) /
+            #                       prod_j g_j(regime) * prod_j P(C_j=1).
+            # The censoring indicator MUST gate the regime-following
+            # mask: previously this code used 1/p_c to inflate weights
+            # but did not exclude censored units from H, so censored
+            # rows continued contributing to the targeting equation
+            # past their censoring time with arbitrarily large weights.
+            # ltmle_survival.py already does it correctly; ltmle.py is
+            # being brought into line.
+            if censoring:
+                C_k_obs = df[censoring[k]].to_numpy(dtype=int)
+            else:
+                C_k_obs = np.ones(n, dtype=int)
+            indicator = cum_follow & (A_k == a_target) & (C_k_obs == 1)
             # update cum_follow to include current
             next_follow = indicator
 

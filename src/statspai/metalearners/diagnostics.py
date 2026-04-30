@@ -487,7 +487,12 @@ def compare_metalearners(
             'ci_lower': result.ci[0],
             'ci_upper': result.ci[1],
             'pvalue': result.pvalue,
-            'se_method': result.model_info.get('se_method', 'bootstrap'),
+            # Default updated v1.11.4 — every learner now uses the AIPW
+            # influence-function SE; the legacy 'bootstrap' fallback was
+            # statistically invalid for non-DR learners.
+            'se_method': result.model_info.get(
+                'se_method', 'aipw_influence_function'
+            ),
             'cate_std': float(np.std(cate)),
             'cate_iqr': float(np.percentile(cate, 75) - np.percentile(cate, 25)),
         })

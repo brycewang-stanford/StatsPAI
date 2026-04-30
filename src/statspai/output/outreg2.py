@@ -42,15 +42,6 @@ from typing import Any, Dict, List, Optional
 
 from ..core.results import EconometricResults
 
-_DEPRECATION_MSG = (
-    "OutReg2 / outreg2() are now thin wrappers over sp.regtable() and "
-    "will be removed in a future minor release. Migrate to "
-    "sp.regtable(*models, ...).to_excel(filename) for the same output "
-    "with full control over labels, journal templates, and SE formats. "
-    "See docs/rfc/output_pr_b_consolidation.md for migration."
-)
-
-# Emit deprecation warning once per Python process via filterwarnings.
 _DEPRECATION_MSG_OUTREG2 = (
     "outreg2() is now a thin wrapper over sp.regtable() and will "
     "be removed in a future minor release. Migrate to "
@@ -60,7 +51,7 @@ _DEPRECATION_MSG_OUTREG2 = (
 )
 
 
-def _warn_once_outreg2() -> None:
+def _warn_outreg2_deprecation() -> None:
     warnings.warn(_DEPRECATION_MSG_OUTREG2, DeprecationWarning, stacklevel=3)
 
 
@@ -124,7 +115,7 @@ class OutReg2:
     """
 
     def __init__(self):
-        _warn_once_outreg2()
+        _warn_outreg2_deprecation()
         self.results: List[Any] = []
         self.model_names: List[Optional[str]] = []
         self.title: Optional[str] = "Regression Results"
@@ -303,7 +294,7 @@ def outreg2(
     str or None
         LaTeX code if ``format="latex"``, otherwise ``None``.
     """
-    _warn_once_outreg2()
+    _warn_outreg2_deprecation()
 
     fmt = format.lower()
     if fmt == "auto":

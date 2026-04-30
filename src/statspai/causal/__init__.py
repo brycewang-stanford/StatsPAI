@@ -61,6 +61,31 @@ sys.modules["statspai.causal.multi_arm_forest"] = (
 )
 
 
+# Importing this submodule binds ``statspai.causal`` to *this module*,
+# shadowing :func:`statspai.workflow.causal` (the end-to-end orchestrator
+# exposed as ``sp.causal``).  Reassigning ``statspai.__dict__["causal"]``
+# back to the function does not survive Python's post-init re-binding of
+# the submodule.  Instead, install a custom :class:`types.ModuleType`
+# subclass whose ``__call__`` proxies to the workflow function, so
+# ``sp.causal(df, y=, treatment=, ...)`` keeps working *and*
+# ``sp.causal.CausalForest`` (deprecated submodule access) still resolves.
+import types as _types
+
+
+class _CausalShimModule(_types.ModuleType):
+    """Module-as-callable that forwards to :func:`statspai.workflow.causal`."""
+
+    def __call__(self, *args, **kwargs):
+        from ..workflow import causal as _workflow_causal
+        return _workflow_causal(*args, **kwargs)
+
+
+# Promote the live module object to the callable shim class.  Setting
+# ``__class__`` works because the new class has the same data layout as
+# ``ModuleType`` (it only adds ``__call__``).
+sys.modules[__name__].__class__ = _CausalShimModule
+
+
 __all__ = [
     "CausalForest",
     "causal_forest",

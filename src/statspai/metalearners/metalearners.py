@@ -1,17 +1,14 @@
 """
 Meta-Learners for heterogeneous treatment effect (CATE) estimation.
 
-Implements five canonical meta-learners that decompose CATE estimation into
-standard supervised-learning sub-problems, following:
+Implements five canonical meta-learners that decompose CATE estimation
+into standard supervised-learning sub-problems. Citations live in
+``paper.bib``; refer to the bib keys below for the canonical record:
 
-- Kunzel, S. R., Seetharam, J. S., Liang, P., & Athey, S. (2019).
-  Metalearners for estimating heterogeneous treatment effects using
-  machine learning. *PNAS*, 116(10), 4156-4165.
-- Kennedy, E. H. (2023). Towards optimal doubly robust estimation of
-  heterogeneous causal effects. *Electronic Journal of Statistics*,
-  17(2), 3008-3049.
-- Nie, X., & Wager, S. (2021). Quasi-oracle estimation of heterogeneous
-  treatment effects. *Biometrika*, 108(2), 299-319.
+- ``@kunzel2019metalearners`` — Künzel, Sekhon, Bickel & Yu (2019),
+  *PNAS* 116(10), 4156-4165.
+- ``@kennedy2023towards``     — Kennedy (2023), *EJS* 17(2).
+- ``@nie2021quasi``           — Nie & Wager (2021), *Biometrika* 108(2).
 
 All learners accept any scikit-learn compatible estimators for the
 nuisance and CATE stages.
@@ -20,7 +17,7 @@ Supported learners
 ------------------
 - **S-Learner** : single model with treatment as feature
 - **T-Learner** : separate models per treatment arm
-- **X-Learner** : two-stage imputed treatment effect (Kunzel et al.)
+- **X-Learner** : two-stage imputed treatment effect (Künzel et al.)
 - **R-Learner** : Robinson decomposition + loss minimisation (Nie & Wager)
 - **DR-Learner**: doubly robust pseudo-outcome regression (Kennedy)
 """
@@ -101,16 +98,76 @@ def _prepare_data(data, y, treat, covariates):
     return Y, D, X, len(Y)
 
 
-def _bootstrap_se(cate_values, n_bootstrap=200, rng=None):
-    """Bootstrap standard error of the ATE from individual CATE estimates."""
-    if rng is None:
-        rng = np.random.default_rng(42)
-    n = len(cate_values)
-    boot_means = np.array([
-        rng.choice(cate_values, size=n, replace=True).mean()
-        for _ in range(n_bootstrap)
-    ])
-    return float(np.std(boot_means, ddof=1))
+def _cross_fit_aipw_phi(
+    X, Y, D, outcome_model, propensity_model, n_folds=5, clip=(0.01, 0.99),
+    seed=42,
+):
+    """Cross-fit AIPW (DR) pseudo-outcome :math:`\\varphi_i`.
+
+    Returns
+    -------
+    phi : ndarray of shape (n,)
+        :math:`\\varphi_i = \\hat\\mu_1(X_i) - \\hat\\mu_0(X_i) +
+        D_i (Y_i - \\hat\\mu_1(X_i)) / \\hat e(X_i) -
+        (1-D_i)(Y_i - \\hat\\mu_0(X_i)) / (1 - \\hat e(X_i))`.
+    diagnostics : dict
+        Underlying nuisance arrays and clip counts so the caller can
+        surface overlap warnings.
+
+    Notes
+    -----
+    This is the **semiparametric efficient** estimating function for
+    :math:`E[Y(1) - Y(0)]` (van der Laan & Robins 2003, Kennedy 2023).
+    :math:`\\hat{\\rm ATE} = \\bar\\varphi` and its asymptotic SE is
+    :math:`\\sigma(\\varphi)/\\sqrt{n}` regardless of which CATE
+    estimator (S/T/X/R/DR) the user has chosen for heterogeneity.
+    """
+    n = len(Y)
+    mu1_hat = np.zeros(n)
+    mu0_hat = np.zeros(n)
+    e_hat = np.zeros(n)
+    kf = KFold(n_splits=n_folds, shuffle=True, random_state=seed)
+    for tr, te in kf.split(X):
+        X_tr, Y_tr, D_tr = X[tr], Y[tr], D[tr]
+        X_te = X[te]
+        m1 = clone(outcome_model)
+        m0 = clone(outcome_model)
+        tr_mask1 = D_tr == 1
+        tr_mask0 = D_tr == 0
+        # Fit each arm if both arms present in the training fold; fall
+        # back to the arm mean otherwise. With pre-validated data and
+        # n_folds=5 this fallback essentially never triggers, but the
+        # branch keeps the helper safe on tiny / lopsided samples.
+        if tr_mask1.sum() >= 2:
+            m1.fit(X_tr[tr_mask1], Y_tr[tr_mask1])
+            mu1_hat[te] = m1.predict(X_te)
+        else:
+            mu1_hat[te] = float(np.mean(Y_tr[tr_mask1])) if tr_mask1.any() else 0.0
+        if tr_mask0.sum() >= 2:
+            m0.fit(X_tr[tr_mask0], Y_tr[tr_mask0])
+            mu0_hat[te] = m0.predict(X_te)
+        else:
+            mu0_hat[te] = float(np.mean(Y_tr[tr_mask0])) if tr_mask0.any() else 0.0
+        prop = clone(propensity_model)
+        prop.fit(X_tr, D_tr)
+        e_hat[te] = _get_propensity(prop, X_te, clip=clip)
+    e_clip = np.clip(e_hat, clip[0], clip[1])
+    n_clip_lo = int(np.sum(e_hat < clip[0]))
+    n_clip_hi = int(np.sum(e_hat > clip[1]))
+    phi = (
+        mu1_hat - mu0_hat
+        + D * (Y - mu1_hat) / e_clip
+        - (1 - D) * (Y - mu0_hat) / (1 - e_clip)
+    )
+    diag = {
+        "mu1_hat": mu1_hat,
+        "mu0_hat": mu0_hat,
+        "e_hat": e_hat,
+        "n_clipped_below": n_clip_lo,
+        "n_clipped_above": n_clip_hi,
+        "clip": clip,
+    }
+    return phi, diag
 
 
 # ======================================================================
@@ -205,7 +262,7 @@ class TLearner:
 
 class XLearner:
     """
-    X-Learner (Kunzel et al. 2019).
+    X-Learner (Künzel et al. 2019).
 
     Two-stage procedure:
     1. Fit mu_0, mu_1 (T-Learner first stage).
@@ -435,7 +492,12 @@ class DRLearner:
             prop.fit(X_tr, D_tr)
             e_hat[test_idx] = _get_propensity(prop, X_te)
 
-        # DR pseudo-outcome
+        # DR pseudo-outcome — note that ``e_hat`` is already passed
+        # through ``_get_propensity`` which clips to (0.01, 0.99).  We
+        # also surface raw clip counts so the wrapper can warn on poor
+        # overlap.
+        n_clip_lo = int(np.sum(e_hat <= 0.01 + 1e-12))
+        n_clip_hi = int(np.sum(e_hat >= 0.99 - 1e-12))
         phi = (
             mu1_hat - mu0_hat
             + D * (Y - mu1_hat) / e_hat
@@ -446,8 +508,18 @@ class DRLearner:
         self._cate = clone(self.cate_model)
         self._cate.fit(X, phi)
 
-        # Store pseudo-outcomes for diagnostics
+        # Store pseudo-outcomes + diagnostics so the high-level
+        # ``metalearner`` wrapper can reuse them for ATE / SE without
+        # re-running cross-fitting.
         self._pseudo_outcomes = phi
+        self._pseudo_diag = {
+            "mu1_hat": mu1_hat,
+            "mu0_hat": mu0_hat,
+            "e_hat": e_hat,
+            "n_clipped_below": n_clip_lo,
+            "n_clipped_above": n_clip_hi,
+            "clip": (0.01, 0.99),
+        }
 
         self._fitted = True
         return self
@@ -496,9 +568,16 @@ def metalearner(
     cate_model : sklearn estimator, optional
         Custom model for final CATE stage (R/DR learners).
     n_folds : int, default 5
-        Cross-fitting folds for nuisance estimation (R/DR learners).
+        Cross-fitting folds for nuisance estimation (used by R/DR
+        learners and the unified AIPW SE path; see Notes).
     n_bootstrap : int, default 200
-        Bootstrap iterations for ATE standard error.
+        **Deprecated and ignored** as of v1.11.4. Previously the SE for
+        S/T/X/R-Learner came from a re-sampling bootstrap of the fitted
+        CATE values, which treats τ̂ as fixed and severely
+        under-estimates uncertainty. The function now uses the AIPW
+        influence function for SE regardless of ``learner=``. The
+        argument is kept for backward compatibility and will be removed
+        in a future minor release.
     alpha : float, default 0.05
         Significance level.
 
@@ -507,6 +586,32 @@ def metalearner(
     CausalResult
         Result with ATE estimate, SE, CI, p-value, and individual
         CATE predictions accessible via ``result.model_info['cate']``.
+
+    Notes
+    -----
+    **ATE / SE convention (v1.11.4+).** Regardless of which CATE
+    estimator the user selects via ``learner=``, the population ATE and
+    its SE are computed via the AIPW (DR) pseudo-outcome:
+
+    .. math::
+
+       \\varphi_i = \\hat\\mu_1(X_i) - \\hat\\mu_0(X_i)
+                  + \\frac{D_i (Y_i - \\hat\\mu_1(X_i))}{\\hat e(X_i)}
+                  - \\frac{(1-D_i)(Y_i - \\hat\\mu_0(X_i))}{1 - \\hat e(X_i)}
+
+    with :math:`\\hat{\\rm ATE} = \\bar\\varphi`,
+    :math:`\\widehat{\\rm SE} = \\sigma(\\varphi)/\\sqrt n`. AIPW is
+    the semiparametric-efficient estimating function for
+    :math:`E[Y(1) - Y(0)]` (van der Laan & Robins 2003; Kennedy 2023),
+    so the SE is valid for *any* CATE estimator. The chosen
+    ``learner=`` determines τ̂(X) (heterogeneity); ATE inference is
+    learner-independent.
+
+    Prior to v1.11.4, S/T/X/R-Learner used ``mean(τ̂)`` as ATE and a
+    re-sampling bootstrap of τ̂ as SE. The bootstrap silently treated
+    τ̂ as fixed → systematically too small SEs and severe under-
+    coverage. ⚠️ This is a correctness fix; numerical results will
+    change for non-DR learners.
 
     Examples
     --------
@@ -575,18 +680,31 @@ def metalearner(
     est.fit(X, Y, D)
     cate = est.effect(X)
 
-    # Aggregate: ATE = mean(CATE)
-    ate = float(np.mean(cate))
-
-    # Standard error for ATE
-    # DR-Learner: use analytic SE from influence function (semiparametric efficient)
-    # Others: bootstrap SE
+    # ATE estimation + SE — unified AIPW (DR pseudo-outcome) path for ALL
+    # learners.  Rationale: the chosen learner determines τ̂(X) (CATE),
+    # but the semiparametric-efficient estimating function for the
+    # population ATE is always the AIPW score (van der Laan & Robins
+    # 2003; Kennedy 2023).  Using mean(τ̂(X)) as ATE plus a re-sampling
+    # bootstrap of those τ̂ values — as v1.11.3 and earlier did for
+    # S/T/X/R-Learner — silently treats τ̂ as fixed and severely
+    # under-estimates the SE.  We now reuse DR-Learner's own pseudo
+    # outcomes when available (avoids a second cross-fit) and otherwise
+    # build them via :func:`_cross_fit_aipw_phi`.
     if learner == 'dr' and hasattr(est, '_pseudo_outcomes'):
         phi = est._pseudo_outcomes
-        se = float(np.std(phi, ddof=1) / np.sqrt(n))
+        aipw_diag = getattr(est, '_pseudo_diag', None)
     else:
-        rng = np.random.default_rng(42)
-        se = _bootstrap_se(cate, n_bootstrap=n_bootstrap, rng=rng)
+        # Use the user-supplied or default outcome / propensity models
+        # for a clean, learner-independent AIPW fit.  Without explicit
+        # user models this matches the DR-Learner default exactly so
+        # results are reproducible across learner= choices.
+        _outcome = outcome_model if outcome_model is not None else _default_outcome_model()
+        _prop = propensity_model if propensity_model is not None else _default_propensity_model()
+        phi, aipw_diag = _cross_fit_aipw_phi(
+            X, Y, D, _outcome, _prop, n_folds=n_folds,
+        )
+    ate = float(np.mean(phi))
+    se = float(np.std(phi, ddof=1) / np.sqrt(n))
 
     # Inference
     if se > 0:
@@ -603,12 +721,37 @@ def metalearner(
         'r': 'R-Learner', 'dr': 'DR-Learner',
     }
 
+    # Overlap diagnostics + warning when many propensities were clipped
+    # (the AIPW score blows up at e≈0 or e≈1, so a heavy clip share is
+    # a red flag for identification, not a noise issue).
+    n_clip_lo = int(aipw_diag.get("n_clipped_below", 0)) if aipw_diag else 0
+    n_clip_hi = int(aipw_diag.get("n_clipped_above", 0)) if aipw_diag else 0
+    clip_share = (n_clip_lo + n_clip_hi) / n if n > 0 else 0.0
+    if clip_share > 0.05:
+        import warnings
+        warnings.warn(
+            f"sp.metalearner: {n_clip_lo + n_clip_hi}/{n} "
+            f"({100 * clip_share:.1f}%) propensity scores hit the "
+            f"{aipw_diag.get('clip', (0.01, 0.99))} clip in the AIPW "
+            f"score — overlap is poor and the ATE / SE may be biased "
+            f"toward the trimmed sample. Inspect "
+            f"result.model_info['aipw_diagnostics'] and consider "
+            f"sp.overlap_plot() / a more flexible propensity model.",
+            UserWarning,
+            stacklevel=2,
+        )
+
     model_info = {
         'learner': learner_names[learner],
         'n_covariates': len(covariates),
         'n_folds': n_folds if learner in ('r', 'dr') else None,
         'n_bootstrap': n_bootstrap,
-        'se_method': 'influence_function' if (learner == 'dr' and hasattr(est, '_pseudo_outcomes')) else 'bootstrap',
+        # All learners now use AIPW (DR pseudo-outcome) for ATE + SE —
+        # the chosen learner only governs CATE prediction. See the
+        # ``ate_method`` note in the docstring + the v1.11.x migration
+        # guide.
+        'se_method': 'aipw_influence_function',
+        'ate_method': 'aipw_dr_pseudo_outcome',
         'covariates': covariates,
         '_estimator': est,
         'cate': cate,
@@ -619,6 +762,12 @@ def metalearner(
         'cate_q75': float(np.percentile(cate, 75)),
         'n_treated': int(np.sum(D == 1)),
         'n_control': int(np.sum(D == 0)),
+        'aipw_diagnostics': {
+            'n_clipped_below': n_clip_lo,
+            'n_clipped_above': n_clip_hi,
+            'clip_share': float(clip_share),
+            'clip': aipw_diag.get('clip', (0.01, 0.99)) if aipw_diag else (0.01, 0.99),
+        },
     }
 
     _result = CausalResult(
@@ -660,13 +809,16 @@ def metalearner(
     return _result
 
 
-# Register citation
+# Register citation — kept verbatim in sync with paper.bib (the single source
+# of truth per CLAUDE.md §10).  Touching this block requires touching
+# paper.bib too; the BibTeX strings below are byte-identical to the entries
+# under bib keys @kunzel2019metalearners, @nie2021quasi, @kennedy2023towards.
 CausalResult._CITATIONS['metalearner'] = (
     "@article{kunzel2019metalearners,\n"
-    "  title={Metalearners for Estimating Heterogeneous Treatment Effects "
-    "using Machine Learning},\n"
-    "  author={K{\\\"u}nzel, S{\\\"o}ren R and Seetharam, Jasjeet S and "
-    "Liang, Peter and Athey, Susan},\n"
+    "  title={Metalearners for estimating heterogeneous treatment effects "
+    "using machine learning},\n"
+    "  author={K{\\\"u}nzel, S{\\\"o}ren R. and Sekhon, Jasjeet S. and "
+    "Bickel, Peter J. and Yu, Bin},\n"
     "  journal={Proceedings of the National Academy of Sciences},\n"
     "  volume={116},\n"
     "  number={10},\n"
@@ -687,7 +839,7 @@ CausalResult._CITATIONS['metalearner'] = (
     "@article{kennedy2023towards,\n"
     "  title={Towards optimal doubly robust estimation of heterogeneous "
     "causal effects},\n"
-    "  author={Kennedy, Edward H},\n"
+    "  author={Kennedy, Edward H.},\n"
     "  journal={Electronic Journal of Statistics},\n"
     "  volume={17},\n"
     "  number={2},\n"

@@ -2,10 +2,38 @@
 Unified results class for all econometric models
 """
 
+from html import escape as _html_escape
 from typing import Dict, Any, Optional, List, Union
 import pandas as pd
 import numpy as np
 from scipy import stats
+
+
+class SummaryText(str):
+    """``str`` subclass that renders formatted summaries in Jupyter / IPython.
+
+    ``CausalResult.summary()`` and ``EconometricResults.summary()`` produce
+    multi-line text. Returning a plain ``str`` as the last expression of a
+    notebook cell triggers Python's ``repr()`` — the user sees an escaped
+    one-liner with literal ``\\n``. Wrapping the same text in
+    :class:`SummaryText` keeps every ``str`` operation intact (slicing,
+    ``.split``, ``in`` membership, ``isinstance(x, str)``) and adds the
+    IPython display hooks so the cell renders the formatted block directly,
+    without requiring ``print()``.
+    """
+
+    __slots__ = ()
+
+    def _repr_pretty_(self, p, cycle):  # IPython terminal & notebook
+        p.text(str(self))
+
+    def _repr_html_(self) -> str:  # Jupyter HTML rendering
+        return (
+            "<pre style=\"font-family: 'SFMono-Regular', Menlo, Consolas, "
+            "monospace; line-height: 1.35; white-space: pre;\">"
+            f"{_html_escape(str(self))}"
+            "</pre>"
+        )
 
 
 # ----------------------------------------------------------------------
@@ -175,8 +203,8 @@ class EconometricResults:
                     output.append(f"{key:20s}: {value}")
         
         output.append("=" * 80)
-        return "\n".join(output)
-    
+        return SummaryText("\n".join(output))
+
     def conf_int(self, alpha: float = 0.05) -> pd.DataFrame:
         """
         Return confidence intervals for parameters
@@ -1171,7 +1199,7 @@ class CausalResult:
         lines.append("=" * 78)
         lines.append("  * p<0.1, ** p<0.05, *** p<0.01")
 
-        return "\n".join(lines)
+        return SummaryText("\n".join(lines))
 
     # ------------------------------------------------------------------
     # Broom-style tidy interface (CausalResult)

@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "1.11.3"
+__version__ = "1.12.0"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -436,12 +436,12 @@ from .robustness import (
 from . import datasets
 
 # === End-to-end workflow orchestrator ===
-# Note: `causal` and `CausalWorkflow` are NOT imported here because the
-# deprecated ``statspai.causal`` submodule (a forest-shim) gets auto-bound to
-# ``sp.__dict__['causal']`` when any test does ``import statspai.causal``,
-# overwriting the correct workflow function.  They are instead handled by
-# ``__getattr__`` below for lazy access.
-from .workflow import paper, PaperDraft
+# After ``import statspai.causal`` (the deprecated forest-shim) Python rebinds
+# ``sp.causal`` to that submodule, shadowing this function.  The shim works
+# around it by making its module object callable (see ``causal/__init__.py``),
+# so ``sp.causal(df, y=, treatment=, ...)`` keeps dispatching to this
+# workflow function in either order.
+from .workflow import causal, CausalWorkflow, paper, PaperDraft
 
 # === LLM agent tool-definition surface ===
 from . import agent
@@ -1507,16 +1507,6 @@ from ._article_aliases import (
     dml,
 )
 
-# ``causal`` and ``CausalWorkflow`` are handled via __getattr__ below.
-# The deprecated ``statspai.causal`` submodule (a forest-shim) gets auto-bound
-# to ``sp.__dict__['causal']`` when any code does ``import statspai.causal``,
-# overwriting the correct workflow function.  Lazy-loading via __getattr__
-# ensures the correct object is returned on every access.
-#
-# NOTE: if you hit AttributeError on 'causal' or 'CausalWorkflow', check
-# whether ``import statspai.causal`` was triggered (even transitively) — that
-# deprecated import is the reason we use lazy-loading here.
-
 
 def __getattr__(name):
     """Lazy-load the verify / verify_benchmark entry points.
@@ -1545,20 +1535,4 @@ def __getattr__(name):
         _fast_mod = importlib.import_module(".fast", package=__name__)
         globals()["fast"] = _fast_mod
         return _fast_mod
-    if name in ("causal", "CausalWorkflow"):
-        # ``statspai.causal`` is a deprecated forest-shim that auto-binds to
-        # ``sp.__dict__['causal']`` when imported.  We clean up that stale
-        # entry and re-route to the workflow module via globals() caching so
-        # subsequent accesses hit __dict__ directly (fast path).
-        _mod = globals().get("__workflow_causal_module")
-        if _mod is None:
-            # Import the workflow module without triggering the
-            # ``from statspai.workflow import causal`` side-effect that
-            # would re-populate sp.__dict__['causal'].
-            import importlib
-            _mod = importlib.import_module(".workflow", package=__name__)
-            globals()["__workflow_causal_module"] = _mod
-        _obj = getattr(_mod, name)
-        globals()[name] = _obj
-        return _obj
     raise AttributeError(f"module 'statspai' has no attribute {name!r}")

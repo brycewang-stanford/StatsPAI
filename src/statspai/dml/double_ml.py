@@ -50,6 +50,8 @@ def dml(
     n_folds: int = 5,
     n_rep: int = 1,
     alpha: float = 0.05,
+    random_state: int = 42,
+    sample_weight: Optional[Any] = None,
 ) -> CausalResult:
     """
     Estimate causal effect using Double/Debiased Machine Learning.
@@ -73,13 +75,36 @@ def dml(
 
     instrument : str, optional
         Scalar instrument Z. Required for ``model in {'pliv', 'iivm'}``.
-    ml_g, ml_m, ml_r : sklearn estimators, optional
-        Learners for outcome / treatment / instrument nuisance; sensible
-        gradient-boosting defaults are selected per model.
+    ml_g, ml_m, ml_r : sklearn estimator or str, optional
+        Learners for outcome / treatment / instrument nuisance. Pass any
+        scikit-learn-compatible estimator, or one of the convenience
+        string aliases (case-insensitive):
+
+        - ``'rf'`` — random forest (200 trees)
+        - ``'gbm'`` — gradient boosting (100 estimators, depth 3)
+        - ``'lasso'`` / ``'ridge'`` — penalised linear (CV-tuned)
+        - ``'linear'`` / ``'ols'`` — plain linear regression
+        - ``'logistic'`` — logistic regression (classifier roles only)
+        - ``'xgb'`` / ``'lgbm'`` — XGBoost / LightGBM (optional install)
+
+        For binary treatment (``model='irm'``) ``ml_m`` is auto-coerced
+        to the classifier variant; same for ``ml_r`` under ``'iivm'``.
+        ``None`` falls back to the per-model gradient-boosting default.
     n_folds : int, default 5
     n_rep : int, default 1
         Repeated cross-fitting splits (median aggregation).
     alpha : float, default 0.05
+    random_state : int, default 42
+        Seed for the cross-fitting fold assignment. Repeat splits use
+        ``random_state + rep`` so a single ``random_state`` fully
+        determines the result.
+    sample_weight : np.ndarray | pd.Series | str, optional
+        Per-observation weights (e.g., survey/probability weights). Pass
+        either a 1-D array of length ``len(data)`` or a column name
+        present in ``data``. Currently supported for
+        ``model in {'plr', 'irm'}``; PLIV / IIVM raise
+        :class:`NotImplementedError` because the weighted Wald-ratio
+        and IV-PLR variance formulas need additional derivation work.
 
     Returns
     -------
@@ -116,6 +141,8 @@ def dml(
         instrument=instrument,
         ml_g=ml_g, ml_m=ml_m, ml_r=ml_r,
         n_folds=n_folds, n_rep=n_rep, alpha=alpha,
+        random_state=random_state,
+        sample_weight=sample_weight,
     )
     _result = estimator.fit()
     try:
@@ -131,7 +158,7 @@ def dml(
                               if isinstance(instrument, (str, list))
                               else None,
                 "n_folds": n_folds, "n_rep": n_rep,
-                "alpha": alpha,
+                "alpha": alpha, "random_state": int(random_state),
                 # Learner classes are objects — capture only their type
                 # names so the provenance dict stays JSON-serialisable.
                 "ml_g": type(ml_g).__name__ if ml_g is not None else None,
@@ -169,6 +196,8 @@ class DoubleML:
         n_folds: int = 5,
         n_rep: int = 1,
         alpha: float = 0.05,
+        random_state: int = 42,
+        sample_weight: Optional[Any] = None,
     ):
         key = str(model).lower()
         if key not in _MODEL_REGISTRY:
@@ -181,6 +210,8 @@ class DoubleML:
             instrument=instrument,
             ml_g=ml_g, ml_m=ml_m, ml_r=ml_r,
             n_folds=n_folds, n_rep=n_rep, alpha=alpha,
+            random_state=random_state,
+            sample_weight=sample_weight,
         )
 
     def fit(self) -> CausalResult:

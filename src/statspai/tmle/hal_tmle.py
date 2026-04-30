@@ -1,38 +1,42 @@
-r"""HAL-TMLE — Targeted Maximum Likelihood with Highly Adaptive Lasso (HAL).
+r"""HAL-TMLE — TMLE with an L1-penalised step-function (HAL-style) nuisance.
 
 TMLE is doubly-robust and semiparametrically efficient *given* good nuisance
 estimates.  When those nuisances are rich and non-smooth, generic ML learners
 such as random forests can under-regularise (overfit near the boundary) or
 over-smooth (miss step-like heterogeneity), degrading finite-sample coverage.
 
-**Highly Adaptive Lasso (HAL)** is a non-parametric sieve estimator that
-models :math:`\mu(x) = \sum_s \beta_{\text{0s}} + \sum_s\sum_{x_i\in\text{supp}}
-\beta_{s,i}\,\mathbb I\{x_s \leq x_{s,i}\}` as an :math:`L_1`-penalised sum of
-indicator basis functions.  With a finite sample :math:`n`, the basis has
-:math:`O(np)` columns — rich enough to approximate any càdlàg function of
-bounded variation, and regularised enough to stabilise TMLE.
-
-This module supplies two HAL-TMLE variants following Li, Qiu, Wang &
-van der Laan (2025, *arXiv:2506.17214*):
-
-* ``variant="delta"`` — plug HAL into TMLE as-is (delta variant).  This is
-  the most common implementation.
-* ``variant="projection"`` — project the HAL fit onto the tangent space of
-  the target parameter; cheaper in variance but requires the oracle
-  Hessian, which we approximate with the empirical outer product.
+**Implementation note — main-effects HAL only.** The full Highly Adaptive
+Lasso (Benkeser & van der Laan 2016) uses **all subset-product** indicator
+basis functions :math:`\phi_S(x) = \prod_{j\in S}\mathbb I\{x_j \le a_j\}`
+across :math:`S \subseteq \{1,\ldots,p\}` — that basis is rich enough
+to approximate any càdlàg function of bounded variation. Computing it
+requires :math:`O(n \cdot 2^p)` columns and is impractical without
+sparse-tensor tricks. This module implements the **main-effects-only**
+restriction: per-feature step functions
+:math:`\mathbb I\{x_j \le a_j\}` only, with :math:`O(np)` columns, fit
+via L1-penalised regression. This is **L1-penalised additive piecewise-
+constant regression**, not full HAL — it lacks HAL's universal càdlàg
+approximation guarantee, but it shares HAL's flexibility on
+additively-separable signals and is the variant most production HAL-TMLE
+implementations actually ship. ``max_anchors_per_col`` further caps the
+basis when a feature has many distinct values; quantile anchors are
+substituted above the cap.
 
 A single scalar ``lambda_`` controls the :math:`L_1` penalty — when ``None``
 we pick it via 5-fold CV.
 
 References
 ----------
-Li, Y., Qiu, S., Wang, Z. and van der Laan, M. J. (2025). "Regularized
+Benkeser, D. & van der Laan, M. J. (2016). The Highly Adaptive Lasso
+    Estimator. *2016 IEEE Int. Conf. on Data Science and Advanced
+    Analytics (DSAA)*, 689–696. [@benkeser2016highly]
+Li, Y., Qiu, S., Wang, Z. & van der Laan, M. J. (2025). Regularized
     Targeted Maximum Likelihood Estimation in Highly Adaptive Lasso
-    Implementations."  arXiv:2506.17214.
-van der Laan, M. J., Benkeser, D. and Cai, W. (2023).  "Efficient estimation
+    Implied Working Models.  arXiv:2506.17214. [@li2025regularized]
+van der Laan, M. J., Benkeser, D. & Cai, W. (2023). Efficient estimation
     of pathwise differentiable target parameters with the undersmoothed
-    highly adaptive lasso."  *International Journal of Biostatistics*,
-    19(1), 261-289.
+    highly adaptive lasso. *International Journal of Biostatistics*,
+    19(1), 261–289.  doi 10.1515/ijb-2019-0092. [@vanderlaan2023efficient]
 """
 
 from __future__ import annotations
@@ -190,11 +194,15 @@ def hal_tmle(
     treat : str
         Binary treatment (0/1).
     covariates : list of str
-    variant : {"delta", "projection"}, default "delta"
-        ``"delta"`` plugs HAL into the standard TMLE targeting step.
-        ``"projection"`` projects the HAL outcome fit onto the tangent
-        space of the target parameter prior to targeting; reduces variance
-        at the cost of a slightly biased plug-in under model misspecification.
+    variant : {"delta"}, default "delta"
+        ``"delta"`` plugs HAL into the standard TMLE targeting step. The
+        ``"projection"`` variant from Li-Qiu-Wang-vdL (2025) is **not yet
+        implemented** — earlier versions of this module accepted it but
+        the implementation was a no-op (a heuristic ε-shrinkage that did
+        not feed back into ``result.estimate``). It now raises
+        :class:`NotImplementedError`. To keep the API stable while we
+        port the proper Riesz-projection step, please file an issue if
+        this blocks you.
     lambda_outcome : float, optional
         Outcome-model L1 penalty; None selects it via 5-fold CV.
     C_propensity : float, default 1.0
@@ -223,8 +231,26 @@ def hal_tmle(
     >>> r = sp.hal_tmle(df, y="y", treat="d", covariates=["x1","x2","x3"])
     >>> r.summary()
     """
-    if variant not in {"delta", "projection"}:
-        raise ValueError("variant must be 'delta' or 'projection'")
+    if variant == "projection":
+        # The projection-variant block in v1.11.x and earlier shrunk the
+        # targeting ε by an ad-hoc ``1 / (1 + log(1+max_anchors))`` factor
+        # AFTER ``result.estimate`` had already been computed, so the
+        # estimate was unchanged — the variant flag was effectively a
+        # no-op that mutated only ``model_info["eps"]``. Rather than
+        # ship a misleading variant we raise until the proper
+        # Riesz-projection step (Li-Qiu-Wang-vdL 2025 §3.2) is ported.
+        raise NotImplementedError(
+            "hal_tmle(variant='projection') is not yet implemented; "
+            "use variant='delta' (the standard HAL-TMLE plug-in). The "
+            "projection-variant code path that shipped in v1.11.x and "
+            "earlier was a no-op on the point estimate — see the audit "
+            "note in the v1.11.5 changelog."
+        )
+    if variant != "delta":
+        raise ValueError(
+            f"variant must be 'delta' (got {variant!r}); "
+            "'projection' is currently NotImplemented."
+        )
     if estimand not in {"ATE", "ATT"}:
         raise ValueError("estimand must be 'ATE' or 'ATT'")
 
@@ -254,27 +280,16 @@ def hal_tmle(
     result.method = f"HAL-TMLE ({variant} variant)"
     info = result.model_info or {}
     info.update({
-        "nuisance": "Highly Adaptive Lasso",
+        "nuisance": "Highly Adaptive Lasso (main-effects basis only)",
         "variant": variant,
         "max_anchors_per_col": max_anchors_per_col,
         "citation": (
             "Li, Y., Qiu, S., Wang, Z. and van der Laan, M. J. (2025). "
-            "Regularized Targeted MLE in HAL Implementations. "
+            "Regularized Targeted Maximum Likelihood Estimation in "
+            "Highly Adaptive Lasso Implied Working Models. "
             "arXiv:2506.17214."
         ),
     })
-
-    # ── Projection variant: shrink the targeting step's eps toward zero ── #
-    # Rationale: the tangent-space projection reduces the magnitude of the
-    # bias-correction when the HAL sieve captures nuisance well, matching
-    # Qian-van der Laan Section 4.  We approximate this by dividing the
-    # targeting epsilon by an inflation factor that grows with the outcome
-    # basis size (a cheap stand-in for the full Riesz projection).
-    if variant == "projection" and "eps" in info:
-        info["eps_original"] = info["eps"]
-        shrink = 1.0 + np.log1p(max_anchors_per_col)
-        info["eps"] = float(info["eps"]) / shrink
-        info["projection_shrinkage"] = float(shrink)
 
     result.model_info = info
     try:

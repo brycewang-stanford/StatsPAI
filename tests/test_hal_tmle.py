@@ -31,14 +31,27 @@ def test_hal_tmle_ate_recovery():
     assert r.ci[0] < r.estimate < r.ci[1]
 
 
-def test_hal_tmle_variants_produce_results():
+def test_hal_tmle_delta_variant_produces_result():
     df = _tmle_data(n=200, seed=1)
     cov = [f"x{j}" for j in range(4)]
-    for variant in ("delta", "projection"):
-        r = sp.hal_tmle(df, y="y", treat="a", covariates=cov,
-                        variant=variant, max_anchors_per_col=10, n_folds=3)
-        assert r.model_info.get("variant") == variant
-        assert np.isfinite(r.estimate)
+    r = sp.hal_tmle(df, y="y", treat="a", covariates=cov,
+                    variant="delta", max_anchors_per_col=10, n_folds=3)
+    assert r.model_info.get("variant") == "delta"
+    assert np.isfinite(r.estimate)
+
+
+def test_hal_tmle_projection_variant_raises_notimplemented():
+    # The projection variant shipped a no-op shrinkage in v1.11.x and
+    # earlier (the formula post-multiplied ``model_info["eps"]`` after
+    # ``result.estimate`` was already computed → variant flag did
+    # nothing to the point estimate). v1.11.5 surfaces this honestly
+    # by raising NotImplementedError until the proper Riesz-projection
+    # step (Li-Qiu-Wang-vdL 2025 §3.2) is ported.
+    df = _tmle_data(n=200, seed=1)
+    cov = [f"x{j}" for j in range(4)]
+    with pytest.raises(NotImplementedError, match="projection"):
+        sp.hal_tmle(df, y="y", treat="a", covariates=cov,
+                    variant="projection", max_anchors_per_col=10, n_folds=3)
 
 
 def test_hal_tmle_rejects_invalid_variant():

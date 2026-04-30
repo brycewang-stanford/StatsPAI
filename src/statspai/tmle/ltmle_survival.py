@@ -34,9 +34,9 @@ estimation of causal effects of multiple time point interventions."
 Stitelman, O.M. & van der Laan, M.J. (2010). "Collaborative targeted
 maximum likelihood for time to event data." *IJB*, 6(1). [@stitelman2010collaborative]
 
-Cai, W. & van der Laan, M.J. (2019). "One-step targeted maximum
-likelihood estimation for time-to-event outcomes." *Biometrics*,
-75(1), 150-162. [@cai2020step]
+Cai, W. & van der Laan, M. J. (2020). "One‐step targeted maximum
+likelihood estimation for time‐to‐event outcomes." *Biometrics*.
+doi 10.1111/biom.13172. [@cai2020step]
 """
 
 from __future__ import annotations
@@ -203,6 +203,34 @@ def ltmle_survival(
     This implementation uses logistic regression for nuisance models
     (self-contained). Advanced users can swap in the
     :class:`SuperLearner` by monkey-patching ``_fit_logit``.
+
+    Notes
+    -----
+    **Influence function — Cai & van der Laan (2020) form.** The EIF for
+    :math:`E[S^a(t)]` is
+
+    .. math::
+
+       D^*(O) = -\\sum_{j \\le t} H_j \\cdot \\frac{S^a(t)}{S^a(j)}
+                                   \\cdot (T_j - h_j^*)
+                + (S^a(t) - \\psi_S(t))
+
+    The survival ratio :math:`S^a(t)/S^a(j)` is essential — without it
+    earlier intervals' contributions are overweighted, inflating the
+    SE. The RMST EIF is the per-:math:`k` sum of these. The terminal
+    risk difference's EIF is the EIF of :math:`S^a(K)` *alone*, NOT the
+    cross-:math:`k` RMST sum. v1.11.4 and earlier collapsed all
+    intervals into a single IC and used it for both RMST and terminal
+    RD, leading to over-conservative RMST SE *and* incorrect terminal
+    SE. This module now computes the two ICs separately.
+
+    **One-step targeting residual.** Like :func:`ltmle`, the targeting
+    step uses a one-step linear approximation rather than fully
+    iterated MLE. The targeting equation residual at each interval is
+    therefore near-zero rather than identically zero, and the EIF
+    expression above ignores that residual. Coverage may be slightly
+    anti-conservative when nuisance models are flexible; use a CV-LTMLE
+    workflow (not yet exposed) for critical inference.
     """
     event_indicators = list(event_indicators)
     treatments = list(treatments)
@@ -283,9 +311,25 @@ def ltmle_survival(
             cens_probs.append(np.ones(n))
 
     # ── Fit & target discrete-time hazards under each regime ─────────
-    def _run_regime(regime_mat: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Returns (S_k for k=1..K, per-subject influence-function matrix).
+    def _run_regime(regime_mat: np.ndarray):
+        """Returns per-subject sequences plus the population survival curve.
+
+        Returned arrays (all per-subject):
+
+        * ``survival_curve`` (K,) — population S^a(k) = E_n[S^a(k) | i]
+          for k = 1..K
+        * ``S_seq`` (n × K) — per-subject S^a(k) for k = 1..K
+        * ``h_star_seq`` (n × K) — per-subject targeted hazard h_k^*(regime)
+        * ``H_seq`` (n × K) — per-subject clever-covariate value (zero
+          outside the regime-following + observed + at-risk indicator)
+        * ``T_seq`` (n × K) — observed event indicator
+        * ``mask_seq`` (n × K) — at-risk + observed mask (only these
+          subjects contribute to the EIF score at each k)
+
+        The downstream EIF computation uses these directly, so any
+        target functional (S(K), RMST, RD at K) gets its own correct
+        influence function — see :func:`_eif_survival_K` and
+        :func:`_eif_rmst` below.
         """
         # cum_follow[i] = True while subject i has followed the regime
         # so far AND been uncensored AND event-free; once False it stays.
@@ -295,7 +339,11 @@ def ltmle_survival(
 
         S_prev = np.ones(n)
         survival_curve = np.ones(K + 1)    # S(0) = 1
-        ic_matrix = np.zeros((n, K))
+        S_seq = np.zeros((n, K))
+        h_star_seq = np.zeros((n, K))
+        H_seq = np.zeros((n, K))
+        T_seq = np.zeros((n, K))
+        mask_seq = np.zeros((n, K), dtype=bool)
 
         for k in range(K):
             hist_cols = list(baseline)
@@ -364,10 +412,17 @@ def ltmle_survival(
             # Survival update: S(k) = S(k-1) * (1 - h*)
             S_new = S_prev * (1.0 - h_star_regime)
 
-            # Influence function contribution for this interval (EIF of S(K))
-            # We accumulate a simple contribution based on the targeting
-            # residual — adequate for a normal-approx SE.
-            ic_matrix[:, k] = -H * (T_k - h_star_regime)
+            # Stash the per-subject sequences for the EIF post-pass.
+            # The proper EIF for S^a(K) requires the survival ratio
+            # S^a(K)/S^a(j); for RMST it requires the per-k partial sum
+            # of those ratios. Both need every k's S, h*, H, T, mask —
+            # which we now record rather than collapse to a single
+            # cross-time sum.
+            S_seq[:, k] = S_new
+            h_star_seq[:, k] = h_star_regime
+            H_seq[:, k] = H
+            T_seq[:, k] = T_k
+            mask_seq[:, k] = mask
 
             survival_curve[k + 1] = float(np.mean(S_new))
 
@@ -377,31 +432,80 @@ def ltmle_survival(
             cum_weight = new_cum_weight
             S_prev = S_new
 
-        # Per-subject cumulative IC = sum across intervals
-        ic_cum = ic_matrix.sum(axis=1)
-        return survival_curve[1:], ic_cum
+        return (survival_curve[1:], S_seq, h_star_seq, H_seq,
+                T_seq, mask_seq)
 
-    S_t, ic_t = _run_regime(regime_treated_mat)
-    S_c, ic_c = _run_regime(regime_control_mat)
+    def _eif_survival_at_k(target_k: int, S_seq: np.ndarray,
+                            h_star_seq: np.ndarray, H_seq: np.ndarray,
+                            T_seq: np.ndarray) -> np.ndarray:
+        """EIF of E[S^a(target_k)] under the stacked nuisance fits.
+
+        D*(O) = -∑_{j≤target_k} H_j · (T_j − h_j^*) · S^a(target_k)/S^a(j)
+                + (S^a(target_k) − ψ_S(target_k))
+
+        S_seq[:, j] is per-subject S^a(j+1) (1-indexed), so for the
+        ratio at column j we use ``S_seq[:, j]`` ≈ S^a(j+1) — call
+        sites compensate by using `target_k` 0-indexed (j ≤ target_k).
+        """
+        n = S_seq.shape[0]
+        S_K = S_seq[:, target_k]
+        ic = np.zeros(n)
+        for j in range(target_k + 1):
+            S_j = S_seq[:, j]
+            # Ratio S^a(target_k)/S^a(j); guard against S_j ≈ 0.
+            ratio = np.where(S_j > 1e-12, S_K / np.maximum(S_j, 1e-12), 0.0)
+            ic -= H_seq[:, j] * (T_seq[:, j] - h_star_seq[:, j]) * ratio
+        ic_centred = ic + (S_K - float(np.mean(S_K)))
+        return ic_centred
+
+    def _eif_rmst(S_seq: np.ndarray, h_star_seq: np.ndarray,
+                   H_seq: np.ndarray, T_seq: np.ndarray) -> np.ndarray:
+        """EIF of E[∑_{k=1}^K S^a(k)] = E[RMST^a].
+
+        D*(O) = ∑_{k=1}^K D*_{S^a(k)}(O)  (linearity in target functional).
+        """
+        n = S_seq.shape[0]
+        K_local = S_seq.shape[1]
+        ic = np.zeros(n)
+        for tk in range(K_local):
+            ic += _eif_survival_at_k(tk, S_seq, h_star_seq, H_seq, T_seq)
+        return ic
+
+    surv_t, S_t_seq, h_t_seq, H_t_seq, T_t_seq, mask_t_seq = _run_regime(
+        regime_treated_mat,
+    )
+    surv_c, S_c_seq, h_c_seq, H_c_seq, T_c_seq, mask_c_seq = _run_regime(
+        regime_control_mat,
+    )
+    S_t = surv_t                  # population survival curve (treated)
+    S_c = surv_c                  # population survival curve (control)
 
     rmst_t = float(np.sum(S_t))
     rmst_c = float(np.sum(S_c))
     rmst_diff = rmst_t - rmst_c
 
-    # SE on the RMST contrast via IC difference. `diff_ic` is already
-    # the summed-across-intervals influence-function contribution per
-    # subject, so the RMST SE is simply std(diff_ic)/sqrt(n) — no
-    # extra K-scaling (that would double-count the interval sum that
-    # is already inside `diff_ic`).
-    diff_ic = ic_t - ic_c
-    rmst_se = float(np.std(diff_ic, ddof=1) / np.sqrt(n))
+    # Proper RMST EIF: linear sum across k of S^a(k) EIFs, with the
+    # full survival-product factor S^a(k)/S^a(j) (Cai & van der Laan
+    # 2020). Earlier versions of this module dropped the survival
+    # ratio and used the same cross-time IC for both RMST and the
+    # terminal risk difference — see the v1.11.5 changelog audit note.
+    ic_rmst_t = _eif_rmst(S_t_seq, h_t_seq, H_t_seq, T_t_seq)
+    ic_rmst_c = _eif_rmst(S_c_seq, h_c_seq, H_c_seq, T_c_seq)
+    diff_ic_rmst = ic_rmst_t - ic_rmst_c
+    rmst_se = float(np.std(diff_ic_rmst, ddof=1) / np.sqrt(n))
     z = rmst_diff / rmst_se if rmst_se > 0 else 0.0
     pval = float(2 * stats.norm.sf(abs(z)))
     crit = float(stats.norm.ppf(1 - alpha / 2))
     rmst_ci = (rmst_diff - crit * rmst_se, rmst_diff + crit * rmst_se)
 
+    # Terminal risk difference: its EIF is the EIF of S^a(K) only,
+    # NOT the cumulative-across-K RMST EIF. v1.11.4 and earlier reused
+    # the RMST IC here — overstating the SE since the RMST IC contains
+    # contributions from all earlier intervals.
     rd_final = S_c[-1] - S_t[-1]
-    rd_final_se = float(np.std(ic_c - ic_t, ddof=1) / np.sqrt(n))
+    ic_SK_t = _eif_survival_at_k(K - 1, S_t_seq, h_t_seq, H_t_seq, T_t_seq)
+    ic_SK_c = _eif_survival_at_k(K - 1, S_c_seq, h_c_seq, H_c_seq, T_c_seq)
+    rd_final_se = float(np.std(ic_SK_c - ic_SK_t, ddof=1) / np.sqrt(n))
 
     return LTMLESurvivalResult(
         times=np.arange(1, K + 1),

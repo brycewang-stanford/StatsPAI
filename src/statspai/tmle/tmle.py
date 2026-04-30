@@ -258,9 +258,41 @@ class TMLE:
             random_state=self.random_state,
         )
         sl_g.fit(W, A)
-        g_hat = sl_g.predict(W)
-        g_hat = np.clip(g_hat, self.propensity_bounds[0],
+        g_hat_raw = sl_g.predict(W)
+        g_hat = np.clip(g_hat_raw, self.propensity_bounds[0],
                         self.propensity_bounds[1])
+
+        # Overlap diagnostics + loud warning when many propensities hit
+        # the truncation bounds — the AIPW score blows up at e≈0 / e≈1,
+        # so heavy clipping silently changes the estimand from the ATE
+        # in the full population to an ATE on the trimmed sample.
+        n_clip_lo = int(np.sum(g_hat_raw < self.propensity_bounds[0]))
+        n_clip_hi = int(np.sum(g_hat_raw > self.propensity_bounds[1]))
+        clip_share = (n_clip_lo + n_clip_hi) / max(n, 1)
+        self._propensity_diagnostics = {
+            "pscore_min": float(np.min(g_hat_raw)),
+            "pscore_max": float(np.max(g_hat_raw)),
+            "pscore_p01": float(np.quantile(g_hat_raw, 0.01)),
+            "pscore_p99": float(np.quantile(g_hat_raw, 0.99)),
+            "n_clipped_below": n_clip_lo,
+            "n_clipped_above": n_clip_hi,
+            "clip_share": float(clip_share),
+            "propensity_bounds": tuple(self.propensity_bounds),
+        }
+        if clip_share > 0.05:
+            import warnings
+            warnings.warn(
+                f"sp.tmle: {n_clip_lo + n_clip_hi}/{n} "
+                f"({100 * clip_share:.1f}%) propensity scores hit the "
+                f"{self.propensity_bounds} clip — overlap is poor and "
+                f"the ATE / SE may be biased toward the trimmed "
+                f"sample. Inspect "
+                f"result.model_info['propensity_diagnostics'] and "
+                f"consider sp.overlap_plot() / a more flexible "
+                f"propensity model.",
+                UserWarning,
+                stacklevel=2,
+            )
 
         # ---------------------------------------------------------------
         # Step 2: Targeting step (fluctuation parameter epsilon)
@@ -346,6 +378,7 @@ class TMLE:
             'propensity_mean': float(np.mean(g_hat)),
             'propensity_std': float(np.std(g_hat)),
             'propensity_bounds': self.propensity_bounds,
+            'propensity_diagnostics': self._propensity_diagnostics,
             'outcome_type': 'binary' if is_binary_outcome else 'continuous',
             'n_folds': self.n_folds,
             'Q_star_1_mean': float(np.mean(Q_star_1_orig)),
@@ -382,8 +415,9 @@ class TMLE:
         MLE for epsilon using iteratively reweighted least squares.
         """
         epsilon = 0.0
+        converged = False
 
-        for _ in range(max_iter):
+        for it in range(max_iter):
             p = expit(logit_Q + epsilon * H)
             # Score: sum(H * (Y - p))
             score = np.sum(H * (Y - p))
@@ -391,13 +425,36 @@ class TMLE:
             hessian = -np.sum(H ** 2 * p * (1 - p))
 
             if abs(hessian) < 1e-15:
+                # Singular Hessian — exit but flag.
                 break
 
             delta = -score / hessian
             epsilon += delta
 
             if abs(delta) < tol:
+                converged = True
                 break
+
+        if not converged:
+            # Targeting failed to converge in `max_iter` Newton steps.
+            # Returning the current epsilon means the plug-in is not
+            # fully target-de-biased; warn the caller rather than fail
+            # silently. Asymptotic theory still applies once nuisance
+            # rates are good enough, but finite-sample inference may be
+            # less reliable. Surface the latest score to help debugging.
+            import warnings
+            final_score = float(np.sum(H * (Y - expit(logit_Q + epsilon * H))))
+            warnings.warn(
+                f"TMLE: Newton iteration on the fluctuation parameter "
+                f"epsilon did not converge in {max_iter} steps "
+                f"(final |score|={abs(final_score):.2e}, "
+                f"epsilon={epsilon:.3e}). The plug-in estimate may not "
+                f"satisfy the targeting equation; coverage may be "
+                f"affected. Check propensity overlap or tighten "
+                f"`propensity_bounds=`.",
+                UserWarning,
+                stacklevel=3,
+            )
 
         return epsilon
 
@@ -407,19 +464,32 @@ class TMLE:
 # ======================================================================
 
 CausalResult._CITATIONS['tmle'] = (
+    # Kept verbatim in sync with paper.bib (single source of truth per
+    # CLAUDE.md §10). Touching this block requires touching paper.bib
+    # too. We register all three: the methodology references in the
+    # docstring (vanderlaan2011targeted, vanderlaan2006targeted) and
+    # the Super Learner reference used internally (vanderlaan2007super).
     "@book{vanderlaan2011targeted,\n"
     "  title={Targeted Learning: Causal Inference for Observational "
     "and Experimental Data},\n"
-    "  author={van der Laan, Mark J and Rose, Sherri},\n"
+    "  author={van der Laan, Mark J. and Rose, Sherri},\n"
     "  year={2011},\n"
-    "  publisher={Springer}\n"
+    "  publisher={Springer},\n"
+    "  series={Springer Series in Statistics}\n"
+    "}\n\n"
+    "@article{vanderlaan2006targeted,\n"
+    "  title={Targeted Maximum Likelihood Learning},\n"
+    "  author={van der Laan, Mark J. and Rubin, Daniel},\n"
+    "  journal={The International Journal of Biostatistics},\n"
+    "  year={2006},\n"
+    "  doi={10.2202/1557-4679.1043}\n"
     "}\n\n"
     "@article{vanderlaan2007super,\n"
-    "  title={Super learner},\n"
-    "  author={van der Laan, Mark J and Polley, Eric C and Hubbard, Alan E},\n"
+    "  title={Super Learner},\n"
+    "  author={van der Laan, Mark J. and Polley, Eric C. and "
+    "Hubbard, Alan E.},\n"
     "  journal={Statistical Applications in Genetics and Molecular Biology},\n"
-    "  volume={6},\n"
-    "  number={1},\n"
-    "  year={2007}\n"
+    "  year={2007},\n"
+    "  doi={10.2202/1544-6115.1309}\n"
     "}"
 )

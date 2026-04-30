@@ -14,6 +14,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ._learners import resolve_learner
 
 
 class _DoubleMLBase:
@@ -23,14 +24,25 @@ class _DoubleMLBase:
     _MODEL_TAG: str = ''            # short label, used in method= string
     _ESTIMAND: str = 'ATE'          # 'ATE' or 'LATE'
     _REQUIRES_INSTRUMENT: bool = False
-    _BINARY_TREATMENT: bool = False  # True → default_ml_m is classifier
-    _BINARY_INSTRUMENT: bool = False  # True → default_ml_r is classifier
+    # Whether ``ml_m`` / ``ml_r`` model a binary target, i.e. should
+    # default to a classifier and accept binary learner aliases. Naming
+    # caveat: in PLR / IRM the ml_m target is D (treatment); in IIVM it
+    # is Z (instrument propensity). Hence the target-shape name, not
+    # ``_BINARY_TREATMENT`` — these are nuisance-target descriptors,
+    # not estimand descriptors.
+    _ML_M_TARGET_BINARY: bool = False
+    _ML_R_TARGET_BINARY: bool = False
     # Some IV models (IIVM) genuinely only work with a single scalar
     # instrument; PLIV with multiple Z is fine in principle but the
     # current reduced-form r(X) is scalar so we still project to a
     # scalar index before passing. Models that can handle vector Z
     # override this to False.
     _REQUIRES_SCALAR_INSTRUMENT: bool = True
+    # Subclasses opt into ``sample_weight`` support by setting this to
+    # True. Models without weighted-variance derivations (PLIV, IIVM)
+    # raise ``NotImplementedError`` if a non-trivial weight vector is
+    # supplied — better than silently ignoring it.
+    _SUPPORTS_SAMPLE_WEIGHT: bool = False
 
     def __init__(
         self,
@@ -45,6 +57,8 @@ class _DoubleMLBase:
         n_folds: int = 5,
         n_rep: int = 1,
         alpha: float = 0.05,
+        random_state: int = 42,
+        sample_weight: Optional[Any] = None,
     ):
         self.data = data
         self.y = y
@@ -59,12 +73,59 @@ class _DoubleMLBase:
         self.n_folds = n_folds
         self.n_rep = n_rep
         self.alpha = alpha
+        self.random_state = int(random_state)
+        # Resolve sample_weight: accept Series, ndarray, or column name.
+        if sample_weight is None:
+            self._sample_weight_input: Any = None
+        elif isinstance(sample_weight, str):
+            if sample_weight not in data.columns:
+                raise ValueError(
+                    f"sample_weight column '{sample_weight}' not in data"
+                )
+            self._sample_weight_input = sample_weight
+        else:
+            arr = np.asarray(sample_weight, dtype=float)
+            if arr.ndim != 1 or len(arr) != len(data):
+                raise ValueError(
+                    f"sample_weight must be 1-D of length {len(data)} "
+                    f"(matching data); got shape {arr.shape}"
+                )
+            self._sample_weight_input = arr
+        if (
+            self._sample_weight_input is not None
+            and not self._SUPPORTS_SAMPLE_WEIGHT
+        ):
+            raise NotImplementedError(
+                f"sample_weight is not yet supported for "
+                f"model='{self._MODEL_TAG.lower()}'. Currently weighted "
+                f"DML is implemented for model in {{'plr', 'irm'}} only — "
+                f"the weighted Wald-ratio variance for IIVM and the "
+                f"weighted IV-PLR variance for PLIV require additional "
+                f"derivation work and will land in a follow-up."
+            )
 
         self._validate()
 
-        self.ml_g = ml_g if ml_g is not None else self._default_ml_g()
-        self.ml_m = ml_m if ml_m is not None else self._default_ml_m()
-        self.ml_r = ml_r if ml_r is not None else self._default_ml_r()
+        self.ml_g = (
+            self._default_ml_g() if ml_g is None
+            else resolve_learner(ml_g, kind="regressor", role="ml_g")
+        )
+        self.ml_m = (
+            self._default_ml_m() if ml_m is None
+            else resolve_learner(
+                ml_m,
+                kind="classifier" if self._ML_M_TARGET_BINARY else "regressor",
+                role="ml_m",
+            )
+        )
+        self.ml_r = (
+            self._default_ml_r() if ml_r is None
+            else resolve_learner(
+                ml_r,
+                kind="classifier" if self._ML_R_TARGET_BINARY else "regressor",
+                role="ml_r",
+            )
+        )
 
     def _validate(self):
         required = [self.y, self.treat] + self.covariates
@@ -109,7 +170,7 @@ class _DoubleMLBase:
         )
 
     def _default_ml_m(self):
-        if self._BINARY_TREATMENT:
+        if self._ML_M_TARGET_BINARY:
             from sklearn.ensemble import GradientBoostingClassifier
             return GradientBoostingClassifier(
                 n_estimators=100, max_depth=3, learning_rate=0.1,
@@ -118,7 +179,7 @@ class _DoubleMLBase:
         return self._default_ml_g()
 
     def _default_ml_r(self):
-        if self._BINARY_INSTRUMENT:
+        if self._ML_R_TARGET_BINARY:
             from sklearn.ensemble import GradientBoostingClassifier
             return GradientBoostingClassifier(
                 n_estimators=100, max_depth=3, learning_rate=0.1,
@@ -127,15 +188,99 @@ class _DoubleMLBase:
         return self._default_ml_g()
 
     # Subclasses implement this: return (theta, se) for ONE rep.
-    def _fit_one_rep(self, Y, D, X, Z, n, rng_seed):
+    # Subclasses may additionally populate ``self._last_rep_diagnostics``
+    # (a dict) inside ``_fit_one_rep``; the base class merges those into
+    # the final ``model_info['diagnostics']`` block. Default = no diags.
+    # ``sample_weight`` is the dropna-aligned weight vector (same length
+    # as Y/D/X). Subclasses that opt in to weighting set
+    # ``_SUPPORTS_SAMPLE_WEIGHT = True`` and use ``sample_weight`` in
+    # both the nuisance fits and the moment equation.
+    def _fit_one_rep(self, Y, D, X, Z, n, rng_seed, sample_weight=None):
         raise NotImplementedError
+
+    # ----- Sample-weight helpers (used by subclasses) -----------------
+    @staticmethod
+    def _fit_weighted(learner, X, y, weights):
+        """Fit ``learner`` on (X, y); pass ``weights`` if supported.
+
+        sklearn estimators almost universally accept ``sample_weight``
+        in ``.fit``, but a few (e.g. some custom wrappers) do not. We
+        try the weighted call first and fall back to unweighted with a
+        one-time warning if the learner doesn't accept the kwarg.
+        """
+        from sklearn.base import clone
+        clf = clone(learner)
+        if weights is None:
+            clf.fit(X, y)
+            return clf
+        try:
+            clf.fit(X, y, sample_weight=weights)
+        except TypeError:
+            # Learner doesn't support sample_weight — fall back to
+            # unweighted fit. The downstream weighted moment / variance
+            # is still applied; this only loses efficiency in nuisance.
+            import warnings
+            warnings.warn(
+                f"{type(learner).__name__}.fit does not accept "
+                f"sample_weight; falling back to unweighted nuisance "
+                f"fit. The weighted moment equation is still applied.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+            clf.fit(X, y)
+        return clf
+
+    @staticmethod
+    def _aggregate_diagnostics(per_rep: List[dict]) -> dict:
+        """Merge per-rep diagnostics into a single dict.
+
+        Numeric scalars are averaged; integer counts are summed; lists
+        of fold-level scalars are concatenated. Keys not present in
+        every rep are passed through untouched (last value wins).
+        """
+        if not per_rep:
+            return {}
+        merged: dict = {}
+        keys = set().union(*(d.keys() for d in per_rep))
+        for k in keys:
+            vals = [d[k] for d in per_rep if k in d]
+            if not vals:
+                continue
+            sample = vals[0]
+            if isinstance(sample, bool):
+                merged[k] = any(vals)
+            elif isinstance(sample, int):
+                merged[k] = int(sum(vals))
+            elif isinstance(sample, float):
+                # NaN-safe mean across reps
+                arr = np.asarray(vals, dtype=float)
+                if np.all(np.isnan(arr)):
+                    merged[k] = float("nan")
+                else:
+                    merged[k] = float(np.nanmean(arr))
+            elif isinstance(sample, (list, tuple)):
+                acc: list = []
+                for v in vals:
+                    acc.extend(list(v))
+                merged[k] = acc
+            else:
+                merged[k] = sample
+        return merged
 
     def fit(self) -> CausalResult:
         """Cross-fit, aggregate across repeats, return a CausalResult."""
         cols = [self.y, self.treat] + self.covariates
         if self.instrument is not None:
             cols = cols + self.instrument
-        clean = self.data[cols].dropna()
+        # Build a working frame that also carries sample weights so the
+        # dropna mask is consistent across (Y, D, X, Z, w).
+        work = self.data[cols].copy()
+        sw = self._sample_weight_input
+        if isinstance(sw, str):
+            work["__sw__"] = self.data[sw].astype(float).values
+        elif sw is not None:
+            work["__sw__"] = np.asarray(sw, dtype=float)
+        clean = work.dropna()
         Y = clean[self.y].values.astype(float)
         D = clean[self.treat].values.astype(float)
         X = clean[self.covariates].values.astype(float)
@@ -143,14 +288,33 @@ class _DoubleMLBase:
             clean[self.instrument[0]].values.astype(float)
             if self.instrument is not None else None
         )
+        if "__sw__" in clean.columns:
+            sample_weight = clean["__sw__"].values.astype(float)
+            if np.any(sample_weight < 0):
+                raise ValueError(
+                    "sample_weight must be non-negative; got negative entries."
+                )
+            if not np.isfinite(sample_weight).all():
+                raise ValueError("sample_weight contains non-finite values.")
+            if sample_weight.sum() <= 0:
+                raise ValueError("sample_weight has zero total mass.")
+        else:
+            sample_weight = None
         n = len(Y)
 
         thetas: List[float] = []
         ses: List[float] = []
+        per_rep_diags: List[dict] = []
         for rep in range(self.n_rep):
-            theta_r, se_r = self._fit_one_rep(Y, D, X, Z, n, rng_seed=42 + rep)
+            self._last_rep_diagnostics = {}
+            theta_r, se_r = self._fit_one_rep(
+                Y, D, X, Z, n, rng_seed=self.random_state + rep,
+                sample_weight=sample_weight,
+            )
             thetas.append(theta_r)
             ses.append(se_r)
+            if self._last_rep_diagnostics:
+                per_rep_diags.append(self._last_rep_diagnostics)
 
         if len(thetas) == 1:
             theta, se = thetas[0], ses[0]
@@ -187,6 +351,8 @@ class _DoubleMLBase:
         if self.n_rep > 1:
             model_info['theta_all_reps'] = thetas
             model_info['se_all_reps'] = ses
+        if per_rep_diags:
+            model_info['diagnostics'] = self._aggregate_diagnostics(per_rep_diags)
 
         return CausalResult(
             method=f'Double ML ({self._MODEL_TAG})',

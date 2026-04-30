@@ -5,6 +5,85 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## v1.11 → v1.12 — DML module hardening
+
+`sp.dml`, `sp.dml_panel`, `sp.dml_model_averaging` keep all of their
+existing call signatures (every old script imports the same way and
+runs without code changes), but several internal numerical behaviours
+shift on the boundaries of the input space. The full release-note
+discussion lives in [`CHANGELOG.md`](CHANGELOG.md) under
+`[1.12.0]`; the breaking points are summarised here.
+
+### What can change in your numbers
+
+| Estimator | What changed | When you'll notice |
+| --- | --- | --- |
+| `sp.dml(model='irm')` | `KFold` → `StratifiedKFold` (stratified by D). Empty subgroup folds were silently filled with zeros for `g(1, X)` / `g(0, X)`; they now raise `IdentificationFailure`. | Small N, imbalanced D, or small `n_folds` may give point estimates a hair different from before — folds are no longer drawn from the un-stratified KFold sequence. |
+| `sp.dml(model='iivm')` | Same — `StratifiedKFold` on Z, plus empty-subgroup `IdentificationFailure`. | Small N or imbalanced Z. |
+| `sp.dml(model='pliv')` | Weak-IV floor on the ML-residualised partial correlation: `1e-6 → 1e-3`. | When your instrument's first-stage corr after ML residualisation is in `[1e-6, 1e-3]`, the call now raises `RuntimeError` with a clear hint to consult `sp.weakrobust` / `sp.anderson_rubin_test`. |
+| `sp.dml_model_averaging` | Default `weight_rule="inverse_risk"` → `"short_stacking"`. | Different default point estimate. To preserve the v1.11 number, pass `weight_rule="inverse_risk"` explicitly. |
+| `sp.dml_model_averaging` | NaN rows in `y` / `treat` / `covariates` are now dropped instead of being passed to sklearn. | If your data had NaNs you may have been getting `RuntimeError("No candidate produced a finite estimate")` or, worse, NaN θ̂; now you'll silently lose those rows but the estimate will be finite. The dropped count is reported in `model_info["n_dropped_missing"]`. |
+| `sp.dml_panel(binary_treatment=True)` | Now a deprecated no-op — the previous classifier path was incorrect. The estimator runs as `binary_treatment=False` (regressor on D̃) regardless. | Different θ̂ when you used `binary_treatment=True`; a `DeprecationWarning` fires so you see it. |
+
+### Recovering the v1.11 default for `dml_model_averaging`
+
+```python
+# v1.11 default behaviour (inverse-MSE-weighted average of per-candidate θ̂)
+result = sp.dml_model_averaging(
+    df, y="y", treat="d", covariates=cov_list,
+    weight_rule="inverse_risk",   # v1.12 default is "short_stacking"
+)
+
+# v1.12 default — Ahrens et al. (2025, JAE) eq. 7 short-stacking
+result = sp.dml_model_averaging(
+    df, y="y", treat="d", covariates=cov_list,
+    # weight_rule="short_stacking" (now the default)
+)
+result.model_info["weights_g"]   # CLS stacking weights for E[Y|X]
+result.model_info["weights_m"]   # CLS stacking weights for E[D|X]
+```
+
+### Recovering the v1.11 `dml_panel(binary_treatment=True)` semantics
+
+There is no recovery — the v1.11 path was incorrect (classifier on
+within-demeaned features but raw {0,1} labels). For DR-style ATE on
+binary D in panels, prefer one of:
+
+```python
+# (a) sp.dml IRM with unit dummies as covariates
+import pandas as pd
+unit_dummies = pd.get_dummies(df["unit"], drop_first=True)
+df_aug = pd.concat([df, unit_dummies], axis=1)
+sp.dml(df_aug, y="y", treat="d",
+       covariates=[*cov_list, *unit_dummies.columns.tolist()],
+       model="irm")
+
+# (b) sp.etwfe (extended TWFE for staggered binary treatment in panels)
+sp.etwfe(df, yname="y", tname="t", gname="treatment_cohort",
+         idname="unit", covariates=cov_list)
+
+# (c) sp.callaway_santanna (staggered DR-DiD)
+sp.callaway_santanna(df, yname="y", tname="t",
+                     gname="treatment_cohort", idname="unit")
+```
+
+### New capabilities (no migration needed — purely additive)
+
+- `sample_weight=` is now accepted on `sp.dml(model='plr' | 'irm')`,
+  `sp.dml_panel`, and `sp.dml_model_averaging`. Pass a 1-D array, a
+  pandas Series, or a column name. The weighted estimator uses a
+  Z-estimator sandwich variance throughout. `sp.dml(model='pliv' | 'iivm')`
+  raise `NotImplementedError` if a non-trivial weight is supplied.
+- `random_state=` (default 42) on every `sp.dml(model=...)` call
+  controls fold assignment deterministically.
+- `model_info["diagnostics"]` is populated on every variant — propensity
+  distribution, n clipped, subgroup-fallback counts, partial correlation,
+  approximate first-stage F, etc.
+- String learner aliases (already shipped in 1.11.4) still work:
+  `sp.dml(..., ml_g='rf', ml_m='lasso')`.
+
+---
+
 ## v1.11 → v1.12 — `esttab` becomes a thin facade over `regtable`
 
 The Stata-style `esttab()` previously shipped a ~500-line

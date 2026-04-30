@@ -308,7 +308,11 @@ class TestAdversarial:
         from sklearn.linear_model import LinearRegression
         # A near-perfect linear fit of Z on X makes z_resid ≈ 0 →
         # |E[z̃·d̃]| / scale ≈ 0 → guard trips.
-        with pytest.raises(RuntimeError, match='Degenerate PLIV'):
+        # In v1.12 the PLIV first-stage guard message changed to
+        # "Weak / degenerate PLIV first stage" and the threshold tightened
+        # from 1e-6 to 1e-3 on the partial correlation. The match here is
+        # case-insensitive and tolerates either the old or new wording.
+        with pytest.raises(RuntimeError, match=r'(?i)(weak|degenerate).*PLIV'):
             sp.dml(df, y='y', treat='d',
                    covariates=['x0', 'x1', 'x2'],
                    model='pliv', instrument='z',

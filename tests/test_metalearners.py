@@ -533,14 +533,22 @@ class TestDRLearnerAnalyticSE:
             constant_effect_data, y='y', treat='d',
             covariates=['x1', 'x2'], learner='dr',
         )
-        assert result.model_info['se_method'] == 'influence_function'
+        # As of v1.11.4 the SE label is namespaced to clarify that it
+        # is specifically the AIPW (DR pseudo-outcome) influence
+        # function, not a generic / chosen-learner-specific IF.
+        assert result.model_info['se_method'] == 'aipw_influence_function'
 
-    def test_non_dr_uses_bootstrap(self, constant_effect_data):
+    def test_non_dr_uses_aipw_influence_function(self, constant_effect_data):
+        # v1.11.4: ATE / SE for *every* learner now go through the
+        # AIPW (DR pseudo-outcome) path. The previous bootstrap-of-CATE
+        # SE was statistically invalid for S/T/X/R-Learner (treated τ̂
+        # as fixed and severely under-estimated uncertainty).
         result = metalearner(
             constant_effect_data, y='y', treat='d',
             covariates=['x1', 'x2'], learner='t',
         )
-        assert result.model_info['se_method'] == 'bootstrap'
+        assert result.model_info['se_method'] == 'aipw_influence_function'
+        assert result.model_info['ate_method'] == 'aipw_dr_pseudo_outcome'
 
     def test_analytic_se_reasonable(self, strong_effect_data):
         """Analytic SE should produce valid CI covering true value."""
@@ -611,9 +619,10 @@ class TestCompareMetalearners:
         assert 'ate' in comp.columns
         assert 'se' in comp.columns
         assert 'se_method' in comp.columns
-        # DR should use influence_function
+        # v1.11.4+: every learner uses the AIPW (DR pseudo-outcome)
+        # influence function for SE — same column value across rows.
         dr_row = comp[comp['learner'] == 'DR-Learner']
-        assert dr_row['se_method'].values[0] == 'influence_function'
+        assert dr_row['se_method'].values[0] == 'aipw_influence_function'
 
     def test_compare_subset(self, constant_effect_data):
         from statspai.metalearners import compare_metalearners

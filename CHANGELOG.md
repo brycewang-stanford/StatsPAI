@@ -2,6 +2,274 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.12.0] — 2026-04-30
+
+### Headline
+
+The whole `dml/` module got a careful audit. `sp.dml` / `sp.dml_panel`
+/ `sp.dml_model_averaging` all stay backwards-compatible at the
+call-site level (existing scripts keep working) but several internal
+numerical behaviours change — see the **⚠️ Correctness** section and
+[`MIGRATION.md`](MIGRATION.md).
+
+### ⚠️ Correctness
+
+- `sp.dml(model='irm')` and `sp.dml(model='iivm')` now use
+  `StratifiedKFold` (stratified by D and Z respectively) — the old
+  `KFold` could produce a fold whose subgroup mask was empty, in which
+  case the AIPW score for that fold's test rows was silently filled
+  with zeros (biased point estimate, biased SE). Empty subgroups now
+  raise `IdentificationFailure` with a clear remedy. Estimates may
+  shift slightly on data sets where the old `KFold` happened to
+  produce extreme folds.
+- `sp.dml_panel(binary_treatment=True)` is now a deprecated no-op. The
+  previous classifier path fit a propensity on within-demeaned features
+  but raw {0,1} labels — there is no clean interpretation as
+  E[D̃ | X̃] for the result. The estimator now always uses a regressor
+  on D̃ (PLR-with-FE is agnostic to D's type). A `DeprecationWarning`
+  is emitted, and `D ∈ {0,1}` is validated when the flag is True.
+- `sp.dml_model_averaging` now drops rows with NaN in y / treat /
+  covariates / sample_weight (matching every other DML class);
+  previously NaNs propagated into sklearn fits and could produce NaN
+  estimates undetected by the existing `denom < 1e-12` guard.
+- `sp.dml_model_averaging`: the default `weight_rule` is now
+  `"short_stacking"` — Ahrens, Hansen, Schaffer & Wiemann (2025, JAE)
+  eq. 7 — which solves a constrained least squares stacking problem on
+  cross-fitted nuisance predictions and plugs the stacked nuisance
+  into a single PLR moment equation. The previous `"inverse_risk"`
+  default (heuristic 1/MSE-weighted average of per-candidate θ̂_k) was
+  not in the cited paper and is preserved as a clearly labelled
+  baseline. New `"single_best"` matches the paper's footnote 8
+  formulation. Per-nuisance stacking weights are exposed as
+  `model_info["weights_g"]` / `weights_m`.
+- `sp.dml(model='pliv')` raises `RuntimeError` when the
+  ML-residualised partial correlation `|corr(z̃, d̃)|` falls below
+  `1e-3` (was `1e-6`, too lenient to catch genuine weak-IV collapse).
+  A new `model_info["diagnostics"]` block reports the partial
+  correlation and an approximate first-stage F.
+
+### Added
+
+- All four `sp.dml(model=…)` variants now accept a `random_state=`
+  argument (default 42) controlling fold assignment. Repeated splits
+  use `random_state + rep` so a single seed fully determines the
+  result.
+- `sample_weight=` support on `sp.dml(model='plr')`, `sp.dml(model='irm')`,
+  `sp.dml_panel`, and `sp.dml_model_averaging` (any weight rule). The
+  weighted estimator uses a Z-estimator sandwich variance throughout.
+  `sp.dml(model='pliv')` and `sp.dml(model='iivm')` raise
+  `NotImplementedError` if a non-trivial weight is supplied — the
+  weighted Wald-ratio variance derivation is non-trivial and lands
+  in a follow-up. `sample_weight` may be passed as a 1-D array, a
+  pandas Series, or a column name string.
+- New `model_info["diagnostics"]` block on every variant:
+  - PLR: residual scales, partial correlation y_resid·d_resid,
+    within-R² of each nuisance.
+  - IRM: propensity p01/p99/min/max, n clipped below/above the
+    `[0.01, 0.99]` overlap clip, n times the subgroup g̃₁/g̃₀ fit
+    fell back to the subgroup mean.
+  - IIVM: instrument-propensity p01/p99/min/max, clipping counts,
+    subgroup fallbacks for both g(z, X) and r(z, X), and
+    E[ψ_b] (the LATE Wald-ratio denominator — proximity to zero
+    indicates a weak first stage).
+  - PLIV: first-stage partial correlation, approximate first-stage
+    F, residual scales.
+  - panel_dml: y/d residual std, within-R², cluster Ω, weighted flag.
+- `sp.dml_panel(sample_weight=…)` does a *weighted* within transform
+  (subtract weighted unit / time means) and reports a weighted
+  Liang-Zeger cluster SE.
+
+### Changed
+
+- Internal flag rename `_BINARY_TREATMENT` → `_ML_M_TARGET_BINARY` and
+  `_BINARY_INSTRUMENT` → `_ML_R_TARGET_BINARY` on the per-model DML
+  classes. The new names describe the nuisance-target shape
+  (the IIVM `ml_m` actually models the instrument propensity, not D).
+  These flags are private (underscore-prefixed); no public API change.
+- `paper.bib`: filled in the missing `volume` / `number` / `pages`
+  fields on `@ahrens2025model` (40(3):249–269), verified via the Wiley
+  Online Library record and the JAE issue listing.
+
+### Internal
+
+- Per-rep diagnostics now flow back to `model_info["diagnostics"]`
+  via a new `_aggregate_diagnostics` helper on `_DoubleMLBase`. Each
+  subclass populates `self._last_rep_diagnostics` inside
+  `_fit_one_rep`; the base merges across reps (sum for counts, mean
+  for floats, OR for booleans, concat for lists).
+
+### ⚠️ Correctness — TMLE module audit pass
+
+- `sp.tmle.SuperLearner` previously ran NNLS and post-hoc-normalised
+  weights to sum to 1, which is **not** the simplex-constrained
+  optimum (rescaling an unconstrained NNLS solution gives the simplex
+  optimum only when the unconstrained sum already equals 1, a
+  measure-zero event). Replaced with a direct SLSQP QP on the
+  simplex; ensemble predictions are now genuinely the convex
+  combination minimising squared loss. Affects every downstream
+  caller — `sp.tmle`, `sp.hal_tmle`, and any user code that builds a
+  Super Learner directly. Numerical results will shift slightly on
+  data sets where the old NNLS solution did not happen to be on the
+  simplex.
+- `sp.tmle.ltmle` censoring half-implementation: the regime-following
+  indicator now includes ``& (C_k_obs == 1)`` so censored units are
+  excluded from the targeting equation rather than continuing to
+  contribute with `1/p_c`-inflated weights. (`sp.tmle.ltmle_survival`
+  was already correct on this; `ltmle.py` was the regression.)
+- `sp.tmle.ltmle_survival` influence function: previously used
+  ``-H * (T_k - h_star_regime)`` summed across intervals as the
+  influence function for **both** the RMST contrast *and* the
+  terminal risk difference at K. The proper EIF for :math:`E[S^a(t)]`
+  (Cai & van der Laan 2020) needs the survival-product factor
+  :math:`S^a(t)/S^a(j)` and the IC for the terminal RD at K is the
+  EIF of :math:`S^a(K)` alone (NOT the cumulative-across-K RMST IC).
+  Refactored ``_run_regime`` to expose the per-subject sequences
+  ``S_seq``, ``h_star_seq``, ``H_seq``, ``T_seq``; the call site now
+  computes the RMST and terminal-RD EIFs separately via
+  ``_eif_rmst`` and ``_eif_survival_at_k``. SE estimates change —
+  generally smaller for RMST (was conservative), and the terminal-RD
+  SE is now correctly tied to its target functional rather than
+  picking up RMST's cross-time aggregation.
+- `sp.hal_tmle(variant='projection')` was a **no-op** in v1.11.x and
+  earlier. The projection variant ran an ad-hoc shrinkage on
+  ``model_info["eps"]`` after the point estimate had already been
+  computed; the variant flag did not change the estimate. The path
+  now raises :class:`NotImplementedError` honestly until the proper
+  Riesz-projection step (Li-Qiu-Wang-vdL 2025 §3.2) is ported.
+- `sp.hal_tmle` docstring previously claimed the basis was "rich
+  enough to approximate any càdlàg function of bounded variation",
+  the property of full HAL (Benkeser & van der Laan 2016). The
+  implementation only builds **main-effects** indicator basis
+  functions :math:`\\mathbb 1\\{x_j \\le a_j\\}` — i.e.
+  L1-penalised additive piecewise-constant regression, NOT full HAL.
+  Docstring is corrected; numerical behaviour unchanged.
+
+### Fixed — TMLE convergence + overlap diagnostics
+
+- `sp.tmle._fit_epsilon` now emits a `UserWarning` when the Newton
+  iteration on the fluctuation parameter fails to converge in
+  ``max_iter`` steps, instead of silently returning the last value
+  (which yields a non-targeted plug-in). The warning includes the
+  final score magnitude and ε for diagnosis.
+- `sp.tmle` now reports `model_info['propensity_diagnostics']` (min,
+  max, p01, p99, n clipped below/above, clip share) and emits a
+  `UserWarning` when ≥ 5 % of propensities hit the
+  `propensity_bounds` clip — same overlap convention as
+  `sp.metalearner`. AIPW scores blow up at e≈0/1, so heavy clipping
+  silently changes the estimand from ATE in the population to ATE
+  on the trimmed sample.
+- `sp.tmle.SuperLearner(task='classification')` validates that the
+  target is binary (was silently dropping non-{0,1} columns of
+  `predict_proba`); switches to `StratifiedKFold` so every fold has
+  both classes; `predict()` clips to (1e-6, 1-1e-6) for
+  classification (was inconsistent with `predict_proba` which
+  already clipped).
+
+### Fixed — TMLE / HAL-TMLE citations (§10 verification pass)
+
+- `paper.bib` now records three previously-uncatalogued HAL-TMLE
+  references with full Crossref/arXiv-verified metadata (added
+  2026-04-30):
+  - `@li2025regularized` — arXiv:2506.17214, verified via
+    arxiv.org. Earlier inline-cited title in `hal_tmle.py` was
+    `"Highly Adaptive Lasso Implementations"`; the paper's actual
+    title is `"Highly Adaptive Lasso Implied Working Models"` —
+    fixed in docstring + `model_info['citation']`.
+  - `@vanderlaan2023efficient` — IJB 19(1):261–289,
+    doi 10.1515/ijb-2019-0092, verified via degruyterbrill.com.
+  - `@benkeser2016highly` — IEEE DSAA 2016, pp. 689–696,
+    doi 10.1109/DSAA.2016.93, verified via Crossref API.
+- `tmle.py:_CITATIONS['tmle']` now includes the `vanderlaan2006targeted`
+  reference that the docstring already cites (was missing — docstring
+  promised it via ``[@vanderlaan2006targeted]`` but the inline BibTeX
+  registered only ``vanderlaan2007super``). Author punctuation /
+  capitalisation aligned to `paper.bib`.
+- `ltmle_survival.py` `cai2020step` reference reformatted to match
+  paper.bib (year 2020 vs the previous docstring's 2019; the IJB
+  volume's nominal year is 2020).
+- Dropped the dangling "Qian-van der Laan Section 4" reference from
+  `hal_tmle.py` projection-variant docstring (the paper was never in
+  References section and the cited Section 4 doesn't exist in any
+  HAL-TMLE paper).
+
+### ⚠️ Correctness — `sp.metalearner` unifies ATE / SE via AIPW influence function
+
+- ATE for **all** learners (`learner ∈ {'s','t','x','r','dr'}`) is now
+  the mean of the AIPW (DR) pseudo-outcome
+  :math:`\varphi_i = \hat\mu_1(X_i) - \hat\mu_0(X_i) +
+  D_i(Y_i-\hat\mu_1(X_i))/\hat e(X_i) -
+  (1-D_i)(Y_i-\hat\mu_0(X_i))/(1-\hat e(X_i))`,
+  and SE is :math:`\sigma(\varphi)/\sqrt n`. AIPW is the
+  semiparametric-efficient estimating function for :math:`E[Y(1)-Y(0)]`
+  (van der Laan & Robins 2003; Kennedy 2023), so the SE is valid for
+  *any* CATE estimator the user picks via `learner=`.
+- Previously S/T/X/R-Learner used `mean(τ̂(X))` for ATE and a
+  re-sampling bootstrap of the **fitted** CATE values for SE. That
+  bootstrap silently treated τ̂ as fixed and only captured empirical-
+  mean variation — completely missing the dominant component
+  (estimation error in τ̂ itself). Result: SEs were systematically too
+  small and CIs severely under-covered.
+- DR-Learner: ATE was previously `mean(τ̂(X))` from the regularised CATE
+  fit, while SE used `std(φ)/√n` from the raw pseudo-outcome — a
+  finite-sample inconsistency that disappears under the new
+  `mean(φ)` ATE.
+- New `model_info['se_method'] = 'aipw_influence_function'` (was
+  `'bootstrap'` for S/T/X/R, `'influence_function'` for DR).
+  `model_info['ate_method'] = 'aipw_dr_pseudo_outcome'`.
+  `n_bootstrap` parameter is **deprecated and ignored**; will be
+  removed in a future minor release.
+- New `model_info['aipw_diagnostics']` block reports clipped-propensity
+  counts and share. `UserWarning` fires when ≥ 5 % of propensities hit
+  the (0.01, 0.99) overlap clip — overlap is poor and the AIPW score
+  may be biased toward the trimmed sample.
+
+### Fixed — Künzel et al. 2019 author hallucination (§10 red line)
+
+- `metalearners.py` previously listed `Seetharam, Liang, Athey` as
+  co-authors of Künzel et al. 2019 PNAS — those are **invented
+  names**. Correct authors per the canonical record in `paper.bib`:
+  **Künzel, Sekhon, Bickel, Yu** (PNAS 116(10), 4156–4165,
+  doi 10.1073/pnas.1804597116). Both the docstring and the inline
+  BibTeX (used by `result.cite()`) now match `paper.bib` byte-for-byte.
+  Verification path: `paper.bib:99` ← Crossref / doi.org / Google
+  Scholar all confirm `Künzel, Sekhon, Bickel, Yu`.
+- `Kennedy, Edward H` (no period) was also out of sync with
+  `@kennedy2023towards` in `paper.bib` (`Edward H.`); fixed.
+
+### Refactor — PLR variance code: `psi` → `psi_inner` / `psi_score`
+
+- `dml/plr.py` previously named the inner residual
+  `(Y − ĝ − θ̂(D − m̂))` as `psi`, even though the Neyman-orthogonal
+  score is the *product* with `d_resid`. The misnomer made the
+  variance line `np.mean((d_resid * psi)**2)` look wrong on a
+  cursory read. Renamed to `psi_inner` (the residual) and
+  `psi_score` (the actual score `psi_inner * d_resid`); math is
+  unchanged. PLIV/IIVM already used the consistent `psi`-as-score
+  convention.
+
+## [1.11.4] — 2026-04-30
+
+### Fixed — `sp.dml` accepts string learner aliases
+
+- `sp.dml(..., ml_g='rf', ml_m='rf')` previously crashed with
+  ``TypeError: Cannot clone object 'rf' (type str): it does not seem to
+  be a scikit-learn estimator …`` once cross-fitting reached
+  ``sklearn.base.clone``. The error surfaced in **all four** DML
+  variants (PLR / IRM / PLIV / IIVM), not just PLR.
+- New `dml/_learners.py` resolves user-supplied strings into
+  appropriately configured scikit-learn estimators:
+  ``'rf'`` / ``'gbm'`` / ``'lasso'`` / ``'ridge'`` / ``'linear'`` /
+  ``'ols'`` / ``'logistic'`` / ``'xgb'`` / ``'lgbm'`` (case-insensitive,
+  with common synonyms). Classifier variants are selected automatically
+  for the propensity (``ml_m`` under ``model='irm'``) and instrument
+  (``ml_r`` under ``model='iivm'``) roles.
+- Estimator objects (anything exposing `.fit` + `.get_params`) pass
+  through unchanged. Unknown aliases / wrong types now raise an
+  immediate, descriptive `ValueError` / `TypeError` at construction
+  time rather than the cryptic clone error mid-cross-fit.
+- Optional dependencies (`xgboost`, `lightgbm`) are imported lazily —
+  not installed → clean `ImportError` with install hint.
+
 ## [1.11.3] — 2026-04-30
 
 ### Fixed — output layer graceful degradation restored
@@ -883,13 +1151,23 @@ identical to 1.8.0. The 12 new modules are introspection,
 serialization, prompt-rendering, and RNG-management primitives —
 they read from existing result state, never recompute it.
 
-## [1.8.0] — `sp.regtable` Round 4 (event_study_table, vcov= recompute, transpose)
+## [1.8.0] — 2026-04-28
+
+Internal-development version covering five `sp.regtable` rounds, the
+Native Rust IRLS for `sp.fast.fepois`, twelve provenance-rollout
+phases, the production-function module, the clubSandwich-equivalent
+HTZ Wald, the LLM-DAG closed loop, the synth refactor, the
+estimand-first paper appendix, the great_tables / CSL pipeline, and
+the export trinity (numerical lineage / replication pack / Quarto).
+Subsections below preserve the chronological development order.
+
+### `sp.regtable` Round 4 (event_study_table, vcov= recompute, transpose)
 
 Three further additions on top of Rounds 1-3. **No numerical
 changes** to any estimator; the ``vcov=`` recompute reuses the
 fit-time X + residuals already stored on OLS results.
 
-### Added
+#### Added
 
 - **``sp.event_study_table(result, *, regex=None, label_fmt="t={t}",
   include_reference=False)``** — adapter that turns an event-study
@@ -924,7 +1202,7 @@ fit-time X + residuals already stored on OLS results.
   ``multi_se=`` is rejected with ``NotImplementedError`` to keep the
   layout pivot semantics tight. Renders in text and HTML.
 
-### Tests
+#### Tests
 
 15 new tests in ``test_regtable_round4_extensions.py`` covering all
 three features, including HC0/HC1/HC2/HC3 ordering verification
@@ -934,7 +1212,7 @@ guards on multi-panel / multi_se.
 577 targeted tests pass (Rounds 1-4 = 528 + 20 + 14 + 15, plus broad
 anchors). Zero regression.
 
-## [1.8.0] — 2026-04-28 — Native Rust IRLS for `sp.fast.fepois` + production-function module
+### 2026-04-28 — Native Rust IRLS for `sp.fast.fepois` + production-function module
 
 The headline of v1.8.0 is the **3× wall-clock improvement** on the
 medium HDFE benchmark: `sp.fast.fepois` runs at **0.855 s** vs the
@@ -947,7 +1225,7 @@ Plus a new structural-estimation module: `sp.prod_fn` ships four
 production-function estimators (Olley-Pakes, Levinsohn-Petrin,
 Ackerberg-Caves-Frazer, Wooldridge) + De Loecker-Warzynski markup.
 
-### Performance — sp.fast.fepois on medium HDFE benchmark
+#### Performance — sp.fast.fepois on medium HDFE benchmark
 
 | stage                                          | wall    | vs fixest | shipped |
 | ---------------------------------------------- | ------: | --------: | :-----: |
@@ -989,7 +1267,7 @@ verified with a wall-clock spike before the next was committed
   on the medium benchmark; closes 1.37× → 1.34× of fixest. Reusable
   by future `feglm` GLM families.
 
-### Numerical correctness — preserved at v1.7.x parity
+#### Numerical correctness — preserved at v1.7.x parity
 
 - `sp.fast.fepois` vs `pyfixest.fepois` coef on the medium dataset:
   unchanged (atol < 1e-13 across IRLS-converged fits).
@@ -1000,7 +1278,7 @@ verified with a wall-clock spike before the next was committed
   wheel is absent) is bit-for-bit identical to the v1.7.x behavior
   — verified by `test_fepois_falls_back_when_rust_unavailable`.
 
-### Added
+#### Added
 
 - New `statspai_hdfe` v0.6.0 PyO3 entry points (Rust crate v0.5.0-alpha.1):
   - `demean_2d_weighted` — Phase A weighted variant of the K-way AP demean.
@@ -1028,13 +1306,13 @@ verified with a wall-clock spike before the next was committed
   counter-measure that prevented Phase A's "assumption broke" failure
   from repeating in B0 / B1.
 
-### Internal
+#### Internal
 
 - Rust crate `statspai_hdfe` bumped 0.2.0-alpha.1 → 0.5.0-alpha.1 across
   Phase A → Phase B → Path A (4 minor crate version bumps).
 - Python `__version__` in `statspai_hdfe` extension: `0.2.0` → `0.6.0`.
 
-### Tests — 192 fast-fepois tests pass (was 187 in v1.7.x) + 23 prod_fn tests
+#### Tests — 192 fast-fepois tests pass (was 187 in v1.7.x) + 23 prod_fn tests
 
 - Phase B1 native-vs-Python IRLS parity: coef atol ≤ 1e-10, SE atol ≤ 1e-7
   (`test_fepois_native_irls_vs_python_irls_parity`).
@@ -1049,14 +1327,14 @@ verified with a wall-clock spike before the next was committed
 
 ---
 
-## [1.8.0] — `sp.regtable` Round 3 (margins_table, tests= footer, fixef_sizes)
+### `sp.regtable` Round 3 (margins_table, tests= footer, fixef_sizes)
 
 Three further additions on top of Round 1 + Round 2. **No numerical
 changes** to any estimator (margins_table is a pure adapter; tests=
 formats user-supplied test results; fixef_sizes reads pre-existing
 ``model_info['n_fe_levels']``).
 
-### Added
+#### Added
 
 - **``sp.margins_table(model)``** — adapter that wraps a
   :func:`sp.margins` DataFrame as a duck-typed result with
@@ -1085,7 +1363,7 @@ formats user-supplied test results; fixef_sizes reads pre-existing
   the pyfixest adapter. Other estimators silently no-op. Mirrors
   R fixest's ``etable(..., fixef_sizes=TRUE)``.
 
-### Tests
+#### Tests
 
 14 new tests in ``test_regtable_round3_extensions.py`` covering
 all three features across text / LaTeX / HTML renderers.
@@ -1094,12 +1372,12 @@ all three features across text / LaTeX / HTML renderers.
 anchors); zero regression on the 33 output / regression test files
 exercised.
 
-## [1.8.0] — `sp.regtable` Round 2 (templates, notation, apply_coef, escape, Word/Excel spanners)
+### `sp.regtable` Round 2 (templates, notation, apply_coef, escape, Word/Excel spanners)
 
 Five further additions on top of the Round 1 commit. **No numerical
 changes** to any estimator; output-layer only.
 
-### Added — Five regtable parameters
+#### Added — Five regtable parameters
 
 - **``estimate=`` / ``statistic=``** — flexible cell templates that
   mirror R ``modelsummary``'s arguments. Placeholders: ``{estimate}``,
@@ -1137,21 +1415,21 @@ changes** to any estimator; output-layer only.
   ``ws.merge_cells`` and the spanner row sits above the model-label
   row inside the booktab top-rule region.
 
-### Tests
+#### Tests
 
 20 new tests in ``test_regtable_round2_extensions.py`` covering all
 five features across text / LaTeX / HTML / Word / Excel renderers.
 
 548 targeted tests pass (Round 1's 528 + 20 new), zero regression.
 
-## [1.8.0] — `sp.regtable` publication-quality extensions
+### `sp.regtable` publication-quality extensions
 
 Five additions designed to close the remaining gap between
 ``sp.regtable`` and Stata ``esttab`` / R ``modelsummary`` /
 R ``fixest::etable`` for empirical paper writing. **No numerical
 changes** to any estimator; output-layer only.
 
-### Added — Five regtable parameters
+#### Added — Five regtable parameters
 
 - **``eform``** — report ``exp(b)`` (odds ratios for ``logit`` /
   ``probit``, incidence-rate ratios for ``poisson``, hazard ratios
@@ -1192,20 +1470,20 @@ changes** to any estimator; output-layer only.
   restriction). Reviewer red flag silenced by default in v1.7.2,
   surfaced now.
 
-### Tests
+#### Tests
 
 23 new tests in ``test_regtable_publication_extensions.py`` covering
 all six format renderers (text / LaTeX / HTML / Markdown) plus the
 parameter validation paths. Existing 204 output-area tests
 unchanged.
 
-## [1.8.0] — Phase 12: provenance rollout to 66/925 (bounds + randomization + imputation)
+### Phase 12: provenance rollout to 66/925 (bounds + randomization + imputation)
 
 Continues the v1.7.2 provenance rollout. **No numerical changes** to
 any estimator. 5 estimators instrumented spanning bounds /
 randomization inference / imputation. Coverage 61/925 → **66/925**.
 
-### Added — Provenance for 5 estimators
+#### Added — Provenance for 5 estimators
 
 - ``sp.balke_pearl`` — Balke-Pearl bounds on ATE under monotonicity.
 - ``sp.lee_bounds`` — Lee (2009) trimming bounds for selection.
@@ -1213,17 +1491,17 @@ randomization inference / imputation. Coverage 61/925 → **66/925**.
 - ``sp.fisher_exact`` — Fisher randomization test (permutation).
 - ``sp.imputation.mice`` — Multiple Imputation by Chained Equations.
 
-### Tests
+#### Tests
 
 6 new (5 per-estimator + 1 multi-estimator integration). All pass.
 
-## [1.8.0] — Phase 11: provenance rollout to 61/925 (spatial + qte + bootstrap + conformal)
+### Phase 11: provenance rollout to 61/925 (spatial + qte + bootstrap + conformal)
 
 Continues the v1.7.2 provenance rollout. **No numerical changes** to
 any estimator. 7 estimators instrumented spanning spatial / quantile
 / distributional / bootstrap / conformal. Coverage 54/925 → **61/925**.
 
-### Added — Provenance for 7 estimators
+#### Added — Provenance for 7 estimators
 
 - ``sp.spatial.spatial_did`` — spatial-lag DiD with spillover decomposition.
 - ``sp.spatial.spatial_iv`` — spatial 2SLS.
@@ -1233,18 +1511,18 @@ any estimator. 7 estimators instrumented spanning spatial / quantile
 - ``sp.bootstrap`` — general-purpose bootstrap inference.
 - ``sp.conformal_cate`` — conformal prediction intervals for CATE.
 
-### Tests
+#### Tests
 
 8 new (7 per-estimator + 1 multi-estimator integration). All pass.
 
-## [1.8.0] — Phase 10: provenance rollout to 54/925 (panel + decomp + mediation)
+### Phase 10: provenance rollout to 54/925 (panel + decomp + mediation)
 
 Continues the v1.7.2 provenance rollout. **No numerical changes** to
 any estimator. 6 estimators instrumented; ``sp.panel`` refactored
 into outer wrapper + dispatcher (parallel to Phase 4 ``sp.synth`` and
 Phase 7 ``sp.etwfe``). Coverage 48/925 → **54/925**.
 
-### Added — Provenance for 6 estimators
+#### Added — Provenance for 6 estimators
 
 - ``sp.panel`` — multi-method panel dispatcher (FE / RE / BE / FD /
   pooled / twoway / CRE / GMM). Refactored: outer ``panel`` wrapper
@@ -1260,7 +1538,7 @@ Phase 7 ``sp.etwfe``). Coverage 48/925 → **54/925**.
   dispatcher; ``Provenance.function`` surfaces the dispatched method
   (e.g. ``"sp.decompose.oaxaca"``).
 
-### Skipped — `sp.did` top-level dispatcher
+#### Skipped — `sp.did` top-level dispatcher
 
 The ``sp.did`` dispatcher delegates to already-instrumented inner
 estimators (``sp.did.callaway_santanna`` / ``sp.did.did_2x2`` /
@@ -1269,19 +1547,19 @@ With the established ``overwrite=False`` semantics, the inner
 record's name (more specific) wins. Wrapping the dispatcher would
 add no information.
 
-### Tests
+#### Tests
 
 8 new (6 per-estimator + 1 panel method-choice variant + 1
 multi-estimator integration). 111 green across the panel /
 causal_impact / mediation / decomposition / bartik regression sweep.
 
-## [1.8.0] — Phase 9: provenance rollout to 48/925 (TMLE + forest + DR)
+### Phase 9: provenance rollout to 48/925 (TMLE + forest + DR)
 
 Continues the v1.7.2 provenance rollout. **No numerical changes** to
 any estimator. 12 ML-causal + classical-identification estimators
 instrumented. Coverage 36/925 → **48/925**.
 
-### Added — Provenance for 12 estimators
+#### Added — Provenance for 12 estimators
 
 ML-causal (8):
 
@@ -1307,14 +1585,14 @@ Pattern reuse: established Phase 3 idiom — assign to ``_result``,
 matching the ``etwfe`` → ``wooldridge_did`` and ``lasso_iv`` → ``iv``
 patterns from earlier rounds.
 
-### Tests
+#### Tests
 
 14 new (12 per-estimator + 1 metalearner choice variant + 1
 multi-estimator integration). 103 green across the
 hal_tmle / causal_forest / metalearner / bcf / front_door /
 g_computation regression sweep.
 
-## [1.8.0] — production function estimators (OP / LP / ACF / Wooldridge + translog + DLW markup)
+### production function estimators (OP / LP / ACF / Wooldridge + translog + DLW markup)
 
 Adds proxy-variable production function estimation — Olley-Pakes,
 Levinsohn-Petrin, Ackerberg-Caves-Frazer, Wooldridge — plus
@@ -1323,7 +1601,7 @@ markup. Closes the long-standing gap that forced StatsPAI users to
 drop into R `prodest` or Stata `prodest` for productivity / TFP /
 markup work.
 
-### Added
+#### Added
 
 - `sp.prod_fn(method=..., functional_form=...)` — unified dispatcher
   (`'op' | 'lp' | 'acf' | 'wrdg'`, `'cobb-douglas' | 'translog'`).
@@ -1359,7 +1637,7 @@ markup work.
 - 9 new registry entries (5 canonical + 3 aliases + markup) — total
   rises to 964 functions.
 
-### References (verified via Crossref API on 2026-04-27)
+#### References (verified via Crossref API on 2026-04-27)
 
 - Olley & Pakes (1996) Econometrica 64(6) 1263–1297, DOI 10.2307/2171831
 - Levinsohn & Petrin (2003) RES 70(2) 317–341, DOI 10.1111/1467-937X.00246
@@ -1367,7 +1645,7 @@ markup work.
 - Wooldridge (2009) Economics Letters 104(3) 112–114, DOI 10.1016/j.econlet.2009.04.026
 - De Loecker & Warzynski (2012) AER 102(6) 2437–2471, DOI 10.1257/aer.102.6.2437
 
-### Tests
+#### Tests
 
 - `tests/test_prod_fn.py` — 23 tests:
   - Synthetic DGP recovery (ACF tight; OP/LP loose per ACF's
@@ -1379,7 +1657,7 @@ markup work.
     (missing columns, too-few-obs, zero-proxy filter, time-gap
     warning, registry presence, no-bootstrap diagnostics shape).
 
-### Notes
+#### Notes
 
 - Default `productivity_degree=1` (linear AR(1)). Higher degrees can
   overfit ω given ω_lag in finite samples and flatten the GMM
@@ -1393,14 +1671,14 @@ markup work.
   full efficient-GMM Wooldridge are roadmap items, not in this
   release.
 
-## [1.8.0] — Phase 8: provenance rollout to 36/925 (IV + matching + DML)
+### Phase 8: provenance rollout to 36/925 (IV + matching + DML)
 
 Continues the v1.7.2 provenance rollout from Phases 3-4-7. **No
 numerical changes** to any estimator. 12 instrumentation points added
 (15 user-facing functions, since the JIVE family of 4 share a single
 ``_run`` instrumentation). Coverage 21/925 → **36/925**.
 
-### Added — Provenance instrumentation for 12 more points
+#### Added — Provenance instrumentation for 12 more points
 
 IV family (9 user-facing names):
 
@@ -1442,14 +1720,14 @@ return. ``overwrite=False`` semantics preserve the inner-most record
 when an outer wrapper (e.g. ``lasso_iv`` calling ``sp.iv``) is also
 instrumented.
 
-### Fixed — `sp.lasso_iv` API drift (pre-existing)
+#### Fixed — `sp.lasso_iv` API drift (pre-existing)
 
 Independent fix: ``sp.lasso_iv`` was calling the legacy ``iv(y=,
 x_endog=, x_exog=, z=)`` signature which is no longer accepted. Now
 builds a Patsy-style formula (``y ~ (endog ~ z) + exog``) for the
 current formula-only ``sp.iv()`` API.
 
-### Tests
+#### Tests
 
 16 new tests (12 per-estimator + 4 JIVE variants confirming each
 gets the right ``method``-discriminated function name + 1
@@ -1462,11 +1740,11 @@ DML + provenance regression sweep:
   ``test_dml_split.py``.
 - Provenance: rounds 1+2+3+4.
 
-### Documentation
+#### Documentation
 
 ``docs/guides/replication_workflow.md`` scorecard updated to 36/925.
 
-## [1.8.0] — production function estimators
+### production function estimators
 
 Adds proxy-variable production function estimation — Olley-Pakes,
 Levinsohn-Petrin, Ackerberg-Caves-Frazer, Wooldridge — plus the
@@ -1474,7 +1752,7 @@ De Loecker-Warzynski markup. Closes the long-standing gap that
 forced StatsPAI users to drop into R `prodest` or Stata `prodest`
 for productivity / TFP / markup work.
 
-### Added
+#### Added
 
 - `sp.prod_fn(method=...)` — unified Cobb-Douglas dispatcher
   (`'op' | 'lp' | 'acf' | 'wrdg'`).
@@ -1501,7 +1779,7 @@ for productivity / TFP / markup work.
 - 9 new registry entries (5 canonical + 3 aliases + markup), bringing
   total to 964 functions.
 
-### References (verified via Crossref API on 2026-04-27)
+#### References (verified via Crossref API on 2026-04-27)
 
 - Olley & Pakes (1996) Econometrica 64(6) 1263–1297, DOI 10.2307/2171831
 - Levinsohn & Petrin (2003) RES 70(2) 317–341, DOI 10.1111/1467-937X.00246
@@ -1509,14 +1787,14 @@ for productivity / TFP / markup work.
 - Wooldridge (2009) Economics Letters 104(3) 112–114, DOI 10.1016/j.econlet.2009.04.026
 - De Loecker & Warzynski (2012) AER 102(6) 2437–2471, DOI 10.1257/aer.102.6.2437
 
-### Tests
+#### Tests
 
 - `tests/test_prod_fn.py` — synthetic DGP recovery (ACF tight, OP/LP
   loose per ACF's identification critique), dispatcher, aliases,
   bootstrap SE, markup, edge cases (missing columns, too-few-obs,
   zero-proxy filter, time-gap warning, registry presence). 18 tests.
 
-### Notes
+#### Notes
 
 - Default `productivity_degree=1` (linear AR(1)). Higher degrees can
   overfit ω given ω_lag in finite samples and flatten the GMM
@@ -1524,14 +1802,14 @@ for productivity / TFP / markup work.
 - Translog and Gandhi-Navarro-Rivers (2020) production functions
   are roadmap items, not in this release.
 
-## [1.8.0] — Phase 7: provenance rollout to 21/925 (DiD long-tail + RD)
+### Phase 7: provenance rollout to 21/925 (DiD long-tail + RD)
 
 Continues the v1.7.2 provenance rollout established in Phases 3-4.
 **No numerical changes** to any estimator. 12 more estimators
 instrumented; `sp.etwfe` refactored into wrapper + dispatcher
 (parallel to the Phase 4 `sp.synth` move). Coverage now **21/925**.
 
-### Added — Provenance instrumentation for 12 more estimators
+#### Added — Provenance instrumentation for 12 more estimators
 
 DiD long-tail (10):
 
@@ -1564,7 +1842,7 @@ Each follows the established Phase 3 idiom: assign result to
 estimand-first / `sp.causal` / `sp.paper` wrappers don't clobber
 the more-specific call name.
 
-### Changed — `sp.etwfe` refactored into outer wrapper + dispatcher
+#### Changed — `sp.etwfe` refactored into outer wrapper + dispatcher
 
 Mirrors Phase 4's `sp.synth` refactor. The previous `etwfe` had 4
 return sites (one per `(panel × cgroup × xvar)` branch), which
@@ -1578,20 +1856,20 @@ made naive instrumentation maintenance-hostile. New layout:
 Public signature is bit-identical; the existing wooldridge / etwfe
 test sweep passes with zero changes.
 
-### Tests
+#### Tests
 
 14 new tests (12 per-estimator + 1 `did_2stage` alias check + 1
 multi-estimator `replication_pack` integration). 346 green across
 the DiD + RD + paper regression sweep (DiD: 214, paper+remaining:
 132). Zero regressions across either family.
 
-### Documentation
+#### Documentation
 
 `docs/guides/replication_workflow.md` scorecard updated to reflect
 the new 21/925 coverage. Users running `get_provenance(result)`
 can verify any estimator's status locally.
 
-## [1.8.0] — production function estimators
+### production function estimators
 
 Adds proxy-variable production function estimation — Olley-Pakes,
 Levinsohn-Petrin, Ackerberg-Caves-Frazer, Wooldridge — plus the
@@ -1599,7 +1877,7 @@ De Loecker-Warzynski markup. Closes the long-standing gap that
 forced StatsPAI users to drop into R `prodest` or Stata `prodest`
 for productivity / TFP / markup work.
 
-### Added
+#### Added
 
 - `sp.prod_fn(method=...)` — unified Cobb-Douglas dispatcher
   (`'op' | 'lp' | 'acf' | 'wrdg'`).
@@ -1624,7 +1902,7 @@ for productivity / TFP / markup work.
 - UserWarning on non-consecutive panel time periods (lag operator
   would silently treat gaps as 1-period lags otherwise).
 
-### References (verified via Crossref API on 2026-04-27)
+#### References (verified via Crossref API on 2026-04-27)
 
 - Olley & Pakes (1996) Econometrica 64(6) 1263–1297, DOI 10.2307/2171831
 - Levinsohn & Petrin (2003) RES 70(2) 317–341, DOI 10.1111/1467-937X.00246
@@ -1632,14 +1910,14 @@ for productivity / TFP / markup work.
 - Wooldridge (2009) Economics Letters 104(3) 112–114, DOI 10.1016/j.econlet.2009.04.026
 - De Loecker & Warzynski (2012) AER 102(6) 2437–2471, DOI 10.1257/aer.102.6.2437
 
-### Tests
+#### Tests
 
 - `tests/test_prod_fn.py` — synthetic DGP recovery (ACF tight, OP/LP
   loose per ACF's identification critique), dispatcher, aliases,
   bootstrap SE, markup, edge cases (missing columns, too-few-obs,
   zero-proxy filter, time-gap warning, registry presence). 18 tests.
 
-### Notes
+#### Notes
 
 - Default `productivity_degree=1` (linear AR(1)). Higher degrees can
   overfit ω given ω_lag in finite samples and flatten the GMM
@@ -1647,7 +1925,7 @@ for productivity / TFP / markup work.
 - Translog and Gandhi-Navarro-Rivers (2020) production functions
   are roadmap items, not in this release.
 
-## [1.8.0] — clubSandwich-equivalent HTZ Wald (independent PR)
+### clubSandwich-equivalent HTZ Wald (independent PR)
 
 Adds a numerically-equivalent Python implementation of R
 ``clubSandwich::Wald_test(..., test="HTZ")`` for cluster-robust Wald
@@ -1655,7 +1933,7 @@ tests under CR2 sandwich. Closes the BM-vs-HTZ gap documented in
 ``cluster_dof_wald_bm`` (which uses the BM 2002 simplified formula
 and can drift 50–100% from clubSandwich on multi-restriction tests).
 
-### Added
+#### Added
 
 - ``sp.fast.cluster_wald_htz()`` — full HTZ Wald test, returns
   ``WaldTestResult`` (``test, q, eta, F_stat, p_value, Q, R, r, V_R``).
@@ -1670,7 +1948,7 @@ and can drift 50–100% from clubSandwich on multi-restriction tests).
 - Hotelling-T² scaling: ``F_stat = (η - q + 1) / (η · q) · Q`` with
   ``p_value = 1 - F_{q, η-q+1}.cdf(F_stat)``.
 
-### Verification
+#### Verification
 
 - 3 frozen-fixture parity tests vs R clubSandwich 0.6.2 at
   ``rtol < 1e-8`` (``q ∈ {1, 2, 3}``, balanced + unbalanced panels;
@@ -1683,7 +1961,7 @@ and can drift 50–100% from clubSandwich on multi-restriction tests).
   ``NotImplementedError``).
 - Total: 23/23 tests pass.
 
-### Scope (v1)
+#### Scope (v1)
 
 - Standalone — no wiring into ``crve`` / ``feols`` / ``fepois`` /
   ``event_study``. That's the next PR.
@@ -1691,7 +1969,7 @@ and can drift 50–100% from clubSandwich on multi-restriction tests).
   weights raise ``NotImplementedError`` with a pointer to v2.
 - HTZ test variant only; HTA / HTB / KZ / Naive / EDF deferred.
 
-### References
+#### References
 
 - ``pustejovsky2018small`` added to ``paper.bib`` after Crossref
   dual-source verification (DOI ``10.1080/07350015.2016.1247004``;
@@ -1701,7 +1979,7 @@ and can drift 50–100% from clubSandwich on multi-restriction tests).
   clubSandwich source (R Wald_testing / get_P_array / total_variance_mat).
   No GPL code copied; clubSandwich used only as black-box reference.
 
-## [1.8.0] — Phase 5: LLM-DAG closed loop + layered credential resolver
+### Phase 5: LLM-DAG closed loop + layered credential resolver
 
 Closes the LLM-DAG closed-loop deferred from Phases 2-4. **No
 numerical changes** to any estimator. The export pipeline can now
@@ -1709,7 +1987,7 @@ auto-propose a DAG via a real LLM (Anthropic Claude or OpenAI GPT)
 without requiring users to pre-build one — credential resolution
 follows the industry-standard layered fallback pattern.
 
-### Added — `sp.causal_llm.get_llm_client()` layered credential resolver
+#### Added — `sp.causal_llm.get_llm_client()` layered credential resolver
 
 Resolution order (first match wins):
 
@@ -1731,7 +2009,7 @@ Resolution order (first match wins):
    set + points at ``sp.causal_llm.configure_llm(...)`` for the
    provider+model preference part.
 
-### Added — `sp.causal_llm.configure_llm()` preferences setter
+#### Added — `sp.causal_llm.configure_llm()` preferences setter
 
 One-shot setter that persists provider+model to the XDG config file.
 Useful when a user has both env vars set and wants to pin the choice:
@@ -1742,7 +2020,7 @@ sp.causal_llm.configure_llm(provider="openai", model="gpt-4o")
 # → ~/.config/statspai/llm.toml gets a [llm] block with the choice.
 ```
 
-### Added — `sp.paper(..., llm='auto', llm_domain=...)` auto-DAG hook
+#### Added — `sp.paper(..., llm='auto', llm_domain=...)` auto-DAG hook
 
 When the user doesn't pass an explicit ``dag=``, ``llm='auto'`` (or
 ``llm='heuristic'`` for a pinned offline path) triggers
@@ -1756,7 +2034,7 @@ attached to the ``PaperDraft``, so all downstream rendering (Quarto
 mermaid block, replication_pack lineage, Causal DAG appendix) flows
 through the existing Phase 3 plumbing — no new branches.
 
-### Added — `LLMClient.complete()` alias (latent bug fix)
+#### Added — `LLMClient.complete()` alias (latent bug fix)
 
 ``llm_dag_propose`` / ``llm_dag_validate`` / ``llm_dag_constrained``
 all called ``client.complete(prompt)``, but the ``LLMClient`` base
@@ -1766,7 +2044,7 @@ into the LLM-DAG functions would have hit ``AttributeError``. Added
 ``complete()`` as an alias on the base class — both names route
 through ``chat()``, so no concrete adapter needs changes.
 
-### Public exports
+#### Public exports
 
 ``sp.causal_llm.get_llm_client``,
 ``sp.causal_llm.list_available_providers``,
@@ -1776,7 +2054,7 @@ through ``chat()``, so no concrete adapter needs changes.
 ``sp.causal_llm.load_llm_config``,
 ``sp.causal_llm.DEFAULT_LLM_MODELS``.
 
-### Tests
+#### Tests
 
 27 new tests (``tests/test_llm_resolver.py``):
 
@@ -1793,14 +2071,14 @@ through ``chat()``, so no concrete adapter needs changes.
 221 green across the new + adjacent paper / lineage /
 replication_pack / estimator-provenance / bibliography / gt suites.
 
-## [1.8.0] — Phase 4: synth refactor + 5 more estimator provenance hookups
+### Phase 4: synth refactor + 5 more estimator provenance hookups
 
 Continues the v1.7.2 provenance rollout from Phase 3 (4 estimators
 instrumented). This round closes the deferred ``sp.synth`` dispatcher
 refactor and adds 4 more high-leverage estimators. **No numerical
 changes** to any estimator — total provenance coverage now **9/925**.
 
-### Changed — `sp.synth` dispatcher refactored for one-shot provenance
+#### Changed — `sp.synth` dispatcher refactored for one-shot provenance
 
 The previous v1.7.2 instrumentation deferred ``sp.synth`` because its
 13 method branches each had their own ``return X(...)`` call site —
@@ -1820,7 +2098,7 @@ sweep passes with zero changes. All 13 SCM method variants
 ``penscm`` / ``fdid`` / ``cluster`` / ``sparse`` / ``kernel`` /
 ``kernel_ridge``) now flow through the same provenance attach.
 
-### Added — Provenance instrumentation for 4 more estimators
+#### Added — Provenance instrumentation for 4 more estimators
 
 - ``sp.did.did_imputation`` — Borusyak-Jaravel-Spiess (2024) imputation.
 - ``sp.did.aggte`` — Callaway-Sant'Anna ATT(g, t) aggregation. Captures
@@ -1838,7 +2116,7 @@ call ``attach_provenance`` with ``overwrite=False``, return. Any
 upstream-instrumented estimator (``sp.causal_question`` /
 ``sp.paper`` / ``aggte``) preserves the inner record.
 
-### Tests
+#### Tests
 
 9 new tests (3 synth + 1 did_imputation + 1 aggte upstream-linkage +
 1 did_multiplegt + 2 rdrobust + 1 multi-estimator integration). 166
@@ -1846,7 +2124,7 @@ green across the DiD + RD + new provenance regression sweep
 (95s wall, 145 of which are synth — the refactor is paid for in
 test time once and forgotten).
 
-### Provenance coverage scorecard
+#### Provenance coverage scorecard
 
 |              | v1.7.2 P3 | v1.7.2 P4 (this) |
 |---           |---        |---               |
@@ -1869,13 +2147,13 @@ DiD long-tail (~20), IV variants (~15), synth sub-modules (already
 flow through dispatcher), DML / TMLE / metalearners (~50), panel /
 structural (~80), and the long tail (~750).
 
-## [1.8.0] — Phase 3: estimand-first paper + estimator provenance + DAG appendix
+### Phase 3: estimand-first paper + estimator provenance + DAG appendix
 
 Layered on top of the Phase 1+2 export trinity. **No numerical changes**
 to any estimator. Three additions, each gated to **opt-in** call sites
 to keep blast radius small.
 
-### Added — Estimand-first `sp.paper(causal_question_obj)`
+#### Added — Estimand-first `sp.paper(causal_question_obj)`
 
 The Target-Trial-Protocol-shaped declaration now drives the paper end
 to end. Two equivalent entry points:
@@ -1905,7 +2183,7 @@ Underlying estimator's result is exposed on
 ``draft.to_qmd()``'s Reproducibility appendix pick up provenance
 automatically.
 
-### Added — Estimator-level provenance instrumentation (4 of 5)
+#### Added — Estimator-level provenance instrumentation (4 of 5)
 
 Top-tier estimators now ``attach_provenance()`` to their fit result
 with ``overwrite=False`` semantics — outer wrappers (``sp.causal``,
@@ -1925,7 +2203,7 @@ sites). A dedicated v1.7.3 sprint refactors ``synth`` into an inner
 ``_dispatch_synth`` plus an outer wrapper that attaches provenance
 once, instead of sprinkling 13 attach calls.
 
-### Added — Causal DAG appendix in PaperDraft
+#### Added — Causal DAG appendix in PaperDraft
 
 Pass ``dag=`` to ``sp.paper(...)`` (or ``q.paper(dag=...)``) and the
 draft gains a *Causal DAG* section that renders fmt-aware:
@@ -1943,25 +2221,25 @@ data source — pass any DAG those return into ``dag=``. The paper
 builder doesn't itself call any LLM API; that remains the user's
 explicit choice.
 
-### Added — Public exports
+#### Added — Public exports
 
 - ``sp.paper_from_question`` — alternative entry point next to the
   method-style ``q.paper()`` and the dispatcher in ``sp.paper(q)``.
 - DAG-section-related fields on :class:`PaperDraft`: ``dag``,
   ``dag_treatment``, ``dag_outcome``.
 
-### Tests
+#### Tests
 
 35 new tests (14 paper_from_question + 8 estimator_provenance + 13
 paper_dag_section). 295 green across the full Phase 1+2+3 + adjacent
 paper / registry / help / output / workflow surface.
 
-## [1.8.0] — HDFE silent-bug fix + completeness pass
+### HDFE silent-bug fix + completeness pass
 
 Layered on top of the v1.8 RC `sp.fast.*` HDFE stack. **One ⚠️
 correctness fix** (`event_study` cluster SE), the rest is additive.
 
-### ⚠️ Correctness — `sp.fast.event_study` cluster SE
+#### ⚠️ Correctness — `sp.fast.event_study` cluster SE
 
 `sp.fast.event_study` was computing CR1 cluster-robust SEs without
 charging the absorbed FE rank against residual degrees of freedom.
@@ -1975,7 +2253,7 @@ parameter (see Added below). t-statistics and CIs reported by
 re-running the same data should expect modest changes in the third
 decimal of SE.
 
-### Added — `sp.fast.feols`: native OLS HDFE estimator
+#### Added — `sp.fast.feols`: native OLS HDFE estimator
 
 The linear sister of `sp.fast.fepois`. Pure-Python orchestration on
 top of the Phase 1 Rust demean kernel + Phase 4 inference primitives;
@@ -1994,21 +2272,21 @@ top of the Phase 1 Rust demean kernel + Phase 4 inference primitives;
   drop-in compatible with `sp.fast.etable` for side-by-side regression
   tables alongside `sp.fast.fepois` results.
 
-### Added — Cluster-robust SE in `sp.fast.fepois`
+#### Added — Cluster-robust SE in `sp.fast.fepois`
 
 `sp.fast.fepois(vcov="cr1", cluster="<col>")` now ships. Score uses
 the weighted Poisson form `obs_weights · (y - μ) · X̃` with the
 WLS bread `(X̃' diag(μ) X̃)^{-1}`; small-sample factor charges
 `Σ(G_k - 1)` via the new `crve` parameter. NaN cluster values raise.
 
-### Added — `extra_df` parameter on `crve` / `boottest` / `boottest_wald`
+#### Added — `extra_df` parameter on `crve` / `boottest` / `boottest_wald`
 
 Backward-compatible `extra_df: int = 0` parameter on all three CR1
 callers. Default 0 reproduces the prior behaviour bit-for-bit; HDFE
 callers should pass `extra_df = Σ(G_k - 1)` to get the FE-rank-aware
 small-sample factor. Documented in each docstring; rejected if `< 0`.
 
-### Added — Bell-McCaffrey / Imbens-Kolesar Satterthwaite DOF
+#### Added — Bell-McCaffrey / Imbens-Kolesar Satterthwaite DOF
 
 Two new helpers for small-G CR2 inference:
 
@@ -2028,7 +2306,7 @@ the DOF differs by 5–10% on typical panels (1-D contrast) and can
 differ 50–100% in the q-dim matrix Satterthwaite. For tightest
 small-G inference prefer `sp.fast.boottest` / `sp.fast.boottest_wald`.
 
-### Changed — `sp.fast.fe_interact` rejects NaN
+#### Changed — `sp.fast.fe_interact` rejects NaN
 
 The 2-way fast path was silently producing collision-prone packed
 codes when input columns contained NaN (`pd.factorize`'s `-1`
@@ -2038,7 +2316,7 @@ fail-fast convention of `sp.fast.demean` / `sp.fast.fepois` /
 with periodic re-densification, so deeply-nested FE chains can't
 overflow `int64`.
 
-### Changed — Registry walks `sp.fast.*`
+#### Changed — Registry walks `sp.fast.*`
 
 `sp.list_functions()` / `sp.describe_function()` now surface every
 public callable in the `sp.fast.*` namespace under a `fast.<name>`
@@ -2047,7 +2325,7 @@ pyfixest-backed `sp.feols` continues to coexist as a separate
 registry entry — no name collision. **+27 new registry entries** on
 the v1.8 stack become Agent-discoverable for the first time.
 
-### Documentation
+#### Documentation
 
 - `src/statspai/fast/jax_backend.py` — added a verified-blocked note
   for Apple Silicon (Metal). `jax-metal 0.1.1` (latest, Apple-
@@ -2057,7 +2335,7 @@ the v1.8 stack become Agent-discoverable for the first time.
 - `benchmarks/hdfe/SUMMARY.md` — added v1.8.1 follow-up section with
   OLS bench numbers and full delta vs Phase 8.
 
-### Tests
+#### Tests
 
 - `tests/test_fast_feols.py` — 20 new tests (coef / SE parity vs
   pyfixest and R fixest; weighted; intercept-only; validation; hand
@@ -2080,13 +2358,13 @@ Total: `pytest tests/test_fast_*.py tests/test_hdfe_native.py
 tests/test_registry*.py tests/test_help.py` — **267 passed,
 2 graceful-skip** (was 133 at end of Phase 8).
 
-## [1.8.0] — Phase 2: great_tables + CSL pipeline + paper auto-provenance
+### Phase 2: great_tables + CSL pipeline + paper auto-provenance
 
 Layered on top of the export trinity below. **No numerical changes**
 to any estimator. Three additions, all opt-in, all stdlib + soft
 optional deps.
 
-### Added — `sp.gt(result)` great_tables adapter
+#### Added — `sp.gt(result)` great_tables adapter
 
 Posit's ``great_tables`` is the Python port of R's gt — the
 publication-grade table grammar (cell-level styling, spanners,
@@ -2109,7 +2387,7 @@ to ``pip install great_tables``. All 8 journal presets (AER / QJE /
 Econometrica / RestStat / JF / AEJA / JPE / RestUd) apply without
 crashing.
 
-### Added — `sp.csl_url()` / `sp.write_bib()` CSL pipeline
+#### Added — `sp.csl_url()` / `sp.write_bib()` CSL pipeline
 
 Quarto needs a ``.bib`` and a ``.csl`` to render citations. StatsPAI
 captures citations as free-form strings on each estimator's
@@ -2134,7 +2412,7 @@ captures citations as free-form strings on each estimator's
   to ``csl: "american-economic-association.csl"`` automatically;
   pre-existing ``.csl`` filenames pass through untouched.
 
-### Added — `sp.paper()` auto-attaches provenance
+#### Added — `sp.paper()` auto-attaches provenance
 
 ``sp.paper()`` now calls ``attach_provenance()`` on ``workflow.result``
 after the estimate stage with ``overwrite=False``: estimators that
@@ -2154,26 +2432,26 @@ v1.7.3+ instruments individual estimators (``sp.feols``,
 ``sp.did.callaway_santanna``, ``sp.iv.tsls``, ``sp.rd.rdrobust``,
 ``sp.synth``, …); the workflow-level hook here is the bridge.
 
-### Added — Public `sp.*` exports
+#### Added — Public `sp.*` exports
 
 ``gt``, ``is_great_tables_available``, ``csl_url``, ``csl_filename``,
 ``list_csl_styles``, ``parse_citation_to_bib``, ``make_bib_key``,
 ``citations_to_bib_entries``, ``write_bib``.
 
-### Tests
+#### Tests
 
 46 new tests (20 gt adapter + 26 bibliography); 226 passing across
 the full new + adjacent surface. Fast/Rust HDFE territory still
 untouched — Phase 2 is fully orthogonal to the parallel work.
 
-## [1.8.0] — Export trinity: numerical lineage + replication pack + Quarto emitter
+### Export trinity: numerical lineage + replication pack + Quarto emitter
 
 Pure-additive export-layer patch. **No numerical changes** to any
 estimator. Closes three concrete gaps between StatsPAI's export stack
 and the R / Posit publication tooling, and lays the foundation for the
 v1.7.2+ "agent-native paper" line.
 
-### Added — `sp.replication_pack()` (journal-ready archive)
+#### Added — `sp.replication_pack()` (journal-ready archive)
 
 One-liner that bundles an analysis into the layout AEA / AEJ data
 editors expect:
@@ -2193,7 +2471,7 @@ any results carrying `_provenance`). Tolerant by design — every
 sub-step that fails is logged in `MANIFEST.json["warnings"]` rather
 than aborting the archive.
 
-### Added — `sp.Provenance` / `sp.attach_provenance()` (numerical lineage)
+#### Added — `sp.Provenance` / `sp.attach_provenance()` (numerical lineage)
 
 A small dataclass attached as `result._provenance` recording: function
 name, summarised params, 12-char SHA-256 of the input frame, run uuid,
@@ -2204,7 +2482,7 @@ at the end of their fit; backwards-compatible — unrecorded estimators
 still work, recorded ones gain free traceability into every downstream
 artifact (`replication_pack`, the Quarto appendix, table footers).
 
-### Added — `PaperDraft.to_qmd()` + `sp.paper(fmt='qmd')` (Quarto emitter)
+#### Added — `PaperDraft.to_qmd()` + `sp.paper(fmt='qmd')` (Quarto emitter)
 
 `sp.paper()` now produces a `.qmd` document directly:
 
@@ -2221,7 +2499,7 @@ workflow.result has a `_provenance` record, a `Reproducibility
 {.appendix}` section is appended automatically. YAML escaping is
 robust against quotes / colons / newlines in the question text.
 
-### Added — Public `sp.*` exports
+#### Added — Public `sp.*` exports
 
 `Provenance`, `attach_provenance`, `get_provenance`,
 `compute_data_hash`, `format_provenance`, `lineage_summary`,
@@ -2229,7 +2507,7 @@ robust against quotes / colons / newlines in the question text.
 `replication_pack` is full agent-native (params, returns, example,
 tags, assumptions, failure modes, alternatives).
 
-### Tests
+#### Tests
 
 77 new tests (32 lineage + 18 replication pack + 27 Quarto), 232
 passing across new + adjacent paper/registry/help suites. Fast/ Rust
@@ -2397,13 +2675,21 @@ clustering or FE produces byte-identical output to v1.6.x. Workarounds:
 This is the only behavior change in the release; no numerical paths are
 affected.
 
-## [1.6.6] — Output-layer overhaul: AER/QJE DOCX, paper_tables docx/xlsx, sp.collect, regtable.alpha, Quarto cross-refs
+## [1.6.6] — 2026-04-24
+
+Two parallel sub-releases consolidated under one version: the
+journal-grade output-layer overhaul (AER/QJE DOCX, paper_tables
+docx/xlsx, `sp.collect`, regtable.alpha, Quarto cross-refs) and the
+HDFE LSMR/LSQR solver paired with the ⚠️ Heckman two-step SE
+correctness fix.
+
+### Output-layer overhaul: AER/QJE DOCX, paper_tables docx/xlsx, sp.collect, regtable.alpha, Quarto cross-refs
 
 This release elevates the export layer to journal-grade output. Five
 additive changes; **no breaking changes, no numerical changes** to any
 estimator. Existing scripts continue to produce identical numbers.
 
-### Added — Quarto cross-reference output for `sp.regtable`
+#### Added — Quarto cross-reference output for `sp.regtable`
 
 `sp.regtable(..., quarto_label="main", quarto_caption="Wage equation")`
 now emits a Quarto-cross-referenceable Markdown table via
@@ -2425,7 +2711,7 @@ This closes the last ergonomic gap between StatsPAI's export layer and
 modern reproducible-paper toolchains (Quarto is the de-facto successor
 to R Markdown for academic econ workflows).
 
-### Added — `sp.regtable(..., alpha=...)` now controls CI width
+#### Added — `sp.regtable(..., alpha=...)` now controls CI width
 
 `sp.regtable(..., se_type="ci", alpha=0.10)` now displays 90% confidence
 intervals (and labels them `90% CI`); `alpha=0.01` displays 99% CIs, etc.
@@ -2441,7 +2727,7 @@ fallback.
 `sp.esttab(..., ci=True, alpha=...)` mirrors the same behaviour. Both
 APIs raise `ValueError` for `alpha` outside `(0, 1)`.
 
-### Added — AER/QJE book-tab DOCX styling
+#### Added — AER/QJE book-tab DOCX styling
 
 `sp.regtable(...).to_word(...)`, `sp.sumstats(..., output="*.docx")`,
 `sp.tab(..., output="*.docx")` and `sp.mean_comparison(...).to_word(...)`
@@ -2457,7 +2743,7 @@ conventions:
 The shared helper lives in `src/statspai/output/_aer_style.py`.
 Previous DOCX output used the boxed `Table Grid` style.
 
-### Added — `sp.paper_tables(...)` DOCX / XLSX export
+#### Added — `sp.paper_tables(...)` DOCX / XLSX export
 
 `sp.PaperTables` gains `.to_docx(path)` and `.to_xlsx(path)` methods,
 and the `sp.paper_tables(...)` constructor accepts `docx_filename=` and
@@ -2466,7 +2752,7 @@ Word document (one panel per page, book-tab styled) or a single
 workbook (one sheet per panel) in addition to the existing Markdown
 and LaTeX outputs.
 
-### Added — `sp.collect()` / `sp.Collection` session-level container
+#### Added — `sp.collect()` / `sp.Collection` session-level container
 
 A new container mirroring Stata 15's `collect` and R's `gt::gtsave`
 workflow — gather any number of regressions, descriptive statistics,
@@ -2491,7 +2777,7 @@ add_balance / add_text / add_heading` (each returns `self`), plus
 public factory `sp.collect()` is registered with the StatsPAI registry
 and visible via `sp.help("collect")`.
 
-### Tests
+#### Tests
 
 - `tests/test_regtable_alpha.py` (6 tests) — `alpha` controls CI label
   and width; `esttab` parity; recompute matches `scipy.stats.t.ppf`
@@ -2503,7 +2789,7 @@ and visible via `sp.help("collect")`.
 - `tests/test_collection.py` (18 tests) — construction, chained adds,
   duplicate-name guard, all five export formats, registry presence.
 
-### Files changed
+#### Files changed
 
 - `src/statspai/output/estimates.py` — `_ModelData` gains `df_resid`
   slot; `_ci_bounds(model, var, alpha)` helper; `EstimateTable` /
@@ -2528,9 +2814,9 @@ and visible via `sp.help("collect")`.
 - `src/statspai/registry.py` — register `collect` under
   `category="output"`.
 
-## [1.6.6] — 2026-04-24 — HDFE LSMR/LSQR solver + ⚠️ Heckman SE correctness fix
+### 2026-04-24 — HDFE LSMR/LSQR solver + ⚠️ Heckman SE correctness fix
 
-### ⚠️ Correctness fix — `sp.heckman` two-step standard errors
+#### ⚠️ Correctness fix — `sp.heckman` two-step standard errors
 
 **Affected**: `sp.heckman(...)` — the Heckman (1979) two-step selection
 model. Point estimates are unchanged; **standard errors, t-statistics,
@@ -2569,21 +2855,21 @@ uncertainty dominates). Match is to Stata's `heckman ..., twostep`
 output and R's `sampleSelection::heckit` to the documented formula
 precision.
 
-### Added — test coverage (Heckman)
+#### Added — test coverage (Heckman)
 
 - `tests/reference_parity/test_heckman_se_parity.py`: three tests
   pinning β̂ and SE to a hand-computed implementation of the
   Greene (2003) formula, plus a check that `model_info['sigma']` /
   `rho` expose the consistent σ̂² estimator.
 
-### Fixed
+#### Fixed
 
 - `src/statspai/regression/heckman.py::heckman` — replace naive
   HC1 sandwich with the Heckman (1979) two-step analytical variance.
 - `src/statspai/regression/heckman.py::_probit_fit` — now returns
   `(γ̂, V̂_γ)`; avoids allocating an n×n `diag(w)` via broadcasting.
 
-### Added — HDFE LSMR/LSQR solver option (additive, pyreghdfe parity)
+#### Added — HDFE LSMR/LSQR solver option (additive, pyreghdfe parity)
 
 - `sp.hdfe_ols` / `sp.absorb_ols` / `sp.Absorber` / `sp.demean` now accept
   `solver={"map", "lsmr", "lsqr"}` (default `"map"`, unchanged).
@@ -2602,7 +2888,7 @@ precision.
 - `MIGRATION.md` gained a "Migrating from `pyreghdfe`" section with full
   API mapping.
 
-### Behavior
+#### Behavior
 
 - HDFE default solver remains `"map"` — all HDFE numerical output
   (MAP path) is byte-identical to v1.6.5.
@@ -5608,7 +5894,7 @@ retrospective (`社媒文档/4.20-升级说明/StatsPAI-0.9.3之后的一周…`
 
 ---
 
-## [Unreleased] — 0.9.3 post-release bugfixes
+## [0.9.3.post] — 0.9.3 post-release bugfixes (rolled into a later patch)
 
 Four user-reported bugs surfaced during the 0.9.3 end-to-end smoke test.
 All are fixed on `main` without a version bump (pending a later patch release).

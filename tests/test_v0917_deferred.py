@@ -468,7 +468,14 @@ class TestMCPServer:
 
     def test_tools_list_includes_data_path(self):
         import statspai as sp
-        from statspai.agent.mcp_server import _DATALESS_TOOLS
+        # The schema generator marks ``data_path`` required only for tools
+        # whose registry spec has a required ``data`` parameter.  Use the
+        # same auto-derive function the schema generator does, not the
+        # hand-curated ``_DATALESS_OVERRIDES`` set, so registry-derived
+        # dataless tools (super_learner, structural_break, *_from_result,
+        # *_plot, post-estimation tests, …) don't fail this check.
+        from statspai.agent.mcp_server import _dataless_tool_names
+        dataless = _dataless_tool_names()
         req = json.dumps({
             "jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {},
         })
@@ -478,12 +485,11 @@ class TestMCPServer:
         for t in tools:
             schema = t["inputSchema"]
             assert "data_path" in schema["properties"]
-            # Dataless tools (honest_did, sensitivity) advertise
-            # data_path as an OPTIONAL convenience but must not mark
-            # it required — strict-schema clients would otherwise
-            # refuse to dispatch the call without a CSV path the
-            # estimator never reads. See mcp_server._DATALESS_TOOLS.
-            if t["name"] in _DATALESS_TOOLS:
+            # Dataless tools advertise data_path as an OPTIONAL convenience
+            # but must not mark it required — strict-schema clients would
+            # otherwise refuse to dispatch the call without a CSV path the
+            # estimator never reads.
+            if t["name"] in dataless:
                 assert "data_path" not in schema["required"]
             else:
                 assert "data_path" in schema["required"]
