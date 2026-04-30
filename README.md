@@ -123,6 +123,41 @@ StatsPAI's focus is **causal inference** — and on this axis we aim to be the m
 
 ---
 
+**📦 v1.12.0 (2026-04-30) — DML hardening + TMLE correctness pass**
+
+A two-workstream maintenance release; full release notes in
+[`CHANGELOG.md`](CHANGELOG.md) under `[1.12.0]` and breaking-change
+migration in [`MIGRATION.md`](MIGRATION.md#v111--v112--dml-module-hardening).
+
+- **⚠️ Correctness — DML.** `sp.dml(model='irm' | 'iivm')` now uses
+  `StratifiedKFold` (was `KFold`); empty subgroup folds raise
+  `IdentificationFailure` instead of silently filling AIPW scores with
+  zeros. `sp.dml_panel(binary_treatment=True)` is a deprecated no-op
+  (the old classifier-on-within-demeaned path produced a propensity
+  with no clean `E[D̃|X̃]` interpretation). `sp.dml_model_averaging`
+  default `weight_rule` is now `"short_stacking"` (Ahrens, Hansen,
+  Schaffer & Wiemann 2025 *JAE* eq. 7) — pass `weight_rule="inverse_risk"`
+  to recover the v1.11 behaviour. PLIV weak-IV partial-correlation
+  floor tightened from `1e-6` to `1e-3` and a residual-variance-ratio
+  guard catches the perfectly-collinear-instrument case.
+- **⚠️ Correctness — TMLE.** `sp.tmle.SuperLearner` now solves a proper
+  simplex-constrained QP (was NNLS with post-hoc rescaling — off-simplex
+  except by coincidence). `sp.tmle.ltmle` censoring half-implementation
+  closed; `sp.tmle.ltmle_survival` separates RMST and terminal-RD
+  influence functions (was using a single non-target-functional EIF
+  for both). `sp.hal_tmle(variant='projection')` raises
+  `NotImplementedError` honestly until the Riesz-projection step is
+  ported (was a silent no-op shrinkage on the post-fit ε).
+- **Added — DML.** `random_state=` and `sample_weight=` on every
+  `sp.dml(model=...)` call. `sample_weight=` is fully supported on
+  PLR / IRM / `sp.dml_panel` / `sp.dml_model_averaging` (Z-estimator
+  sandwich variance throughout); PLIV / IIVM raise
+  `NotImplementedError` pending derivation. Every variant now populates
+  `model_info["diagnostics"]` (propensity range, n clipped, subgroup-
+  fallback counts, partial corr, approximate first-stage F).
+
+---
+
 **🎉 NEW in v1.8 — Native Rust IRLS for `sp.fast.fepois` · `sp.prod_fn` production functions · `regtable` Rounds 1-4 · estimator provenance 142/925**
 
 StatsPAI 1.8.0 (2026-04-28) lands a 3× wall-clock speed-up on the medium HDFE benchmark and a brand-new structural-estimation module. **No numerical changes** to existing v1.7.x estimators — the Rust IRLS path is bit-for-bit identical to the NumPy fallback (verified by `test_fepois_native_irls_vs_python_irls_parity`).
