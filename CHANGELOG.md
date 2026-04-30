@@ -3255,6 +3255,7 @@ StatsPAI should prefer the specific subclasses and attach a
 `recovery_hint` so agents can act on failures without parsing
 error strings.
 
+---
 ## [1.5.0] — 2026-04-21 — Interference / Conformal / Mendelian family consolidation
 
 Minor release.  Three concurrent improvements to the interference,
