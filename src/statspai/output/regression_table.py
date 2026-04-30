@@ -1955,11 +1955,12 @@ class RegtableResult:
         try:
             import openpyxl
             from openpyxl.styles import Alignment, Font
-        except ImportError as exc:
-            raise ImportError(
+        except ImportError:
+            warnings.warn(
                 "openpyxl is required for Excel export. "
                 "Install with: pip install openpyxl"
-            ) from exc
+            )
+            return
 
         from ._excel_style import (
             BODY_PT, HEADER_PT, NOTES_PT, TIMES,
@@ -2070,11 +2071,12 @@ class RegtableResult:
         """
         try:
             from docx import Document
-        except ImportError as exc:
-            raise ImportError(
+        except ImportError:
+            warnings.warn(
                 "python-docx is required for Word export. "
                 "Install with: pip install python-docx"
-            ) from exc
+            )
+            return
 
         from ._aer_style import (
             apply_word_booktab_rules,

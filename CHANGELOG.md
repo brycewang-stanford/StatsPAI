@@ -2,6 +2,15 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.11.3] — 2026-04-30
+
+### Fixed — output layer graceful degradation restored
+
+- `to_excel` / `to_word`: revert optional-dependency handling from
+  ``raise ImportError`` back to ``warnings.warn() + return``, restoring
+  graceful degradation when ``openpyxl`` / ``python-docx`` are absent.
+  (Regression introduced in v1.11.2.)
+
 ## [1.11.2] — 2026-04-29
 
 Internal refactor only — collapses `esttab`, `modelsummary`, and
