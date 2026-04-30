@@ -50,15 +50,18 @@ _DEPRECATION_MSG = (
     "See docs/rfc/output_pr_b_consolidation.md for migration."
 )
 
-# Emitted-once flag so we don't spam users who call outreg2 in a loop.
-_DEPRECATION_EMITTED = False
+# Emit deprecation warning once per Python process via filterwarnings.
+_DEPRECATION_MSG_OUTREG2 = (
+    "outreg2() is now a thin wrapper over sp.regtable() and will "
+    "be removed in a future minor release. Migrate to "
+    "sp.regtable(*models, ...) for the same output with full control "
+    "over labels, journal templates, and SE formats. "
+    "See docs/rfc/output_pr_b_consolidation.md for migration."
+)
 
 
-def _warn_once() -> None:
-    global _DEPRECATION_EMITTED
-    if not _DEPRECATION_EMITTED:
-        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=3)
-        _DEPRECATION_EMITTED = True
+def _warn_once_outreg2() -> None:
+    warnings.warn(_DEPRECATION_MSG_OUTREG2, DeprecationWarning, stacklevel=3)
 
 
 def _build_regtable(
@@ -121,7 +124,7 @@ class OutReg2:
     """
 
     def __init__(self):
-        _warn_once()
+        _warn_once_outreg2()
         self.results: List[Any] = []
         self.model_names: List[Optional[str]] = []
         self.title: Optional[str] = "Regression Results"
@@ -300,7 +303,7 @@ def outreg2(
     str or None
         LaTeX code if ``format="latex"``, otherwise ``None``.
     """
-    _warn_once()
+    _warn_once_outreg2()
 
     fmt = format.lower()
     if fmt == "auto":

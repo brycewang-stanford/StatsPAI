@@ -61,14 +61,10 @@ _DEPRECATION_MSG = (
     "over labels, journal templates, and SE formats. "
     "See docs/rfc/output_pr_b_consolidation.md for migration."
 )
-_DEPRECATION_EMITTED = False
 
 
 def _warn_once() -> None:
-    global _DEPRECATION_EMITTED
-    if not _DEPRECATION_EMITTED:
-        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=3)
-        _DEPRECATION_EMITTED = True
+    warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=3)
 
 
 # Stat-key translation: modelsummary R-style → regtable canonical.

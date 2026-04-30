@@ -1955,12 +1955,11 @@ class RegtableResult:
         try:
             import openpyxl
             from openpyxl.styles import Alignment, Font
-        except ImportError:
-            warnings.warn(
+        except ImportError as exc:
+            raise ImportError(
                 "openpyxl is required for Excel export. "
                 "Install with: pip install openpyxl"
-            )
-            return
+            ) from exc
 
         from ._excel_style import (
             BODY_PT, HEADER_PT, NOTES_PT, TIMES,
@@ -2071,12 +2070,11 @@ class RegtableResult:
         """
         try:
             from docx import Document
-        except ImportError:
-            warnings.warn(
+        except ImportError as exc:
+            raise ImportError(
                 "python-docx is required for Word export. "
                 "Install with: pip install python-docx"
-            )
-            return
+            ) from exc
 
         from ._aer_style import (
             apply_word_booktab_rules,
@@ -2149,6 +2147,10 @@ class RegtableResult:
         add_word_notes_paragraph(doc, "\n".join(note_lines))
 
         doc.save(filename)
+
+    def to_docx(self, filename: str) -> None:
+        """Alias for :meth:`to_word` — mirrors Stata ``outreg2`` convention."""
+        self.to_word(filename)
 
     # ═══════════════════════════════════════════════════════════════════════
     # Save (auto-detect from extension)

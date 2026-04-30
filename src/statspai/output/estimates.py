@@ -321,14 +321,10 @@ _DEPRECATION_MSG_ESTTAB = (
     "over labels, journal templates, and SE formats.  "
     "See docs/rfc/output_pr_b_consolidation.md for migration."
 )
-_DEPRECATION_EMITTED_ESTTAB = False
 
 
 def _warn_once_esttab() -> None:
-    global _DEPRECATION_EMITTED_ESTTAB
-    if not _DEPRECATION_EMITTED_ESTTAB:
-        warnings.warn(_DEPRECATION_MSG_ESTTAB, DeprecationWarning, stacklevel=3)
-        _DEPRECATION_EMITTED_ESTTAB = True
+    warnings.warn(_DEPRECATION_MSG_ESTTAB, DeprecationWarning, stacklevel=3)
 
 
 class EstimateTableResult:

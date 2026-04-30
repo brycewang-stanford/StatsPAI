@@ -170,8 +170,8 @@ def to_gt(
     template: Optional[str] = None,
     rowname_col: Optional[str] = None,
     apply_theme: bool = True,
-) -> "gt_pkg.GT":
-    """Convert a StatsPAI table / DataFrame into a ``great_tables.GT``.
+) -> "gt_pkg.GT | list":
+    """Convert a StatsPAI table / DataFrame / Collection into a ``great_tables.GT``.
 
     Dispatches on the input type:
 
@@ -180,6 +180,10 @@ def to_gt(
       title, and footer notes.
     - :class:`statspai.output.PaperTables` — flattens panels into a
       single GT with ``tab_row_group`` per panel.
+    - :class:`statspai.output.Collection` — converts each convertible
+      item and returns a ``list[GT]``; callables include
+      ``RegtableResult``, ``MeanComparisonResult``, and any object with
+      ``to_dataframe()``.
     - :class:`pandas.DataFrame` — wraps verbatim. ``rowname_col``
       promotes a column to row labels.
     - Anything else with a ``to_dataframe()`` method — calls it.
@@ -239,8 +243,9 @@ def to_gt(
 
     # Late-bind imports so this module works in a partial install where
     # the regression_table module hasn't been touched yet.
-    from .regression_table import RegtableResult, MeanComparisonResult
+    from .collection import Collection
     from .paper_tables import PaperTables
+    from .regression_table import MeanComparisonResult, RegtableResult
 
     if isinstance(result, RegtableResult):
         return _from_regtable(
@@ -255,6 +260,34 @@ def to_gt(
             title=title, subtitle=subtitle, notes=notes,
             template=template, apply_theme=apply_theme,
         )
+
+    if isinstance(result, Collection):
+        # Collection bundles heterogeneous items; convert each and return a list.
+        gts: list = []
+        for item in result.items:
+            try:
+                gt_item = to_gt(
+                    item.payload,
+                    title=item.title or title,
+                    subtitle=subtitle,
+                    notes=notes,
+                    template=template or item.options.get("template"),
+                    apply_theme=apply_theme,
+                )
+                if isinstance(gt_item, list):
+                    gts.extend(gt_item)
+                else:
+                    gts.append(gt_item)
+            except (TypeError, ImportError):
+                # Skip unconvertible payloads (e.g. plain str headings).
+                pass
+        if not gts:
+            raise TypeError(
+                "Collection has no convertible items for great_tables. "
+                "Ensure items include RegtableResult, DataFrame, or "
+                "objects with a .to_dataframe() method."
+            )
+        return gts
 
     if isinstance(result, MeanComparisonResult):
         return _from_dataframe(
@@ -286,7 +319,7 @@ def to_gt(
 
     raise TypeError(
         f"sp.gt() does not know how to convert {type(result).__name__}. "
-        "Pass a RegtableResult, PaperTables, MeanComparisonResult, "
+        "Pass a RegtableResult, PaperTables, Collection, MeanComparisonResult, "
         "DataFrame, or any object with a .to_dataframe() method."
     )
 

@@ -56,7 +56,7 @@ def format_stars(
     ``p < 0.05``, ``***`` for ``p < 0.01`` — the convention shared by
     ``regtable`` / ``esttab`` / ``outreg2``.
     """
-    if is_missing(pvalue):
+    if is_missing(pvalue) or pvalue < 0:
         return ""
     stars = ""
     for lev in sorted(levels, reverse=True):
