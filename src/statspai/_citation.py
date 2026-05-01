@@ -23,7 +23,7 @@ _RELEASE_YEAR = "2026"
 # Update when Zenodo issues a new concept DOI (rare; usually only the version
 # DOI changes).  The version-specific DOI for the current release is shipped
 # in CITATION.cff under ``identifiers``.
-_CONCEPT_DOI = "10.5281/zenodo.18636688"
+_CONCEPT_DOI = "10.5281/zenodo.19933900"
 
 _BIBTEX_TEMPLATE = (
     "@software{{wang_statspai_{year},\n"

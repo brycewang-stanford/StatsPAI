@@ -8,7 +8,7 @@
 [![Tests](https://github.com/brycewang-stanford/statspai/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/brycewang-stanford/statspai/actions)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
 [![status](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332/status.svg)](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332)
-[![DOI](https://zenodo.org/badge/1142199519.svg)](https://doi.org/10.5281/zenodo.18636688)
+[![DOI](https://zenodo.org/badge/1026640764.svg)](https://doi.org/10.5281/zenodo.19933900)
 
 StatsPAI 是一个**面向 AI Agent** 的 Python 因果推断与应用计量经济学工具包。一个 `import`，**800+ 个函数**，覆盖从经典计量经济学到前沿 ML/AI 因果推断方法，再到论文级 Word、Excel、LaTeX 输出表格的完整实证研究流程。
 
@@ -486,14 +486,14 @@ sp.__citation__                 # 与 sp.citation("bibtex") 等价
   title        = {StatsPAI: The Agent-Native Causal Inference \& Econometrics Toolkit for Python},
   year         = {2026},
   version      = {1.12.0},
-  doi          = {10.5281/zenodo.18636688},
-  url          = {https://doi.org/10.5281/zenodo.18636688},
+  doi          = {10.5281/zenodo.19933900},
+  url          = {https://doi.org/10.5281/zenodo.19933900},
   license      = {MIT},
 }
 ```
 
 如需引用**确切版本**（建议在复现包 / replication package 中使用），请在
-[Zenodo 记录页面](https://doi.org/10.5281/zenodo.18636688)拷贝该 release
+[Zenodo 记录页面](https://doi.org/10.5281/zenodo.19933900)拷贝该 release
 对应的 versioned DOI 替换上面的 `doi` 字段。
 
 规范元数据存放在 [`CITATION.cff`](CITATION.cff)（GitHub 会基于此渲染右侧

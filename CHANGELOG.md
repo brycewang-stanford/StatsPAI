@@ -15,7 +15,7 @@ Citation metadata polish — no numerical or API changes to any estimator.
   for one-liners.
 - `CITATION.cff` at the repository root — GitHub renders a "Cite this
   repository" button from it; bundled in the sdist via `MANIFEST.in`.
-- Zenodo DOI [10.5281/zenodo.18636688](https://doi.org/10.5281/zenodo.18636688)
+- Zenodo DOI [10.5281/zenodo.19933900](https://doi.org/10.5281/zenodo.19933900)
   (concept DOI; always resolves to the latest archived release). The
   DOI now appears in `sp.citation()` output, the README citation block,
   and a DOI badge alongside the existing JOSS-pending status badge.
