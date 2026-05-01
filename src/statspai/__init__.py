@@ -26,6 +26,9 @@ __version__ = "1.12.0"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
+from ._citation import citation
+__citation__ = citation("bibtex")
+
 from .core.results import EconometricResults, CausalResult
 # Agent-native exception taxonomy (load early so every estimator can raise)
 from . import exceptions as exceptions  # noqa: F401
@@ -852,6 +855,7 @@ __all__ = [
     "PaperTables",
     "PAPER_TABLE_TEMPLATES",
     "cite",
+    "citation",
     "JOURNAL_PRESETS",
     "list_journal_templates",
     "get_journal_template",

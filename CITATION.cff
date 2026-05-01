@@ -1,0 +1,63 @@
+cff-version: 1.2.0
+message: "If you use StatsPAI in your research, please cite it using the metadata below."
+title: "StatsPAI: The Agent-Native Causal Inference & Econometrics Toolkit for Python"
+abstract: >-
+  StatsPAI is a unified, agent-native Python toolkit for causal inference and
+  econometrics covering difference-in-differences, instrumental variables,
+  regression discontinuity, synthetic control, double machine learning,
+  meta-learners, Bayesian causal forest, causal discovery, structural
+  estimation, panel data, spatial models, and time-series analysis. Every
+  estimator returns a unified ``CausalResult`` with ``.summary()``, ``.plot()``,
+  ``.to_latex()`` / ``.to_word()`` / ``.to_excel()``, and ``.cite()``, and the
+  full API is exposed through a single ``import statspai as sp`` entry point.
+type: software
+authors:
+  - family-names: "Wang"
+    given-names: "Biaoyue"
+    affiliation: "Stanford REAP, Stanford University"
+    email: "brycew6m@stanford.edu"
+version: "1.12.0"
+date-released: "2026-04-30"
+license: MIT
+# Zenodo *concept* DOI — always resolves to the latest archived version.
+doi: "10.5281/zenodo.18636688"
+url: "https://github.com/brycewang-stanford/StatsPAI"
+repository-code: "https://github.com/brycewang-stanford/StatsPAI"
+repository-artifact: "https://pypi.org/project/StatsPAI/"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.18636688"
+    description: "Zenodo concept DOI — always resolves to the latest version."
+  - type: doi
+    value: "10.5281/zenodo.18636689"
+    description: "Zenodo versioned DOI for v1.12.0 (this exact release)."
+keywords:
+  - econometrics
+  - causal-inference
+  - difference-in-differences
+  - regression-discontinuity
+  - synthetic-control
+  - instrumental-variables
+  - double-machine-learning
+  - meta-learners
+  - panel-data
+  - bayesian-causal-forest
+  - causal-discovery
+  - tmle
+  - python
+  - agent-native
+# When the JOSS paper is accepted, fill in DOI / volume / pages and uncomment.
+# Until then, cite the software entry above (versioned Zenodo DOI is
+# preferable once the GitHub-Zenodo integration mints one for a release).
+#
+# preferred-citation:
+#   type: article
+#   authors:
+#     - family-names: "Wang"
+#       given-names: "Biaoyue"
+#       affiliation: "Stanford REAP, Stanford University"
+#       email: "brycew6m@stanford.edu"
+#   title: "StatsPAI: The Agent-Native Causal Inference & Econometrics Toolkit for Python"
+#   journal: "Journal of Open Source Software"
+#   year: 2026
+#   doi: "TBD"

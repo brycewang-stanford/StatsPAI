@@ -8,6 +8,7 @@
 [![Tests](https://github.com/brycewang-stanford/statspai/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/brycewang-stanford/statspai/actions)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
 [![status](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332/status.svg)](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332)
+[![DOI](https://zenodo.org/badge/1142199519.svg)](https://doi.org/10.5281/zenodo.18636688)
 
 StatsPAI is the **agent-native** Python package for causal inference and applied econometrics. One `import`, **800+ functions**, covering the complete empirical research workflow — from classical econometrics to cutting-edge ML/AI causal methods to publication-ready tables in Word, Excel, and LaTeX.
 
@@ -1195,15 +1196,41 @@ pytest
 
 ## Citation
 
+If you use StatsPAI in your research, please cite the package. The fastest way
+is to call `sp.citation()` from Python — it returns a BibTeX entry pinned to
+the exact version you installed:
+
+```python
+import statspai as sp
+print(sp.citation())            # BibTeX (default)
+print(sp.citation("apa"))       # APA-style human-readable string
+print(sp.citation("plain"))     # Minimal plain text
+sp.__citation__                 # same string as sp.citation("bibtex")
+```
+
+A static example for the current release (the Zenodo *concept* DOI always
+resolves to the latest version):
+
 ```bibtex
-@software{wang2025statspai,
-  title={StatsPAI: The Causal Inference & Econometrics Toolkit for Python},
-  author={Wang, Biaoyue},
-  year={2026},
-  url={https://github.com/brycewang-stanford/statspai},
-  version={1.5.0}
+@software{wang_statspai_2026,
+  author       = {Wang, Biaoyue},
+  title        = {StatsPAI: The Agent-Native Causal Inference \& Econometrics Toolkit for Python},
+  year         = {2026},
+  version      = {1.12.0},
+  doi          = {10.5281/zenodo.18636688},
+  url          = {https://doi.org/10.5281/zenodo.18636688},
+  license      = {MIT},
 }
 ```
+
+To cite the **exact version** you used (recommended for replication packages),
+swap in the version-specific DOI shown on the [Zenodo record](https://doi.org/10.5281/zenodo.18636688)
+for that release.
+
+The canonical metadata lives in [`CITATION.cff`](CITATION.cff) (GitHub renders
+a "Cite this repository" button from it). A JOSS paper for StatsPAI is
+currently under review; once accepted, the journal article will become the
+preferred citation and `sp.citation()` will be updated to return it.
 
 ## License
 

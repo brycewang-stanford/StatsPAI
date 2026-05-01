@@ -1,0 +1,43 @@
+{
+  "title": "StatsPAI: The Agent-Native Causal Inference & Econometrics Toolkit for Python",
+  "description": "A unified, agent-native Python toolkit for causal inference and econometrics — DiD, IV, RD, synthetic control, double ML, meta-learners, BCF, causal discovery, structural, panel, spatial, and time-series — exposed through a single `import statspai as sp` entry point with a unified `CausalResult` interface.",
+  "creators": [
+    {
+      "name": "Wang, Biaoyue",
+      "affiliation": "Stanford REAP, Stanford University"
+    }
+  ],
+  "keywords": [
+    "econometrics",
+    "causal inference",
+    "difference-in-differences",
+    "regression discontinuity",
+    "synthetic control",
+    "instrumental variables",
+    "double machine learning",
+    "meta-learners",
+    "panel data",
+    "Bayesian causal forest",
+    "causal discovery",
+    "TMLE",
+    "Python",
+    "agent-native"
+  ],
+  "license": "MIT",
+  "upload_type": "software",
+  "access_right": "open",
+  "related_identifiers": [
+    {
+      "scheme": "url",
+      "identifier": "https://github.com/brycewang-stanford/StatsPAI",
+      "relation": "isSupplementTo",
+      "resource_type": "software"
+    },
+    {
+      "scheme": "url",
+      "identifier": "https://pypi.org/project/StatsPAI/",
+      "relation": "isPublishedIn",
+      "resource_type": "software"
+    }
+  ]
+}

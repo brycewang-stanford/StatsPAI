@@ -8,6 +8,7 @@
 [![Tests](https://github.com/brycewang-stanford/statspai/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/brycewang-stanford/statspai/actions)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
 [![status](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332/status.svg)](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332)
+[![DOI](https://zenodo.org/badge/1142199519.svg)](https://doi.org/10.5281/zenodo.18636688)
 
 StatsPAI 是一个**面向 AI Agent** 的 Python 因果推断与应用计量经济学工具包。一个 `import`，**800+ 个函数**，覆盖从经典计量经济学到前沿 ML/AI 因果推断方法，再到论文级 Word、Excel、LaTeX 输出表格的完整实证研究流程。
 
@@ -466,15 +467,38 @@ pytest
 
 ## 引用
 
+如果您在研究中使用 StatsPAI，请引用本包。最方便的方式是直接在 Python 里调用
+`sp.citation()`——它会返回一份与你当前安装版本对齐的 BibTeX：
+
+```python
+import statspai as sp
+print(sp.citation())            # BibTeX（默认）
+print(sp.citation("apa"))       # APA 风格人类可读字符串
+print(sp.citation("plain"))     # 极简纯文本
+sp.__citation__                 # 与 sp.citation("bibtex") 等价
+```
+
+当前版本的静态示例（Zenodo *concept* DOI 永远指向最新版）：
+
 ```bibtex
-@software{wang2025statspai,
-  title={StatsPAI: The Causal Inference & Econometrics Toolkit for Python},
-  author={Wang, Biaoyue},
-  year={2026},
-  url={https://github.com/brycewang-stanford/statspai},
-  version={1.5.0}
+@software{wang_statspai_2026,
+  author       = {Wang, Biaoyue},
+  title        = {StatsPAI: The Agent-Native Causal Inference \& Econometrics Toolkit for Python},
+  year         = {2026},
+  version      = {1.12.0},
+  doi          = {10.5281/zenodo.18636688},
+  url          = {https://doi.org/10.5281/zenodo.18636688},
+  license      = {MIT},
 }
 ```
+
+如需引用**确切版本**（建议在复现包 / replication package 中使用），请在
+[Zenodo 记录页面](https://doi.org/10.5281/zenodo.18636688)拷贝该 release
+对应的 versioned DOI 替换上面的 `doi` 字段。
+
+规范元数据存放在 [`CITATION.cff`](CITATION.cff)（GitHub 会基于此渲染右侧
+"Cite this repository" 按钮）。StatsPAI 的 JOSS 论文目前正在审稿中，录用
+后该论文将成为首选引用来源，`sp.citation()` 也会同步更新返回 JOSS 条目。
 
 ## 许可证
 
