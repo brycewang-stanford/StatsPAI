@@ -2,6 +2,27 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.12.1] — 2026-04-30
+
+Citation metadata polish — no numerical or API changes to any estimator.
+
+### Added
+
+- `sp.citation(format=...)` — package-level citation helper returning
+  BibTeX (default), APA, plain text, or the raw `CITATION.cff` contents.
+  Distinct from `sp.cite()`, which formats individual coefficients
+  inline. `sp.__citation__` exposes the default BibTeX entry as a `str`
+  for one-liners.
+- `CITATION.cff` at the repository root — GitHub renders a "Cite this
+  repository" button from it; bundled in the sdist via `MANIFEST.in`.
+- Zenodo DOI [10.5281/zenodo.18636688](https://doi.org/10.5281/zenodo.18636688)
+  (concept DOI; always resolves to the latest archived release). The
+  DOI now appears in `sp.citation()` output, the README citation block,
+  and a DOI badge alongside the existing JOSS-pending status badge.
+- `.zenodo.json` so future GitHub Releases mint version-specific DOIs
+  with consistent metadata (creators, keywords, license, related
+  identifiers).
+
 ## [1.12.0] — 2026-04-30
 
 ### Headline
