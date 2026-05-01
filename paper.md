@@ -23,7 +23,7 @@ affiliations:
   - name: Stanford REAP Program, Stanford University, United States
     index: 2
     ror: 00f54p054
-date: 20 April 2026
+date: 1 May 2026
 bibliography: paper.bib
 ---
 
@@ -31,7 +31,7 @@ bibliography: paper.bib
 
 `StatsPAI` is an open-source Python package providing a unified API for
 causal inference and applied econometrics. A single import
-(`import statspai as sp`) exposes **550+ public functions** spanning
+(`import statspai as sp`) exposes **950+ public functions** spanning
 classical econometric models, modern ML-based causal methods, stochastic
 frontier analysis, multilevel mixed-effects models, decomposition
 analysis, and publication-ready output generation. The package
@@ -209,7 +209,7 @@ interface: `.summary()`, `.plot()`, `.to_latex()`, `.to_docx()`, and
    `sp.modelsummary()` and `sp.outreg2()`; every result object
    supports `.to_latex()`, `.to_docx()`, and `.cite()`.
 4. An **agent-native API** with `sp.function_schema()` returning JSON
-   schemas for all 550+ functions, and `sp.list_functions()` /
+   schemas for all 950+ functions, and `sp.list_functions()` /
    `sp.describe_function()` for discoverability. Since v1.9.0 this
    surface includes `sp.detect_design()` (heuristic shape
    identification), `sp.preflight()` (cheap pre-estimation gate),
@@ -223,6 +223,17 @@ interface: `.summary()`, `.plot()`, `.to_latex()`, `.to_docx()`, and
    structured exception envelopes (`error_kind` /
    `recovery_hint` / `alternative_functions`) so LLM agents can
    branch on typed failure codes rather than regex-parsing prose.
+   Versions 1.10--1.12 extend this surface with an estimand-first
+   DSL (`sp.causal_question(...)` routes a research question to an
+   appropriate estimator and emits a shared robustness audit),
+   built-in Stata-to-Python and R-to-Python translators (covering
+   roughly 95% of common applied-econometrics Stata commands and
+   the `lme4` / `plm` / `MatchIt` / base-GLM idioms in R) that the
+   MCP server uses to map external code into StatsPAI tool calls,
+   a concurrent MCP runner with per-tool timeouts and
+   progress notifications, and `sp.citation()` together with a
+   `paper.bib`-checked DOI verifier that refuses to emit citations
+   not present in the curated bibliography.
 
 The package is implemented in pure Python atop NumPy, SciPy, Pandas,
 statsmodels, scikit-learn, and linearmodels, with optional PyTorch and
@@ -274,7 +285,7 @@ incidental-parameters bias in Greene (2005) true-fixed-effects
 frontier from $\hat\sigma_u = 0.374$ to $\hat\sigma_u = 0.359$
 (true value 0.350) at $T = 30$, $N = 25$.
 
-**Test suite.** The package ships with approximately 1{,}600 unit and
+**Test suite.** The package ships with approximately 1{,}900 unit and
 integration tests spanning all subpackages; these are executed in
 continuous integration across macOS, Linux, and Windows on Python
 3.10--3.13.
