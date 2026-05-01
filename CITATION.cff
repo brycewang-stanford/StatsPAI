@@ -16,8 +16,8 @@ authors:
     given-names: "Biaoyue"
     affiliation: "Stanford REAP, Stanford University"
     email: "brycew6m@stanford.edu"
-version: "1.12.1"
-date-released: "2026-04-30"
+version: "1.12.2"
+date-released: "2026-05-01"
 license: MIT
 # Zenodo *concept* DOI — always resolves to the latest archived version.
 # For a specific-version DOI (e.g. for replication packages), follow the

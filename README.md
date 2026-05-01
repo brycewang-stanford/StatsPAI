@@ -124,6 +124,18 @@ StatsPAI's focus is **causal inference** — and on this axis we aim to be the m
 
 ---
 
+**📦 v1.12.2 (2026-05-01) — ML routing for `sp.causal_question` + shared robustness battery + weighted PLIV/IIVM**
+
+Patch release on top of v1.12.0's DML hardening: `sp.causal_question`
+now routes `design='dml'|'tmle'|'metalearner'|'causal_forest'` directly
+into the correct estimator with the right identification story; both
+`sp.paper(...)` entry points share a new design-aware robustness battery
+(`workflow/_robustness.py`); `sp.llm_annotator_correct` graduates to
+multi-class with bias-corrected bootstrap + SE-inflation diagnostic;
+`sp.dml(model='pliv'|'iivm')` now honours `sample_weight` end-to-end.
+No estimator output changes for v1.12.0/1.12.1 call sites. Full notes
+in [`CHANGELOG.md`](CHANGELOG.md) under `[1.12.2]`.
+
 **📦 v1.12.0 (2026-04-30) — DML hardening + TMLE correctness pass**
 
 A two-workstream maintenance release; full release notes in
@@ -1215,7 +1227,7 @@ resolves to the latest version):
   author       = {Wang, Biaoyue},
   title        = {StatsPAI: The Agent-Native Causal Inference \& Econometrics Toolkit for Python},
   year         = {2026},
-  version      = {1.12.0},
+  version      = {1.12.2},
   doi          = {10.5281/zenodo.19933900},
   url          = {https://doi.org/10.5281/zenodo.19933900},
   license      = {MIT},

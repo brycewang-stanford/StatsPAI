@@ -4,6 +4,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.12.2] — 2026-05-01
+
+### Headline
+
+ML-routing for the estimand-first DSL (`sp.causal_question`) plus a
+shared robustness battery so `sp.paper(...)` renders the same audit
+section regardless of entry point. The Egami et al. (2024) LLM-label
+corrector graduates from binary-only to multi-class with a
+bias-corrected bootstrap, and DML's IV variants (`sp.dml(model='pliv')`,
+`sp.dml(model='iivm')`) now honour `sample_weight` end-to-end.
+Citation metadata fixes the wrong Zenodo DOI shipped under v1.12.1 —
+no estimator output changes.
+
 ### Added
 
 - `sp.llm_annotator_correct` (`causal_text/llm_annotator.py`) — three
@@ -58,6 +71,13 @@ All notable changes to StatsPAI will be documented in this file.
   now render the same design-aware robustness section instead of
   splitting between a thin NL path and a placeholder estimand-first
   path.
+- Weighted `sample_weight` support in `sp.dml(model='pliv')` and
+  `sp.dml(model='iivm')`. The IV orthogonality moment, residualisation
+  step, and downstream sandwich SE are all weighted consistently
+  (`E[w · ψ(W; θ, η)] = 0`); unit weights reproduce the unweighted path
+  bit-for-bit. Closes the last `sample_weight` gap in `dml/` after the
+  v1.12.0 PLR / interactive audits — `sp.dml`'s four core estimators
+  now all support survey / inverse-probability weights.
 
 ### Changed
 
