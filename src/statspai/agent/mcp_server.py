@@ -205,7 +205,10 @@ def _json_default(o: Any) -> Any:
     try:
         from pathlib import PurePath
         if isinstance(o, PurePath):
-            return str(o)
+            # Use POSIX form so JSON output is byte-stable across
+            # OSes (Windows would otherwise emit ``\\tmp\\x`` which
+            # breaks downstream consumers and round-trip tests).
+            return o.as_posix()
     except Exception:  # pragma: no cover
         pass
 

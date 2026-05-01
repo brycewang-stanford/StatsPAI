@@ -90,6 +90,14 @@ DOI_RE = re.compile(r"\b(?P<id>10\.\d{4,9}/[^\s)\"'`,;}\]\[]+?)\.?(?=[\s)\"'`,;}
 
 YEAR_RE = re.compile(r"\b(19\d{2}|20\d{2})\b")
 
+# Pandoc-style citation key marker (e.g. ``[@benkeser2016highly]``,
+# ``[@key1; @key2]``). StatsPAI docstrings use these to point a
+# bibliography entry at its paper.bib record. They function as
+# entry boundaries for the phantom-author scoping below — surnames
+# that appear before a ``[@...]`` marker belong to a *different*
+# bibliography entry and must NOT be attributed to the next id.
+_PANDOC_CITE_RE = re.compile(r"\[@[\w:.\-]+(?:\s*;\s*@[\w:.\-]+)*\]")
+
 # Rough surname token: capitalised word, may include unicode letters,
 # hyphens, apostrophes. Excludes common lowercase ALL-CAPS artifacts.
 SURNAME_RE = re.compile(
@@ -618,7 +626,7 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
     # their preceding author blocks belong to those other citations,
     # not this one. Then we further narrow on semicolon (the common
     # stacked-ref separator).
-    for other_re in (ARXIV_RE, NBER_RE, DOI_RE):
+    for other_re in (ARXIV_RE, NBER_RE, DOI_RE, _PANDOC_CITE_RE):
         other_matches = list(other_re.finditer(before_id))
         if other_matches:
             before_id = before_id[other_matches[-1].end():]
