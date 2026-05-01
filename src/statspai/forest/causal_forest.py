@@ -390,20 +390,20 @@ class CausalForest(BaseModel):
     ) -> List[DecisionTreeRegressor]:
         """
         Fit the causal forest using honest estimation
-        
+
         This is the core of the causal forest algorithm, implementing honest
         random forests as described in Wager & Athey (2018).
         """
         n_samples, n_features = X.shape
         trees = []
-        
+
         # Set random seed for reproducibility
         rng = np.random.RandomState(self.random_state)
-        
+
         for tree_idx in range(self.n_estimators):
             if self.verbose > 1 and tree_idx % 50 == 0:
                 print(f"  Fitting tree {tree_idx + 1}/{self.n_estimators}")
-            
+
             # Sample for this tree
             if self.bootstrap:
                 n_tree_samples = int(self.max_samples * n_samples)

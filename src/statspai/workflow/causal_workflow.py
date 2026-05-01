@@ -283,58 +283,38 @@ class CausalWorkflow:
     # ------------------------------------------------------------------
 
     def robustness(self):
-        """Run design-appropriate robustness checks on the fitted result."""
+        """Run design-appropriate robustness checks on the fitted result.
+
+        Delegates to :func:`statspai.workflow._robustness.run_robustness_battery`
+        — the shared battery that powers both the natural-language path
+        (``sp.paper(data, question, ...)``) and the estimand-first path
+        (``sp.paper(CausalQuestion(...))``). The battery never raises;
+        per-check failures land as ``severity='check_failed'`` findings.
+
+        Backwards compatibility: ``self.robustness_findings`` keeps the
+        flat ``Dict[str, Any]`` shape that callers (and the existing
+        :class:`PaperDraft` renderer) expect — populated from
+        :meth:`RobustnessReport.to_dict`. The structured per-finding
+        records are reachable via ``self.robustness_findings['_findings']``
+        when a caller wants severity-aware rendering.
+        """
         if self.result is None:
             self.estimate()
 
-        findings: Dict[str, Any] = {}
-
-        # Design-specific robustness
-        d = self.design
-        try:
-            if d == 'did' and hasattr(self.result, 'model_info'):
-                if 'pretrend_test' in self.result.model_info:
-                    pt = self.result.model_info['pretrend_test']
-                    findings['pretrend_test'] = pt
-            if d == 'iv' and hasattr(self.result, 'diagnostics'):
-                keys = [k for k in self.result.diagnostics
-                        if 'first' in k.lower() and 'f' in k.lower()]
-                for k in keys:
-                    findings[k] = self.result.diagnostics[k]
-        except Exception:
-            pass
-
-        # Generic: always report confidence interval width
-        if self.result is not None:
-            try:
-                if hasattr(self.result, 'ci'):
-                    lo, hi = self.result.ci
-                    findings['ci_width'] = float(hi - lo)
-                    findings['estimate'] = float(self.result.estimate)
-                elif hasattr(self.result, 'params'):
-                    main = (self.treatment or self.result.params.index[0])
-                    if main in self.result.params.index:
-                        coef = float(self.result.params[main])
-                        se = float(self.result.std_errors[main])
-                        findings['estimate'] = coef
-                        findings['ci_width'] = 2 * 1.96 * se
-            except Exception:
-                pass
-
-        # E-value (if applicable & available)
-        try:
-            import statspai as sp
-            if (d in ('observational', 'did') and
-                    hasattr(self.result, 'estimate')):
-                ev = sp.evalue_from_result(self.result)
-                if hasattr(ev, 'evalue'):
-                    findings['evalue'] = float(ev.evalue)
-        except Exception:
-            pass
-
-        self.robustness_findings = findings
+        from ._robustness import run_robustness_battery
+        report = run_robustness_battery(
+            self.result,
+            design=self.design,
+            data=self.data,
+            treatment=self.treatment,
+            outcome=self.y,
+            covariates=self.covariates,
+        )
+        # Cache the structured report for callers that prefer it.
+        self._robustness_report = report
+        self.robustness_findings = report.to_dict()
         self._mark('robustness')
-        return findings
+        return self.robustness_findings
 
     # ------------------------------------------------------------------
     # Stage 5: report

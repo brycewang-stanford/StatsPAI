@@ -265,6 +265,178 @@ def test_llm_annotator_with_covariates():
 
 
 # --------------------------------------------------------------------- #
+#  llm_annotator_correct — v1.7 deferred work
+# --------------------------------------------------------------------- #
+
+
+def _multiclass_dgp(seed: int = 0, n: int = 1500, n_val: int = 200,
+                    K: int = 3):
+    """K-class DGP with non-trivial confusion matrix and class-specific
+    treatment effects (β_1 = 1.5, β_2 = -0.7 relative to ref class 0).
+    """
+    rng = np.random.default_rng(seed)
+    M_true = np.array([[0.85, 0.10, 0.05],
+                       [0.08, 0.80, 0.12],
+                       [0.06, 0.09, 0.85]])
+    T_true = rng.integers(0, K, size=n)
+    T_llm = np.array([rng.choice(K, p=M_true[t]) for t in T_true])
+    mu = np.where(T_true == 0, 0.0,
+                  np.where(T_true == 1, 1.5, -0.7))
+    y = mu + rng.standard_normal(n)
+    human = pd.Series(
+        [float(T_true[i]) if i < n_val else np.nan for i in range(n)]
+    )
+    return pd.Series(T_llm.astype(float)), human, pd.Series(y)
+
+
+def test_llm_annotator_multiclass_recovers_effects():
+    """K=3: head-line .estimate (class 1 vs ref 0) and the full per-class
+    .detail vector should debias the naive (attenuated) coefficients."""
+    T_llm, T_human, y = _multiclass_dgp(seed=0, n=2500, n_val=400)
+    r = sp.llm_annotator_correct(
+        annotations_llm=T_llm, annotations_human=T_human, outcome=y,
+    )
+    assert r.annotator_diagnostics["n_classes"] == 3
+    assert abs(r.estimate - 1.5) < 0.4, (
+        f"Headline estimate {r.estimate}; expected ~1.5"
+    )
+    # Per-class detail frame
+    assert r.detail is not None
+    assert len(r.detail) == 2
+    classes = r.detail["class"].tolist()
+    assert classes == [1.0, 2.0] or classes == [1, 2]
+    # Naive estimates attenuate toward zero relative to corrected ones.
+    naive_abs = np.abs(r.detail["naive_estimate"].values)
+    corr_abs = np.abs(r.detail["corrected_estimate"].values)
+    assert (corr_abs >= naive_abs - 1e-6).all(), (
+        "Corrected magnitudes should not be smaller than naive ones."
+    )
+
+
+def test_llm_annotator_multiclass_diagnostics_populated():
+    T_llm, T_human, y = _multiclass_dgp(seed=1)
+    r = sp.llm_annotator_correct(
+        annotations_llm=T_llm, annotations_human=T_human, outcome=y,
+    )
+    d = r.annotator_diagnostics
+    # Confusion matrix shape and probability rows
+    M = np.asarray(d["confusion_matrix"])
+    assert M.shape == (3, 3)
+    assert np.allclose(M.sum(axis=1), 1.0, atol=1e-9)
+    # Bayes posterior columns sum to 1 wherever T_obs=j is non-empty.
+    Q = np.asarray(d["q_posterior"])
+    assert Q.shape == (3, 3)
+    col_sums = Q.sum(axis=0)
+    assert np.allclose(col_sums[col_sums > 0], 1.0, atol=1e-9)
+    # Inflation factor is a finite >= 1 multiplier.
+    infl = d["se_inflation_factor"]
+    assert np.isfinite(infl) and infl >= 1.0 - 1e-9
+    # Headline contrast labels the smallest non-reference class.
+    assert "vs ref=" in d["headline_contrast"]
+
+
+def test_llm_annotator_multiclass_singular_raises():
+    """If the LLM is degenerate (e.g. always predicts class 0 in
+    validation), the transform matrix is singular and the correction
+    must signal IdentificationFailure rather than silently dividing."""
+    rng = np.random.default_rng(7)
+    n, n_val, K = 800, 150, 3
+    T_true = rng.integers(0, K, size=n)
+    T_llm = np.zeros(n, dtype=float)        # LLM says 0 for everyone
+    y = (T_true == 1) * 1.5 + (T_true == 2) * -0.7 + rng.standard_normal(n)
+    human = pd.Series(
+        [float(T_true[i]) if i < n_val else np.nan for i in range(n)]
+    )
+    with pytest.raises(IdentificationFailure):
+        sp.llm_annotator_correct(
+            annotations_llm=pd.Series(T_llm),
+            annotations_human=human, outcome=pd.Series(y),
+        )
+
+
+def test_llm_annotator_inflation_factor_binary():
+    """Binary path exposes a finite SE inflation factor >= 1, monotone
+    in validation-set noise (smaller n_val => larger inflation)."""
+    rng = np.random.default_rng(0)
+    n = 2000
+    T_true = (rng.random(n) > 0.5).astype(int)
+    noise = (rng.random(n) < 0.15).astype(int)
+    T_llm = (T_true ^ noise).astype(int)
+    y = 1.0 * T_true + rng.standard_normal(n)
+
+    def _infl(n_val):
+        human = pd.Series(
+            [T_true[i] if i < n_val else np.nan for i in range(n)]
+        )
+        r = sp.llm_annotator_correct(
+            annotations_llm=pd.Series(T_llm),
+            annotations_human=human, outcome=pd.Series(y),
+        )
+        return r.annotator_diagnostics["se_inflation_factor"]
+
+    infl_small = _infl(50)
+    infl_large = _infl(500)
+    assert infl_small >= 1.0
+    assert infl_large >= 1.0
+    # Smaller validation set => more validation-set noise => larger
+    # inflation. Allow a small tolerance for sampling noise.
+    assert infl_small > infl_large - 1e-3
+
+
+def test_llm_annotator_bootstrap_widens_ci():
+    """Bias-corrected bootstrap must produce a CI at least as wide as
+    the first-order CI in the binary case where validation noise
+    matters."""
+    T_llm, T_human, y = _annotator_dgp(seed=0, n=1500, n_val=150,
+                                       misclass=0.18)
+    r_fo = sp.llm_annotator_correct(
+        annotations_llm=T_llm, annotations_human=T_human, outcome=y,
+    )
+    r_b = sp.llm_annotator_correct(
+        annotations_llm=T_llm, annotations_human=T_human, outcome=y,
+        bootstrap=True, n_bootstrap=300, bootstrap_seed=42,
+    )
+    fo_width = r_fo.ci[1] - r_fo.ci[0]
+    b_width = r_b.ci[1] - r_b.ci[0]
+    assert b_width >= fo_width * 0.9, (
+        f"Bootstrap CI width {b_width:.4f} should be >= 0.9 * first-"
+        f"order width {fo_width:.4f}"
+    )
+    # Bootstrap-aware metadata in diagnostics.
+    d = r_b.annotator_diagnostics
+    assert d["se_correction"] == "bias_corrected_bootstrap"
+    assert d["bootstrap"]["n_bootstrap"] == 300
+    assert d["bootstrap"]["seed"] == 42
+    assert d["bootstrap"]["method"] == "bias_corrected_percentile"
+    # First-order SE/CI still available for inspection.
+    assert d["first_order_se"] == r_fo.se
+    assert d["first_order_ci"] == r_fo.ci
+
+
+def test_llm_annotator_bootstrap_reproducible():
+    T_llm, T_human, y = _annotator_dgp(seed=0, n=1200, n_val=150)
+    r1 = sp.llm_annotator_correct(
+        annotations_llm=T_llm, annotations_human=T_human, outcome=y,
+        bootstrap=True, n_bootstrap=200, bootstrap_seed=0,
+    )
+    r2 = sp.llm_annotator_correct(
+        annotations_llm=T_llm, annotations_human=T_human, outcome=y,
+        bootstrap=True, n_bootstrap=200, bootstrap_seed=0,
+    )
+    assert r1.ci == r2.ci
+    assert r1.se == r2.se
+
+
+def test_llm_annotator_bootstrap_too_few_replicates_raises():
+    T_llm, T_human, y = _annotator_dgp(seed=0)
+    with pytest.raises(ValueError, match="too small"):
+        sp.llm_annotator_correct(
+            annotations_llm=T_llm, annotations_human=T_human, outcome=y,
+            bootstrap=True, n_bootstrap=10,
+        )
+
+
+# --------------------------------------------------------------------- #
 #  Registry / agent surface
 # --------------------------------------------------------------------- #
 

@@ -829,27 +829,42 @@ def _section_from_workflow(workflow) -> Dict[str, str]:
         lines.append("No fitted result available.")
     sections["Results"] = "\n".join(lines)
 
-    # Robustness
-    findings = workflow.robustness_findings or {}
-    lines = []
-    if findings:
-        for k, v in findings.items():
-            if isinstance(v, (int, float, np.integer, np.floating)):
-                if isinstance(v, (int, np.integer)):
-                    lines.append(f"- {k.replace('_', ' ').title()}: "
-                                 f"{int(v)}")
-                else:
-                    lines.append(f"- {k.replace('_', ' ').title()}: "
-                                 f"{float(v):.4f}")
-            elif isinstance(v, dict):
-                lines.append(f"- {k.replace('_', ' ').title()}:")
-                for kk, vv in list(v.items())[:8]:
-                    lines.append(f"    - {kk}: {vv}")
-            else:
-                lines.append(f"- {k.replace('_', ' ').title()}: {v}")
+    # Robustness — prefer the structured ``RobustnessReport`` rendered
+    # by the shared battery (severity icons, plain-English interpretation,
+    # design-specific ordering).  Fall back to the legacy flat-key
+    # rendering only when an older caller assigned ``robustness_findings``
+    # directly without going through ``CausalWorkflow.robustness()``.
+    report = getattr(workflow, "_robustness_report", None)
+    if report is not None and not report.is_empty():
+        sections["Robustness"] = report.to_markdown()
     else:
-        lines.append("No robustness findings produced.")
-    sections["Robustness"] = "\n".join(lines)
+        findings = workflow.robustness_findings or {}
+        # Strip the ``_findings`` / ``_design`` / ``_notes`` private
+        # keys that the new ``to_dict()`` shape adds — they belong in
+        # the structured payload, not the human-readable bullet list.
+        flat = {
+            k: v for k, v in findings.items()
+            if not str(k).startswith("_")
+        }
+        lines: List[str] = []
+        if flat:
+            for k, v in flat.items():
+                if isinstance(v, (int, float, np.integer, np.floating)):
+                    if isinstance(v, (int, np.integer)):
+                        lines.append(f"- {k.replace('_', ' ').title()}: "
+                                     f"{int(v)}")
+                    else:
+                        lines.append(f"- {k.replace('_', ' ').title()}: "
+                                     f"{float(v):.4f}")
+                elif isinstance(v, dict):
+                    lines.append(f"- {k.replace('_', ' ').title()}:")
+                    for kk, vv in list(v.items())[:8]:
+                        lines.append(f"    - {kk}: {vv}")
+                else:
+                    lines.append(f"- {k.replace('_', ' ').title()}: {v}")
+        else:
+            lines.append("No robustness findings produced.")
+        sections["Robustness"] = "\n".join(lines)
 
     return sections
 
@@ -1329,14 +1344,27 @@ def paper_from_question(
     ]
     sections["Results"] = "\n".join(res_lines)
 
-    # Robustness placeholder
+    # Robustness — delegate to the shared battery so the
+    # estimand-first path delivers the same diagnostic content as the
+    # natural-language path.  ``run_robustness_battery`` never raises;
+    # any per-check failure becomes a ``severity='check_failed'``
+    # finding rather than aborting the section.
     if include_robustness:
-        sections["Robustness"] = (
-            "_No robustness suite executed via this entry point — "
-            "use `sp.causal(...)` or attach a `CausalWorkflow` for the "
-            "full diagnostic battery (parallel-trends test, leave-one-out, "
-            "specification curve, e-value, etc.)._"
+        from ._robustness import run_robustness_battery
+        # ``CausalQuestion.estimate`` returns an ``EstimationResult``
+        # wrapping the underlying estimator result; the battery wants
+        # the underlying object so it can introspect ``.violations()``,
+        # ``.model_info``, etc.
+        underlying = getattr(result, "underlying", None) or result
+        report = run_robustness_battery(
+            underlying,
+            design=q.design,
+            data=q.data,
+            treatment=q.treatment,
+            outcome=q.outcome,
+            covariates=list(q.covariates) if q.covariates else None,
         )
+        sections["Robustness"] = report.to_markdown()
 
     # References
     citations: List[str] = []

@@ -2,6 +2,91 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- `sp.llm_annotator_correct` (`causal_text/llm_annotator.py`) — three
+  v1.7-deferred upgrades to the Egami et al. (2024) measurement-error
+  correction for LLM-derived treatment labels. Backward compatible:
+  the binary-T numerical path is unchanged, every existing kwarg keeps
+  its default behaviour, and existing diagnostics retain their keys.
+  - **Multi-class treatment.** The corrector now auto-detects the class
+    set from the union of LLM and human labels. For K ≥ 3 the
+    confusion matrix `M[i, j] = P(T_obs=j | T_true=i)`, validation-
+    marginal `π[i]`, and Bayes posterior `Q[i, j] = P(T_true=i |
+    T_obs=j)` are assembled; the K×K coefficient transform `θ_obs =
+    T θ_true` is inverted to recover per-class corrected contrasts.
+    Headline `.estimate` reports the smallest non-reference class;
+    full vector ships in `.detail` (per-class naive/corrected
+    estimate, SE, CI, p-value).  Singular / near-singular `T` raises
+    `IdentificationFailure`.
+  - **Bias-corrected bootstrap.** Optional `bootstrap=True` jointly
+    resamples the full sample (validation rows + unlabeled rows) and
+    re-runs the entire correction pipeline `n_bootstrap` times
+    (default 500), reporting Efron-Tibshirani bias-corrected percentile
+    CIs that reflect validation-set sampling uncertainty. New kwargs:
+    `bootstrap`, `n_bootstrap`, `bootstrap_seed`. First-order SE/CI
+    remain available in `model_info['first_order_se' / '_ci']`;
+    `bootstrap` sub-dict reports `n_valid`, `n_failed`, `seed`,
+    `method`, `mean`, `median`.
+  - **SE inflation factor diagnostic.** Both binary and multi-class
+    paths populate `model_info['se_inflation_factor']` — a delta-
+    method multiplier (≥ 1) the user can apply to the first-order SE
+    for an honest accounting of validation-set noise. For binary it is
+    derived analytically from the binomial variances of `p_01` and
+    `p_10`; for multi-class it is a finite-difference Jacobian-based
+    heuristic (use `bootstrap=True` for the rigorous version).
+  - Multi-class diagnostics also expose `confusion_matrix`,
+    `q_posterior`, `transform_matrix`, `condition_number`,
+    `pi_validation`, `headline_contrast`.
+- `sp.causal_question(..., design=...)` now accepts the four
+  ML-selection-on-observables tags directly:
+  `design='dml' | 'tmle' | 'metalearner' | 'causal_forest'`.
+  The planner records the right identification story /
+  assumptions for each, and the dispatcher now routes to the
+  corresponding estimator with targeted validation (e.g. DML
+  covariates required; PLIV / IIVM scalar-instrument guard;
+  causal-forest binary-treatment guard for ATE inference).
+- New guide:
+  `docs/guides/choosing_ml_causal_estimator.md` — decision tree for
+  choosing between DML / TMLE / metalearner / causal_forest, plus a
+  side-by-side comparison of estimands, IV support, and inference.
+- Shared robustness battery:
+  `workflow/_robustness.py` + `run_robustness_battery(...)`.
+  Both `sp.paper(data, question, ...)` and `sp.paper(CausalQuestion(...))`
+  now render the same design-aware robustness section instead of
+  splitting between a thin NL path and a placeholder estimand-first
+  path.
+
+### Changed
+
+- `sp.causal(...).robustness()` now delegates to the shared robustness
+  battery and still preserves backwards compatibility via the legacy
+  flat `robustness_findings` dict; structured per-finding records are
+  additionally available under `['_findings']`.
+- `paper.bib` / docs metadata filled in missing bibliographic details
+  for TMLE / causal forest / meta-learner references and removed a
+  duplicate van der Laan entry so the new ML-estimator guide and the
+  expanded `causal_question` docstrings resolve cleanly.
+- `docs/guides/causal_text_family.md` and the registry card for
+  `sp.llm_annotator_correct` now describe the new multi-class,
+  bootstrap, and SE-inflation-factor behaviour rather than the old
+  binary-only path.
+
+### Fixed
+
+- `sp.paper(CausalQuestion(...))` no longer emits a placeholder
+  Robustness section pointing users back to `sp.causal(...)`; it now
+  runs the same substantive battery as the natural-language paper path.
+- `sp.causal_question(..., estimand='CATE')` now auto-promotes to
+  `metalearner` only when effect modifiers are actually declared.
+  Without covariates it falls back honestly to a scalar ATE path with
+  an explicit warning, so `identify()` and `estimate()` agree.
+- `design='causal_forest'` now reports the population ATE summary via
+  cross-fit AIPW influence-function inference instead of leaving the
+  planner with a CATE-only story and no principled scalar ATE layer.
+
 ## [1.12.1] — 2026-04-30
 
 Citation metadata polish — no numerical or API changes to any estimator.

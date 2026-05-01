@@ -4694,40 +4694,59 @@ def _build_registry():
             "[experimental] Egami et al. (2024) measurement-error "
             "correction for downstream OLS coefficients when the "
             "treatment indicator was produced by an LLM (or any "
-            "imperfect classifier). Uses a small human-validated "
-            "subset to estimate p_01 and p_10, then corrects the "
-            "naive coefficient by 1/(1-p_01-p_10)."
+            "imperfect classifier). Binary T uses Hausman (1998) "
+            "1/(1 - p_01 - p_10) inflation; multi-class T (K>=3) uses "
+            "the inverse-confusion-matrix transform built from the "
+            "validation-set Bayes posterior. Optional bias-corrected "
+            "bootstrap jointly resamples the validation set and the "
+            "unlabeled corpus for honest CIs. SE inflation factor "
+            "(delta-method) always reported in diagnostics."
         ),
         params=[
-            ParamSpec("annotations_llm", "Series", True),
+            ParamSpec("annotations_llm", "Series", True,
+                      description="Binary or K-class numeric labels"),
             ParamSpec("outcome", "Series", True),
             ParamSpec("annotations_human", "Series", True,
                       description="NaN where unavailable; >=30 valid rows"),
             ParamSpec("covariates", "DataFrame", False),
             ParamSpec("method", "str", False, "hausman",
                       enum=["hausman"]),
+            ParamSpec("bootstrap", "bool", False, False,
+                      description=(
+                          "Joint resample full sample (validation rows "
+                          "+ unlabeled rows) for bias-corrected "
+                          "percentile CIs reflecting validation-set "
+                          "noise"
+                      )),
+            ParamSpec("n_bootstrap", "int", False, 500,
+                      description="Bootstrap replicates (>=50)"),
+            ParamSpec("bootstrap_seed", "int", False,
+                      description="NumPy default_rng seed"),
             ParamSpec("alpha", "float", False, 0.05),
         ],
         returns="LLMAnnotatorResult",
         example=(
             "sp.llm_annotator_correct(annotations_llm=df.llm_label, "
-            "annotations_human=df.human_label, outcome=df.y)"
+            "annotations_human=df.human_label, outcome=df.y, "
+            "bootstrap=True, n_bootstrap=500)"
         ),
         tags=["causal_text", "measurement_error", "llm_annotator",
-              "hausman", "experimental", "agent-native"],
+              "hausman", "multiclass", "bootstrap",
+              "experimental", "agent-native"],
         reference=(
             "Egami, Hinck, Stewart & Wei (NeurIPS 2024); "
             "arXiv:2306.04746. Hausman et al. (1998)."
         ),
         assumptions=[
-            "Binary treatment indicator",
-            "Misclassification is independent of outcome conditional on T",
+            "Misclassification is non-differential: T_obs ⫫ y | T_true",
             "Validation subset is representative of the full sample",
+            ("For K>=3: every true class appears in T_human and the "
+             "induced confusion matrix is non-singular"),
         ],
         pre_conditions=[
-            "annotations_llm is binary (0/1)",
+            "annotations_llm is numeric (binary or multi-class)",
             ">=30 rows with both LLM and human labels",
-            "Both T_human classes present in validation set",
+            "Every T_human class present in validation set",
         ],
         failure_modes=[
             FailureMode(
@@ -4737,17 +4756,30 @@ def _build_registry():
                 exception="statspai.DataInsufficient",
                 remedy=(
                     "Hand-label more rows so that annotations_human has "
-                    ">=30 non-NaN entries spanning both classes"
+                    ">=30 non-NaN entries spanning every class"
                 ),
             ),
             FailureMode(
                 symptom=(
-                    "IdentificationFailure: '1-p_01-p_10 <= 0'"
+                    "IdentificationFailure: '1-p_01-p_10 <= 0' or "
+                    "transform matrix is near-singular"
                 ),
                 exception="statspai.IdentificationFailure",
                 remedy=(
                     "Misclassification too severe — re-prompt the LLM "
-                    "or hand-label"
+                    "or hand-label more"
+                ),
+            ),
+            FailureMode(
+                symptom=(
+                    "DataInsufficient: 'Bootstrap produced only N "
+                    "valid draws'"
+                ),
+                exception="statspai.DataInsufficient",
+                remedy=(
+                    "Increase n_bootstrap, or fall back to the "
+                    "first-order SE; resampling is too unstable when "
+                    "the validation set is very small"
                 ),
             ),
         ],

@@ -208,21 +208,22 @@ and human labels exist, then divide:
 ## For Agents
 
 **Pre-conditions**
-- annotations_llm is binary (0/1)
+- annotations_llm is numeric (binary or multi-class)
 - >=30 rows with both LLM and human labels
-- Both T_human classes present in validation set
+- Every T_human class present in validation set
 
 **Identifying assumptions**
-- Binary treatment indicator
-- Misclassification is independent of outcome conditional on T
+- Misclassification is non-differential: T_obs ⫫ y | T_true
 - Validation subset is representative of the full sample
+- For K>=3: every true class appears in T_human and the induced confusion matrix is non-singular
 
 **Failure modes → recovery**
 
 | Symptom | Exception | Remedy | Try next |
 | --- | --- | --- | --- |
-| DataInsufficient: 'At least 30 validation rows' | `statspai.DataInsufficient` | Hand-label more rows so that annotations_human has >=30 non-NaN entries spanning both classes |  |
-| IdentificationFailure: '1-p_01-p_10 <= 0' | `statspai.IdentificationFailure` | Misclassification too severe — re-prompt the LLM or hand-label |  |
+| DataInsufficient: 'At least 30 validation rows' | `statspai.DataInsufficient` | Hand-label more rows so that annotations_human has >=30 non-NaN entries spanning every class |  |
+| IdentificationFailure: '1-p_01-p_10 <= 0' or transform matrix is near-singular | `statspai.IdentificationFailure` | Misclassification too severe — re-prompt the LLM or hand-label more |  |
+| DataInsufficient: 'Bootstrap produced only N valid draws' | `statspai.DataInsufficient` | Increase n_bootstrap, or fall back to the first-order SE; resampling is too unstable when the validation set is very small |  |
 
 **Alternatives (ranked)**
 - `sp.sp.regress with raw LLM label (biased — for comparison only)`

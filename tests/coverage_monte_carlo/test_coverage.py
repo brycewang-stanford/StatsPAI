@@ -240,6 +240,86 @@ def test_ebalance_ci_coverage():
 
 
 # ---------------------------------------------------------------------------
+# DML — interactive regression (binary treatment, ATE) via causal_question
+#
+# Tests that the Neyman-orthogonal moment + cross-fit produce a
+# well-calibrated 95% CI on a binary-D conditional-ignorability DGP.
+# This is the canonical non-IV DML branch picked by the dispatcher.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.slow
+def test_dml_irm_ci_coverage():
+    """sp.causal_question(design='dml') on binary D, no instruments:
+    Neyman-orthogonal SE must be calibrated to ~95%."""
+    B = min(B_DEFAULT, 200)   # cross-fit is slower; cap at 200
+    truth = 1.0
+    covered = 0
+    for seed in range(B):
+        rng = np.random.default_rng(seed)
+        n = 500
+        x1 = rng.normal(size=n)
+        x2 = rng.normal(size=n)
+        # Conditional ignorability — propensity depends on (x1,x2).
+        p = 1 / (1 + np.exp(-(0.4 * x1 - 0.2 * x2)))
+        d = rng.binomial(1, p)
+        y = 0.5 + truth * d + 0.6 * x1 + 0.3 * x2 + rng.normal(size=n)
+        df = pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
+        q = sp.causal_question(
+            treatment="d", outcome="y", design="dml",
+            covariates=["x1", "x2"], data=df,
+        )
+        r = q.estimate()    # auto-picks IRM
+        if r.ci[0] <= truth <= r.ci[1]:
+            covered += 1
+    # DML IRM SEs are sometimes slightly conservative on small n with
+    # GBM nuisance; allow standard upper slack.
+    _assert_calibrated(covered, B, "DML IRM (causal_question)")
+
+
+# ---------------------------------------------------------------------------
+# Causal Forest — AIPW influence function for population ATE
+#
+# The forest provides heterogeneous tau(x); ATE inference comes from
+# cross-fit AIPW (van der Laan & Robins 2003; Chernozhukov et al. 2018),
+# matching what grf::average_treatment_effect does in R. This is the
+# inference path that replaced the previous NaN-SE fallback.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.slow
+def test_causal_forest_aipw_ci_coverage():
+    """sp.causal_question(design='causal_forest'): the ATE 95% CI from
+    the cross-fit AIPW-IF must cover truth at ~95%."""
+    # AIPW-IF + 30-tree forest is comparatively cheap; cap at 200 to
+    # keep total wall-clock under ~3 minutes.
+    B = min(B_DEFAULT, 200)
+    truth = 1.0
+    covered = 0
+    for seed in range(B):
+        rng = np.random.default_rng(seed)
+        n = 500
+        x1 = rng.normal(size=n)
+        x2 = rng.normal(size=n)
+        p = 1 / (1 + np.exp(-(0.5 * x1)))
+        d = rng.binomial(1, p)
+        y = 0.5 + truth * d + 0.7 * x1 + 0.3 * x2 + rng.normal(size=n)
+        df = pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
+        q = sp.causal_question(
+            treatment="d", outcome="y", design="causal_forest",
+            covariates=["x1", "x2"], data=df,
+        )
+        r = q.estimate(n_estimators=30, random_state=seed)
+        if r.ci[0] <= truth <= r.ci[1]:
+            covered += 1
+    # AIPW-IF with GBM nuisance can over-cover slightly when the
+    # propensity model under-fits — allow 5% upper slack rather than
+    # 2% so a 96-99% empirical coverage doesn't fail on small B.
+    _assert_calibrated(covered, B, "Causal Forest AIPW-IF",
+                       upper_slack=0.05)
+
+
+# ---------------------------------------------------------------------------
 # Fast-mode coverage: one cheap smoke test that ALWAYS runs (not slow)
 # ---------------------------------------------------------------------------
 
