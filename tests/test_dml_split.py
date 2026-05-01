@@ -90,3 +90,77 @@ def test_pliv_rejects_list_of_multiple_instruments():
             data=df, y='y', treat='d', covariates=['x'],
             instrument=['z1', 'z2'],
         )
+
+
+def test_pliv_accepts_sample_weight_array():
+    rng = np.random.default_rng(123)
+    n = 2200
+    X1 = rng.normal(size=n)
+    X2 = rng.normal(size=n)
+    Z = 0.7 * X1 + rng.normal(size=n)
+    u = rng.normal(size=n)
+    D = 0.6 * Z + 0.4 * X2 + 0.4 * u + rng.normal(scale=0.3, size=n)
+    Y = 1.5 * D + np.sin(X1) + 0.5 * X2 ** 2 + 1.2 * u + rng.normal(size=n)
+    weights = rng.uniform(0.3, 2.5, size=n)
+    df = pd.DataFrame({
+        'y': Y, 'd': D, 'z': Z, 'x1': X1, 'x2': X2,
+    })
+
+    r = DoubleMLPLIV(
+        data=df, y='y', treat='d', covariates=['x1', 'x2'],
+        instrument='z', sample_weight=weights,
+    ).fit()
+    assert np.isfinite(r.estimate)
+    assert np.isfinite(r.se) and r.se > 0
+    assert abs(r.estimate - 1.5) < 0.35
+    assert r.model_info['diagnostics']['weighted'] is True
+
+
+def test_pliv_accepts_sample_weight_column_name():
+    rng = np.random.default_rng(321)
+    n = 1800
+    X = rng.normal(size=n)
+    Z = 0.8 * X + rng.normal(size=n)
+    u = rng.normal(size=n)
+    D = 0.5 * Z + 0.3 * X + 0.5 * u + rng.normal(scale=0.3, size=n)
+    Y = 1.4 * D + np.cos(X) + u + rng.normal(scale=0.4, size=n)
+    df = pd.DataFrame({
+        'y': Y, 'd': D, 'z': Z, 'x': X,
+        'w': rng.uniform(0.5, 1.8, size=n),
+    })
+
+    r = sp.dml(
+        df, y='y', treat='d', covariates=['x'],
+        model='pliv', instrument='z', sample_weight='w',
+    )
+    assert np.isfinite(r.estimate)
+    assert np.isfinite(r.se) and r.se > 0
+    assert abs(r.estimate - 1.4) < 0.4
+    assert r.model_info['diagnostics']['weighted'] is True
+
+
+def test_pliv_weight_scale_invariant():
+    rng = np.random.default_rng(777)
+    n = 1600
+    X = rng.normal(size=(n, 2))
+    Z = 0.9 * X[:, 0] + rng.normal(size=n)
+    u = rng.normal(size=n)
+    D = 0.7 * Z + 0.2 * X[:, 1] + 0.4 * u + rng.normal(scale=0.2, size=n)
+    Y = 1.2 * D + X[:, 0] - 0.3 * X[:, 1] + u + rng.normal(scale=0.3, size=n)
+    w = rng.uniform(0.4, 1.9, size=n)
+    df = pd.DataFrame({
+        'y': Y, 'd': D, 'z': Z, 'x1': X[:, 0], 'x2': X[:, 1],
+    })
+
+    a = sp.dml(
+        df, y='y', treat='d', covariates=['x1', 'x2'],
+        model='pliv', instrument='z', sample_weight=w,
+        ml_g='linear', ml_m='linear', ml_r='linear',
+    )
+    b = sp.dml(
+        df, y='y', treat='d', covariates=['x1', 'x2'],
+        model='pliv', instrument='z', sample_weight=10.0 * w,
+        ml_g='linear', ml_m='linear', ml_r='linear',
+    )
+    assert abs(a.estimate - b.estimate) < 1e-10
+    assert abs(a.se - b.se) < 1e-10

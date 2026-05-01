@@ -110,3 +110,49 @@ def test_iivm_model_info(iivm_dgp):
     assert result.model_info['dml_model'] == 'IIVM'
     assert result.model_info['instrument'] == 'z'
     assert 'ml_r' in result.model_info
+
+
+def test_iivm_accepts_sample_weight_array():
+    rng = np.random.default_rng(2026)
+    n = 2600
+    X = rng.normal(size=n)
+    Z = rng.binomial(1, 1 / (1 + np.exp(-0.4 * X)), size=n).astype(float)
+    u = rng.uniform(0, 1, n)
+    D = np.where(u < 0.55, Z, np.where(u < 0.78, 1.0, 0.0))
+    Y = 1.3 * D + 0.4 * X + rng.normal(scale=0.4, size=n)
+    w = rng.uniform(0.4, 2.2, size=n)
+    df = pd.DataFrame({'y': Y, 'd': D, 'z': Z, 'x': X})
+
+    result = sp.dml(
+        df, y='y', treat='d', covariates=['x'],
+        model='iivm', instrument='z', sample_weight=w,
+    )
+    assert np.isfinite(result.estimate)
+    assert np.isfinite(result.se) and result.se > 0
+    assert abs(result.estimate - 1.3) < 0.2
+    assert result.model_info['diagnostics']['weighted'] is True
+
+
+def test_iivm_accepts_sample_weight_column_name():
+    rng = np.random.default_rng(2027)
+    n = 2200
+    X1 = rng.normal(size=n)
+    X2 = rng.normal(size=n)
+    logits = 0.5 * X1 - 0.2 * X2
+    Z = rng.binomial(1, 1 / (1 + np.exp(-logits)), size=n).astype(float)
+    u = rng.uniform(0, 1, n)
+    D = np.where(u < 0.6, Z, np.where(u < 0.82, 1.0, 0.0))
+    Y = 1.1 * D + 0.3 * X1 - 0.2 * X2 + rng.normal(scale=0.35, size=n)
+    df = pd.DataFrame({
+        'y': Y, 'd': D, 'z': Z, 'x1': X1, 'x2': X2,
+        'w': rng.uniform(0.5, 1.7, size=n),
+    })
+
+    result = sp.dml(
+        df, y='y', treat='d', covariates=['x1', 'x2'],
+        model='iivm', instrument='z', sample_weight='w',
+    )
+    assert np.isfinite(result.estimate)
+    assert np.isfinite(result.se) and result.se > 0
+    assert abs(result.estimate - 1.1) < 0.2
+    assert result.model_info['diagnostics']['weighted'] is True

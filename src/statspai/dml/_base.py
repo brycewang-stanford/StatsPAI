@@ -97,11 +97,9 @@ class _DoubleMLBase:
         ):
             raise NotImplementedError(
                 f"sample_weight is not yet supported for "
-                f"model='{self._MODEL_TAG.lower()}'. Currently weighted "
-                f"DML is implemented for model in {{'plr', 'irm'}} only — "
-                f"the weighted Wald-ratio variance for IIVM and the "
-                f"weighted IV-PLR variance for PLIV require additional "
-                f"derivation work and will land in a follow-up."
+                f"model='{self._MODEL_TAG.lower()}'. Weighted support is "
+                f"currently implemented for model in "
+                f"{{'plr', 'irm', 'pliv', 'iivm'}} only."
             )
 
         self._validate()

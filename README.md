@@ -151,11 +151,10 @@ migration in [`MIGRATION.md`](MIGRATION.md#v111--v112--dml-module-hardening).
   ported (was a silent no-op shrinkage on the post-fit ε).
 - **Added — DML.** `random_state=` and `sample_weight=` on every
   `sp.dml(model=...)` call. `sample_weight=` is fully supported on
-  PLR / IRM / `sp.dml_panel` / `sp.dml_model_averaging` (Z-estimator
-  sandwich variance throughout); PLIV / IIVM raise
-  `NotImplementedError` pending derivation. Every variant now populates
-  `model_info["diagnostics"]` (propensity range, n clipped, subgroup-
-  fallback counts, partial corr, approximate first-stage F).
+  PLR / IRM / PLIV / IIVM / `sp.dml_panel` / `sp.dml_model_averaging`
+  (Z-estimator sandwich variance throughout). Every variant now
+  populates `model_info["diagnostics"]` (propensity range, n clipped,
+  subgroup-fallback counts, partial corr, approximate first-stage F).
 
 ---
 

@@ -15,7 +15,14 @@ ratio of two doubly-robust scores:
     theta_LATE = E[psi_a] / E[psi_b]
 
 where g(z, X) = E[Y|Z=z, X], r(z, X) = E[D|Z=z, X], m(X) = P(Z=1|X).
-SE via delta-method on the ratio.
+Weighted variant (with sample_weight w_i):
+
+    theta_LATE,w = E_w[psi_a] / E_w[psi_b]
+    Var(theta_w) = sum(w_i^2 * (psi_a_i - theta_w * psi_b_i)^2)
+                   / (sum(w_i * psi_b_i)^2)
+
+where E_w denotes the empirical weighted mean under the supplied sample
+weights.
 
 Folds are stratified by Z so each training fold contains both arms of
 the instrument; fitting g(z, X) on an empty subgroup would otherwise
@@ -39,6 +46,7 @@ class DoubleMLIIVM(_DoubleMLBase):
     # binary so both default to classifiers.
     _ML_M_TARGET_BINARY = True
     _ML_R_TARGET_BINARY = True
+    _SUPPORTS_SAMPLE_WEIGHT = True
     # Instrument-propensity clip — same role as the IRM propensity clip.
     _PSCORE_CLIP_LO = 0.01
     _PSCORE_CLIP_HI = 0.99
@@ -49,11 +57,6 @@ class DoubleMLIIVM(_DoubleMLBase):
     _COMPLIANCE_CLIP_HI = 1 - 1e-4
 
     def _fit_one_rep(self, Y, D, X, Z, n, rng_seed, sample_weight=None):
-        # See PLIV for the rationale: ``_SUPPORTS_SAMPLE_WEIGHT`` is
-        # False on this subclass so the base class has already raised
-        # if a non-trivial weight was supplied.
-        del sample_weight
-        from sklearn.base import clone
         from sklearn.model_selection import StratifiedKFold
 
         if not set(np.unique(Z)).issubset({0, 1}):
@@ -96,6 +99,14 @@ class DoubleMLIIVM(_DoubleMLBase):
         skf = StratifiedKFold(
             n_splits=self.n_folds, shuffle=True, random_state=rng_seed,
         )
+        if sample_weight is None:
+            w_full = None
+        else:
+            w_arr = np.asarray(sample_weight, dtype=float)
+            # Classifiers with regularisation can react to a pure scale
+            # change in sample_weight. Normalise to mean 1 so w and c*w
+            # define the same weighted empirical measure in practice.
+            w_full = w_arr * (len(w_arr) / float(np.sum(w_arr)))
         g1 = np.zeros(n)
         g0 = np.zeros(n)
         r1 = np.zeros(n)
@@ -109,26 +120,33 @@ class DoubleMLIIVM(_DoubleMLBase):
         for train_idx, test_idx in skf.split(X, Z):
             X_tr, X_te = X[train_idx], X[test_idx]
             Y_tr, Z_tr, D_tr = Y[train_idx], Z[train_idx], D[train_idx]
+            w_tr = w_full[train_idx] if w_full is not None else None
 
             # g(1, X), g(0, X) — outcome under each Z arm
             mask_z1 = Z_tr == 1
             mask_z0 = Z_tr == 0
             g1[test_idx], used_fb_g1 = self._fit_predict_subgroup(
                 self.ml_g, X_tr[mask_z1], Y_tr[mask_z1], X_te,
-                fallback_y=Y_tr[mask_z1], arm_label="Z=1 outcome g(1, X)",
+                fallback_y=Y_tr[mask_z1],
+                weights_sub=w_tr[mask_z1] if w_tr is not None else None,
+                arm_label="Z=1 outcome g(1, X)",
             )
             g0[test_idx], used_fb_g0 = self._fit_predict_subgroup(
                 self.ml_g, X_tr[mask_z0], Y_tr[mask_z0], X_te,
-                fallback_y=Y_tr[mask_z0], arm_label="Z=0 outcome g(0, X)",
+                fallback_y=Y_tr[mask_z0],
+                weights_sub=w_tr[mask_z0] if w_tr is not None else None,
+                arm_label="Z=0 outcome g(0, X)",
             )
 
             # r(z, X) = P(D=1 | Z=z, X) — first-stage compliance
             r1[test_idx], used_fb_r1 = self._fit_predict_classifier(
                 self.ml_r, X_tr[mask_z1], D_tr[mask_z1], X_te,
+                weights_sub=w_tr[mask_z1] if w_tr is not None else None,
                 arm_label="Z=1 first-stage r(1, X)",
             )
             r0[test_idx], used_fb_r0 = self._fit_predict_classifier(
                 self.ml_r, X_tr[mask_z0], D_tr[mask_z0], X_te,
+                weights_sub=w_tr[mask_z0] if w_tr is not None else None,
                 arm_label="Z=0 first-stage r(0, X)",
             )
             n_fallback_g1 += int(used_fb_g1)
@@ -137,8 +155,7 @@ class DoubleMLIIVM(_DoubleMLBase):
             n_fallback_r0 += int(used_fb_r0)
 
             # m(X) = P(Z=1 | X) — instrument propensity
-            ml_m = clone(self.ml_m)
-            ml_m.fit(X_tr, Z_tr)
+            ml_m = self._fit_weighted(self.ml_m, X_tr, Z_tr, w_tr)
             if hasattr(ml_m, 'predict_proba'):
                 m_hat[test_idx] = ml_m.predict_proba(X_te)[:, 1]
             else:
@@ -160,8 +177,14 @@ class DoubleMLIIVM(_DoubleMLBase):
             - (1 - Z) * (D - r0) / (1 - m_hat)
         )
 
-        num = float(np.mean(psi_a))
-        den = float(np.mean(psi_b))
+        if w_full is None:
+            w = np.ones(n, dtype=float)
+            W = float(n)
+        else:
+            w = w_full
+            W = float(np.sum(w))
+        num = float(np.sum(w * psi_a) / W)
+        den = float(np.sum(w * psi_b) / W)
         if abs(den) < 1e-6:
             raise RuntimeError(
                 f"Degenerate IIVM first stage: E[psi_b] ≈ {den:.2e}. "
@@ -169,9 +192,16 @@ class DoubleMLIIVM(_DoubleMLBase):
                 "LATE is not identified."
             )
         theta = num / den
-        influence = (psi_a - theta * psi_b) / den
-        sigma2 = float(np.var(influence, ddof=1))
-        se = float(np.sqrt(sigma2 / n))
+        phi = psi_a - theta * psi_b
+        if w_full is None:
+            influence = phi / den
+            sigma2 = float(np.var(influence, ddof=1))
+            se = float(np.sqrt(sigma2 / n))
+        else:
+            score = w * phi
+            num_var = float(np.sum(score ** 2))
+            den_var = abs(float(np.sum(w * psi_b)))
+            se = float(np.sqrt(num_var)) / den_var if den_var > 0 else 0.0
 
         n_clipped_lo = int(np.sum(m_hat_raw < self._PSCORE_CLIP_LO))
         n_clipped_hi = int(np.sum(m_hat_raw > self._PSCORE_CLIP_HI))
@@ -187,6 +217,7 @@ class DoubleMLIIVM(_DoubleMLBase):
             "n_subgroup_fallback_r1": n_fallback_r1,
             "n_subgroup_fallback_r0": n_fallback_r0,
             "first_stage_E_psi_b": den,
+            "weighted": w_full is not None,
         }
         return theta, se
 
@@ -201,23 +232,26 @@ class DoubleMLIIVM(_DoubleMLBase):
 
     @staticmethod
     def _fit_predict_subgroup(
-        learner, X_sub, y_sub, X_te, fallback_y, arm_label="(unspecified)",
+        learner, X_sub, y_sub, X_te, fallback_y, weights_sub=None,
+        arm_label="(unspecified)",
     ):
         """Fit ``learner`` on a subgroup; fall back to subgroup mean if too small.
 
         Returns ``(predictions, fallback_used)`` where ``fallback_used``
         is True iff the subgroup mean replaced a flexible fit.
         """
-        from sklearn.base import clone
         from statspai.exceptions import IdentificationFailure
 
         if len(X_sub) >= DoubleMLIIVM._MIN_SUBGROUP_FIT:
-            clf = clone(learner)
-            clf.fit(X_sub, y_sub)
+            clf = DoubleMLIIVM._fit_weighted(learner, X_sub, y_sub, weights_sub)
             return clf.predict(X_te), False
         if len(fallback_y) > 0:
+            if weights_sub is not None and float(np.sum(weights_sub)) > 0:
+                fallback_mean = float(np.average(fallback_y, weights=weights_sub))
+            else:
+                fallback_mean = float(np.mean(fallback_y))
             return (
-                np.full(len(X_te), float(np.mean(fallback_y))),
+                np.full(len(X_te), fallback_mean),
                 True,
             )
         raise IdentificationFailure(
@@ -233,26 +267,29 @@ class DoubleMLIIVM(_DoubleMLBase):
 
     @staticmethod
     def _fit_predict_classifier(
-        learner, X_sub, d_sub, X_te, arm_label="(unspecified)",
+        learner, X_sub, d_sub, X_te, weights_sub=None,
+        arm_label="(unspecified)",
     ):
         """Fit a classifier on (X_sub, d_sub); fall back to mean(d_sub).
 
         Returns ``(predictions, fallback_used)``.
         """
-        from sklearn.base import clone
         from statspai.exceptions import IdentificationFailure
 
         if (
             len(X_sub) >= DoubleMLIIVM._MIN_SUBGROUP_FIT
             and len(np.unique(d_sub)) > 1
         ):
-            clf = clone(learner)
-            clf.fit(X_sub, d_sub)
+            clf = DoubleMLIIVM._fit_weighted(learner, X_sub, d_sub, weights_sub)
             if hasattr(clf, 'predict_proba'):
                 return clf.predict_proba(X_te)[:, 1], False
             return clf.predict(X_te), False
         if len(d_sub) > 0:
-            return np.full(len(X_te), float(np.mean(d_sub))), True
+            if weights_sub is not None and float(np.sum(weights_sub)) > 0:
+                fallback_mean = float(np.average(d_sub, weights=weights_sub))
+            else:
+                fallback_mean = float(np.mean(d_sub))
+            return np.full(len(X_te), fallback_mean), True
         raise IdentificationFailure(
             f"IIVM cross-fit produced an empty subgroup for {arm_label}; "
             "aborting rather than biasing the first-stage score with zeros.",

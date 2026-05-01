@@ -101,10 +101,8 @@ def dml(
     sample_weight : np.ndarray | pd.Series | str, optional
         Per-observation weights (e.g., survey/probability weights). Pass
         either a 1-D array of length ``len(data)`` or a column name
-        present in ``data``. Currently supported for
-        ``model in {'plr', 'irm'}``; PLIV / IIVM raise
-        :class:`NotImplementedError` because the weighted Wald-ratio
-        and IV-PLR variance formulas need additional derivation work.
+        present in ``data``. Supported for
+        ``model in {'plr', 'irm', 'pliv', 'iivm'}``.
 
     Returns
     -------
