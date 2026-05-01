@@ -86,7 +86,7 @@ NBER_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-DOI_RE = re.compile(r"\b(?P<id>10\.\d{4,9}/[^\s)\"'`,;}]+?)\.?(?=[\s)\"'`,;}]|$)")
+DOI_RE = re.compile(r"\b(?P<id>10\.\d{4,9}/[^\s)\"'`,;}\]\[]+?)\.?(?=[\s)\"'`,;}\]\[]|$)")
 
 YEAR_RE = re.compile(r"\b(19\d{2}|20\d{2})\b")
 
@@ -429,14 +429,63 @@ def verify_nber(ids: list[str], refresh: bool = False) -> dict[str, PaperMeta]:
 # ---------------------------------------------------------------------------
 
 
+def _verify_datacite_one(doi: str, refresh: bool = False) -> Optional[PaperMeta]:
+    """Resolve a DOI via DataCite (Zenodo, Figshare, etc. live here, NOT
+    Crossref). Used as a fallback when Crossref returns 404 — many
+    self-archived datasets and software DOIs are registered with the
+    DataCite agency rather than Crossref."""
+    url = f"https://api.datacite.org/dois/{urllib.parse.quote(doi, safe='')}"
+    try:
+        raw = _http_get(url, refresh=refresh, sleep=0.5)
+    except urllib.error.URLError as e:
+        print(f"[datacite] HTTP error {e!r} for {doi}", file=sys.stderr)
+        return None
+    try:
+        obj = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    attrs = obj.get("data", {}).get("attributes", {})
+    creators = attrs.get("creators", []) or []
+    authors = []
+    for c in creators:
+        name = c.get("name") or " ".join(filter(None, [
+            c.get("givenName"), c.get("familyName")
+        ]))
+        if name:
+            authors.append(name)
+    titles = attrs.get("titles", []) or []
+    title = (titles[0].get("title", "").strip() if titles else "")
+    year = int(attrs.get("publicationYear") or 0)
+    return PaperMeta(
+        authors=authors,
+        title=title,
+        year=year,
+        source="datacite",
+    )
+
+
 def verify_crossref(dois: list[str], refresh: bool = False) -> dict[str, PaperMeta]:
     result: dict[str, PaperMeta] = {}
     for doi in dois:
         url = f"https://api.crossref.org/works/{urllib.parse.quote(doi, safe='')}"
+        crossref_404 = False
         try:
             raw = _http_get(url, refresh=refresh, sleep=0.5)
+        except urllib.error.HTTPError as e:
+            print(f"[crossref] HTTP error {e!r} for {doi}", file=sys.stderr)
+            if e.code == 404:
+                crossref_404 = True
+            else:
+                continue
         except urllib.error.URLError as e:
             print(f"[crossref] HTTP error {e!r} for {doi}", file=sys.stderr)
+            continue
+        if crossref_404:
+            # Fall through to DataCite — Zenodo / Figshare / Dryad
+            # software & dataset DOIs are registered there.
+            meta = _verify_datacite_one(doi, refresh=refresh)
+            if meta is not None:
+                result[doi] = meta
             continue
         try:
             obj = json.loads(raw)
@@ -497,6 +546,21 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
     ]
     is_bare_reference = len(truth_present_in_claim) == 0
 
+    # Detect a bibtex / @article{...} block in the surrounding context.
+    # The ±3-line window may NOT capture the leading ``author={...``
+    # field of a multi-line bibtex literal (Python triple-quoted
+    # strings spread the entry over 6+ lines). Use a broader marker
+    # set so an entry whose author= line is one line outside the
+    # window still registers as bibtex. We re-use this flag for both
+    # the missing-author and phantom-author checks.
+    _bibtex_markers = (
+        "author={", "title={", "journal={", "booktitle={",
+        "year={", "doi={", "volume={", "number={", "pages={",
+        "publisher={", "@article{", "@inproceedings{", "@book{",
+        "@misc{", "@techreport{", "@phdthesis{",
+    )
+    is_bibtex = any(m in c.claim_block for m in _bibtex_markers)
+
     # 1) missing truth authors (claim lacks someone actually on the paper)
     has_et_al = "et al" in claim_norm
     missing = [a for a in truth.authors
@@ -508,7 +572,11 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
         if first and first in claim_tokens:
             # acceptable shorthand
             missing = []
-    if missing and not is_bare_reference:
+    if missing and not is_bare_reference and not is_bibtex:
+        # Bibtex blocks frequently span more than ±3 lines (Python
+        # triple-quoted literals embed full entries), so a partial
+        # author hit inside the window is not evidence of a real
+        # omission — trust the structured ``author={...}`` field.
         issues.append(
             f"missing author(s) in claim: {', '.join(missing)}"
         )
@@ -525,7 +593,8 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
     #     independent citation, so only look at the id's own line.
     #   * Otherwise use the ±3-line claim block so author lists that
     #     spill onto the line above the id are still visible.
-    is_bibtex = "author={" in c.claim_block or "title={" in c.claim_block
+    # ``is_bibtex`` was computed above (shared with the missing-author
+    # check). Reuse it so the two heuristics stay in sync.
     is_table_row = c.same_line.lstrip().startswith("|") and "|" in c.same_line[1:]
     if is_bibtex:
         # BibTeX 'Last, First' swaps cannot be disentangled without a
