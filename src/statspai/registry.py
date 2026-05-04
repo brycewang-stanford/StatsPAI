@@ -6271,12 +6271,6 @@ def _build_registry():
         alternatives=["callaway_santanna", "sun_abraham", "did_imputation",
                       "etwfe"],
         typical_n_min=50,
-        limitations=[
-            "cgroup='nevertreated' combined with panel=False (repeated "
-            "cross-sections) is not yet supported; pass either "
-            "panel=True with cgroup='nevertreated' or panel=False with "
-            "cgroup='notyet'",
-        ],
     ))
 
     register(FunctionSpec(
@@ -6300,6 +6294,11 @@ def _build_registry():
                       "R-style alias for controls"),
             ParamSpec("panel", "bool", False, True,
                       "If False, treat data as repeated cross-section"),
+            ParamSpec("cgroup", "str", False, "notyet",
+                      "Control group: 'notyet' (not-yet-treated) or "
+                      "'nevertreated'. The latter is only supported when "
+                      "panel=True.",
+                      ["notyet", "nevertreated"]),
         ],
         returns="CausalResult",
         example='sp.etwfe(df, y="y", group="i", time="t", first_treat="g")',
@@ -6308,6 +6307,12 @@ def _build_registry():
         reference="Wooldridge (2021) [@wooldridge2021two]",
         alternatives=["wooldridge_did", "callaway_santanna", "did_imputation"],
         typical_n_min=50,
+        limitations=[
+            "cgroup='nevertreated' combined with panel=False (repeated "
+            "cross-sections) is not yet supported; pass either "
+            "panel=True with cgroup='nevertreated' or panel=False with "
+            "cgroup='notyet'",
+        ],
     ))
 
     register(FunctionSpec(

@@ -6,6 +6,20 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Runtime consistency tests for `FunctionSpec.limitations`.** Each
+  `limitations` entry on a `FunctionSpec` is now structurally audited
+  by `tests/test_limitations_consistency.py` so the registry's
+  parity-grade-with-known-gaps claims cannot drift away from runtime
+  behaviour: every entry must (a) use vetted vocabulary and (b) be
+  classified as either runtime-testable (a curated map calls the
+  function with the unimplemented value and asserts the documented
+  exception) or descriptively-soft (silent fallback / caveat,
+  whitelisted in `LIMITATIONS_DESCRIPTIVE_ONLY`). Adding a new
+  limitation without classifying it now fails CI. Caught one drift
+  bug in this pass: the `cgroup='nevertreated' + panel=False`
+  limitation was attached to `wooldridge_did`, but only the `etwfe`
+  alias exposes those parameters — moved to `etwfe` and surfaced the
+  missing `cgroup` ParamSpec to the schema.
 - **Test-coverage battery for the four worst-covered files +
   parity-grade smoke battery across `did/synth/rd/iv/tmle/bayes`.**
   The v1.12.x audit flagged six causal-family modules at low
@@ -97,6 +111,27 @@ All notable changes to StatsPAI will be documented in this file.
 - Top-level `statspai.__all__` is now de-duplicated in order-preserving
   fashion, reducing public-surface drift between the import namespace
   and registry/help tooling.
+- The top-level function-first API now survives the `sp.iv` bootstrap
+  path for same-name families like `bartik` and `deepiv`. The root
+  package eagerly rebinds the 14 function/subpackage collisions
+  (`proximal`, `principal_strat`, `bartik`, `bridge`, `causal_impact`,
+  `bcf`, `bunching`, `deepiv`, `dose_response`, `frontier`,
+  `interference`, `msm`, `multi_treatment`, `tmle`) while
+  `statspai.iv` lazy-loads its optional `bartik` / `deepiv`
+  re-exports, so `sp.bartik(...)` / `sp.deepiv(...)` stay callable
+  instead of degenerating into bare module objects after import order
+  changes.
+- `smart.assumptions`, `smart.brief`, `smart.identification`,
+  `smart.sensitivity`, and `smart.verify` now lazy-import
+  `workflow._degradation` only inside failure paths. That removes a
+  premature `workflow/__init__` import during `import statspai`,
+  which had reintroduced partially initialized top-level symbols and
+  made the lazy API order-sensitive.
+- Added a committed `src/statspai/__init__.pyi` generator and pinned it
+  with a regression test so IDE/type-checker visibility tracks the live
+  runtime namespace. The stub generator now skips exported constants
+  during leaf scanning and correctly types `STABILITY_TIERS` as
+  `frozenset[str]`, avoiding duplicate/conflicting declarations.
 
 ## [1.12.2] — 2026-05-01
 
