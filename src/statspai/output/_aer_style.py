@@ -133,7 +133,16 @@ def apply_word_booktab_rules(
             kwargs["top"] = top
         _set_cell_borders(cell, **kwargs)
     for cell in rows[body_last_idx].cells:
-        _set_cell_borders(cell, bottom=bot)
+        kwargs = {"bottom": bot}
+        # When the bottom-rule row is also the top-rule row (single-row
+        # table), preserve the heavy top rule that was set above — each
+        # _set_cell_borders call replaces the entire tcBorders element.
+        if body_last_idx == header_top_idx:
+            kwargs["top"] = top
+        elif body_last_idx == header_bot_idx and header_top_idx == header_bot_idx:
+            kwargs["top"] = top
+            kwargs["bottom"] = mid
+        _set_cell_borders(cell, **kwargs)
 
 
 def style_word_table_typography(

@@ -600,7 +600,7 @@ def _detect_family(method: str) -> str:
     if any(k in m for k in ("did", "diff", "callaway", "sun_abraham",
                              "stagger", "imputation", "wooldridge",
                              "chaisemartin", "changes-in-changes",
-                             "cic", "stacked")):
+                             "twfe", "cic", "stacked")):
         return "did"
 
     # --- RD ---
