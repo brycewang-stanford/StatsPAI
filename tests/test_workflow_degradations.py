@@ -418,3 +418,90 @@ def test_verify_recommendation_records_per_method_failure(monkeypatch):
         out = _run_method(rec, df)
     assert out is None
 
+
+def test_placebo_all_reps_crashed_surfaces_single_warning(monkeypatch):
+    """When every placebo permutation crashes (e.g. shared signature
+    bug across all reps), score=0 alone is indistinguishable from a
+    method that genuinely failed placebo. Phase C: fire a SINGLE
+    degradation warning carrying the last exception so users can
+    diagnose the difference."""
+    import numpy as np
+    import statspai as sp
+    from statspai.smart.verify import _placebo_pass
+
+    df = _make_observational_df()
+    df = df.assign(unit_id=np.arange(len(df)))
+
+    def _boom(**kw):
+        raise RuntimeError("synthetic placebo fit failure")
+
+    monkeypatch.setattr(sp, "regress", _boom, raising=False)
+
+    rec = {
+        "function": "regress",
+        "params": {"formula": "wage ~ trained"},
+        "treat_col": "trained",
+        "prep": None,
+    }
+    rng = np.random.default_rng(0)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        out = _placebo_pass(rec, df, rng, n_reps=3)
+
+    assert out["applicable"] is True
+    assert out["total"] == 0
+    assert out["score"] == 0.0
+    degraded = [
+        w for w in caught
+        if issubclass(w.category, WorkflowDegradedWarning)
+        and "placebo all-reps crashed" in str(w.message)
+    ]
+    # Exactly one summary degradation, not n_reps individual ones.
+    assert len(degraded) == 1, (
+        f"Expected 1 summary degradation, got {len(degraded)}: "
+        + "; ".join(str(w.message) for w in degraded)
+    )
+    # Original exception type and message preserved.
+    assert "RuntimeError" in str(degraded[0].message)
+    assert "synthetic placebo fit failure" in str(degraded[0].message)
+
+
+def test_placebo_partial_crashes_no_summary_warning(monkeypatch):
+    """When SOME placebo reps succeed (not all crashed), the per-rep
+    failures are still tolerated silently — surfacing one would noise-
+    spam the placebo battery on stochastic edge cases. The summary
+    warning fires only when total==0 AND all reps crashed."""
+    import numpy as np
+    import statspai as sp
+    from statspai.smart.verify import _placebo_pass
+
+    df = _make_observational_df()
+
+    # Capture the real sp.regress before monkeypatching so the flaky
+    # wrapper can delegate to it without recursing into itself.
+    real_regress = sp.regress
+    call_count = {"n": 0}
+
+    def _flaky(**kw):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise RuntimeError("only the first rep crashes")
+        return real_regress("wage ~ trained", data=kw["data"])
+
+    monkeypatch.setattr(sp, "regress", _flaky, raising=False)
+
+    rec = {
+        "function": "regress",
+        "params": {"formula": "wage ~ trained"},
+        "treat_col": "trained",
+        "prep": None,
+    }
+    rng = np.random.default_rng(0)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _placebo_pass(rec, df, rng, n_reps=3)
+    # No "all-reps crashed" warning when at least one rep succeeded.
+    assert not any(
+        "placebo all-reps crashed" in str(w.message) for w in caught
+    )
+

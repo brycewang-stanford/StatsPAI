@@ -299,6 +299,8 @@ def _placebo_pass(
             "score": np.nan, "passed": 0, "total": 0, "applicable": False
         }
 
+    last_exc: Optional[BaseException] = None
+    n_crashes = 0
     for _ in range(n_reps):
         permuted = data.copy()
         if id_col and id_col in data.columns:
@@ -328,7 +330,14 @@ def _placebo_pass(
             n_total += 1
             if np.isfinite(p_val) and p_val > 0.10:
                 n_pass += 1
-        except Exception:
+        except Exception as exc:
+            # Per-rep failures are intentionally tolerated (one bad
+            # permutation shouldn't kill the placebo battery), but
+            # remember the last failure so we can surface it when ALL
+            # reps crash — otherwise "every fit raised" looks identical
+            # to "method genuinely failed placebo" (both score=0).
+            last_exc = exc
+            n_crashes += 1
             continue
 
     if n_total:
@@ -338,6 +347,20 @@ def _placebo_pass(
         # callable) but no p-value could be extracted. Penalise this
         # case with score=0 so it doesn't silently escape via NaN.
         score = 0.0
+        # If ALL reps crashed (vs. some returned None p-values), the
+        # score=0 is hiding a likely shared bug — surface it as a
+        # single degradation warning rather than 5 silent skips.
+        if n_crashes == n_reps and last_exc is not None:
+            from ..workflow._degradation import record_degradation
+            record_degradation(
+                None,
+                section="verify_recommendation: placebo all-reps crashed",
+                exc=last_exc,
+                detail=(
+                    f"function=sp.{rec.get('function', '?')}, "
+                    f"n_reps={n_reps}, last error from rep #{n_reps}"
+                ),
+            )
     return {
         "score": score, "passed": n_pass, "total": n_total,
         "applicable": True,
