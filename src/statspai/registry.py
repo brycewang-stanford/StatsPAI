@@ -1689,11 +1689,13 @@ def _build_registry():
                       ["monotonicity", "principal_score"]),
             ParamSpec("instrument", "str", False, None,
                       description=(
-                          "Optional instrument column for the AIR/Wald LATE "
-                          "interpretation. NOT YET IMPLEMENTED — supplying a "
-                          "value raises NotImplementedError; use sp.iv or "
-                          "sp.dml(model='iivm') for the encouragement-design "
-                          "LATE in the meantime."
+                          "Binary instrument column. When supplied, switches "
+                          "to the AIR / Wald LATE estimator: under random Z, "
+                          "monotonicity, and exclusion, reports two LATEs "
+                          "among Z-compliers — τ_Y for the effect of the "
+                          "treatment on the outcome, and τ_S for the effect "
+                          "on the post-treatment stratum variable. "
+                          "method= is ignored on this path."
                       )),
             ParamSpec("n_boot", "int", False, 500, "Bootstrap replications"),
         ],
@@ -1702,9 +1704,11 @@ def _build_registry():
         tags=["principal-stratification", "sace", "late", "compliance", "causal"],
         reference="Frangakis & Rubin (2002); Zhang & Rubin (2003); Ding & Lu (2017)",
         limitations=[
-            "instrument= (explicit two-layer IV + treatment setup) is "
-            "not yet implemented; for encouragement-design LATE use "
-            "sp.iv or sp.dml(model='iivm')",
+            "Always-survivor SACE under encouragement design (Mealli "
+            "& Pacini 2013, partial identification) is not yet "
+            "implemented; only AIR / Wald LATE point estimates "
+            "(τ_Y on outcome, τ_S on the post-treatment stratum) are "
+            "reported when an instrument is supplied",
         ],
         pre_conditions=[
             "binary treatment",
@@ -4163,7 +4167,9 @@ def _build_registry():
             "variant='projection' raises NotImplementedError — the "
             "Riesz-projection targeting step from Li-Qiu-Wang-vdL "
             "(2025) §3.2 is not yet ported (the v1.11.x code path "
-            "was a no-op on the point estimate; see CHANGELOG)",
+            "was a no-op on the point estimate; see CHANGELOG). The "
+            "implementation roadmap and parity-test gates are in "
+            "docs/rfc/hal_tmle_projection.md",
         ],
     ))
 

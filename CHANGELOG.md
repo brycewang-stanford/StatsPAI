@@ -6,6 +6,35 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.principal_strat(instrument=...)` — encouragement-design AIR /
+  Wald LATE.** The previously-stubbed `instrument=` parameter now
+  routes to a proper estimator (Angrist-Imbens-Rubin 1996 §4): given
+  binary instrument `Z`, treatment `D`, post-treatment stratum `S`,
+  and outcome `Y`, under random `Z` + monotonicity D(1)>=D(0) +
+  exclusion + SUTVA, the function reports two Wald LATEs among
+  Z-compliers — `τ_Y` for the effect of `D` on the outcome and `τ_S`
+  for the effect of `D` on the post-treatment stratum variable —
+  plus the complier share `π_C(Z)`, all with bootstrap SE/CI. A
+  `RuntimeWarning` is emitted when the first stage degenerates.
+  `method=` is ignored on this path because identification comes from
+  `Z`, not from the post-treatment stratum decomposition. The
+  `limitations` entry is rewritten: the only remaining gap on this
+  path is always-survivor SACE under encouragement design (Mealli &
+  Pacini 2013, partial identification). Five new tests in
+  `tests/test_principal_strat.py`.
+
+- **`sp.hal_tmle(variant='projection')` RFC + sharper error.** Rather
+  than ship an unverified port of the Li-Qiu-Wang-vdL (2025) §3.2
+  Riesz-projection step (the v1.11.x code path was a no-op on the
+  point estimate — see CHANGELOG), v1.13 keeps the
+  `NotImplementedError` and adds `docs/rfc/hal_tmle_projection.md`
+  with the full implementation roadmap and the parity-test gates that
+  must clear before the variant can be promoted to `stable`. The
+  runtime exception message now points at the RFC and asks reporters
+  to file an issue with the publication's headline number they'd like
+  to match — so the next maintainer to pick this up has a clear
+  target. Registry `limitations` entry updated with the RFC link.
+
 - **Smart layer respects `FunctionSpec.stability`.** `sp.recommend(...)`,
   `sp.causal(...)`, and `sp.paper(...)` now accept an
   `allow_experimental: bool = False` flag (default agent-safe).  When

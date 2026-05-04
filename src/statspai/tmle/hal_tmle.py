@@ -239,12 +239,17 @@ def hal_tmle(
         # no-op that mutated only ``model_info["eps"]``. Rather than
         # ship a misleading variant we raise until the proper
         # Riesz-projection step (Li-Qiu-Wang-vdL 2025 §3.2) is ported.
+        # ``docs/rfc/hal_tmle_projection.md`` sketches the algorithm
+        # and the parity-test gate that has to clear before the variant
+        # can be promoted to stable.
         raise NotImplementedError(
-            "hal_tmle(variant='projection') is not yet implemented; "
-            "use variant='delta' (the standard HAL-TMLE plug-in). The "
-            "projection-variant code path that shipped in v1.11.x and "
-            "earlier was a no-op on the point estimate — see the audit "
-            "note in the v1.11.5 changelog."
+            "hal_tmle(variant='projection') is not yet implemented. "
+            "Use variant='delta' (the standard HAL-TMLE plug-in) for "
+            "production work; the v1.11.x projection code path was a "
+            "no-op on the point estimate (see CHANGELOG). Roadmap and "
+            "parity gates: docs/rfc/hal_tmle_projection.md. If you "
+            "need this variant urgently, file an issue with the "
+            "publication's headline number you'd like to match."
         )
     if variant != "delta":
         raise ValueError(

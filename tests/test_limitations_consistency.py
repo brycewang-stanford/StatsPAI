@@ -52,6 +52,13 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         "embedder='sbert' requires the optional sentence-transformers",
         "Veitch et al. (2020) full BERT/topic-model recipe",
     ],
+    "principal_strat": [
+        # The function now implements the basic AIR / Wald LATE under
+        # the encouragement-design path (Step G); the remaining gap is
+        # always-survivor SACE under Mealli & Pacini (2013) partial
+        # identification, which has no hard exception to test.
+        "Always-survivor SACE under encouragement design",
+    ],
 }
 
 
@@ -84,14 +91,6 @@ def _runtime_map() -> Dict[Tuple[str, str], Tuple[Callable[[], Any], type | tupl
     })
 
     return {
-        ("principal_strat", "instrument="): (
-            lambda: sp.principal_strat(
-                df_cs, y="y", treat="d", strata="s",
-                method="monotonicity", instrument="z",
-                n_boot=10, seed=0,
-            ),
-            NotImplementedError,
-        ),
         ("hal_tmle", "variant='projection'"): (
             lambda: sp.hal_tmle(
                 df_cs, y="y", treat="d", covariates=["x1", "x2"],

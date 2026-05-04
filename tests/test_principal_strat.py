@@ -140,3 +140,99 @@ def test_sace_helper(air_dgp):
     assert 'sace_lower' in result.model_info
     assert 'sace_upper' in result.model_info
     assert result.model_info['sace_lower'] <= result.model_info['sace_upper']
+
+
+# --------------------------------------------------------------------------- #
+#  Step G: encouragement-design / instrument= path (Wald / AIR LATE)
+# --------------------------------------------------------------------------- #
+
+@pytest.fixture
+def encouragement_dgp():
+    """Z = encouragement, D = uptake, S = post-treatment stratum, Y = outcome.
+
+    - 60% compliers w.r.t. Z (D switches with Z; D(0)=0, D(1)=1)
+    - 30% never-takers (D=0 always)
+    - 10% always-takers (D=1 always)
+    No defiers (monotonicity holds).
+    True LATE on Y = 1.5; true LATE on S = 0.4.
+    """
+    rng = np.random.default_rng(7)
+    n = 4000
+    Z = rng.binomial(1, 0.5, n).astype(float)
+    u = rng.uniform(0, 1, n)
+    types = np.where(u < 0.6, 'C', np.where(u < 0.9, 'N', 'A'))
+    D = np.zeros(n)
+    D[(types == 'C') & (Z == 1)] = 1.0
+    D[types == 'A'] = 1.0
+    # S: complier S = 0.4*D + noise (so τ_S ≈ 0.4 on D)
+    base_s = 0.3 + 0.4 * D
+    S = (rng.uniform(0, 1, n) < base_s).astype(float)
+    # Y: complier τ_Y = 1.5 on D
+    Y = 0.5 * D + 1.0 * D * (types == 'C').astype(float) + rng.normal(0, 0.4, n)
+    # Adjust so the marginal complier LATE matches the target — easier
+    # to express directly: Y = 1.5*D for compliers + noise.
+    Y = np.where(
+        types == 'C',
+        1.5 * D + rng.normal(0, 0.5, n),
+        rng.normal(0, 0.5, n),
+    )
+    return pd.DataFrame({'y': Y, 'd': D, 's': S, 'z': Z})
+
+
+def test_instrument_path_returns_two_wald_lates(encouragement_dgp):
+    """``principal_strat(instrument=...)`` reports both τ_Y and τ_S."""
+    result = sp.principal_strat(
+        encouragement_dgp, y='y', treat='d', strata='s',
+        instrument='z', n_boot=100, seed=0,
+    )
+    assert isinstance(result, PrincipalStratResult)
+    assert 'instrument_air' in result.method
+    # Two LATE rows in effects: outcome and stratum
+    strata = list(result.effects['stratum'])
+    assert any('LATE on Y' in s for s in strata)
+    assert any('LATE on S' in s for s in strata)
+
+
+def test_instrument_path_recovers_true_complier_share(encouragement_dgp):
+    """π_C(Z) ≈ 0.6 in the encouragement DGP."""
+    result = sp.principal_strat(
+        encouragement_dgp, y='y', treat='d', strata='s',
+        instrument='z', n_boot=50, seed=0,
+    )
+    pi_c = result.strata_proportions['complier (w.r.t. Z)']
+    # Tolerance accommodates sampling noise in n=4000.
+    assert 0.50 <= pi_c <= 0.70, f"complier share off: {pi_c}"
+
+
+def test_instrument_path_recovers_true_late_on_y(encouragement_dgp):
+    """Wald LATE on Y ≈ 1.5 in the encouragement DGP."""
+    result = sp.principal_strat(
+        encouragement_dgp, y='y', treat='d', strata='s',
+        instrument='z', n_boot=50, seed=0,
+    )
+    tau_y = result.effects.loc[
+        result.effects['stratum'].str.contains('LATE on Y'), 'estimate'
+    ].iloc[0]
+    assert 1.0 <= tau_y <= 2.0, f"τ_Y off: {tau_y}"
+
+
+def test_instrument_path_rejects_nonbinary_z(encouragement_dgp):
+    df = encouragement_dgp.copy()
+    df['z'] = df['z'] + 0.5  # not binary anymore
+    with pytest.raises(ValueError, match="instrument must be binary"):
+        sp.principal_strat(
+            df, y='y', treat='d', strata='s',
+            instrument='z', n_boot=10, seed=0,
+        )
+
+
+def test_instrument_path_warns_on_weak_first_stage(encouragement_dgp):
+    """Random Z that doesn't predict D triggers the weak-IV warning."""
+    rng = np.random.default_rng(11)
+    df = encouragement_dgp.copy()
+    df['z'] = rng.binomial(1, 0.5, len(df)).astype(float)  # independent of D
+    with pytest.warns(RuntimeWarning, match="Weak first stage"):
+        sp.principal_strat(
+            df, y='y', treat='d', strata='s',
+            instrument='z', n_boot=20, seed=0,
+        )

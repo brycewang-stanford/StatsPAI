@@ -142,10 +142,17 @@ def principal_strat(
     method : {'monotonicity', 'principal_score'}, default 'monotonicity'
         Identification strategy.
     instrument : str, optional
-        If supplied, treat ``treat`` as the actual treatment and
-        ``instrument`` as a randomized encouragement. Enables the
-        AIR/Wald LATE estimator. **Not yet implemented in this minimal
-        release** — raise a clear NotImplementedError if passed.
+        Binary instrument (encouragement / lottery). When supplied,
+        ``treat`` is interpreted as actual uptake and the function
+        switches to the AIR / Wald LATE estimator (Angrist-Imbens-
+        Rubin 1996): under random Z, monotonicity D(1)>=D(0),
+        exclusion restriction, and SUTVA, two LATEs are reported
+        among Z-compliers — τ_Y for the effect of D on Y and τ_S
+        for the effect of D on the post-treatment stratum variable.
+        ``method`` is ignored on this path (identification comes
+        from Z, not from the post-treatment stratum decomposition).
+        Always-survivor SACE under encouragement design is partially
+        identified beyond this; we leave it to a future release.
     alpha : float, default 0.05
     n_boot : int, default 500
         Bootstrap replications for SE/CI.
@@ -159,15 +166,14 @@ def principal_strat(
         raise ValueError(
             f"method must be 'monotonicity' or 'principal_score', got '{method}'"
         )
-    if instrument is not None:
-        raise NotImplementedError(
-            "Explicit instrument + treatment two-layer setup not yet "
-            "supported in principal_strat(). For LATE via encouragement "
-            "design, use sp.iv or sp.dml(model='iivm')."
-        )
 
     covariates = list(covariates or [])
+    # When ``instrument`` is supplied we route to the AIR / Wald LATE
+    # path that pulls the instrument column too.  The columns we drop
+    # NaN over depend on the path, so we branch *before* assembling df.
     cols = [y, treat, strata] + covariates
+    if instrument is not None:
+        cols = [instrument] + cols
     df = data[cols].dropna().reset_index(drop=True)
     n = len(df)
 
@@ -180,6 +186,28 @@ def principal_strat(
         raise ValueError("treat must be binary (0/1).")
     if not set(np.unique(S)).issubset({0, 1}):
         raise ValueError("strata must be binary (0/1).")
+
+    # ------------------------------------------------------------------
+    # Encouragement-design path: AIR / Wald LATE for D -> Y and D -> S
+    # under (Z, D, S, Y).  Identifies the complier population w.r.t. the
+    # instrument Z, plus two Wald LATEs:
+    #   * τ_Y = E[Y(D=1) - Y(D=0) | complier]   — effect on outcome
+    #   * τ_S = E[S(D=1) - S(D=0) | complier]   — effect on the
+    #                                             post-treatment stratum
+    # ``method`` is ignored on this path because identification comes
+    # from the instrument, not from the post-treatment stratum
+    # decomposition.  Bounds beyond the Wald LATE (e.g. always-survivor
+    # SACE under encouragement) require additional assumptions and stay
+    # documented as a future extension in the function's
+    # ``limitations`` registry entry.
+    # ------------------------------------------------------------------
+    if instrument is not None:
+        Z = df[instrument].values.astype(float)
+        if not set(np.unique(Z)).issubset({0, 1}):
+            raise ValueError("instrument must be binary (0/1).")
+        return _fit_instrument_air(
+            Y, D, S, Z, n, alpha, n_boot, seed, method,
+        )
 
     if method == 'monotonicity':
         return _fit_monotonicity(Y, D, S, n, alpha, n_boot, seed)
@@ -350,6 +378,184 @@ def _fit_monotonicity(Y, D, S, n, alpha, n_boot, seed):
             'estimator': 'Monotonicity + Zhang-Rubin bounds',
             'n_boot': n_boot,
             **{k: v for k, v in point.items() if k.startswith('mu_')},
+        },
+    )
+
+
+def _fit_instrument_air(Y, D, S, Z, n, alpha, n_boot, seed, method):
+    """
+    AIR / Wald LATE for the encouragement-design two-layer setup.
+
+    Setting
+    -------
+    Z is a randomly assigned binary instrument (e.g. random
+    encouragement / lottery), D is the actual binary treatment
+    (uptake), S is a binary post-treatment stratum variable
+    (e.g. compliance to a downstream protocol, survival, employment),
+    Y is the outcome.
+
+    Identification
+    --------------
+    Under (i) random assignment of Z, (ii) monotonicity D(1) >= D(0)
+    (no defiers w.r.t. Z), (iii) exclusion restriction (Z affects Y
+    only through D), and (iv) SUTVA, the complier proportion w.r.t.
+    Z is identified from the first stage:
+
+        π_C(Z) = P(D=1 | Z=1) - P(D=1 | Z=0)
+
+    The Wald estimators recover the LATEs among the Z-compliers:
+
+        τ_Y = (E[Y | Z=1] - E[Y | Z=0]) / π_C(Z)   — effect of D on Y
+        τ_S = (E[S | Z=1] - E[S | Z=0]) / π_C(Z)   — effect of D on
+                                                     the post-treatment
+                                                     stratum variable
+
+    The second LATE — D's effect on S — is the bridge to the
+    principal-stratum interpretation: it gives the share of compliers
+    who *would* end up in stratum S=1 because of the treatment.
+    Always-survivor SACE under encouragement design is partially
+    identified beyond this (Mealli & Pacini 2013); we leave that to a
+    future release rather than ship a half-correct point estimate.
+
+    The ``method`` argument is recorded in ``model_info`` for
+    traceability but does **not** alter the estimator on this path —
+    identification comes from the instrument, not from the
+    post-treatment-stratum decomposition that ``method`` selects in
+    the no-instrument code paths.
+
+    Parameters
+    ----------
+    Y, D, S, Z : np.ndarray, shape (n,)
+    n : int
+    alpha : float
+    n_boot : int
+    seed : int or None
+    method : str
+        Recorded in ``model_info`` only; identification comes from Z.
+
+    Returns
+    -------
+    PrincipalStratResult
+    """
+    def _point(Y_, D_, S_, Z_):
+        n_z1 = float(np.sum(Z_ == 1))
+        n_z0 = float(np.sum(Z_ == 0))
+        if n_z1 == 0 or n_z0 == 0:
+            return {
+                'pi_c_z': np.nan,
+                'tau_y': np.nan, 'tau_s': np.nan,
+                'd_z1': np.nan, 'd_z0': np.nan,
+                'y_z1': np.nan, 'y_z0': np.nan,
+                's_z1': np.nan, 's_z0': np.nan,
+            }
+        d_z1 = float(np.mean(D_[Z_ == 1]))
+        d_z0 = float(np.mean(D_[Z_ == 0]))
+        y_z1 = float(np.mean(Y_[Z_ == 1]))
+        y_z0 = float(np.mean(Y_[Z_ == 0]))
+        s_z1 = float(np.mean(S_[Z_ == 1]))
+        s_z0 = float(np.mean(S_[Z_ == 0]))
+        # First stage / complier share w.r.t. Z (monotonicity → ≥ 0)
+        pi_c_z = max(d_z1 - d_z0, 0.0)
+        if pi_c_z > 1e-8:
+            tau_y = (y_z1 - y_z0) / pi_c_z
+            tau_s = (s_z1 - s_z0) / pi_c_z
+        else:
+            tau_y = np.nan
+            tau_s = np.nan
+        return {
+            'pi_c_z': pi_c_z,
+            'tau_y': tau_y, 'tau_s': tau_s,
+            'd_z1': d_z1, 'd_z0': d_z0,
+            'y_z1': y_z1, 'y_z0': y_z0,
+            's_z1': s_z1, 's_z0': s_z0,
+        }
+
+    point = _point(Y, D, S, Z)
+
+    if not np.isfinite(point['pi_c_z']) or point['pi_c_z'] < 1e-6:
+        warnings.warn(
+            "Weak first stage on the instrument: π_C(Z) ≈ 0. "
+            "Wald LATEs (τ_Y, τ_S) are unreliable. Inspect "
+            "P(D=1|Z=1)-P(D=1|Z=0) before reporting.",
+            RuntimeWarning, stacklevel=3,
+        )
+
+    rng = np.random.default_rng(seed)
+    boot_y = np.full(n_boot, np.nan)
+    boot_s = np.full(n_boot, np.nan)
+    boot_pi = np.full(n_boot, np.nan)
+    for b in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        try:
+            bp = _point(Y[idx], D[idx], S[idx], Z[idx])
+            boot_y[b] = bp['tau_y']
+            boot_s[b] = bp['tau_s']
+            boot_pi[b] = bp['pi_c_z']
+        except Exception:
+            pass
+
+    def _ci(boot_arr, ppoint):
+        valid = ~np.isnan(boot_arr)
+        if valid.sum() < 2:
+            return float('nan'), (float('nan'), float('nan')), float('nan')
+        se = float(np.nanstd(boot_arr, ddof=1))
+        lo = float(np.nanpercentile(boot_arr, 100 * alpha / 2))
+        hi = float(np.nanpercentile(boot_arr, 100 * (1 - alpha / 2)))
+        if np.isnan(ppoint) or se == 0:
+            pv = float('nan')
+        else:
+            z = ppoint / se
+            pv = float(2 * (1 - stats.norm.cdf(abs(z))))
+        return se, (lo, hi), pv
+
+    se_y, ci_y, pv_y = _ci(boot_y, point['tau_y'])
+    se_s, ci_s, pv_s = _ci(boot_s, point['tau_s'])
+    se_pi, ci_pi, _ = _ci(boot_pi, point['pi_c_z'])
+
+    effects = pd.DataFrame([
+        {
+            'stratum': 'Complier (Z) — Wald LATE on Y',
+            'estimate': point['tau_y'], 'se': se_y,
+            'ci_lower': ci_y[0], 'ci_upper': ci_y[1], 'pvalue': pv_y,
+        },
+        {
+            'stratum': 'Complier (Z) — Wald LATE on S',
+            'estimate': point['tau_s'], 'se': se_s,
+            'ci_lower': ci_s[0], 'ci_upper': ci_s[1], 'pvalue': pv_s,
+        },
+    ])
+
+    return PrincipalStratResult(
+        method=f'instrument_air ({method})',
+        strata_proportions={
+            'complier (w.r.t. Z)': point['pi_c_z'],
+            'complier_se': se_pi,
+            # always-/never-taker decomposition w.r.t. Z is also
+            # available analytically but reported only as raw cell
+            # probabilities to keep the headline output focused on
+            # the two LATE estimands.
+            'P(D=1 | Z=1)': point['d_z1'],
+            'P(D=1 | Z=0)': point['d_z0'],
+        },
+        effects=effects,
+        bounds=None,
+        n_obs=n,
+        alpha=alpha,
+        model_info={
+            'estimator': 'AIR / Wald LATE under encouragement design',
+            'method_arg': method,
+            'n_boot': n_boot,
+            'cell_probs': {
+                'P(Y | Z=1)': point['y_z1'],
+                'P(Y | Z=0)': point['y_z0'],
+                'P(S=1 | Z=1)': point['s_z1'],
+                'P(S=1 | Z=0)': point['s_z0'],
+            },
+            'note': (
+                "Always-survivor SACE under encouragement design is "
+                "partially identified (Mealli & Pacini 2013); only the "
+                "Wald LATE point estimates are reported here."
+            ),
         },
     )
 
