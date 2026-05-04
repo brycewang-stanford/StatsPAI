@@ -277,3 +277,98 @@ def test_assumption_audit_records_underlying_failure(monkeypatch):
         <= assumption_names
     for c in inconclusive:
         assert "RuntimeError" in c.detail, c.detail
+
+
+# --------------------------------------------------------------------- #
+#  Phase B — DAG sub-analysis, CSL, sensitivity, verify, brief, identification
+# --------------------------------------------------------------------- #
+
+
+def test_render_dag_section_records_subanalysis_failure():
+    """A DAG whose nodes/edges are intact but whose adjustment_sets
+    raises must surface that sub-analysis failure as a degradation
+    while the rest of the DAG section still renders."""
+    from statspai.workflow.paper import _render_dag_section
+
+    class _PartlyBrokenDAG:
+        nodes = ["x", "y", "z"]
+        edges = [("x", "y"), ("z", "x"), ("z", "y")]
+        observed_nodes = nodes
+
+        def adjustment_sets(self, *a, **kw):
+            raise RuntimeError("synthetic adj failure")
+
+        def backdoor_paths(self, *a, **kw):
+            raise RuntimeError("synthetic bd failure")
+
+        def bad_controls(self, *a, **kw):
+            raise RuntimeError("synthetic bad failure")
+
+    bag: list = []
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        out = _render_dag_section(
+            _PartlyBrokenDAG(), treatment="x", outcome="y",
+            fmt="markdown", degradations=bag,
+        )
+    # Outer renderer still produced edges + variables.
+    assert "Variables" in out
+    assert "Edges" in out
+    # All three sub-analyses recorded.
+    sections = [d["section"] for d in bag]
+    assert any("adjustment_sets" in s for s in sections)
+    assert any("backdoor_paths" in s for s in sections)
+    assert any("bad_controls" in s for s in sections)
+    # Three WorkflowDegradedWarnings raised.
+    degraded = [w for w in caught
+                if issubclass(w.category, WorkflowDegradedWarning)]
+    assert len(degraded) >= 3
+
+
+def test_sensitivity_dashboard_records_dimension_failure(monkeypatch):
+    """A failing Oster call must show up as a degradation, not silently
+    drop the unobservables dimension."""
+    import statspai as sp
+
+    df = _make_observational_df()
+    res = sp.regress("wage ~ trained + edu + experience", data=df)
+
+    def _boom(*a, **kw):
+        raise RuntimeError("synthetic Oster failure")
+
+    monkeypatch.setattr(sp, "oster_bounds", _boom, raising=False)
+
+    with pytest.warns(
+        WorkflowDegradedWarning, match="sensitivity_dashboard.*Oster"
+    ):
+        dash = sp.sensitivity_dashboard(res, data=df, verbose=False)
+    # Dashboard still produced — just without the Oster row.
+    assert dash is not None
+    dim_names = [d.get("dimension", "") for d in dash.dimensions]
+    assert not any("Oster" in n for n in dim_names)
+
+
+def test_verify_recommendation_records_per_method_failure(monkeypatch):
+    """A method whose fit raises during cross-method verification must
+    fire a degradation warning so users can spot signature regressions."""
+    import statspai as sp
+    from statspai.smart.verify import _run_method
+
+    df = _make_observational_df()
+
+    def _boom(**kw):
+        raise RuntimeError("synthetic fit failure")
+
+    monkeypatch.setattr(sp, "ols", _boom, raising=False)
+
+    rec = {
+        "function": "ols",
+        "params": {"formula": "wage ~ trained"},
+        "prep": None,
+    }
+    with pytest.warns(
+        WorkflowDegradedWarning, match="verify_recommendation"
+    ):
+        out = _run_method(rec, df)
+    assert out is None
+

@@ -145,6 +145,10 @@ class TestRegistryExpansion:
             assert "name" in s
             assert "parameters" in s
 
+    def test_top_level_all_has_no_duplicates(self):
+        import statspai as sp
+        assert len(sp.__all__) == len(set(sp.__all__))
+
 
 # --------------------------------------------------------------------------- #
 #  CLI

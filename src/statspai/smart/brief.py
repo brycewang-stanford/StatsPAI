@@ -38,6 +38,8 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 
+from ..workflow._degradation import record_degradation
+
 
 _MAX_METHOD_LEN = 24
 
@@ -77,7 +79,19 @@ def _violation_flag(result: Any) -> str:
     """First error-severity violation, if any. Empty string otherwise."""
     try:
         viols = result.violations() or []
-    except Exception:
+    except Exception as exc:
+        # ``violations()`` not implementing on a result is normal for
+        # legacy types — skip silently in that common case.  But if it
+        # *exists* and *raises*, surface it: the brief line is meant
+        # to flag pretrend / overlap / etc. and we just lost that
+        # signal for this row.
+        if hasattr(result, "violations"):
+            record_degradation(
+                None,
+                section="brief: violations() flag extraction",
+                exc=exc,
+                detail=f"result_type={type(result).__name__}",
+            )
         return ""
     for v in viols:
         if v.get("severity") == "error":
@@ -204,7 +218,13 @@ def brief(result: Any) -> str:
                     best_term = (str(name),
                                   float(params.iloc[i]),
                                   pv)
-        except Exception:
+        except Exception as exc:
+            record_degradation(
+                None,
+                section="brief: best-coefficient extraction",
+                exc=exc,
+                detail=f"result_type={type(result).__name__}",
+            )
             best_term = None
 
         n_str = (f"  N={int(n_obs):,}"

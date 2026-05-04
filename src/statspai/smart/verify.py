@@ -48,6 +48,8 @@ from typing import Any, Dict, Optional
 import numpy as np
 import pandas as pd
 
+from ..workflow._degradation import record_degradation
+
 __all__ = ["verify_recommendation"]
 
 
@@ -180,7 +182,18 @@ def _run_method(rec: Dict[str, Any], data: pd.DataFrame) -> Optional[float]:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             result = func(**params)
-    except Exception:
+    except Exception as exc:
+        # Cross-method verification deliberately tolerates per-method
+        # failures so a single bad fit doesn't abort the cross-check.
+        # But silent skip would let "all methods crashed identically"
+        # masquerade as "all methods agreed at None" — surface the
+        # failure so users can spot pattern (e.g. shared signature bug).
+        record_degradation(
+            None,
+            section="verify_recommendation: per-method fit",
+            exc=exc,
+            detail=f"function=sp.{rec.get('function', '?')}",
+        )
         return None
 
     treat_name = _get_treat_col(rec, prepared)

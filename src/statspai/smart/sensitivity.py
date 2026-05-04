@@ -20,6 +20,8 @@ import numpy as np
 import pandas as pd
 import warnings
 
+from ..workflow._degradation import record_degradation
+
 
 class SensitivityDashboard:
     """Multi-dimensional sensitivity analysis results."""
@@ -241,8 +243,12 @@ def sensitivity_dashboard(
                             'stable': True,
                             'remedy': 'Use sp.winsor() to winsorize outliers.',
                         })
-            except Exception:
-                pass
+            except Exception as exc:
+                record_degradation(
+                    None,
+                    section="sensitivity_dashboard: outlier dimension",
+                    exc=exc,
+                )
 
     if 'unobservables' in dimensions:
         # Oster-style sensitivity
@@ -263,8 +269,12 @@ def sensitivity_dashboard(
                               f'unobservables could explain the result. '
                               f'Try sp.sensemakr() for more detail.',
                 })
-        except Exception:
-            pass
+        except Exception as exc:
+            record_degradation(
+                None,
+                section="sensitivity_dashboard: Oster unobservables dimension",
+                exc=exc,
+            )
 
     # ------------------------------------------------------------------
     #  Sprint-B-aware method-specific dimensions (auto-applied when the
@@ -353,8 +363,12 @@ def sensitivity_dashboard(
                                 'trim_per_period=True.')
                     ),
                 })
-        except Exception:
-            pass
+        except Exception as exc:
+            record_degradation(
+                None,
+                section="sensitivity_dashboard: MSM weight-stability dimension",
+                exc=exc,
+            )
 
     # Principal stratification: flag monotonicity violation fraction
     # as its own sensitivity dimension (diagnostic-style, not a sweep).

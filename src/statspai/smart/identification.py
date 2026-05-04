@@ -56,6 +56,8 @@ from typing import List, Optional, Dict, Any, Sequence
 import numpy as np
 import pandas as pd
 
+from ..workflow._degradation import record_degradation
+
 
 # ---------------------------------------------------------------------------
 # Exception type for strict mode
@@ -237,7 +239,26 @@ def _check_overlap(
 
     try:
         ps = LogisticRegression(max_iter=500).fit(X, y).predict_proba(X)[:, 1]
-    except Exception:
+    except Exception as exc:
+        # Logit failure (singular X, degenerate y, …) → can't compute
+        # propensity-score overlap. Surface as an info-level diagnostic
+        # finding so the user can see "overlap check skipped" rather
+        # than "no overlap warnings → assume overlap is fine".
+        record_degradation(
+            None,
+            section="check_identification: PS overlap fit",
+            exc=exc,
+            detail=f"covariates={ok_cov}",
+        )
+        findings.append(DiagnosticFinding(
+            severity='info',
+            category='overlap',
+            message=(
+                f"Propensity-score overlap check skipped: logistic fit "
+                f"failed ({type(exc).__name__}: {exc}). Cannot assess "
+                f"common support automatically."
+            ),
+        ))
         return
 
     frac_extreme = ((ps < 0.02) | (ps > 0.98)).mean()

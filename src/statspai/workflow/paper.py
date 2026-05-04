@@ -369,11 +369,21 @@ class PaperDraft:
         if csl:
             # Accept short journal names ('aer' / 'qje' / ...) and resolve
             # them to the canonical .csl filename. Pre-existing .csl
-            # paths pass through untouched.
+            # paths pass through untouched.  When resolution itself
+            # blows up (corrupt csl_filename table, encoding error,
+            # etc.) we still pass the user's raw input through, but
+            # surface the resolver failure so they know the short-name
+            # mapping was bypassed.
             try:
                 from ..output._bibliography import csl_filename
                 resolved = csl_filename(csl)
-            except Exception:
+            except Exception as exc:
+                record_degradation(
+                    self.degradations,
+                    section="CSL short-name resolution",
+                    exc=exc,
+                    detail=f"csl={csl!r}",
+                )
                 resolved = csl
             yaml_lines.append(f"csl: {_yaml_str(resolved)}")
         # Provenance into YAML for machine-readable traceability.
@@ -406,6 +416,7 @@ class PaperDraft:
                 treatment=self.dag_treatment,
                 outcome=self.dag_outcome,
                 fmt="qmd",
+                degradations=self.degradations,
             )
         chunks: List[str] = []
         for t in order:
@@ -499,6 +510,7 @@ def _render_dag_section(
     treatment: Optional[str] = None,
     outcome: Optional[str] = None,
     fmt: str = "markdown",
+    degradations: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     """Render a Causal DAG appendix section.
 
@@ -511,6 +523,12 @@ def _render_dag_section(
     everything else (markdown / tex) we emit a plain text rendering
     that survives any downstream pipeline (LaTeX users typically
     typeset DAGs with TikZ; we do not attempt that here).
+
+    Optional ``degradations`` collects per-bullet failures
+    (adjustment_sets / backdoor_paths / bad_controls) — the outer
+    section still renders, but the user gets a
+    :class:`WorkflowDegradedWarning` and a structured trail when an
+    individual back-door analysis can't be computed.
     """
     if dag is None:
         return ""
@@ -563,7 +581,13 @@ def _render_dag_section(
     if treatment and outcome:
         try:
             adj = dag.adjustment_sets(treatment, outcome)
-        except Exception:
+        except Exception as exc:
+            record_degradation(
+                degradations,
+                section="DAG adjustment_sets sub-analysis",
+                exc=exc,
+                detail=f"treatment={treatment!r} outcome={outcome!r}",
+            )
             adj = None
         if adj:
             lines.append(
@@ -580,7 +604,13 @@ def _render_dag_section(
             lines.append("")
         try:
             bd = dag.backdoor_paths(treatment, outcome)
-        except Exception:
+        except Exception as exc:
+            record_degradation(
+                degradations,
+                section="DAG backdoor_paths sub-analysis",
+                exc=exc,
+                detail=f"treatment={treatment!r} outcome={outcome!r}",
+            )
             bd = None
         if bd:
             lines.append(
@@ -592,7 +622,13 @@ def _render_dag_section(
             lines.append("")
         try:
             bad = dag.bad_controls(treatment, outcome)
-        except Exception:
+        except Exception as exc:
+            record_degradation(
+                degradations,
+                section="DAG bad_controls sub-analysis",
+                exc=exc,
+                detail=f"treatment={treatment!r} outcome={outcome!r}",
+            )
             bad = None
         if bad:
             lines.append("**Bad controls** (do **not** condition on these):")
@@ -1272,6 +1308,7 @@ def paper(
         try:
             sections["Causal DAG"] = _render_dag_section(
                 dag, treatment=t_eff, outcome=y_eff, fmt="markdown",
+                degradations=degradations,
             )
         except Exception as exc:
             record_degradation(
@@ -1584,6 +1621,7 @@ def paper_from_question(
         try:
             sections["Causal DAG"] = _render_dag_section(
                 dag, treatment=q.treatment, outcome=q.outcome, fmt="markdown",
+                degradations=degradations,
             )
         except Exception as exc:
             record_degradation(

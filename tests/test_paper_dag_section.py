@@ -27,6 +27,7 @@ import pytest
 
 import statspai as sp
 from statspai.dag.graph import DAG
+from statspai.workflow._degradation import WorkflowDegradedWarning
 from statspai.workflow.paper import _render_dag_section
 
 
@@ -92,6 +93,41 @@ class TestRenderDagSection:
         g = DAG("U <-> X; X -> Y")
         out = _render_dag_section(g, fmt="qmd")
         assert '"_L_U_X"' in out
+
+    def test_subanalysis_failures_record_degradation_but_keep_section(self):
+        class _ExplodingDag:
+            nodes = {"X", "Y", "Z"}
+            edges = [("Z", "X"), ("Z", "Y"), ("X", "Y")]
+
+            def adjustment_sets(self, t, y):
+                raise RuntimeError("adj failed")
+
+            def backdoor_paths(self, t, y):
+                raise RuntimeError("bd failed")
+
+            def bad_controls(self, t, y):
+                raise RuntimeError("bad failed")
+
+        bag = []
+        with pytest.warns(WorkflowDegradedWarning, match="adjustment_sets"):
+            out = _render_dag_section(
+                _ExplodingDag(),
+                treatment="X",
+                outcome="Y",
+                fmt="markdown",
+                degradations=bag,
+            )
+
+        assert "**Variables**" in out
+        assert "**Edges**" in out
+        assert "Adjustment sets" not in out
+        assert "Back-door paths" not in out
+        assert "Bad controls" not in out
+        assert [d["section"] for d in bag] == [
+            "DAG adjustment_sets sub-analysis",
+            "DAG backdoor_paths sub-analysis",
+            "DAG bad_controls sub-analysis",
+        ]
 
 
 # ---------------------------------------------------------------------------
