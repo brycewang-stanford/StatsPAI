@@ -41,16 +41,81 @@ van der Laan, M. J., Benkeser, D. & Cai, W. (2023). Efficient estimation
 
 from __future__ import annotations
 
+import inspect
 from typing import List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator, RegressorMixin, ClassifierMixin
 
 from ..core.results import CausalResult
 
 
 __all__ = ["hal_tmle", "HALRegressor", "HALClassifier"]
+
+
+# ---------------------------------------------------------------------------
+# Minimal duck-typed sklearn-estimator base.
+#
+# Step 1D of the cold-start budget: ``HALRegressor`` and ``HALClassifier``
+# previously subclassed ``sklearn.base.BaseEstimator`` plus a Mixin, which
+# pulled ~39 ``sklearn.*`` submodules into ``sys.modules`` for every
+# ``import statspai`` — the only remaining sklearn footprint after Steps
+# 1B/1C lazy-loaded ``forest`` and the 18 estimator files.  Inheriting
+# from sklearn's base classes is gratuitous here: ``super_learner.fit``
+# only needs ``sklearn.base.clone(learner)`` (which is duck-typed —
+# ``get_params(deep=False)`` + ``cls(**params)`` reconstruction) plus
+# ``.fit`` / ``.predict`` / ``.predict_proba``.  No code path on the HAL
+# classes calls ``.score(...)``, ``is_classifier(...)``, or
+# ``is_regressor(...)``.
+#
+# ``_BaseHAL`` reproduces the slice of ``BaseEstimator`` that ``clone()``
+# actually uses, derived from sklearn 1.x:
+#
+#   - ``get_params(deep=True)``: introspect ``__init__`` signature, return
+#     ``{name: getattr(self, name)}``.  Identity is preserved (no copy)
+#     so sklearn's clone post-clone sanity check (``param1 is param2``)
+#     passes.
+#   - ``set_params(**params)``: ``setattr`` for each.
+#   - ``__repr__``: ``ClassName(k=v, ...)`` matching sklearn's style.
+#
+# ``_estimator_type`` is set on the subclasses so ``sklearn.base.is_regressor``
+# / ``is_classifier`` keep returning the right answer if any future
+# external caller tries them.
+# ---------------------------------------------------------------------------
+
+
+class _BaseHAL:
+    """Minimal sklearn-compatible duck-typed estimator base.
+
+    Provides the ``get_params`` / ``set_params`` / ``__repr__`` slice of
+    ``sklearn.base.BaseEstimator`` — sufficient for
+    ``sklearn.base.clone()`` round-trip and standard cross-fitting
+    pipelines — without forcing sklearn at module-load time.
+    """
+
+    def get_params(self, deep: bool = True) -> dict:
+        # Mirror ``sklearn.base.BaseEstimator.get_params``: introspect
+        # ``__init__`` and return ``{name: getattr(self, name)}`` with
+        # the original object identity preserved.  ``deep`` is accepted
+        # for sklearn-protocol compatibility but ignored — HAL params
+        # are scalars, not nested estimators.
+        del deep
+        params = {}
+        for name in inspect.signature(self.__init__).parameters:
+            if name == "self":
+                continue
+            params[name] = getattr(self, name)
+        return params
+
+    def set_params(self, **params) -> "_BaseHAL":
+        for k, v in params.items():
+            setattr(self, k, v)
+        return self
+
+    def __repr__(self) -> str:
+        params = self.get_params(deep=False)
+        items = ", ".join(f"{k}={v!r}" for k, v in params.items())
+        return f"{type(self).__name__}({items})"
 
 
 def _hal_basis(
@@ -88,8 +153,10 @@ def _hal_basis(
     return B, anchors
 
 
-class HALRegressor(BaseEstimator, RegressorMixin):
-    """L1-penalised HAL regressor (scikit-learn API)."""
+class HALRegressor(_BaseHAL):
+    """L1-penalised HAL regressor (sklearn-compatible duck-typed API)."""
+
+    _estimator_type = "regressor"  # for sklearn.base.is_regressor compatibility
 
     def __init__(
         self,
@@ -129,8 +196,10 @@ class HALRegressor(BaseEstimator, RegressorMixin):
         return self._model.predict(B)
 
 
-class HALClassifier(BaseEstimator, ClassifierMixin):
-    """L1-penalised HAL logistic classifier (scikit-learn API)."""
+class HALClassifier(_BaseHAL):
+    """L1-penalised HAL logistic classifier (sklearn-compatible duck-typed API)."""
+
+    _estimator_type = "classifier"  # for sklearn.base.is_classifier compatibility
 
     def __init__(
         self,

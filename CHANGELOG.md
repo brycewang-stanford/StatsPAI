@@ -37,6 +37,32 @@ All notable changes to StatsPAI will be documented in this file.
   are tracked separately for Step 1C and do not block this lazy-forest
   win.
 
+- **Cold-start: drop sklearn class inheritance from HAL estimators
+  (Step 1D).** ``HALRegressor`` / ``HALClassifier`` in
+  ``tmle/hal_tmle.py`` previously subclassed
+  ``sklearn.base.BaseEstimator`` plus a Mixin, which pulled ~39
+  ``sklearn.*`` submodules into ``sys.modules`` at module-load time —
+  the *only* remaining sklearn footprint after Steps 1B/1C lazy-loaded
+  ``forest`` and the 18 estimator files.  The inheritance is gratuitous
+  here: ``super_learner.fit`` only needs ``sklearn.base.clone(learner)``
+  (which is duck-typed — ``get_params(deep=False)`` + ``cls(**params)``
+  reconstruction) plus ``.fit`` / ``.predict`` / ``.predict_proba``; no
+  code path calls ``.score(...)``, ``is_classifier(...)``, or
+  ``is_regressor(...)`` on the HAL classes.  Replaced the inheritance
+  with a minimal ``_BaseHAL`` providing the ``get_params`` /
+  ``set_params`` / ``__repr__`` slice that ``clone()`` actually
+  consumes (introspection via ``inspect.signature(self.__init__)``,
+  with object identity preserved so sklearn's post-clone
+  ``param1 is param2`` sanity check passes).  ``_estimator_type =
+  "regressor"`` / ``"classifier"`` class attributes keep
+  ``sklearn.base.is_regressor`` / ``is_classifier`` returning True for
+  any future external caller.  After Step 1D, ``import statspai`` pulls
+  **zero** sklearn submodules — full 245 → 0 — and the
+  ``test_sklearn_budget_ceiling_on_bare_import_statspai`` contract is
+  tightened from ``<= 50`` to ``<= 0`` to pin the floor.  152 tests
+  across ``test_hal_tmle`` / ``test_tmle`` / ``test_late_bind_contracts``
+  / ``test_low_cov_battery`` / ``test_metalearners`` pass cleanly.
+
 - **Cold-start: lazy-import sklearn across 18 estimator files (Step
   1C).** Building on Step 1B, every remaining top-level
   `from sklearn.X import Y` in

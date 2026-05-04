@@ -289,42 +289,48 @@ def test_forest_leaf_survives_submodule_fromimport_shadow():
 
 
 # ---------------------------------------------------------------------------
-# sklearn cold-start budget (Step 1C).
+# sklearn cold-start budget (Steps 1B + 1C + 1D — final).
 #
-# Prior to v1.13, ~17 estimator files (overlap_did / metalearners / tmle /
-# super_learner / ltmle / ltmle_survival / bcf / bcf.longitudinal / synth.cluster
-# / proximal.pci_regression / policy_learning.policy_tree /
-# policy_learning.ope / dose_response.gps / multi_treatment.multi_ipw /
-# mediation.four_way / interference.orthogonal / metalearners.auto_cate /
-# metalearners.auto_cate_tuned) imported sklearn primitives at module top.
-# Combined with eagerly-loaded forest (Step 1B), `import statspai` pulled
-# ~245 sklearn submodules into sys.modules even for sessions that never
-# touched any ML-based estimator.  Step 1C moved every sklearn import that
-# could be deferred into the function bodies; ``BaseEstimator`` annotations
-# were gated behind ``TYPE_CHECKING`` plus string-literal annotations.
+# Prior to the cold-start refactors, ``import statspai`` pulled ~245
+# ``sklearn.*`` submodules into ``sys.modules`` even for sessions that never
+# touched any ML-based estimator.  Three rounds drove this to zero:
 #
-# The remaining sklearn footprint comes from ``tmle/hal_tmle.py`` —
-# ``HALRegressor(BaseEstimator, RegressorMixin)`` and
-# ``HALClassifier(BaseEstimator, ClassifierMixin)`` need sklearn at
-# class-definition time.  Refactoring those out of the inheritance hierarchy
-# was deemed out of scope.  Pulling ``sklearn.base`` alone loads ~39
-# sklearn submodules — that's the floor.
+#   - Step 1B (commit b655ba1): lazy-load ``statspai.forest`` so its 4
+#     leaf modules don't fire at ``import statspai``.
+#   - Step 1C (commit ef410c6): move top-level ``from sklearn.X import Y``
+#     inside function bodies in 18 estimator files; keep ``BaseEstimator``
+#     annotations under ``TYPE_CHECKING`` + string-literal form.
+#   - Step 1D (this commit): drop ``sklearn.base.BaseEstimator`` /
+#     ``RegressorMixin`` / ``ClassifierMixin`` inheritance from
+#     ``HALRegressor`` / ``HALClassifier`` in ``tmle/hal_tmle.py``;
+#     replace with a minimal duck-typed ``_BaseHAL`` providing the
+#     ``get_params`` / ``set_params`` / ``__repr__`` slice that
+#     ``sklearn.base.clone()`` actually consumes.
 #
-# This contract pins the budget at <= 50 (~39 floor + 11 slack for sklearn
-# version drift).  Runs in a subprocess so the cold-state check doesn't
-# perturb other tests' ``sys.modules``.
+# After Step 1D, ``import statspai`` pulls **zero** sklearn submodules.
+# This contract pins that floor at exactly 0 — any future change that
+# re-introduces a top-level sklearn import must either justify the
+# regression or move the import inside a function body.  Runs in a
+# subprocess so the cold-state check doesn't perturb other tests'
+# ``sys.modules``.
 # ---------------------------------------------------------------------------
 
-SKLEARN_BUDGET_CEILING = 50
+SKLEARN_BUDGET_CEILING = 0
 
 
 def test_sklearn_budget_ceiling_on_bare_import_statspai():
-    """``import statspai`` must not eagerly pull more than ~39 sklearn
-    submodules — only ``sklearn.base`` plus its mandatory deps, triggered
-    by ``tmle.hal_tmle``'s ``HALRegressor``/``HALClassifier`` class
-    inheritance.  Anything significantly higher means a future change
-    re-introduced a top-level ``from sklearn.X import Y`` somewhere; move
-    that import inside the function body."""
+    """``import statspai`` must not eagerly pull any sklearn submodule.
+
+    After Steps 1B/1C/1D, the cold-import floor is zero — sklearn is
+    only loaded on first use of an ML-backed estimator.  A non-zero
+    count means some estimator file re-introduced a top-level
+    ``from sklearn.X import Y`` (or a class inherited from
+    ``BaseEstimator`` etc. at module-load time).  Grep the offending
+    ``git diff`` for added ``from sklearn`` lines or class declarations
+    that subclass sklearn types, and move the dependency inside the
+    function body / replace the inheritance with the duck-typed
+    ``_BaseHAL`` pattern from ``tmle/hal_tmle.py``.
+    """
     import subprocess
     import sys
 
@@ -345,9 +351,9 @@ def test_sklearn_budget_ceiling_on_bare_import_statspai():
     n = int(last_line[len("SKLEARN_COUNT="):])
     assert n <= SKLEARN_BUDGET_CEILING, (
         f"`import statspai` pulled {n} sklearn submodules, exceeding the "
-        f"<= {SKLEARN_BUDGET_CEILING} budget set after Step 1C.  Some "
-        f"estimator file likely re-introduced a top-level "
-        f"`from sklearn.X import Y` — grep `git diff` for added "
-        f"`from sklearn` lines outside function bodies and move them "
-        f"inside the functions that actually use the symbols."
+        f"<= {SKLEARN_BUDGET_CEILING} ceiling.  Either a top-level "
+        f"`from sklearn.X import Y` was re-introduced (move it inside "
+        f"the function), or a class re-acquired a sklearn superclass at "
+        f"module load (use the ``_BaseHAL`` duck-typed pattern from "
+        f"``tmle/hal_tmle.py`` instead)."
     )
