@@ -4,6 +4,38 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.13.0] — 2026-05-04
+
+### Headline
+
+Stability tiers and agent-safe gating across the smart layer. Every
+`FunctionSpec` now carries a `stability` field plus per-function
+`limitations`, surfaced through `sp.describe_function`, `sp.help`,
+`sp.list_functions(stability=...)`, the `statspai list` CLI, and the
+LLM-facing `sp.function_schema` description. `sp.recommend` /
+`sp.causal` / `sp.paper` default to dropping `experimental` /
+`deprecated` entries unless `allow_experimental=True` is passed —
+closing a path where an agent could silently land on a frontier MVP.
+Eight high-impact estimators (`aipw`, `aggte`, `pretrends_test`,
+`sensitivity_rr`, `mccrary_test`, `oster_bounds`,
+`wild_cluster_bootstrap`, `rd_honest`) are upgraded from
+auto-registered stubs to hand-written specs with full assumption /
+failure-mode / alternative metadata. The workflow / paper
+orchestration layer replaces silent `except: pass` paths with
+`WorkflowDegradedWarning` + structured `degradations` records on the
+result object, so optional-stage failures surface in
+`PaperDraft.to_dict()` and the rendered `Pipeline notes` section
+instead of disappearing. `sp.principal_strat(instrument=...)` ships a
+proper Angrist-Imbens-Rubin Wald-LATE estimator (the kwarg was
+previously stubbed); `sp.hal_tmle(variant='projection')` keeps its
+`NotImplementedError` but now points at a written-out RFC
+(`docs/rfc/hal_tmle_projection.md`) instead of raising in silence.
+Lazy-loading of optional families via `__getattr__` keeps `import
+statspai` fast without breaking same-name function/subpackage
+collisions (`bartik`, `deepiv`, `proximal`, …) — pinned by a
+late-bind / post-import-shadow contract test and a committed
+`__init__.pyi` stub generator so IDE / mypy see lazy-loaded names.
+
 ### Added
 
 - **8 high-impact estimators upgraded from auto-registered to
@@ -186,6 +218,17 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **`isinstance(res, sp.OPEResult)` no longer false-negative on results
+  from `sp.ope.*`.** During the lazy-load refactor of optional families
+  the eager re-export path that used to bind `sp.OPEResult` to
+  `statspai.ope.estimators.OPEResult` was dropped, so `sp.OPEResult`
+  silently resolved to a *parallel* class defined in
+  `statspai.policy_learning.ope` — and `isinstance(sp.ope.ips(...),
+  sp.OPEResult)` flipped from `True` (v1.12.2) to `False`. The eager
+  `from .policy_learning import ... OPEResult` is removed so
+  `sp.OPEResult` falls through to the lazy `_register_lazy("ope",
+  "OPEResult", ...)` table, restoring v1.12.2 class identity.
+  Regression-pinned by `tests/test_ope_cevae.py::test_ips_close_to_true_value`.
 - Hand-written registry specs for `aggte` and `principal_strat` now
   exactly match their callable signatures (`na_rm`, `alpha`, `seed`),
   with a regression test guarding the new v1.13 hand-written upgrades
@@ -220,6 +263,20 @@ All notable changes to StatsPAI will be documented in this file.
   runtime namespace. The stub generator now skips exported constants
   during leaf scanning and correctly types `STABILITY_TIERS` as
   `frozenset[str]`, avoiding duplicate/conflicting declarations.
+- Pinned the two binding hazards introduced by the lazy-load refactor
+  with 21 explicit contracts in `tests/test_late_bind_contracts.py`:
+  the five late-bind aliases re-bound by `_article_aliases`
+  (`mediation`, `policy_tree`, `dml`, `matrix_completion`,
+  `causal_discovery`) plus the `sp.iv` callable dispatcher must each
+  remain callable rather than degenerating to a module on import
+  re-order; and the 14 function/subpackage collisions
+  (`proximal`, `principal_strat`, `bridge`, `bcf`, `bunching`,
+  `dose_response`, `multi_treatment`, `causal_impact`, `frontier`,
+  `interference`, `tmle`, `msm`, `deepiv`, `bartik`) must survive a
+  downstream `from statspai.X import Y` without the auto-bound submodule
+  silently re-shadowing the function. Closes the residual gap left by
+  Codex's lazy-load refactor and Claude Code's same-name eager-rebind
+  follow-up.
 
 ## [1.12.2] — 2026-05-01
 

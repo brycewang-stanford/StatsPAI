@@ -223,7 +223,7 @@ interface: `.summary()`, `.plot()`, `.to_latex()`, `.to_docx()`, and
    structured exception envelopes (`error_kind` /
    `recovery_hint` / `alternative_functions`) so LLM agents can
    branch on typed failure codes rather than regex-parsing prose.
-   Versions 1.10--1.12 extend this surface with an estimand-first
+   Versions 1.10--1.13 extend this surface with an estimand-first
    DSL (`sp.causal_question(...)` routes a research question to an
    appropriate estimator and emits a shared robustness audit),
    built-in Stata-to-Python and R-to-Python translators (covering

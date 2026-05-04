@@ -1697,9 +1697,9 @@ def _build_registry():
                           "on the post-treatment stratum variable. "
                           "method= is ignored on this path."
                       )),
-            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("alpha", "float", False, 0.05, "CI level (e.g. 0.05 for 95% CIs)"),
             ParamSpec("n_boot", "int", False, 500, "Bootstrap replications"),
-            ParamSpec("seed", "int", False, None),
+            ParamSpec("seed", "int", False, None, "Random seed for reproducible bootstrap draws"),
         ],
         returns="PrincipalStratResult",
         example='sp.principal_strat(df, y="y", treat="d", strata="s")',

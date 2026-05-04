@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "1.12.2"
+__version__ = "1.13.0"
 __author__ = "Biaoyue Wang"
 __email__ = "brycew6m@stanford.edu"
 
@@ -244,7 +244,13 @@ from .tmle import (
     ltmle, LTMLEResult, ltmle_survival, LTMLESurvivalResult,
     hal_tmle, HALRegressor, HALClassifier,
 )
-from .policy_learning import policy_tree, PolicyTree, policy_value, direct_method, ips, snips, doubly_robust, OPEResult
+from .policy_learning import policy_tree, PolicyTree, policy_value, direct_method, ips, snips, doubly_robust
+# ``OPEResult`` is intentionally *not* eagerly imported from
+# ``.policy_learning`` here: the canonical class lives in
+# ``statspai.ope.estimators`` and is what ``sp.ope.ips(...)`` returns.
+# Letting ``sp.OPEResult`` resolve via the lazy ``_register_lazy("ope",
+# "OPEResult", ...)`` table keeps ``isinstance(res, sp.OPEResult)`` true
+# for results produced by ``sp.ope.*`` (matching v1.12.2 semantics).
 # (lazy) conformal_causal: see _LAZY_SUBMODULES / _LAZY_ATTRS
 # Eager: ``bcf`` collides (function + subpackage of same name).
 from .bcf import (
