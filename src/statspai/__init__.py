@@ -1716,9 +1716,40 @@ def __getattr__(name):
         _mod = importlib.import_module(f".{_modpath}", package=__name__)
         _obj = getattr(_mod, _attr)
         globals()[name] = _obj
+        # PEP 562 footgun: ``importlib.import_module(".X", package="statspai")``
+        # has the side effect of attaching ``statspai.X = <module>`` in our
+        # globals, even though we asked for a leaf attr.  When ``X`` is
+        # *also* a registered leaf (the canonical cases are ``proximal`` /
+        # ``principal_strat`` / ``bartik`` / ``bridge`` / ``causal_impact``
+        # / ``bcf`` / ``bunching`` / ``deepiv`` / ``dose_response`` /
+        # ``frontier`` / ``interference`` / ``msm`` / ``multi_treatment`` /
+        # ``tmle`` — functions exported with the same name as their parent
+        # submodule), that side effect shadows the leaf the *next* time
+        # ``sp.X`` is accessed.  Re-resolve the leaf right now so
+        # ``sp.<modpath>`` keeps returning the function, not the module —
+        # matching the eager (pre-lazy) ``from .X import X`` behaviour.
+        _root_modpath = _modpath.split(".", 1)[0]
+        if _root_modpath != name and _root_modpath in _LAZY_ATTRS:
+            _leaf_modpath, _leaf_attr = _LAZY_ATTRS[_root_modpath]
+            _leaf_mod = importlib.import_module(
+                f".{_leaf_modpath}", package=__name__
+            )
+            globals()[_root_modpath] = getattr(_leaf_mod, _leaf_attr)
         return _obj
     if name in _LAZY_SUBMODULES:
         import importlib
+        # Prefer a leaf-attr resolution when the same name is registered
+        # as both a submodule and a leaf — the function takes precedence
+        # because that's how the eager ``from .X import X`` imports
+        # behaved before the lazy refactor.
+        if name in _LAZY_ATTRS:
+            _leaf_modpath, _leaf_attr = _LAZY_ATTRS[name]
+            _mod = importlib.import_module(
+                f".{_leaf_modpath}", package=__name__
+            )
+            _obj = getattr(_mod, _leaf_attr)
+            globals()[name] = _obj
+            return _obj
         _modpath = _LAZY_SUBMODULES[name]
         _mod = importlib.import_module(f".{_modpath}", package=__name__)
         globals()[name] = _mod
