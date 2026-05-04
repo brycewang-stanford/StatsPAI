@@ -1051,6 +1051,9 @@ def paper(
     include_robustness: bool = True,
     cite: bool = True,
     strict: bool = False,
+    # v1.13: forwarded to sp.causal -> sp.recommend; default False
+    # keeps frontier MVP estimators out of auto-generated drafts.
+    allow_experimental: bool = False,
 ) -> PaperDraft:
     """End-to-end "data → publication-draft" pipeline.
 
@@ -1086,6 +1089,14 @@ def paper(
     strict : bool, default False
         Forwarded to :func:`sp.causal` — when True, identification
         warnings escalate to errors.
+    allow_experimental : bool, default False
+        Forwarded to :func:`sp.causal` → :func:`sp.recommend`. When
+        ``False`` (the agent-safe default), auto-generated drafts
+        cannot land on a function whose registry entry is
+        ``stability='experimental'`` or ``'deprecated'``. Set ``True``
+        when you are explicitly drafting a paper around frontier
+        methods (e.g. ``causal_text`` or ``did_multiplegt_dyn``); the
+        Pipeline notes section records what was filtered.
 
     Returns
     -------
@@ -1219,6 +1230,7 @@ def paper(
         dag=dag,
         strict=strict,
         auto_run=False,
+        allow_experimental=allow_experimental,
     )
     # Drive the pipeline through to robustness, swallowing per-stage
     # failures into per-section fallback notes (the draft must always

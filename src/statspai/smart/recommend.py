@@ -390,6 +390,8 @@ def recommend(
     verify_B: int = 50,
     verify_budget_s: float = 30.0,
     verify_top_k: int = 3,
+    # --- v1.13 stability gating (agent-safe by default) ---
+    allow_experimental: bool = False,
 ) -> RecommendationResult:
     """
     Recommend the appropriate estimator(s) for your research question.
@@ -461,6 +463,16 @@ def recommend(
         Wall-clock budget (seconds) per verified recommendation.
     verify_top_k : int, default 3
         Number of top recommendations to verify.
+    allow_experimental : bool, default False
+        Whether to include estimators registered as
+        ``stability='experimental'`` (or ``'deprecated'``) in the
+        ranked output. The default ``False`` is the agent-safe choice
+        — an LLM agent or pipeline that asks for an estimator
+        recommendation should not silently land on a frontier MVP. Set
+        ``True`` when you are explicitly exploring frontier methods
+        (e.g. ``causal_text``, ``did_multiplegt_dyn``); dropped names
+        are listed in ``RecommendationResult.warnings`` either way.
+        See ``docs/guides/stability.md`` for the full contract.
 
     Returns
     -------
@@ -953,6 +965,27 @@ def recommend(
     _enrich_with_agent_cards(recommendations, n_obs=int(profile.get("n_obs", 0) or 0),
                              warnings_list=warnings_list)
 
+    # ------------------------------------------------------------------
+    # Stability gating (v1.13): by default, drop recommendations that
+    # point at a function whose registry entry is
+    # ``stability='experimental'`` or ``'deprecated'``, so an agent
+    # asking ``sp.recommend(...)`` for a publication-grade analysis
+    # never silently lands on a frontier MVP.  Pass
+    # ``allow_experimental=True`` to opt back in (e.g. when the user
+    # is explicitly exploring frontier methods).  See
+    # ``docs/guides/stability.md``.
+    # ------------------------------------------------------------------
+    if not allow_experimental:
+        recommendations, dropped = _filter_unstable_recommendations(recommendations)
+        if dropped:
+            warnings_list.append(
+                "Dropped {n} experimental recommendation(s) "
+                "({names}) — pass allow_experimental=True to include them.".format(
+                    n=len(dropped),
+                    names=", ".join(f"sp.{name}" for name in dropped),
+                )
+            )
+
     return RecommendationResult(
         recommendations=recommendations,
         data_profile=profile,
@@ -962,6 +995,29 @@ def recommend(
         y=y,
         treatment=treatment,
     )
+
+
+def _filter_unstable_recommendations(recommendations):
+    """Drop recommendations whose function is experimental/deprecated.
+
+    Returns ``(filtered_recommendations, dropped_function_names)``.
+    Stability lookup goes through the registry; if a recommendation's
+    ``function`` is not in the registry (or is missing entirely), it
+    is preserved — this preserves backward compatibility for any
+    custom recommendation a downstream caller may have appended.
+    """
+    from ..registry import _REGISTRY, _ensure_full_registry  # local: avoid cycle
+    _ensure_full_registry()
+    keep = []
+    dropped = []
+    for rec in recommendations:
+        fn = rec.get("function")
+        spec = _REGISTRY.get(fn) if fn else None
+        if spec is not None and spec.stability in {"experimental", "deprecated"}:
+            dropped.append(fn)
+            continue
+        keep.append(rec)
+    return keep, dropped
 
 
 def _enrich_with_agent_cards(recommendations, *, n_obs: int, warnings_list):

@@ -59,6 +59,11 @@ class CausalWorkflow:
     proxy_z: Optional[List[str]] = None
     proxy_w: Optional[List[str]] = None
     post_treat_strata: Optional[str] = None
+    # v1.13: agent-safe stability gating, forwarded to sp.recommend().
+    # Default False = drop experimental/deprecated estimators from the
+    # ranked recommendations so neither sp.causal(...) nor sp.paper(...)
+    # silently lands on a frontier MVP.
+    allow_experimental: bool = False
 
     # Outputs (filled as stages run)
     diagnostics: Optional[Any] = None           # IdentificationReport
@@ -116,6 +121,10 @@ class CausalWorkflow:
             proxy_z=self.proxy_z,
             proxy_w=self.proxy_w,
             post_treat_strata=self.post_treat_strata,
+            # v1.13: forward stability gating so the workflow inherits
+            # the agent-safe default (no experimental estimators) unless
+            # the caller of sp.causal(..., allow_experimental=True) opted in.
+            allow_experimental=self.allow_experimental,
         )
         self._mark('recommend')
         return self.recommendation
@@ -1035,6 +1044,8 @@ def causal(
     proxy_z: Optional[List[str]] = None,
     proxy_w: Optional[List[str]] = None,
     post_treat_strata: Optional[str] = None,
+    # v1.13: stability gating, forwarded to sp.recommend().
+    allow_experimental: bool = False,
 ) -> CausalWorkflow:
     """End-to-end causal-inference workflow.
 
@@ -1054,6 +1065,14 @@ def causal(
         the fully-populated workflow.  If False, returns the workflow
         object with no stages executed — call ``.diagnose()``,
         ``.estimate()``, etc. manually for finer control.
+    allow_experimental : bool, default False
+        Forwarded to :func:`sp.recommend`.  When ``False`` (the
+        agent-safe default), recommendations pointing at functions
+        registered as ``stability='experimental'`` or ``'deprecated'``
+        are dropped from the ranked output, and the workflow's
+        :attr:`pipeline_notes` records what was filtered.  Pass
+        ``True`` when you are explicitly exploring frontier methods.
+        See ``docs/guides/stability.md``.
 
     Returns
     -------
@@ -1099,6 +1118,7 @@ def causal(
         proxy_z=list(proxy_z) if proxy_z else None,
         proxy_w=list(proxy_w) if proxy_w else None,
         post_treat_strata=post_treat_strata,
+        allow_experimental=allow_experimental,
     )
     if auto_run:
         workflow.run()

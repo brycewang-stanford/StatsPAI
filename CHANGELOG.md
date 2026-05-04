@@ -6,6 +6,18 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Smart layer respects `FunctionSpec.stability`.** `sp.recommend(...)`,
+  `sp.causal(...)`, and `sp.paper(...)` now accept an
+  `allow_experimental: bool = False` flag (default agent-safe).  When
+  ``False``, recommendations whose backing function is registered as
+  ``stability='experimental'`` (or ``'deprecated'``) are dropped from
+  the ranked output and the workflow's ``warnings`` /
+  ``pipeline_notes`` records what was filtered.  Pass ``True`` to
+  include frontier MVPs (e.g. ``did_multiplegt_dyn``,
+  ``text_treatment_effect``).  This closes a gap where an LLM agent
+  asking ``sp.causal(df, ...)`` for a publication-grade analysis could
+  silently land on a frontier MVP just because the recommender
+  ranked it first.  Tests in `tests/test_smart_stability_gating.py`.
 - **Stability reverse-audit script.** `scripts/stability_audit.py`
   cross-checks every `stability='stable'` claim in the registry
   against parity-test coverage in `tests/reference_parity/` and
