@@ -30,12 +30,13 @@ All notable changes to StatsPAI will be documented in this file.
   Z-compliers — `τ_Y` for the effect of `D` on the outcome and `τ_S`
   for the effect of `D` on the post-treatment stratum variable —
   plus the complier share `π_C(Z)`, all with bootstrap SE/CI. A
-  `RuntimeWarning` is emitted when the first stage degenerates.
+  `RuntimeWarning` is emitted when the first stage degenerates or points
+  in the wrong direction for the supplied instrument coding.
   `method=` is ignored on this path because identification comes from
   `Z`, not from the post-treatment stratum decomposition. The
   `limitations` entry is rewritten: the only remaining gap on this
   path is always-survivor SACE under encouragement design (Mealli &
-  Pacini 2013, partial identification). Five new tests in
+  Pacini 2013, partial identification). Seven new tests in
   `tests/test_principal_strat.py`.
 
 - **`sp.hal_tmle(variant='projection')` RFC + sharper error.** Rather
@@ -185,6 +186,10 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- Hand-written registry specs for `aggte` and `principal_strat` now
+  exactly match their callable signatures (`na_rm`, `alpha`, `seed`),
+  with a regression test guarding the new v1.13 hand-written upgrades
+  against future signature drift.
 - The natural-language `sp.paper(data, question, ..., include_robustness=False)`
   path no longer runs or renders the robustness section implicitly via
   `sp.causal` auto-run side effects.

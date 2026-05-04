@@ -1,5 +1,7 @@
 """Tests for the AI function registry."""
 
+import inspect
+
 import pytest
 
 
@@ -64,3 +66,28 @@ class TestRegistry:
         from statspai import list_functions
         funcs = list_functions(category="survey")
         assert "svydesign" in funcs
+
+    def test_recent_handwritten_specs_match_callable_signature(self):
+        import statspai as sp
+        from statspai import describe_function
+
+        names = [
+            "aipw",
+            "aggte",
+            "pretrends_test",
+            "sensitivity_rr",
+            "mccrary_test",
+            "oster_bounds",
+            "wild_cluster_bootstrap",
+            "rd_honest",
+            "principal_strat",
+        ]
+        for name in names:
+            sig = inspect.signature(getattr(sp, name))
+            sig_params = [
+                p.name for p in sig.parameters.values()
+                if p.name != "self"
+                and p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
+            ]
+            spec_params = [p["name"] for p in describe_function(name)["params"]]
+            assert spec_params == sig_params, name

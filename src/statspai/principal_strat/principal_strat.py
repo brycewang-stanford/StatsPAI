@@ -131,9 +131,8 @@ def principal_strat(
     y : str
         Outcome variable.
     treat : str
-        Binary treatment assignment / instrument (0/1). For the IV
-        interpretation, pass the **instrument** (encouragement), and
-        ``strata`` = the actual take-up variable.
+        Binary treatment / actual uptake (0/1). When ``instrument`` is
+        supplied, this is the endogenous uptake variable ``D``.
     strata : str
         Binary post-treatment variable (0/1) defining the principal
         strata (e.g. compliance, survival, employment).
@@ -443,6 +442,7 @@ def _fit_instrument_air(Y, D, S, Z, n, alpha, n_boot, seed, method):
         if n_z1 == 0 or n_z0 == 0:
             return {
                 'pi_c_z': np.nan,
+                'first_stage': np.nan,
                 'tau_y': np.nan, 'tau_s': np.nan,
                 'd_z1': np.nan, 'd_z0': np.nan,
                 'y_z1': np.nan, 'y_z0': np.nan,
@@ -455,7 +455,8 @@ def _fit_instrument_air(Y, D, S, Z, n, alpha, n_boot, seed, method):
         s_z1 = float(np.mean(S_[Z_ == 1]))
         s_z0 = float(np.mean(S_[Z_ == 0]))
         # First stage / complier share w.r.t. Z (monotonicity → ≥ 0)
-        pi_c_z = max(d_z1 - d_z0, 0.0)
+        first_stage = d_z1 - d_z0
+        pi_c_z = max(first_stage, 0.0)
         if pi_c_z > 1e-8:
             tau_y = (y_z1 - y_z0) / pi_c_z
             tau_s = (s_z1 - s_z0) / pi_c_z
@@ -464,6 +465,7 @@ def _fit_instrument_air(Y, D, S, Z, n, alpha, n_boot, seed, method):
             tau_s = np.nan
         return {
             'pi_c_z': pi_c_z,
+            'first_stage': first_stage,
             'tau_y': tau_y, 'tau_s': tau_s,
             'd_z1': d_z1, 'd_z0': d_z0,
             'y_z1': y_z1, 'y_z0': y_z0,
@@ -472,9 +474,21 @@ def _fit_instrument_air(Y, D, S, Z, n, alpha, n_boot, seed, method):
 
     point = _point(Y, D, S, Z)
 
-    if not np.isfinite(point['pi_c_z']) or point['pi_c_z'] < 1e-6:
+    weak_first_stage_threshold = 0.02
+    if np.isfinite(point['first_stage']) and point['first_stage'] < -1e-6:
         warnings.warn(
-            "Weak first stage on the instrument: π_C(Z) ≈ 0. "
+            "Negative first stage on the instrument: "
+            "P(D=1|Z=1) < P(D=1|Z=0). This violates monotonicity for "
+            "the supplied instrument coding (or Z is reversed). Recode "
+            "the instrument before reporting AIR / Wald LATEs.",
+            RuntimeWarning, stacklevel=3,
+        )
+    elif (
+        not np.isfinite(point['pi_c_z'])
+        or point['pi_c_z'] < weak_first_stage_threshold
+    ):
+        warnings.warn(
+            "Weak first stage on the instrument: π_C(Z) is near 0. "
             "Wald LATEs (τ_Y, τ_S) are unreliable. Inspect "
             "P(D=1|Z=1)-P(D=1|Z=0) before reporting.",
             RuntimeWarning, stacklevel=3,
@@ -495,6 +509,8 @@ def _fit_instrument_air(Y, D, S, Z, n, alpha, n_boot, seed, method):
             pass
 
     def _ci(boot_arr, ppoint):
+        if not np.isfinite(ppoint):
+            return float('nan'), (float('nan'), float('nan')), float('nan')
         valid = ~np.isnan(boot_arr)
         if valid.sum() < 2:
             return float('nan'), (float('nan'), float('nan')), float('nan')
@@ -529,6 +545,7 @@ def _fit_instrument_air(Y, D, S, Z, n, alpha, n_boot, seed, method):
         method=f'instrument_air ({method})',
         strata_proportions={
             'complier (w.r.t. Z)': point['pi_c_z'],
+            'first_stage (D|Z=1 - D|Z=0)': point['first_stage'],
             'complier_se': se_pi,
             # always-/never-taker decomposition w.r.t. Z is also
             # available analytically but reported only as raw cell
@@ -545,6 +562,8 @@ def _fit_instrument_air(Y, D, S, Z, n, alpha, n_boot, seed, method):
             'estimator': 'AIR / Wald LATE under encouragement design',
             'method_arg': method,
             'n_boot': n_boot,
+            'first_stage': point['first_stage'],
+            'weak_first_stage_threshold': weak_first_stage_threshold,
             'cell_probs': {
                 'P(Y | Z=1)': point['y_z1'],
                 'P(Y | Z=0)': point['y_z0'],

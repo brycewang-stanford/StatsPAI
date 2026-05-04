@@ -1697,7 +1697,9 @@ def _build_registry():
                           "on the post-treatment stratum variable. "
                           "method= is ignored on this path."
                       )),
+            ParamSpec("alpha", "float", False, 0.05),
             ParamSpec("n_boot", "int", False, 500, "Bootstrap replications"),
+            ParamSpec("seed", "int", False, None),
         ],
         returns="PrincipalStratResult",
         example='sp.principal_strat(df, y="y", treat="d", strata="s")',
@@ -7525,6 +7527,8 @@ def _build_registry():
                       "For dynamic: cap event time at ±balance_e for balanced panel"),
             ParamSpec("min_e", "float", False, float("-inf")),
             ParamSpec("max_e", "float", False, float("inf")),
+            ParamSpec("na_rm", "bool", False, True,
+                      "Drop ATT(g,t) cells with missing / infinite SE before aggregating"),
             ParamSpec("bstrap", "bool", False, True),
             ParamSpec("boot_type", "str", False, "multiplier", "Bootstrap variant", ["multiplier"]),
             ParamSpec("n_boot", "int", False, 1000),

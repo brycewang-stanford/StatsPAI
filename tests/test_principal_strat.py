@@ -227,12 +227,35 @@ def test_instrument_path_rejects_nonbinary_z(encouragement_dgp):
 
 
 def test_instrument_path_warns_on_weak_first_stage(encouragement_dgp):
-    """Random Z that doesn't predict D triggers the weak-IV warning."""
-    rng = np.random.default_rng(11)
+    """Z that does not predict D triggers the weak-IV warning."""
     df = encouragement_dgp.copy()
-    df['z'] = rng.binomial(1, 0.5, len(df)).astype(float)  # independent of D
+    # Deterministic independence: each Z cell has the same D mean, so the
+    # first stage is exactly zero rather than sample-noise dependent.
+    df['z'] = np.resize([0.0, 1.0], len(df))
+    df['d'] = np.resize([0.0, 0.0, 1.0, 1.0], len(df))
     with pytest.warns(RuntimeWarning, match="Weak first stage"):
         sp.principal_strat(
             df, y='y', treat='d', strata='s',
             instrument='z', n_boot=20, seed=0,
         )
+
+
+def test_instrument_path_warns_on_negative_first_stage(encouragement_dgp):
+    """A reversed instrument must not be mislabeled as weak compliance."""
+    df = encouragement_dgp.copy()
+    df['z'] = 1.0 - df['z']
+
+    with pytest.warns(RuntimeWarning, match="Negative first stage"):
+        result = sp.principal_strat(
+            df, y='y', treat='d', strata='s',
+            instrument='z', n_boot=20, seed=0,
+        )
+
+    assert result.strata_proportions[
+        'first_stage (D|Z=1 - D|Z=0)'
+    ] < 0
+    late_y = result.effects.loc[
+        result.effects['stratum'].str.contains('LATE on Y')
+    ].iloc[0]
+    assert np.isnan(late_y['estimate'])
+    assert np.isnan(late_y['ci_lower'])
