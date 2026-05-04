@@ -67,6 +67,7 @@ Examples
 
 from __future__ import annotations
 
+import importlib
 import sys
 from types import ModuleType
 from typing import Any, Dict, Optional
@@ -142,15 +143,38 @@ from .continuous_late import continuous_iv_late, ContinuousLATEResult
 from .ivdml import ivdml, IVDMLResult
 
 # ─── Shift-share / DeepIV re-exports ────────────────────────────────────
-try:
-    from ..bartik import bartik, shift_share_se, BartikIV, ssaggregate
-except Exception:  # pragma: no cover
-    bartik = shift_share_se = BartikIV = ssaggregate = None
+# These stay lazy on purpose.  Importing them eagerly here pollutes the
+# parent package during ``import statspai`` because Python attaches
+# ``statspai.bartik`` / ``statspai.deepiv`` module objects to the package
+# before ``statspai.__getattr__`` has a chance to surface the function-first
+# top-level API.  Keep the IV dispatcher working, but only resolve these
+# optional families when a caller actually touches ``sp.iv.bartik``,
+# ``sp.iv.deepiv`` or dispatches ``method='shift_share'`` / ``'deepiv'``.
+_OPTIONAL_IV_EXPORTS = {
+    "bartik": ("..bartik", ("bartik", "shift_share_se", "BartikIV", "ssaggregate")),
+    "deepiv": ("..deepiv", ("deepiv", "DeepIV")),
+}
 
-try:
-    from ..deepiv import deepiv, DeepIV
-except Exception:  # pragma: no cover
-    deepiv = DeepIV = None
+
+def _load_optional_exports(group: str) -> Dict[str, Any]:
+    """Resolve one optional IV export group and cache the results.
+
+    On success we memoize the imported objects in ``globals()`` so later
+    lookups are zero-cost.  On failure we memoize ``None`` placeholders to
+    preserve the historical ``sp.iv.deepiv is None`` style fallback when an
+    optional dependency is unavailable, while still letting the dispatcher
+    raise a clearer method-specific ``ImportError``.
+    """
+    modpath, names = _OPTIONAL_IV_EXPORTS[group]
+    module = None
+    try:
+        module = importlib.import_module(modpath, package=__name__)
+    except Exception:  # pragma: no cover
+        values = {name: None for name in names}
+    else:
+        values = {name: getattr(module, name) for name in names}
+    globals().update(values)
+    return values
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -329,12 +353,15 @@ def _dispatch(
                          "exog": "covariates"})
         return ivdml(data=data, **kwargs)
     if canon == "deepiv":
-        if deepiv is None:
+        deepiv_fn = globals().get("deepiv")
+        if deepiv_fn is None:
+            deepiv_fn = _load_optional_exports("deepiv")["deepiv"]
+        if deepiv_fn is None:
             raise ImportError(
                 "method='deepiv' requires the optional deepiv extras. "
                 "Install with: pip install 'statspai[deepiv]'."
             )
-        return deepiv(data=data, **kwargs)
+        return deepiv_fn(data=data, **kwargs)
 
     # ── 6. Bayesian ──────────────────────────────────────────────────
     if canon == "bayes":
@@ -369,12 +396,15 @@ def _dispatch(
 
     # ── 10. Shift-share ──────────────────────────────────────────────
     if canon == "shift_share":
-        if bartik is None:
+        bartik_fn = globals().get("bartik")
+        if bartik_fn is None:
+            bartik_fn = _load_optional_exports("bartik")["bartik"]
+        if bartik_fn is None:
             raise ImportError(
                 "method='shift_share' requires sp.bartik. "
                 "Check that the bartik subpackage is installed correctly."
             )
-        return bartik(data=data, **kwargs)
+        return bartik_fn(data=data, **kwargs)
 
     raise AssertionError(  # pragma: no cover
         f"Unreachable dispatcher branch: canonical='{canon}'."
@@ -529,6 +559,18 @@ def _attach_augmented_diagnostics(model, result):
                 result.diagnostics["OP effective F error"] = str(e)
     except Exception as e:  # pragma: no cover — never crash the estimator
         result.diagnostics["augmented_diagnostics_error"] = str(e)
+
+
+def __getattr__(name: str):
+    """Lazily expose optional IV sub-families.
+
+    This keeps ``sp.iv.bartik`` / ``sp.iv.deepiv`` working without forcing the
+    parent ``statspai`` package to import those subpackages during bootstrap.
+    """
+    for group, (_, names) in _OPTIONAL_IV_EXPORTS.items():
+        if name in names:
+            return _load_optional_exports(group)[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # ═══════════════════════════════════════════════════════════════════════

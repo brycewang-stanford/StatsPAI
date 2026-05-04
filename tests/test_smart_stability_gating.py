@@ -159,3 +159,42 @@ class TestRecommendStabilityDefault:
             # default
         )
         assert w2.allow_experimental is False
+
+    def test_paper_forwards_allow_experimental(self, monkeypatch) -> None:
+        """``sp.paper(..., allow_experimental=...)`` must forward the
+        flag into the internal ``sp.causal`` bootstrap."""
+        import statspai as sp
+        import statspai.workflow.causal_workflow as workflow_mod
+
+        seen = {}
+
+        def _fake_causal(*args, **kwargs):
+            seen.update(kwargs)
+            raise RuntimeError("stop-after-forward")
+
+        monkeypatch.setattr(workflow_mod, "causal", _fake_causal)
+
+        df = _toy_panel()
+        with pytest.raises(RuntimeError, match="stop-after-forward"):
+            sp.paper(
+                df,
+                "effect of treatment on y",
+                y="y",
+                treatment="treatment",
+                id="unit",
+                time="t",
+                allow_experimental=True,
+            )
+        assert seen["allow_experimental"] is True
+
+        seen.clear()
+        with pytest.raises(RuntimeError, match="stop-after-forward"):
+            sp.paper(
+                df,
+                "effect of treatment on y",
+                y="y",
+                treatment="treatment",
+                id="unit",
+                time="t",
+            )
+        assert seen["allow_experimental"] is False

@@ -105,3 +105,53 @@ class TestEnrichment:
         assert "staggered treatment" in cs["reason"].lower()
         assert cs["code"].startswith("# Derived cohort column") or cs["code"].startswith("sp.callaway")
         assert cs["params"]["y"] == "y"
+
+    def test_filter_unstable_recommendations_drops_experimental_names(self):
+        """Registry-backed stability gating should strip experimental entries."""
+        from statspai.smart.recommend import _filter_unstable_recommendations
+
+        recs = [
+            {"function": "regress"},
+            {"function": "text_treatment_effect"},
+            {"function": "callaway_santanna"},
+        ]
+        filtered, dropped = _filter_unstable_recommendations(recs)
+
+        assert [r["function"] for r in filtered] == [
+            "regress", "callaway_santanna",
+        ]
+        assert dropped == ["text_treatment_effect"]
+
+    def test_recommend_allow_experimental_flag_controls_filter_hook(
+        self, did_panel, monkeypatch,
+    ):
+        """Public API wiring: default calls the filter, opt-in bypasses it."""
+        import importlib
+
+        recommend_mod = importlib.import_module("statspai.smart.recommend")
+
+        calls = []
+
+        def _fake_filter(recs):
+            calls.append([r.get("function") for r in recs])
+            return recs[:-1], ["text_treatment_effect"]
+
+        monkeypatch.setattr(
+            recommend_mod, "_filter_unstable_recommendations", _fake_filter,
+        )
+
+        gated = recommend_mod.recommend(
+            did_panel, y="y", treatment="treated",
+            id="unit", time="year",
+        )
+        assert calls, "default recommend() should invoke stability gating"
+        assert any("allow_experimental=True" in w for w in gated.warnings)
+
+        calls.clear()
+        ungated = recommend_mod.recommend(
+            did_panel, y="y", treatment="treated",
+            id="unit", time="year",
+            allow_experimental=True,
+        )
+        assert not calls, "allow_experimental=True should bypass the filter"
+        assert not any("allow_experimental=True" in w for w in ungated.warnings)

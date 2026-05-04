@@ -62,6 +62,16 @@ def test_sp_iv_keeps_submodule_access():
     assert callable(sp.iv.kleibergen_paap_rk)
 
 
+def test_function_first_api_survives_iv_bootstrap():
+    """``sp.bartik`` / ``sp.deepiv`` must stay callable, not module objects."""
+    assert callable(sp.bartik)
+    assert callable(sp.deepiv)
+    assert callable(sp.iv.bartik)
+    assert callable(sp.iv.deepiv)
+    assert sp.bartik.__module__.startswith("statspai.bartik.")
+    assert sp.deepiv.__module__.startswith("statspai.deepiv.")
+
+
 def test_sp_iv_default_is_2sls(iv_data):
     """Calling without ``method=`` should be 2SLS."""
     r = sp.iv("y ~ (d ~ z1 + z2) + x1", data=iv_data)

@@ -46,7 +46,7 @@ CONSTANTS: dict[str, str] = {
     "__author__":      "__author__: str",
     "__email__":       "__email__: str",
     "__citation__":    "__citation__: str",
-    "STABILITY_TIERS": "STABILITY_TIERS: tuple[str, ...]",
+    "STABILITY_TIERS": "STABILITY_TIERS: frozenset[str]",
     "TARGET_ITEMS":    "TARGET_ITEMS: list[str]",
 }
 
@@ -69,6 +69,8 @@ def main() -> None:
     unresolved:      list[str] = []
 
     for name in sorted(set(sp.__all__)):
+        if name in CONSTANTS:
+            continue
         if name in ALIAS_LINES:
             leaf_lines.add(ALIAS_LINES[name])
             continue

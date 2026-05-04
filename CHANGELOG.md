@@ -114,6 +114,15 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- `sp.recommend()` now defaults to an agent-safe stability gate:
+  recommendations whose registry entry is marked
+  `stability='experimental'` or `stability='deprecated'` are dropped
+  unless the caller passes `allow_experimental=True`. The filter keeps
+  backward compatibility for unknown custom recommendation entries,
+  records dropped names in `RecommendationResult.warnings`, and is
+  forwarded through `sp.causal(..., allow_experimental=...)` and
+  `sp.paper(..., allow_experimental=...)` so higher-level workflows
+  cannot silently land on frontier MVP estimators.
 - Hardened the workflow/paper orchestration layer so optional failures
   no longer disappear silently. `sp.causal(...).run(full=True)` now
   records optional-stage failures (`compare_estimators`,
