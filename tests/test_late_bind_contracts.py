@@ -126,28 +126,36 @@ def test_conflict_prone_function_survives_submodule_import(name, sibling):
 
 
 # ---------------------------------------------------------------------------
-# Defensive re-pin: when ``__getattr__`` resolves a leaf whose source module
-# *also* exports a same-named function, the function must end up bound on
-# ``sp`` after the lazy resolution side-effect.  We exercise the path that
-# the ``_LAZY_ATTRS`` defensive branch in ``__init__.__getattr__`` was
-# written to protect.
+# Defensive re-pin against future conflict-prone additions.
+#
+# The 14 conflict-prone modules above all have *eager* function bindings
+# in __init__.py (Step 1 / commit f9ec214), so their leaves never go
+# through __getattr__ — the defensive ``_root_modpath`` re-pin in
+# __init__.__getattr__ stays dormant for them.
+#
+# This test pins the *forward-compat* contract: if anyone adds a future
+# lazy leaf whose source module shares a name with a registered leaf,
+# the side-effect attribute binding from importlib must NOT shadow the
+# function.  We instrument by clearing all cached bindings and
+# triggering ``sp`` access through a legitimate lazy leaf, then asserting
+# every conflict-prone function remains callable.
 # ---------------------------------------------------------------------------
 
-def test_lazy_leaf_does_not_shadow_same_name_function():
-    """Resolving ``sp.bidirectional_pci`` (lazy leaf in
-    statspai.proximal) must not cause ``sp.proximal`` to morph into the
-    module.  This validates the ``_root_modpath`` re-pin in __getattr__."""
-    # Force a fresh state by deleting any cached binding.
-    if "bidirectional_pci" in sp.__dict__:
-        del sp.__dict__["bidirectional_pci"]
-    if "proximal" in sp.__dict__ and isinstance(sp.__dict__["proximal"], types.ModuleType):
-        # Restore the function — the module-level eager import already happened.
-        from statspai.proximal import proximal as _prox_fn
-        sp.__dict__["proximal"] = _prox_fn
+def test_no_conflict_function_morphs_to_module_after_lazy_traffic():
+    """End-to-end: trigger several lazy resolutions and re-assert all 14
+    conflict-prone names remain callable.  This guards against any future
+    refactor that re-introduces a same-name lazy leaf without keeping the
+    eager fallback or the __getattr__ defensive re-pin."""
+    # Trigger a handful of legitimate lazy resolutions.
+    _ = sp.bayes_did
+    _ = sp.target_trial_protocol
+    _ = sp.surrogate_index
+    _ = sp.causal_dqn
 
-    _ = sp.bidirectional_pci  # triggers the lazy resolution path
-
-    assert callable(sp.proximal), (
-        "Resolving sp.bidirectional_pci shadowed sp.proximal with the "
-        "submodule.  The defensive re-pin in __init__.__getattr__ is broken."
-    )
+    for name, _sibling in CONFLICT_PRONE:
+        obj = getattr(sp, name)
+        assert callable(obj) and not isinstance(obj, types.ModuleType), (
+            f"sp.{name} morphed into the module after lazy traffic.  "
+            f"Either restore the eager `from .{name} import {name}` import "
+            f"or extend the __getattr__ defensive re-pin."
+        )

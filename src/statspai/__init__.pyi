@@ -11,7 +11,7 @@ __version__: str
 __author__: str
 __email__: str
 __citation__: str
-STABILITY_TIERS: tuple[str, ...]
+STABILITY_TIERS: frozenset[str]
 TARGET_ITEMS: list[str]
 
 # Submodule re-exports (preserve ``sp.X.Y`` access)
@@ -957,7 +957,3 @@ from .utils.labels import label_var as label_var
 from .utils.labels import label_vars as label_vars
 
 __all__: list[str]
-
-# Names without a discoverable source module — declared as Any
-from typing import Any
-STABILITY_TIERS: Any
