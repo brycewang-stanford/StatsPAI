@@ -127,14 +127,23 @@ from .dml import (
     # v1.7 long-panel DML
     dml_panel, DMLPanelResult,
 )
-# (lazy) deepiv: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Eager: ``deepiv`` is both a function (sp.deepiv(...)) and a subpackage.
+# Lazy-loading collides with the subpackage attachment — see the
+# "PEP 562 collision" note at the bottom of this file.
+from .deepiv import deepiv, DeepIV
 from .panel import (
     panel, panel_compare, balance_panel, PanelResults, PanelCompareResults, PanelRegression,
     Absorber, demean, absorb_ols, hdfe_ols, FEOLSResult,
 )
-# (lazy) causal_impact: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Eager: ``causal_impact`` collides (function + subpackage of same name).
+from .causal_impact import causal_impact, CausalImpactEstimator, impactplot
 from .mediation import mediate, MediationAnalysis, mediate_sensitivity, mediate_interventional, four_way_decomposition, FourWayResult
-# (lazy) bartik: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Eager: ``bartik`` collides (function + subpackage of same name).
+from .bartik import (
+    bartik, BartikIV, ssaggregate, shift_share_se,
+    shift_share_political, ShiftSharePoliticalResult,
+    shift_share_political_panel, ShiftSharePoliticalPanelResult,
+)
 from .output.outreg2 import OutReg2, outreg2
 from .output.modelsummary import modelsummary, coefplot
 from .output.sumstats import sumstats, balance_table
@@ -178,9 +187,21 @@ from .inference import (
     multiway_cluster_vcov, cluster_robust_se, cr3_jackknife_vcov,
     g_computation, front_door,
 )
-# (lazy) msm: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# (lazy) proximal: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# (lazy) principal_strat: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Eager: ``msm`` collides (function + subpackage of same name).
+from .msm import msm, MarginalStructuralModel, stabilized_weights
+# Eager: ``proximal`` collides (function + subpackage of same name).
+from .proximal import (
+    proximal, ProximalCausalInference,
+    negative_control_outcome, negative_control_exposure,
+    double_negative_control, NegativeControlResult,
+    proximal_regression, ProximalRegResult,
+    fortified_pci, bidirectional_pci, pci_mtp,
+    select_pci_proxies, ProxyScoreResult,
+)
+# Eager: ``principal_strat`` collides (function + subpackage of same name).
+from .principal_strat import (
+    principal_strat, PrincipalStratResult, survivor_average_causal_effect,
+)
 # (lazy) spatial: see _LAZY_SUBMODULES / _LAZY_ATTRS
 # NOTE: `from . import iv` would be shadowed by the `iv` function imported
 # on line 31 from `.regression.iv`, so we load the subpackage explicitly.
@@ -217,19 +238,42 @@ from .regression.glm import glm, GLMRegression, GLMEstimator
 from .regression.count import poisson, nbreg, ppmlhdfe
 # neural_causal — lazy-loaded (torch); see _LAZY_ATTRS below.
 from .causal_discovery import notears, NOTEARS, pc_algorithm, PCAlgorithm, lingam, LiNGAMResult, ges, GESResult, fci, FCIResult, icp, nonlinear_icp, ICPResult, pcmci, PCMCIResult, partial_corr_pvalue, lpcmci, LPCMCIResult, dynotears, DYNOTEARSResult
-# (lazy) tmle: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Eager: ``tmle`` collides (function + subpackage of same name).
+from .tmle import (
+    tmle, TMLE, super_learner, SuperLearner,
+    ltmle, LTMLEResult, ltmle_survival, LTMLESurvivalResult,
+    hal_tmle, HALRegressor, HALClassifier,
+)
 from .policy_learning import policy_tree, PolicyTree, policy_value, direct_method, ips, snips, doubly_robust, OPEResult
 # (lazy) conformal_causal: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# (lazy) bcf: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# (lazy) bunching_a: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# (lazy) bunching_b: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Eager: ``bcf`` collides (function + subpackage of same name).
+from .bcf import (
+    bcf, BayesianCausalForest, bcf_longitudinal, BCFLongResult,
+    bcf_ordinal, BCFOrdinalResult,
+    bcf_factor_exposure, BCFFactorExposureResult,
+)
+# Eager: ``bunching`` collides (function + subpackage of same name).
+from .bunching import bunching, BunchingEstimator, notch, NotchResult
+from .bunching import (
+    general_bunching, GeneralBunchingResult,
+    kink_unified, KinkUnifiedResult,
+)
 from .matrix_completion import mc_panel, MCPanel
-# (lazy) dose_response: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Eager: ``dose_response`` collides (function + subpackage of same name).
+from .dose_response import dose_response, DoseResponse, vcnet, scigan, VCNetResult
 # (lazy) bounds: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# (lazy) interference_a: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# (lazy) interference_b: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Eager: ``interference`` collides (function + subpackage of same name).
+from .interference import spillover, SpilloverEstimator, network_exposure, NetworkExposureResult, peer_effects, PeerEffectsResult, network_hte, inward_outward_spillover, NetworkHTEResult, InwardOutwardResult
+from .interference import (
+    cluster_matched_pair, MatchedPairResult,
+    cluster_cross_interference, CrossClusterRCTResult,
+    cluster_staggered_rollout, StaggeredClusterRCTResult,
+    dnc_gnn_did, DNCGNNDiDResult,
+    interference, interference_available_designs,
+)
 # (lazy) dtr: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# (lazy) multi_treatment: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Eager: ``multi_treatment`` collides (function + subpackage of same name).
+from .multi_treatment import multi_treatment, MultiTreatment
 # (lazy) robustness_a: see _LAZY_SUBMODULES / _LAZY_ATTRS
 # (lazy) survey: see _LAZY_SUBMODULES / _LAZY_ATTRS
 from .dag import (
@@ -245,7 +289,8 @@ from .dag import (
 
 # === Bridging theorems (DiD≡SC, EWM≡CATE, CB≡IPW, Kink≡RDD,
 #     DR-Calib, Surrogate≡PCI) ===
-# (lazy) bridge: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Eager: ``bridge`` collides (function + subpackage of same name).
+from .bridge import bridge, BridgeResult
 
 # === LLM × Causal (DAG / E-value / sensitivity priors) ===
 # (lazy) causal_llm: see _LAZY_SUBMODULES / _LAZY_ATTRS
@@ -465,7 +510,14 @@ from .panel.panel_fgls import panel_fgls
 # Mixed Effects / Multilevel
 # (lazy) multilevel: see _LAZY_SUBMODULES / _LAZY_ATTRS
 # Stochastic Frontier
-# (lazy) frontier: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Eager: ``frontier`` collides (function + subpackage of same name).
+from .frontier import (
+    frontier, xtfrontier, FrontierResult,
+    metafrontier, MetafrontierResult,
+    malmquist, MalmquistResult, translog_design,
+    zisf, lcsf,
+    te_summary, te_rank,
+)
 # General GMM
 from .gmm import gmm
 
@@ -1341,6 +1393,20 @@ from ._article_aliases import (
 # ``from statspai import *`` still triggers every lazy import via
 # ``__all__`` iteration — intentional; the lazy path only buys back cold
 # import time for the dominant ``import statspai as sp`` flow.
+#
+# **PEP 562 collision rule.**  When a public function and its parent
+# submodule share a name (``proximal`` / ``principal_strat`` / ``bartik``
+# / ``bridge`` / ``causal_impact`` / ``bcf`` / ``bunching`` / ``deepiv``
+# / ``dose_response`` / ``frontier`` / ``interference`` / ``msm`` /
+# ``multi_treatment`` / ``tmle``), Python's import machinery insists on
+# attaching ``statspai.X = <submodule>`` whenever any code path runs
+# ``from statspai.X import Y`` (very common in tests).  ``__getattr__``
+# can re-bind ``sp.X`` once, but the next ``from-import`` attaches the
+# module again — defeating the rebind.  These 14 names are therefore
+# imported eagerly above so the standard ``from .X import X`` rebinding
+# happens at module load and survives subsequent ``from statspai.X
+# import …`` calls.  Do **not** move them into the lazy table without
+# also resolving the collision (e.g. by renaming the function).
 # ---------------------------------------------------------------------
 _LAZY_SUBMODULES: dict = {
     # name on sp -> dotted submodule path (relative to statspai)
@@ -1716,40 +1782,9 @@ def __getattr__(name):
         _mod = importlib.import_module(f".{_modpath}", package=__name__)
         _obj = getattr(_mod, _attr)
         globals()[name] = _obj
-        # PEP 562 footgun: ``importlib.import_module(".X", package="statspai")``
-        # has the side effect of attaching ``statspai.X = <module>`` in our
-        # globals, even though we asked for a leaf attr.  When ``X`` is
-        # *also* a registered leaf (the canonical cases are ``proximal`` /
-        # ``principal_strat`` / ``bartik`` / ``bridge`` / ``causal_impact``
-        # / ``bcf`` / ``bunching`` / ``deepiv`` / ``dose_response`` /
-        # ``frontier`` / ``interference`` / ``msm`` / ``multi_treatment`` /
-        # ``tmle`` — functions exported with the same name as their parent
-        # submodule), that side effect shadows the leaf the *next* time
-        # ``sp.X`` is accessed.  Re-resolve the leaf right now so
-        # ``sp.<modpath>`` keeps returning the function, not the module —
-        # matching the eager (pre-lazy) ``from .X import X`` behaviour.
-        _root_modpath = _modpath.split(".", 1)[0]
-        if _root_modpath != name and _root_modpath in _LAZY_ATTRS:
-            _leaf_modpath, _leaf_attr = _LAZY_ATTRS[_root_modpath]
-            _leaf_mod = importlib.import_module(
-                f".{_leaf_modpath}", package=__name__
-            )
-            globals()[_root_modpath] = getattr(_leaf_mod, _leaf_attr)
         return _obj
     if name in _LAZY_SUBMODULES:
         import importlib
-        # Prefer a leaf-attr resolution when the same name is registered
-        # as both a submodule and a leaf — the function takes precedence
-        # because that's how the eager ``from .X import X`` imports
-        # behaved before the lazy refactor.
-        if name in _LAZY_ATTRS:
-            _leaf_modpath, _leaf_attr = _LAZY_ATTRS[name]
-            _mod = importlib.import_module(
-                f".{_leaf_modpath}", package=__name__
-            )
-            _obj = getattr(_mod, _leaf_attr)
-            globals()[name] = _obj
-            return _obj
         _modpath = _LAZY_SUBMODULES[name]
         _mod = importlib.import_module(f".{_modpath}", package=__name__)
         globals()[name] = _mod
