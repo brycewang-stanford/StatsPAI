@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
+from statspai.workflow.causal_workflow import CausalWorkflow
 from statspai.workflow.paper import (
     parse_question, _eda_block, _md_to_tex, _tex_escape,
 )
@@ -222,6 +223,39 @@ def test_paper_skip_eda_when_disabled():
     draft = sp.paper(df, "effect of trained on wage",
                      include_eda=False)
     assert "Data" not in draft.sections
+
+
+def test_paper_include_robustness_false_skips_workflow_robustness(monkeypatch):
+    df = _make_observational_df()
+
+    def _should_not_run(self):
+        raise AssertionError("workflow.robustness() should not run")
+
+    monkeypatch.setattr(CausalWorkflow, "robustness", _should_not_run)
+    draft = sp.paper(
+        df, "effect of trained on wage",
+        y="wage", treatment="trained",
+        covariates=["edu", "experience"],
+        design="observational",
+        include_robustness=False,
+    )
+    assert "Robustness" not in draft.sections
+
+
+def test_paper_stage_failure_surfaces_pipeline_notes(monkeypatch):
+    df = _make_observational_df()
+
+    def _boom(self):
+        raise RuntimeError("forced recommend failure")
+
+    monkeypatch.setattr(CausalWorkflow, "recommend", _boom)
+    draft = sp.paper(
+        df, "effect of trained on wage",
+        y="wage", treatment="trained", design="observational",
+    )
+    assert "Pipeline notes" in draft.sections
+    assert "recommend" in draft.sections["Pipeline notes"]
+    assert "No fitted result available." in draft.sections["Results"]
 
 
 def test_paper_handles_design_auto_detect_when_unspecified():

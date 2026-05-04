@@ -68,6 +68,13 @@ class CausalWorkflow:
 
     # Execution stats
     stages_completed: List[str] = field(default_factory=list)
+    pipeline_notes: List[str] = field(default_factory=list)
+    # Optional sub-stages of run(full=True) — compare_estimators,
+    # sensitivity_panel, cate — are individually try-wrapped so a
+    # broken sub-stage doesn't kill the rest of the pipeline.  Failures
+    # are recorded here (and emitted as WorkflowDegradedWarning) per
+    # CLAUDE.md §3.7 "fail loud".
+    degradations: List[Dict[str, Any]] = field(default_factory=list)
 
     # ------------------------------------------------------------------
     # Stage 1: diagnose
@@ -157,6 +164,12 @@ class CausalWorkflow:
                 # to see the reason before the recommender silently
                 # hands back an OLS regression instead.
                 import warnings as _warnings
+                from ..exceptions import StatsPAIWarning as _StatsPAIWarning
+                self._note(
+                    "Sprint-B causal-method hint failed with "
+                    f"{type(_exc).__name__}: {_exc}; fell back to the "
+                    "design-based recommendation path."
+                )
                 _warnings.warn(
                     f"Sprint-B causal-method hint failed to execute "
                     f"({type(_exc).__name__}: {_exc}); falling back to "
@@ -164,7 +177,7 @@ class CausalWorkflow:
                     f"corresponding hint args (proxy_z/proxy_w, "
                     f"tv_confounders, post_treat_strata, mediator) and "
                     f"the data columns they reference.",
-                    RuntimeWarning,
+                    _StatsPAIWarning,
                     stacklevel=2,
                 )
                 # fall through to the normal recommendation path
@@ -185,8 +198,13 @@ class CausalWorkflow:
                                          robust='hc1')
                 self._mark('estimate')
                 return self.result
-            except Exception:
-                pass  # fall through to generic path below
+            except Exception as exc:
+                self._note(
+                    "Covariate-adjusted OLS workflow path failed with "
+                    f"{type(exc).__name__}: {exc}; fell back to the "
+                    "top recommendation output."
+                )
+                # fall through to generic path below
 
         # Run the top recommendation via RecommendationResult.run()
         try:
@@ -195,6 +213,11 @@ class CausalWorkflow:
             # Fallback: call the estimator directly with a safe default
             # for the detected design.  This mirrors recommend()'s
             # .run() behaviour but avoids blowing up on param mismatches.
+            self._note(
+                "RecommendationResult.run() failed with "
+                f"{type(e).__name__}: {e}; using the direct fallback "
+                f"estimator for design '{self.design}'."
+            )
             self.result = self._fallback_estimate(error=e)
         self._mark('estimate')
         return self.result
@@ -459,6 +482,13 @@ class CausalWorkflow:
             lines.append("## 4d. Heterogeneity (CATE)")
             lines.append("")
             lines.append(self.cate_summary_table.round(4).to_markdown(index=False))
+            lines.append("")
+
+        if self.pipeline_notes:
+            lines.append("## 4e. Pipeline notes")
+            lines.append("")
+            for note in self.pipeline_notes:
+                lines.append(f"- {note}")
             lines.append("")
 
         lines.append("## 5. Reproducibility")
@@ -795,8 +825,12 @@ class CausalWorkflow:
                             f"odds-of-treatment differential ≥ {float(val):.2f} "
                             "flips the conclusion",
                     })
-        except Exception:  # pragma: no cover
-            pass
+        except Exception as exc:  # pragma: no cover
+            rows.append({
+                "method": "Rosenbaum Γ",
+                "statistic": np.nan,
+                "interpretation": f"ERROR: {exc}",
+            })
 
         self.sensitivity_panel_result = pd.DataFrame(rows)
         self._mark("sensitivity_panel")
@@ -905,23 +939,34 @@ class CausalWorkflow:
             ``compare_estimators``, ``sensitivity_panel``, and ``cate``.
             Set to False for a quick single-estimator pass.
         """
+        from ._degradation import record_degradation
         self.diagnose()
         self.recommend()
         self.estimate()
         self.robustness()
         if full:
-            try:
-                self.compare_estimators()
-            except Exception:  # pragma: no cover
-                pass
-            try:
-                self.sensitivity_panel()
-            except Exception:  # pragma: no cover
-                pass
-            try:
-                self.cate()
-            except Exception:  # pragma: no cover
-                pass
+            for stage_name in (
+                "compare_estimators", "sensitivity_panel", "cate",
+            ):
+                try:
+                    getattr(self, stage_name)()
+                except Exception as exc:
+                    # Sub-stages of run(full=True) are best-effort: a
+                    # broken sensitivity panel shouldn't kill the rest
+                    # of the pipeline.  But silent skip hides correctness
+                    # regressions — fire WorkflowDegradedWarning + leave
+                    # a structured record in self.degradations, on top
+                    # of the free-text pipeline_notes entry.
+                    self._note(
+                        f"{stage_name}() failed with "
+                        f"{type(exc).__name__}: {exc}"
+                    )
+                    record_degradation(
+                        self,
+                        section=f"CausalWorkflow.run(full=True).{stage_name}",
+                        exc=exc,
+                        detail=f"design={self.design or 'auto'}",
+                    )
         return self
 
     # ------------------------------------------------------------------
@@ -931,6 +976,11 @@ class CausalWorkflow:
     def _mark(self, stage: str):
         if stage not in self.stages_completed:
             self.stages_completed.append(stage)
+
+    def _note(self, message: str):
+        note = str(message).strip()
+        if note and note not in self.pipeline_notes:
+            self.pipeline_notes.append(note)
 
     def __repr__(self) -> str:
         done = ",".join(self.stages_completed) or 'not-started'

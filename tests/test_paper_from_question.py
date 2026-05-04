@@ -19,6 +19,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
+import importlib
 
 import statspai as sp
 from statspai.workflow.paper import paper_from_question, PaperDraft
@@ -229,3 +230,20 @@ class TestErrors:
         )
         with pytest.raises(ValueError, match="Unknown fmt"):
             paper_from_question(q, fmt="rst")
+
+
+class TestDegradations:
+    def test_dag_render_failure_surfaces_in_draft(self, monkeypatch, panel_df):
+        q = sp.causal_question(
+            "trained", "wage", data=panel_df, design="rct",
+        )
+        paper_module = importlib.import_module("statspai.workflow.paper")
+
+        def _boom(*args, **kwargs):
+            raise RuntimeError("forced dag failure")
+
+        monkeypatch.setattr(paper_module, "_render_dag_section", _boom)
+        draft = q.paper(dag=object())
+        assert draft.degradations
+        assert "Pipeline notes" in draft.sections
+        assert "forced dag failure" in draft.sections["Pipeline notes"]

@@ -192,6 +192,21 @@ class TestReportGeneration:
         assert '## 3. Main estimate' in md
         assert '## 4. Robustness' in md
 
+    def test_markdown_report_surfaces_pipeline_notes(self, did_panel):
+        w = causal(did_panel, y='y', treatment='treat',
+                   id='i', time='t', cohort='g', design='did',
+                   auto_run=False)
+
+        def _boom():
+            raise RuntimeError("forced compare failure")
+
+        w.compare_estimators = _boom
+        w.run(full=True)
+        md = w.report(fmt='markdown')
+        assert "## 4e. Pipeline notes" in md
+        assert "compare_estimators()" in md
+        assert any("compare_estimators()" in note for note in w.pipeline_notes)
+
     def test_report_writes_to_disk(self, did_panel):
         w = causal(did_panel, y='y', treatment='treat',
                    id='i', time='t', cohort='g', design='did')

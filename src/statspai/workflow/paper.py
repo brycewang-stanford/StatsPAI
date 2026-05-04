@@ -42,9 +42,16 @@ import numpy as np
 import pandas as pd
 
 from ..output._lineage import format_provenance, get_provenance
+from ._degradation import WorkflowDegradedWarning, record_degradation
 
 
-__all__ = ["paper", "PaperDraft", "parse_question", "paper_from_question"]
+__all__ = [
+    "paper",
+    "PaperDraft",
+    "parse_question",
+    "paper_from_question",
+    "WorkflowDegradedWarning",
+]
 
 
 # --------------------------------------------------------------------- #
@@ -181,6 +188,13 @@ class PaperDraft:
         BibTeX-style entries collected from each estimator's ``cite()``.
     parsed_hints : dict
         What the question parser extracted, for transparency / debugging.
+    degradations : list of dict
+        Structured record of optional sub-steps that failed and were
+        skipped (covariate balance, CI rendering, DAG appendix, citation
+        extraction, provenance attachment, …).  Each entry has at least
+        ``section``, ``error_type``, ``message``; some carry ``detail``.
+        Empty when the draft is fully populated.  See
+        :class:`statspai.workflow.WorkflowDegradedWarning`.
     """
     question: str
     sections: Dict[str, str]
@@ -191,13 +205,15 @@ class PaperDraft:
     dag: Any = None
     dag_treatment: Optional[str] = None
     dag_outcome: Optional[str] = None
+    degradations: List[Dict[str, Any]] = field(default_factory=list)
 
     # ----- rendering -------------------------------------------------- #
 
     def to_markdown(self) -> str:
         order = [
             "Question", "Data", "Identification",
-            "Estimator", "Results", "Robustness", "References",
+            "Estimator", "Results", "Robustness",
+            "Pipeline notes", "Causal DAG", "References",
         ]
         chunks: List[str] = []
         for title in order:
@@ -378,8 +394,8 @@ class PaperDraft:
         # Body — identical section ordering to to_markdown().
         order = [
             "Question", "Data", "Identification",
-            "Estimator", "Results", "Robustness", "Causal DAG",
-            "References",
+            "Estimator", "Results", "Robustness",
+            "Pipeline notes", "Causal DAG", "References",
         ]
         # When self.dag is set, regenerate the Causal DAG body with the
         # Quarto-native mermaid block instead of the markdown text-art.
@@ -455,6 +471,7 @@ class PaperDraft:
             'sections': dict(self.sections),
             'parsed_hints': dict(self.parsed_hints),
             'citations': list(self.citations),
+            'degradations': list(self.degradations),
             'fmt': self.fmt,
         }
 
@@ -462,6 +479,18 @@ class PaperDraft:
 # --------------------------------------------------------------------- #
 #  Helpers
 # --------------------------------------------------------------------- #
+
+
+def _record_note(notes: Optional[List[str]], message: str) -> None:
+    if notes is None:
+        return
+    note = str(message).strip()
+    if note and note not in notes:
+        notes.append(note)
+
+
+def _notes_block(notes: List[str]) -> str:
+    return "\n".join(f"- {note}" for note in notes)
 
 
 def _render_dag_section(
@@ -681,8 +710,16 @@ def _inline_md_to_tex(text: str) -> str:
 
 def _eda_block(data: pd.DataFrame, y: Optional[str],
                treatment: Optional[str],
-               covariates: Optional[List[str]]) -> str:
-    """Build a brief EDA markdown section (size, balance, missingness)."""
+               covariates: Optional[List[str]],
+               degradations: Optional[List[Dict[str, Any]]] = None) -> str:
+    """Build a brief EDA markdown section (size, balance, missingness).
+
+    Optional ``degradations`` list, when supplied, receives a structured
+    record (and a :class:`WorkflowDegradedWarning` fires) whenever a
+    sub-section has to be skipped — e.g. the covariate-balance table on
+    a non-numeric covariate.  Pass the owning ``PaperDraft.degradations``
+    list so the caller can introspect what got dropped.
+    """
     lines: List[str] = []
     n_rows, n_cols = data.shape
     lines.append(f"- Sample size: **{n_rows:,}** rows, **{n_cols}** columns.")
@@ -724,64 +761,115 @@ def _eda_block(data: pd.DataFrame, y: Optional[str],
     if (treatment and treatment in data.columns
             and covariates and len(covariates) <= 8
             and data[treatment].nunique() == 2):
+        balance_lines: List[str] = []
         try:
             grp = data.groupby(treatment)[covariates].mean()
             if grp.shape[0] == 2:
-                lines.append("")
-                lines.append("Mean covariates by treatment arm:")
-                lines.append("")
-                lines.append("| covariate | "
-                             + " | ".join(str(g) for g in grp.index)
-                             + " | std-diff |")
-                lines.append("|---|" + "|".join(["---"] * grp.shape[0])
-                             + "|---|")
+                balance_lines.append("")
+                balance_lines.append("Mean covariates by treatment arm:")
+                balance_lines.append("")
+                balance_lines.append("| covariate | "
+                                     + " | ".join(str(g) for g in grp.index)
+                                     + " | std-diff |")
+                balance_lines.append(
+                    "|---|" + "|".join(["---"] * grp.shape[0]) + "|---|"
+                )
                 pooled_std = data[covariates].std()
                 vals0 = grp.iloc[0]
                 vals1 = grp.iloc[1]
                 std_diff = (vals1 - vals0) / pooled_std.replace(0, np.nan)
                 for c in covariates:
-                    lines.append(
+                    balance_lines.append(
                         f"| {c} | {grp.iloc[0][c]:.3f} "
                         f"| {grp.iloc[1][c]:.3f} "
                         f"| {std_diff[c]:.3f} |"
                     )
-        except Exception:
-            pass
+        except Exception as exc:
+            # Most common cause: non-numeric covariate slipped into the
+            # list, or all-NaN column. Fail loud (per CLAUDE.md §3.7),
+            # drop the partial table, and let the rest of the EDA stand.
+            record_degradation(
+                degradations,
+                section="EDA covariate balance table",
+                exc=exc,
+                detail=f"covariates={list(covariates)}",
+            )
+        else:
+            lines.extend(balance_lines)
     return "\n".join(lines)
 
 
-def _section_from_workflow(workflow) -> Dict[str, str]:
+def _section_from_workflow(
+    workflow,
+    *,
+    include_robustness: bool = True,
+    degradations: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, str]:
     """Extract Identification / Estimator / Results / Robustness sections
-    from a fitted CausalWorkflow."""
+    from a fitted CausalWorkflow.
+
+    Optional ``degradations`` collects structured records of any
+    sub-section that had to fall back (e.g. CI rendering on a non-2-tuple
+    ``ci`` attribute, or serialisation of a coefficient table that
+    surfaces in an unexpected shape).  Pairs with
+    :class:`WorkflowDegradedWarning` so callers see the failure surface.
+    """
     sections: Dict[str, str] = {}
 
     # Identification
     diag = workflow.diagnostics
     lines: List[str] = []
-    lines.append(f"**Verdict**: {diag.verdict}")
-    lines.append("")
-    if diag.findings:
-        for f in diag.findings:
-            lines.append(f"- [{f.severity.upper()}] *{f.category}* — "
-                         f"{f.message}")
-            if f.suggestion:
-                lines.append(f"    - Fix: {f.suggestion}")
+    if diag is None:
+        lines.append("No identification report available.")
     else:
-        lines.append("No identification issues flagged.")
+        try:
+            lines.append(f"**Verdict**: {diag.verdict}")
+            lines.append("")
+            if diag.findings:
+                for f in diag.findings:
+                    lines.append(f"- [{f.severity.upper()}] *{f.category}* — "
+                                 f"{f.message}")
+                    if f.suggestion:
+                        lines.append(f"    - Fix: {f.suggestion}")
+            else:
+                lines.append("No identification issues flagged.")
+        except Exception as exc:
+            lines = [
+                "Identification report available but not fully serialisable; "
+                "see `paper.workflow.diagnostics`."
+            ]
+            record_degradation(
+                degradations,
+                section="Identification section serialisation",
+                exc=exc,
+                detail=f"diagnostics_type={type(diag).__name__}",
+            )
     sections["Identification"] = "\n".join(lines)
 
     # Estimator
     rec = workflow.recommendation
     lines = []
-    if rec is not None and rec.recommendations:
-        top = rec.recommendations[0]
-        lines.append(f"- **Method**: {top['method']}")
-        lines.append(f"- **Function**: `sp.{top['function']}()`")
-        if top.get('reason'):
-            lines.append(f"- **Rationale**: {top['reason']}")
-        if top.get('assumptions'):
-            lines.append("- **Key assumptions**: "
-                         + ", ".join(top['assumptions']))
+    if rec is not None and getattr(rec, "recommendations", None):
+        try:
+            top = rec.recommendations[0]
+            lines.append(f"- **Method**: {top['method']}")
+            lines.append(f"- **Function**: `sp.{top['function']}()`")
+            if top.get('reason'):
+                lines.append(f"- **Rationale**: {top['reason']}")
+            if top.get('assumptions'):
+                lines.append("- **Key assumptions**: "
+                             + ", ".join(top['assumptions']))
+        except Exception as exc:
+            lines.append(
+                "Estimator recommendation available but not fully "
+                "serialisable; see `paper.workflow.recommendation`."
+            )
+            record_degradation(
+                degradations,
+                section="Estimator section serialisation",
+                exc=exc,
+                detail=f"recommendation_type={type(rec).__name__}",
+            )
     else:
         lines.append("No estimator recommendation produced.")
     sections["Estimator"] = "\n".join(lines)
@@ -802,17 +890,28 @@ def _section_from_workflow(workflow) -> Dict[str, str]:
                 try:
                     lo, hi = float(ci[0]), float(ci[1])
                     lines.append(f"- **95% CI**: [{lo:.4f}, {hi:.4f}]")
-                except Exception:
-                    pass
+                except Exception as exc:
+                    record_degradation(
+                        degradations,
+                        section="Results 95% CI rendering",
+                        exc=exc,
+                        detail=f"ci={ci!r}",
+                    )
             pv = getattr(r, 'pvalue', np.nan)
             if pd.notna(pv):
                 lines.append(f"- **p-value**: {float(pv):.4f}")
             n_obs = getattr(r, 'n_obs', None)
             if n_obs is not None:
                 lines.append(f"- **N obs**: {int(n_obs)}")
-        except Exception:
+        except Exception as exc:
             lines.append("Result available but not fully serialisable; "
                          "see `paper.workflow.result`.")
+            record_degradation(
+                degradations,
+                section="Results section serialisation (estimate/se path)",
+                exc=exc,
+                detail=f"result_type={type(r).__name__}",
+            )
     elif r is not None and hasattr(r, 'params'):
         try:
             main = (workflow.treatment or list(r.params.index)[0])
@@ -823,48 +922,65 @@ def _section_from_workflow(workflow) -> Dict[str, str]:
             else:
                 lines.append("Coefficient table available; see "
                              "`paper.workflow.result.params`.")
-        except Exception:
+        except Exception as exc:
             lines.append("Result available but not fully serialisable.")
+            record_degradation(
+                degradations,
+                section="Results section serialisation (params path)",
+                exc=exc,
+                detail=f"result_type={type(r).__name__}",
+            )
     else:
         lines.append("No fitted result available.")
     sections["Results"] = "\n".join(lines)
 
-    # Robustness — prefer the structured ``RobustnessReport`` rendered
-    # by the shared battery (severity icons, plain-English interpretation,
-    # design-specific ordering).  Fall back to the legacy flat-key
-    # rendering only when an older caller assigned ``robustness_findings``
-    # directly without going through ``CausalWorkflow.robustness()``.
-    report = getattr(workflow, "_robustness_report", None)
-    if report is not None and not report.is_empty():
-        sections["Robustness"] = report.to_markdown()
-    else:
-        findings = workflow.robustness_findings or {}
-        # Strip the ``_findings`` / ``_design`` / ``_notes`` private
-        # keys that the new ``to_dict()`` shape adds — they belong in
-        # the structured payload, not the human-readable bullet list.
-        flat = {
-            k: v for k, v in findings.items()
-            if not str(k).startswith("_")
-        }
-        lines: List[str] = []
-        if flat:
-            for k, v in flat.items():
-                if isinstance(v, (int, float, np.integer, np.floating)):
-                    if isinstance(v, (int, np.integer)):
-                        lines.append(f"- {k.replace('_', ' ').title()}: "
-                                     f"{int(v)}")
+    if include_robustness:
+        # Robustness — prefer the structured ``RobustnessReport`` rendered
+        # by the shared battery (severity icons, plain-English interpretation,
+        # design-specific ordering).  Fall back to the legacy flat-key
+        # rendering only when an older caller assigned ``robustness_findings``
+        # directly without going through ``CausalWorkflow.robustness()``.
+        report = getattr(workflow, "_robustness_report", None)
+        rendered = None
+        if report is not None and not report.is_empty():
+            try:
+                rendered = report.to_markdown()
+            except Exception as exc:
+                record_degradation(
+                    degradations,
+                    section="Robustness section rendering",
+                    exc=exc,
+                    detail=f"report_type={type(report).__name__}",
+                )
+        if rendered is None:
+            findings = workflow.robustness_findings or {}
+            # Strip the ``_findings`` / ``_design`` / ``_notes`` private
+            # keys that the new ``to_dict()`` shape adds — they belong in
+            # the structured payload, not the human-readable bullet list.
+            flat = {
+                k: v for k, v in findings.items()
+                if not str(k).startswith("_")
+            }
+            lines = []
+            if flat:
+                for k, v in flat.items():
+                    if isinstance(v, (int, float, np.integer, np.floating)):
+                        if isinstance(v, (int, np.integer)):
+                            lines.append(f"- {k.replace('_', ' ').title()}: "
+                                         f"{int(v)}")
+                        else:
+                            lines.append(f"- {k.replace('_', ' ').title()}: "
+                                         f"{float(v):.4f}")
+                    elif isinstance(v, dict):
+                        lines.append(f"- {k.replace('_', ' ').title()}:")
+                        for kk, vv in list(v.items())[:8]:
+                            lines.append(f"    - {kk}: {vv}")
                     else:
-                        lines.append(f"- {k.replace('_', ' ').title()}: "
-                                     f"{float(v):.4f}")
-                elif isinstance(v, dict):
-                    lines.append(f"- {k.replace('_', ' ').title()}:")
-                    for kk, vv in list(v.items())[:8]:
-                        lines.append(f"    - {kk}: {vv}")
-                else:
-                    lines.append(f"- {k.replace('_', ' ').title()}: {v}")
-        else:
-            lines.append("No robustness findings produced.")
-        sections["Robustness"] = "\n".join(lines)
+                        lines.append(f"- {k.replace('_', ' ').title()}: {v}")
+            else:
+                lines.append("No robustness findings produced.")
+            rendered = "\n".join(lines)
+        sections["Robustness"] = rendered
 
     return sections
 
@@ -998,6 +1114,11 @@ def paper(
             "or include 'effect of X on Y' in the question."
         )
 
+    # Track optional sub-steps that fall back (CLAUDE.md §3.7).  Declared
+    # early so the LLM-DAG and provenance blocks below can record into
+    # the same list.
+    degradations: List[Dict[str, Any]] = []
+
     # LLM-DAG auto-propose: when ``llm`` is requested and the user
     # didn't pass an explicit ``dag``, ask the LLM (or fall back to the
     # deterministic heuristic) to propose one. Resolution of provider
@@ -1015,9 +1136,15 @@ def paper(
             if client is None and str(llm).lower() != "heuristic":
                 try:
                     client = get_llm_client(allow_interactive=False)
-                except Exception:
+                except Exception as resolver_exc:
                     # Hard error from resolver → fall back to heuristic
                     # rather than blowing up the whole paper pipeline.
+                    record_degradation(
+                        degradations,
+                        section="LLM client resolution (auto-DAG)",
+                        exc=resolver_exc,
+                        detail=f"llm={llm!r}",
+                    )
                     client = None
             proposal = llm_dag_propose(
                 variables=cols,
@@ -1027,7 +1154,16 @@ def paper(
             if proposal.edges:
                 spec = "; ".join(f"{u} -> {v}" for u, v in proposal.edges)
                 dag = _DAG(spec)
-        except Exception:  # pragma: no cover — auto-DAG must never break
+        except Exception as exc:
+            # Failed to propose a DAG at all → degrade to no-DAG paper
+            # but tell the user why (rather than silently producing a
+            # paper without an Identification DAG they had asked for).
+            record_degradation(
+                degradations,
+                section="auto-DAG proposal (sp.paper(llm=...))",
+                exc=exc,
+                detail=f"llm={llm!r}",
+            )
             dag = None
 
     from .causal_workflow import causal as _causal
@@ -1046,6 +1182,7 @@ def paper(
         design=design_eff,
         dag=dag,
         strict=strict,
+        auto_run=False,
     )
     # Drive the pipeline through to robustness, swallowing per-stage
     # failures into per-section fallback notes (the draft must always
@@ -1061,11 +1198,16 @@ def paper(
             )
             break
     if include_robustness:
-        try:
-            workflow.robustness()
-        except Exception as exc:  # pragma: no cover (defensive)
+        if workflow.result is not None:
+            try:
+                workflow.robustness()
+            except Exception as exc:  # pragma: no cover (defensive)
+                pipeline_errors.append(
+                    f"`robustness()` failed: {type(exc).__name__}: {exc}"
+                )
+        else:
             pipeline_errors.append(
-                f"`robustness()` failed: {type(exc).__name__}: {exc}"
+                "`robustness()` skipped because no fitted result was available."
             )
 
     # Attach provenance to the workflow's result so downstream
@@ -1091,8 +1233,13 @@ def paper(
                 data=data,
                 overwrite=False,
             )
-    except Exception:  # pragma: no cover — provenance must never break the draft
-        pass
+    except Exception as exc:  # provenance loss is loud, not silent
+        record_degradation(
+            degradations,
+            section="provenance attachment (workflow path)",
+            exc=exc,
+            detail=f"design={workflow.design or 'auto'}",
+        )
 
     sections: Dict[str, str] = {}
 
@@ -1107,15 +1254,18 @@ def paper(
 
     # Data / EDA
     if include_eda:
-        sections["Data"] = _eda_block(data, y_eff, t_eff, covariates)
+        sections["Data"] = _eda_block(
+            data, y_eff, t_eff, covariates, degradations=degradations,
+        )
 
     # Identification / Estimator / Results / Robustness
-    sections.update(_section_from_workflow(workflow))
-
-    if pipeline_errors:
-        sections["Pipeline notes"] = "\n".join(
-            f"- {e}" for e in pipeline_errors
+    sections.update(
+        _section_from_workflow(
+            workflow,
+            include_robustness=include_robustness,
+            degradations=degradations,
         )
+    )
 
     # Causal DAG appendix (when the user passes a DAG).
     if dag is not None:
@@ -1123,10 +1273,17 @@ def paper(
             sections["Causal DAG"] = _render_dag_section(
                 dag, treatment=t_eff, outcome=y_eff, fmt="markdown",
             )
-        except Exception:  # pragma: no cover — DAG render must not break draft
-            pass
+        except Exception as exc:
+            record_degradation(
+                degradations,
+                section="causal DAG appendix",
+                exc=exc,
+                detail=f"dag_type={type(dag).__name__}",
+            )
 
-    # References
+    # References — citation extraction is a §10 ("引用零幻觉") concern in
+    # reverse: a silently dropped real citation is just as harmful as a
+    # hallucinated one.  Surface the failure rather than swallow it.
     citations: List[str] = []
     if cite and workflow.result is not None:
         cite_fn = getattr(workflow.result, 'cite', None)
@@ -1135,13 +1292,33 @@ def paper(
                 ref = cite_fn()
                 if ref:
                     citations.append(str(ref))
-            except Exception:
-                pass
+            except Exception as exc:
+                record_degradation(
+                    degradations,
+                    section="citation extraction (workflow.result.cite)",
+                    exc=exc,
+                    detail=f"result_type={type(workflow.result).__name__}",
+                )
     sections["References"] = (
         "\n".join(f"- {c}" for c in citations)
         if citations else "_(No explicit citations attached — see "
         "`workflow.result.cite()` if available.)_"
     )
+
+    pipeline_notes: List[str] = []
+    for error in pipeline_errors:
+        _record_note(pipeline_notes, error)
+    for note in getattr(workflow, "pipeline_notes", []) or []:
+        _record_note(pipeline_notes, note)
+    for item in degradations:
+        detail = f" ({item['detail']})" if item.get("detail") else ""
+        _record_note(
+            pipeline_notes,
+            f"{item['section']} degraded: {item['error_type']}: "
+            f"{item['message']}{detail}",
+        )
+    if pipeline_notes:
+        sections["Pipeline notes"] = _notes_block(pipeline_notes)
 
     draft = PaperDraft(
         question=question or "",
@@ -1153,6 +1330,7 @@ def paper(
         dag=dag,
         dag_treatment=t_eff,
         dag_outcome=y_eff,
+        degradations=degradations,
     )
 
     if output_path is not None:
@@ -1253,6 +1431,9 @@ def paper_from_question(
         result = q.estimate()
     else:
         result = q._result
+
+    # Track optional sub-steps that fall back (CLAUDE.md §3.7).
+    degradations: List[Dict[str, Any]] = []
 
     sections: Dict[str, str] = {}
     eff_question = question or (
@@ -1356,17 +1537,26 @@ def paper_from_question(
         # the underlying object so it can introspect ``.violations()``,
         # ``.model_info``, etc.
         underlying = getattr(result, "underlying", None) or result
-        report = run_robustness_battery(
-            underlying,
-            design=q.design,
-            data=q.data,
-            treatment=q.treatment,
-            outcome=q.outcome,
-            covariates=list(q.covariates) if q.covariates else None,
-        )
-        sections["Robustness"] = report.to_markdown()
+        try:
+            report = run_robustness_battery(
+                underlying,
+                design=q.design,
+                data=q.data,
+                treatment=q.treatment,
+                outcome=q.outcome,
+                covariates=list(q.covariates) if q.covariates else None,
+            )
+            sections["Robustness"] = report.to_markdown()
+        except Exception as exc:
+            record_degradation(
+                degradations,
+                section="robustness battery (estimand-first path)",
+                exc=exc,
+                detail=f"design={q.design!r}",
+            )
 
-    # References
+    # References — see paper()/citation note: a silently dropped citation
+    # is just as harmful as a hallucinated one (§10).
     citations: List[str] = []
     if cite and result.underlying is not None:
         cite_fn = getattr(result.underlying, "cite", None)
@@ -1375,8 +1565,13 @@ def paper_from_question(
                 ref = cite_fn()
                 if ref:
                     citations.append(str(ref))
-            except Exception:
-                pass
+            except Exception as exc:
+                record_degradation(
+                    degradations,
+                    section="citation extraction (result.underlying.cite)",
+                    exc=exc,
+                    detail=f"underlying_type={type(result.underlying).__name__}",
+                )
     sections["References"] = (
         "\n".join(f"- {c}" for c in citations)
         if citations
@@ -1390,8 +1585,13 @@ def paper_from_question(
             sections["Causal DAG"] = _render_dag_section(
                 dag, treatment=q.treatment, outcome=q.outcome, fmt="markdown",
             )
-        except Exception:  # pragma: no cover
-            pass
+        except Exception as exc:
+            record_degradation(
+                degradations,
+                section="causal DAG appendix (estimand-first path)",
+                exc=exc,
+                detail=f"dag_type={type(dag).__name__}",
+            )
 
     # Build draft. workflow=None — this is the estimand-first path,
     # not the workflow path; provenance gets attached directly.
@@ -1410,6 +1610,7 @@ def paper_from_question(
         dag=dag,
         dag_treatment=q.treatment,
         dag_outcome=q.outcome,
+        degradations=degradations,
     )
 
     # Attach provenance to the underlying estimator's result so
@@ -1433,8 +1634,26 @@ def paper_from_question(
             data=q.data,
             overwrite=False,
         )
-    except Exception:  # pragma: no cover — provenance must never break
-        pass
+    except Exception as exc:
+        # Append directly to the already-built draft so introspection
+        # works after construction.
+        record_degradation(
+            draft,
+            section="provenance attachment (estimand-first path)",
+            exc=exc,
+            detail=f"estimator={plan.estimator}",
+        )
+
+    pipeline_notes = []
+    for item in draft.degradations:
+        detail = f" ({item['detail']})" if item.get("detail") else ""
+        _record_note(
+            pipeline_notes,
+            f"{item['section']} degraded: {item['error_type']}: "
+            f"{item['message']}{detail}",
+        )
+    if pipeline_notes:
+        draft.sections["Pipeline notes"] = _notes_block(pipeline_notes)
 
     if output_path is not None:
         draft.write(output_path)

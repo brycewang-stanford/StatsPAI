@@ -20,6 +20,11 @@ import numpy as np
 import pandas as pd
 import warnings
 
+from ..workflow._degradation import (
+    WorkflowDegradedWarning,
+    record_degradation,
+)
+
 
 class AssumptionCheck:
     """A single assumption test result."""
@@ -305,10 +310,18 @@ def _audit_linear(result, data, alpha):
             detail='Critical — misspecification invalidates all inference',
             remedy='Add polynomial terms, use log transform, or nonparametric methods (sp.lpoly)',
         ))
-    except Exception:
+    except Exception as exc:
+        # Preserve the actual error so users can debug, not just
+        # "Could not run".  Per CLAUDE.md §3.7 fail loud.
+        record_degradation(
+            None,
+            section='_audit_linear: RESET (linearity)',
+            exc=exc,
+        )
         checks.append(AssumptionCheck(
             'Linearity', 'RESET test', None, None, None,
-            'Could not run', 'Manually check residual plots'))
+            f'Could not run ({type(exc).__name__}: {exc})',
+            'Manually check residual plots'))
 
     # 2. Homoskedasticity
     try:
@@ -323,8 +336,16 @@ def _audit_linear(result, data, alpha):
             detail='If violated, use robust SE (already used if robust=hc1)',
             remedy='Use robust SE: sp.regress(..., robust="hc1") or cluster SE',
         ))
-    except Exception:
-        pass
+    except Exception as exc:
+        record_degradation(
+            None,
+            section='_audit_linear: Breusch-Pagan (homoskedasticity)',
+            exc=exc,
+        )
+        checks.append(AssumptionCheck(
+            'Homoskedasticity', 'Breusch-Pagan', None, None, None,
+            f'Could not run ({type(exc).__name__}: {exc})',
+            'Use robust SE: sp.regress(..., robust="hc1") or cluster SE'))
 
     # 3. No multicollinearity
     try:
@@ -339,8 +360,16 @@ def _audit_linear(result, data, alpha):
             detail=f'Max VIF = {max_vif:.1f}',
             remedy='Drop one of the collinear variables or use PCA/LASSO',
         ))
-    except Exception:
-        pass
+    except Exception as exc:
+        record_degradation(
+            None,
+            section='_audit_linear: VIF (multicollinearity)',
+            exc=exc,
+        )
+        checks.append(AssumptionCheck(
+            'No multicollinearity', 'VIF < 10', None, None, None,
+            f'Could not run ({type(exc).__name__}: {exc})',
+            'Drop one of the collinear variables or use PCA/LASSO'))
 
     # 4. Sample size adequacy
     n = getattr(result, 'data_info', {}).get('n_obs', 0)
@@ -370,8 +399,17 @@ def _audit_linear(result, data, alpha):
                 detail=f'Oster δ = {delta:.2f} (>1 means robust)',
                 remedy='Consider IV estimation or sensitivity analysis (sp.sensemakr)',
             ))
-    except Exception:
-        pass
+    except Exception as exc:
+        record_degradation(
+            None,
+            section='_audit_linear: Oster bounds (unobservables sensitivity)',
+            exc=exc,
+        )
+        checks.append(AssumptionCheck(
+            'Robustness to unobservables', 'Oster delta > 1',
+            None, None, None,
+            f'Could not run ({type(exc).__name__}: {exc})',
+            'Consider IV estimation or sensitivity analysis (sp.sensemakr)'))
 
     return checks
 
