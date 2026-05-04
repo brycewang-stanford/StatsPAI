@@ -216,6 +216,32 @@ filter on it.
 - `deprecated` enters via a `DeprecationWarning` + a `MIGRATION.md`
   entry, with the removal version explicit in the warning text.
 
+## Auditing the catalogue
+
+Two CI-friendly scripts cross-check the contract:
+
+```bash
+# Cross-check stable claims against parity-test coverage. Lists the
+# hand-written stable functions that have no test in
+# tests/reference_parity/ or tests/external_parity/. The --check mode
+# fails if the unbacked count exceeds a loose floor (default 220).
+python scripts/stability_audit.py
+python scripts/stability_audit.py --unbacked
+python scripts/stability_audit.py --check        # CI mode
+python scripts/stability_audit.py --json         # machine-readable
+
+# Runtime consistency for limitations — every entry must use vetted
+# vocabulary, and every entry must be either runtime-tested (call
+# raises documented exception) or declared "descriptive only".
+pytest tests/test_limitations_consistency.py
+```
+
+The reverse-audit deliberately does **not** auto-downgrade — the
+decision to flip a function from `stable` to `experimental` belongs to
+a maintainer who has read the code and decided the gap is
+load-bearing. The script's job is to make the gap visible so it
+doesn't sit forever.
+
 ---
 
 *Last updated: v1.13 (2026-05-03).*

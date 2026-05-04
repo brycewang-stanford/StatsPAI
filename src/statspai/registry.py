@@ -7516,7 +7516,7 @@ def _auto_spec_from_callable(name: str, obj: Any) -> Optional[FunctionSpec]:
     doc = inspect.getdoc(obj) or ""
     desc = _first_doc_line(doc) or f"({name} — no description)"
     category = _infer_category(obj)
-    return FunctionSpec(
+    spec = FunctionSpec(
         name=name,
         category=category,
         description=desc,
@@ -7525,6 +7525,13 @@ def _auto_spec_from_callable(name: str, obj: Any) -> Optional[FunctionSpec]:
         example="",
         tags=[],
     )
+    # Mark auto-registered specs so downstream tooling
+    # (``scripts/stability_audit.py`` / ``describe_function`` error
+    # messages) can distinguish them from hand-written entries.
+    # Hand-written ``register(FunctionSpec(...))`` calls don't touch
+    # this attribute, so its absence (or False) means "hand-written".
+    object.__setattr__(spec, "_auto", True)
+    return spec
 
 
 def _ensure_full_registry() -> None:

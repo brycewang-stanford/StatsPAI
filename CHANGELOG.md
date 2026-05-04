@@ -6,6 +6,24 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Stability reverse-audit script.** `scripts/stability_audit.py`
+  cross-checks every `stability='stable'` claim in the registry
+  against parity-test coverage in `tests/reference_parity/` and
+  `tests/external_parity/`. Splits the catalogue into hand-written
+  vs. auto-registered specs (the latter having been silently
+  classified `stable` by default) and reports the count of unbacked
+  claims in each bucket. `--check` mode is CI-friendly and fails when
+  the unbacked-handwritten count exceeds a loose floor (currently
+  220) — bumping the floor requires editing the script as a
+  deliberate quality signal. Does NOT auto-downgrade; the call to
+  flip a function from `stable` to `experimental` belongs to a
+  maintainer who has read the code. Tests in
+  `tests/test_stability_audit.py`. The audit fixed a registry bug
+  along the way: auto-registered specs were never tagged `_auto=True`
+  on the `FunctionSpec` instance, so `describe_function` error hints
+  and the audit itself couldn't distinguish them from hand-written
+  entries; that's now fixed via `object.__setattr__` inside
+  `_auto_spec_from_callable`.
 - **Runtime consistency tests for `FunctionSpec.limitations`.** Each
   `limitations` entry on a `FunctionSpec` is now structurally audited
   by `tests/test_limitations_consistency.py` so the registry's
