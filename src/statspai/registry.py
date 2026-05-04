@@ -7437,6 +7437,452 @@ def _build_registry():
         typical_n_min=200,
     ))
 
+    # ================================================================= #
+    # v1.13 Step H: agent-native upgrades for high-impact estimators
+    # that previously shipped only as auto-registered specs (no
+    # ``assumptions`` / ``failure_modes`` / ``alternatives`` /
+    # ``typical_n_min``).  Each entry below replaces the auto-registered
+    # default with a hand-written spec carrying the canonical
+    # identification story so an agent reading
+    # ``sp.describe_function(name)`` sees the assumptions and recovery
+    # paths inline, not only via the docstring.
+    # ================================================================= #
+
+    register(FunctionSpec(
+        name="aipw",
+        category="causal",
+        description=(
+            "Augmented inverse-probability weighting (AIPW) — the "
+            "canonical doubly-robust ATE estimator.  Cross-fits an "
+            "outcome regression and a propensity model and combines "
+            "them via the efficient-influence-function formula, so the "
+            "estimate is consistent if either nuisance is correctly "
+            "specified (Robins, Rotnitzky & Zhao 1994)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome variable"),
+            ParamSpec("treat", "str", True, description="Binary treatment (0/1)"),
+            ParamSpec("covariates", "list", True, description="Confounders to adjust for"),
+            ParamSpec("estimand", "str", False, "ATE", "Target estimand", ["ATE", "ATT", "ATC"]),
+            ParamSpec("n_folds", "int", False, 5, "Cross-fitting folds (>= 2)"),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("seed", "int", False, None),
+        ],
+        returns="CausalResult",
+        example='sp.aipw(df, y="wage", treat="trained", covariates=["age", "edu"])',
+        tags=["aipw", "doubly-robust", "ipw", "causal", "ate", "att"],
+        reference=(
+            "Robins, Rotnitzky & Zhao (1994) JASA "
+            "[@robins1994estimation]; Glynn & Quinn (2010) [@glynn2010introduction]"
+        ),
+        pre_conditions=[
+            "binary treatment column with both arms present",
+            "covariates must contain all confounders for unconfoundedness",
+            "no perfect overlap violations (0 < propensity < 1 in support)",
+        ],
+        assumptions=[
+            "Unconfoundedness conditional on covariates (Y(0), Y(1) ⊥ D | X)",
+            "Overlap / common support: 0 < e(X) < 1 for all X with positive density",
+            "SUTVA",
+            "At least one of (outcome model, propensity model) correctly specified",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Propensity scores cluster near 0 or 1",
+                exception="statspai.AssumptionViolation",
+                remedy="Trim to overlap region with sp.trimming() or switch to overlap-weighted ATE.",
+                alternative="overlap_weights",
+            ),
+            FailureMode(
+                symptom="Cross-fit estimate has very wide CI",
+                exception="statspai.NumericalInstability",
+                remedy="Increase n_folds or reduce covariate dimension; check for near-empty propensity strata.",
+                alternative="dml",
+            ),
+        ],
+        alternatives=["ipw", "dml", "tmle", "matching"],
+        typical_n_min=200,
+    ))
+
+    register(FunctionSpec(
+        name="aggte",
+        category="causal",
+        description=(
+            "Aggregate Callaway-Sant'Anna group-time ATTs into "
+            "interpretable summaries — overall ATT, event-study by "
+            "relative time, group-specific ATT(g), or calendar-time "
+            "ATT(t).  Inference uses the multiplier bootstrap on the "
+            "pre-stored influence functions, so SEs are correct under "
+            "clustering at the unit level."
+        ),
+        params=[
+            ParamSpec("result", "CausalResult", True,
+                      description="Output of sp.callaway_santanna or sp.did with staggered=True"),
+            ParamSpec("type", "str", False, "simple", "Aggregation type",
+                      ["simple", "dynamic", "group", "calendar"]),
+            ParamSpec("balance_e", "int", False, None,
+                      "For dynamic: cap event time at ±balance_e for balanced panel"),
+            ParamSpec("min_e", "float", False, float("-inf")),
+            ParamSpec("max_e", "float", False, float("inf")),
+            ParamSpec("bstrap", "bool", False, True),
+            ParamSpec("boot_type", "str", False, "multiplier", "Bootstrap variant", ["multiplier"]),
+            ParamSpec("n_boot", "int", False, 1000),
+            ParamSpec("cband", "bool", False, True, "Uniform confidence band"),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("random_state", "int", False, None),
+        ],
+        returns="CausalResult",
+        example='sp.aggte(cs_result, type="dynamic")',
+        tags=["did", "aggregation", "event_study", "callaway_santanna", "causal"],
+        reference="Callaway & Sant'Anna (2021) JoE [@callaway2021difference]",
+        pre_conditions=[
+            "result was produced by sp.callaway_santanna or sp.did with staggered=True",
+            "result.detail contains the per-(g, t) ATT estimates and their influence functions",
+        ],
+        assumptions=[
+            "Same identifying assumptions as the source estimator (parallel trends, no anticipation, SUTVA)",
+            "For dynamic aggregation: balanced panel within the requested event-time window (use balance_e)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="result.detail is empty or missing influence functions",
+                exception="ValueError",
+                remedy="Re-run sp.callaway_santanna; aggte requires the per-(g,t) influence functions.",
+                alternative="callaway_santanna",
+            ),
+            FailureMode(
+                symptom="Empty event-time aggregation (no overlapping cohorts)",
+                exception="statspai.DataInsufficient",
+                remedy="Widen the (min_e, max_e) window or drop balance_e.",
+                alternative="",
+            ),
+        ],
+        alternatives=["callaway_santanna", "sun_abraham", "did_imputation"],
+        typical_n_min=50,
+    ))
+
+    register(FunctionSpec(
+        name="pretrends_test",
+        category="causal",
+        description=(
+            "Joint Wald test of pre-treatment ATTs (or event-study "
+            "leads) against zero — the canonical sanity check for the "
+            "parallel-trends assumption in DiD designs.  Failing to "
+            "reject is necessary but not sufficient evidence for "
+            "parallel trends; always pair with sp.honest_did / "
+            "sp.sensitivity_rr for design-robust inference."
+        ),
+        params=[
+            ParamSpec("result", "CausalResult", True,
+                      description="DiD or event-study result with pre-period coefficients"),
+            ParamSpec("type", "str", False, "wald", "Test statistic", ["wald"]),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="dict with statistic / pvalue / pre_periods",
+        example='sp.pretrends_test(es_result)',
+        tags=["did", "pretrends", "parallel-trends", "diagnostic", "causal"],
+        reference=(
+            "Roth (2022) AER P&P [@roth2022pretest]; Borusyak, Jaravel "
+            "& Spiess (2024) [@borusyak2024revisiting]"
+        ),
+        pre_conditions=[
+            "result has at least one pre-treatment period coefficient and its variance",
+            "covariance between pre-period coefficients is available (cluster-robust SE recommended)",
+        ],
+        assumptions=[
+            "The test asks whether the pre-period ATTs *jointly* differ from zero",
+            "Failing to reject is consistent with parallel trends but does NOT prove it (low power problem — Roth 2022)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Single pre-period (no pretrends to test)",
+                exception="ValueError",
+                remedy="Pretrends test needs >= 2 pre-treatment periods; widen the panel or drop the test.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="High-power study rejects but visual pretrends look flat",
+                exception="statspai.AssumptionWarning",
+                remedy="Use sp.honest_did + sp.sensitivity_rr to bound the bias; reporting *both* is standard practice.",
+                alternative="sensitivity_rr",
+            ),
+        ],
+        alternatives=["sensitivity_rr", "honest_did", "event_study"],
+        typical_n_min=50,
+    ))
+
+    register(FunctionSpec(
+        name="sensitivity_rr",
+        category="causal",
+        description=(
+            "Rambachan-Roth (2023) honest-DiD sensitivity analysis: "
+            "computes the largest violation of parallel trends "
+            "(parametrised by Mbar — relative magnitude of the "
+            "post-period violation versus the worst observed pre-"
+            "period one) under which the post-treatment ATT is still "
+            "different from zero at level alpha.  Reports both the "
+            "robust confidence sets and the breakdown Mbar."
+        ),
+        params=[
+            ParamSpec("result", "CausalResult", True,
+                      description="Event-study or DiD result with full pre/post coefficients"),
+            ParamSpec("Mbar", "ndarray", False, None,
+                      "Grid of relative-magnitude bounds; default is np.linspace(0, 2, n_grid)"),
+            ParamSpec("method", "str", False, "C-LF", "Identification method", ["C-LF"]),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("n_grid", "int", False, 20, "Mbar grid size when Mbar=None"),
+        ],
+        returns="SensitivityResult",
+        example='sp.sensitivity_rr(es_result, alpha=0.05)',
+        tags=["did", "sensitivity", "honest_did", "rambachan_roth", "causal"],
+        reference="Rambachan & Roth (2023) RES [@rambachan2023more]",
+        pre_conditions=[
+            "result has at least one pre-period and one post-period coefficient",
+            "result carries the variance-covariance matrix of those coefficients",
+        ],
+        assumptions=[
+            "Pre-period violations bound the magnitude of post-period violations (relative-magnitude family)",
+            "Post-treatment effects are constant across event time (relax via alternative parameter families in Rambachan-Roth 2023 §3)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Breakdown Mbar < 1.0 (small parallel-trends violation overturns the sign)",
+                exception="statspai.AssumptionWarning",
+                remedy="The result is fragile to plausible pretrends violations; report the breakdown alongside the point estimate.",
+                alternative="",
+            ),
+            FailureMode(
+                symptom="Confidence set is the entire real line (Mbar grid too coarse)",
+                exception="",
+                remedy="Re-run with a finer grid (n_grid=50+) or restrict Mbar to a tighter interval.",
+                alternative="",
+            ),
+        ],
+        alternatives=["honest_did", "pretrends_test", "breakdown_m"],
+        typical_n_min=50,
+    ))
+
+    register(FunctionSpec(
+        name="mccrary_test",
+        category="diagnostics",
+        description=(
+            "McCrary (2008) density test for manipulation of the "
+            "running variable at the cutoff in regression-"
+            "discontinuity designs.  A significant discontinuity in "
+            "the density of x at c is direct evidence that units are "
+            "sorting around the cutoff (e.g. test-taking strategy, "
+            "income manipulation), invalidating local randomisation."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("x", "str", True, description="Running variable"),
+            ParamSpec("c", "float", False, 0.0, "Cutoff value"),
+            ParamSpec("bw", "float", False, None, "Bandwidth; auto if None"),
+            ParamSpec("n_bins", "int", False, None, "Histogram bins; auto if None"),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult with density_jump, se, pvalue",
+        example='sp.mccrary_test(df, x="income", c=10000)',
+        tags=["rd", "density", "manipulation", "diagnostic", "mccrary"],
+        reference="McCrary (2008) JoE [@mccrary2008manipulation]",
+        pre_conditions=[
+            "x is continuous with mass on both sides of c",
+            "no extreme heaping at c (rounded data invalidates the local-linear density estimate)",
+        ],
+        assumptions=[
+            "Smooth density of x at c under the null of no manipulation",
+            "Local-linear density estimator captures the shape near c",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Test rejects (p < alpha) — manipulation evidence",
+                exception="statspai.AssumptionViolation",
+                remedy="Switch to donut-hole RD (sp.rdrobust(donut=δ)) or partial-identification bounds (sp.rdrbounds).",
+                alternative="rdrbounds",
+            ),
+            FailureMode(
+                symptom="Heaped data near c (e.g. integer-rounded scores)",
+                exception="statspai.NumericalInstability",
+                remedy="The density-test statistic is unreliable on heaped data; consider Frandsen (2017) integer-RD adjustment.",
+                alternative="",
+            ),
+        ],
+        alternatives=["rddensity", "rdrbounds"],
+        typical_n_min=200,
+    ))
+
+    register(FunctionSpec(
+        name="oster_bounds",
+        category="diagnostics",
+        description=(
+            "Oster (2019) sensitivity to selection on unobservables — "
+            "computes the bounding coefficient under the assumption "
+            "that selection on unobservables (proportional to delta x "
+            "selection on observables) brings the explained variance "
+            "to r_max.  The breakdown delta tells you how strong "
+            "unobserved selection has to be to overturn your result."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", False, None),
+            ParamSpec("y", "str", False, None, "Outcome (alternative to passing beta_short/long directly)"),
+            ParamSpec("treat", "str", False, None),
+            ParamSpec("controls", "list", False, None),
+            ParamSpec("r_max", "float", False, None,
+                      "Hypothetical R^2 from a regression that includes all unobserved confounders; default 1.3*R^2_long"),
+            ParamSpec("delta", "float", False, 1.0,
+                      "Ratio of unobserved-to-observed selection (1.0 = equally strong)"),
+            ParamSpec("beta_short", "float", False, None, "Short-regression coefficient; if None, fit from data"),
+            ParamSpec("r2_short", "float", False, None),
+            ParamSpec("beta_long", "float", False, None),
+            ParamSpec("r2_long", "float", False, None),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="dict with beta_oster, breakdown_delta, identified_set",
+        example='sp.oster_bounds(df, y="wage", treat="college", controls=["age", "edu"], delta=1.0)',
+        tags=["sensitivity", "oster", "selection", "diagnostic"],
+        reference="Oster (2019) JBES [@oster2019unobservable]",
+        pre_conditions=[
+            "you have fitted both a short (treatment-only) and long (treatment + controls) regression of y",
+            "long-regression R^2 is meaningfully larger than short-regression R^2",
+        ],
+        assumptions=[
+            "Selection on unobservables is proportional (by factor delta) to selection on observables",
+            "r_max upper-bounds the explained variance achievable with all confounders included",
+            "Linear functional form for y on (treat, controls)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="breakdown delta < 1.0 (weak unobservables overturn the result)",
+                exception="statspai.AssumptionWarning",
+                remedy="The result is fragile; report the breakdown delta alongside the point estimate.",
+                alternative="evalue",
+            ),
+            FailureMode(
+                symptom="r2_long ≈ r2_short (controls add no explanatory power)",
+                exception="statspai.NumericalInstability",
+                remedy="Oster's identified set degenerates when long and short R^2 are nearly equal; use sp.evalue or sp.sensemakr instead.",
+                alternative="sensemakr",
+            ),
+        ],
+        alternatives=["evalue", "sensemakr", "rosenbaum_bounds"],
+        typical_n_min=200,
+    ))
+
+    register(FunctionSpec(
+        name="wild_cluster_bootstrap",
+        category="inference",
+        description=(
+            "Cameron-Gelbach-Miller (2008) wild cluster bootstrap — "
+            "the canonical fix for cluster-robust inference with few "
+            "clusters (G < 30).  Re-samples cluster-level Rademacher "
+            "weights to construct a percentile-t reference "
+            "distribution that has correct size when the standard "
+            "cluster-robust z-test rejects too often."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome variable"),
+            ParamSpec("x", "list", True, description="Right-hand-side variables"),
+            ParamSpec("cluster", "str", True, description="Cluster identifier"),
+            ParamSpec("test_var", "str", False, None, "Variable being tested; defaults to first in x"),
+            ParamSpec("h0", "float", False, 0.0, "Null value of the coefficient"),
+            ParamSpec("n_boot", "int", False, 999),
+            ParamSpec("weight_type", "str", False, "rademacher",
+                      "Bootstrap weight distribution",
+                      ["rademacher", "mammen", "webb", "normal"]),
+            ParamSpec("seed", "int", False, None),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="dict with statistic / pvalue / ci_lower / ci_upper",
+        example='sp.wild_cluster_bootstrap(df, y="y", x=["d", "x1"], cluster="state")',
+        tags=["inference", "cluster", "wild-bootstrap", "few-clusters", "cgm"],
+        reference="Cameron, Gelbach & Miller (2008) RES [@cameron2008bootstrap]",
+        pre_conditions=[
+            "long-format dataset with a cluster identifier present",
+            "treatment / test variable varies within at least some clusters",
+            "test_var (or first column of x) is the coefficient under test",
+        ],
+        assumptions=[
+            "Errors are exchangeable within clusters (Rademacher weights are robust to most departures)",
+            "Number of clusters G >= 5 for finite-sample validity",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="Multi-way clustering requested",
+                exception="NotImplementedError",
+                remedy="Multi-way wild cluster bootstrap is not yet supported; see sp.subcluster_wild_bootstrap or use cr2_se for two-way.",
+                alternative="cr2_se",
+            ),
+            FailureMode(
+                symptom="G < 5 clusters",
+                exception="statspai.DataInsufficient",
+                remedy="Wild cluster bootstrap is unreliable below ~5 clusters; consider permutation tests (sp.ri_test).",
+                alternative="ri_test",
+            ),
+        ],
+        alternatives=["cr2_se", "subcluster_wild_bootstrap", "ri_test"],
+        typical_n_min=100,
+    ))
+
+    register(FunctionSpec(
+        name="rd_honest",
+        category="causal",
+        description=(
+            "Armstrong-Kolesár (2018) honest confidence intervals "
+            "for sharp regression discontinuity — the only RD "
+            "inference procedure with provable finite-sample coverage "
+            "without bandwidth-selection bias.  M is the upper bound "
+            "on the second derivative of E[Y|X] near the cutoff; "
+            "smaller M means tighter CIs but riskier coverage if the "
+            "true curvature is larger."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome variable"),
+            ParamSpec("x", "str", True, description="Running variable"),
+            ParamSpec("c", "float", False, 0.0, "Cutoff value"),
+            ParamSpec("M", "float", False, None,
+                      "Upper bound on |E[Y|X]''| near c; if None, estimated from data"),
+            ParamSpec("kernel", "str", False, "triangular",
+                      "Local-linear kernel", ["triangular", "uniform", "epanechnikov"]),
+            ParamSpec("h", "float", False, None, "Bandwidth; auto-selected by opt_criterion if None"),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("opt_criterion", "str", False, "mse",
+                      "Bandwidth optimization criterion", ["mse", "fwer"]),
+        ],
+        returns="CausalResult with honest CI",
+        example='sp.rd_honest(df, y="score", x="income", c=10000, M=0.05)',
+        tags=["rd", "honest", "armstrong-kolesar", "causal", "bandwidth"],
+        reference="Armstrong & Kolesár (2018) Econometrica [@armstrong2018optimal]",
+        pre_conditions=[
+            "x is continuous with support on both sides of c",
+            "Sample mass within the optimal bandwidth on each side",
+            "User-supplied M (or willingness to estimate it from data)",
+        ],
+        assumptions=[
+            "E[Y|X] has bounded second derivative |E[Y|X]''| <= M near c",
+            "Continuity of potential outcomes at c (Hahn-Todd-van der Klaauw 2001)",
+            "No manipulation of x at c (run sp.mccrary_test alongside)",
+        ],
+        failure_modes=[
+            FailureMode(
+                symptom="M estimated from data and effective sample tiny",
+                exception="statspai.NumericalInstability",
+                remedy="Pass an explicit M based on theory or sensitivity analysis (M_grid in Armstrong-Kolesár 2018 §4).",
+                alternative="rdrobust",
+            ),
+            FailureMode(
+                symptom="Honest CI much wider than rdrobust CI",
+                exception="",
+                remedy="rd_honest is *honest* by construction (covers under any |f''| <= M); rdrobust trades coverage for precision. Reporting both is recommended.",
+                alternative="rdrobust",
+            ),
+        ],
+        alternatives=["rdrobust", "rdrbounds", "rdsensitivity"],
+        typical_n_min=500,
+    ))
+
     _BASE_REGISTRY_BUILT = True
 
 

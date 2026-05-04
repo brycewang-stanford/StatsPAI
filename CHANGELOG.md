@@ -6,6 +6,21 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **8 high-impact estimators upgraded from auto-registered to
+  hand-written FunctionSpec.** `aipw`, `aggte`, `pretrends_test`,
+  `sensitivity_rr`, `mccrary_test`, `oster_bounds`,
+  `wild_cluster_bootstrap`, and `rd_honest` now ship with full
+  agent-native metadata: 2–4 assumptions per spec, 2 failure modes
+  with recovery hints, ranked alternatives, typical_n_min, vetted
+  references with paper.bib bib keys, and full enum-validated
+  ParamSpecs. Previously these were auto-registered with only the
+  first docstring line and inferred parameter types — agents calling
+  `sp.describe_function('aipw')` could not see the doubly-robust
+  guarantee, the propensity overlap requirement, or the alternatives
+  to fall back on. Hand-written count moves from 203 to 211; auto-
+  registered drops from 768 to 760. (Step H of v1.13 stability
+  roadmap.)
+
 - **`sp.principal_strat(instrument=...)` — encouragement-design AIR /
   Wald LATE.** The previously-stubbed `instrument=` parameter now
   routes to a proper estimator (Angrist-Imbens-Rubin 1996 §4): given
