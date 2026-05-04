@@ -53,7 +53,9 @@ from typing import Optional, Sequence, Dict, Any
 import numpy as np
 import pandas as pd
 from scipy import stats
-from sklearn.linear_model import LinearRegression, LogisticRegression
+# sklearn is imported lazily inside the functions that need it so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches proximal_regression.
 
 
 @dataclass
@@ -149,6 +151,7 @@ def proximal_regression(
     # --- Treatment bridge q(Z, X): logistic propensity P(D=1 | Z, X) ---
     prop_design = np.column_stack([np.ones(n), Zp, Xc])
     try:
+        from sklearn.linear_model import LogisticRegression
         lr = LogisticRegression(C=1e6, solver="lbfgs", max_iter=500)
         lr.fit(prop_design, D.astype(int))
         pi_hat = lr.predict_proba(prop_design)[:, 1]

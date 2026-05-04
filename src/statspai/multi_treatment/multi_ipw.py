@@ -22,9 +22,10 @@ from typing import Optional, List, Dict, Any
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
-from sklearn.base import BaseEstimator, clone
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+
+# sklearn is imported lazily inside the methods that need it so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches multi_treatment.
 
 from ..core.results import CausalResult
 
@@ -129,6 +130,8 @@ class MultiTreatment:
                 f"Reference level {self.reference} not found in treatment "
                 f"levels: {levels}"
             )
+
+        from sklearn.ensemble import GradientBoostingRegressor
 
         # Estimate generalized propensity scores
         gps = self._estimate_gps(X, D, levels)
@@ -251,6 +254,7 @@ class MultiTreatment:
 
     def _estimate_gps(self, X, D, levels):
         """Estimate generalized propensity scores via multinomial logit."""
+        from sklearn.linear_model import LogisticRegression
         lr = LogisticRegression(
             max_iter=1000,
             random_state=self.random_state,

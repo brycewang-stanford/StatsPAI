@@ -49,7 +49,9 @@ import pandas as pd
 from scipy import stats
 from scipy.special import expit, logit
 
-from sklearn.linear_model import LogisticRegression
+# sklearn is imported lazily inside ``_fit_logit`` so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches ltmle_survival.
 
 
 Regime = Union[Sequence[int], Callable[[int, Dict[str, np.ndarray]], np.ndarray]]
@@ -121,6 +123,7 @@ def _fit_logit(X: np.ndarray, y: np.ndarray):
                     self.p * np.ones(X.shape[0]),
                 ])
         return _Const(float(y[0]))
+    from sklearn.linear_model import LogisticRegression
     lr = LogisticRegression(C=1e6, solver="lbfgs", max_iter=500)
     lr.fit(X, y)
     return lr

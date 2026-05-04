@@ -30,13 +30,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from scipy import optimize, stats
-from sklearn.cluster import (
-    AgglomerativeClustering,
-    KMeans,
-    SpectralClustering,
-)
-from sklearn.metrics import silhouette_score
-from sklearn.preprocessing import StandardScaler
+
+# sklearn is imported lazily inside the helpers that need it so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches cluster_synth.
 
 from ..core.results import CausalResult
 
@@ -316,6 +313,7 @@ def _build_features(
     X_donors : ndarray, shape (J, n_features)
     X_treated : ndarray, shape (n_features,)
     """
+    from sklearn.preprocessing import StandardScaler
     # Base features: standardised pre-treatment trajectories
     scaler = StandardScaler()
     # Stack treated + donors, fit scaler on all
@@ -363,6 +361,7 @@ def _auto_n_clusters(
 
     Tests k from 2 to min(J-1, 10) and returns the best k.
     """
+    from sklearn.metrics import silhouette_score
     J = X.shape[0]
     k_max = min(J - 1, 10)
     if k_max < 2:
@@ -388,6 +387,11 @@ def _fit_cluster(
     seed: Optional[int],
 ) -> np.ndarray:
     """Run one clustering algorithm and return labels."""
+    from sklearn.cluster import (
+        AgglomerativeClustering,
+        KMeans,
+        SpectralClustering,
+    )
     if method == "kmeans":
         model = KMeans(
             n_clusters=n_clusters,

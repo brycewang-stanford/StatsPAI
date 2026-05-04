@@ -22,8 +22,10 @@ Econometrica, 89(1), 133-161. [@athey2021matrix]
 from typing import Optional, List, Dict, Any, Tuple
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator, clone
-from sklearn.model_selection import KFold
+
+# sklearn is imported lazily inside the methods that need it so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches policy_tree.
 
 from ..core.results import CausalResult
 
@@ -261,6 +263,7 @@ class PolicyTree:
             GradientBoostingRegressor,
             GradientBoostingClassifier,
         )
+        from sklearn.model_selection import KFold
 
         kf = KFold(n_splits=self.n_folds, shuffle=True,
                     random_state=self.random_state)

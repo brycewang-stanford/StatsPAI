@@ -21,11 +21,10 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import (
-    GradientBoostingClassifier,
-    GradientBoostingRegressor,
-)
-from sklearn.model_selection import KFold
+
+# sklearn is imported lazily inside the functions that need it so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches auto_cate_tuned.
 
 from ..core.results import CausalResult  # noqa: F401 - re-exported via result
 from .auto_cate import (
@@ -77,6 +76,7 @@ def _require_optuna():
 
 
 def _build_models_from_params(params: Dict[str, Any], random_state: int) -> Tuple[Any, Any]:
+    from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
     outcome = GradientBoostingRegressor(
         n_estimators=int(params['outcome_n_estimators']),
         max_depth=int(params['outcome_max_depth']),
@@ -132,6 +132,7 @@ def _r_loss_on_nuisance(
 
 def _build_cate_model(params: Dict[str, Any], random_state: int):
     """GBM factory for the CATE-stage search space."""
+    from sklearn.ensemble import GradientBoostingRegressor
     return GradientBoostingRegressor(
         n_estimators=int(params['cate_n_estimators']),
         max_depth=int(params['cate_max_depth']),

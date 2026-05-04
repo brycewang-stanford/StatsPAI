@@ -286,3 +286,68 @@ def test_forest_leaf_survives_submodule_fromimport_shadow():
         "submodule attach."
     )
     assert not isinstance(post, types.ModuleType)
+
+
+# ---------------------------------------------------------------------------
+# sklearn cold-start budget (Step 1C).
+#
+# Prior to v1.13, ~17 estimator files (overlap_did / metalearners / tmle /
+# super_learner / ltmle / ltmle_survival / bcf / bcf.longitudinal / synth.cluster
+# / proximal.pci_regression / policy_learning.policy_tree /
+# policy_learning.ope / dose_response.gps / multi_treatment.multi_ipw /
+# mediation.four_way / interference.orthogonal / metalearners.auto_cate /
+# metalearners.auto_cate_tuned) imported sklearn primitives at module top.
+# Combined with eagerly-loaded forest (Step 1B), `import statspai` pulled
+# ~245 sklearn submodules into sys.modules even for sessions that never
+# touched any ML-based estimator.  Step 1C moved every sklearn import that
+# could be deferred into the function bodies; ``BaseEstimator`` annotations
+# were gated behind ``TYPE_CHECKING`` plus string-literal annotations.
+#
+# The remaining sklearn footprint comes from ``tmle/hal_tmle.py`` —
+# ``HALRegressor(BaseEstimator, RegressorMixin)`` and
+# ``HALClassifier(BaseEstimator, ClassifierMixin)`` need sklearn at
+# class-definition time.  Refactoring those out of the inheritance hierarchy
+# was deemed out of scope.  Pulling ``sklearn.base`` alone loads ~39
+# sklearn submodules — that's the floor.
+#
+# This contract pins the budget at <= 50 (~39 floor + 11 slack for sklearn
+# version drift).  Runs in a subprocess so the cold-state check doesn't
+# perturb other tests' ``sys.modules``.
+# ---------------------------------------------------------------------------
+
+SKLEARN_BUDGET_CEILING = 50
+
+
+def test_sklearn_budget_ceiling_on_bare_import_statspai():
+    """``import statspai`` must not eagerly pull more than ~39 sklearn
+    submodules — only ``sklearn.base`` plus its mandatory deps, triggered
+    by ``tmle.hal_tmle``'s ``HALRegressor``/``HALClassifier`` class
+    inheritance.  Anything significantly higher means a future change
+    re-introduced a top-level ``from sklearn.X import Y`` somewhere; move
+    that import inside the function body."""
+    import subprocess
+    import sys
+
+    code = (
+        "import sys\n"
+        "import statspai\n"
+        "n = sum(1 for m in sys.modules if m.startswith('sklearn'))\n"
+        "print(f'SKLEARN_COUNT={n}')\n"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    last_line = proc.stdout.strip().splitlines()[-1]
+    assert last_line.startswith("SKLEARN_COUNT="), proc.stdout
+    n = int(last_line[len("SKLEARN_COUNT="):])
+    assert n <= SKLEARN_BUDGET_CEILING, (
+        f"`import statspai` pulled {n} sklearn submodules, exceeding the "
+        f"<= {SKLEARN_BUDGET_CEILING} budget set after Step 1C.  Some "
+        f"estimator file likely re-introduced a top-level "
+        f"`from sklearn.X import Y` — grep `git diff` for added "
+        f"`from sklearn` lines outside function bodies and move them "
+        f"inside the functions that actually use the symbols."
+    )

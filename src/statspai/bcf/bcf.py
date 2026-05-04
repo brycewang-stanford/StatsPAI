@@ -25,13 +25,10 @@ from typing import Optional, List, Dict, Any, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
-from sklearn.base import BaseEstimator, clone
-from sklearn.ensemble import (
-    RandomForestRegressor,
-    GradientBoostingRegressor,
-    GradientBoostingClassifier,
-)
-from sklearn.model_selection import KFold
+
+# sklearn is imported lazily inside the methods that need it so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches bcf.
 
 from ..core.results import CausalResult
 
@@ -184,6 +181,14 @@ class BayesianCausalForest:
         unique_d = np.unique(D)
         if not (len(unique_d) == 2 and set(unique_d.astype(int)) == {0, 1}):
             raise ValueError(f"Treatment must be binary (0/1)")
+
+        from sklearn.base import clone
+        from sklearn.ensemble import (
+            RandomForestRegressor,
+            GradientBoostingRegressor,
+            GradientBoostingClassifier,
+        )
+        from sklearn.model_selection import KFold
 
         rng = np.random.RandomState(self.random_state)
 

@@ -25,8 +25,10 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
-from sklearn.model_selection import KFold
+
+# sklearn is imported lazily inside ``network_hte`` so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches the spillover estimators.
 
 from ..core.results import CausalResult
 
@@ -148,6 +150,12 @@ def network_hte(
         raise ValueError(
             f"Too few observations for {n_folds}-fold CV; need >= {n_folds * 10}."
         )
+
+    from sklearn.ensemble import (
+        GradientBoostingClassifier,
+        GradientBoostingRegressor,
+    )
+    from sklearn.model_selection import KFold
 
     kf = KFold(n_splits=n_folds, shuffle=True, random_state=random_state)
     y_resid = np.zeros_like(Y)

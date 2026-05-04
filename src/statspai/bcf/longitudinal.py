@@ -28,8 +28,11 @@ from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingClassifier
 from scipy import stats
+
+# sklearn is imported lazily inside the helpers that need it so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches bcf_longitudinal.
 
 from ..core.results import CausalResult
 
@@ -71,6 +74,7 @@ class BCFLongResult:
 def _estimate_propensity(
     X: np.ndarray, D: np.ndarray, random_state: int,
 ) -> np.ndarray:
+    from sklearn.ensemble import GradientBoostingClassifier
     clf = GradientBoostingClassifier(
         n_estimators=100, max_depth=3, random_state=random_state,
     )
@@ -95,6 +99,7 @@ def _fit_mu_tau_at_time(
     * mu(X, e)  = (1-e)*mu_0 + e*mu_1  — BCF-style propensity weighting.
     * tau(X)    = shrunk forest on mu_1(X,e) - mu_0(X,e).
     """
+    from sklearn.ensemble import RandomForestRegressor
     X_full = np.column_stack([X, e])
     Y_resid = Y - unit_effect
     treated = D == 1

@@ -29,12 +29,18 @@ Targeted Maximum Likelihood Learning.
 International Journal of Biostatistics, 2(1). [@vanderlaan2006targeted]
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, TYPE_CHECKING
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 from scipy.special import logit, expit
-from sklearn.base import BaseEstimator, clone
+
+# sklearn is imported lazily inside the functions that need it so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches tmle. ``BaseEstimator`` only appears
+# in type annotations here and is gated behind ``TYPE_CHECKING``.
+if TYPE_CHECKING:
+    from sklearn.base import BaseEstimator
 
 from ..core.results import CausalResult
 from .super_learner import SuperLearner
@@ -49,8 +55,8 @@ def tmle(
     y: str,
     treat: str,
     covariates: List[str],
-    outcome_library: Optional[List[BaseEstimator]] = None,
-    propensity_library: Optional[List[BaseEstimator]] = None,
+    outcome_library: 'Optional[List[BaseEstimator]]' = None,
+    propensity_library: 'Optional[List[BaseEstimator]]' = None,
     n_folds: int = 5,
     estimand: str = 'ATE',
     alpha: float = 0.05,
@@ -170,8 +176,8 @@ class TMLE:
         y: str,
         treat: str,
         covariates: List[str],
-        outcome_library: Optional[List[BaseEstimator]] = None,
-        propensity_library: Optional[List[BaseEstimator]] = None,
+        outcome_library: 'Optional[List[BaseEstimator]]' = None,
+        propensity_library: 'Optional[List[BaseEstimator]]' = None,
         n_folds: int = 5,
         estimand: str = 'ATE',
         alpha: float = 0.05,

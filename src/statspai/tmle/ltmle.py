@@ -61,7 +61,12 @@ import pandas as pd
 from scipy import stats
 from scipy.special import expit, logit
 
-from sklearn.linear_model import LogisticRegression, LinearRegression
+# sklearn is imported lazily inside the helpers that need it so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches ltmle.
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from sklearn.linear_model import LogisticRegression, LinearRegression
 
 
 # Type alias for regime specification: either a static sequence of 0/1
@@ -113,7 +118,7 @@ def _safe_logit(p, eps=1e-6):
     return logit(p)
 
 
-def _fit_logit(X: np.ndarray, y: np.ndarray) -> LogisticRegression:
+def _fit_logit(X: np.ndarray, y: np.ndarray) -> 'LogisticRegression':
     """Logistic regression with l2; handles degenerate y."""
     if np.all(y == y[0]):
         # trivial constant response; LR will fail — return dummy
@@ -126,6 +131,7 @@ def _fit_logit(X: np.ndarray, y: np.ndarray) -> LogisticRegression:
                                         self.p * np.ones(X.shape[0])])
 
         return _Const(float(y[0]))
+    from sklearn.linear_model import LogisticRegression
     lr = LogisticRegression(C=1e6, solver="lbfgs", max_iter=500)
     lr.fit(X, y)
     return lr
@@ -136,7 +142,8 @@ def _predict_proba(model, X: np.ndarray) -> np.ndarray:
     return prob[:, 1] if prob.ndim == 2 else prob
 
 
-def _fit_linear(X: np.ndarray, y: np.ndarray) -> LinearRegression:
+def _fit_linear(X: np.ndarray, y: np.ndarray) -> 'LinearRegression':
+    from sklearn.linear_model import LinearRegression
     lr = LinearRegression()
     lr.fit(X, y)
     return lr

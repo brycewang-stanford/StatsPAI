@@ -22,11 +22,16 @@ van der Laan, M. J., Polley, E. C., & Hubbard, A. E. (2007).
 Statistical Applications in Genetics and Molecular Biology, 6(1). [@vanderlaan2007super]
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
 import numpy as np
-from sklearn.base import BaseEstimator, clone, is_classifier
-from sklearn.model_selection import KFold, StratifiedKFold
 from scipy.optimize import minimize
+
+# sklearn is imported lazily inside the methods that need it so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches super_learner. ``BaseEstimator`` only
+# appears in type annotations here and is gated behind ``TYPE_CHECKING``.
+if TYPE_CHECKING:
+    from sklearn.base import BaseEstimator
 
 
 # ======================================================================
@@ -36,7 +41,7 @@ from scipy.optimize import minimize
 def super_learner(
     X: np.ndarray,
     y: np.ndarray,
-    library: Optional[List[BaseEstimator]] = None,
+    library: 'Optional[List[BaseEstimator]]' = None,
     n_folds: int = 5,
     task: str = 'regression',
     random_state: int = 42,
@@ -88,7 +93,7 @@ class SuperLearner:
 
     def __init__(
         self,
-        library: Optional[List[BaseEstimator]] = None,
+        library: 'Optional[List[BaseEstimator]]' = None,
         n_folds: int = 5,
         task: str = 'regression',
         random_state: int = 42,
@@ -107,6 +112,8 @@ class SuperLearner:
         2. Find optimal weights via simplex-constrained least squares.
         3. Refit all base learners on full data.
         """
+        from sklearn.base import clone
+        from sklearn.model_selection import KFold, StratifiedKFold
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y, dtype=np.float64).ravel()
         n = len(y)

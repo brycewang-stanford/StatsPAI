@@ -38,7 +38,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from sklearn.linear_model import LinearRegression
+# sklearn is imported lazily inside ``four_way_decomposition`` so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches the four-way mediation decomposition.
 
 
 @dataclass
@@ -97,6 +99,8 @@ def four_way_decomposition(
     FourWayResult
     """
     cov = list(covariates or [])
+    from sklearn.linear_model import LinearRegression
+
     df = data[[y, treat, mediator] + cov].dropna().reset_index(drop=True)
     n = len(df)
 

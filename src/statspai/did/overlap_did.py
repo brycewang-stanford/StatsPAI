@@ -26,10 +26,13 @@ from typing import Any, Optional, Sequence
 import numpy as np
 import pandas as pd
 from scipy import stats
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
 
 from ..core.results import CausalResult
+
+# sklearn is imported lazily inside ``overlap_weighted_did`` /
+# ``dl_propensity_score`` so ``import statspai`` does not pull
+# ~245 sklearn submodules through this file when the user never
+# touches overlap-weighted DID.
 
 
 __all__ = ["overlap_weighted_did", "dl_propensity_score"]
@@ -92,10 +95,12 @@ def overlap_weighted_did(
         X = df[list(covariates)].to_numpy(dtype=float)
         T = df[treat].to_numpy(dtype=int)
         if ps_model == "logit":
+            from sklearn.linear_model import LogisticRegression
             clf = LogisticRegression(max_iter=1000, solver="lbfgs")
             clf.fit(X, T)
             e = clf.predict_proba(X)[:, 1]
         elif ps_model == "gbm":
+            from sklearn.ensemble import GradientBoostingClassifier
             clf = GradientBoostingClassifier(
                 n_estimators=100, max_depth=3, random_state=0,
             )

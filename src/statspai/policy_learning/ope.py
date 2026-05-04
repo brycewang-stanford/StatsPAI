@@ -38,8 +38,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestRegressor
+# sklearn is imported lazily inside the functions that need it so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches ope.
 
 
 @dataclass
@@ -88,6 +89,7 @@ def _target_prob(pi_target, X: np.ndarray, A: np.ndarray) -> np.ndarray:
 
 
 def _fit_propensity(X: np.ndarray, A: np.ndarray) -> np.ndarray:
+    from sklearn.linear_model import LogisticRegression
     try:
         lr = LogisticRegression(solver="lbfgs", max_iter=500)
         lr.fit(X, A)
@@ -99,6 +101,7 @@ def _fit_propensity(X: np.ndarray, A: np.ndarray) -> np.ndarray:
 
 def _fit_q(X: np.ndarray, A: np.ndarray, R: np.ndarray, n_actions: int) -> np.ndarray:
     """Return (n, K) Q-hat matrix via a single RF on (X, A one-hot)."""
+    from sklearn.ensemble import RandomForestRegressor
     oh = np.eye(n_actions)[A]
     features = np.column_stack([X, oh])
     rf = RandomForestRegressor(n_estimators=200, min_samples_leaf=5, n_jobs=-1, random_state=0)

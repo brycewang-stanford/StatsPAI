@@ -25,12 +25,17 @@ Kennedy, E. H., Ma, Z., McHugh, M. D., & Small, D. S. (2017).
 treatment effects." JRSS-B, 79(4), 1229-1245. [@kennedy2017parametric]
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, TYPE_CHECKING
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
-from sklearn.base import BaseEstimator, clone
-from sklearn.ensemble import GradientBoostingRegressor
+
+# sklearn is imported lazily inside the methods that need it so that
+# ``import statspai`` doesn't pull ~245 sklearn submodules through this
+# file when the user never touches dose_response. ``BaseEstimator`` only
+# appears in type annotations here and is gated behind ``TYPE_CHECKING``.
+if TYPE_CHECKING:
+    from sklearn.base import BaseEstimator
 
 from ..core.results import CausalResult
 
@@ -46,8 +51,8 @@ def dose_response(
     covariates: List[str],
     n_dose_points: int = 20,
     dose_range: Optional[Tuple[float, float]] = None,
-    treatment_model: Optional[BaseEstimator] = None,
-    outcome_model: Optional[BaseEstimator] = None,
+    treatment_model: 'Optional[BaseEstimator]' = None,
+    outcome_model: 'Optional[BaseEstimator]' = None,
     n_bootstrap: int = 200,
     alpha: float = 0.05,
     random_state: int = 42,
@@ -134,12 +139,13 @@ class DoseResponse:
         covariates: List[str],
         n_dose_points: int = 20,
         dose_range: Optional[Tuple[float, float]] = None,
-        treatment_model: Optional[BaseEstimator] = None,
-        outcome_model: Optional[BaseEstimator] = None,
+        treatment_model: 'Optional[BaseEstimator]' = None,
+        outcome_model: 'Optional[BaseEstimator]' = None,
         n_bootstrap: int = 200,
         alpha: float = 0.05,
         random_state: int = 42,
     ):
+        from sklearn.ensemble import GradientBoostingRegressor
         self.data = data
         self.y = y
         self.treat = treat
@@ -255,6 +261,7 @@ class DoseResponse:
 
     def _estimate_curve(self, Y, T, X, dose_grid, n):
         """Estimate E[Y(t)] at each dose level."""
+        from sklearn.base import clone
         # Step 1: Treatment model E[T|X]
         t_model = clone(self.treatment_model)
         t_model.fit(X, T)

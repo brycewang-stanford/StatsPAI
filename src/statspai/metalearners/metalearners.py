@@ -26,13 +26,10 @@ from typing import Optional, List, Dict, Any, Union, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
-from sklearn.base import BaseEstimator, clone, is_classifier
-from sklearn.model_selection import KFold, cross_val_predict
-from sklearn.ensemble import (
-    GradientBoostingRegressor,
-    GradientBoostingClassifier,
-    RandomForestRegressor,
-)
+
+# sklearn is imported lazily inside the functions/methods that need it so
+# that ``import statspai`` doesn't pull ~245 sklearn submodules through
+# this file when the user never touches metalearners.
 
 from ..core.results import CausalResult
 
@@ -42,6 +39,7 @@ from ..core.results import CausalResult
 # ======================================================================
 
 def _default_outcome_model():
+    from sklearn.ensemble import GradientBoostingRegressor
     return GradientBoostingRegressor(
         n_estimators=200, max_depth=4, learning_rate=0.05,
         subsample=0.8, random_state=42,
@@ -49,6 +47,7 @@ def _default_outcome_model():
 
 
 def _default_propensity_model():
+    from sklearn.ensemble import GradientBoostingClassifier
     return GradientBoostingClassifier(
         n_estimators=200, max_depth=4, learning_rate=0.05,
         subsample=0.8, random_state=42,
@@ -56,6 +55,7 @@ def _default_propensity_model():
 
 
 def _default_cate_model():
+    from sklearn.ensemble import GradientBoostingRegressor
     return GradientBoostingRegressor(
         n_estimators=200, max_depth=3, learning_rate=0.05,
         subsample=0.8, random_state=42,
@@ -73,6 +73,8 @@ def _get_propensity(model, X, clip=(0.01, 0.99)):
 
 def _cross_fit_predict(model, X, y, n_folds, method='predict'):
     """Out-of-fold predictions via cross-fitting."""
+    from sklearn.base import clone
+    from sklearn.model_selection import KFold
     kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
     preds = np.zeros(len(y))
     for train_idx, test_idx in kf.split(X):
@@ -122,6 +124,8 @@ def _cross_fit_aipw_phi(
     :math:`\\sigma(\\varphi)/\\sqrt{n}` regardless of which CATE
     estimator (S/T/X/R/DR) the user has chosen for heterogeneity.
     """
+    from sklearn.base import clone
+    from sklearn.model_selection import KFold
     n = len(Y)
     mu1_hat = np.zeros(n)
     mu0_hat = np.zeros(n)
@@ -196,6 +200,7 @@ class SLearner:
 
     def fit(self, X, Y, D):
         """Fit mu(X, D)."""
+        from sklearn.base import clone
         X, Y, D = np.asarray(X), np.asarray(Y).ravel(), np.asarray(D).ravel()
         XD = np.column_stack([X, D])
         self._model = clone(self.model)
@@ -235,11 +240,13 @@ class TLearner:
     """
 
     def __init__(self, model_0=None, model_1=None):
+        from sklearn.base import clone
         self.model_0 = model_0 if model_0 is not None else _default_outcome_model()
         self.model_1 = model_1 if model_1 is not None else clone(self.model_0)
         self._fitted = False
 
     def fit(self, X, Y, D):
+        from sklearn.base import clone
         X, Y, D = np.asarray(X), np.asarray(Y).ravel(), np.asarray(D).ravel()
         mask1 = D == 1
         mask0 = D == 0
@@ -298,6 +305,7 @@ class XLearner:
         cate_model_1=None,
         propensity_model=None,
     ):
+        from sklearn.base import clone
         self.model_0 = model_0 if model_0 is not None else _default_outcome_model()
         self.model_1 = model_1 if model_1 is not None else clone(self.model_0)
         self.cate_model_0 = cate_model_0 if cate_model_0 is not None else _default_cate_model()
@@ -306,6 +314,7 @@ class XLearner:
         self._fitted = False
 
     def fit(self, X, Y, D):
+        from sklearn.base import clone
         X, Y, D = np.asarray(X), np.asarray(Y).ravel(), np.asarray(D).ravel()
         mask1 = D == 1
         mask0 = D == 0
@@ -383,6 +392,7 @@ class RLearner:
         self._fitted = False
 
     def fit(self, X, Y, D):
+        from sklearn.base import clone
         X, Y, D = np.asarray(X), np.asarray(Y).ravel(), np.asarray(D).ravel()
 
         # Cross-fit nuisance
@@ -458,6 +468,8 @@ class DRLearner:
         self._fitted = False
 
     def fit(self, X, Y, D):
+        from sklearn.base import clone
+        from sklearn.model_selection import KFold
         X, Y, D = np.asarray(X), np.asarray(Y).ravel(), np.asarray(D).ravel()
         n = len(Y)
         mask1 = D == 1
@@ -630,6 +642,7 @@ def metalearner(
     >>> # Access individual CATE predictions
     >>> cate = result.model_info['cate']  # array of per-unit effects
     """
+    from sklearn.base import clone
     Y, D, X, n = _prepare_data(data, y, treat, covariates)
 
     # Validate binary treatment

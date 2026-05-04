@@ -47,10 +47,12 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
-from sklearn.base import clone
-from sklearn.model_selection import KFold
 
 from ..core.results import CausalResult
+
+# sklearn imports moved to function bodies — keeps ``import statspai``
+# from pulling sklearn.model_selection / sklearn.ensemble through this
+# file when the user never touches auto_cate.
 from .metalearners import (
     SLearner,
     TLearner,
@@ -158,6 +160,7 @@ def _build_learner(
     n_folds: int,
 ):
     """Instantiate a fresh learner for a given short code."""
+    from sklearn.base import clone
     code = code.lower()
     if code == 's':
         return SLearner(model=outcome_model)
@@ -203,6 +206,8 @@ def _cross_fit_nuisance(
     random_state: int,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Shared K-fold E[Y|X] and P(D=1|X) estimates reused across learners."""
+    from sklearn.base import clone
+    from sklearn.model_selection import KFold
     n = len(Y)
     m_hat = np.zeros(n)
     e_hat = np.zeros(n)
@@ -230,6 +235,7 @@ def _honest_cate_predictions(
     random_state: int,
 ) -> np.ndarray:
     """Out-of-fold CATE predictions via per-fold refit of the learner."""
+    from sklearn.model_selection import KFold
     n = len(Y)
     tau_hat = np.zeros(n)
     kf = KFold(n_splits=n_folds, shuffle=True, random_state=random_state)

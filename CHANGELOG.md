@@ -37,6 +37,43 @@ All notable changes to StatsPAI will be documented in this file.
   are tracked separately for Step 1C and do not block this lazy-forest
   win.
 
+- **Cold-start: lazy-import sklearn across 18 estimator files (Step
+  1C).** Building on Step 1B, every remaining top-level
+  `from sklearn.X import Y` in
+  `did/overlap_did.py`, `metalearners/{auto_cate,metalearners,auto_cate_tuned}.py`,
+  `policy_learning/{policy_tree,ope}.py`, `synth/cluster.py`,
+  `proximal/pci_regression.py`, `bcf/{bcf,longitudinal}.py`,
+  `tmle/{tmle,super_learner,ltmle,ltmle_survival}.py`,
+  `dose_response/gps.py`, `multi_treatment/multi_ipw.py`,
+  `mediation/four_way.py`, and `interference/orthogonal.py` was moved
+  inside the function bodies that actually use it.  `BaseEstimator`
+  type annotations were converted to string-literal form under
+  `if TYPE_CHECKING:` so `inspect.signature` / Pyright / mypy still
+  resolve them without forcing `sklearn.base` at module load.  Several
+  long-standing dead imports were dropped (`BaseEstimator` /
+  `is_classifier` / `cross_val_predict` in
+  `metalearners/metalearners.py`; `LinearRegression` in
+  `proximal/pci_regression.py`; `BaseEstimator` / `clone` /
+  `GradientBoostingClassifier` in `multi_treatment/multi_ipw.py`;
+  etc.).  After Step 1B + 1C, `import statspai` pulls **39** sklearn
+  submodules instead of **245** — a 5.3× reduction.  The 39 are
+  `sklearn.base` plus its mandatory deps, pulled by `tmle/hal_tmle.py`
+  whose `HALRegressor(BaseEstimator, RegressorMixin)` /
+  `HALClassifier(BaseEstimator, ClassifierMixin)` need sklearn at
+  class-definition time; refactoring that inheritance hierarchy is
+  out of scope.  Pinned by a new
+  `test_sklearn_budget_ceiling_on_bare_import_statspai` contract in
+  `tests/test_late_bind_contracts.py` (≤ 50 ceiling, ~39 floor + 11
+  slack for sklearn-version drift) running in a subprocess so the
+  cold-state measurement does not perturb other tests' `sys.modules`.
+  248 tests across the 18 affected modules (metalearners /
+  metalearner_frontiers / auto_cate / auto_cate_tuned / overlap_did /
+  tmle / hal_tmle / proximal / proximal_frontiers / bcf_longitudinal /
+  bcf_ordinal / conformal_bcf_bunching_mc / policy_learning / mediation
+  / mediation_sensitivity / interference_extensions / late_bind_contracts
+  / causal_forest_grf / forest_inference / ope_cevae / ope_extensions /
+  cluster_rct) pass cleanly.
+
 ## [1.13.0] — 2026-05-04
 
 ### Headline
