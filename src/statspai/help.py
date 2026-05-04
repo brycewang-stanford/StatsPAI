@@ -28,9 +28,20 @@ from typing import Any, Dict, List, Optional, Union
 #  Category index — groups of related functions for hierarchical help.
 # ====================================================================== #
 #
-# NOTE: kept in sync with registry categories, but additionally covers
-# areas the registry does not yet hand-register.  Used by sp.help()
-# category listings and by the auto-registration fallback.
+# This block is the *only* place that maps a submodule to a category.
+# - ``CATEGORY_DESCRIPTIONS`` provides the human-readable blurb shown by
+#   :func:`help` next to each category header.
+# - ``_MODULE_CATEGORY_PREFIXES`` is consulted by
+#   :func:`registry._auto_spec_from_callable` to assign a category to
+#   every auto-registered function. Hand-written ``FunctionSpec`` entries
+#   in :mod:`statspai.registry` always win, so this table only kicks in
+#   for the auto-pass tail.
+#
+# When you add a new top-level submodule, add a prefix entry here so its
+# functions don't fall through to the ``"other"`` bucket. Categories
+# referenced by hand-written specs but absent from
+# ``CATEGORY_DESCRIPTIONS`` will still render — they just won't get a
+# blurb in ``sp.help()``.
 
 CATEGORY_DESCRIPTIONS: Dict[str, str] = {
     "regression": "OLS / IV / GLM / quantile / Tobit / Heckman / count / survival",
@@ -50,15 +61,44 @@ CATEGORY_DESCRIPTIONS: Dict[str, str] = {
     "power": "Power analysis for RCT/DID/RD/IV/cluster-RCT and MDE",
     "experimental": "Randomization, balance checks, attrition, optimal design",
     "missing": "MICE, multiple imputation, mi_estimate",
-    "bayesian": "bayes_did / bayes_rd / bayes_iv / bayes_mte / BCF / policy weights",
+    "bayes": "bayes_did / bayes_rd / bayes_iv / bayes_mte / BCF / policy weights",
     "postestimation": "margins, contrast, pwcompare, test, lincom",
     "agent": "LLM tool-definition surface + JSON schema export",
     "utils": "Labels, winsor, DGP simulators, read_data, describe, pwcorr",
     "datasets": "Canonical datasets (Prop99, German reunification, CPS wage, ...)",
+    "epi": "Epidemiology — diagnostic tests, kappa, ROC/AUC, NNT, prevalence ratio",
+    "target_trial": "Target-trial emulation — protocol, CCW, immortal-time diagnostics",
+    "transport": "Transportability — identification, weighting, generalization",
+    "longitudinal": "Longitudinal regimes, sequential strategies, time-varying treatment",
+    "censoring": "Inverse-probability-of-censoring weighting (IPCW)",
+    "gformula": "Parametric g-formula (ICE, MC) for time-varying confounding",
+    "bridge": "Bridging functions for transportability and shrinkage",
+    "assimilation": "Causal assimilation / data fusion across studies",
+    "interference": "Spillover / partial-interference / network exposure",
+    "mendelian": "Mendelian randomization — IVW / Egger / median / MR-PRESSO / MVMR",
+    "mediation": "Direct / indirect effects + sensitivity (E-value)",
+    "frontier": "Stochastic frontier analysis (SFA, xtfrontier)",
+    "structural": "Production functions, markups, demand systems",
+    "nonparametric": "Kernel density / regression, local polynomial smoothers",
+    "causal_discovery": "NOTEARS / PC / LiNGAM / GES + deep variants",
+    "causal_llm": "LLM-based causal extraction, MAS discovery, LLM-DAG",
+    "causal_rl": "Causal reinforcement learning (off-policy, batch)",
+    "causal_text": "Text-treatment effects, annotator-bias correction",
+    "ope": "Off-policy evaluation (IPS, DR, switch)",
+    "dag": "DAG inference — d-separation, identification, backdoor / frontdoor",
+    "fairness": "Counterfactual / causal fairness diagnostics",
+    "surrogate": "Surrogate-endpoint / proximal-outcome estimators",
+    "core": "CausalResult, exception taxonomy, infrastructure primitives",
+    "bartik": "Bartik / shift-share instruments",
+    "conformal_causal": "Conformal predictive intervals for ITE / CATE",
+    "neural_causal": "TARNet / CFRNet / DragonNet / CEVAE",
 }
 
 # Module-path-prefix → category.  First-match wins; order matters for
-# overlapping prefixes (e.g. 'causal_discovery' before 'causal').
+# overlapping prefixes (e.g. 'causal_discovery' before 'causal'). Keep
+# the labels here aligned with the categories used by hand-written
+# ``FunctionSpec`` entries in :mod:`statspai.registry` so the two passes
+# produce a single coherent taxonomy.
 _MODULE_CATEGORY_PREFIXES: List[tuple] = [
     ("statspai.regression", "regression"),
     ("statspai.fixest", "panel"),
@@ -80,7 +120,7 @@ _MODULE_CATEGORY_PREFIXES: List[tuple] = [
     ("statspai.power", "power"),
     ("statspai.experimental", "experimental"),
     ("statspai.imputation", "missing"),
-    ("statspai.bayes", "bayesian"),
+    ("statspai.bayes", "bayes"),
     ("statspai.postestimation", "postestimation"),
     ("statspai.agent", "agent"),
     ("statspai.utils", "utils"),
@@ -94,35 +134,64 @@ _MODULE_CATEGORY_PREFIXES: List[tuple] = [
     ("statspai.deepiv", "causal"),
     ("statspai.iv", "causal"),
     ("statspai.metalearners", "causal"),
-    ("statspai.neural_causal", "causal"),
+    ("statspai.neural_causal", "neural_causal"),
     ("statspai.tmle", "causal"),
     ("statspai.bcf", "causal"),
     ("statspai.policy_learning", "causal"),
-    ("statspai.conformal_causal", "causal"),
+    ("statspai.conformal_causal", "conformal_causal"),
     ("statspai.dose_response", "causal"),
     ("statspai.bounds", "causal"),
-    ("statspai.interference", "causal"),
     ("statspai.dtr", "causal"),
     ("statspai.multi_treatment", "causal"),
     ("statspai.msm", "causal"),
     ("statspai.proximal", "causal"),
     ("statspai.principal_strat", "causal"),
-    ("statspai.mediation", "causal"),
     ("statspai.causal_impact", "causal"),
-    ("statspai.bartik", "causal"),
-    ("statspai.causal_discovery", "causal"),
     ("statspai.matrix_completion", "causal"),
     ("statspai.bunching", "causal"),
     ("statspai.qte", "causal"),
-    ("statspai.mendelian", "causal"),
+    ("statspai.forest", "causal"),
     ("statspai.mht", "inference"),
-    ("statspai.dag", "causal"),
+    ("statspai.dag", "dag"),
     ("statspai.selection", "regression"),
     ("statspai.nonparametric", "nonparametric"),
     ("statspai.structural", "structural"),
     ("statspai.frontier", "frontier"),
     ("statspai.causal", "causal"),
     ("statspai.core", "core"),
+    # Three-school + frontier modules that previously fell through to
+    # the ``other`` bucket.  Specific labels (rather than collapsing
+    # into "causal") so sp.help() surfaces them as their own families.
+    ("statspai.epi", "epi"),
+    ("statspai.target_trial", "target_trial"),
+    ("statspai.transport", "transport"),
+    ("statspai.longitudinal", "longitudinal"),
+    ("statspai.censoring", "censoring"),
+    ("statspai.gformula", "gformula"),
+    ("statspai.bridge", "bridge"),
+    ("statspai.assimilation", "assimilation"),
+    ("statspai.interference", "interference"),
+    ("statspai.mendelian", "mendelian"),
+    ("statspai.mediation", "mediation"),
+    ("statspai.causal_discovery", "causal_discovery"),
+    ("statspai.causal_llm", "causal_llm"),
+    ("statspai.causal_rl", "causal_rl"),
+    ("statspai.causal_text", "causal_text"),
+    ("statspai.ope", "ope"),
+    ("statspai.fairness", "fairness"),
+    ("statspai.surrogate", "surrogate"),
+    ("statspai.bartik", "bartik"),
+    ("statspai.question", "smart"),
+    # Module helpers (registry / help / exception taxonomy / agent docs
+    # / article aliases) — these used to land in "other" and pollute
+    # sp.help() listings. Route them to the closest semantic bucket.
+    ("statspai.registry", "agent"),
+    ("statspai.help", "agent"),
+    ("statspai._agent_docs", "agent"),
+    ("statspai._auto_estimators", "smart"),
+    ("statspai._article_aliases", "causal"),
+    ("statspai._citation", "output"),
+    ("statspai.exceptions", "core"),
 ]
 
 
@@ -204,6 +273,23 @@ def _top_overview() -> str:
         lines.append(f"  {cat:<{width}}  ({count:>3} fns)  {desc}")
     lines.append("")
 
+    # Stability layering — surface parity-grade vs. frontier-grade so an
+    # agent reading the catalog can pick the right trust bar without
+    # opening every entry.
+    tiers = _stability_with_counts()
+    if tiers:
+        lines.append("STABILITY  (use sp.list_functions(stability='<tier>') to filter)")
+        lines.append("---------")
+        order = ["stable", "experimental", "deprecated"]
+        for tier in order:
+            n = tiers.get(tier, 0)
+            if n == 0:
+                continue
+            badge = _stability_badge(tier, prefix="  ")
+            blurb = _STABILITY_BLURBS[tier]
+            lines.append(f"{badge} ({n:>3} fns)  {blurb}")
+        lines.append("")
+
     lines.append("HELP ENTRY POINTS")
     lines.append("-----------------")
     lines.append("  sp.help()                      — this overview")
@@ -229,7 +315,7 @@ def _top_overview() -> str:
     lines.append("")
     lines.append("CLI")
     lines.append("---")
-    lines.append("  $ statspai list [--category <cat>]")
+    lines.append("  $ statspai list [--category <cat>] [--stability stable|experimental|deprecated]")
     lines.append("  $ statspai describe <name>")
     lines.append("  $ statspai search <query>")
     lines.append("  $ statspai help [<name>]")
@@ -244,6 +330,40 @@ def _categories_with_counts() -> Dict[str, int]:
     counts: Dict[str, int] = {}
     for spec in _REGISTRY.values():
         counts[spec.category] = counts.get(spec.category, 0) + 1
+    return counts
+
+
+# --- Stability rendering helpers --------------------------------------- #
+#
+# Kept in this module (not in registry.py) because they are presentation
+# concerns — the registry stores the raw tier; help.py decides how it
+# looks in text.  No emoji, by CLAUDE.md house rule.
+
+_STABILITY_BLURBS: Dict[str, str] = {
+    "stable": "parity-grade — numerically aligned with R/Stata or analytic reference; signature locked",
+    "experimental": "frontier-grade — implemented but not (yet) parity-tested; API may shift across minor versions",
+    "deprecated": "scheduled for removal — see MIGRATION.md for the replacement",
+}
+
+_STABILITY_BADGES: Dict[str, str] = {
+    "stable": "[stable]      ",
+    "experimental": "[experimental]",
+    "deprecated": "[deprecated]  ",
+}
+
+
+def _stability_badge(tier: str, *, prefix: str = "") -> str:
+    """Render the per-tier badge used in listings (fixed-width)."""
+    return f"{prefix}{_STABILITY_BADGES.get(tier, f'[{tier}]')}"
+
+
+def _stability_with_counts() -> Dict[str, int]:
+    """Count functions per stability tier in the (expanded) registry."""
+    from .registry import _REGISTRY  # noqa: WPS433
+
+    counts: Dict[str, int] = {}
+    for spec in _REGISTRY.values():
+        counts[spec.stability] = counts.get(spec.stability, 0) + 1
     return counts
 
 
@@ -271,7 +391,11 @@ def _category_listing(category: str) -> Optional[str]:
     for name in sorted(names):
         spec = _REGISTRY[name]
         short = spec.description.split(".")[0][:80]
-        lines.append(f"  {name:<{width}}  {short}")
+        # Show a stability prefix only for non-stable entries so the
+        # ~85% of stable functions stay visually quiet; experimental and
+        # deprecated entries jump out.
+        marker = "" if spec.stability == "stable" else f" {_stability_badge(spec.stability)}"
+        lines.append(f"  {name:<{width}}  {short}{marker}")
 
     lines.append("")
     lines.append(f"Use sp.help('{category}.<name>') or sp.help('<name>') for details.")
@@ -291,8 +415,20 @@ def _function_detail(name: str, verbose: bool = False) -> Optional[str]:
     header = f"sp.{spec.name}  —  [{spec.category}]"
     lines.append(header)
     lines.append("=" * len(header))
+    # Stability line — always shown.  We print this *before* the
+    # description so a reader landing on an experimental entry knows
+    # the trust bar before reading the first sentence.
+    blurb = _STABILITY_BLURBS.get(spec.stability, "")
+    lines.append(f"Stability : {spec.stability}  ({blurb})")
+    lines.append("")
     lines.append(textwrap.fill(spec.description, width=78))
     lines.append("")
+    if spec.limitations:
+        lines.append("Known limitations")
+        lines.append("-----------------")
+        for lim in spec.limitations:
+            lines.append(f"  - {lim}")
+        lines.append("")
 
     if spec.params:
         lines.append("Parameters")

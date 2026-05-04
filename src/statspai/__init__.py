@@ -473,6 +473,7 @@ from .registry import (
     agent_card,
     agent_cards,
     FailureMode,
+    STABILITY_TIERS,
 )
 from ._agent_docs import render_agent_block, render_agent_blocks
 # Unified help entry point (aggregates registry + docstring + category + search)
@@ -1154,6 +1155,7 @@ __all__ = [
     "agent_card",
     "agent_cards",
     "FailureMode",
+    "STABILITY_TIERS",
     "render_agent_block",
     "render_agent_blocks",
     "help",

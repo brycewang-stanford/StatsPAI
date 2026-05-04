@@ -57,6 +57,12 @@ class FailureMode:
         return asdict(self)
 
 
+#: Allowed stability tiers (kept as a frozenset so ``in`` checks are O(1)
+#: and the canonical list lives in one place — ``sp.help``, the CLI
+#: filter, and the post-init validator all read from here).
+STABILITY_TIERS: frozenset = frozenset({"stable", "experimental", "deprecated"})
+
+
 @dataclass
 class FunctionSpec:
     """Machine-readable specification for a StatsPAI function.
@@ -65,6 +71,26 @@ class FunctionSpec:
     ``alternatives`` / ``typical_n_min`` / ``pre_conditions``) are
     optional — any entry without them still renders correctly; only
     the agent-card layer surfaces the extras.
+
+    Stability layering
+    ------------------
+    Two fields make the parity-grade vs. frontier-grade split visible
+    to humans and agents *before* a call is made:
+
+    * ``stability`` (``"stable"`` | ``"experimental"`` | ``"deprecated"``)
+      classifies the function as a whole.  ``"stable"`` (default) means
+      numerically aligned with R / Stata or an analytic reference and
+      the public signature is locked.  ``"experimental"`` means the
+      method is implemented but not (yet) parity-tested or the API may
+      shift between minor versions — agents should hold its outputs to
+      a lower trust bar.
+    * ``limitations`` enumerates **partial-implementation gaps inside
+      an otherwise stable function** — typically a parameter value that
+      raises :class:`NotImplementedError` (e.g.
+      ``hal_tmle(variant='projection')``) or a feature combination
+      that is documented as not yet supported.  This lets agents see
+      the gap from ``sp.describe_function`` instead of discovering it
+      mid-pipeline by exception.
     """
     name: str
     category: str
@@ -87,9 +113,33 @@ class FunctionSpec:
     """Ranked ``sp.xxx`` fallbacks when this estimator is a poor fit."""
     typical_n_min: Optional[int] = None
     """Rule-of-thumb minimum sample size; ``None`` if not applicable."""
+    # ------------------------------------------------------------------ #
+    #  Stability layering (parity-grade vs. frontier-grade)
+    # ------------------------------------------------------------------ #
+    stability: str = "stable"
+    """Maturity tier — see :data:`STABILITY_TIERS`."""
+    limitations: List[str] = field(default_factory=list)
+    """Known-unimplemented variants / parameter values inside an
+    otherwise stable function.  Each entry is one short sentence; the
+    canonical pattern is ``"<param>=<value>: <what's missing>"``."""
+
+    def __post_init__(self) -> None:
+        # Validate stability tier early so a typo fails at import / first
+        # ``register()`` call, not at the moment an agent filters on it.
+        if self.stability not in STABILITY_TIERS:
+            raise ValueError(
+                f"FunctionSpec(name={self.name!r}).stability={self.stability!r} "
+                f"is not one of {sorted(STABILITY_TIERS)}"
+            )
 
     def to_openai_schema(self) -> Dict[str, Any]:
-        """Export as OpenAI function-calling compatible JSON schema."""
+        """Export as OpenAI function-calling compatible JSON schema.
+
+        The ``description`` is prefixed with a stability marker
+        (``[experimental]`` / ``[deprecated]``) and any known
+        ``limitations`` are appended so an LLM tool-caller sees the
+        gap inside the same field it already reads.
+        """
         properties = {}
         required = []
         for p in self.params:
@@ -113,9 +163,16 @@ class FunctionSpec:
             if p.required:
                 required.append(p.name)
 
+        description = self.description
+        if self.stability != "stable":
+            description = f"[{self.stability}] {description}"
+        if self.limitations:
+            joined = "; ".join(self.limitations)
+            description = f"{description} Known limitations: {joined}."
+
         return {
             "name": self.name,
-            "description": self.description,
+            "description": description,
             "parameters": {
                 "type": "object",
                 "properties": properties,
@@ -139,6 +196,8 @@ class FunctionSpec:
         return {
             "name": self.name,
             "category": self.category,
+            "stability": self.stability,
+            "limitations": list(self.limitations),
             "description": self.description,
             "signature": self.to_openai_schema(),
             "pre_conditions": list(self.pre_conditions),
@@ -166,13 +225,21 @@ def register(spec: FunctionSpec) -> FunctionSpec:
 
 
 def _build_registry():
-    """Populate the registry with all public StatsPAI functions.
+    """Register the hand-written specs that carry agent-native metadata.
 
-    Idempotent via the ``_BASE_REGISTRY_BUILT`` sentinel.  The older
-    ``if _REGISTRY: return`` gate was unsafe — any user or test that
-    called :func:`register` before the first ``_ensure_full_registry``
-    would cause the hand-written block below to be skipped, stripping
-    agent-native metadata from flagship families like ``regress``.
+    These specs are the curated layer: parameter docs, identifying
+    assumptions, failure modes, alternatives, and ``typical_n_min`` for
+    flagship estimators (``regress``, ``did``, ``rdrobust``, ``synth``,
+    …). Call sites should use :func:`_ensure_full_registry` instead —
+    that wrapper runs this pass first and then auto-registers the rest
+    of the public surface in :data:`statspai.__all__`, so the registry
+    matches ``sp.list_functions()`` exactly.
+
+    Idempotent via the ``_BASE_REGISTRY_BUILT`` sentinel. The earlier
+    ``if _REGISTRY: return`` gate was unsafe: any user or test that
+    called :func:`register` before the first :func:`_ensure_full_registry`
+    would cause this block to be skipped, stripping agent-native
+    metadata from flagship families like ``regress``.
     """
     global _BASE_REGISTRY_BUILT
     if _BASE_REGISTRY_BUILT:
@@ -505,6 +572,11 @@ def _build_registry():
             "did",
         ],
         typical_n_min=50,
+        limitations=[
+            "panel=False (repeated cross-sections) currently requires "
+            "estimator='reg' and control_group='nevertreated'; the IPW "
+            "and DR variants for RCS are planned for a future release",
+        ],
     ))
 
     register(FunctionSpec(
@@ -564,6 +636,10 @@ def _build_registry():
         ],
         alternatives=["rd_honest", "rdrbounds", "bounds"],
         typical_n_min=500,
+        limitations=[
+            "observation-level weights are not yet supported — passing a "
+            "weight column raises NotImplementedError",
+        ],
     ))
 
     register(FunctionSpec(
@@ -1611,12 +1687,25 @@ def _build_registry():
             ParamSpec("covariates", "list", False, description="Baseline covariates (required for principal_score)"),
             ParamSpec("method", "str", False, "monotonicity", "Identification strategy",
                       ["monotonicity", "principal_score"]),
+            ParamSpec("instrument", "str", False, None,
+                      description=(
+                          "Optional instrument column for the AIR/Wald LATE "
+                          "interpretation. NOT YET IMPLEMENTED — supplying a "
+                          "value raises NotImplementedError; use sp.iv or "
+                          "sp.dml(model='iivm') for the encouragement-design "
+                          "LATE in the meantime."
+                      )),
             ParamSpec("n_boot", "int", False, 500, "Bootstrap replications"),
         ],
         returns="PrincipalStratResult",
         example='sp.principal_strat(df, y="y", treat="d", strata="s")',
         tags=["principal-stratification", "sace", "late", "compliance", "causal"],
         reference="Frangakis & Rubin (2002); Zhang & Rubin (2003); Ding & Lu (2017)",
+        limitations=[
+            "instrument= (explicit two-layer IV + treatment setup) is "
+            "not yet implemented; for encouragement-design LATE use "
+            "sp.iv or sp.dml(model='iivm')",
+        ],
         pre_conditions=[
             "binary treatment",
             "binary post-treatment stratum variable (compliance, survival, employment, …)",
@@ -2161,7 +2250,7 @@ def _build_registry():
     # -- v0.9.16 breadth-expansion: Parametric g-formula ------------- #
     register(FunctionSpec(
         name="gformula_ice_fn",
-        category="g-formula",
+        category="gformula",
         description=(
             "Parametric g-formula via Iterative Conditional Expectation "
             "(ICE) -- sequential regression of the outcome on treatment "
@@ -3060,7 +3149,7 @@ def _build_registry():
     ))
     register(FunctionSpec(
         name="dl_propensity_score",
-        category="matching",
+        category="causal",
         description=(
             "Neural-net propensity score estimator (arXiv:2404.04794, 2024)."
         ),
@@ -4070,6 +4159,12 @@ def _build_registry():
         example='sp.hal_tmle(df, y="y", treat="d", covariates=["x1","x2","x3"])',
         tags=["tmle", "hal", "semiparametric", "causal", "double-robust"],
         reference="Li, Qiu, Wang & van der Laan (2025). arXiv:2506.17214.",
+        limitations=[
+            "variant='projection' raises NotImplementedError — the "
+            "Riesz-projection targeting step from Li-Qiu-Wang-vdL "
+            "(2025) §3.2 is not yet ported (the v1.11.x code path "
+            "was a no-op on the point estimate; see CHANGELOG)",
+        ],
     ))
 
     register(FunctionSpec(
@@ -4651,6 +4746,14 @@ def _build_registry():
         tags=["causal_text", "text_as_treatment", "embedding",
               "experimental", "agent-native"],
         reference="Veitch, Sridhar & Blei (UAI 2019); arXiv:1905.12741.",
+        stability="experimental",
+        limitations=[
+            "embedder='sbert' requires the optional sentence-transformers "
+            "extra; the bundled 'hash' embedder is a deterministic "
+            "fallback, not a published parity reference",
+            "Veitch et al. (2020) full BERT/topic-model recipe is not yet "
+            "implemented — see module docstring",
+        ],
         assumptions=[
             "All text-derived confounding is captured by the embedding",
             "Treatment is conditionally exogenous given embedding+covariates",
@@ -4737,6 +4840,12 @@ def _build_registry():
             "Egami, Hinck, Stewart & Wei (NeurIPS 2024); "
             "arXiv:2306.04746. Hausman et al. (1998)."
         ),
+        stability="experimental",
+        limitations=[
+            "method='hausman' is the only supported correction; the "
+            "logistic and Bayesian variants from Egami et al. (2024) "
+            "are not yet implemented",
+        ],
         assumptions=[
             "Misclassification is non-differential: T_obs ⫫ y | T_true",
             "Validation subset is representative of the full sample",
@@ -5661,6 +5770,10 @@ def _build_registry():
         ],
         alternatives=["spillover", "peer_effects", "cluster_matched_pair"],
         typical_n_min=200,
+        limitations=[
+            "design='complete' currently falls back to the bernoulli HT "
+            "implementation; only design='bernoulli' is fully supported",
+        ],
     ))
 
     # ------------------------------------------------------------------
@@ -5720,6 +5833,13 @@ def _build_registry():
             "[@callaway2024difference]; de Chaisemartin & D'Haultfœuille "
             "(2018) [@dechaisemartin2018fuzzy]."
         ),
+        limitations=[
+            "method='cgs' is an MVP — 2-period design, OR only, "
+            "bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, "
+            "analytical IF variance) is on the roadmap (see "
+            "docs/rfc/continuous_did_cgs.md). Other modes (twfe / "
+            "att_gt / dose_response) are stable.",
+        ],
         pre_conditions=[
             "panel data with unit × time × outcome × continuous dose",
             "at least one unit with dose == 0 acts as untreated control "
@@ -6151,6 +6271,12 @@ def _build_registry():
         alternatives=["callaway_santanna", "sun_abraham", "did_imputation",
                       "etwfe"],
         typical_n_min=50,
+        limitations=[
+            "cgroup='nevertreated' combined with panel=False (repeated "
+            "cross-sections) is not yet supported; pass either "
+            "panel=True with cgroup='nevertreated' or panel=False with "
+            "cgroup='notyet'",
+        ],
     ))
 
     register(FunctionSpec(
@@ -6734,6 +6860,14 @@ def _build_registry():
                    "[@dechaisemartin2024difference]; DOI "
                    "10.1162/rest_a_01414; paper-parity pending "
                    "(see docs/rfc/multiplegt_dyn.md)."),
+        stability="experimental",
+        limitations=[
+            "switch-on only — switch-off events are silently dropped",
+            "SE is cluster bootstrap; the paper's analytical "
+            "influence-function variance is not yet implemented",
+            "heteroskedastic-weights variant (dCDH 2023 EJ survey) is "
+            "not implemented",
+        ],
         pre_conditions=[
             "long-format panel with binary time-varying treatment",
             "at least some units switching on from d=0 to d=1",
@@ -7299,22 +7433,27 @@ def _build_registry():
 #  Auto-registration from statspai.__all__
 # ====================================================================== #
 #
-# Hand-written specs above cover ~41 canonical estimators.  The package
-# exposes several hundred more symbols via ``statspai.__all__``.  The
-# auto-registration pass below ensures sp.help() / sp.list_functions()
-# / sp.search_functions() can still surface those names, using
-# inspect.signature + docstring as a lightweight fallback spec.
+# Together with ``_build_registry`` above, this block makes the registry
+# the **single source of truth** for the public API. The hand-written
+# pass curates ~200 flagship estimators with full agent-native metadata;
+# this auto-pass walks ``statspai.__all__`` and registers every other
+# public symbol with a lightweight spec built from ``inspect.signature``
+# + the first docstring line. Net effect: ``sp.list_functions()`` covers
+# the entire public surface, no manual catalog upkeep required.
 #
-# Design rules
-# ------------
-# * Never overwrite a hand-written entry.
-# * Extract params from ``inspect.signature``; default="required" when no
-#   default is set.  Type hints are stringified best-effort.
-# * First non-empty docstring line becomes the description; fall back to
-#   "(no description)".
-# * Category comes from the object's ``__module__`` via the help module's
-#   prefix table.
-# * Idempotent: a sentinel flag prevents re-scanning on repeat calls.
+# Categories are resolved via the prefix table in
+# ``statspai.help._MODULE_CATEGORY_PREFIXES`` — that table is the only
+# place to update when a new submodule is added; otherwise its functions
+# fall through to the ``"other"`` bucket.
+#
+# Invariants
+# ----------
+# * Never overwrite a hand-written entry — those carry richer metadata.
+# * Params come from ``inspect.signature``; defaults of ``inspect._empty``
+#   are flagged as required. Type hints are stringified best-effort.
+# * Description = first non-empty docstring line, or
+#   ``"({name} — no description)"`` fallback.
+# * Idempotent via the ``_FULL_REGISTRY_BUILT`` sentinel.
 
 _FULL_REGISTRY_BUILT = False
 
@@ -7422,18 +7561,43 @@ def _ensure_full_registry() -> None:
 #  Public query API
 # ====================================================================== #
 
-def list_functions(category: Optional[str] = None) -> List[str]:
+def list_functions(
+    category: Optional[str] = None,
+    *,
+    stability: Optional[str] = None,
+) -> List[str]:
     """
-    List all registered StatsPAI functions, optionally filtered by category.
+    List all registered StatsPAI functions, optionally filtered.
 
     Auto-registers every function in ``statspai.__all__`` on first call
     (hand-written specs take precedence), so coverage is the full public
-    surface — not just the 41 canonical estimators.
+    surface — not just the canonical estimators.
+
+    Parameters
+    ----------
+    category : str, optional
+        Limit to one category (``"causal"``, ``"panel"`` …).
+    stability : str, optional
+        Limit to one tier — one of :data:`STABILITY_TIERS`
+        (``"stable"`` / ``"experimental"`` / ``"deprecated"``).  This
+        is the agent-facing filter for "give me only parity-grade
+        functions" (``stability='stable'``) versus "show me what's on
+        the frontier" (``stability='experimental'``).
     """
     _ensure_full_registry()
-    if category:
-        return [k for k, v in _REGISTRY.items() if v.category == category]
-    return list(_REGISTRY.keys())
+    if stability is not None and stability not in STABILITY_TIERS:
+        raise ValueError(
+            f"stability={stability!r} must be one of {sorted(STABILITY_TIERS)} "
+            f"or None"
+        )
+    out: List[str] = []
+    for k, v in _REGISTRY.items():
+        if category and v.category != category:
+            continue
+        if stability and v.stability != stability:
+            continue
+        out.append(k)
+    return out
 
 
 def describe_function(name: str) -> Dict[str, Any]:
@@ -7499,6 +7663,7 @@ def search_functions(query: str) -> List[Dict[str, str]]:
                 "name": spec.name,
                 "description": spec.description,
                 "category": spec.category,
+                "stability": spec.stability,
             }))
 
     # Sort by score descending (most relevant first)
@@ -7537,20 +7702,40 @@ def agent_card(name: str) -> Dict[str, Any]:
     return _REGISTRY[name].agent_card()
 
 
-def agent_cards(category: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Bulk export of agent cards, optionally filtered by category.
+def agent_cards(
+    category: Optional[str] = None,
+    *,
+    stability: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Bulk export of agent cards, optionally filtered.
 
     Only entries with at least one agent-native field populated are
     returned — auto-registered specs without assumptions / failure
     modes are skipped to keep the output signal-dense.
 
-    >>> cards = sp.agent_cards(category='causal')
+    Parameters
+    ----------
+    category : str, optional
+        Limit to one category.
+    stability : str, optional
+        Limit to one stability tier (see :data:`STABILITY_TIERS`).
+        ``stability='stable'`` is the standard "production-only"
+        filter for agent tool catalogs.
+
+    >>> cards = sp.agent_cards(category='causal', stability='stable')
     >>> # Feed to an agent's tool catalog or doc generator
     """
     _ensure_full_registry()
+    if stability is not None and stability not in STABILITY_TIERS:
+        raise ValueError(
+            f"stability={stability!r} must be one of {sorted(STABILITY_TIERS)} "
+            f"or None"
+        )
     out: List[Dict[str, Any]] = []
     for spec in _REGISTRY.values():
         if category and spec.category != category:
+            continue
+        if stability and spec.stability != stability:
             continue
         if not (spec.assumptions or spec.failure_modes
                 or spec.alternatives or spec.pre_conditions

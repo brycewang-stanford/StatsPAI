@@ -40,6 +40,17 @@ def _make_parser() -> argparse.ArgumentParser:
     p_list = sub.add_parser("list", help="List registered functions.")
     p_list.add_argument("--category", "-c", default=None,
                         help="Filter by category (e.g. causal, panel, spatial).")
+    p_list.add_argument(
+        "--stability", "-s", default=None,
+        choices=["stable", "experimental", "deprecated"],
+        help=(
+            "Filter by stability tier. 'stable' = parity-grade "
+            "(numerically aligned with R/Stata or analytic reference); "
+            "'experimental' = frontier-grade (implemented but not yet "
+            "parity-tested or API may shift); 'deprecated' = scheduled "
+            "for removal."
+        ),
+    )
     p_list.add_argument("--json", action="store_true",
                         help="Emit JSON array instead of text.")
 
@@ -84,12 +95,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
 
     if args.command == "list":
-        names = sp.list_functions(category=args.category)
+        names = sp.list_functions(
+            category=args.category,
+            stability=args.stability,
+        )
         if args.json:
             print(json.dumps(names))
             return 0
         if not names:
-            print(f"(no functions in category {args.category!r})")
+            filt = []
+            if args.category:
+                filt.append(f"category={args.category!r}")
+            if args.stability:
+                filt.append(f"stability={args.stability!r}")
+            tag = ", ".join(filt) if filt else "(no filter)"
+            print(f"(no functions matching {tag})")
             return 0
         for n in sorted(names):
             print(n)

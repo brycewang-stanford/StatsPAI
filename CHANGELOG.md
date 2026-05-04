@@ -4,6 +4,62 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Stability tiers and per-function `limitations` (parity-grade vs.
+  frontier-grade visibility).** Every `FunctionSpec` now carries a
+  `stability` field (`"stable"` / `"experimental"` / `"deprecated"`,
+  exposed as `sp.STABILITY_TIERS`) and a `limitations` list that
+  enumerates partial-implementation gaps inside otherwise stable
+  functions (e.g. `hal_tmle(variant='projection')`,
+  `principal_strat(instrument=...)`, `rdrobust(weights=...)`). The
+  fields flow through `sp.describe_function`, `sp.agent_card`,
+  `sp.function_schema` (description prefix + `Known limitations:`
+  suffix so LLM tool-callers see the gap before calling),
+  `sp.list_functions(stability=...)`, `sp.agent_cards(stability=...)`,
+  the `STABILITY` block in `sp.help()`, the per-function detail in
+  `sp.help('<name>')`, and a new `statspai list --stability ...` CLI
+  flag. This closes a layering gap where users (and agents) could not
+  tell which functions are numerically aligned and signature-locked
+  vs. which are MVP / RFC-tracked frontier work, and where specific
+  unimplemented variants were only discoverable by triggering
+  `NotImplementedError` mid-pipeline. Initial tagging covers the three
+  causal_text / `did_multiplegt_dyn` experimental entries plus
+  variant-level limitations on `hal_tmle`, `principal_strat`,
+  `rdrobust`, `callaway_santanna`, `wooldridge_did`,
+  `network_exposure`, and `continuous_did`. See the new
+  `docs/guides/stability.md` for the contract and promotion path.
+
+### Changed
+
+- Hardened the workflow/paper orchestration layer so optional failures
+  no longer disappear silently. `sp.causal(...).run(full=True)` now
+  records optional-stage failures (`compare_estimators`,
+  `sensitivity_panel`, `cate`) in `workflow.pipeline_notes`, and
+  `sp.causal(...).report(fmt='markdown')` renders those notes in a
+  dedicated section instead of silently dropping the context.
+- `sp.paper(...)` now constructs its internal `CausalWorkflow` with
+  `auto_run=False` and advances stages exactly once. This removes the
+  prior double-execution path where the workflow could fully auto-run
+  before `paper()` manually re-ran `diagnose/recommend/estimate`
+  (and sometimes `robustness`) again.
+- `PaperDraft` now surfaces orchestration degradations directly in a
+  `Pipeline notes` section and includes `degradations` in `to_dict()`,
+  so missing DAG/citation/provenance/section-rendering steps are
+  visible in the artifact itself rather than only via warnings.
+
+### Fixed
+
+- The natural-language `sp.paper(data, question, ..., include_robustness=False)`
+  path no longer runs or renders the robustness section implicitly via
+  `sp.causal` auto-run side effects.
+- `paper_from_question()` now carries its collected degradation records
+  into the returned `PaperDraft`, so late provenance/citation/DAG
+  failures remain inspectable after draft construction.
+- Top-level `statspai.__all__` is now de-duplicated in order-preserving
+  fashion, reducing public-surface drift between the import namespace
+  and registry/help tooling.
+
 ## [1.12.2] — 2026-05-01
 
 ### Headline
