@@ -352,3 +352,52 @@ ImportError: generic_type: type "ObjSense" is already registered!
 | — | `agent/_sampling.py` | 84 | 中 | ✅ 10 个测试 [已有] |
 | — | `cli.py` | 69 | 低 | ✅ 31 个测试 [覆盖] |
 | 1 | 其余 ~20 个文件 | ~2100 | 低-高 | 边缘功能（待补） |
+
+---
+
+## v1.12.x 因果家族覆盖率冲刺（2026-05-03）
+
+> **触发**：ultrareview 审计指出"公开方法面已经明显跑在可验证深度前面"
+> ——`did 14.7%`、`synth 12.9%`、`rd 16.9%`、`iv 18.0%`、`tmle 14.8%`、
+> `bayes 14.1%`，且四个核心文件 `wooldridge_did.py` /
+> `did_imputation.py` / `synth/report.py` / `paper.py` 全部位于低覆盖区。
+>
+> **范围**：四个明确点名的文件 + 六大因果家族的 headline 估计器
+> 烟雾测试，132 个新测试 + 1 个真实 bug 修复（`CausalResult.summary()`
+> 在 `wooldridge_did` 结果上 `KeyError: 'relative_time'`）。
+
+### 文件级覆盖率提升（before → after，定向 subset 运行）
+
+| 文件 | Statements | 之前 | 之后 | 缺失行 (after) |
+|:-----|:----------:|:----:|:----:|:--------------:|
+| `did/did_imputation.py` | 244 | 85% | **99%** | 3 行（罕见错误回退路径） |
+| `did/wooldridge_did.py` | 678 | 76% | **93%** | 45 行（`_logistic_fit` 极端收敛分支等） |
+| `synth/report.py` | 409 | **4%** | **81%** | 79 行（多语言 LaTeX 字符串细节、未触发的可选分支） |
+| `workflow/paper.py` | 646 | 66% | **86%** | 92 行（`paper_from_question` 的部分 IdentificationPlan 分支） |
+
+### 新增测试文件清单
+
+| 文件 | 测试数 | 焦点 |
+|:-----|:-----:|------|
+| `tests/test_synth_report.py` | 25 | text/markdown/LaTeX 三种渲染器全覆盖；每个 sensitivity 子块；`_latex_escape` 全部特殊字符；`synth_report_to_file` 文件回写；不合法 `output` 抛 `ValueError`；`_format_text` 极简 model_info 路径；method 标签查表 |
+| `tests/test_wooldridge_did_branches.py` | 31 | Bacon + dCDH 分解；repeated-CS / never-only / xvar 分派；`etwfe` 五项校验门 (cgroup / panel / xvar 缺失/常量/<2 行)；`etwfe_emfx` 四种聚合 (含 `include_leads=True`)；`drdid` 两种 method；`_ols_fit` cluster vs no-cluster 维度；`_logistic_fit` 真值恢复；**新增 summary() 回归保护** |
+| `tests/test_did_imputation_branches.py` | 14 | 所有 `ValueError` 校验门（4 列 + controls + 无 treated + 无 untreated）；controls + horizon event-study + chi² 联合 pre-trend；`_cluster_se_horizon(N_k=0) → inf`；citation 注册 |
+| `tests/test_paper_branches.py` | 31 | `_yaml_str` / `_tex_escape` / `_md_to_tex` / `_inline_md_to_tex` / `_record_note` / `_notes_block` / `_render_dag_section`；`PaperDraft.to_qmd` 单/多格式 + author + bib + csl + DAG mermaid；`to_docx` python-docx 缺失回退 + 真实 docx 库回写；`write` 后缀分派；`paper(fmt='bogus')` 抛错 |
+| `tests/test_low_cov_battery.py` | 30 + 1 skip | RD：3 kernel × 2 bw × 2 polynomial degree + donut + 显式 h/b + `rdpower` (含 target_power)；IV：`ivreg`、`ivreg(robust='hc1')`、`jive`；TMLE：ATE/ATT 估计 + `SuperLearner.predict_proba` + `HALRegressor.predict`；Synth：classic/sdid/augsynth/gsynth + dispatcher (classic/ridge/demeaned)；DiD：`sp.did` 面板路径 + `callaway_santanna` + `aggte(simple)` + summary() 烟雾；Bayes：`bayes_did`（pymc 缺失自动 skip） |
+
+**新增测试合计**：131 passed + 1 skip（pymc 未安装环境下）
+
+### 同步修复的真实 bug
+
+**`CausalResult.summary()` 在 `wooldridge_did` / `etwfe` 结果上 `KeyError: 'relative_time'`**
+
+`core/results.py:summary()` 之前硬编码 event-study 列名 `(relative_time, att)`，
+而 `wooldridge_did` 系列写入 `(rel_time, estimate)` —— 用户调 `.summary()`
+就崩。`summary()` 现在自动识别两套列约定，缺失则**静默跳过 event-study
+区块**而非崩溃。回归由 `test_wooldridge_did_summary_renders_event_study`
+锁定。
+
+> **下一步**：`rd/iv/tmle/bayes` 的 module-level 覆盖率提升仍受限于
+> 其内部子文件（如 `rd/extrapolate.py`、`iv/ivmte_lp.py`、`bayes/mte.py`）
+> 缺少端到端测试。这些子文件大多 4-10% 覆盖，单文件 200-450 行，建议
+> 下一轮按"先 dispatcher 烟雾，再边界路径"的节奏分批补齐。

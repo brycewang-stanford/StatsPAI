@@ -6,6 +6,44 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Test-coverage battery for the four worst-covered files +
+  parity-grade smoke battery across `did/synth/rd/iv/tmle/bayes`.**
+  The v1.12.x audit flagged six causal-family modules at low
+  statement coverage (`did` 14.7%, `synth` 12.9%, `rd` 16.9%,
+  `iv` 18.0%, `tmle` 14.8%, `bayes` 14.1%) with four files entirely
+  unexercised: `wooldridge_did.py`, `did_imputation.py`,
+  `synth/report.py`, `workflow/paper.py`. Five new test files raise
+  per-file coverage to **synth/report.py 4% → 81%, wooldridge_did.py
+  76% → 93%, did_imputation.py 85% → 99%, workflow/paper.py 66% →
+  86%** and add a 30-test cross-family smoke battery
+  (`tests/test_low_cov_battery.py`) that exercises every headline
+  estimator's CI/SE/point-estimate contract:
+  - `tests/test_synth_report.py` (25 tests) — full text/markdown/LaTeX
+    SCM report renderer + every sensitivity sub-block + the LaTeX
+    escape table.
+  - `tests/test_wooldridge_did_branches.py` (31 tests) — Bacon + dCDH
+    decomposition, repeated-CS / never-only / xvar dispatch branches,
+    every `etwfe` validation guard, all four `etwfe_emfx`
+    aggregations including `include_leads=True`.
+  - `tests/test_did_imputation_branches.py` (14 tests) — every
+    `ValueError` guard, the controls + horizon event-study path with
+    pre-trend chi-squared test, and the `_cluster_se_horizon`
+    `N_k == 0` short-circuit.
+  - `tests/test_paper_branches.py` (31 tests) — every YAML/TeX/MD
+    helper, all four `to_qmd` rendering branches (single vs.
+    multi-format, author / bibliography / csl), `to_docx` fallback
+    when `python-docx` is missing, `write()` extension dispatch, and
+    the `_render_dag_section` text + mermaid branches.
+- **`CausalResult.summary()` accepts both event-study column
+  conventions.** The shared `summary()` previously hard-coded
+  `(relative_time, att)` and crashed with `KeyError: 'relative_time'`
+  on `wooldridge_did` / `etwfe` results, which carry the
+  `(rel_time, estimate)` schema instead. The renderer now auto-detects
+  whichever pair is present and silently skips the event-study block
+  when neither is — every existing caller keeps its formatting and
+  the wooldridge family no longer crashes a user's `.summary()` call.
+  Regression-pinned by `test_wooldridge_did_summary_renders_event_study`.
+
 - **Stability tiers and per-function `limitations` (parity-grade vs.
   frontier-grade visibility).** Every `FunctionSpec` now carries a
   `stability` field (`"stable"` / `"experimental"` / `"deprecated"`,

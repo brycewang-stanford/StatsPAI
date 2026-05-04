@@ -1126,22 +1126,35 @@ class CausalResult:
         lines.append(f"  P-value:     {self.pvalue:.4f}")
         lines.append("")
 
-        # Event study coefficients
+        # Event study coefficients — accept either the (relative_time, att)
+        # convention emitted by did_imputation / callaway_santanna or the
+        # (rel_time, estimate) convention emitted by wooldridge_did /
+        # etwfe. Skip the block silently when neither pair is present so a
+        # bare-minimum result object still summarises cleanly.
         if 'event_study' in self.model_info:
             es = self.model_info['event_study']
-            lines.append("-" * 78)
-            lines.append("  Event Study Coefficients")
-            lines.append("-" * 78)
-            for _, row in es.iterrows():
-                e = int(row['relative_time'])
-                att = row['att']
-                se_v = row['se']
-                pv = row.get('pvalue', np.nan)
-                s = self._stars(pv)
-                lines.append(
-                    f"  e = {e:>3d}  |  {att:>10.4f}  ({se_v:.4f}) {s}"
-                )
-            lines.append("")
+            time_col = (
+                'relative_time' if 'relative_time' in es.columns
+                else ('rel_time' if 'rel_time' in es.columns else None)
+            )
+            est_col = (
+                'att' if 'att' in es.columns
+                else ('estimate' if 'estimate' in es.columns else None)
+            )
+            if time_col and est_col and 'se' in es.columns:
+                lines.append("-" * 78)
+                lines.append("  Event Study Coefficients")
+                lines.append("-" * 78)
+                for _, row in es.iterrows():
+                    e = int(row[time_col])
+                    att = row[est_col]
+                    se_v = row['se']
+                    pv = row.get('pvalue', np.nan)
+                    s = self._stars(pv)
+                    lines.append(
+                        f"  e = {e:>3d}  |  {att:>10.4f}  ({se_v:.4f}) {s}"
+                    )
+                lines.append("")
 
         # Detailed estimates
         if self.detail is not None and len(self.detail) > 0:
