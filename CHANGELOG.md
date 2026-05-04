@@ -4,6 +4,39 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Cold-start: lazy-load `statspai.forest` (Step 1B).** `import
+  statspai` previously chained
+  ``from .forest.causal_forest import CausalForest, causal_forest`` plus
+  three sibling eager imports for `forest_inference` /
+  `multi_arm_forest` / `iv_forest` at module load, transitively pulling
+  ~245 `sklearn.*` submodules into `sys.modules` (~270 ms cumulative on
+  cold cache) for every session — even ones that never touch
+  heterogeneous-effect forests. The four eager lines are removed; the
+  ten public leaves (`CausalForest`, `causal_forest`,
+  `calibration_test`, `test_calibration`, `rate`, `honest_variance`,
+  `multi_arm_forest`, `MultiArmForestResult`, `iv_forest`,
+  `IVForestResult`) now resolve via `_LAZY_ATTRS` keyed to dotted
+  submodule paths (e.g. `forest.causal_forest`) and fault in on first
+  `sp.<name>` access. `forest` does not collide with a top-level function
+  (no `sp.forest` callable export) so the standard lazy path is safe;
+  `sp.causal`'s callable shim and the `statspai.causal` deprecation
+  shim continue to work unchanged. Pinned by three new contracts in
+  `tests/test_late_bind_contracts.py` — `import statspai` must not
+  pre-load any `statspai.forest.*` submodule (subprocess-isolated to
+  avoid `sys.modules` pollution that would corrupt downstream
+  `isinstance` checks); each of the 10 forest leaves must resolve to a
+  callable on first access; and a downstream
+  `from statspai.forest.causal_forest import CausalForest` must not
+  re-shadow `sp.causal_forest` to the leaf module via Python's
+  post-import attribute binding. Other sklearn-eager paths
+  (`did/overlap_did`, `metalearners/*`, `policy_learning/*`,
+  `synth/cluster`, plus ~7 conflict-prone same-name modules pinned eager
+  for the late-bind contract) still pull `sklearn` on bare import; those
+  are tracked separately for Step 1C and do not block this lazy-forest
+  win.
+
 ## [1.13.0] — 2026-05-04
 
 ### Headline

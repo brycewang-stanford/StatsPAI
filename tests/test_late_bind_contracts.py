@@ -159,3 +159,130 @@ def test_no_conflict_function_morphs_to_module_after_lazy_traffic():
             f"Either restore the eager `from .{name} import {name}` import "
             f"or extend the __getattr__ defensive re-pin."
         )
+
+
+# ---------------------------------------------------------------------------
+# Forest cold-start budget (Step 1B).
+#
+# Previously, ``__init__.py`` eagerly imported ``forest.causal_forest``
+# / ``forest.iv_forest`` / ``forest.multi_arm_forest`` /
+# ``forest.forest_inference`` at module load, which transitively pulled
+# ~245 ``sklearn.*`` submodules into ``sys.modules`` for every
+# ``import statspai`` — even sessions that never touch heterogeneous-effect
+# forests.  ``forest`` does *not* collide with a top-level function (no
+# ``sp.forest`` callable export), so the 8 leaf names (CausalForest /
+# causal_forest / calibration_test / test_calibration / rate /
+# honest_variance / multi_arm_forest / MultiArmForestResult / iv_forest /
+# IVForestResult) live in ``_LAZY_ATTRS`` keyed to dotted submodule paths
+# (e.g. ``forest.causal_forest``) and resolve via ``__getattr__`` on first
+# touch.
+#
+# These contracts pin three things:
+#
+# 1. ``import statspai`` must NOT pre-load any ``statspai.forest.*``
+#    submodule — that's the cold-start regression contract.
+# 2. After touching a forest leaf, the public name must resolve to the
+#    callable (function/class), not the auto-bound submodule.
+# 3. A downstream ``from statspai.forest.causal_forest import CausalForest``
+#    must NOT silently re-shadow ``sp.causal_forest`` to the leaf module
+#    via Python's post-import attribute binding.
+# ---------------------------------------------------------------------------
+
+FOREST_LAZY_LEAVES = [
+    ("CausalForest",          "forest.causal_forest"),
+    ("causal_forest",         "forest.causal_forest"),
+    ("calibration_test",      "forest.forest_inference"),
+    ("test_calibration",      "forest.forest_inference"),
+    ("rate",                  "forest.forest_inference"),
+    ("honest_variance",       "forest.forest_inference"),
+    ("multi_arm_forest",      "forest.multi_arm_forest"),
+    ("MultiArmForestResult",  "forest.multi_arm_forest"),
+    ("iv_forest",             "forest.iv_forest"),
+    ("IVForestResult",        "forest.iv_forest"),
+]
+
+
+def test_forest_not_loaded_on_bare_import_statspai():
+    """``import statspai`` must not transitively import any forest leaf
+    submodule.  Regression: any future eager ``from .forest... import ...``
+    in ``__init__.py`` would re-inflate ``sys.modules`` by ~245
+    ``sklearn.*`` entries on every session.
+
+    Runs in a subprocess so the cold-state check doesn't perturb other
+    tests' ``sys.modules`` (which would change ``CausalResult`` class
+    identity and break ``isinstance`` assertions elsewhere)."""
+    import subprocess
+    import sys
+
+    code = (
+        "import sys\n"
+        "import statspai\n"
+        "leaked = sorted(m for m in sys.modules if m.startswith('statspai.forest'))\n"
+        "print('LEAKED=' + ','.join(leaked))\n"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    last_line = proc.stdout.strip().splitlines()[-1]
+    assert last_line.startswith("LEAKED="), proc.stdout
+    leaked_csv = last_line[len("LEAKED="):]
+    leaked = [m for m in leaked_csv.split(",") if m]
+    assert not leaked, (
+        f"`import statspai` eagerly loaded {leaked}.  Move the offending "
+        f"`from .forest... import ...` line out of __init__.py and rely on "
+        f"the lazy `_register_lazy('forest.X', ...)` table at the bottom."
+    )
+
+
+@pytest.mark.parametrize("name,expected_modpath", FOREST_LAZY_LEAVES)
+def test_forest_leaf_resolves_to_callable(name, expected_modpath):
+    """Each forest leaf, on first ``sp.<name>`` access, must resolve to
+    the function/class — not the auto-bound submodule object."""
+    obj = getattr(sp, name)
+    assert not isinstance(obj, types.ModuleType), (
+        f"sp.{name} resolved to a module instead of the expected "
+        f"callable from statspai.{expected_modpath}."
+    )
+    # CausalForest / MultiArmForestResult / IVForestResult are classes;
+    # everything else is a callable function.  ``callable(obj)`` is True
+    # for both, so this is enough.
+    assert callable(obj), (
+        f"sp.{name} should be the callable exported by "
+        f"statspai.{expected_modpath}."
+    )
+
+
+def test_forest_leaf_survives_submodule_fromimport_shadow():
+    """A downstream ``from statspai.forest.causal_forest import CausalForest``
+    must NOT re-shadow ``sp.causal_forest`` to the leaf submodule.
+
+    Python's import system attaches ``statspai.forest`` to ``statspai`` as
+    a side effect of the chained import.  ``__getattr__`` already resolved
+    ``sp.causal_forest`` to the function and cached it in ``globals()``,
+    so the parent-package binding for the function should win — but the
+    child binding for the *submodule* (``statspai.forest.causal_forest``)
+    is what the user is touching here, and we want to confirm the
+    function binding survives.
+    """
+    import importlib
+
+    # Pre-touch so the lazy resolution caches the function into sp.__dict__.
+    pre = sp.causal_forest
+    assert callable(pre)
+
+    # Trigger the shadow shape.
+    importlib.__import__(
+        "statspai.forest.causal_forest", fromlist=["CausalForest"]
+    )
+
+    post = sp.causal_forest
+    assert callable(post), (
+        "sp.causal_forest morphed into a module after a downstream "
+        "`from statspai.forest.causal_forest import CausalForest`.  The "
+        "function binding cached by __getattr__ should outlive the "
+        "submodule attach."
+    )
+    assert not isinstance(post, types.ModuleType)

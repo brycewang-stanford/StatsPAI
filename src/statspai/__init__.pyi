@@ -526,6 +526,7 @@ from .nonparametric.kdensity import KDensityResult as KDensityResult
 from .nonparametric.kdensity import kdensity as kdensity
 from .nonparametric.lpoly import LPolyResult as LPolyResult
 from .nonparametric.lpoly import lpoly as lpoly
+from .ope.estimators import OPEResult as OPEResult
 from .output._bibliography import citations_to_bib_entries as citations_to_bib_entries
 from .output._bibliography import csl_filename as csl_filename
 from .output._bibliography import csl_url as csl_url
@@ -590,7 +591,6 @@ from .plots.interactive import interactive as interactive
 from .plots.themes import list_themes as list_themes
 from .plots.themes import set_theme as set_theme
 from .plots.themes import use_chinese as use_chinese
-from .policy_learning.ope import OPEResult as OPEResult
 from .policy_learning.policy_tree import PolicyTree as PolicyTree
 from .policy_learning.policy_tree import policy_value as policy_value
 from .postestimation.hypothesis import lincom as lincom

@@ -51,12 +51,12 @@ from .regression.ols import regress
 # Importing the function at the top level would shadow the subpackage and
 # break ``sp.iv("y ~ (d ~ z)", data=df)``.
 from .regression.iv import ivreg, IVRegression
-from .forest.causal_forest import CausalForest, causal_forest
-from .forest.forest_inference import (
-    calibration_test, test_calibration, rate, honest_variance,
-)
-from .forest.multi_arm_forest import multi_arm_forest, MultiArmForestResult
-from .forest.iv_forest import iv_forest, IVForestResult
+# (lazy) forest: see _LAZY_SUBMODULES / _LAZY_ATTRS below.  Eagerly
+# importing ``forest.causal_forest`` etc. pulled ~245 sklearn submodules
+# into every ``import statspai`` (~270 ms cumulative on cold cache),
+# even for sessions that never touch heterogeneous-effect forests.  The
+# ``forest`` name does *not* collide with a top-level function (no
+# ``sp.forest`` callable export), so the standard lazy path is safe.
 from .did import (
     did, did_2x2, overlap_weighted_did, dl_propensity_score,
     ddd, callaway_santanna, sun_abraham,
@@ -1426,6 +1426,7 @@ _LAZY_SUBMODULES: dict = {
     "bounds":            "bounds",
     "dtr":               "dtr",
     "spatial":           "spatial",
+    "forest":            "forest",
     "conformal_causal":  "conformal_causal",
     "ope":               "ope",
     "censoring":         "censoring",
@@ -1527,6 +1528,20 @@ _register_lazy("spatial",
     "moran_plot", "lisa_cluster_map",
     "lm_tests", "moran_residuals", "impacts",
     "spatial_did", "SpatialDiDResult", "spatial_iv", "SpatialIVResult",
+)
+_register_lazy("forest.causal_forest",
+    "CausalForest", "causal_forest",
+)
+_register_lazy("forest.forest_inference",
+    "calibration_test",
+    ("test_calibration", "calibration_test"),
+    "rate", "honest_variance",
+)
+_register_lazy("forest.multi_arm_forest",
+    "multi_arm_forest", "MultiArmForestResult",
+)
+_register_lazy("forest.iv_forest",
+    "iv_forest", "IVForestResult",
 )
 _register_lazy("conformal_causal",
     "conformal_cate", "ConformalCATE",
