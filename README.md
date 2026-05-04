@@ -10,7 +10,7 @@
 [![status](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332/status.svg)](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19933900.svg)](https://doi.org/10.5281/zenodo.19933900)
 
-StatsPAI is the **agent-native** Python package for causal inference and applied econometrics. One `import`, **800+ functions**, covering the complete empirical research workflow — from classical econometrics to cutting-edge ML/AI causal methods to publication-ready tables in Word, Excel, and LaTeX.
+StatsPAI is the **agent-native** Python package for causal inference and applied econometrics. One `import`, **950+ registered functions** across **80+ submodules** (live count: `python scripts/registry_stats.py`), covering the complete empirical research workflow — from classical econometrics to cutting-edge ML/AI causal methods to publication-ready tables in Word, Excel, and LaTeX.
 
 **Designed for AI agents**: every function returns structured result objects with self-describing schemas (`list_functions()`, `describe_function()`, `function_schema()`), making StatsPAI the first econometrics toolkit purpose-built for LLM-driven research workflows — while remaining fully ergonomic for human researchers.
 
@@ -92,7 +92,7 @@ Beyond the point estimate, every `.summary()` above prints inference scaffolding
 - **RD** — Conventional (0.073) and Robust bias-corrected (0.062) estimators print side-by-side with effective-sample counts (440 left / 443 right) at the mserd bandwidth.
 - **Synth** — full 12-period treated-vs-counterfactual gap table; `ridge_lambda ≈ 112.9` flags that the ASCM (Ben-Michael, Feller & Rothstein 2021) branch is active. Pass `method='adh'` to fall back to classical Abadie–Diamond–Hainmueller (ATT ≈ -13.1 on the same panel).
 
-Every result object exposes the same interface — `.summary()` / `.tidy()` / `.plot()` / `.to_latex()` / `.to_docx()` / `.to_agent_summary()` — across all 800+ estimators. For deeper walkthroughs (staggered DiD, weak-IV diagnostics, RD bandwidth choice, 20 synth methods, DML, matching, spatial, ...) see [`docs/guides/`](docs/guides/).
+Every result object exposes the same interface — `.summary()` / `.tidy()` / `.plot()` / `.to_latex()` / `.to_docx()` / `.to_agent_summary()` — across every registered estimator. For deeper walkthroughs (staggered DiD, weak-IV diagnostics, RD bandwidth choice, 20 synth methods, DML, matching, spatial, ...) see [`docs/guides/`](docs/guides/).
 
 ---
 
@@ -120,7 +120,7 @@ StatsPAI's focus is **causal inference** — and on this axis we aim to be the m
 
 **Legend**: 🏆 most complete across ecosystems · ✅ full coverage · ⚠️ partial / scattered / single algorithm · ❌ not available.
 
-**StatsPAI at a glance**: 889 registered functions · 78 modules · 188,244 LOC (core) + 42,768 LOC (tests). For the full coverage matrix (23 method families), per-module breakdown, and cross-ecosystem line-count comparison — see [`docs/stats.md`](docs/stats.md).
+**StatsPAI at a glance**: 950+ registered functions in the live agent registry · 80+ submodules · ~230k LOC (core) + ~70k LOC (tests). All four numbers are reproducible from the canonical generator (`python scripts/registry_stats.py`); the per-module table in [`docs/stats.md`](docs/stats.md) is regenerated from the same script. For the full coverage matrix (23 method families) and cross-ecosystem line-count comparison, see [`docs/stats.md`](docs/stats.md).
 
 ---
 

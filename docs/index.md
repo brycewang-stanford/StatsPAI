@@ -1,8 +1,10 @@
 # StatsPAI
 
 **The agent-native Python toolkit for causal inference and applied
-econometrics.** One `import statspai as sp` exposes **800+ functions**
-spanning classical regression, staggered DiD, regression discontinuity,
+econometrics.** One `import statspai as sp` exposes **950+ registered
+functions** across 80+ submodules (live count: `python
+scripts/registry_stats.py`) spanning classical regression, staggered
+DiD, regression discontinuity,
 synthetic control, decomposition, stochastic frontier, multilevel /
 mixed-effects, modern ML causal inference, the full three-school
 (Econometrics / Epidemiology / ML) toolkit, 2025-2026 research-frontier
