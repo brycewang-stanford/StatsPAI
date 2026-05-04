@@ -256,9 +256,12 @@ def test_assumption_audit_records_underlying_failure(monkeypatch):
     for name in ("reset_test", "het_test", "vif", "oster_bounds"):
         monkeypatch.setattr(sp, name, _boom, raising=False)
 
+    # Pass data= explicitly so each test reaches the monkeypatched
+    # backend rather than failing earlier on the new
+    # "data + dependent_var + regressors required" precondition.
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        audit = sp.assumption_audit(res, verbose=False)
+        audit = sp.assumption_audit(res, data=df, verbose=False)
 
     degraded = [
         w for w in caught
@@ -346,6 +349,49 @@ def test_sensitivity_dashboard_records_dimension_failure(monkeypatch):
     assert dash is not None
     dim_names = [d.get("dimension", "") for d in dash.dimensions]
     assert not any("Oster" in n for n in dim_names)
+
+
+def test_assumption_audit_runs_all_four_linear_checks_on_real_ols():
+    """Regression test for the signature bugs surfaced by Phase A:
+    sp.vif() and sp.oster_bounds() were previously called with a fitted
+    result instead of (data, x_names) / (data, y, treat, controls), so
+    every real OLS audit silently lost the multicollinearity and
+    unobservables checks.  Phase B aligned the signatures — this test
+    pins the fix by asserting all four backing tests now produce a
+    real pass/fail (passed != None) on a clean DGP, with zero
+    WorkflowDegradedWarning fires."""
+    import statspai as sp
+
+    df = _make_observational_df()
+    res = sp.regress("wage ~ trained + edu + experience", data=df)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        audit = sp.assumption_audit(res, data=df, verbose=False)
+
+    expected = {
+        "Linearity",
+        "Homoskedasticity",
+        "No multicollinearity",
+        "Robustness to unobservables",
+    }
+    by_name = {c.assumption: c for c in audit.checks}
+    for name in expected:
+        c = by_name.get(name)
+        assert c is not None, f"missing AssumptionCheck for {name!r}"
+        assert c.passed is not None, (
+            f"{name}: passed=None means the backing test crashed silently"
+        )
+
+    degraded = [
+        w for w in caught
+        if issubclass(w.category, WorkflowDegradedWarning)
+        and "_audit_linear" in str(w.message)
+    ]
+    assert not degraded, (
+        f"Expected no degradation warnings on a clean OLS audit, got: "
+        + "; ".join(str(w.message) for w in degraded)
+    )
 
 
 def test_verify_recommendation_records_per_method_failure(monkeypatch):

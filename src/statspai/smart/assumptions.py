@@ -297,9 +297,30 @@ def _audit_linear(result, data, alpha):
     checks = []
     import statspai as sp
 
+    # Shared regressor / outcome extraction for tests that need
+    # raw column references (sp.reset_test / sp.het_test / sp.vif /
+    # sp.oster_bounds all take (data, y, x) — not a fitted result).
+    _di = getattr(result, 'data_info', {}) or {}
+    _y_col = _di.get('dependent_var') or _di.get('y')
+    _regressors = [
+        str(name) for name in getattr(result, 'params', {}).index
+        if str(name).lower() not in ('intercept', 'const', '(intercept)')
+    ] if hasattr(result, 'params') else []
+
     # 1. Linearity (RESET test)
     try:
-        reset = sp.reset_test(result)
+        if data is None or not _y_col or not _regressors:
+            raise ValueError(
+                "RESET test needs data + dependent_var + regressors; "
+                "supply data= when calling assumption_audit()."
+            )
+        if _y_col not in data.columns or any(
+                r not in data.columns for r in _regressors):
+            raise ValueError(
+                "RESET cannot run on formula-transformed columns "
+                "(supply raw column names)."
+            )
+        reset = sp.reset_test(data, _y_col, _regressors)
         p = reset.get('p_value', reset.get('pvalue', None))
         checks.append(AssumptionCheck(
             assumption='Linearity',
@@ -325,7 +346,16 @@ def _audit_linear(result, data, alpha):
 
     # 2. Homoskedasticity
     try:
-        het = sp.het_test(result)
+        if data is None or not _y_col or not _regressors:
+            raise ValueError(
+                "Breusch-Pagan needs data + dependent_var + regressors."
+            )
+        if _y_col not in data.columns or any(
+                r not in data.columns for r in _regressors):
+            raise ValueError(
+                "Breusch-Pagan cannot run on formula-transformed columns."
+            )
+        het = sp.het_test(data, _y_col, _regressors)
         p = het.get('p_value', het.get('pvalue', None))
         checks.append(AssumptionCheck(
             assumption='Homoskedasticity',
@@ -347,10 +377,23 @@ def _audit_linear(result, data, alpha):
             f'Could not run ({type(exc).__name__}: {exc})',
             'Use robust SE: sp.regress(..., robust="hc1") or cluster SE'))
 
-    # 3. No multicollinearity
+    # 3. No multicollinearity — sp.vif takes (data, x_names), not a
+    # fitted result.  Use the shared regressor list extracted above.
     try:
-        vif_result = sp.vif(result)
-        max_vif = max(vif_result.values()) if isinstance(vif_result, dict) else 1
+        if data is None or not _regressors:
+            raise ValueError(
+                "VIF needs data + regressor columns; pass data= when "
+                "calling assumption_audit()."
+            )
+        missing = [r for r in _regressors if r not in data.columns]
+        if missing:
+            raise ValueError(
+                f"Regressors {missing!r} are not raw columns in the "
+                "supplied DataFrame (likely formula transformations); "
+                "VIF cannot be computed without the underlying columns."
+            )
+        vif_df = sp.vif(data, _regressors)
+        max_vif = float(vif_df['VIF'].max()) if 'VIF' in vif_df.columns else 1.0
         checks.append(AssumptionCheck(
             assumption='No multicollinearity',
             test_name='VIF < 10',
@@ -385,18 +428,43 @@ def _audit_linear(result, data, alpha):
             remedy='Reduce number of regressors or increase sample size',
         ))
 
-    # 5. Sensitivity to unobservables (Oster bounds)
+    # 5. Sensitivity to unobservables (Oster bounds) — sp.oster_bounds
+    # takes (data, y, treat, controls), not a fitted result.  Default
+    # the "treatment" to the first non-intercept regressor (Stata
+    # `oster` convention: variable of interest is named first).  Users
+    # with a different regressor of interest should call
+    # sp.oster_bounds directly with explicit args.
     try:
-        oster = sp.oster_bounds(result)
+        if data is None or not _y_col or not _regressors:
+            raise ValueError(
+                "Oster bounds need data + dependent_var + regressors; "
+                "supply data= and ensure result exposes data_info."
+            )
+        if _y_col not in data.columns:
+            raise ValueError(
+                f"Outcome {_y_col!r} not in supplied DataFrame columns."
+            )
+        missing = [r for r in _regressors if r not in data.columns]
+        if missing:
+            raise ValueError(
+                f"Regressors {missing!r} not raw columns in DataFrame "
+                "(likely formula transformations); Oster cannot run."
+            )
+        treat = _regressors[0]  # heuristic: first non-intercept term
+        controls = _regressors[1:]
+        oster = sp.oster_bounds(
+            data=data, y=_y_col, treat=treat, controls=controls or None,
+        )
         delta = oster.get('delta', oster.get('oster_delta', None))
         if delta is not None:
+            detail = f'Oster δ = {delta:.2f} (>1 means robust); treat={treat!r}'
             checks.append(AssumptionCheck(
                 assumption='Robustness to unobservables',
                 test_name='Oster delta > 1',
                 passed=abs(delta) > 1 if np.isfinite(delta) else None,
                 statistic=delta,
                 p_value=None,
-                detail=f'Oster δ = {delta:.2f} (>1 means robust)',
+                detail=detail,
                 remedy='Consider IV estimation or sensitivity analysis (sp.sensemakr)',
             ))
     except Exception as exc:
