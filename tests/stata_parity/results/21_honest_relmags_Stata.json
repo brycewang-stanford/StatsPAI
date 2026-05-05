@@ -1,0 +1,130 @@
+{
+  "module": "21_honest_relmags",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "21_honest_relmags",
+      "side": "Stata",
+      "statistic": "ci_lower_Mbar_0",
+      "estimate": 0.30580580580580569,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "21_honest_relmags",
+      "side": "Stata",
+      "statistic": "ci_upper_Mbar_0",
+      "estimate": 0.69419419419419404,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "21_honest_relmags",
+      "side": "Stata",
+      "statistic": "ci_lower_Mbar_0.5",
+      "estimate": 0.28821321321321308,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "21_honest_relmags",
+      "side": "Stata",
+      "statistic": "ci_upper_Mbar_0.5",
+      "estimate": 0.71178678678678642,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "21_honest_relmags",
+      "side": "Stata",
+      "statistic": "ci_lower_Mbar_1",
+      "estimate": 0.25412412412412427,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "21_honest_relmags",
+      "side": "Stata",
+      "statistic": "ci_upper_Mbar_1",
+      "estimate": 0.74587587587587612,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "21_honest_relmags",
+      "side": "Stata",
+      "statistic": "ci_lower_Mbar_1.5",
+      "estimate": 0.2113663663663663,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "21_honest_relmags",
+      "side": "Stata",
+      "statistic": "ci_upper_Mbar_1.5",
+      "estimate": 0.78863363363363348,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "21_honest_relmags",
+      "side": "Stata",
+      "statistic": "ci_lower_Mbar_2",
+      "estimate": 0.15151151151151129,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "21_honest_relmags",
+      "side": "Stata",
+      "statistic": "ci_upper_Mbar_2",
+      "estimate": 0.84848848848848846,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "relative_magnitudes",
+    "alpha": "0.05",
+    "stata_command": "honestdid, b(b) vcov(V) numpre(3) mvec(...) delta(rm)"
+  }
+}

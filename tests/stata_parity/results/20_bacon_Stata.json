@@ -1,0 +1,45 @@
+{
+  "module": "20_bacon",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "20_bacon",
+      "side": "Stata",
+      "statistic": "beta_twfe",
+      "estimate": -0.037505076949794901,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "20_bacon",
+      "side": "Stata",
+      "statistic": "weighted_sum",
+      "estimate": -0.037505076949794901,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "20_bacon",
+      "side": "Stata",
+      "statistic": "negative_weight_share",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "n_comparisons": "7",
+    "stata_command": "bacondecomp lemp treat, ddetail"
+  }
+}

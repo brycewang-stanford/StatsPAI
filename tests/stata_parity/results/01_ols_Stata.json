@@ -1,0 +1,94 @@
+{
+  "module": "01_ols",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "01_ols",
+      "side": "Stata",
+      "statistic": "beta_educ",
+      "estimate": 0.1099862491271017,
+      "se": 0.0041419449194189002,
+      "ci_lo": 0.101868186259092,
+      "ci_hi": 0.1181043119951114,
+      "n": 3010,
+      "extra": {}
+    }
+,
+    {
+      "module": "01_ols",
+      "side": "Stata",
+      "statistic": "beta_exper",
+      "estimate": 0.028260559106940499,
+      "se": 0.0053582387158782998,
+      "ci_lo": 0.0177586042032509,
+      "ci_hi": 0.038762514010630099,
+      "n": 3010,
+      "extra": {}
+    }
+,
+    {
+      "module": "01_ols",
+      "side": "Stata",
+      "statistic": "beta_expersq",
+      "estimate": -0.00052894432842989997,
+      "se": 0.0002389941530824,
+      "ci_lo": -0.00099736426098709992,
+      "ci_hi": -0.000060524395872700003,
+      "n": 3010,
+      "extra": {}
+    }
+,
+    {
+      "module": "01_ols",
+      "side": "Stata",
+      "statistic": "beta_black",
+      "estimate": -0.15607783439139791,
+      "se": 0.0230984532958383,
+      "ci_lo": -0.20134997094982149,
+      "ci_hi": -0.1108056978329743,
+      "n": 3010,
+      "extra": {}
+    }
+,
+    {
+      "module": "01_ols",
+      "side": "Stata",
+      "statistic": "beta_south",
+      "estimate": -0.055380539270931103,
+      "se": 0.019339167968175201,
+      "ci_lo": -0.093284611979525103,
+      "ci_hi": -0.0174764665623371,
+      "n": 3010,
+      "extra": {}
+    }
+,
+    {
+      "module": "01_ols",
+      "side": "Stata",
+      "statistic": "beta_smsa",
+      "estimate": 0.090461055758655207,
+      "se": 0.020459961268329399,
+      "ci_lo": 0.050360268547645103,
+      "ci_hi": 0.1305618429696653,
+      "n": 3010,
+      "extra": {}
+    }
+,
+    {
+      "module": "01_ols",
+      "side": "Stata",
+      "statistic": "beta_(Intercept)",
+      "estimate": 4.838755565973635,
+      "se": 0.063656861454064406,
+      "ci_lo": 4.7139904101548131,
+      "ci_hi": 4.9635207217924568,
+      "n": 3010,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "formula": "lwage ~ educ + exper + expersq + black + south + smsa",
+    "vcov": "HC1",
+    "stata_command": "regress, vce(robust)"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "module": "16_bjs",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "16_bjs",
+      "side": "Stata",
+      "statistic": "att_bjs",
+      "estimate": -0.042001989178341602,
+      "se": 0.0086947375539292993,
+      "ci_lo": -0.059043361639070903,
+      "ci_hi": -0.024960616717612301,
+      "n": 1500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "did_imputation",
+    "stata_command": "did_imputation lemp countyreal year first_treat"
+  }
+}

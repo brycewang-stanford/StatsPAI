@@ -1,0 +1,34 @@
+{
+  "module": "03_hdfe",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "03_hdfe",
+      "side": "Stata",
+      "statistic": "beta_x1",
+      "estimate": 1.9995039795655261,
+      "se": 0.0050787592907458002,
+      "ci_lo": 1.9895497942695159,
+      "ci_hi": 2.0094581648615359,
+      "n": 10000,
+      "extra": {}
+    }
+,
+    {
+      "module": "03_hdfe",
+      "side": "Stata",
+      "statistic": "beta_x2",
+      "estimate": -1.499980487059356,
+      "se": 0.0050698528599386998,
+      "ci_lo": -1.5099172160717531,
+      "ci_hi": -1.490043758046959,
+      "n": 10000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "formula": "y ~ x1 + x2 | firm + year",
+    "vcov": "iid",
+    "stata_command": "reghdfe, absorb(firm year) vce(unadjusted)"
+  }
+}

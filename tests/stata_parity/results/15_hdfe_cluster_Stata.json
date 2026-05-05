@@ -1,0 +1,35 @@
+{
+  "module": "15_hdfe_cluster",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "15_hdfe_cluster",
+      "side": "Stata",
+      "statistic": "beta_x1",
+      "estimate": 1.9995039795655261,
+      "se": 0.0053525443427234996,
+      "ci_lo": 1.9890131854281341,
+      "ci_hi": 2.009994773702918,
+      "n": 10000,
+      "extra": {}
+    }
+,
+    {
+      "module": "15_hdfe_cluster",
+      "side": "Stata",
+      "statistic": "beta_x2",
+      "estimate": -1.499980487059356,
+      "se": 0.0050748585178909001,
+      "ci_lo": -1.509927026981059,
+      "ci_hi": -1.490033947137654,
+      "n": 10000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "formula": "y ~ x1 + x2 | firm + year",
+    "vcov": "cluster",
+    "cluster_var": "firm",
+    "stata_command": "reghdfe y x1 x2, absorb(firm year) vce(cluster firm)"
+  }
+}

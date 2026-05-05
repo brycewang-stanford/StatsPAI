@@ -1,0 +1,22 @@
+{
+  "module": "12_sdid",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "12_sdid",
+      "side": "Stata",
+      "statistic": "att_sdid",
+      "estimate": -15.94839,
+      "se": 2.608803,
+      "ci_lo": -21.061549922760051,
+      "ci_hi": -10.835230077239951,
+      "n": 1209,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "synthdid_estimate",
+    "se_method": "placebo",
+    "stata_command": "sdid cigsale state year treated, vce(placebo)"
+  }
+}

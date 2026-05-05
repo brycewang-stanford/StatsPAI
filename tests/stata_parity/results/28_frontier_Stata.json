@@ -1,0 +1,95 @@
+{
+  "module": "28_frontier",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "28_frontier",
+      "side": "Stata",
+      "statistic": "beta_intercept",
+      "estimate": 2.071558167932575,
+      "se": 0.041392743881196903,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    }
+,
+    {
+      "module": "28_frontier",
+      "side": "Stata",
+      "statistic": "beta_lnk",
+      "estimate": 0.59141229042085719,
+      "se": 0.019471797070101601,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    }
+,
+    {
+      "module": "28_frontier",
+      "side": "Stata",
+      "statistic": "beta_lnl",
+      "estimate": 0.39054012554416989,
+      "se": 0.018609762534553199,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    }
+,
+    {
+      "module": "28_frontier",
+      "side": "Stata",
+      "statistic": "sigma_u",
+      "estimate": 0.5955223765846932,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    }
+,
+    {
+      "module": "28_frontier",
+      "side": "Stata",
+      "statistic": "sigma_v",
+      "estimate": 0.26720279964658661,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    }
+,
+    {
+      "module": "28_frontier",
+      "side": "Stata",
+      "statistic": "lambda",
+      "estimate": 2.2287280573869568,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    }
+,
+    {
+      "module": "28_frontier",
+      "side": "Stata",
+      "statistic": "mean_efficiency",
+      "estimate": 0.65784838355226716,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "distribution": "half-normal",
+    "S": "1",
+    "package": "Stata frontier (built-in)",
+    "stata_command": "frontier lny lnk lnl, distribution(hnormal)"
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "module": "22_sensemakr",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "22_sensemakr",
+      "side": "Stata",
+      "statistic": "beta_treat",
+      "estimate": 2313.0105305301681,
+      "se": 587.0203720742287,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    }
+,
+    {
+      "module": "22_sensemakr",
+      "side": "Stata",
+      "statistic": "t_treat",
+      "estimate": 3.9402559784376412,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    }
+,
+    {
+      "module": "22_sensemakr",
+      "side": "Stata",
+      "statistic": "partial_r2_yd",
+      "estimate": 0.0057898448093016003,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    }
+,
+    {
+      "module": "22_sensemakr",
+      "side": "Stata",
+      "statistic": "rv_q",
+      "estimate": 0.073456018337703793,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    }
+,
+    {
+      "module": "22_sensemakr",
+      "side": "Stata",
+      "statistic": "rv_q_alpha",
+      "estimate": 0.037601108506606001,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    }
+,
+    {
+      "module": "22_sensemakr",
+      "side": "Stata",
+      "statistic": "benchmark_re74_partial_r2_Y",
+      "estimate": 0.093247738566577004,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    }
+,
+    {
+      "module": "22_sensemakr",
+      "side": "Stata",
+      "statistic": "benchmark_re74_partial_r2_D",
+      "estimate": 0.32335713139404842,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "benchmark": "re74",
+    "alpha": "0.05",
+    "q": "1",
+    "stata_command": "regress ... ; sensemakr, treat(treat) benchmark(re74) q(1) alpha(0.05)"
+  }
+}

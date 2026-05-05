@@ -1,0 +1,58 @@
+{
+  "module": "25_lmm",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "25_lmm",
+      "side": "Stata",
+      "statistic": "beta_intercept",
+      "estimate": 1.896255579151422,
+      "se": 0.116023604147878,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "25_lmm",
+      "side": "Stata",
+      "statistic": "beta_x1",
+      "estimate": 1.484340474355466,
+      "se": 0.016649415710283499,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "25_lmm",
+      "side": "Stata",
+      "statistic": "logLik",
+      "estimate": -844.35903640286756,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "25_lmm",
+      "side": "Stata",
+      "statistic": "icc",
+      "estimate": 0.71876898271559186,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "REML",
+    "n_groups": 50,
+    "stata_command": "mixed y x1 || gid:, reml"
+  }
+}

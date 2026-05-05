@@ -1,0 +1,69 @@
+{
+  "module": "30_oaxaca",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "30_oaxaca",
+      "side": "Stata",
+      "statistic": "gap",
+      "estimate": 0.2212310260348431,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "30_oaxaca",
+      "side": "Stata",
+      "statistic": "explained",
+      "estimate": 0.041071522057750401,
+      "se": 0.015364083567325999,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "30_oaxaca",
+      "side": "Stata",
+      "statistic": "unexplained",
+      "estimate": 0.1826492066324161,
+      "se": 0.0199031837418173,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "30_oaxaca",
+      "side": "Stata",
+      "statistic": "mean_y_a",
+      "estimate": 3.246520813274024,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "30_oaxaca",
+      "side": "Stata",
+      "statistic": "mean_y_b",
+      "estimate": 3.0252897872391809,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "decomposition": "threefold",
+    "stata_command": "oaxaca log_wage educ exper, by(female)"
+  }
+}

@@ -1,0 +1,4 @@
+*.log
+*.smcl
+logs/
+__pycache__/

@@ -1,0 +1,48 @@
+{
+  "module": "11_psm",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "11_psm",
+      "side": "Stata",
+      "statistic": "att_psm",
+      "estimate": 2277.6907208768521,
+      "se": 621.79324512017217,
+      "ci_lo": 1058.9983546110291,
+      "ci_hi": 3496.3830871426749,
+      "n": 2675,
+      "extra": {}
+    }
+,
+    {
+      "module": "11_psm",
+      "side": "Stata",
+      "statistic": "n_treated",
+      "estimate": 185,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    }
+,
+    {
+      "module": "11_psm",
+      "side": "Stata",
+      "statistic": "n_control",
+      "estimate": 2490,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "distance": "logit",
+    "method": "nearest",
+    "replace": "TRUE",
+    "ratio": "1",
+    "stata_command": "teffects psmatch (re78) (treat ..., logit), atet nneighbor(1)"
+  }
+}

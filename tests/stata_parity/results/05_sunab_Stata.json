@@ -1,0 +1,105 @@
+{
+  "module": "05_sunab",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "05_sunab",
+      "side": "Stata",
+      "statistic": "weighted_avg_ATT",
+      "estimate": -0.033782519054831199,
+      "se": 0.0059386015450693004,
+      "ci_lo": -0.045421964201700901,
+      "ci_hi": -0.0221430739079615,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "05_sunab",
+      "side": "Stata",
+      "statistic": "att_rel_-4",
+      "estimate": -0.0049030822597446004,
+      "se": 0.0145980032264685,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "05_sunab",
+      "side": "Stata",
+      "statistic": "att_rel_-3",
+      "estimate": 0.0098834548851385005,
+      "se": 0.0109129338495055,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "05_sunab",
+      "side": "Stata",
+      "statistic": "att_rel_-2",
+      "estimate": 0.0075553737765176,
+      "se": 0.0087497722285553008,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "05_sunab",
+      "side": "Stata",
+      "statistic": "att_rel_0",
+      "estimate": -0.0338371899158968,
+      "se": 0.0074896789731925999,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "05_sunab",
+      "side": "Stata",
+      "statistic": "att_rel_1",
+      "estimate": -0.0280311406164605,
+      "se": 0.0089289433792960997,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "05_sunab",
+      "side": "Stata",
+      "statistic": "att_rel_2",
+      "estimate": -0.0455279063598596,
+      "se": 0.0148429550760198,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "05_sunab",
+      "side": "Stata",
+      "statistic": "att_rel_3",
+      "estimate": -0.027733839327107799,
+      "se": 0.014426960060834101,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "cluster": "countyreal",
+    "stata_command": "eventstudyinteract Y rel_dummies, cohort(first_treat) control_cohort(nevertreat) absorb(i.countyreal i.year) vce(cluster countyreal)"
+  }
+}

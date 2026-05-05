@@ -1,0 +1,33 @@
+{
+  "module": "07_scm",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "avg_post_gap",
+      "estimate": -0.70395053571428612,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "pre_rmse",
+      "estimate": 0.079210063975482498,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "predictors": "gdppc(1955)..gdppc(1969) outcomes-only",
+    "stata_command": "synth gdppc gdppc(1955..1969), trunit(.) trperiod(1970) nested"
+  }
+}

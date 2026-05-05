@@ -1,0 +1,81 @@
+{
+  "module": "09_rddensity",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "09_rddensity",
+      "side": "Stata",
+      "statistic": "density_diff",
+      "estimate": 0.043478446820586901,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6558,
+      "extra": {}
+    }
+,
+    {
+      "module": "09_rddensity",
+      "side": "Stata",
+      "statistic": "density_left",
+      "estimate": 1.7010417652803651,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6558,
+      "extra": {}
+    }
+,
+    {
+      "module": "09_rddensity",
+      "side": "Stata",
+      "statistic": "density_right",
+      "estimate": 1.744520212100952,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6558,
+      "extra": {}
+    }
+,
+    {
+      "module": "09_rddensity",
+      "side": "Stata",
+      "statistic": "test_pvalue",
+      "estimate": 0.85710438014171819,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6558,
+      "extra": {}
+    }
+,
+    {
+      "module": "09_rddensity",
+      "side": "Stata",
+      "statistic": "bandwidth_left",
+      "estimate": 0.1267004357419608,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6558,
+      "extra": {}
+    }
+,
+    {
+      "module": "09_rddensity",
+      "side": "Stata",
+      "statistic": "bandwidth_right",
+      "estimate": 0.119543024171245,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6558,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "test_kind": "Cattaneo-Jansson-Ma (2020)",
+    "stata_command": "rddensity margin, c(0)"
+  }
+}

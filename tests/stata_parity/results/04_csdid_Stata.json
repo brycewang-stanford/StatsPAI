@@ -1,0 +1,22 @@
+{
+  "module": "04_csdid",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "simple_ATT",
+      "estimate": -0.032976513809653697,
+      "se": 0.0077645425356626004,
+      "ci_lo": -0.048194737535981698,
+      "ci_hi": -0.0177582900833257,
+      "n": 2500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "estimator": "reg",
+    "control_group": "nevertreated",
+    "stata_command": "csdid, ivar(countyreal) time(year) gvar(first_treat) method(reg) | estat simple"
+  }
+}
