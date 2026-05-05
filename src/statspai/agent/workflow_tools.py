@@ -128,6 +128,11 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
                                      '(Rambachan-Roth default); '
                                      'RM = relative magnitude.'),
                 },
+                'e': {
+                    'type': 'integer',
+                    'default': 0,
+                    'description': "Relative event time to audit.",
+                },
                 'm_bar': {
                     'type': 'number',
                     'description': "Bound on deviation magnitude (optional).",
@@ -567,55 +572,111 @@ def _tool_honest_did_from_result(rid: Optional[str],
     if isinstance(obj, dict) and 'error' in obj:
         return obj
 
-    betas, sigma, n_pre, n_post = _extract_event_study(obj)
-    if betas is None or sigma is None:
-        return {
-            'error': ("could not extract event-study coefficients + "
-                      "covariance from the cached result"),
-            'hint': ("honest_did_from_result expects a result fitted by "
-                     "sp.event_study / sp.callaway_santanna / "
-                     "sp.did_imputation / sp.sun_abraham. Run one of "
-                     "those with as_handle=true first."),
-        }
-
-    method = arguments.get('method', 'SD')
-    m_bar = arguments.get('m_bar')
-
     import statspai as sp
     fn = getattr(sp, 'honest_did', None)
     if fn is None:
         return {'error': "sp.honest_did is not available in this build"}
-    kwargs = dict(betas=list(betas), sigma=_listify_sigma(sigma),
-                   num_pre_periods=int(n_pre),
-                   num_post_periods=int(n_post),
-                   method=method)
-    if m_bar is not None:
-        kwargs['m_bar'] = float(m_bar)
-    try:
-        result = fn(**kwargs)
-    except Exception as e:
-        from .remediation import remediate
-        return {
-            'error': f"{type(e).__name__}: {e}",
-            'remediation': remediate(e, context={'tool': 'honest_did_from_result'}),
-        }
+    method_arg = str(arguments.get('method', 'SD'))
+    method_key = method_arg.lower()
+    method = {
+        'sd': 'smoothness',
+        'rm': 'relative_magnitude',
+        'smoothness': 'smoothness',
+        'relative_magnitude': 'relative_magnitude',
+    }.get(method_key, method_arg)
+    legacy_method = {
+        'sd': 'SD',
+        'smoothness': 'SD',
+        'rm': 'RM',
+        'relative_magnitude': 'RM',
+    }.get(method_key, method_arg)
+    event_time = int(arguments.get('e', 0))
+    m_bar = arguments.get('m_bar')
+    m_grid = [float(m_bar)] if m_bar is not None else None
 
-    from .tools import _default_serializer
-    out = _default_serializer(result, detail=detail)
+    event_result = _coerce_event_study_result(obj)
+    current_api_failed: Optional[Exception] = None
+    try:
+        kwargs = {'e': event_time, 'method': method}
+        if m_grid is not None:
+            kwargs['m_grid'] = m_grid
+        result = fn(event_result, **kwargs)
+    except Exception as exc:
+        current_api_failed = exc
+
+    if current_api_failed is not None:
+        betas, sigma, n_pre, n_post = _extract_event_study(obj)
+        if betas is None or sigma is None:
+            return {
+                'error': ("could not extract event-study coefficients + "
+                          "covariance from the cached result"),
+                'hint': ("honest_did_from_result expects a result fitted by "
+                         "sp.event_study / sp.callaway_santanna / "
+                         "sp.did_imputation / sp.sun_abraham. Run one of "
+                         "those with as_handle=true first."),
+                'upstream_error': (
+                    f"{type(current_api_failed).__name__}: {current_api_failed}"
+                ),
+            }
+        kwargs = dict(betas=list(betas), sigma=_listify_sigma(sigma),
+                      num_pre_periods=int(n_pre),
+                      num_post_periods=int(n_post),
+                      method=legacy_method)
+        if m_bar is not None:
+            kwargs['m_bar'] = float(m_bar)
+        try:
+            result = fn(**kwargs)
+        except Exception as e:
+            from .remediation import remediate
+            return {
+                'error': f"{type(e).__name__}: {e}",
+                'remediation': remediate(e, context={'tool': 'honest_did_from_result'}),
+            }
+
+    if isinstance(result, pd.DataFrame):
+        out = {
+            'method': 'Rambachan-Roth (2023) honest DiD',
+            'restriction': method,
+            'event_time': event_time,
+            'rows': result.to_dict(orient='records'),
+            'max_rejecting_M': (
+                float(result.loc[result['rejects_zero'], 'M'].max())
+                if 'rejects_zero' in result and bool(result['rejects_zero'].any())
+                else 0.0
+            ),
+        }
+    else:
+        from .tools import _default_serializer
+        out = _default_serializer(result, detail=detail)
     if not isinstance(out, dict):
         out = {'value': out}
     out['source_result_id'] = rid
-    out['extracted_n_pre'] = int(n_pre)
-    out['extracted_n_post'] = int(n_post)
     new_rid: Optional[str] = None
     if as_handle:
         new_rid = RESULT_CACHE.put(result, tool='honest_did_from_result',
-                                     arguments={'source': rid, 'method': method})
+                                   arguments={'source': rid, 'method': method,
+                                              'e': event_time})
         out['result_id'] = new_rid
         out['result_uri'] = f"statspai://result/{new_rid}"
     from ._enrichment import enrich_payload
     enrich_payload(out, tool_name='honest_did', result_id=new_rid)
     return out
+
+
+def _coerce_event_study_result(obj: Any) -> Any:
+    """Return an object shaped for the current ``sp.honest_did`` API."""
+    detail = getattr(obj, 'detail', None)
+    if isinstance(detail, pd.DataFrame) and {'relative_time', 'att', 'se'} <= set(detail.columns):
+        return obj
+
+    method = str(getattr(obj, 'method', '')).lower()
+    if 'callaway' in method and detail is not None:
+        import statspai as sp
+        try:
+            return sp.aggte(obj, type='dynamic', bstrap=False)
+        except TypeError:
+            return sp.aggte(obj, type='dynamic')
+    return obj
 
 
 def _extract_event_study(obj: Any):

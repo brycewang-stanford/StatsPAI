@@ -174,6 +174,36 @@ class TestAsHandleAndResourceRead:
         assert "error" in out
         assert "result_id" in out["error"] or "not found" in out["error"]
 
+    def test_honest_did_from_callaway_handle(self):
+        import statspai as sp
+
+        df = sp.datasets.mpdta()
+        fit = execute_tool(
+            "callaway_santanna",
+            {
+                "y": "lemp",
+                "g": "first_treat",
+                "t": "year",
+                "i": "countyreal",
+                "estimator": "reg",
+                "control_group": "nevertreated",
+            },
+            data=df,
+            detail="minimal",
+            as_handle=True,
+        )
+        rid = fit["result_id"]
+        out = execute_tool(
+            "honest_did_from_result",
+            {"result_id": rid, "method": "SD", "e": 0},
+            detail="minimal",
+        )
+        assert out["source_result_id"] == rid
+        assert out["restriction"] == "smoothness"
+        assert out["event_time"] == 0
+        assert out["max_rejecting_M"] > 0
+        assert any(row["rejects_zero"] for row in out["rows"])
+
 
 # ----------------------------------------------------------------------
 # Schema injection: result_id, as_handle, data_columns, data_sample_n
