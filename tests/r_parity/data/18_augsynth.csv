@@ -1,0 +1,732 @@
+region,year,gdppc,treated
+Basque Country,1955,3.774,0
+Basque Country,1956,3.937,0
+Basque Country,1957,4.119,0
+Basque Country,1958,4.256,0
+Basque Country,1959,4.456,0
+Basque Country,1960,4.62,0
+Basque Country,1961,4.765,0
+Basque Country,1962,4.952,0
+Basque Country,1963,5.168,0
+Basque Country,1964,5.358,0
+Basque Country,1965,5.539,0
+Basque Country,1966,5.723,0
+Basque Country,1967,5.962,0
+Basque Country,1968,6.166,0
+Basque Country,1969,6.488,0
+Basque Country,1970,6.721,1
+Basque Country,1971,6.956,1
+Basque Country,1972,7.216,1
+Basque Country,1973,7.5,1
+Basque Country,1974,7.806,1
+Basque Country,1975,8.068,1
+Basque Country,1976,8.459,1
+Basque Country,1977,8.69,1
+Basque Country,1978,9.048,1
+Basque Country,1979,9.347,1
+Basque Country,1980,9.651999999999999,1
+Basque Country,1981,10.042,1
+Basque Country,1982,10.429,1
+Basque Country,1983,10.87,1
+Basque Country,1984,11.316,1
+Basque Country,1985,11.719,1
+Basque Country,1986,12.147,1
+Basque Country,1987,12.592,1
+Basque Country,1988,13.008,1
+Basque Country,1989,13.522,1
+Basque Country,1990,13.965,1
+Basque Country,1991,14.496,1
+Basque Country,1992,15.038,1
+Basque Country,1993,15.648,1
+Basque Country,1994,16.244,1
+Basque Country,1995,16.941,1
+Basque Country,1996,17.628,1
+Basque Country,1997,18.362,1
+Cataluna,1955,3.55,0
+Cataluna,1956,3.746,0
+Cataluna,1957,3.898,0
+Cataluna,1958,4.085,0
+Cataluna,1959,4.254,0
+Cataluna,1960,4.353,0
+Cataluna,1961,4.514,0
+Cataluna,1962,4.745,0
+Cataluna,1963,4.962,0
+Cataluna,1964,5.157,0
+Cataluna,1965,5.404,0
+Cataluna,1966,5.596,0
+Cataluna,1967,5.892,0
+Cataluna,1968,6.072,0
+Cataluna,1969,6.212,0
+Cataluna,1970,6.396,0
+Cataluna,1971,6.57,0
+Cataluna,1972,6.817,0
+Cataluna,1973,7.154,0
+Cataluna,1974,7.44,0
+Cataluna,1975,7.762,0
+Cataluna,1976,7.996,0
+Cataluna,1977,8.313000000000001,0
+Cataluna,1978,8.709,0
+Cataluna,1979,9.077,0
+Cataluna,1980,9.438000000000001,0
+Cataluna,1981,9.798,0
+Cataluna,1982,10.173,0
+Cataluna,1983,10.565,0
+Cataluna,1984,10.974,0
+Cataluna,1985,11.371,0
+Cataluna,1986,11.753,0
+Cataluna,1987,12.17,0
+Cataluna,1988,12.625,0
+Cataluna,1989,13.156,0
+Cataluna,1990,13.682,0
+Cataluna,1991,14.213,0
+Cataluna,1992,14.786,0
+Cataluna,1993,15.382,0
+Cataluna,1994,15.975,0
+Cataluna,1995,16.52,0
+Cataluna,1996,17.156,0
+Cataluna,1997,17.823,0
+Madrid,1955,3.963,0
+Madrid,1956,4.076,0
+Madrid,1957,4.225,0
+Madrid,1958,4.289,0
+Madrid,1959,4.468,0
+Madrid,1960,4.639,0
+Madrid,1961,4.817,0
+Madrid,1962,4.996,0
+Madrid,1963,5.244,0
+Madrid,1964,5.559,0
+Madrid,1965,5.839,0
+Madrid,1966,6.015,0
+Madrid,1967,6.222,0
+Madrid,1968,6.523,0
+Madrid,1969,6.806,0
+Madrid,1970,7.104,0
+Madrid,1971,7.366,0
+Madrid,1972,7.697,0
+Madrid,1973,7.99,0
+Madrid,1974,8.345000000000001,0
+Madrid,1975,8.704000000000001,0
+Madrid,1976,9.034000000000001,0
+Madrid,1977,9.407,0
+Madrid,1978,9.773999999999999,0
+Madrid,1979,10.241,0
+Madrid,1980,10.726,0
+Madrid,1981,11.233,0
+Madrid,1982,11.755,0
+Madrid,1983,12.246,0
+Madrid,1984,12.8,0
+Madrid,1985,13.331,0
+Madrid,1986,13.928,0
+Madrid,1987,14.521,0
+Madrid,1988,15.167,0
+Madrid,1989,15.812,0
+Madrid,1990,16.424,0
+Madrid,1991,17.064,0
+Madrid,1992,17.795,0
+Madrid,1993,18.593,0
+Madrid,1994,19.386,0
+Madrid,1995,20.15,0
+Madrid,1996,20.962,0
+Madrid,1997,21.88,0
+Andalucia,1955,2.02,0
+Andalucia,1956,2.136,0
+Andalucia,1957,2.185,0
+Andalucia,1958,2.19,0
+Andalucia,1959,2.192,0
+Andalucia,1960,2.251,0
+Andalucia,1961,2.339,0
+Andalucia,1962,2.471,0
+Andalucia,1963,2.563,0
+Andalucia,1964,2.67,0
+Andalucia,1965,2.759,0
+Andalucia,1966,2.858,0
+Andalucia,1967,2.936,0
+Andalucia,1968,3.052,0
+Andalucia,1969,3.155,0
+Andalucia,1970,3.234,0
+Andalucia,1971,3.388,0
+Andalucia,1972,3.533,0
+Andalucia,1973,3.637,0
+Andalucia,1974,3.756,0
+Andalucia,1975,3.86,0
+Andalucia,1976,4.089,0
+Andalucia,1977,4.232,0
+Andalucia,1978,4.363,0
+Andalucia,1979,4.484,0
+Andalucia,1980,4.612,0
+Andalucia,1981,4.787,0
+Andalucia,1982,4.923,0
+Andalucia,1983,5.087,0
+Andalucia,1984,5.268,0
+Andalucia,1985,5.42,0
+Andalucia,1986,5.583,0
+Andalucia,1987,5.793,0
+Andalucia,1988,5.997,0
+Andalucia,1989,6.18,0
+Andalucia,1990,6.45,0
+Andalucia,1991,6.765,0
+Andalucia,1992,6.972,0
+Andalucia,1993,7.263,0
+Andalucia,1994,7.492,0
+Andalucia,1995,7.73,0
+Andalucia,1996,8.042999999999999,0
+Andalucia,1997,8.423999999999999,0
+Aragon,1955,2.81,0
+Aragon,1956,2.847,0
+Aragon,1957,2.955,0
+Aragon,1958,3.068,0
+Aragon,1959,3.216,0
+Aragon,1960,3.376,0
+Aragon,1961,3.518,0
+Aragon,1962,3.653,0
+Aragon,1963,3.792,0
+Aragon,1964,3.926,0
+Aragon,1965,3.987,0
+Aragon,1966,4.164,0
+Aragon,1967,4.298,0
+Aragon,1968,4.423,0
+Aragon,1969,4.607,0
+Aragon,1970,4.763,0
+Aragon,1971,4.915,0
+Aragon,1972,5.118,0
+Aragon,1973,5.266,0
+Aragon,1974,5.505,0
+Aragon,1975,5.729,0
+Aragon,1976,5.973,0
+Aragon,1977,6.188,0
+Aragon,1978,6.384,0
+Aragon,1979,6.597,0
+Aragon,1980,6.846,0
+Aragon,1981,7.147,0
+Aragon,1982,7.432,0
+Aragon,1983,7.678,0
+Aragon,1984,7.951,0
+Aragon,1985,8.271000000000001,0
+Aragon,1986,8.550000000000001,0
+Aragon,1987,8.82,0
+Aragon,1988,9.173,0
+Aragon,1989,9.474,0
+Aragon,1990,9.871,0
+Aragon,1991,10.248,0
+Aragon,1992,10.64,0
+Aragon,1993,11.046,0
+Aragon,1994,11.51,0
+Aragon,1995,11.912,0
+Aragon,1996,12.31,0
+Aragon,1997,12.777,0
+Asturias,1955,2.861,0
+Asturias,1956,2.9,0
+Asturias,1957,3.033,0
+Asturias,1958,3.06,0
+Asturias,1959,3.155,0
+Asturias,1960,3.194,0
+Asturias,1961,3.311,0
+Asturias,1962,3.422,0
+Asturias,1963,3.582,0
+Asturias,1964,3.701,0
+Asturias,1965,3.781,0
+Asturias,1966,3.856,0
+Asturias,1967,3.972,0
+Asturias,1968,4.14,0
+Asturias,1969,4.378,0
+Asturias,1970,4.57,0
+Asturias,1971,4.754,0
+Asturias,1972,4.949,0
+Asturias,1973,5.135,0
+Asturias,1974,5.306,0
+Asturias,1975,5.467,0
+Asturias,1976,5.622,0
+Asturias,1977,5.839,0
+Asturias,1978,6.075,0
+Asturias,1979,6.276,0
+Asturias,1980,6.49,0
+Asturias,1981,6.655,0
+Asturias,1982,6.968,0
+Asturias,1983,7.183,0
+Asturias,1984,7.418,0
+Asturias,1985,7.779,0
+Asturias,1986,8.026,0
+Asturias,1987,8.318,0
+Asturias,1988,8.651,0
+Asturias,1989,8.843,0
+Asturias,1990,9.077,0
+Asturias,1991,9.387,0
+Asturias,1992,9.654,0
+Asturias,1993,9.938000000000001,0
+Asturias,1994,10.243,0
+Asturias,1995,10.56,0
+Asturias,1996,10.981,0
+Asturias,1997,11.354,0
+Baleares,1955,3.161,0
+Baleares,1956,3.292,0
+Baleares,1957,3.379,0
+Baleares,1958,3.511,0
+Baleares,1959,3.657,0
+Baleares,1960,3.836,0
+Baleares,1961,3.976,0
+Baleares,1962,4.153,0
+Baleares,1963,4.372,0
+Baleares,1964,4.596,0
+Baleares,1965,4.78,0
+Baleares,1966,4.971,0
+Baleares,1967,5.174,0
+Baleares,1968,5.354,0
+Baleares,1969,5.538,0
+Baleares,1970,5.845,0
+Baleares,1971,6.059,0
+Baleares,1972,6.322,0
+Baleares,1973,6.572,0
+Baleares,1974,6.846,0
+Baleares,1975,7.168,0
+Baleares,1976,7.432,0
+Baleares,1977,7.769,0
+Baleares,1978,8.081,0
+Baleares,1979,8.358000000000001,0
+Baleares,1980,8.692,0
+Baleares,1981,8.994999999999999,0
+Baleares,1982,9.359,0
+Baleares,1983,9.789,0
+Baleares,1984,10.205,0
+Baleares,1985,10.598,0
+Baleares,1986,11.046,0
+Baleares,1987,11.528,0
+Baleares,1988,12.046,0
+Baleares,1989,12.508,0
+Baleares,1990,13,0
+Baleares,1991,13.574,0
+Baleares,1992,14.134,0
+Baleares,1993,14.744,0
+Baleares,1994,15.395,0
+Baleares,1995,16.013,0
+Baleares,1996,16.675,0
+Baleares,1997,17.339,0
+Canarias,1955,2.324,0
+Canarias,1956,2.441,0
+Canarias,1957,2.578,0
+Canarias,1958,2.719,0
+Canarias,1959,2.8,0
+Canarias,1960,2.957,0
+Canarias,1961,3.079,0
+Canarias,1962,3.101,0
+Canarias,1963,3.214,0
+Canarias,1964,3.349,0
+Canarias,1965,3.485,0
+Canarias,1966,3.589,0
+Canarias,1967,3.727,0
+Canarias,1968,3.855,0
+Canarias,1969,4.009,0
+Canarias,1970,4.108,0
+Canarias,1971,4.239,0
+Canarias,1972,4.404,0
+Canarias,1973,4.572,0
+Canarias,1974,4.717,0
+Canarias,1975,4.887,0
+Canarias,1976,5.099,0
+Canarias,1977,5.269,0
+Canarias,1978,5.405,0
+Canarias,1979,5.582,0
+Canarias,1980,5.762,0
+Canarias,1981,5.994,0
+Canarias,1982,6.167,0
+Canarias,1983,6.406,0
+Canarias,1984,6.718,0
+Canarias,1985,6.968,0
+Canarias,1986,7.295,0
+Canarias,1987,7.539,0
+Canarias,1988,7.816,0
+Canarias,1989,8.141999999999999,0
+Canarias,1990,8.494,0
+Canarias,1991,8.791,0
+Canarias,1992,9.064,0
+Canarias,1993,9.401,0
+Canarias,1994,9.752000000000001,0
+Canarias,1995,10.187,0
+Canarias,1996,10.607,0
+Canarias,1997,10.962,0
+Cantabria,1955,2.753,0
+Cantabria,1956,2.807,0
+Cantabria,1957,2.861,0
+Cantabria,1958,3.037,0
+Cantabria,1959,3.088,0
+Cantabria,1960,3.196,0
+Cantabria,1961,3.284,0
+Cantabria,1962,3.398,0
+Cantabria,1963,3.528,0
+Cantabria,1964,3.667,0
+Cantabria,1965,3.77,0
+Cantabria,1966,3.902,0
+Cantabria,1967,4.024,0
+Cantabria,1968,4.263,0
+Cantabria,1969,4.384,0
+Cantabria,1970,4.579,0
+Cantabria,1971,4.688,0
+Cantabria,1972,4.855,0
+Cantabria,1973,5.001,0
+Cantabria,1974,5.198,0
+Cantabria,1975,5.39,0
+Cantabria,1976,5.61,0
+Cantabria,1977,5.769,0
+Cantabria,1978,5.974,0
+Cantabria,1979,6.076,0
+Cantabria,1980,6.256,0
+Cantabria,1981,6.486,0
+Cantabria,1982,6.747,0
+Cantabria,1983,6.942,0
+Cantabria,1984,7.183,0
+Cantabria,1985,7.462,0
+Cantabria,1986,7.711,0
+Cantabria,1987,7.959,0
+Cantabria,1988,8.169,0
+Cantabria,1989,8.448,0
+Cantabria,1990,8.768000000000001,0
+Cantabria,1991,9.128,0
+Cantabria,1992,9.416,0
+Cantabria,1993,9.749000000000001,0
+Cantabria,1994,10.059,0
+Cantabria,1995,10.401,0
+Cantabria,1996,10.738,0
+Cantabria,1997,11.115,0
+Castilla y Leon,1955,2.262,0
+Castilla y Leon,1956,2.335,0
+Castilla y Leon,1957,2.419,0
+Castilla y Leon,1958,2.446,0
+Castilla y Leon,1959,2.533,0
+Castilla y Leon,1960,2.589,0
+Castilla y Leon,1961,2.728,0
+Castilla y Leon,1962,2.822,0
+Castilla y Leon,1963,2.912,0
+Castilla y Leon,1964,3.017,0
+Castilla y Leon,1965,3.092,0
+Castilla y Leon,1966,3.168,0
+Castilla y Leon,1967,3.238,0
+Castilla y Leon,1968,3.297,0
+Castilla y Leon,1969,3.386,0
+Castilla y Leon,1970,3.541,0
+Castilla y Leon,1971,3.685,0
+Castilla y Leon,1972,3.778,0
+Castilla y Leon,1973,3.939,0
+Castilla y Leon,1974,4.141,0
+Castilla y Leon,1975,4.293,0
+Castilla y Leon,1976,4.466,0
+Castilla y Leon,1977,4.555,0
+Castilla y Leon,1978,4.715,0
+Castilla y Leon,1979,4.847,0
+Castilla y Leon,1980,5.041,0
+Castilla y Leon,1981,5.25,0
+Castilla y Leon,1982,5.433,0
+Castilla y Leon,1983,5.569,0
+Castilla y Leon,1984,5.723,0
+Castilla y Leon,1985,5.844,0
+Castilla y Leon,1986,6.067,0
+Castilla y Leon,1987,6.304,0
+Castilla y Leon,1988,6.57,0
+Castilla y Leon,1989,6.786,0
+Castilla y Leon,1990,6.989,0
+Castilla y Leon,1991,7.201,0
+Castilla y Leon,1992,7.408,0
+Castilla y Leon,1993,7.67,0
+Castilla y Leon,1994,7.949,0
+Castilla y Leon,1995,8.236000000000001,0
+Castilla y Leon,1996,8.529,0
+Castilla y Leon,1997,8.936,0
+Castilla-La Mancha,1955,1.822,0
+Castilla-La Mancha,1956,1.878,0
+Castilla-La Mancha,1957,1.883,0
+Castilla-La Mancha,1958,2.01,0
+Castilla-La Mancha,1959,2.091,0
+Castilla-La Mancha,1960,2.094,0
+Castilla-La Mancha,1961,2.131,0
+Castilla-La Mancha,1962,2.212,0
+Castilla-La Mancha,1963,2.303,0
+Castilla-La Mancha,1964,2.453,0
+Castilla-La Mancha,1965,2.602,0
+Castilla-La Mancha,1966,2.717,0
+Castilla-La Mancha,1967,2.82,0
+Castilla-La Mancha,1968,2.933,0
+Castilla-La Mancha,1969,2.959,0
+Castilla-La Mancha,1970,3.057,0
+Castilla-La Mancha,1971,3.125,0
+Castilla-La Mancha,1972,3.297,0
+Castilla-La Mancha,1973,3.418,0
+Castilla-La Mancha,1974,3.55,0
+Castilla-La Mancha,1975,3.664,0
+Castilla-La Mancha,1976,3.839,0
+Castilla-La Mancha,1977,3.945,0
+Castilla-La Mancha,1978,4.127,0
+Castilla-La Mancha,1979,4.209,0
+Castilla-La Mancha,1980,4.319,0
+Castilla-La Mancha,1981,4.488,0
+Castilla-La Mancha,1982,4.627,0
+Castilla-La Mancha,1983,4.748,0
+Castilla-La Mancha,1984,4.968,0
+Castilla-La Mancha,1985,5.141,0
+Castilla-La Mancha,1986,5.275,0
+Castilla-La Mancha,1987,5.407,0
+Castilla-La Mancha,1988,5.493,0
+Castilla-La Mancha,1989,5.747,0
+Castilla-La Mancha,1990,5.864,0
+Castilla-La Mancha,1991,6.08,0
+Castilla-La Mancha,1992,6.204,0
+Castilla-La Mancha,1993,6.434,0
+Castilla-La Mancha,1994,6.623,0
+Castilla-La Mancha,1995,6.81,0
+Castilla-La Mancha,1996,7.067,0
+Castilla-La Mancha,1997,7.29,0
+Extremadura,1955,1.426,0
+Extremadura,1956,1.492,0
+Extremadura,1957,1.609,0
+Extremadura,1958,1.681,0
+Extremadura,1959,1.718,0
+Extremadura,1960,1.716,0
+Extremadura,1961,1.731,0
+Extremadura,1962,1.762,0
+Extremadura,1963,1.804,0
+Extremadura,1964,1.89,0
+Extremadura,1965,1.925,0
+Extremadura,1966,1.99,0
+Extremadura,1967,2.112,0
+Extremadura,1968,2.144,0
+Extremadura,1969,2.267,0
+Extremadura,1970,2.286,0
+Extremadura,1971,2.377,0
+Extremadura,1972,2.403,0
+Extremadura,1973,2.442,0
+Extremadura,1974,2.55,0
+Extremadura,1975,2.67,0
+Extremadura,1976,2.736,0
+Extremadura,1977,2.841,0
+Extremadura,1978,2.934,0
+Extremadura,1979,3.03,0
+Extremadura,1980,3.066,0
+Extremadura,1981,3.198,0
+Extremadura,1982,3.368,0
+Extremadura,1983,3.484,0
+Extremadura,1984,3.587,0
+Extremadura,1985,3.659,0
+Extremadura,1986,3.83,0
+Extremadura,1987,3.936,0
+Extremadura,1988,4.055,0
+Extremadura,1989,4.136,0
+Extremadura,1990,4.24,0
+Extremadura,1991,4.386,0
+Extremadura,1992,4.498,0
+Extremadura,1993,4.676,0
+Extremadura,1994,4.79,0
+Extremadura,1995,4.992,0
+Extremadura,1996,5.193,0
+Extremadura,1997,5.363,0
+Galicia,1955,1.967,0
+Galicia,1956,2.065,0
+Galicia,1957,2.16,0
+Galicia,1958,2.262,0
+Galicia,1959,2.362,0
+Galicia,1960,2.453,0
+Galicia,1961,2.489,0
+Galicia,1962,2.579,0
+Galicia,1963,2.586,0
+Galicia,1964,2.733,0
+Galicia,1965,2.785,0
+Galicia,1966,2.856,0
+Galicia,1967,2.944,0
+Galicia,1968,3.118,0
+Galicia,1969,3.237,0
+Galicia,1970,3.369,0
+Galicia,1971,3.414,0
+Galicia,1972,3.511,0
+Galicia,1973,3.652,0
+Galicia,1974,3.74,0
+Galicia,1975,3.861,0
+Galicia,1976,3.932,0
+Galicia,1977,4.034,0
+Galicia,1978,4.169,0
+Galicia,1979,4.291,0
+Galicia,1980,4.49,0
+Galicia,1981,4.652,0
+Galicia,1982,4.799,0
+Galicia,1983,5.026,0
+Galicia,1984,5.148,0
+Galicia,1985,5.325,0
+Galicia,1986,5.489,0
+Galicia,1987,5.732,0
+Galicia,1988,5.883,0
+Galicia,1989,6.048,0
+Galicia,1990,6.263,0
+Galicia,1991,6.461,0
+Galicia,1992,6.639,0
+Galicia,1993,6.876,0
+Galicia,1994,7.064,0
+Galicia,1995,7.283,0
+Galicia,1996,7.577,0
+Galicia,1997,7.8,0
+Murcia,1955,2.125,0
+Murcia,1956,2.136,0
+Murcia,1957,2.203,0
+Murcia,1958,2.313,0
+Murcia,1959,2.425,0
+Murcia,1960,2.532,0
+Murcia,1961,2.631,0
+Murcia,1962,2.69,0
+Murcia,1963,2.819,0
+Murcia,1964,2.892,0
+Murcia,1965,2.966,0
+Murcia,1966,3.15,0
+Murcia,1967,3.244,0
+Murcia,1968,3.305,0
+Murcia,1969,3.447,0
+Murcia,1970,3.475,0
+Murcia,1971,3.576,0
+Murcia,1972,3.651,0
+Murcia,1973,3.763,0
+Murcia,1974,3.86,0
+Murcia,1975,4.018,0
+Murcia,1976,4.175,0
+Murcia,1977,4.315,0
+Murcia,1978,4.55,0
+Murcia,1979,4.758,0
+Murcia,1980,5.048,0
+Murcia,1981,5.274,0
+Murcia,1982,5.448,0
+Murcia,1983,5.656,0
+Murcia,1984,5.923,0
+Murcia,1985,6.161,0
+Murcia,1986,6.327,0
+Murcia,1987,6.596,0
+Murcia,1988,6.802,0
+Murcia,1989,7.055,0
+Murcia,1990,7.283,0
+Murcia,1991,7.469,0
+Murcia,1992,7.784,0
+Murcia,1993,8.119999999999999,0
+Murcia,1994,8.417999999999999,0
+Murcia,1995,8.757999999999999,0
+Murcia,1996,9.061999999999999,0
+Murcia,1997,9.385999999999999,0
+Navarra,1955,2.984,0
+Navarra,1956,3.106,0
+Navarra,1957,3.236,0
+Navarra,1958,3.372,0
+Navarra,1959,3.434,0
+Navarra,1960,3.594,0
+Navarra,1961,3.755,0
+Navarra,1962,3.884,0
+Navarra,1963,4.04,0
+Navarra,1964,4.203,0
+Navarra,1965,4.349,0
+Navarra,1966,4.462,0
+Navarra,1967,4.595,0
+Navarra,1968,4.744,0
+Navarra,1969,4.895,0
+Navarra,1970,5.086,0
+Navarra,1971,5.282,0
+Navarra,1972,5.537,0
+Navarra,1973,5.756,0
+Navarra,1974,5.952,0
+Navarra,1975,6.186,0
+Navarra,1976,6.447,0
+Navarra,1977,6.721,0
+Navarra,1978,7.014,0
+Navarra,1979,7.243,0
+Navarra,1980,7.528,0
+Navarra,1981,7.891,0
+Navarra,1982,8.183999999999999,0
+Navarra,1983,8.561999999999999,0
+Navarra,1984,8.85,0
+Navarra,1985,9.131,0
+Navarra,1986,9.497,0
+Navarra,1987,9.819000000000001,0
+Navarra,1988,10.2,0
+Navarra,1989,10.647,0
+Navarra,1990,11.07,0
+Navarra,1991,11.481,0
+Navarra,1992,11.968,0
+Navarra,1993,12.401,0
+Navarra,1994,12.884,0
+Navarra,1995,13.333,0
+Navarra,1996,13.824,0
+Navarra,1997,14.368,0
+Rioja,1955,2.789,0
+Rioja,1956,2.932,0
+Rioja,1957,3.14,0
+Rioja,1958,3.22,0
+Rioja,1959,3.273,0
+Rioja,1960,3.371,0
+Rioja,1961,3.532,0
+Rioja,1962,3.629,0
+Rioja,1963,3.759,0
+Rioja,1964,3.878,0
+Rioja,1965,4.056,0
+Rioja,1966,4.29,0
+Rioja,1967,4.44,0
+Rioja,1968,4.659,0
+Rioja,1969,4.762,0
+Rioja,1970,5.024,0
+Rioja,1971,5.267,0
+Rioja,1972,5.45,0
+Rioja,1973,5.676,0
+Rioja,1974,5.857,0
+Rioja,1975,6.085,0
+Rioja,1976,6.333,0
+Rioja,1977,6.566,0
+Rioja,1978,6.836,0
+Rioja,1979,7.093,0
+Rioja,1980,7.409,0
+Rioja,1981,7.711,0
+Rioja,1982,7.968,0
+Rioja,1983,8.252000000000001,0
+Rioja,1984,8.550000000000001,0
+Rioja,1985,8.831,0
+Rioja,1986,9.119,0
+Rioja,1987,9.459,0
+Rioja,1988,9.695,0
+Rioja,1989,10.054,0
+Rioja,1990,10.378,0
+Rioja,1991,10.755,0
+Rioja,1992,11.172,0
+Rioja,1993,11.569,0
+Rioja,1994,11.985,0
+Rioja,1995,12.447,0
+Rioja,1996,12.908,0
+Rioja,1997,13.354,0
+Valencia,1955,2.715,0
+Valencia,1956,2.874,0
+Valencia,1957,2.913,0
+Valencia,1958,3.031,0
+Valencia,1959,3.139,0
+Valencia,1960,3.304,0
+Valencia,1961,3.378,0
+Valencia,1962,3.45,0
+Valencia,1963,3.607,0
+Valencia,1964,3.715,0
+Valencia,1965,3.854,0
+Valencia,1966,3.985,0
+Valencia,1967,4.129,0
+Valencia,1968,4.316,0
+Valencia,1969,4.532,0
+Valencia,1970,4.801,0
+Valencia,1971,4.956,0
+Valencia,1972,5.171,0
+Valencia,1973,5.336,0
+Valencia,1974,5.606,0
+Valencia,1975,5.816,0
+Valencia,1976,6.076,0
+Valencia,1977,6.283,0
+Valencia,1978,6.512,0
+Valencia,1979,6.782,0
+Valencia,1980,6.984,0
+Valencia,1981,7.287,0
+Valencia,1982,7.506,0
+Valencia,1983,7.866,0
+Valencia,1984,8.141,0
+Valencia,1985,8.411,0
+Valencia,1986,8.712,0
+Valencia,1987,9.036,0
+Valencia,1988,9.353999999999999,0
+Valencia,1989,9.676,0
+Valencia,1990,10.111,0
+Valencia,1991,10.482,0
+Valencia,1992,10.88,0
+Valencia,1993,11.37,0
+Valencia,1994,11.755,0
+Valencia,1995,12.222,0
+Valencia,1996,12.637,0
+Valencia,1997,13.17,0

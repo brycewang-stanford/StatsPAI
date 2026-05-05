@@ -1,0 +1,76 @@
+{
+  "module": "35_panel",
+  "side": "R",
+  "rows": [
+    {
+      "module": "35_panel",
+      "side": "R",
+      "statistic": "fe_beta_x1",
+      "estimate": 0.443802468816467,
+      "se": 0.0194081649711332,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": []
+    },
+    {
+      "module": "35_panel",
+      "side": "R",
+      "statistic": "fe_beta_x2",
+      "estimate": -0.303771126231393,
+      "se": 0.0187499514624213,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": []
+    },
+    {
+      "module": "35_panel",
+      "side": "R",
+      "statistic": "re_beta_x1",
+      "estimate": 0.442626601206661,
+      "se": 0.019362649908402,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": []
+    },
+    {
+      "module": "35_panel",
+      "side": "R",
+      "statistic": "re_beta_x2",
+      "estimate": -0.302874900908619,
+      "se": 0.0187047257148375,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": []
+    },
+    {
+      "module": "35_panel",
+      "side": "R",
+      "statistic": "hausman_chi2",
+      "estimate": 1.37691630362867,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": []
+    },
+    {
+      "module": "35_panel",
+      "side": "R",
+      "statistic": "hausman_pvalue",
+      "estimate": 0.502350019722,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "method_fe": ["within"],
+    "method_re": ["random"]
+  }
+}

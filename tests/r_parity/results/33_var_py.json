@@ -1,0 +1,131 @@
+{
+  "module": "33_var",
+  "side": "py",
+  "rows": [
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y1__L1.y1",
+      "estimate": 0.43249790885604766,
+      "se": 0.07072649754073414,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y1__L1.y2",
+      "estimate": 0.2918477583096092,
+      "se": 0.07619694873754082,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y1__L2.y1",
+      "estimate": 0.030923198437182903,
+      "se": 0.07363558049819206,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y1__L2.y2",
+      "estimate": -0.1295454497468629,
+      "se": 0.07402328492357055,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y1___cons",
+      "estimate": 0.006972863199670562,
+      "se": 0.03489779879098873,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y2__L1.y1",
+      "estimate": -0.2780035057435152,
+      "se": 0.06552174711294276,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y2__L1.y2",
+      "estimate": 0.551309444228225,
+      "se": 0.07058962877503731,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y2__L2.y1",
+      "estimate": -0.07594984337526346,
+      "se": 0.06821675117078334,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y2__L2.y2",
+      "estimate": -0.05981752518905232,
+      "se": 0.06857592449616377,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y2___cons",
+      "estimate": -0.01674867173465907,
+      "se": 0.03232967595864056,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "logLik",
+      "estimate": -263.25663607246616,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "lags": 2,
+    "n_obs": 198
+  }
+}

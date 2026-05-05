@@ -1,0 +1,32 @@
+{
+  "module": "01_card_original",
+  "side": "R",
+  "rows": [
+    {
+      "module": "01_card_original",
+      "side": "R",
+      "statistic": "ols_beta_educ",
+      "estimate": 0.0740089942005781,
+      "se": 0.00364203353050881,
+      "n": 3010,
+      "published": 0.075,
+      "citation": "Card (1995) Table 2, col 2",
+      "extra": []
+    },
+    {
+      "module": "01_card_original",
+      "side": "R",
+      "statistic": "iv_beta_educ_nearc4",
+      "estimate": 0.132288840000284,
+      "se": 0.0485778602978448,
+      "n": 3010,
+      "published": 0.132,
+      "citation": "Card (1995) Table 2, col 5",
+      "extra": []
+    }
+  ],
+  "extra": {
+    "data_source": "wooldridge::card",
+    "n_obs": 3010
+  }
+}

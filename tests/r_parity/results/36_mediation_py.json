@@ -1,0 +1,53 @@
+{
+  "module": "36_mediation",
+  "side": "py",
+  "rows": [
+    {
+      "module": "36_mediation",
+      "side": "py",
+      "statistic": "acme",
+      "estimate": 0.1082254001090687,
+      "se": 0.015487080966442333,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": {}
+    },
+    {
+      "module": "36_mediation",
+      "side": "py",
+      "statistic": "ade",
+      "estimate": 0.4806053177499092,
+      "se": 0.030680146875343144,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": {}
+    },
+    {
+      "module": "36_mediation",
+      "side": "py",
+      "statistic": "total_effect",
+      "estimate": 0.5888307178589779,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": {}
+    },
+    {
+      "module": "36_mediation",
+      "side": "py",
+      "statistic": "prop_mediated",
+      "estimate": 0.18379713698120648,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "n_boot": 1000
+  }
+}

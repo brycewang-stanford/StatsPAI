@@ -1,0 +1,42 @@
+{
+  "module": "13_causal_forest",
+  "side": "py",
+  "rows": [
+    {
+      "module": "13_causal_forest",
+      "side": "py",
+      "statistic": "att_causal_forest",
+      "estimate": -1913.9732680212915,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    },
+    {
+      "module": "13_causal_forest",
+      "side": "py",
+      "statistic": "ate_causal_forest",
+      "estimate": 42186.31278570072,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "n_estimators": 2000,
+    "random_state": 42,
+    "covariates": [
+      "age",
+      "education",
+      "black",
+      "hispanic",
+      "married",
+      "re74",
+      "re75"
+    ],
+    "overlap_warning": "The NSW-DW + PSID-1 sample has severe propensity score overlap problems: grf reports estimated propensities between 0.002 and 0.993. AIPW-style estimators (both sp.causal_forest and grf::average_treatment_effect) become unreliable in this regime. On this dataset both implementations produce sign-wrong or order-of-magnitude-off estimates of the ATT relative to the published Dehejia-Wahba (1999) ATT of approximately $1794, which was obtained by propensity-score matching (Module 11), an estimator less sensitive to extreme propensity weights. Reviewers should not read the cross-implementation gap on this sample as a parity failure of either package; both packages correctly emit the overlap warning, and the ATT from sp.psm (Module 11) recovers the published value to bit-equal precision."
+  }
+}

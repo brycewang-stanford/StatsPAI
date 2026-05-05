@@ -1,0 +1,21 @@
+{
+  "module": "03_basque_original",
+  "side": "R",
+  "rows": [
+    {
+      "module": "03_basque_original",
+      "side": "R",
+      "statistic": "avg_post_gap",
+      "estimate": -0.894427224157062,
+      "se": null,
+      "n": 731,
+      "published": -0.855,
+      "citation": "Abadie-Gardeazabal (2003) Figure 2 / Synth vignette",
+      "extra": []
+    }
+  ],
+  "extra": {
+    "data_source": "Synth::basque",
+    "n_obs": 731
+  }
+}

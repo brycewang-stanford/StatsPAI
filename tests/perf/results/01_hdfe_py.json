@@ -1,0 +1,64 @@
+{
+  "estimator": "01_hdfe",
+  "side": "py",
+  "rows": [
+    {
+      "estimator": "01_hdfe",
+      "side": "py",
+      "n": 10000,
+      "n_reps": 5,
+      "median_time_s": 0.00323245907202363,
+      "iqr_time_s": 0.00028908299282193184,
+      "min_time_s": 0.003031834028661251,
+      "max_time_s": 0.0035275407135486603,
+      "peak_mem_mb": 184.1875,
+      "extra": {
+        "n_firms": 200,
+        "n_years": 20,
+        "formula": "y ~ x1 + x2 | firm + year"
+      }
+    },
+    {
+      "estimator": "01_hdfe",
+      "side": "py",
+      "n": 100000,
+      "n_reps": 5,
+      "median_time_s": 0.021720167249441147,
+      "iqr_time_s": 0.004689333029091358,
+      "min_time_s": 0.020697500091046095,
+      "max_time_s": 0.028278291691094637,
+      "peak_mem_mb": 215.890625,
+      "extra": {
+        "n_firms": 632,
+        "n_years": 20,
+        "formula": "y ~ x1 + x2 | firm + year"
+      }
+    },
+    {
+      "estimator": "01_hdfe",
+      "side": "py",
+      "n": 1000000,
+      "n_reps": 5,
+      "median_time_s": 0.18848691694438457,
+      "iqr_time_s": 0.01597931212745607,
+      "min_time_s": 0.18373741675168276,
+      "max_time_s": 0.20477683283388615,
+      "peak_mem_mb": 495.921875,
+      "extra": {
+        "n_firms": 2000,
+        "n_years": 20,
+        "formula": "y ~ x1 + x2 | firm + year"
+      }
+    }
+  ],
+  "hardware": {
+    "platform": "macOS-26.3.1-arm64-arm-64bit-Mach-O",
+    "processor": "arm",
+    "machine": "arm64",
+    "python": "3.13.5",
+    "cpu_logical": 8,
+    "cpu_physical": 8,
+    "mem_gb": 24.0
+  },
+  "extra": {}
+}

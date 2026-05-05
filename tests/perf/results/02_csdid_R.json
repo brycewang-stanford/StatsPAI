@@ -1,0 +1,55 @@
+{
+  "estimator": "02_csdid",
+  "side": "R",
+  "rows": [
+    {
+      "estimator": "02_csdid",
+      "side": "R",
+      "n": 5000,
+      "n_reps": 3,
+      "median_time_s": 0.0326111316680908,
+      "iqr_time_s": 0.00132346153259277,
+      "min_time_s": 0.0312941074371338,
+      "max_time_s": 0.0339410305023193,
+      "peak_mem_mb": null,
+      "extra": {
+        "n_units": 1000,
+        "T": 5
+      }
+    },
+    {
+      "estimator": "02_csdid",
+      "side": "R",
+      "n": 25000,
+      "n_reps": 3,
+      "median_time_s": 0.0703380107879639,
+      "iqr_time_s": 0.00278353691101074,
+      "min_time_s": 0.0699379444122314,
+      "max_time_s": 0.0755050182342529,
+      "peak_mem_mb": null,
+      "extra": {
+        "n_units": 5000,
+        "T": 5
+      }
+    },
+    {
+      "estimator": "02_csdid",
+      "side": "R",
+      "n": 125000,
+      "n_reps": 3,
+      "median_time_s": 0.241233110427856,
+      "iqr_time_s": 0.00321638584136963,
+      "min_time_s": 0.236719131469727,
+      "max_time_s": 0.243151903152466,
+      "peak_mem_mb": null,
+      "extra": {
+        "n_units": 25000,
+        "T": 5
+      }
+    }
+  ],
+  "hardware": {
+    "R_version": "R version 4.5.2 (2025-10-31)"
+  },
+  "extra": []
+}

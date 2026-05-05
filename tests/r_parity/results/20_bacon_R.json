@@ -1,0 +1,141 @@
+{
+  "module": "20_bacon",
+  "side": "R",
+  "rows": [
+    {
+      "module": "20_bacon",
+      "side": "R",
+      "statistic": "beta_twfe",
+      "estimate": -0.0375050765908744,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "20_bacon",
+      "side": "R",
+      "statistic": "weighted_sum",
+      "estimate": -0.0375050765908744,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "20_bacon",
+      "side": "R",
+      "statistic": "negative_weight_share",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "20_bacon",
+      "side": "R",
+      "statistic": "pair_2006_vs_2004_est",
+      "estimate": -0.035748230665,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "20_bacon",
+      "side": "R",
+      "statistic": "pair_2007_vs_2004_est",
+      "estimate": -0.0471283835773071,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "20_bacon",
+      "side": "R",
+      "statistic": "pair_2004_vs_2006_est",
+      "estimate": -0.0326750794690403,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "20_bacon",
+      "side": "R",
+      "statistic": "pair_2007_vs_2006_est",
+      "estimate": -0.0453033887091483,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "20_bacon",
+      "side": "R",
+      "statistic": "pair_2004_vs_2007_est",
+      "estimate": -0.0497014001210783,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "20_bacon",
+      "side": "R",
+      "statistic": "pair_2006_vs_2007_est",
+      "estimate": -0.0411191638637049,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "20_bacon",
+      "side": "R",
+      "statistic": "pair_2004_vs_never_est",
+      "estimate": -0.041908787447213,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "20_bacon",
+      "side": "R",
+      "statistic": "pair_2006_vs_never_est",
+      "estimate": -0.0300296089848414,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "20_bacon",
+      "side": "R",
+      "statistic": "pair_2007_vs_never_est",
+      "estimate": -0.0274615452587083,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "n_comparisons": [9]
+  }
+}

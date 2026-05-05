@@ -1,0 +1,23 @@
+{
+  "module": "12_sdid",
+  "side": "R",
+  "rows": [
+    {
+      "module": "12_sdid",
+      "side": "R",
+      "statistic": "att_sdid",
+      "estimate": -15.948388846721,
+      "se": 2.62660669208281,
+      "ci_lo": -21.0964433647552,
+      "ci_hi": -10.8003343286868,
+      "n": 1209,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "method": ["synthdid_estimate"],
+    "N0": [38],
+    "T0": [19],
+    "se_method": ["placebo"]
+  }
+}

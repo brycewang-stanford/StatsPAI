@@ -1,0 +1,22 @@
+{
+  "module": "04_csdid",
+  "side": "R",
+  "rows": [
+    {
+      "module": "04_csdid",
+      "side": "R",
+      "statistic": "simple_ATT",
+      "estimate": -0.0329765138096537,
+      "se": 0.00776454253566257,
+      "ci_lo": -0.0481947375359817,
+      "ci_hi": -0.0177582900833258,
+      "n": 2500,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "estimator": ["reg"],
+    "control_group": ["nevertreated"],
+    "bstrap": [false]
+  }
+}

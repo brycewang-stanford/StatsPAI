@@ -1,0 +1,67 @@
+{
+  "module": "29_panel_sfa",
+  "side": "py",
+  "rows": [
+    {
+      "module": "29_panel_sfa",
+      "side": "py",
+      "statistic": "beta_intercept",
+      "estimate": 2.063460417846921,
+      "se": 0.04958220640403288,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": {}
+    },
+    {
+      "module": "29_panel_sfa",
+      "side": "py",
+      "statistic": "beta_lnk",
+      "estimate": 0.5833335163282927,
+      "se": 0.019698038334105224,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": {}
+    },
+    {
+      "module": "29_panel_sfa",
+      "side": "py",
+      "statistic": "beta_lnl",
+      "estimate": 0.36001179098949615,
+      "se": 0.01812877027305749,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": {}
+    },
+    {
+      "module": "29_panel_sfa",
+      "side": "py",
+      "statistic": "sigma_u",
+      "estimate": 0.6231795951760544,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": {}
+    },
+    {
+      "module": "29_panel_sfa",
+      "side": "py",
+      "statistic": "sigma_v",
+      "estimate": 0.29718605573987,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "distribution": "half-normal",
+    "panel_model": "Pitt-Lee 1981 (ti)",
+    "n_units": 50,
+    "T": 6
+  }
+}

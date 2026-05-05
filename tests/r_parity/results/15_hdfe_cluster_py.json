@@ -1,0 +1,36 @@
+{
+  "module": "15_hdfe_cluster",
+  "side": "py",
+  "rows": [
+    {
+      "module": "15_hdfe_cluster",
+      "side": "py",
+      "statistic": "beta_x1",
+      "estimate": 1.9995039795655154,
+      "se": 0.005420328446238058,
+      "ci_lo": 1.9888803310265109,
+      "ci_hi": 2.0101276281045197,
+      "n": 10000,
+      "extra": {}
+    },
+    {
+      "module": "15_hdfe_cluster",
+      "side": "py",
+      "statistic": "beta_x2",
+      "estimate": -1.4999804870593598,
+      "se": 0.005139126035010629,
+      "ci_lo": -1.5100529889999927,
+      "ci_hi": -1.489907985118727,
+      "n": 10000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "formula": "y ~ x1 + x2 | firm + year",
+    "vcov": "cr1",
+    "cluster_var": "firm",
+    "n_firms": 250,
+    "n_years": 20,
+    "cluster_ssc_note": "Coefficients match at rel < 1e-15. The CR1 cluster SE differs by 1.27% because sp.fast.feols applies the simple G/(G-1) cluster small-sample correction while fixest::feols applies the multi-factor ssc(cluster.adj = TRUE, fixef.K = \"nested\", cluster.df = \"min\") convention by default. This is the same family of df-convention differences as the iid SE gap reported in Module 03."
+  }
+}

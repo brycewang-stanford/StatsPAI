@@ -1,0 +1,32 @@
+{
+  "module": "13_causal_forest",
+  "side": "R",
+  "rows": [
+    {
+      "module": "13_causal_forest",
+      "side": "R",
+      "statistic": "att_causal_forest",
+      "estimate": 826.840112859877,
+      "se": 945.258145276614,
+      "ci_lo": -1025.83180797542,
+      "ci_hi": 2679.51203369517,
+      "n": 2675,
+      "extra": []
+    },
+    {
+      "module": "13_causal_forest",
+      "side": "R",
+      "statistic": "ate_causal_forest",
+      "estimate": -954.407451882677,
+      "se": 145.282691529564,
+      "ci_lo": -1239.15629485767,
+      "ci_hi": -669.658608907689,
+      "n": 2675,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "num.trees": [2000],
+    "seed": [42]
+  }
+}

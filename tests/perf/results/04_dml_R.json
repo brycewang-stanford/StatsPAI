@@ -1,0 +1,58 @@
+{
+  "estimator": "04_dml",
+  "side": "R",
+  "rows": [
+    {
+      "estimator": "04_dml",
+      "side": "R",
+      "n": 1000,
+      "n_reps": 3,
+      "median_time_s": 0.142999172210693,
+      "iqr_time_s": 0.00298154354095459,
+      "min_time_s": 0.142574787139893,
+      "max_time_s": 0.148537874221802,
+      "peak_mem_mb": null,
+      "extra": {
+        "model": "plr",
+        "ml_g": "regr.lm",
+        "n_folds": 5
+      }
+    },
+    {
+      "estimator": "04_dml",
+      "side": "R",
+      "n": 5000,
+      "n_reps": 3,
+      "median_time_s": 0.211127996444702,
+      "iqr_time_s": 0.00656092166900635,
+      "min_time_s": 0.205236196517944,
+      "max_time_s": 0.218358039855957,
+      "peak_mem_mb": null,
+      "extra": {
+        "model": "plr",
+        "ml_g": "regr.lm",
+        "n_folds": 5
+      }
+    },
+    {
+      "estimator": "04_dml",
+      "side": "R",
+      "n": 10000,
+      "n_reps": 3,
+      "median_time_s": 0.222676992416382,
+      "iqr_time_s": 0.0646669864654541,
+      "min_time_s": 0.189196825027466,
+      "max_time_s": 0.318530797958374,
+      "peak_mem_mb": null,
+      "extra": {
+        "model": "plr",
+        "ml_g": "regr.lm",
+        "n_folds": 5
+      }
+    }
+  ],
+  "hardware": {
+    "R_version": "R version 4.5.2 (2025-10-31)"
+  },
+  "extra": []
+}

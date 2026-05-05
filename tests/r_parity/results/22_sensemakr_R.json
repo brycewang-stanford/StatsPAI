@@ -1,0 +1,88 @@
+{
+  "module": "22_sensemakr",
+  "side": "R",
+  "rows": [
+    {
+      "module": "22_sensemakr",
+      "side": "R",
+      "statistic": "beta_treat",
+      "estimate": 2313.01053053034,
+      "se": 587.020372074257,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": []
+    },
+    {
+      "module": "22_sensemakr",
+      "side": "R",
+      "statistic": "t_treat",
+      "estimate": 3.94025597843775,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": []
+    },
+    {
+      "module": "22_sensemakr",
+      "side": "R",
+      "statistic": "partial_r2_yd",
+      "estimate": 0.00578984480930196,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": []
+    },
+    {
+      "module": "22_sensemakr",
+      "side": "R",
+      "statistic": "rv_q",
+      "estimate": 0.0734560183377059,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": []
+    },
+    {
+      "module": "22_sensemakr",
+      "side": "R",
+      "statistic": "rv_q_alpha",
+      "estimate": 0.0376011085066081,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": []
+    },
+    {
+      "module": "22_sensemakr",
+      "side": "R",
+      "statistic": "benchmark_re74_partial_r2_Y",
+      "estimate": 0.0932477385665762,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": []
+    },
+    {
+      "module": "22_sensemakr",
+      "side": "R",
+      "statistic": "benchmark_re74_partial_r2_D",
+      "estimate": 0.323357131394048,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "benchmark": ["re74"],
+    "alpha": [0.05],
+    "q": [1]
+  }
+}

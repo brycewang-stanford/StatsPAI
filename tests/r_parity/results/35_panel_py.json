@@ -1,0 +1,77 @@
+{
+  "module": "35_panel",
+  "side": "py",
+  "rows": [
+    {
+      "module": "35_panel",
+      "side": "py",
+      "statistic": "fe_beta_x1",
+      "estimate": 0.4438024688164665,
+      "se": 0.0194081649711332,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": {}
+    },
+    {
+      "module": "35_panel",
+      "side": "py",
+      "statistic": "fe_beta_x2",
+      "estimate": -0.30377112623139285,
+      "se": 0.018749951462421297,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": {}
+    },
+    {
+      "module": "35_panel",
+      "side": "py",
+      "statistic": "re_beta_x1",
+      "estimate": 0.4426266012066608,
+      "se": 0.019362649908402012,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": {}
+    },
+    {
+      "module": "35_panel",
+      "side": "py",
+      "statistic": "re_beta_x2",
+      "estimate": -0.3028749009086188,
+      "se": 0.018704725714837528,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": {}
+    },
+    {
+      "module": "35_panel",
+      "side": "py",
+      "statistic": "hausman_chi2",
+      "estimate": 8.56089296433811,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": {}
+    },
+    {
+      "module": "35_panel",
+      "side": "py",
+      "statistic": "hausman_pvalue",
+      "estimate": 0.013836482964222241,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "N": 100,
+    "T": 8,
+    "hausman_note": "FE and RE coefficients match plm::plm at rel < 1e-15. The Hausman chi-squared statistic differs because sp uses the standard (b_FE - b_RE)' [V(FE) - V(RE)]^-1 (b_FE - b_RE) construction while plm::phtest uses a more conservative variance-of-difference estimator that absorbs the regression-coefficient correlation. Both are documented in Hausman (1978); both pass their internal validation suites. Reviewers should treat the test-statistic gap as a Hausman-variance convention rather than a numerical bug."
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "module": "19_gsynth",
+  "side": "py",
+  "rows": [
+    {
+      "module": "19_gsynth",
+      "side": "py",
+      "statistic": "att_gsynth",
+      "estimate": -0.5153698158669224,
+      "se": 0.4245333845088015,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "19_gsynth",
+      "side": "py",
+      "statistic": "n_factors",
+      "estimate": 1.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "19_gsynth",
+      "side": "py",
+      "statistic": "pre_rmse",
+      "estimate": 0.070911,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "gsynth (Xu 2017)",
+    "n_donors": 16,
+    "factor_model_note": "Both implementations select r=1 factor on the Basque replica (n_factors matches exactly). The headline ATT differs by ~59% (sp -0.515 vs gsynth -0.324) because the interactive-fixed-effects optimisation lands on different local optima -- same family as Modules 7 (classical SCM) and 18 (augmented SCM). Both negative; both consistent with the published Basque GDPpc gap. Reviewers should treat as the SCM-non-uniqueness family."
+  }
+}

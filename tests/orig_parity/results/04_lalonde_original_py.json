@@ -1,0 +1,43 @@
+{
+  "module": "04_lalonde_original",
+  "side": "py",
+  "rows": [
+    {
+      "module": "04_lalonde_original",
+      "side": "py",
+      "statistic": "naive_ols_att",
+      "estimate": -635.0262120374235,
+      "se": 676.7479547123252,
+      "n": 614,
+      "published": -8498,
+      "citation": "Dehejia-Wahba (1999) Table 3, naive OLS",
+      "extra": {}
+    },
+    {
+      "module": "04_lalonde_original",
+      "side": "py",
+      "statistic": "adj_ols_att",
+      "estimate": 1548.2438019995936,
+      "se": 740.5760491329494,
+      "n": 614,
+      "published": 218,
+      "citation": "Dehejia-Wahba (1999) Table 3, covariate-adjusted OLS",
+      "extra": {}
+    },
+    {
+      "module": "04_lalonde_original",
+      "side": "py",
+      "statistic": "psm_att",
+      "estimate": 2012.4791654054056,
+      "se": 694.2853225879029,
+      "n": 614,
+      "published": 1794,
+      "citation": "Dehejia-Wahba (1999) Table 4, PSM 1:1 NN",
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "data_source": "MatchIt::lalonde",
+    "n_obs": 614
+  }
+}

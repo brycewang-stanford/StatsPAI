@@ -1,0 +1,88 @@
+{
+  "module": "22_sensemakr",
+  "side": "py",
+  "rows": [
+    {
+      "module": "22_sensemakr",
+      "side": "py",
+      "statistic": "beta_treat",
+      "estimate": 2313.0105305297866,
+      "se": 587.0203162777763,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    },
+    {
+      "module": "22_sensemakr",
+      "side": "py",
+      "statistic": "t_treat",
+      "estimate": 3.940256352959472,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    },
+    {
+      "module": "22_sensemakr",
+      "side": "py",
+      "statistic": "partial_r2_yd",
+      "estimate": 0.005789844809302003,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    },
+    {
+      "module": "22_sensemakr",
+      "side": "py",
+      "statistic": "rv_q",
+      "estimate": 0.07609103694641077,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    },
+    {
+      "module": "22_sensemakr",
+      "side": "py",
+      "statistic": "rv_q_alpha",
+      "estimate": 0.03830761135456882,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    },
+    {
+      "module": "22_sensemakr",
+      "side": "py",
+      "statistic": "benchmark_re74_partial_r2_Y",
+      "estimate": 0.2115,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    },
+    {
+      "module": "22_sensemakr",
+      "side": "py",
+      "statistic": "benchmark_re74_partial_r2_D",
+      "estimate": 0.9419,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "benchmark": "re74",
+    "alpha": 0.05,
+    "benchmark_partial_r2_note": "Headline statistics match sensemakr::sensemakr at machine precision: beta_treat (rel < 1e-13), t_treat (rel < 1e-7), partial_r2_yd (rel < 1e-14). The robustness values (RV_q, RV_{q,alpha}) match within rel < 4%. The benchmark partial-R^2 rows for re74 differ because sp.sensemakr reports the partial R^2 of re74 in the full regression including D, while sensemakr::sensemakr reports the partial R^2 of re74 on Y conditional on (D + remaining X). These are two distinct quantities used in different framings of Cinelli-Hazlett (2020); reviewers should verify which framing the paper they're checking expects."
+  }
+}

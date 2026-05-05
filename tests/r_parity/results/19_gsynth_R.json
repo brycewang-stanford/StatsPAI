@@ -1,0 +1,44 @@
+{
+  "module": "19_gsynth",
+  "side": "R",
+  "rows": [
+    {
+      "module": "19_gsynth",
+      "side": "R",
+      "statistic": "att_gsynth",
+      "estimate": -0.32417115086183,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": []
+    },
+    {
+      "module": "19_gsynth",
+      "side": "R",
+      "statistic": "n_factors",
+      "estimate": 1,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": []
+    },
+    {
+      "module": "19_gsynth",
+      "side": "R",
+      "statistic": "pre_rmse",
+      "estimate": 0.043094139385699,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "method": ["gsynth::gsynth (Xu 2017)"],
+    "force": ["two-way"],
+    "CV": [true]
+  }
+}

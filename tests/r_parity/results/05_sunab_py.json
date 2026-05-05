@@ -1,0 +1,99 @@
+{
+  "module": "05_sunab",
+  "side": "py",
+  "rows": [
+    {
+      "module": "05_sunab",
+      "side": "py",
+      "statistic": "weighted_avg_ATT",
+      "estimate": -0.03378251905457594,
+      "se": 0.009031682621187673,
+      "ci_lo": -0.05148429171190009,
+      "ci_hi": -0.016080746397251787,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "05_sunab",
+      "side": "py",
+      "statistic": "att_rel_-4",
+      "estimate": -0.004903082259877649,
+      "se": 0.014609775811520728,
+      "ci_lo": -0.03353771667266271,
+      "ci_hi": 0.023731552152907415,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "05_sunab",
+      "side": "py",
+      "statistic": "att_rel_-3",
+      "estimate": 0.009883454885052101,
+      "se": 0.010889474717079831,
+      "ci_lo": -0.011459523370983861,
+      "ci_hi": 0.031226433141088063,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "05_sunab",
+      "side": "py",
+      "statistic": "att_rel_-2",
+      "estimate": 0.007555373776527555,
+      "se": 0.008735309421660306,
+      "ci_lo": -0.009565518083740052,
+      "ci_hi": 0.02467626563679516,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "05_sunab",
+      "side": "py",
+      "statistic": "att_rel_0",
+      "estimate": -0.03383718991575549,
+      "se": 0.007478624869861075,
+      "ci_lo": -0.04849502531456874,
+      "ci_hi": -0.019179354516942235,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "05_sunab",
+      "side": "py",
+      "statistic": "att_rel_1",
+      "estimate": -0.028031140616274597,
+      "se": 0.0088541367497843,
+      "ci_lo": -0.04538492976004435,
+      "ci_hi": -0.010677351472504839,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "05_sunab",
+      "side": "py",
+      "statistic": "att_rel_2",
+      "estimate": -0.045527906359521274,
+      "se": 0.01485492520291498,
+      "ci_lo": -0.07464302475027099,
+      "ci_hi": -0.016412787968771558,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "05_sunab",
+      "side": "py",
+      "statistic": "att_rel_3",
+      "estimate": -0.027733839326752392,
+      "se": 0.014438594707841241,
+      "ci_lo": -0.05603296494149185,
+      "ci_hi": 0.0005652862879870629,
+      "n": 2500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "control_group": "nevertreated",
+    "method": "Sun and Abraham (2021)",
+    "aggregation_note": "sp.sun_abraham reports the unweighted mean of the post-treatment per-relative-time ATTs as its summary estimate. fixest::feols with agg='att' uses a cohort-share-weighted average that recovers the Callaway-Sant'Anna simple ATT (-0.03298). On this DGP the two summaries differ by ~2.4% (sp: -0.0338; fixest: -0.0330). Per-relative-time event-study coefficients agree at rel < 1e-11."
+  }
+}

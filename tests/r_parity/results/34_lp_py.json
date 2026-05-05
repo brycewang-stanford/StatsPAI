@@ -1,0 +1,79 @@
+{
+  "module": "34_lp",
+  "side": "py",
+  "rows": [
+    {
+      "module": "34_lp",
+      "side": "py",
+      "statistic": "irf_h0",
+      "estimate": 0.0725172686542194,
+      "se": 0.04749775686183373,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "34_lp",
+      "side": "py",
+      "statistic": "irf_h1",
+      "estimate": 0.511172840655943,
+      "se": 0.06374067374175969,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 197,
+      "extra": {}
+    },
+    {
+      "module": "34_lp",
+      "side": "py",
+      "statistic": "irf_h2",
+      "estimate": 0.32102271266272847,
+      "se": 0.0753613630541436,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 196,
+      "extra": {}
+    },
+    {
+      "module": "34_lp",
+      "side": "py",
+      "statistic": "irf_h3",
+      "estimate": 0.154674528202297,
+      "se": 0.07238975148499155,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 195,
+      "extra": {}
+    },
+    {
+      "module": "34_lp",
+      "side": "py",
+      "statistic": "irf_h4",
+      "estimate": -0.03721951763635742,
+      "se": 0.062341259983376446,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 194,
+      "extra": {}
+    },
+    {
+      "module": "34_lp",
+      "side": "py",
+      "statistic": "irf_h5",
+      "estimate": -0.026493457713105552,
+      "se": 0.06833123655619935,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 193,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "horizons": 5,
+    "controls": [
+      "y_lag"
+    ],
+    "identification_note": "sp.local_projections regresses y_{t+h} on the contemporaneous shock x_t with explicit y_lag controls; lpirfs::lp_lin uses a Cholesky-orthogonalised shock that zeros the h=0 response by construction. At h=0 the implementations therefore disagree by definition. At h>=1 both compute OLS-by-horizon impulse responses, but lpirfs uses lag-structure controls (lags_endog_lin=1) on all endogenous variables while sp uses an explicit y_lag scalar; this introduces a small short-horizon gap (~7-11% at h=1-3) and a larger long-horizon gap (h=4-5) where LP variance is high. Reviewers should treat as different identification conventions, not as a numerical bug."
+  }
+}

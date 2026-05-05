@@ -1,0 +1,131 @@
+{
+  "module": "33_var",
+  "side": "R",
+  "rows": [
+    {
+      "module": "33_var",
+      "side": "R",
+      "statistic": "eq_y1__L1.y1",
+      "estimate": 0.432497908856047,
+      "se": 0.0716367859292648,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": []
+    },
+    {
+      "module": "33_var",
+      "side": "R",
+      "statistic": "eq_y1__L1.y2",
+      "estimate": 0.291847758309609,
+      "se": 0.0771776448003892,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": []
+    },
+    {
+      "module": "33_var",
+      "side": "R",
+      "statistic": "eq_y1__L2.y1",
+      "estimate": 0.030923198437183,
+      "se": 0.0745833103624005,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": []
+    },
+    {
+      "module": "33_var",
+      "side": "R",
+      "statistic": "eq_y1__L2.y2",
+      "estimate": -0.129545449746863,
+      "se": 0.0749760047540417,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": []
+    },
+    {
+      "module": "33_var",
+      "side": "R",
+      "statistic": "eq_y1___cons",
+      "estimate": 0.00697286319967055,
+      "se": 0.0353469523915388,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": []
+    },
+    {
+      "module": "33_var",
+      "side": "R",
+      "statistic": "eq_y2__L1.y1",
+      "estimate": -0.278003505743515,
+      "se": 0.0663650475401808,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": []
+    },
+    {
+      "module": "33_var",
+      "side": "R",
+      "statistic": "eq_y2__L1.y2",
+      "estimate": 0.551309444228225,
+      "se": 0.0714981555883098,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": []
+    },
+    {
+      "module": "33_var",
+      "side": "R",
+      "statistic": "eq_y2__L2.y1",
+      "estimate": -0.0759498433752637,
+      "se": 0.0690947377621353,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": []
+    },
+    {
+      "module": "33_var",
+      "side": "R",
+      "statistic": "eq_y2__L2.y2",
+      "estimate": -0.0598175251890523,
+      "se": 0.0694585338430448,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": []
+    },
+    {
+      "module": "33_var",
+      "side": "R",
+      "statistic": "eq_y2___cons",
+      "estimate": -0.0167486717346591,
+      "se": 0.0327457764252749,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": []
+    },
+    {
+      "module": "33_var",
+      "side": "R",
+      "statistic": "logLik",
+      "estimate": -263.256636072466,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "p": [2],
+    "type": ["const"]
+  }
+}

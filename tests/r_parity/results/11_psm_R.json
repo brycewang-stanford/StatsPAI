@@ -1,0 +1,45 @@
+{
+  "module": "11_psm",
+  "side": "R",
+  "rows": [
+    {
+      "module": "11_psm",
+      "side": "R",
+      "statistic": "att_psm",
+      "estimate": 2277.69072087685,
+      "se": 1136.28411617373,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": []
+    },
+    {
+      "module": "11_psm",
+      "side": "R",
+      "statistic": "n_treated",
+      "estimate": 185,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": []
+    },
+    {
+      "module": "11_psm",
+      "side": "R",
+      "statistic": "n_control",
+      "estimate": 20,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "distance": ["glm-logit"],
+    "method": ["nearest"],
+    "replace": [true],
+    "ratio": [1]
+  }
+}

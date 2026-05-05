@@ -1,0 +1,211 @@
+{
+  "module": "07_scm",
+  "side": "py",
+  "rows": [
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "avg_post_gap",
+      "estimate": -0.7731573762487124,
+      "se": 0.6034111549085489,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "pre_treatment_rmse",
+      "estimate": 0.082579,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Andalucia",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Aragon",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Asturias",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Baleares",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Canarias",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Cantabria",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Castilla y Leon",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Castilla-La Mancha",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Cataluna",
+      "estimate": 0.43774542989946547,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Extremadura",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Galicia",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Madrid",
+      "estimate": 0.5622545701005347,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Murcia",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Navarra",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Rioja",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "weight_Valencia",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "classic",
+    "treatment_time": 1970,
+    "treated_unit": "Basque Country",
+    "n_donors": 16,
+    "optimisation_note": "Classical SCM has multiple local optima for the V matrix and consequently for the donor-weight vector W. sp.synth selects a sparse two-donor solution (Madrid 0.562 + Cataluna 0.438, weight HHI = 0.5) while Synth::synth finds a denser solution (Madrid 0.537 + Cataluna 0.452 + diffuse 1% across the remaining donors) at a slightly better pre-treatment RMSE. Both solutions agree on the dominant Madrid + Cataluna donor pair, recover the negative post-1970 GDPpc gap, and lie within the published Abadie-Gardeazabal (2003) -0.855-thousand-$1986 neighbourhood. The headline ATT differs by ~12% (sp: -0.773; Synth: -0.688). Reviewers should treat this as the well-documented SCM non-uniqueness rather than as evidence of an implementation bug; the fix-V and standardisation options exposed by sp.synth and Synth::synth let users force a specific local minimum if exact agreement is required."
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "module": "11_psm",
+  "side": "py",
+  "rows": [
+    {
+      "module": "11_psm",
+      "side": "py",
+      "statistic": "att_psm",
+      "estimate": 2277.6907208768525,
+      "se": 436.4908554668726,
+      "ci_lo": 1422.1843645807041,
+      "ci_hi": 3133.197077173001,
+      "n": 2675,
+      "extra": {}
+    },
+    {
+      "module": "11_psm",
+      "side": "py",
+      "statistic": "n_treated",
+      "estimate": 185.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    },
+    {
+      "module": "11_psm",
+      "side": "py",
+      "statistic": "n_control",
+      "estimate": 2490.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "distance": "propensity",
+    "method": "nearest",
+    "replace": true,
+    "bias_correction": false
+  }
+}

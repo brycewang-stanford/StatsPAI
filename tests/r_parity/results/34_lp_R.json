@@ -1,0 +1,76 @@
+{
+  "module": "34_lp",
+  "side": "R",
+  "rows": [
+    {
+      "module": "34_lp",
+      "side": "R",
+      "statistic": "irf_h0",
+      "estimate": 0,
+      "se": 0,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 199,
+      "extra": []
+    },
+    {
+      "module": "34_lp",
+      "side": "R",
+      "statistic": "irf_h1",
+      "estimate": 0.461444592839222,
+      "se": 0.0431362326194262,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 199,
+      "extra": []
+    },
+    {
+      "module": "34_lp",
+      "side": "R",
+      "statistic": "irf_h2",
+      "estimate": 0.299582531051504,
+      "se": 0.0651216685321928,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 199,
+      "extra": []
+    },
+    {
+      "module": "34_lp",
+      "side": "R",
+      "statistic": "irf_h3",
+      "estimate": 0.148092245451433,
+      "se": 0.0691169132528259,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 199,
+      "extra": []
+    },
+    {
+      "module": "34_lp",
+      "side": "R",
+      "statistic": "irf_h4",
+      "estimate": -0.00543013383730529,
+      "se": 0.0650565347230699,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 199,
+      "extra": []
+    },
+    {
+      "module": "34_lp",
+      "side": "R",
+      "statistic": "irf_h5",
+      "estimate": -0.00324604091867858,
+      "se": 0.0746097068040732,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 199,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "method": ["lpirfs::lp_lin"],
+    "shock_type": ["Cholesky"]
+  }
+}

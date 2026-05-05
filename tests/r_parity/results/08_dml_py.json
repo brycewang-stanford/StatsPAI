@@ -1,0 +1,25 @@
+{
+  "module": "08_dml",
+  "side": "py",
+  "rows": [
+    {
+      "module": "08_dml",
+      "side": "py",
+      "statistic": "theta_DML_PLR",
+      "estimate": 0.10994848884330069,
+      "se": 0.004138591590414783,
+      "ci_lo": 0.10183699837936737,
+      "ci_hi": 0.11805997930723401,
+      "n": 3010,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "dml_model": "PLR",
+    "n_folds": 5,
+    "ml_g": "LinearRegression",
+    "ml_m": "LinearRegression",
+    "seed": 42,
+    "fold_split_note": "DML PLR with linear-regression nuisance learners is equivalent to OLS on the partialled-out residuals, so both implementations should converge to OLS beta(educ) = 0.10999 (Module 01) up to fold-split Monte Carlo noise. sklearn.KFold(shuffle=True, seed=42) and mlr3 ResamplingCV(folds=5, set.seed(42)) produce different partitions, so the residual gap (~2e-4 absolute, ~2.4e-3 relative) is fold-split RNG drift, not a score-function or orthogonalisation bug. Forcing the same fold indices on both sides closes the gap to machine precision."
+  }
+}

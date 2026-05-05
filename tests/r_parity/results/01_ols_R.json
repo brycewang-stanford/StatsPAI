@@ -1,0 +1,87 @@
+{
+  "module": "01_ols",
+  "side": "R",
+  "rows": [
+    {
+      "module": "01_ols",
+      "side": "R",
+      "statistic": "beta_(Intercept)",
+      "estimate": 4.83875556597363,
+      "se": 0.0636568614540664,
+      "ci_lo": 4.7139904101548,
+      "ci_hi": 4.96352072179245,
+      "n": 3010,
+      "extra": []
+    },
+    {
+      "module": "01_ols",
+      "side": "R",
+      "statistic": "beta_educ",
+      "estimate": 0.109986249127103,
+      "se": 0.00414194491941895,
+      "ci_lo": 0.101868186259093,
+      "ci_hi": 0.118104311995112,
+      "n": 3010,
+      "extra": []
+    },
+    {
+      "module": "01_ols",
+      "side": "R",
+      "statistic": "beta_exper",
+      "estimate": 0.0282605591069387,
+      "se": 0.00535823871587822,
+      "ci_lo": 0.0177586042032493,
+      "ci_hi": 0.0387625140106282,
+      "n": 3010,
+      "extra": []
+    },
+    {
+      "module": "01_ols",
+      "side": "R",
+      "statistic": "beta_expersq",
+      "estimate": -0.000528944328429792,
+      "se": 0.000238994153082378,
+      "ci_lo": -0.000997364260986905,
+      "ci_hi": -6.05243958726796e-05,
+      "n": 3010,
+      "extra": []
+    },
+    {
+      "module": "01_ols",
+      "side": "R",
+      "statistic": "beta_black",
+      "estimate": -0.156077834391396,
+      "se": 0.0230984532958379,
+      "ci_lo": -0.201349970949818,
+      "ci_hi": -0.110805697832973,
+      "n": 3010,
+      "extra": []
+    },
+    {
+      "module": "01_ols",
+      "side": "R",
+      "statistic": "beta_south",
+      "estimate": -0.0553805392709302,
+      "se": 0.0193391679681747,
+      "ci_lo": -0.0932846119795233,
+      "ci_hi": -0.0174764665623372,
+      "n": 3010,
+      "extra": []
+    },
+    {
+      "module": "01_ols",
+      "side": "R",
+      "statistic": "beta_smsa",
+      "estimate": 0.0904610557586549,
+      "se": 0.0204599612683293,
+      "ci_lo": 0.050360268547645,
+      "ci_hi": 0.130561842969665,
+      "n": 3010,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "formula": ["lwage ~ educ + exper + expersq + black + south + smsa"],
+    "vcov": ["HC1"]
+  }
+}

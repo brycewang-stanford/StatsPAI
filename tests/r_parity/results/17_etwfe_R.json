@@ -1,0 +1,20 @@
+{
+  "module": "17_etwfe",
+  "side": "R",
+  "rows": [
+    {
+      "module": "17_etwfe",
+      "side": "R",
+      "statistic": "att_etwfe",
+      "estimate": -0.0351082766081059,
+      "se": 0.00692510847384087,
+      "ci_lo": -0.0486812398058672,
+      "ci_hi": -0.0215353134103447,
+      "n": 2500,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "method": ["etwfe::etwfe"]
+  }
+}

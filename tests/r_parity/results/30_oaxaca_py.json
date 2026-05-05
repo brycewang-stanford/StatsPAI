@@ -1,0 +1,131 @@
+{
+  "module": "30_oaxaca",
+  "side": "py",
+  "rows": [
+    {
+      "module": "30_oaxaca",
+      "side": "py",
+      "statistic": "gap",
+      "estimate": 0.22123102603484313,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "py",
+      "statistic": "explained",
+      "estimate": 0.03858181940242672,
+      "se": 0.0050664548264928114,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "py",
+      "statistic": "unexplained",
+      "estimate": 0.18264920663241785,
+      "se": 0.01966123358116003,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "py",
+      "statistic": "mean_y_a",
+      "estimate": 3.2465208132740244,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "py",
+      "statistic": "mean_y_b",
+      "estimate": 3.0252897872391813,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "py",
+      "statistic": "beta_a_educ",
+      "estimate": 0.07631121839365289,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "py",
+      "statistic": "beta_b_educ",
+      "estimate": 0.07049839456640537,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "py",
+      "statistic": "beta_a_exper",
+      "estimate": 0.017673945301353175,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "py",
+      "statistic": "beta_b_exper",
+      "estimate": 0.019386799820512318,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "py",
+      "statistic": "explained_educ",
+      "estimate": 0.007218461536997642,
+      "se": 0.00048075980787075216,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "py",
+      "statistic": "explained_exper",
+      "estimate": 0.03136335786542908,
+      "se": 0.005050886202334671,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "reference": "group_a (male)",
+    "decomposition_note": "The total wage gap, the group-conditional means, all four group-specific coefficients (beta_a_educ, beta_b_educ, beta_a_exper, beta_b_exper), and the unexplained component all match oaxaca::oaxaca at rel < 1e-14. The 'explained' overall component and the per-variable contributions differ by ~6-9% because sp.decompose('oaxaca') uses the TWOFOLD Blinder-Oaxaca decomposition (gap = explained + unexplained), while oaxaca::oaxaca's threefold decomposition splits explained = endowments + interaction. Adding R's coef(endowments) and coef(interaction) recovers sp's explained to machine precision: 0.04107 + (-0.00249) = 0.03858."
+  }
+}

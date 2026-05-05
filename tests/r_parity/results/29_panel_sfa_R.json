@@ -1,0 +1,66 @@
+{
+  "module": "29_panel_sfa",
+  "side": "R",
+  "rows": [
+    {
+      "module": "29_panel_sfa",
+      "side": "R",
+      "statistic": "beta_intercept",
+      "estimate": 2.06344130854489,
+      "se": 0.0505082426223224,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": []
+    },
+    {
+      "module": "29_panel_sfa",
+      "side": "R",
+      "statistic": "beta_lnk",
+      "estimate": 0.583317942336584,
+      "se": 0.0197192464166028,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": []
+    },
+    {
+      "module": "29_panel_sfa",
+      "side": "R",
+      "statistic": "beta_lnl",
+      "estimate": 0.360009892126997,
+      "se": 0.0183089435522413,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": []
+    },
+    {
+      "module": "29_panel_sfa",
+      "side": "R",
+      "statistic": "sigma_u",
+      "estimate": 0.62315279583349,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": []
+    },
+    {
+      "module": "29_panel_sfa",
+      "side": "R",
+      "statistic": "sigma_v",
+      "estimate": 0.297184038615194,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "distribution": ["half-normal"],
+    "timeEffect": [false],
+    "package": ["frontier::sfa"]
+  }
+}

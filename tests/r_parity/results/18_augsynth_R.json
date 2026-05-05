@@ -1,0 +1,32 @@
+{
+  "module": "18_augsynth",
+  "side": "R",
+  "rows": [
+    {
+      "module": "18_augsynth",
+      "side": "R",
+      "statistic": "att_augmented",
+      "estimate": -0.362773547553236,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": []
+    },
+    {
+      "module": "18_augsynth",
+      "side": "R",
+      "statistic": "pre_rmspe",
+      "estimate": 0.0139615454031582,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "method": ["augsynth::augsynth"],
+    "progfunc": ["Ridge"]
+  }
+}

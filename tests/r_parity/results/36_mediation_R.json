@@ -1,0 +1,54 @@
+{
+  "module": "36_mediation",
+  "side": "R",
+  "rows": [
+    {
+      "module": "36_mediation",
+      "side": "R",
+      "statistic": "acme",
+      "estimate": 0.108225400109068,
+      "se": 0.01665476009944,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": []
+    },
+    {
+      "module": "36_mediation",
+      "side": "R",
+      "statistic": "ade",
+      "estimate": 0.480605317749906,
+      "se": 0.0308169317147343,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": []
+    },
+    {
+      "module": "36_mediation",
+      "side": "R",
+      "statistic": "total_effect",
+      "estimate": 0.588830717858974,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": []
+    },
+    {
+      "module": "36_mediation",
+      "side": "R",
+      "statistic": "prop_mediated",
+      "estimate": 0.183797136981207,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "method": ["mediation::mediate"],
+    "sims": [200]
+  }
+}

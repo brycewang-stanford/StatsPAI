@@ -1,0 +1,131 @@
+{
+  "module": "30_oaxaca",
+  "side": "R",
+  "rows": [
+    {
+      "module": "30_oaxaca",
+      "side": "R",
+      "statistic": "gap",
+      "estimate": 0.221231026034843,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "R",
+      "statistic": "explained",
+      "estimate": 0.0410715220577502,
+      "se": 0.0143272387406562,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "R",
+      "statistic": "unexplained",
+      "estimate": 0.182649206632417,
+      "se": 0.0194185512280104,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "R",
+      "statistic": "mean_y_a",
+      "estimate": 3.24652081327402,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "R",
+      "statistic": "mean_y_b",
+      "estimate": 3.02528978723918,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "R",
+      "statistic": "beta_a_educ",
+      "estimate": 0.0763112183936529,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "R",
+      "statistic": "beta_b_educ",
+      "estimate": 0.0704983945664054,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "R",
+      "statistic": "beta_a_exper",
+      "estimate": 0.0176739453013532,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "R",
+      "statistic": "beta_b_exper",
+      "estimate": 0.0193867998205123,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "R",
+      "statistic": "explained_educ",
+      "estimate": 0.00666861256195063,
+      "se": 0.0122760980791994,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "R",
+      "statistic": "explained_exper",
+      "estimate": 0.0344029094957995,
+      "se": 0.00762998174999217,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "method": ["threefold"],
+    "reference": ["fit$reg$reg.A"]
+  }
+}

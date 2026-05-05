@@ -1,0 +1,76 @@
+{
+  "module": "09_rddensity",
+  "side": "R",
+  "rows": [
+    {
+      "module": "09_rddensity",
+      "side": "R",
+      "statistic": "density_diff",
+      "estimate": 0.0434784467884735,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6558,
+      "extra": []
+    },
+    {
+      "module": "09_rddensity",
+      "side": "R",
+      "statistic": "density_left",
+      "estimate": 1.70104176528127,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6558,
+      "extra": []
+    },
+    {
+      "module": "09_rddensity",
+      "side": "R",
+      "statistic": "density_right",
+      "estimate": 1.74452021206974,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6558,
+      "extra": []
+    },
+    {
+      "module": "09_rddensity",
+      "side": "R",
+      "statistic": "test_pvalue",
+      "estimate": 0.85710438024097,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6558,
+      "extra": []
+    },
+    {
+      "module": "09_rddensity",
+      "side": "R",
+      "statistic": "bandwidth_left",
+      "estimate": 0.12670043574048,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6558,
+      "extra": []
+    },
+    {
+      "module": "09_rddensity",
+      "side": "R",
+      "statistic": "bandwidth_right",
+      "estimate": 0.119543024174773,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6558,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "polynomial_order": [2],
+    "test_kind": ["Cattaneo-Jansson-Ma (2020)"]
+  }
+}

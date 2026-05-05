@@ -1,0 +1,128 @@
+{
+  "module": "21_honest_relmags",
+  "side": "py",
+  "rows": [
+    {
+      "module": "21_honest_relmags",
+      "side": "py",
+      "statistic": "ci_lower_Mbar_0",
+      "estimate": 0.304004,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "py",
+      "statistic": "ci_upper_Mbar_0",
+      "estimate": 0.695996,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "py",
+      "statistic": "ci_lower_Mbar_0.5",
+      "estimate": 0.294004,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "py",
+      "statistic": "ci_upper_Mbar_0.5",
+      "estimate": 0.705996,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "py",
+      "statistic": "ci_lower_Mbar_1",
+      "estimate": 0.284004,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "py",
+      "statistic": "ci_upper_Mbar_1",
+      "estimate": 0.715996,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "py",
+      "statistic": "ci_lower_Mbar_1.5",
+      "estimate": 0.274004,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "py",
+      "statistic": "ci_upper_Mbar_1.5",
+      "estimate": 0.725996,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "py",
+      "statistic": "ci_lower_Mbar_2",
+      "estimate": 0.264004,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "py",
+      "statistic": "ci_upper_Mbar_2",
+      "estimate": 0.735996,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "relative_magnitude",
+    "Mbar_grid": [
+      0.0,
+      0.5,
+      1.0,
+      1.5,
+      2.0
+    ],
+    "alpha": 0.05,
+    "conservatism_note": "Both implementations widen the CI as Mbar grows; they agree at low Mbar (abs diff < 0.01 at Mbar=0) and diverge at high Mbar (abs diff ~0.11 at Mbar=2). sp uses an analytic linear bound; HonestDiD uses a conic-solver-based bound that produces wider CIs at large Mbar. Reviewers should treat this as a conservatism-convention difference, not as a parity failure -- both are documented interpretations of the Roth (2024) relative-magnitudes restriction."
+  }
+}

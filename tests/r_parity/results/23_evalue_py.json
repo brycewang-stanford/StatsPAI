@@ -1,0 +1,76 @@
+{
+  "module": "23_evalue",
+  "side": "py",
+  "rows": [
+    {
+      "module": "23_evalue",
+      "side": "py",
+      "statistic": "evalue_est_moderate",
+      "estimate": 4.436491673103708,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1,
+      "extra": {}
+    },
+    {
+      "module": "23_evalue",
+      "side": "py",
+      "statistic": "evalue_ci_moderate",
+      "estimate": 3.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1,
+      "extra": {}
+    },
+    {
+      "module": "23_evalue",
+      "side": "py",
+      "statistic": "evalue_est_strong",
+      "estimate": 7.464101615137754,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1,
+      "extra": {}
+    },
+    {
+      "module": "23_evalue",
+      "side": "py",
+      "statistic": "evalue_ci_strong",
+      "estimate": 4.436491673103708,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1,
+      "extra": {}
+    },
+    {
+      "module": "23_evalue",
+      "side": "py",
+      "statistic": "evalue_est_borderline",
+      "estimate": 1.9244997998398399,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1,
+      "extra": {}
+    },
+    {
+      "module": "23_evalue",
+      "side": "py",
+      "statistic": "evalue_ci_borderline",
+      "estimate": 1.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "measure": "RR",
+    "n_cases": 3
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "estimator": "02_csdid",
+  "side": "py",
+  "rows": [
+    {
+      "estimator": "02_csdid",
+      "side": "py",
+      "n": 5000,
+      "n_reps": 3,
+      "median_time_s": 0.00893179140985012,
+      "iqr_time_s": 0.00018745800480246544,
+      "min_time_s": 0.008822791744023561,
+      "max_time_s": 0.009010249748826027,
+      "peak_mem_mb": 180.859375,
+      "extra": {
+        "n_units": 1000,
+        "T": 5
+      }
+    },
+    {
+      "estimator": "02_csdid",
+      "side": "py",
+      "n": 25000,
+      "n_reps": 3,
+      "median_time_s": 0.011727833189070225,
+      "iqr_time_s": 0.0007503749802708626,
+      "min_time_s": 0.01165141724050045,
+      "max_time_s": 0.012401792220771313,
+      "peak_mem_mb": 183.25,
+      "extra": {
+        "n_units": 5000,
+        "T": 5
+      }
+    },
+    {
+      "estimator": "02_csdid",
+      "side": "py",
+      "n": 125000,
+      "n_reps": 3,
+      "median_time_s": 0.032602207735180855,
+      "iqr_time_s": 0.004179083276540041,
+      "min_time_s": 0.030769916716963053,
+      "max_time_s": 0.034948999993503094,
+      "peak_mem_mb": 205.515625,
+      "extra": {
+        "n_units": 25000,
+        "T": 5
+      }
+    }
+  ],
+  "hardware": {
+    "platform": "macOS-26.3.1-arm64-arm-64bit-Mach-O",
+    "processor": "arm",
+    "machine": "arm64",
+    "python": "3.13.5",
+    "cpu_logical": 8,
+    "cpu_physical": 8,
+    "mem_gb": 24.0
+  },
+  "extra": {}
+}

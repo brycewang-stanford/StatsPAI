@@ -1,0 +1,138 @@
+{
+  "module": "10_honest_did",
+  "side": "py",
+  "rows": [
+    {
+      "module": "10_honest_did",
+      "side": "py",
+      "statistic": "breakdown_m_e0",
+      "estimate": 0.3040036015459946,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "10_honest_did",
+      "side": "py",
+      "statistic": "ci_lower_M_0",
+      "estimate": 0.304004,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "10_honest_did",
+      "side": "py",
+      "statistic": "ci_upper_M_0",
+      "estimate": 0.695996,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "10_honest_did",
+      "side": "py",
+      "statistic": "ci_lower_M_0.05",
+      "estimate": 0.254004,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "10_honest_did",
+      "side": "py",
+      "statistic": "ci_upper_M_0.05",
+      "estimate": 0.745996,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "10_honest_did",
+      "side": "py",
+      "statistic": "ci_lower_M_0.1",
+      "estimate": 0.204004,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "10_honest_did",
+      "side": "py",
+      "statistic": "ci_upper_M_0.1",
+      "estimate": 0.795996,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "10_honest_did",
+      "side": "py",
+      "statistic": "ci_lower_M_0.2",
+      "estimate": 0.104004,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "10_honest_did",
+      "side": "py",
+      "statistic": "ci_upper_M_0.2",
+      "estimate": 0.895996,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "10_honest_did",
+      "side": "py",
+      "statistic": "ci_lower_M_0.5",
+      "estimate": -0.195996,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "10_honest_did",
+      "side": "py",
+      "statistic": "ci_upper_M_0.5",
+      "estimate": 1.195996,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "smoothness",
+    "alpha": 0.05,
+    "M_grid": [
+      0.0,
+      0.05,
+      0.1,
+      0.2,
+      0.5
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "module": "24_coxph",
+  "side": "R",
+  "rows": [
+    {
+      "module": "24_coxph",
+      "side": "R",
+      "statistic": "beta_x1",
+      "estimate": 0.462796354285459,
+      "se": 0.079236848248006,
+      "ci_lo": 0.307494985470901,
+      "ci_hi": 0.618097723100016,
+      "n": 300,
+      "extra": []
+    },
+    {
+      "module": "24_coxph",
+      "side": "R",
+      "statistic": "beta_x2",
+      "estimate": -0.589403662989073,
+      "se": 0.140424457311348,
+      "ci_lo": -0.864630541867897,
+      "ci_hi": -0.31417678411025,
+      "n": 300,
+      "extra": []
+    },
+    {
+      "module": "24_coxph",
+      "side": "R",
+      "statistic": "concordance",
+      "estimate": 0.642074224101984,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "ties": ["efron"]
+  }
+}

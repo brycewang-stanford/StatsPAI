@@ -1,0 +1,87 @@
+{
+  "module": "02_iv",
+  "side": "py",
+  "rows": [
+    {
+      "module": "02_iv",
+      "side": "py",
+      "statistic": "beta_(Intercept)",
+      "estimate": 4.408460270396063,
+      "se": 0.2517222554815894,
+      "ci_lo": 3.915093715544957,
+      "ci_hi": 4.901826825247168,
+      "n": 3010,
+      "extra": {}
+    },
+    {
+      "module": "02_iv",
+      "side": "py",
+      "statistic": "beta_exper",
+      "estimate": 0.02897714752741365,
+      "se": 0.005414434926201161,
+      "ci_lo": 0.01836505007542359,
+      "ci_hi": 0.03958924497940371,
+      "n": 3010,
+      "extra": {}
+    },
+    {
+      "module": "02_iv",
+      "side": "py",
+      "statistic": "beta_expersq",
+      "estimate": -0.0005668287293900676,
+      "se": 0.00024124654870358696,
+      "ci_lo": -0.001039663276243686,
+      "ci_hi": -9.399418253644903e-05,
+      "n": 3010,
+      "extra": {}
+    },
+    {
+      "module": "02_iv",
+      "side": "py",
+      "statistic": "beta_black",
+      "estimate": -0.157020559822163,
+      "se": 0.02338834739264695,
+      "ci_lo": -0.20286087836966232,
+      "ci_hi": -0.11118024127466371,
+      "n": 3010,
+      "extra": {}
+    },
+    {
+      "module": "02_iv",
+      "side": "py",
+      "statistic": "beta_south",
+      "estimate": -0.06002200881491149,
+      "se": 0.019641250280688135,
+      "ci_lo": -0.09851815197639746,
+      "ci_hi": -0.021525865653425513,
+      "n": 3010,
+      "extra": {}
+    },
+    {
+      "module": "02_iv",
+      "side": "py",
+      "statistic": "beta_smsa",
+      "estimate": 0.09390055195132163,
+      "se": 0.020659020717311398,
+      "ci_lo": 0.053409615389524455,
+      "ci_hi": 0.1343914885131188,
+      "n": 3010,
+      "extra": {}
+    },
+    {
+      "module": "02_iv",
+      "side": "py",
+      "statistic": "beta_educ",
+      "estimate": 0.14183440866179353,
+      "se": 0.0185446222488344,
+      "ci_lo": 0.10548761694717793,
+      "ci_hi": 0.17818120037640914,
+      "n": 3010,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "formula": "lwage ~ exper + expersq + black + south + smsa + (educ ~ nearc4)",
+    "vcov": "HC1"
+  }
+}

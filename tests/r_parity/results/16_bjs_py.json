@@ -1,0 +1,23 @@
+{
+  "module": "16_bjs",
+  "side": "py",
+  "rows": [
+    {
+      "module": "16_bjs",
+      "side": "py",
+      "statistic": "att_bjs",
+      "estimate": -0.02236535439025298,
+      "se": 0.005706236417742885,
+      "ci_lo": -0.03354937225629989,
+      "ci_hi": -0.01118133652420607,
+      "n": 2500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "did_imputation",
+    "n_treated_obs": 875,
+    "n_control_obs": 1625,
+    "aggregation_note": "sp.did_imputation reports an unweighted average of the per-(g,t) ATTs, while didimputation::did_imputation reports a treated-observation-weighted average (matching Borusyak-Jaravel-Spiess 2024 Section 3). On the mpdta replica sp returns -0.022 while R returns -0.035 (~36% rel gap). Both are sign-correct, both are within the published mpdta neighbourhood, and the difference is the same aggregation-rule family as the Sun-Abraham gap reported in Module 05."
+  }
+}

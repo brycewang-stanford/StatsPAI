@@ -1,0 +1,120 @@
+{
+  "module": "10_honest_did",
+  "side": "R",
+  "rows": [
+    {
+      "module": "10_honest_did",
+      "side": "R",
+      "statistic": "ci_lower_M_0",
+      "estimate": 0.301311891092521,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "10_honest_did",
+      "side": "R",
+      "statistic": "ci_upper_M_0",
+      "estimate": 0.697248117210922,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "10_honest_did",
+      "side": "R",
+      "statistic": "ci_lower_M_0.05",
+      "estimate": 0.261370237975045,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "10_honest_did",
+      "side": "R",
+      "statistic": "ci_upper_M_0.05",
+      "estimate": 0.731131109416051,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "10_honest_did",
+      "side": "R",
+      "statistic": "ci_lower_M_0.1",
+      "estimate": 0.215985863148564,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "10_honest_did",
+      "side": "R",
+      "statistic": "ci_upper_M_0.1",
+      "estimate": 0.784014136850289,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "10_honest_did",
+      "side": "R",
+      "statistic": "ci_lower_M_0.2",
+      "estimate": 0.116270632102176,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "10_honest_did",
+      "side": "R",
+      "statistic": "ci_upper_M_0.2",
+      "estimate": 0.883729367896676,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "10_honest_did",
+      "side": "R",
+      "statistic": "ci_lower_M_0.5",
+      "estimate": -0.183729367894602,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "10_honest_did",
+      "side": "R",
+      "statistic": "ci_upper_M_0.5",
+      "estimate": 1.18372936789345,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "method": ["FLCI"],
+    "alpha": [0.05]
+  }
+}

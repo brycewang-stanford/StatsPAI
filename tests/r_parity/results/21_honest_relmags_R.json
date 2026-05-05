@@ -1,0 +1,120 @@
+{
+  "module": "21_honest_relmags",
+  "side": "R",
+  "rows": [
+    {
+      "module": "21_honest_relmags",
+      "side": "R",
+      "statistic": "ci_lower_Mbar_0",
+      "estimate": 0.31031031031031,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "R",
+      "statistic": "ci_upper_Mbar_0",
+      "estimate": 0.69069069069069,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "R",
+      "statistic": "ci_lower_Mbar_0.5",
+      "estimate": 0.29029029029029,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "R",
+      "statistic": "ci_upper_Mbar_0.5",
+      "estimate": 0.710710710710711,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "R",
+      "statistic": "ci_lower_Mbar_1",
+      "estimate": 0.258258258258258,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "R",
+      "statistic": "ci_upper_Mbar_1",
+      "estimate": 0.738738738738739,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "R",
+      "statistic": "ci_lower_Mbar_1.5",
+      "estimate": 0.214214214214214,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "R",
+      "statistic": "ci_upper_Mbar_1.5",
+      "estimate": 0.786786786786787,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "R",
+      "statistic": "ci_lower_Mbar_2",
+      "estimate": 0.154154154154154,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "21_honest_relmags",
+      "side": "R",
+      "statistic": "ci_upper_Mbar_2",
+      "estimate": 0.842842842842843,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "method": ["relative_magnitudes"],
+    "alpha": [0.05]
+  }
+}

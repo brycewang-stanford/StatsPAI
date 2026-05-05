@@ -1,0 +1,22 @@
+{
+  "module": "17_etwfe",
+  "side": "py",
+  "rows": [
+    {
+      "module": "17_etwfe",
+      "side": "py",
+      "statistic": "att_etwfe",
+      "estimate": -0.037848079532845066,
+      "se": 0.005804584497109654,
+      "ci_lo": -0.04923037556958828,
+      "ci_hi": -0.026465783496101854,
+      "n": 2500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "Wooldridge ETWFE",
+    "n_cohorts": 3,
+    "aggregation_note": "Wooldridge ETWFE pools cohort-specific ATTs; sp uses cohort-share weighting while etwfe::etwfe + emfx() uses treated-observation weighting. On mpdta the gap is ~8% (sp -0.038 vs R -0.035); same family as the BJS and Sun-Abraham aggregation gaps in Modules 5 and 16."
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "module": "14_ols_cluster",
+  "side": "R",
+  "rows": [
+    {
+      "module": "14_ols_cluster",
+      "side": "R",
+      "statistic": "beta_(Intercept)",
+      "estimate": -18.448958272457,
+      "se": 5.06540051198484,
+      "ci_lo": -28.376960843218,
+      "ci_hi": -8.52095570169596,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "14_ols_cluster",
+      "side": "R",
+      "statistic": "beta_treat",
+      "estimate": -0.0559494414173295,
+      "se": 0.0122203609647293,
+      "ci_lo": -0.0799009087862782,
+      "ci_hi": -0.0319979740483809,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "14_ols_cluster",
+      "side": "R",
+      "statistic": "beta_year",
+      "estimate": 0.0132998687569915,
+      "se": 0.002528605022542,
+      "ci_lo": 0.00834389398168209,
+      "ci_hi": 0.0182558435323009,
+      "n": 2500,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "formula": ["lemp ~ treat + year"],
+    "vcov": ["cluster (CR1)"],
+    "cluster_var": ["countyreal"]
+  }
+}

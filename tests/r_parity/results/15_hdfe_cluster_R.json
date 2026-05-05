@@ -1,0 +1,33 @@
+{
+  "module": "15_hdfe_cluster",
+  "side": "R",
+  "rows": [
+    {
+      "module": "15_hdfe_cluster",
+      "side": "R",
+      "statistic": "beta_x1",
+      "estimate": 1.99950397956552,
+      "se": 0.00535254434274898,
+      "ci_lo": 1.98901318542808,
+      "ci_hi": 2.00999477370297,
+      "n": 10000,
+      "extra": []
+    },
+    {
+      "module": "15_hdfe_cluster",
+      "side": "R",
+      "statistic": "beta_x2",
+      "estimate": -1.49998048705935,
+      "se": 0.00507485851782374,
+      "ci_lo": -1.50992702698092,
+      "ci_hi": -1.49003394713777,
+      "n": 10000,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "formula": ["y ~ x1 + x2 | firm + year"],
+    "vcov": ["cluster"],
+    "cluster_var": ["firm"]
+  }
+}

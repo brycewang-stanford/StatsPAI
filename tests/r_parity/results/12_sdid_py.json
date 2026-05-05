@@ -1,0 +1,26 @@
+{
+  "module": "12_sdid",
+  "side": "py",
+  "rows": [
+    {
+      "module": "12_sdid",
+      "side": "py",
+      "statistic": "att_sdid",
+      "estimate": -17.253485687903932,
+      "se": 4.431104877328611,
+      "ci_lo": -25.938291659187783,
+      "ci_hi": -8.56867971662008,
+      "n": 1209,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "sdid",
+    "n_treated": 1,
+    "n_control": 38,
+    "T_pre": 19,
+    "T_post": 12,
+    "se_method": "placebo",
+    "regularisation_note": "Synthetic-DID minimises an l2-regularised objective for the unit-weight vector, and the regularisation constant zeta is set differently in sp.synth(method='sdid') vs synthdid::synthdid_estimate. Both estimates land in the published Arkhangelsky-Athey-Hirshberg-Imbens-Wager (2021) -15-to-19 packs/capita neighbourhood for California Prop 99: sp returns -17.25 (SE 4.43, bootstrap), synthdid returns -15.95 (SE 2.63, placebo). Reviewers should treat this as the same regularisation-convention family as the classical-SCM gap reported in Module 07."
+  }
+}

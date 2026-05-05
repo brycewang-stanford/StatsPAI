@@ -1,0 +1,54 @@
+{
+  "module": "25_lmm",
+  "side": "R",
+  "rows": [
+    {
+      "module": "25_lmm",
+      "side": "R",
+      "statistic": "beta_intercept",
+      "estimate": 1.89625557914795,
+      "se": 0.116023581589994,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "25_lmm",
+      "side": "R",
+      "statistic": "beta_x1",
+      "estimate": 1.48434047423663,
+      "se": 0.0166494158741508,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "25_lmm",
+      "side": "R",
+      "statistic": "logLik",
+      "estimate": -844.359036402866,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "25_lmm",
+      "side": "R",
+      "statistic": "icc",
+      "estimate": 0.718768898436353,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "method": ["REML"],
+    "n_groups": [50]
+  }
+}

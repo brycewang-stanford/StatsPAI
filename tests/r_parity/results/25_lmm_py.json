@@ -1,0 +1,55 @@
+{
+  "module": "25_lmm",
+  "side": "py",
+  "rows": [
+    {
+      "module": "25_lmm",
+      "side": "py",
+      "statistic": "beta_intercept",
+      "estimate": 1.8962555789317326,
+      "se": 0.11602238428258463,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "25_lmm",
+      "side": "py",
+      "statistic": "beta_x1",
+      "estimate": 1.4843404667515476,
+      "se": 0.0166494582643197,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "25_lmm",
+      "side": "py",
+      "statistic": "logLik",
+      "estimate": -839.9475551476689,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "25_lmm",
+      "side": "py",
+      "statistic": "icc",
+      "estimate": 0.7187635901408681,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "reml",
+    "n_groups": 50,
+    "cov_type": "unstructured"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "module": "02_mpdta_original",
+  "side": "R",
+  "rows": [
+    {
+      "module": "02_mpdta_original",
+      "side": "R",
+      "statistic": "simple_ATT",
+      "estimate": -0.0399512751551772,
+      "se": 0.0120340127701854,
+      "n": 2500,
+      "published": -0.0454,
+      "citation": "Callaway-Sant'Anna (2021), R 'did' vignette aggte simple",
+      "extra": []
+    }
+  ],
+  "extra": {
+    "data_source": "did::mpdta",
+    "n_obs": 2500
+  }
+}

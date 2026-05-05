@@ -1,0 +1,97 @@
+{
+  "module": "05_sunab",
+  "side": "R",
+  "rows": [
+    {
+      "module": "05_sunab",
+      "side": "R",
+      "statistic": "weighted_avg_ATT",
+      "estimate": -0.0329765138096558,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "05_sunab",
+      "side": "R",
+      "statistic": "att_rel_-4",
+      "estimate": -0.00490308225974209,
+      "se": 0.0145980032264702,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "05_sunab",
+      "side": "R",
+      "statistic": "att_rel_-3",
+      "estimate": 0.00988345488514186,
+      "se": 0.0106340306035087,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "05_sunab",
+      "side": "R",
+      "statistic": "att_rel_-2",
+      "estimate": 0.0075553737765185,
+      "se": 0.0104875596633707,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "05_sunab",
+      "side": "R",
+      "statistic": "att_rel_0",
+      "estimate": -0.0338371899158973,
+      "se": 0.00820964985766173,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "05_sunab",
+      "side": "R",
+      "statistic": "att_rel_1",
+      "estimate": -0.0280311406164622,
+      "se": 0.0106741061819908,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "05_sunab",
+      "side": "R",
+      "statistic": "att_rel_2",
+      "estimate": -0.0455279063598638,
+      "se": 0.0148429550760216,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "05_sunab",
+      "side": "R",
+      "statistic": "att_rel_3",
+      "estimate": -0.0277338393271108,
+      "se": 0.0144269600608353,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "cluster": ["countyreal"]
+  }
+}

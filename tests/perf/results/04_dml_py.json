@@ -1,0 +1,67 @@
+{
+  "estimator": "04_dml",
+  "side": "py",
+  "rows": [
+    {
+      "estimator": "04_dml",
+      "side": "py",
+      "n": 1000,
+      "n_reps": 3,
+      "median_time_s": 0.004960209131240845,
+      "iqr_time_s": 0.0003993334248661995,
+      "min_time_s": 0.004872832912951708,
+      "max_time_s": 0.005272166337817907,
+      "peak_mem_mb": 212.375,
+      "extra": {
+        "model": "plr",
+        "ml_g": "LinearRegression",
+        "ml_m": "LinearRegression",
+        "n_folds": 5
+      }
+    },
+    {
+      "estimator": "04_dml",
+      "side": "py",
+      "n": 5000,
+      "n_reps": 3,
+      "median_time_s": 0.007405249867588282,
+      "iqr_time_s": 0.0003443756140768528,
+      "min_time_s": 0.0073247081600129604,
+      "max_time_s": 0.007669083774089813,
+      "peak_mem_mb": 213.3125,
+      "extra": {
+        "model": "plr",
+        "ml_g": "LinearRegression",
+        "ml_m": "LinearRegression",
+        "n_folds": 5
+      }
+    },
+    {
+      "estimator": "04_dml",
+      "side": "py",
+      "n": 10000,
+      "n_reps": 3,
+      "median_time_s": 0.010798417031764984,
+      "iqr_time_s": 0.00039108190685510635,
+      "min_time_s": 0.010545209050178528,
+      "max_time_s": 0.010936290957033634,
+      "peak_mem_mb": 213.40625,
+      "extra": {
+        "model": "plr",
+        "ml_g": "LinearRegression",
+        "ml_m": "LinearRegression",
+        "n_folds": 5
+      }
+    }
+  ],
+  "hardware": {
+    "platform": "macOS-26.3.1-arm64-arm-64bit-Mach-O",
+    "processor": "arm",
+    "machine": "arm64",
+    "python": "3.13.5",
+    "cpu_logical": 8,
+    "cpu_physical": 8,
+    "mem_gb": 24.0
+  },
+  "extra": {}
+}

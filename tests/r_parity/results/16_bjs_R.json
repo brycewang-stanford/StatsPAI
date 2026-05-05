@@ -1,0 +1,20 @@
+{
+  "module": "16_bjs",
+  "side": "R",
+  "rows": [
+    {
+      "module": "16_bjs",
+      "side": "R",
+      "statistic": "att_bjs",
+      "estimate": -0.0351082782986021,
+      "se": 0.00689875744466075,
+      "ci_lo": -0.0486295944282147,
+      "ci_hi": -0.0215869621689894,
+      "n": 2500,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "method": ["did_imputation"]
+  }
+}

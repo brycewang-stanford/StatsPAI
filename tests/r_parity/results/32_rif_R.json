@@ -1,0 +1,76 @@
+{
+  "module": "32_rif",
+  "side": "R",
+  "rows": [
+    {
+      "module": "32_rif",
+      "side": "R",
+      "statistic": "total_diff",
+      "estimate": -0.201158668752917,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "32_rif",
+      "side": "R",
+      "statistic": "explained",
+      "estimate": 0.0109591569773372,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "32_rif",
+      "side": "R",
+      "statistic": "unexplained",
+      "estimate": -0.212117825730255,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "32_rif",
+      "side": "R",
+      "statistic": "explained_Intercept",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "32_rif",
+      "side": "R",
+      "statistic": "explained_educ",
+      "estimate": 0.0276732511985485,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "32_rif",
+      "side": "R",
+      "statistic": "explained_exper",
+      "estimate": -0.0167140942212113,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "statistic": ["median"],
+    "method": ["manual RIF + OLS decomposition"]
+  }
+}

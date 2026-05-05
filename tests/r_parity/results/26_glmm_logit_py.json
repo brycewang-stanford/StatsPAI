@@ -1,0 +1,45 @@
+{
+  "module": "26_glmm_logit",
+  "side": "py",
+  "rows": [
+    {
+      "module": "26_glmm_logit",
+      "side": "py",
+      "statistic": "beta_intercept",
+      "estimate": -0.5428343108405157,
+      "se": 0.11738900429619961,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    },
+    {
+      "module": "26_glmm_logit",
+      "side": "py",
+      "statistic": "beta_x1",
+      "estimate": 0.6062816960397088,
+      "se": 0.06240182904628803,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    },
+    {
+      "module": "26_glmm_logit",
+      "side": "py",
+      "statistic": "logLik",
+      "estimate": -910.0606567675006,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "family": "binomial",
+    "link": "logit",
+    "n_groups": 60,
+    "nAGQ": 1
+  }
+}

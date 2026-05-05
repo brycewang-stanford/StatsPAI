@@ -1,0 +1,45 @@
+{
+  "module": "31_dfl",
+  "side": "R",
+  "rows": [
+    {
+      "module": "31_dfl",
+      "side": "R",
+      "statistic": "gap",
+      "estimate": 0.209225467533281,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1600,
+      "extra": []
+    },
+    {
+      "module": "31_dfl",
+      "side": "R",
+      "statistic": "composition",
+      "estimate": 0.00986731967926024,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1600,
+      "extra": []
+    },
+    {
+      "module": "31_dfl",
+      "side": "R",
+      "statistic": "structure",
+      "estimate": 0.199358147854021,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1600,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "method": ["ddecompose::dfl_decompose"],
+    "reference_0": [true],
+    "statistic": ["mean"],
+    "sign_flipped": [true]
+  }
+}

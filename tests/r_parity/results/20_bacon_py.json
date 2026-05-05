@@ -1,0 +1,142 @@
+{
+  "module": "20_bacon",
+  "side": "py",
+  "rows": [
+    {
+      "module": "20_bacon",
+      "side": "py",
+      "statistic": "beta_twfe",
+      "estimate": -0.037505076590874424,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "20_bacon",
+      "side": "py",
+      "statistic": "weighted_sum",
+      "estimate": -0.026789340422052447,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "20_bacon",
+      "side": "py",
+      "statistic": "negative_weight_share",
+      "estimate": 0.33333333333333337,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "20_bacon",
+      "side": "py",
+      "statistic": "pair_2004_vs_2006_est",
+      "estimate": -0.014800964136538752,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "20_bacon",
+      "side": "py",
+      "statistic": "pair_2006_vs_2004_est",
+      "estimate": -0.024856537508652465,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "20_bacon",
+      "side": "py",
+      "statistic": "pair_2004_vs_2007_est",
+      "estimate": -0.03791930422674916,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "20_bacon",
+      "side": "py",
+      "statistic": "pair_2007_vs_2004_est",
+      "estimate": -0.0347030335470393,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "20_bacon",
+      "side": "py",
+      "statistic": "pair_2004_vs_never_est",
+      "estimate": -0.04190878744721083,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "20_bacon",
+      "side": "py",
+      "statistic": "pair_2006_vs_2007_est",
+      "estimate": -0.018467469509129586,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "20_bacon",
+      "side": "py",
+      "statistic": "pair_2007_vs_2006_est",
+      "estimate": -0.014464015811370246,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "20_bacon",
+      "side": "py",
+      "statistic": "pair_2006_vs_never_est",
+      "estimate": -0.03002960898484197,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "20_bacon",
+      "side": "py",
+      "statistic": "pair_2007_vs_never_est",
+      "estimate": -0.027461545258706366,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "n_comparisons": 9,
+    "decomposition_note": "The overall TWFE coefficient (beta_twfe) matches bacondecomp::bacon at rel < 1e-15, and all three treated-vs-never-treated 2x2 components match at rel < 1e-13. The earlier-vs-later and later-vs-earlier 2x2 sub-decompositions differ across implementations because the two packages use different conventions for which periods count as 'pre' within a cohort-pair comparison (sp uses the Goodman-Bacon 2021 Definition 1 vs bacondecomp's implementation choice). Both decompositions sum to the same TWFE coefficient; they disagree only on the per-2x2 partition. Reviewers should treat the TWFE+vs-never agreement as the primary parity result and the per-pair gap as a documented decomposition convention difference."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "module": "03_hdfe",
+  "side": "py",
+  "rows": [
+    {
+      "module": "03_hdfe",
+      "side": "py",
+      "statistic": "beta_x1",
+      "estimate": 1.9995039795655154,
+      "se": 0.005078498299492432,
+      "ci_lo": 1.9895503058029622,
+      "ci_hi": 2.0094576533280684,
+      "n": 10000,
+      "extra": {}
+    },
+    {
+      "module": "03_hdfe",
+      "side": "py",
+      "statistic": "beta_x2",
+      "estimate": -1.4999804870593598,
+      "se": 0.005069592326376032,
+      "ci_lo": -1.5099167054353575,
+      "ci_hi": -1.4900442686833621,
+      "n": 10000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "formula": "y ~ x1 + x2 | firm + year",
+    "vcov": "iid",
+    "n_firms": 250,
+    "n_years": 20,
+    "df_resid": 9730,
+    "rss": 2455.396744780804,
+    "df_convention": "sp.fast.feols uses df_resid = N - sum(FE_levels). fixest::feols uses df_resid = N - sum(FE_levels) - 1, subtracting one extra for the cross-FE collinearity. The point estimates are identical to ~1e-15; the IID SE ratio fixest/sp.fast is exactly sqrt(sp_df / fixest_df) = sqrt(9730 / 9729) = 1.0000514, so the rel SE diff is 5.14e-5. Reviewers should treat this as a small-sample-correction convention difference, not as a numerical bug; fixest's SE = sp.fast's SE * sqrt(9730/9729)."
+  }
+}

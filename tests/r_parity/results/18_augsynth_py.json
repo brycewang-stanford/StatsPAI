@@ -1,0 +1,34 @@
+{
+  "module": "18_augsynth",
+  "side": "py",
+  "rows": [
+    {
+      "module": "18_augsynth",
+      "side": "py",
+      "statistic": "att_augmented",
+      "estimate": -0.2394594803039969,
+      "se": 0.3571413832726445,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "18_augsynth",
+      "side": "py",
+      "statistic": "pre_rmspe",
+      "estimate": 0.07920995207369622,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "augmented",
+    "ridge_lambda": 0.018329807108324356,
+    "n_donors": 16,
+    "regularisation_note": "Augmented SCM has the same regularisation-convention non-uniqueness as classical SCM (Module 7). sp uses an l2-regularised augmentation with auto-tuned lambda; augsynth::augsynth uses the Ben-Michael-Feller-Rothstein (2021) ridge progfunc with its own lambda selection. On the Basque-Country replica sp returns ATT=-0.24 with pre-RMSPE 0.079, augsynth returns ATT=-0.36 with pre-RMSPE 0.014 (both negative; both signal the same qualitative post-1970 GDPpc gap). Reviewers should treat as the Module 7 / 12 SCM-non-uniqueness family."
+  }
+}

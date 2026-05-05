@@ -1,0 +1,88 @@
+{
+  "module": "28_frontier",
+  "side": "py",
+  "rows": [
+    {
+      "module": "28_frontier",
+      "side": "py",
+      "statistic": "beta_intercept",
+      "estimate": 2.071555839558147,
+      "se": 0.04139364156356711,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    },
+    {
+      "module": "28_frontier",
+      "side": "py",
+      "statistic": "beta_lnk",
+      "estimate": 0.5914083217866438,
+      "se": 0.019471798188661255,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    },
+    {
+      "module": "28_frontier",
+      "side": "py",
+      "statistic": "beta_lnl",
+      "estimate": 0.390540450564887,
+      "se": 0.01860977747978547,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    },
+    {
+      "module": "28_frontier",
+      "side": "py",
+      "statistic": "sigma_u",
+      "estimate": 0.5955176032491787,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    },
+    {
+      "module": "28_frontier",
+      "side": "py",
+      "statistic": "sigma_v",
+      "estimate": 0.26720462114815857,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    },
+    {
+      "module": "28_frontier",
+      "side": "py",
+      "statistic": "lambda",
+      "estimate": 2.2286950004467867,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    },
+    {
+      "module": "28_frontier",
+      "side": "py",
+      "statistic": "mean_efficiency",
+      "estimate": 0.6455200828971769,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "distribution": "half-normal",
+    "cost": false,
+    "method": "ML, half-normal"
+  }
+}

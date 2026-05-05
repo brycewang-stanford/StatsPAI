@@ -1,0 +1,88 @@
+{
+  "module": "28_frontier",
+  "side": "R",
+  "rows": [
+    {
+      "module": "28_frontier",
+      "side": "R",
+      "statistic": "beta_intercept",
+      "estimate": 2.07155816574638,
+      "se": 0.0413927444629598,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": []
+    },
+    {
+      "module": "28_frontier",
+      "side": "R",
+      "statistic": "beta_lnk",
+      "estimate": 0.591412290759086,
+      "se": 0.0194717970335197,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": []
+    },
+    {
+      "module": "28_frontier",
+      "side": "R",
+      "statistic": "beta_lnl",
+      "estimate": 0.390540126043369,
+      "se": 0.0186097625001574,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": []
+    },
+    {
+      "module": "28_frontier",
+      "side": "R",
+      "statistic": "sigma_u",
+      "estimate": null,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": []
+    },
+    {
+      "module": "28_frontier",
+      "side": "R",
+      "statistic": "sigma_v",
+      "estimate": null,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": []
+    },
+    {
+      "module": "28_frontier",
+      "side": "R",
+      "statistic": "lambda",
+      "estimate": null,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": []
+    },
+    {
+      "module": "28_frontier",
+      "side": "R",
+      "statistic": "mean_efficiency",
+      "estimate": 0.645518718201521,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "distribution": ["half-normal"],
+    "S": [1],
+    "package": ["sfaR::sfacross"]
+  }
+}

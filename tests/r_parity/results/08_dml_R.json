@@ -1,0 +1,25 @@
+{
+  "module": "08_dml",
+  "side": "R",
+  "rows": [
+    {
+      "module": "08_dml",
+      "side": "R",
+      "statistic": "theta_DML_PLR",
+      "estimate": 0.109687796728562,
+      "se": 0.00414680629100636,
+      "ci_lo": 0.101560205747325,
+      "ci_hi": 0.117815387709798,
+      "n": 3010,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "dml_model": ["PLR"],
+    "n_folds": [5],
+    "ml_g": ["regr.lm"],
+    "ml_m": ["regr.lm"],
+    "score": ["partialling out"],
+    "dml_procedure": ["dml2"]
+  }
+}

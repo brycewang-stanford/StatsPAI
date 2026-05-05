@@ -1,0 +1,55 @@
+{
+  "estimator": "03_scm",
+  "side": "R",
+  "rows": [
+    {
+      "estimator": "03_scm",
+      "side": "R",
+      "n": 20,
+      "n_reps": 2,
+      "median_time_s": 1.55512499809265,
+      "iqr_time_s": 0.0323460102081299,
+      "min_time_s": 1.52277898788452,
+      "max_time_s": 1.58747100830078,
+      "peak_mem_mb": null,
+      "extra": {
+        "n_donors": 20,
+        "T": 30
+      }
+    },
+    {
+      "estimator": "03_scm",
+      "side": "R",
+      "n": 50,
+      "n_reps": 2,
+      "median_time_s": 1.8532954454422,
+      "iqr_time_s": 0.007515549659729,
+      "min_time_s": 1.84577989578247,
+      "max_time_s": 1.86081099510193,
+      "peak_mem_mb": null,
+      "extra": {
+        "n_donors": 50,
+        "T": 30
+      }
+    },
+    {
+      "estimator": "03_scm",
+      "side": "R",
+      "n": 100,
+      "n_reps": 2,
+      "median_time_s": 2.4108384847641,
+      "iqr_time_s": 0.052944540977478,
+      "min_time_s": 2.35789394378662,
+      "max_time_s": 2.46378302574158,
+      "peak_mem_mb": null,
+      "extra": {
+        "n_donors": 100,
+        "T": 30
+      }
+    }
+  ],
+  "hardware": {
+    "R_version": "R version 4.5.2 (2025-10-31)"
+  },
+  "extra": []
+}
