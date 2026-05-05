@@ -1,0 +1,450 @@
+[
+  {
+    "id": "L1-01",
+    "expected_estimator": "ols",
+    "expected_values": {
+      "beta_educ": 0.11,
+      "se_educ": 0.0042
+    },
+    "published_anchor": 0.075
+  },
+  {
+    "id": "L1-02",
+    "expected_estimator": "iv_2sls",
+    "expected_values": {
+      "beta_educ": 0.142,
+      "se_educ": 0.019
+    },
+    "published_anchor": 0.132
+  },
+  {
+    "id": "L1-03",
+    "expected_estimator": "callaway_santanna",
+    "expected_values": {
+      "simple_ATT": -0.033,
+      "se": 0.003
+    },
+    "published_anchor": -0.0454
+  },
+  {
+    "id": "L1-04",
+    "expected_estimator": "sun_abraham",
+    "expected_values": {
+      "weighted_avg_ATT": -0.034,
+      "se": 0.009
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L1-05",
+    "expected_estimator": "rdrobust",
+    "expected_values": {
+      "conventional": 0.073,
+      "robust": 0.062
+    },
+    "published_anchor": 0.08
+  },
+  {
+    "id": "L1-06",
+    "expected_estimator": "rddensity",
+    "expected_values": {
+      "pvalue": 0.91
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L1-07",
+    "expected_estimator": "synth_classic",
+    "expected_values": {
+      "avg_post_gap": -0.66
+    },
+    "published_anchor": -0.855
+  },
+  {
+    "id": "L1-08",
+    "expected_estimator": "psm",
+    "expected_values": {
+      "att_psm": 2278
+    },
+    "published_anchor": 1794
+  },
+  {
+    "id": "L1-09",
+    "expected_estimator": "dml_plr",
+    "expected_values": {
+      "theta": 0.11
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L1-10",
+    "expected_estimator": "coxph",
+    "expected_values": {
+      "beta_x1": 0.46,
+      "beta_x2": -0.59
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L1-11",
+    "expected_estimator": "honest_did_smooth",
+    "expected_values": {
+      "ci_lo": 0.254,
+      "ci_hi": 0.746
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L1-12",
+    "expected_estimator": "bacon",
+    "expected_values": {
+      "beta_twfe": -0.0375,
+      "neg_weight_share": 0.33
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L1-13",
+    "expected_estimator": "etwfe",
+    "expected_values": {
+      "att_etwfe": -0.038,
+      "se": 0.006
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L1-14",
+    "expected_estimator": "did_imputation",
+    "expected_values": {
+      "att_bjs": -0.022,
+      "se": 0.006
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L1-15",
+    "expected_estimator": "sdid",
+    "expected_values": {
+      "att_sdid": -17.25
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L1-16",
+    "expected_estimator": "evalue",
+    "expected_values": {
+      "evalue_estimate": 4.44,
+      "evalue_ci": 3.0
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L1-17",
+    "expected_estimator": "lmm",
+    "expected_values": {
+      "beta_intercept": 1.9,
+      "beta_x1": 1.48,
+      "icc": 0.72
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L1-18",
+    "expected_estimator": "glmm_logit",
+    "expected_values": {
+      "beta_intercept": -0.54,
+      "beta_x1": 0.61
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L1-19",
+    "expected_estimator": "frontier",
+    "expected_values": {
+      "beta_lnk": 0.59,
+      "beta_lnl": 0.39,
+      "mean_efficiency": 0.65
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L1-20",
+    "expected_estimator": "oaxaca",
+    "expected_values": {
+      "gap": 0.221,
+      "explained": 0.039,
+      "unexplained": 0.183
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-01",
+    "expected_estimator": "iv_2sls",
+    "expected_values": {
+      "beta_educ": 0.142
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-02",
+    "expected_estimator": "callaway_santanna",
+    "expected_values": {
+      "simple_ATT": -0.033
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-03",
+    "expected_estimator": "rdrobust",
+    "expected_values": {
+      "robust": 0.062
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-04",
+    "expected_estimator": "psm",
+    "expected_values": {
+      "att_psm": 2278
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-05",
+    "expected_estimator": "synth_classic",
+    "expected_values": {
+      "avg_post_gap": -0.66
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-06",
+    "expected_estimator": "sdid",
+    "expected_values": {
+      "att_sdid": -17.25
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-07",
+    "expected_estimator": "ols_cluster",
+    "expected_values": {
+      "beta_treat": -0.056
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-08",
+    "expected_estimator": "fast_feols",
+    "expected_values": {
+      "beta_x1": 2.0,
+      "beta_x2": -1.5
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-09",
+    "expected_estimator": "bacon",
+    "expected_values": {
+      "beta_twfe": -0.0375
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-10",
+    "expected_estimator": "honest_did_smooth",
+    "expected_values": {},
+    "published_anchor": null
+  },
+  {
+    "id": "L2-11",
+    "expected_estimator": "sensemakr",
+    "expected_values": {
+      "rv_q": 0.076
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-12",
+    "expected_estimator": "mediation",
+    "expected_values": {
+      "acme": 0.108
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-13",
+    "expected_estimator": "coxph",
+    "expected_values": {
+      "beta_x1": 0.46
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-14",
+    "expected_estimator": "lmm",
+    "expected_values": {
+      "beta_x1": 1.48
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-15",
+    "expected_estimator": "glmm_logit",
+    "expected_values": {
+      "beta_x1": 0.61
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-16",
+    "expected_estimator": "frontier",
+    "expected_values": {
+      "beta_lnk": 0.59
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-17",
+    "expected_estimator": "oaxaca",
+    "expected_values": {
+      "gap": 0.221,
+      "explained": 0.039
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-18",
+    "expected_estimator": "dfl",
+    "expected_values": {
+      "gap": 0.209
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-19",
+    "expected_estimator": "evalue",
+    "expected_values": {
+      "evalue_estimate": 4.44
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L2-20",
+    "expected_estimator": "var",
+    "expected_values": {
+      "L1.y1->y1": 0.43
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L3-01",
+    "expected_estimator": "iv_2sls",
+    "expected_value_range": {
+      "beta_educ": [
+        0.1,
+        0.16
+      ]
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L3-02",
+    "expected_estimator": "callaway_santanna",
+    "expected_value_range": {
+      "simple_ATT": [
+        -0.06,
+        -0.02
+      ]
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L3-03",
+    "expected_estimator": "rdrobust",
+    "expected_value_range": {
+      "robust": [
+        0.04,
+        0.1
+      ]
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L3-04",
+    "expected_estimator": "psm",
+    "expected_value_range": {
+      "att": [
+        1500,
+        3000
+      ]
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L3-05",
+    "expected_estimator": "synth_classic",
+    "expected_value_range": {
+      "avg_post_gap": [
+        -1.0,
+        -0.5
+      ]
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L3-06",
+    "expected_estimator": "fast_feols",
+    "expected_value_range": {
+      "beta_x1": [
+        1.95,
+        2.05
+      ]
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L3-07",
+    "expected_estimator": "lmm",
+    "expected_value_range": {
+      "beta_x1": [
+        1.4,
+        1.55
+      ]
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L3-08",
+    "expected_estimator": "oaxaca",
+    "expected_value_range": {
+      "gap": [
+        0.2,
+        0.23
+      ]
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L3-09",
+    "expected_estimator": "coxph",
+    "expected_value_range": {
+      "beta_x1": [
+        0.4,
+        0.55
+      ]
+    },
+    "published_anchor": null
+  },
+  {
+    "id": "L3-10",
+    "expected_estimator": "local_projections",
+    "expected_value_range": {
+      "irf_h1": [
+        0.4,
+        0.55
+      ]
+    },
+    "published_anchor": null
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "name": "sp.regress (HC1) on RCT",
+    "B": 1000,
+    "covered": 952,
+    "rate": 0.952,
+    "wall_s": 3.2
+  },
+  {
+    "name": "sp.regress 2x2 DiD",
+    "B": 1000,
+    "covered": 955,
+    "rate": 0.955,
+    "wall_s": 3.6
+  },
+  {
+    "name": "sp.ivreg (HC1) on strong-Z IV",
+    "B": 1000,
+    "covered": 962,
+    "rate": 0.962,
+    "wall_s": 2.6
+  }
+]

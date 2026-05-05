@@ -1,0 +1,45 @@
+{
+  "module": "04b_nsw_psid_original",
+  "side": "R",
+  "rows": [
+    {
+      "module": "04b_nsw_psid_original",
+      "side": "R",
+      "statistic": "naive_ols_att",
+      "estimate": -15204.7755559893,
+      "se": 655.914342997748,
+      "n": 2675,
+      "published": -15205,
+      "citation": "Dehejia-Wahba (1999) naive OLS on NSW+PSID-1",
+      "extra": []
+    },
+    {
+      "module": "04b_nsw_psid_original",
+      "side": "R",
+      "statistic": "adj_ols_att",
+      "estimate": 751.947945856662,
+      "se": 783.257077887386,
+      "n": 2675,
+      "published": 700,
+      "citation": "Dehejia-Wahba (1999) covariate-adjusted OLS on NSW+PSID-1",
+      "extra": []
+    },
+    {
+      "module": "04b_nsw_psid_original",
+      "side": "R",
+      "statistic": "psm_att",
+      "estimate": 2125.71495325433,
+      "se": null,
+      "n": 2675,
+      "published": 1690,
+      "citation": "Dehejia-Wahba (1999) PSM 1:1 NN on NSW+PSID-1",
+      "extra": []
+    }
+  ],
+  "extra": {
+    "data_source": "causalsens::lalonde.psid",
+    "n_obs": 2675,
+    "n_treated": 185,
+    "n_control": 2490
+  }
+}

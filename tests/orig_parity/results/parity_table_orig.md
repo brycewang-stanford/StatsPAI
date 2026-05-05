@@ -35,3 +35,12 @@ Data source: `MatchIt::lalonde` (614 obs)
 | `adj_ols_att` | 1548 | 1548 | 218 | 1.1e-14 | 6.1 | Dehejia-Wahba (1999) Table 3, covariate-adjusted OLS |
 | `psm_att` | 2012 | 2007 | 1794 | 0.0028 | 0.12 | Dehejia-Wahba (1999) Table 4, PSM 1:1 NN |
 
+## Module `04b_nsw_psid_original`
+Data source: `causalsens::lalonde.psid` (2675 obs)
+
+| stat | sp | R | published | rel(sp vs R) | rel(sp vs published) | citation |
+|---|---:|---:|---:|---:|---:|---|
+| `naive_ols_att` | -1.52e+04 | -1.52e+04 | -1.52e+04 | 3.8e-14 | 1.5e-05 | Dehejia-Wahba (1999) naive OLS on NSW+PSID-1 |
+| `adj_ols_att` | 751.9 | 751.9 | 700 | 2.2e-13 | 0.074 | Dehejia-Wahba (1999) covariate-adjusted OLS on NSW+PSID-1 |
+| `psm_att` | 2126 | 2126 | 1690 | 4.3e-16 | 0.26 | Dehejia-Wahba (1999) PSM 1:1 NN on NSW+PSID-1 |
+

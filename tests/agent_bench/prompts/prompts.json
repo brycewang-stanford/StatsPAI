@@ -1,0 +1,402 @@
+[
+  {
+    "id": "L1-01",
+    "level": "L1",
+    "csv": "card.csv",
+    "method_named": "OLS",
+    "estimator_key": "ols",
+    "question": "Run OLS of lwage on educ, exper, expersq, black, south, smsa with HC1 robust SEs."
+  },
+  {
+    "id": "L1-02",
+    "level": "L1",
+    "csv": "card.csv",
+    "method_named": "2SLS-IV",
+    "estimator_key": "iv_2sls",
+    "question": "Run 2SLS for the effect of educ on lwage using nearc4 as the instrument; controls are exper, expersq, black, south, smsa. Report HC1 robust SEs."
+  },
+  {
+    "id": "L1-03",
+    "level": "L1",
+    "csv": "mpdta.csv",
+    "method_named": "Callaway-Santanna staggered DiD",
+    "estimator_key": "callaway_santanna",
+    "question": "Run Callaway-Sant'Anna staggered DiD on lemp, with first_treat as the cohort variable, year as time, countyreal as unit. Use the doubly-robust outcome regression estimator and the never-treated control group. Report the simple ATT."
+  },
+  {
+    "id": "L1-04",
+    "level": "L1",
+    "csv": "mpdta.csv",
+    "method_named": "Sun-Abraham event study",
+    "estimator_key": "sun_abraham",
+    "question": "Run a Sun-Abraham event study on lemp, with first_treat as the cohort variable, year as time, countyreal as unit. Report the weighted-average post-treatment ATT."
+  },
+  {
+    "id": "L1-05",
+    "level": "L1",
+    "csv": "lee.csv",
+    "method_named": "RD bias-corrected",
+    "estimator_key": "rdrobust",
+    "question": "Run a sharp RD regression of voteshare_next on margin at cutoff 0 with bias-corrected robust inference. Report the conventional estimate and the robust-SE estimate."
+  },
+  {
+    "id": "L1-06",
+    "level": "L1",
+    "csv": "lee.csv",
+    "method_named": "RD density manipulation test",
+    "estimator_key": "rddensity",
+    "question": "Run the Cattaneo-Jansson-Ma density-discontinuity test on margin at cutoff 0; report the p-value."
+  },
+  {
+    "id": "L1-07",
+    "level": "L1",
+    "csv": "basque.csv",
+    "method_named": "Classical synthetic control",
+    "estimator_key": "synth_classic",
+    "question": "Run classical synthetic control on gdppc with the Basque Country as treated unit and 1970 as treatment time; donor pool is the other 16 Spanish regions. Report the average post-1970 gap."
+  },
+  {
+    "id": "L1-08",
+    "level": "L1",
+    "csv": "nsw_dw.csv",
+    "method_named": "PSM 1:1 NN",
+    "estimator_key": "psm",
+    "question": "Run propensity-score matching with logistic propensity, 1:1 nearest-neighbour, with replacement; covariates are age, education, black, hispanic, married, re74, re75; outcome re78, treatment treat. Report the ATT."
+  },
+  {
+    "id": "L1-09",
+    "level": "L1",
+    "csv": "card.csv",
+    "method_named": "DML PLR",
+    "estimator_key": "dml_plr",
+    "question": "Run DML PLR with linear-regression nuisance learners and 5-fold cross-fitting for the effect of educ on lwage; controls are exper, expersq, black, south, smsa. Report theta."
+  },
+  {
+    "id": "L1-10",
+    "level": "L1",
+    "csv": "synth_survival.csv",
+    "method_named": "Cox proportional hazards",
+    "estimator_key": "coxph",
+    "question": "Run a Cox proportional hazards model with duration time, event indicator event, and covariates x1, x2 (Efron ties). Report the log-hazard-ratio coefficients."
+  },
+  {
+    "id": "L1-11",
+    "level": "L1",
+    "csv": "mpdta.csv",
+    "method_named": "Honest-DiD smoothness",
+    "estimator_key": "honest_did_smooth",
+    "question": "After running Callaway-Sant'Anna on mpdta, run honest-DiD under the smoothness restriction with M = 0.05 at relative time e = 0; report the robust 95% CI."
+  },
+  {
+    "id": "L1-12",
+    "level": "L1",
+    "csv": "mpdta.csv",
+    "method_named": "Goodman-Bacon decomposition",
+    "estimator_key": "bacon",
+    "question": "Run the Goodman-Bacon decomposition on lemp ~ treat with countyreal as unit and year as time. Report beta_twfe and the negative-weight share."
+  },
+  {
+    "id": "L1-13",
+    "level": "L1",
+    "csv": "mpdta.csv",
+    "method_named": "Wooldridge ETWFE",
+    "estimator_key": "etwfe",
+    "question": "Run Wooldridge ETWFE on lemp with first_treat as cohort, year as time, countyreal as unit. Report the simple ATT."
+  },
+  {
+    "id": "L1-14",
+    "level": "L1",
+    "csv": "mpdta.csv",
+    "method_named": "BJS imputation",
+    "estimator_key": "did_imputation",
+    "question": "Run BJS imputation DiD on lemp with first_treat as cohort, year as time, countyreal as unit. Report the simple ATT."
+  },
+  {
+    "id": "L1-15",
+    "level": "L1",
+    "csv": "california.csv",
+    "method_named": "Synthetic DID",
+    "estimator_key": "sdid",
+    "question": "Run synthetic difference-in-differences on cigsale with California as treated unit and 1989 as treatment time. Report the ATT."
+  },
+  {
+    "id": "L1-16",
+    "level": "L1",
+    "csv": null,
+    "method_named": "E-value (closed form)",
+    "estimator_key": "evalue",
+    "question": "Compute the E-value for an estimated risk ratio of 2.5 with 95% CI (1.8, 3.2) on the RR scale."
+  },
+  {
+    "id": "L1-17",
+    "level": "L1",
+    "csv": "panel.csv",
+    "method_named": "Linear mixed model",
+    "estimator_key": "lmm",
+    "question": "Fit a linear mixed model with random intercept by gid; outcome y, fixed effects 1 + x1. Report the fixed-effects intercept, beta_x1, and the ICC."
+  },
+  {
+    "id": "L1-18",
+    "level": "L1",
+    "csv": "logit_panel.csv",
+    "method_named": "GLMM logit (Laplace)",
+    "estimator_key": "glmm_logit",
+    "question": "Fit a logistic GLMM with random intercept by gid; outcome y, fixed effects 1 + x1; Laplace approximation. Report fixed effects."
+  },
+  {
+    "id": "L1-19",
+    "level": "L1",
+    "csv": "sfa.csv",
+    "method_named": "Stochastic frontier (cross-sec.)",
+    "estimator_key": "frontier",
+    "question": "Fit a half-normal stochastic production frontier of lny on lnk, lnl. Report the production-frontier coefficients and the mean JLMS efficiency."
+  },
+  {
+    "id": "L1-20",
+    "level": "L1",
+    "csv": "wage_gap.csv",
+    "method_named": "Blinder-Oaxaca decomposition",
+    "estimator_key": "oaxaca",
+    "question": "Run a Blinder-Oaxaca threefold decomposition of log_wage on educ, exper across the female group. Report the gap, explained, and unexplained components."
+  },
+  {
+    "id": "L2-01",
+    "level": "L2",
+    "csv": "card.csv",
+    "method_named": null,
+    "estimator_key": "iv_2sls",
+    "question": "Education is endogenous because of unobserved ability. Suggest and apply an appropriate causal estimator using the data at card.csv (it includes a college-proximity indicator nearc4)."
+  },
+  {
+    "id": "L2-02",
+    "level": "L2",
+    "csv": "mpdta.csv",
+    "method_named": null,
+    "estimator_key": "callaway_santanna",
+    "question": "Counties were treated at different times in mpdta.csv. Two-way fixed-effects gives biased estimates with heterogeneous timing. Use a robust modern estimator."
+  },
+  {
+    "id": "L2-03",
+    "level": "L2",
+    "csv": "lee.csv",
+    "method_named": null,
+    "estimator_key": "rdrobust",
+    "question": "voteshare_next is the next-election Democratic vote share; margin is the previous-election margin. Estimate the incumbent advantage using a quasi-experimental approach."
+  },
+  {
+    "id": "L2-04",
+    "level": "L2",
+    "csv": "nsw_dw.csv",
+    "method_named": null,
+    "estimator_key": "psm",
+    "question": "treat is participation in a job training program; re78 is post-program earnings. Background covariates are observable. Estimate the ATT."
+  },
+  {
+    "id": "L2-05",
+    "level": "L2",
+    "csv": "basque.csv",
+    "method_named": null,
+    "estimator_key": "synth_classic",
+    "question": "The Basque Country experienced terrorism starting in 1970. Estimate the cumulative GDP-per-capita gap relative to a counterfactual."
+  },
+  {
+    "id": "L2-06",
+    "level": "L2",
+    "csv": "california.csv",
+    "method_named": null,
+    "estimator_key": "sdid",
+    "question": "California passed Prop 99 in 1988-1989 raising tobacco taxes. Estimate the effect on per-capita cigarette sales."
+  },
+  {
+    "id": "L2-07",
+    "level": "L2",
+    "csv": "mpdta.csv",
+    "method_named": null,
+    "estimator_key": "ols_cluster",
+    "question": "Treatment is at the county level, but observations are at the county-year level. Estimate the treatment effect on lemp with appropriate inference."
+  },
+  {
+    "id": "L2-08",
+    "level": "L2",
+    "csv": "trade.csv",
+    "method_named": null,
+    "estimator_key": "fast_feols",
+    "question": "Estimate the effect of x1 and x2 on y absorbing firm and year fixed effects on a panel with 200,000 firm-year observations."
+  },
+  {
+    "id": "L2-09",
+    "level": "L2",
+    "csv": "mpdta.csv",
+    "method_named": null,
+    "estimator_key": "bacon",
+    "question": "Decompose the two-way fixed-effects coefficient into the various 2x2 comparisons that contribute to it."
+  },
+  {
+    "id": "L2-10",
+    "level": "L2",
+    "csv": "mpdta.csv",
+    "method_named": null,
+    "estimator_key": "honest_did_smooth",
+    "question": "Quantify how sensitive your DiD estimate would be if the parallel-trends assumption were violated by a small smoothness restriction."
+  },
+  {
+    "id": "L2-11",
+    "level": "L2",
+    "csv": "nsw_dw.csv",
+    "method_named": null,
+    "estimator_key": "sensemakr",
+    "question": "After estimating the ATT with covariate-adjusted OLS, quantify the minimum confounder strength that would invalidate the result."
+  },
+  {
+    "id": "L2-12",
+    "level": "L2",
+    "csv": "mediation.csv",
+    "method_named": null,
+    "estimator_key": "mediation",
+    "question": "Decompose the total effect of treat on y through the mediator m into ACME (indirect) and ADE (direct) components."
+  },
+  {
+    "id": "L2-13",
+    "level": "L2",
+    "csv": "synth_survival.csv",
+    "method_named": null,
+    "estimator_key": "coxph",
+    "question": "time is duration, event is the event indicator, x1 and x2 are covariates. Estimate the hazard-ratio coefficients."
+  },
+  {
+    "id": "L2-14",
+    "level": "L2",
+    "csv": "panel.csv",
+    "method_named": null,
+    "estimator_key": "lmm",
+    "question": "Observations are clustered within group gid. Fit a model that accounts for the within-group correlation in y, with x1 as the fixed effect."
+  },
+  {
+    "id": "L2-15",
+    "level": "L2",
+    "csv": "logit_panel.csv",
+    "method_named": null,
+    "estimator_key": "glmm_logit",
+    "question": "Outcome y is binary, observations clustered within group gid. Fit a model with x1 as fixed effect and random intercept by gid."
+  },
+  {
+    "id": "L2-16",
+    "level": "L2",
+    "csv": "sfa.csv",
+    "method_named": null,
+    "estimator_key": "frontier",
+    "question": "Estimate a production function lny ~ lnk + lnl that allows for unobserved firm-level inefficiency."
+  },
+  {
+    "id": "L2-17",
+    "level": "L2",
+    "csv": "wage_gap.csv",
+    "method_named": null,
+    "estimator_key": "oaxaca",
+    "question": "Decompose the female-male wage gap in log_wage into a portion explained by educ + exper and a portion unexplained."
+  },
+  {
+    "id": "L2-18",
+    "level": "L2",
+    "csv": "wage_gap.csv",
+    "method_named": null,
+    "estimator_key": "dfl",
+    "question": "Use a reweighting-based decomposition to estimate the counterfactual log_wage distribution if female workers had male covariate distributions."
+  },
+  {
+    "id": "L2-19",
+    "level": "L2",
+    "csv": null,
+    "method_named": null,
+    "estimator_key": "evalue",
+    "question": "An observational study reports a risk ratio of 2.5 with 95% CI (1.8, 3.2). Quantify the strength of unmeasured confounding needed to explain away the result."
+  },
+  {
+    "id": "L2-20",
+    "level": "L2",
+    "csv": "macro.csv",
+    "method_named": null,
+    "estimator_key": "var",
+    "question": "Fit a vector-autoregressive model with two endogenous variables y1 and y2, two lags, constant trend."
+  },
+  {
+    "id": "L3-01",
+    "level": "L3",
+    "csv": "card.csv",
+    "method_named": null,
+    "estimator_key": "iv_2sls",
+    "question": "What is the causal effect of an additional year of schooling on log wages, given the data at card.csv? Run a complete analysis with diagnostics and at least one robustness check."
+  },
+  {
+    "id": "L3-02",
+    "level": "L3",
+    "csv": "mpdta.csv",
+    "method_named": null,
+    "estimator_key": "callaway_santanna",
+    "question": "Estimate the effect of the policy change on county-level employment (lemp). Justify your choice of estimator, run pre-trend and sensitivity diagnostics, and present a publication-ready table."
+  },
+  {
+    "id": "L3-03",
+    "level": "L3",
+    "csv": "lee.csv",
+    "method_named": null,
+    "estimator_key": "rdrobust",
+    "question": "Estimate the U.S. House incumbency advantage from voteshare_next and margin. Run a complete RD analysis including a placebo or manipulation diagnostic."
+  },
+  {
+    "id": "L3-04",
+    "level": "L3",
+    "csv": "nsw_dw.csv",
+    "method_named": null,
+    "estimator_key": "psm",
+    "question": "Estimate the average treatment effect on the treated of training programme participation on 1978 earnings. Compare results across at least three estimators (a regression, a matching estimator, and an ML-based one)."
+  },
+  {
+    "id": "L3-05",
+    "level": "L3",
+    "csv": "basque.csv",
+    "method_named": null,
+    "estimator_key": "synth_classic",
+    "question": "Quantify the GDP-per-capita cost of terrorism in the Basque Country. Run synthetic-control with at least one robustness test (placebo, leave-one-out, or backdating)."
+  },
+  {
+    "id": "L3-06",
+    "level": "L3",
+    "csv": "trade.csv",
+    "method_named": null,
+    "estimator_key": "fast_feols",
+    "question": "Estimate the elasticity of y with respect to x1 and x2 in a panel with high-dimensional fixed effects. Choose the appropriate small-sample correction and present clustered standard errors."
+  },
+  {
+    "id": "L3-07",
+    "level": "L3",
+    "csv": "panel.csv",
+    "method_named": null,
+    "estimator_key": "lmm",
+    "question": "Fit a linear mixed-effects model and compare it to a fixed-effects specification using a Hausman test. Report the chosen specification's fixed effects."
+  },
+  {
+    "id": "L3-08",
+    "level": "L3",
+    "csv": "wage_gap.csv",
+    "method_named": null,
+    "estimator_key": "oaxaca",
+    "question": "Decompose the female-male wage gap. Run at least two distinct decompositions (Blinder-Oaxaca and a reweighting-based method), report both, and explain when they diverge."
+  },
+  {
+    "id": "L3-09",
+    "level": "L3",
+    "csv": "synth_survival.csv",
+    "method_named": null,
+    "estimator_key": "coxph",
+    "question": "Run a Cox proportional-hazards model and a Kaplan-Meier survival curve for the treatment effect on time-to-event. Test the proportional-hazards assumption."
+  },
+  {
+    "id": "L3-10",
+    "level": "L3",
+    "csv": "macro.csv",
+    "method_named": null,
+    "estimator_key": "local_projections",
+    "question": "Estimate the dynamic causal effect of a unit shock to y1 on y2 and y1 itself over a 6-period horizon, using both VAR-implied and local-projection IRFs. Compare them."
+  }
+]
