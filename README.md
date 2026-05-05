@@ -10,9 +10,9 @@
 [![status](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332/status.svg)](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19933900.svg)](https://doi.org/10.5281/zenodo.19933900)
 
-StatsPAI is the **agent-native** Python package for causal inference and applied econometrics. One `import`, **950+ registered functions** across **80+ submodules** (live count: `python scripts/registry_stats.py`), covering the complete empirical research workflow — from classical econometrics to cutting-edge ML/AI causal methods to publication-ready tables in Word, Excel, and LaTeX.
+StatsPAI is the **first agent-native** Python platform for causal inference and applied econometrics. One `import`, **950+ registered functions** across **80+ submodules** (live count: `python scripts/registry_stats.py`), covering the complete empirical research workflow — from classical econometrics to cutting-edge ML/AI causal methods to publication-ready tables in Word, Excel, and LaTeX.
 
-**Designed for AI agents**: every function returns structured result objects with self-describing schemas (`list_functions()`, `describe_function()`, `function_schema()`), making StatsPAI the first econometrics toolkit purpose-built for LLM-driven research workflows — while remaining fully ergonomic for human researchers.
+**Built for AI agents**: every function returns structured result objects with machine-readable schemas (`list_functions()`, `describe_function()`, `function_schema()`) and is numerically validated against R and Stata reference implementations — purpose-built for LLM-driven research workflows while remaining fully ergonomic for human researchers.
 
 It brings R's [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html) (fixest, did, rdrobust, gsynth, DoubleML, MatchIt, CausalImpact, ...) and Stata's core econometrics commands into a single, consistent Python API.
 

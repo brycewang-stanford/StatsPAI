@@ -10,9 +10,9 @@
 [![status](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332/status.svg)](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19933900.svg)](https://doi.org/10.5281/zenodo.19933900)
 
-StatsPAI 是一个**面向 AI Agent** 的 Python 因果推断与应用计量经济学工具包。一个 `import`，**950+ 个注册函数**，分布在 **80+ 个子模块**（实时数量请运行 `python scripts/registry_stats.py`），覆盖从经典计量经济学到前沿 ML/AI 因果推断方法，再到论文级 Word、Excel、LaTeX 输出表格的完整实证研究流程。
+StatsPAI 是**首个面向 Agent 原生设计**的 Python 因果推断与应用计量经济学平台。一个 `import`，**950+ 个注册函数**，分布在 **80+ 个子模块**（实时数量请运行 `python scripts/registry_stats.py`），覆盖从经典计量经济学到前沿 ML/AI 因果推断方法，再到论文级 Word、Excel、LaTeX 输出表格的完整实证研究流程。
 
-**为 AI Agent 而生**：每个函数都返回结构化结果对象，附带自描述 schema（`list_functions()`、`describe_function()`、`function_schema()`），使 StatsPAI 成为首个专为 LLM 驱动的研究流程设计的计量工具包——同时对人类研究者也完全友好。
+**为 AI Agent 而生**：每个函数都返回结构化结果对象，附带机器可读的 schema（`list_functions()`、`describe_function()`、`function_schema()`），并通过 R 与 Stata 参考实现进行数值对齐验证——专为 LLM 驱动的研究流程设计，同时对人类研究者也完全友好。
 
 它将 R 的 [Causal Inference Task View](https://cran.r-project.org/web/views/CausalInference.html)（fixest、did、rdrobust、gsynth、DoubleML、MatchIt、CausalImpact、sfaR、lme4、oaxaca、ddecompose……）和 Stata 的核心计量命令（`frontier`、`xtfrontier`、`mixed`、`meglm`、`mixlogit`、`ivqreg`……），统一到一个一致的 Python API 中。
 
