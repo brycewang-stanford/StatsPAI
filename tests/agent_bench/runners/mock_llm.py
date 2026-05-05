@@ -17,6 +17,7 @@ being validated.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import random
 from dataclasses import asdict, dataclass
@@ -55,7 +56,9 @@ CELL_BEHAVIOUR = {
 
 def _seeded_rng(cell: str, prompt_id: str, rep: int) -> random.Random:
     """Stable per-(cell, prompt, rep) RNG so a re-run is bit-identical."""
-    return random.Random(f"{cell}__{prompt_id}__{rep}".__hash__())
+    key = f"{cell}__{prompt_id}__{rep}".encode("utf-8")
+    seed = int.from_bytes(hashlib.sha256(key).digest()[:8], "big")
+    return random.Random(seed)
 
 
 def _gold_value(gold: dict[str, Any]) -> float | None:

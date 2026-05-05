@@ -16,9 +16,9 @@ as the cluster, alpha=0.05, Bonferroni correction across H1-H5.
 """
 from __future__ import annotations
 
+import argparse
 import csv
 import json
-import math
 import statistics
 from collections import defaultdict
 from dataclasses import dataclass
@@ -45,6 +45,25 @@ class TrialScore:
     final_estimate: float | None
     final_estimator: str
     expected_estimator: str
+
+
+def _results_path(value: str | Path) -> Path:
+    path = Path(value)
+    if path.is_absolute() or len(path.parts) > 1:
+        return path
+    return RESULTS_DIR / path
+
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--in", dest="trials_in", default="trials.jsonl",
+                   help="Input JSONL. Bare filenames resolve inside results/.")
+    p.add_argument("--scores-out", default="scores.csv",
+                   help="Output CSV. Bare filenames resolve inside results/.")
+    p.add_argument("--headline-out", default="headline.md",
+                   help=("Output Markdown headline table. Bare filenames "
+                         "resolve inside results/."))
+    return p.parse_args()
 
 
 def load_trials(path: Path) -> Iterable[dict]:
@@ -186,7 +205,8 @@ def render_headline(agg: dict, n_total: int) -> str:
 
 
 def main() -> None:
-    trials_path = RESULTS_DIR / "trials.jsonl"
+    args = parse_args()
+    trials_path = _results_path(args.trials_in)
     if not trials_path.exists():
         raise SystemExit(
             f"No trials file at {trials_path}. Run `runner.py --mock` first."
@@ -201,7 +221,8 @@ def main() -> None:
         level = level_by_id[trial["prompt_id"]]
         scores.append(score_trial(trial, gold, level))
 
-    out_csv = RESULTS_DIR / "scores.csv"
+    out_csv = _results_path(args.scores_out)
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
     with out_csv.open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow([
@@ -220,7 +241,8 @@ def main() -> None:
 
     agg = aggregate(scores)
     headline = render_headline(agg, len(scores))
-    out_md = RESULTS_DIR / "headline.md"
+    out_md = _results_path(args.headline_out)
+    out_md.parent.mkdir(parents=True, exist_ok=True)
     out_md.write_text(headline, encoding="utf-8")
     print(f"OK -- wrote {out_csv} ({len(scores)} rows) and {out_md}")
 

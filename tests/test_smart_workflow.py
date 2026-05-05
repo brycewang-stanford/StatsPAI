@@ -124,6 +124,43 @@ class TestRecommend:
         assert twoSLS.get('very_weak_iv') is True
         assert twoSLS['first_stage_F'] < 10.0
 
+    def test_iv_weak_warning_surfaces_in_warnings_field(self):
+        """Top-level RecommendationResult.warnings carries the weak-IV
+        signal so downstream agents see it without parsing the
+        per-row ``reason`` text."""
+        from statspai.smart.recommend import recommend
+        rng = np.random.default_rng(2026)
+        n = 600
+        z = rng.normal(size=n)
+        u = rng.normal(size=n)
+        d = 0.10 * z + 1.5 * u + rng.normal(scale=0.4, size=n)
+        y = 1.0 * d + u + rng.normal(scale=0.5, size=n)
+        df = pd.DataFrame({'y': y, 'd': d, 'z': z})
+        rec = recommend(df, y='y', treatment='d', instrument='z',
+                        design='iv')
+        warnings = rec.warnings
+        assert any("First-stage F" in w for w in warnings)
+        assert any("Staiger-Stock" in w or "Stock-Yogo" in w
+                   for w in warnings)
+
+    def test_iv_strong_no_weak_warning(self):
+        """Strong IV must not produce a weak-IV warning."""
+        from statspai.smart.recommend import recommend
+        rng = np.random.default_rng(2026)
+        n = 800
+        z = rng.normal(size=n)
+        u = rng.normal(size=n)
+        d = 0.7 * z + 0.5 * u + rng.normal(scale=0.3, size=n)
+        y = 1.0 * d + u + rng.normal(scale=0.5, size=n)
+        df = pd.DataFrame({'y': y, 'd': d, 'z': z})
+        rec = recommend(df, y='y', treatment='d', instrument='z',
+                        design='iv')
+        # No weak-IV mentions in the warnings field.
+        for w in rec.warnings:
+            assert "Staiger-Stock" not in w
+            assert "Stock-Yogo" not in w
+            assert "First-stage F" not in w
+
     def test_run(self):
         from statspai.smart.recommend import recommend
         df = _sample_data()

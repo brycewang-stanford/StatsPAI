@@ -789,6 +789,27 @@ def recommend(
             if ar_rec is not None:
                 recommendations.append(ar_rec)
 
+        # Surface a top-level warning so the human-readable
+        # ``summary()`` and the agent-facing ``warnings`` field both
+        # carry the weak-IV signal — duplicate of the per-row
+        # rationale, but at the place where downstream
+        # workflow-orchestration code reads ``RecommendationResult.warnings``.
+        if very_weak_iv:
+            warnings_list.append(
+                f"First-stage F = {first_stage_F:.2f} < 10 "
+                f"(Staiger-Stock 1997): 2SLS HC1 SEs are biased "
+                f"toward OLS. LIML promoted to #1; "
+                f"sp.anderson_rubin_ci(...) added. Mirrors "
+                f"`sp.preflight(data, 'ivreg', formula=...)` "
+                f"first_stage_strength check."
+            )
+        elif weak_iv:
+            warnings_list.append(
+                f"First-stage F = {first_stage_F:.2f} < 16.38 "
+                f"(Stock-Yogo 2005, 10% max size for 1 endog/1 IV): "
+                f"consider method='liml' or sp.anderson_rubin_ci(...)."
+            )
+
     elif design == 'observational':
         recommendations.append({
             'method': 'OLS with robust SE (baseline)',

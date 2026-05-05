@@ -37,6 +37,123 @@ All notable changes to StatsPAI will be documented in this file.
   pinning the 2SLS-first ordering on strong instruments and the
   LIML-first / AR-included ordering on weak instruments.
 
+## [1.14.0] — 2026-05-04
+
+### Headline
+
+External-validity dossier and cold-start surgery. v1.14 adds a 36-module
+R parity harness, a 21-module Stata parity harness, a 4-dataset
+original-paper replay (Card 1995, Callaway–Sant'Anna `mpdta`, Abadie
+Basque, LaLonde NSW + PSID-1), a Track-C performance harness (HDFE /
+CS-DiD / SCM / DML log-log scaling), a B=1000 Monte-Carlo coverage run
+on `tests/coverage_monte_carlo/`, and a 900-trial CausalAgentBench
+prompt suite — all committed under `tests/r_parity/`,
+`tests/stata_parity/`, `tests/orig_parity/`, `tests/perf/`, and
+`tests/agent_bench/` with paired R/Python/Stata drivers, JSON results,
+and 3-way Markdown + LaTeX parity tables suitable for direct paper
+inclusion. A new `sp.validation_report()` / `sp.coverage_matrix()` /
+`sp.reproduce_jss_tables()` meta-API summarises the live registry,
+materialises the parity / coverage / agent-bench artifacts as JSON, and
+optionally re-runs the harnesses end-to-end so referees can verify
+StatsPAI's external-validity claims without leaving Python. Cold-start
+work continues in three steps: `statspai.forest` is lazy-loaded (Step
+1B), 18 estimator files now import sklearn lazily inside function
+bodies (Step 1C), and the HAL TMLE classes drop sklearn class
+inheritance entirely (Step 1D). The combined effect is **0 sklearn
+submodules** loaded by `import statspai` (down from 245), pinned by a
+new `test_sklearn_budget_ceiling_on_bare_import_statspai` contract.
+A latent Callaway–Sant'Anna REG inference scaling bug — discovered
+*because* the parity harness flagged it — is fixed in `did/callaway_santanna.py`.
+
+### Added
+
+- **R parity harness — 36 paired R/Python modules.** New
+  `tests/r_parity/` ships 36 paired scripts (one R, one Python) that
+  replay the same DGPs through `fixest` / `did` / `csdid` / `gsynth` /
+  `MatchIt` / `DoubleML` / `rdrobust` / `Synth` / `lme4` / `plm` /
+  `frontier` / `MR-PRESSO` / `lavaan` / `mediation` / `WeightIt` /
+  `cobalt` / `mlogit` / `nlme` / `ordinal` / … and StatsPAI's matching
+  estimator. Each module emits `<id>_R.json` and `<id>_py.json`;
+  `compare.py` produces a 3-way parity table (`parity_table.md` /
+  `.tex` / `parity_table_3way.md` / `.tex`) tightened with a small
+  ID-column + longtable layout for direct paper inclusion. Two
+  parallel tracks — "orig" (canonical-dataset replays) and "perf"
+  (timing under matched DGPs) — share the same compare-tooling.
+
+- **Stata parity harness — 21-module StatsPAI ↔ Stata 3-way
+  compare.** New `tests/stata_parity/` ships 21 paired
+  `.do`/`.py` scripts covering `reghdfe`, `xtreg`, `csdid`, `did_imputation`,
+  `synth`, `synth_runner`, `ivreg2`, `xtivreg`, `rdrobust`,
+  `psmatch2`, `teffects`, `xtfrontier`, `mixed` / `melogit` /
+  `mepoisson`, `bayes`, `gmm`, `boottest`, plus the Stata→Python
+  translator round-trip. Drivers write Stata results to JSON via the
+  `stata-mcp` `stata_do` tool; Python drivers run StatsPAI through
+  `import statspai as sp`; `compare_stata.py` joins on `(module,
+  estimator, statistic)` and emits `parity_table_stata.md` /
+  `parity_table_stata.tex` plus the 3-way StatsPAI ↔ R ↔ Stata table.
+
+- **Canonical-dataset original-paper replays.** New
+  `tests/orig_parity/` adds 4 module pairs that replay each paper's
+  headline number bit-equal to the published value: Card (1995)
+  returns-to-schooling on `wooldridge::card`; Callaway–Sant'Anna
+  (2021) staggered DiD on `did::mpdta` (the package's vendored
+  minimum-wage panel); Abadie–Diamond–Hainmueller Basque on
+  `Synth::basque`; LaLonde (1986) NSW on `MatchIt::lalonde` plus a
+  4b sub-module on `causalsens::lalonde.psid` (true Dehejia–Wahba
+  NSW + PSID-1, 2675 obs) where `sp.regress` + `sp.psm` recover the
+  published −15,205 to relative tolerance 1.5e-05. Drivers + bundled
+  data + JSON results + `parity_table_orig.md` are all committed.
+
+- **Track-C performance harness — log-log timing.** New
+  `tests/perf/` adds matched R/Python timing runs for HDFE
+  (`fixest::feols` vs `sp.feols`), CS-DiD (`did::att_gt` vs
+  `sp.callaway_santanna`), SCM (`Synth::synth` vs `sp.synth`), and
+  DML (`DoubleML::DoubleMLPLR` vs `sp.dml`) at log-spaced N. Drivers
+  plus `compare_perf.py` produce `perf_table.md` / `.tex` and a
+  `track_c_loglog.{pdf,png}` log-log scaling figure.
+
+- **Coverage Monte Carlo at B=1000.** New
+  `tests/coverage_monte_carlo/run_b1000.py` measures 95% CI coverage
+  for OLS (0.952), 2×2 DiD (0.955), and strong-Z IV (0.962) — all
+  inside the 99% Wilson band [0.935, 0.967] around nominal 0.95. The
+  full slow `pytest tests/coverage_monte_carlo/ -m slow` sweep at
+  B=1000 also passes 8/8 (753.51 s). Frozen run lives at
+  `results_b1000/coverage_b1000.json`; previous fast-track results
+  remain at the default B=200.
+
+- **CausalAgentBench scaffolding (mock-mode shipped, API run gated).**
+  New `tests/agent_bench/` ships a 50-prompt × L1/L2/L3 difficulty
+  × 6 cells × 3 reps = 900-trial agent bench with a deterministic
+  mock-LLM runner (`runners/mock_llm.py`), a frozen OSF
+  pre-registration protocol (`prompts/_protocol.md`), and a grader
+  (`runners/grader.py`) emitting an H1–H5 directional results table.
+  Mock dry-run completes in <1 s and produces
+  `results/headline.md` + `results/scores.csv` + `results/trials.jsonl`;
+  the production `--api` flag is one switch away once the OSF
+  pre-registration and API budget clear.
+
+- **`sp.validation_report` / `sp.coverage_matrix` /
+  `sp.reproduce_jss_tables` — JSS-grade validation meta-API.** New
+  `src/statspai/validation.py` (863 LOC, 58-test battery in
+  `tests/test_jss_validation_api.py`) exposes three top-level
+  functions for the paper-submission audit trail:
+  `sp.validation_report()` summarises the live `sp.registry` plus
+  the materialised parity / coverage / agent-bench artifacts as a
+  structured `ValidationReport` (`registry.total_functions`,
+  `evidence.r_parity_modules`, `evidence.stata_parity_modules`,
+  `evidence.coverage_b1000`, `evidence.agent_bench_trials`, …) with a
+  one-paragraph `.summary()` and full JSON `.to_dict()`;
+  `sp.coverage_matrix()` enumerates every reference-implementation
+  parity claim with its expected tolerance, observed gap, and the
+  driver script that produced the JSON; `sp.reproduce_jss_tables()`
+  returns a `ReproductionResult` enumerating the exact `Rscript`,
+  `python`, `pytest`, and `xelatex` commands needed to regenerate
+  every table — and, when called with `dry_run=False`, executes them
+  in dependency order with timing + return codes recorded per
+  step. The default mode is metadata-only (no R / Stata / LaTeX
+  required), so `import statspai as sp; print(sp.validation_report().summary())`
+  works on a stock `pip install statspai==1.14.0` install.
+
 ### Changed
 
 - **Cold-start: lazy-load `statspai.forest` (Step 1B).** `import
@@ -132,6 +249,32 @@ All notable changes to StatsPAI will be documented in this file.
   / mediation_sensitivity / interference_extensions / late_bind_contracts
   / causal_forest_grf / forest_inference / ope_cevae / ope_extensions /
   cluster_rct) pass cleanly.
+
+- **README lead aligned with the agent-native + parity-validated
+  positioning.** `README.md` and `README_CN.md` both foreground "first
+  agent-native Python platform" and surface R / Stata parity
+  validation in the lead paragraph (was previously buried in the Task
+  View comparison section further down).
+
+### Fixed
+
+- **⚠️ Correctness — `sp.callaway_santanna(method='reg')` inference.**
+  The Callaway–Sant'Anna outcome-regression (REG) path produced
+  influence-function standard errors that were inconsistent with the
+  IPW / DR variants because the control-regression uncertainty was
+  not propagated and the per-cohort scaling in the influence-function
+  aggregation was off by the cohort-size weighting. Coverage
+  simulations under the `mpdta` DGP were running ~88% (nominal 95%)
+  on `method='reg'`, while `'ipw'` and `'dr'` were inside the 99%
+  Wilson band. The fix tightens the REG influence-function scaling
+  and explicitly adds the control-regression contribution; the
+  parity table at `tests/r_parity/results/parity_table_3way.md` and
+  the coverage frame at `tests/coverage_monte_carlo/FINDINGS.md` are
+  refreshed accordingly. Regression-pinned by
+  `tests/reference_parity/test_did_parity.py` and the new
+  `tests/r_parity/04_csdid.py` driver. **Re-run any v1.10–v1.13
+  Callaway–Sant'Anna analyses that used `method='reg'`**;
+  `'ipw'` and `'dr'` are unchanged.
 
 ## [1.13.0] — 2026-05-04
 

@@ -136,8 +136,23 @@ def test_earlier_cohorts_have_larger_group_atts(demo_report):
 
 
 def test_breakdown_M_all_strictly_positive(demo_report):
+    # The Honest-DiD breakdown M* must be strictly positive on every
+    # event time of this ramp DGP — the substantive smoke claim.
     assert (demo_report.breakdown["breakdown_M_star"] > 0).all()
-    assert demo_report.breakdown["robust_at_1_SE"].all()
+    # Most event times should remain robust at one SE on this DGP.
+    # We allow at most one boundary event-time to fall short because
+    # the v1.14 simple-ATT influence-function scaling fix
+    # (CHANGELOG ## [1.14.0]) made the SEs larger and therefore
+    # makes the m_star >= se criterion stricter.  Pre-fix this
+    # assertion was `.all()`; post-fix the right contract is
+    # "essentially all".
+    n_robust = int(demo_report.breakdown["robust_at_1_SE"].sum())
+    n_rows = len(demo_report.breakdown)
+    assert n_robust >= n_rows - 1, (
+        f"expected at most one event-time to fall outside the "
+        f"1-SE Honest-DiD robust band; got {n_rows - n_robust}/{n_rows} "
+        f"non-robust"
+    )
 
 
 def test_exports_generate_expected_content(demo_report):

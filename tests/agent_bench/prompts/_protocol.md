@@ -79,7 +79,8 @@ Each trial runs in a per-trial sandbox with:
   appropriate toolset's libraries pinned to the versions logged in
   `tests/agent_bench/sandbox/env.lock`;
 - agent temperature = 0;
-- seed = `hash((cell, prompt_id, rep))`;
+- seed = the first 64 bits of
+  `sha256(f"{cell}__{prompt_id}__{rep}")`;
 - network egress disabled.
 
 ## Metrics
