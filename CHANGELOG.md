@@ -4,6 +4,39 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Weak-instrument preflight gate** in `sp.preflight(data, "ivreg",
+  formula=...)`. The new `first_stage_strength` check parses the
+  Wilkinson IV formula, runs the first-stage OLS, and emits a
+  `warning` row when the partial F-statistic falls below either the
+  Staiger–Stock (1997) rule of thumb (F < 10, "very weak") or the
+  Stock–Yogo (2005) 10% maximum-size critical value of 16.38 for
+  one endog / one instrument (F < 16.38, "weak"). The warning
+  payload includes structured `recovery_hints` pointing at
+  `method='liml'`, `inference='ar'`, and `sp.anderson_rubin_ci(...)`
+  so an LLM agent can branch on the typed envelope without parsing
+  prose. Closes the §5.3 robustness DGP follow-up: Track B's
+  `test_iv_weak_instrument_undercoverage` documents that 2SLS+HC1
+  under-covers at the 0.88 level on a pi=0.10 first stage; the
+  preflight now flags this *before* the user pays for the 2SLS fit.
+- **Adaptive IV ranking in `sp.recommend(... design='iv')`.** When
+  the live first-stage F is below 10 the recommendation list is
+  reordered: LIML moves to the top, an Anderson–Rubin row is
+  inserted, and the 2SLS row is annotated with
+  `very_weak_iv=True` plus a rationale that explains the
+  HC1-coverage failure mode. When F is in [10, 16.38) the order
+  stays 2SLS → LIML but the rationales reference the
+  Stock–Yogo threshold. The 2SLS row now also carries
+  `first_stage_F` as a numeric field so downstream tooling can
+  consume it without regex.
+- **Tests.** `tests/test_preflight.py` adds
+  `TestIVFirstStageStrength` (6 cases covering strong / weak /
+  borderline / non-IV / missing-columns / JSON-safe payloads).
+  `tests/test_smart_workflow.py::TestRecommend` adds two cases
+  pinning the 2SLS-first ordering on strong instruments and the
+  LIML-first / AR-included ordering on weak instruments.
+
 ### Changed
 
 - **Cold-start: lazy-load `statspai.forest` (Step 1B).** `import

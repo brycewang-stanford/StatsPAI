@@ -75,6 +75,55 @@ class TestRecommend:
         assert any('2SLS' in r['method'] or 'LIML' in r['method']
                     for r in rec.recommendations)
 
+    def test_iv_strong_instrument_keeps_2sls_first(self):
+        """When the first stage clears Stock-Yogo, the 2SLS row stays
+        at the top of the ranking and the rationale is annotated with
+        the F-statistic."""
+        from statspai.smart.recommend import recommend
+        rng = np.random.default_rng(2026)
+        n = 800
+        z = rng.normal(size=n)
+        u = rng.normal(size=n)
+        d = 0.7 * z + 0.5 * u + rng.normal(scale=0.3, size=n)
+        y = 1.0 * d + u + rng.normal(scale=0.5, size=n)
+        df = pd.DataFrame({'y': y, 'd': d, 'z': z})
+        rec = recommend(df, y='y', treatment='d', instrument='z',
+                        design='iv')
+        assert rec.recommendations[0]['function'] == 'ivreg'
+        assert rec.recommendations[1]['function'] == 'liml'
+        # 2SLS rationale should report the live F-statistic.
+        assert 'First-stage F' in rec.recommendations[0]['reason']
+        # Strong-IV branch: no Anderson-Rubin row.
+        assert not any(r['function'] == 'anderson_rubin_ci'
+                       for r in rec.recommendations)
+        # The first-stage F field is exposed for downstream use.
+        f = rec.recommendations[0].get('first_stage_F')
+        assert f is not None and f > 16.38
+
+    def test_iv_weak_instrument_promotes_liml_and_anderson_rubin(self):
+        """When the first stage falls below the Staiger-Stock threshold
+        of 10, LIML moves to the top and an Anderson-Rubin row is
+        added — matching the §5.3 robustness DGP narrative."""
+        from statspai.smart.recommend import recommend
+        # Mirrors the Track B robustness DGP: pi=0.10 yields F_med ≈ 3.
+        rng = np.random.default_rng(2026)
+        n = 600
+        z = rng.normal(size=n)
+        u = rng.normal(size=n)
+        d = 0.10 * z + 1.5 * u + rng.normal(scale=0.4, size=n)
+        y = 1.0 * d + u + rng.normal(scale=0.5, size=n)
+        df = pd.DataFrame({'y': y, 'd': d, 'z': z})
+        rec = recommend(df, y='y', treatment='d', instrument='z',
+                        design='iv')
+        funcs = [r['function'] for r in rec.recommendations]
+        assert funcs[0] == 'liml'
+        assert 'anderson_rubin_ci' in funcs
+        # 2SLS row carries the very_weak_iv flag.
+        twoSLS = next(r for r in rec.recommendations
+                      if r['function'] == 'ivreg')
+        assert twoSLS.get('very_weak_iv') is True
+        assert twoSLS['first_stage_F'] < 10.0
+
     def test_run(self):
         from statspai.smart.recommend import recommend
         df = _sample_data()

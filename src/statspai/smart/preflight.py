@@ -272,6 +272,169 @@ def _check_formula_columns(data: pd.DataFrame, kwargs: Dict[str, Any]
     return _passed(n_terms=len(tokens))
 
 
+# ---------------------------------------------------------------------- #
+#  IV-specific: first-stage strength gate
+# ---------------------------------------------------------------------- #
+#
+# Stock & Yogo (2005) "Testing for weak instruments in linear IV
+# regression" gives critical values for the first-stage F-statistic
+# under a given desired bias of 2SLS relative to OLS.  For one
+# endogenous variable, the 10%-maximum-size critical values are:
+#
+#     1 instrument:  16.38
+#     2 instruments: 19.93
+#     3 instruments: 22.30
+#
+# We use a soft layered gate: F < 10 is the long-standing rule of
+# thumb (Staiger & Stock 1997) for "very weak"; F < 16.38 (1 endog, 1
+# IV cutoff) is the Stock-Yogo 10% max-size band.  The preflight emits
+# a `warning` with explicit recovery hints to switch to LIML or
+# Anderson-Rubin inference, both of which `sp.iv` already supports.
+# We also flag near-zero partial-R² as separate evidence of an
+# almost-irrelevant instrument.
+
+_STOCK_YOGO_F_CRIT_10PCT = 16.38   # 1 endog, 1 IV
+_STAIGER_STOCK_F_RULE = 10.0       # rule of thumb
+
+
+def _check_iv_first_stage_strength(data: pd.DataFrame,
+                                    kwargs: Dict[str, Any]
+                                    ) -> CheckResult:
+    """First-stage F gate for IV preflight.
+
+    Parses the Wilkinson IV formula, runs the first-stage OLS for each
+    endogenous variable, and reports whether the partial F-statistic
+    of the instruments clears the Staiger-Stock rule of thumb (F=10)
+    and the Stock-Yogo 10% max-size critical value (F=16.38 for the
+    one-instrument case).  Falls back to a passed verdict if the
+    formula does not match an IV pattern (the universal column check
+    will catch malformed formulas separately).
+    """
+    formula = kwargs.get("formula")
+    if not isinstance(formula, str) or "~" not in formula:
+        return _passed(skipped="formula missing or non-string")
+    # Lazy import: parse_formula triggers a regression-module import
+    # that we want to defer until preflight is actually run on an IV.
+    try:
+        from ..core.utils import parse_formula
+    except Exception:
+        return _passed(skipped="parse_formula unavailable")
+    parsed = parse_formula(formula)
+    endog = parsed.get("endogenous", []) or []
+    instruments = parsed.get("instruments", []) or []
+    exog = parsed.get("exogenous", []) or []
+    if not endog or not instruments:
+        # Not an IV formula — the formula_columns check + sp.ivreg
+        # will diagnose this; preflight stays silent.
+        return _passed(skipped="non-IV formula")
+
+    needed = set(endog) | set(instruments) | set(exog)
+    missing = [c for c in needed if c not in data.columns]
+    if missing:
+        return _passed(skipped="formula columns missing", missing=missing)
+
+    import numpy as np
+    sub = data[list(needed)].dropna()
+    n = len(sub)
+    if n < 30:
+        return _passed(skipped="n<30; first-stage F unstable")
+
+    results: Dict[str, Dict[str, float]] = {}
+    weakest = None
+    n_instr = len(instruments)
+    for endog_var in endog:
+        # First stage: endog_var ~ exog + instruments + intercept
+        rhs_cols = list(exog) + list(instruments)
+        # Filter out non-numeric columns to avoid a spurious failure
+        # when the user has string-typed covariates that should be
+        # passed through patsy in the actual fit.
+        rhs_cols = [c for c in rhs_cols
+                    if pd.api.types.is_numeric_dtype(sub[c])]
+        if not rhs_cols:
+            continue
+        try:
+            y = sub[endog_var].astype(float).to_numpy()
+            X_full = np.column_stack(
+                [np.ones(n)] + [sub[c].astype(float).to_numpy()
+                                for c in rhs_cols]
+            )
+            X_restricted_cols = [c for c in rhs_cols if c not in instruments]
+            X_restricted = np.column_stack(
+                [np.ones(n)] + [sub[c].astype(float).to_numpy()
+                                for c in X_restricted_cols]
+            )
+            # Use lstsq so a near-singular design degrades gracefully.
+            beta_full, *_ = np.linalg.lstsq(X_full, y, rcond=None)
+            beta_rest, *_ = np.linalg.lstsq(X_restricted, y, rcond=None)
+            rss_full = float(np.sum((y - X_full @ beta_full) ** 2))
+            rss_rest = float(np.sum((y - X_restricted @ beta_rest) ** 2))
+            tss = float(np.sum((y - y.mean()) ** 2))
+            df_num = n_instr
+            df_denom = n - X_full.shape[1]
+            if rss_full > 0 and df_denom > 0:
+                f_stat = ((rss_rest - rss_full) / df_num) / (rss_full / df_denom)
+            else:
+                f_stat = float("nan")
+            partial_r2 = (
+                1.0 - rss_full / rss_rest if rss_rest > 0 else float("nan")
+            )
+            r2 = 1.0 - rss_full / tss if tss > 0 else float("nan")
+        except (np.linalg.LinAlgError, ValueError):
+            continue
+        results[endog_var] = {
+            "f_statistic": float(f_stat),
+            "partial_r_squared": float(partial_r2),
+            "r_squared": float(r2),
+        }
+        if weakest is None or f_stat < weakest[1]:
+            weakest = (endog_var, float(f_stat))
+
+    if not results:
+        return _passed(skipped="first-stage F could not be computed")
+
+    if weakest is None or not np.isfinite(weakest[1]):
+        return _passed(first_stage=results)
+
+    var, f = weakest
+    evidence = {
+        "first_stage": results,
+        "weakest_endog": var,
+        "weakest_F": f,
+        "n_instruments": n_instr,
+        "stock_yogo_F_10pct": _STOCK_YOGO_F_CRIT_10PCT,
+        "staiger_stock_rule_F": _STAIGER_STOCK_F_RULE,
+        "recovery_hints": [
+            "Switch to method='liml' for Limited Information Maximum "
+            "Likelihood (better small-sample behaviour under weak IV).",
+            "Switch to inference='ar' (Anderson-Rubin) for tests "
+            "robust to weak instruments.",
+            "Use sp.anderson_rubin_ci(...) for an Anderson-Rubin "
+            "confidence interval.",
+        ],
+    }
+    if f < _STAIGER_STOCK_F_RULE:
+        return _warning(
+            f"Very weak first stage for '{var}': F = {f:.2f} < 10 "
+            "(Staiger-Stock 1997 rule of thumb). 2SLS is biased "
+            "toward OLS and HC1 SEs ignore the bias; switch to "
+            "method='liml' or use sp.anderson_rubin_ci(...).",
+            **evidence,
+        )
+    if f < _STOCK_YOGO_F_CRIT_10PCT:
+        return _warning(
+            f"Weak first stage for '{var}': F = {f:.2f} < 16.38 "
+            "(Stock-Yogo 2005, 10% max size for 1 endog / 1 IV). "
+            "Consider method='liml' or Anderson-Rubin inference.",
+            **evidence,
+        )
+    return _passed(
+        first_stage=results,
+        weakest_endog=var,
+        weakest_F=f,
+        message=f"first-stage F = {f:.2f} clears Stock-Yogo 10% max size",
+    )
+
+
 # ====================================================================== #
 #  Per-method check tables
 # ====================================================================== #
@@ -346,6 +509,10 @@ _IV_CHECKS: Tuple[_Check, ...] = _UNIVERSAL + (
     _Check("min_n_for_iv",
            "Is n above the typical minimum for IV (50)?",
            _make_check_min_n(50)),
+    _Check("first_stage_strength",
+           "Is the first-stage F-statistic above the Stock-Yogo "
+           "10% max-size critical value (16.38 for 1 endog / 1 IV)?",
+           _check_iv_first_stage_strength),
 )
 
 

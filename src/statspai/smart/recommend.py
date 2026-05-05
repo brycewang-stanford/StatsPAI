@@ -624,23 +624,170 @@ def recommend(
             f"{y} ~ {exog_str} + ({treatment} ~ {z})"
             if exog_str else f"{y} ~ ({treatment} ~ {z})"
         )
-        recommendations.append({
+
+        # Compute the first-stage F live so the ranking + reasons can
+        # adapt to weak instruments (Staiger-Stock 1997 rule of thumb
+        # F=10; Stock-Yogo 2005 10% max-size critical value F=16.38
+        # for one endogenous variable / one instrument).
+        first_stage_F = None
+        weak_iv = False
+        very_weak_iv = False
+        if (treatment and z and treatment in data.columns
+                and z in data.columns):
+            try:
+                d_vec = data[treatment].astype(float).to_numpy()
+                z_vec = data[z].astype(float).to_numpy()
+                exog_arrays = []
+                for c in exog_controls:
+                    if c in data.columns:
+                        try:
+                            exog_arrays.append(
+                                data[c].astype(float).to_numpy()
+                            )
+                        except (TypeError, ValueError):
+                            pass
+                n_obs = len(d_vec)
+                ones = np.ones(n_obs)
+                X_full = np.column_stack(
+                    [ones, z_vec] + exog_arrays
+                )
+                X_restricted = np.column_stack([ones] + exog_arrays)
+                beta_full, *_ = np.linalg.lstsq(
+                    X_full, d_vec, rcond=None
+                )
+                beta_rest, *_ = np.linalg.lstsq(
+                    X_restricted, d_vec, rcond=None
+                )
+                rss_full = float(
+                    np.sum((d_vec - X_full @ beta_full) ** 2)
+                )
+                rss_rest = float(
+                    np.sum((d_vec - X_restricted @ beta_rest) ** 2)
+                )
+                df_denom = n_obs - X_full.shape[1]
+                if rss_full > 0 and df_denom > 0:
+                    first_stage_F = (
+                        ((rss_rest - rss_full) / 1)
+                        / (rss_full / df_denom)
+                    )
+                    very_weak_iv = first_stage_F < 10.0
+                    weak_iv = first_stage_F < 16.38
+            except (np.linalg.LinAlgError, ValueError, KeyError, TypeError):
+                first_stage_F = None
+                weak_iv = False
+                very_weak_iv = False
+
+        # Build the 2SLS recommendation with adaptive reason.
+        twoSLS_reason = 'Standard IV estimator for endogenous treatment.'
+        twoSLS_assumptions = [
+            'Instrument relevance (F > 10)',
+            'Exclusion restriction',
+            'Monotonicity (for LATE)',
+        ]
+        if first_stage_F is not None:
+            twoSLS_reason += (
+                f' First-stage F = {first_stage_F:.2f}'
+            )
+            if very_weak_iv:
+                twoSLS_reason += (
+                    ' < 10 (Staiger-Stock 1997 rule of thumb): 2SLS '
+                    'biased toward OLS, HC1 SEs ignore weak-IV bias. '
+                    'Prefer LIML and Anderson-Rubin inference below.'
+                )
+            elif weak_iv:
+                twoSLS_reason += (
+                    ' < 16.38 (Stock-Yogo 2005 10% max size for 1 '
+                    'endog/1 IV): consider LIML or AR inference.'
+                )
+            else:
+                twoSLS_reason += ' (clears Stock-Yogo 10% max size).'
+
+        twoSLS_rec = {
             'method': '2SLS (two-stage least squares)',
             'function': 'ivreg',
-            'reason': 'Standard IV estimator for endogenous treatment.',
-            'assumptions': ['Instrument relevance (F > 10)',
-                            'Exclusion restriction', 'Monotonicity (for LATE)'],
-            'robustness': 'Check first-stage F, sp.anderson_rubin_test(), sp.kitagawa_test()',
+            'reason': twoSLS_reason,
+            'assumptions': twoSLS_assumptions,
+            'robustness': (
+                'Check first-stage F, sp.anderson_rubin_test(), '
+                'sp.kitagawa_test()'
+            ),
             'code': f"sp.ivreg('{iv_formula}', data=df, robust='hc1')",
-            'params': {'formula': iv_formula, 'data': data, 'robust': 'hc1'},
-        })
-        recommendations.append({
+            'params': {'formula': iv_formula, 'data': data,
+                       'robust': 'hc1'},
+        }
+        if first_stage_F is not None:
+            twoSLS_rec['first_stage_F'] = float(first_stage_F)
+            twoSLS_rec['weak_iv'] = bool(weak_iv)
+            twoSLS_rec['very_weak_iv'] = bool(very_weak_iv)
+
+        liml_reason = (
+            'Limited Information Maximum Likelihood; less biased '
+            'than 2SLS under weak instruments.'
+        )
+        if very_weak_iv:
+            liml_reason = (
+                f'First-stage F = {first_stage_F:.2f} < 10 '
+                '(Staiger-Stock rule of thumb): LIML is the preferred '
+                'point-estimator under weak IV, with better '
+                'small-sample bias than 2SLS.'
+            )
+        elif weak_iv:
+            liml_reason = (
+                f'First-stage F = {first_stage_F:.2f} < 16.38 '
+                '(Stock-Yogo 10% max size): LIML reduces 2SLS '
+                'weak-instrument bias.'
+            )
+        liml_rec = {
             'method': 'LIML (robust to weak instruments)',
             'function': 'liml',
-            'reason': 'Less biased than 2SLS when instruments are weak.',
-            'code': f"sp.liml(data=df, y='{y}', x_endog=['{treatment}'], z=['{z}'])",
-            'params': {'data': data, 'y': y, 'x_endog': [treatment], 'z': [z]},
-        })
+            'reason': liml_reason,
+            'code': (
+                f"sp.liml(data=df, y='{y}', x_endog=['{treatment}'], "
+                f"z=['{z}'])"
+            ),
+            'params': {'data': data, 'y': y,
+                       'x_endog': [treatment], 'z': [z]},
+        }
+
+        # An Anderson-Rubin confidence interval is robust to weak
+        # instruments by construction; surface it as a third row when
+        # weak IV is detected so the agent can use AR for inference
+        # while LIML provides the point estimate.
+        ar_rec = None
+        if very_weak_iv or weak_iv:
+            ar_rec = {
+                'method': (
+                    'Anderson-Rubin confidence interval '
+                    '(weak-IV robust inference)'
+                ),
+                'function': 'anderson_rubin_ci',
+                'reason': (
+                    'AR confidence intervals are valid even when the '
+                    'first-stage F is small; recommended whenever '
+                    '2SLS HC1 SEs cannot be trusted.'
+                ),
+                'code': (
+                    f"sp.anderson_rubin_ci(data=df, y='{y}', "
+                    f"d='{treatment}', z=['{z}'])"
+                ),
+                'params': {'data': data, 'y': y,
+                           'd': treatment, 'z': [z]},
+            }
+
+        # Ranking: under (very) weak IV, lift LIML and AR above 2SLS so
+        # the top-of-list recommendation matches the inference that
+        # actually has good calibration on the given data.  Under
+        # strong IV, keep the historical 2SLS-first ordering.
+        if very_weak_iv:
+            recommendations.append(liml_rec)
+            if ar_rec is not None:
+                recommendations.append(ar_rec)
+            recommendations.append(twoSLS_rec)
+        else:
+            recommendations.append(twoSLS_rec)
+            recommendations.append(liml_rec)
+            if ar_rec is not None:
+                recommendations.append(ar_rec)
 
     elif design == 'observational':
         recommendations.append({

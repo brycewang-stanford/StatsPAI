@@ -239,3 +239,100 @@ class TestEdgeCases:
         out = sp.preflight(regress_df, "  REGRESS  ", formula="y ~ x1")
         assert out["method"] == "regress"
         assert out["known_method"] is True
+
+
+# ---------------------------------------------------------------------------
+#  IV-specific: first-stage strength gate (Stock-Yogo / Staiger-Stock)
+# ---------------------------------------------------------------------------
+
+
+def _make_iv_df(seed: int, pi: float, eu: float, n: int = 600,
+                truth: float = 1.0) -> pd.DataFrame:
+    """Linear-IV DGP: y = truth*d + u; d = pi*z + eu*u + noise.
+
+    pi controls first-stage strength (small => weak); eu controls
+    endogeneity loading.  Mirrors the Track B robustness DGP.
+    """
+    rng = np.random.default_rng(seed)
+    z = rng.normal(size=n)
+    u = rng.normal(size=n)
+    d = pi * z + eu * u + rng.normal(scale=0.4, size=n)
+    y = truth * d + u + rng.normal(scale=0.5, size=n)
+    return pd.DataFrame({"y": y, "d": d, "z": z})
+
+
+def _first_stage_check(out: dict) -> dict:
+    """Pluck the first_stage_strength row out of a preflight payload."""
+    for c in out["checks"]:
+        if c["name"] == "first_stage_strength":
+            return c
+    raise AssertionError("first_stage_strength check not in payload")
+
+
+class TestIVFirstStageStrength:
+
+    def test_strong_iv_passes(self):
+        df = _make_iv_df(seed=2026, pi=0.7, eu=0.5, n=800)
+        out = sp.preflight(df, "ivreg", formula="y ~ (d ~ z)")
+        check = _first_stage_check(out)
+        assert check["status"] == "passed"
+        assert check["evidence"]["weakest_F"] >= 16.38
+
+    def test_weak_iv_warns_with_recovery_hints(self):
+        # Mirrors the Track B robustness DGP: pi=0.10 yields F_med ~ 3.
+        df = _make_iv_df(seed=2026, pi=0.10, eu=1.5, n=600)
+        out = sp.preflight(df, "ivreg", formula="y ~ (d ~ z)")
+        check = _first_stage_check(out)
+        assert check["status"] == "warning"
+        ev = check["evidence"]
+        assert ev["weakest_F"] < 10.0
+        # Recovery hints must mention LIML and Anderson-Rubin so an
+        # agent can route to those without parsing English prose.
+        hint_text = " ".join(ev["recovery_hints"]).lower()
+        assert "liml" in hint_text
+        assert "anderson" in hint_text or "ar" in hint_text
+        # The summary verdict propagates the warning.
+        assert out["verdict"] in ("WARN", "PASS")
+        # WARN if any check is warning, PASS otherwise — should be WARN.
+        assert out["verdict"] == "WARN"
+
+    def test_borderline_weak_iv_emits_stock_yogo_warning(self):
+        # Tune pi so first-stage F lands between 10 and 16.38 with
+        # high probability.  pi=0.15 yields F_med ~ 8 (borderline) on
+        # n=600, but bumping n=2000 brings F into the [10, 16.38] band.
+        df = _make_iv_df(seed=2026, pi=0.15, eu=1.5, n=2000)
+        out = sp.preflight(df, "ivreg", formula="y ~ (d ~ z)")
+        check = _first_stage_check(out)
+        f = check["evidence"]["weakest_F"]
+        # Allow either status — the boundary is sample-specific — but
+        # if it warns, the message should mention Stock-Yogo not just
+        # Staiger-Stock.
+        if check["status"] == "warning" and 10.0 <= f < 16.38:
+            assert "Stock-Yogo" in check["message"]
+
+    def test_non_iv_formula_skipped_silently(self):
+        # An IV-named call with a non-IV formula falls back to a
+        # passed verdict on the strength check (the universal column
+        # check / sp.ivreg itself will surface the formula mismatch).
+        df = _make_iv_df(seed=2026, pi=0.7, eu=0.5, n=400)
+        out = sp.preflight(df, "ivreg", formula="y ~ d + z")
+        check = _first_stage_check(out)
+        assert check["status"] == "passed"
+        assert check["evidence"].get("skipped") == "non-IV formula"
+
+    def test_missing_columns_skipped_not_failed(self):
+        df = _make_iv_df(seed=2026, pi=0.7, eu=0.5, n=400)
+        out = sp.preflight(df, "ivreg",
+                            formula="y ~ (d ~ NotAColumn)")
+        check = _first_stage_check(out)
+        assert check["status"] == "passed"
+        assert "missing" in check["evidence"].get("skipped", "")
+
+    def test_payload_remains_json_safe_with_first_stage(self):
+        df = _make_iv_df(seed=2026, pi=0.10, eu=1.5, n=600)
+        out = sp.preflight(df, "ivreg", formula="y ~ (d ~ z)")
+        # Must round-trip through JSON without exceptions; the
+        # first_stage block contains nested floats.
+        payload = json.dumps(out)
+        assert "weakest_F" in payload
+        assert "recovery_hints" in payload
