@@ -378,6 +378,14 @@ from .registry import (
     STABILITY_TIERS,
 )
 from ._agent_docs import render_agent_block, render_agent_blocks
+from .validation import (
+    ReproductionResult,
+    ReproductionStep,
+    ValidationReport,
+    coverage_matrix,
+    reproduce_jss_tables,
+    validation_report,
+)
 # Unified help entry point (aggregates registry + docstring + category + search)
 from .help import help, HelpResult
 
@@ -1024,6 +1032,12 @@ __all__ = [
     "STABILITY_TIERS",
     "render_agent_block",
     "render_agent_blocks",
+    "ReproductionResult",
+    "ReproductionStep",
+    "ValidationReport",
+    "coverage_matrix",
+    "reproduce_jss_tables",
+    "validation_report",
     "help",
     "HelpResult",
     # Data Generating Processes
