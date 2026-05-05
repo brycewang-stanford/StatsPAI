@@ -7,9 +7,9 @@
       "side": "py",
       "statistic": "simple_ATT",
       "estimate": -0.03297651380965374,
-      "se": 0.002744063884437311,
-      "ci_lo": -0.03835478019442795,
-      "ci_hi": -0.027598247424879527,
+      "se": 0.007739670051510768,
+      "ci_lo": -0.04814598836283811,
+      "ci_hi": -0.01780703925646937,
       "n": 2500,
       "extra": {}
     }
@@ -18,6 +18,6 @@
     "estimator": "reg",
     "control_group": "nevertreated",
     "method": "Callaway and Sant'Anna (2021)",
-    "se_known_gap": "The simple-ATT SE under-covers because the current aggregation treats per-(g,t) influence functions as independent. did::att_gt + aggte applies the full influence-function multiplier bootstrap and reports a larger SE; on this DGP the ratio R/sp is ~2.8x. The point estimate matches at rel < 1e-15. The remediation is on the v0.9.6 / 1.14 roadmap; see tests/coverage_monte_carlo/FINDINGS.md and JSS draft section 5.6."
+    "se_note": "The simple-ATT point estimate matches R did::aggte and Stata csdid at rel < 1e-15. The analytic SE also matches the R/Stata no-bootstrap reference within the registered 1% tolerance after including the control-regression uncertainty in the outcome-regression IF."
   }
 }

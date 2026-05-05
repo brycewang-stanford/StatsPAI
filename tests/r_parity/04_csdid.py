@@ -44,16 +44,12 @@ def main() -> None:
             "estimator": "reg",
             "control_group": "nevertreated",
             "method": fit.method,
-            "se_known_gap": (
-                "The simple-ATT SE under-covers because the current "
-                "aggregation treats per-(g,t) influence functions as "
-                "independent. did::att_gt + aggte applies the full "
-                "influence-function multiplier bootstrap and reports "
-                "a larger SE; on this DGP the ratio R/sp is ~2.8x. "
-                "The point estimate matches at rel < 1e-15. The "
-                "remediation is on the v0.9.6 / 1.14 roadmap; see "
-                "tests/coverage_monte_carlo/FINDINGS.md and JSS "
-                "draft section 5.6."
+            "se_note": (
+                "The simple-ATT point estimate matches R did::aggte and "
+                "Stata csdid at rel < 1e-15. The analytic SE also matches "
+                "the R/Stata no-bootstrap reference within the registered "
+                "1% tolerance after including the control-regression "
+                "uncertainty in the outcome-regression IF."
             ),
         },
     )

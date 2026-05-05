@@ -416,10 +416,15 @@ def _estimate_single_att(
     else:  # reg
         att, se, inf_local = _reg_att(dy_sub, d_sub, x_sub)
 
-    # Map local influence function to full-sample vector
+    # Map the local influence function to the full unit universe.  The
+    # ATT(g,t) estimator is computed on the relevant treated/control
+    # subset, so the subset-level IF must be rescaled when embedded in
+    # the n_total-vector used for cross-(g,t) aggregation.  Without this
+    # n_total / n_rel factor, simple-ATT aggregation treats the shared
+    # control influence too weakly and systematically understates SEs.
     inf_full = np.zeros(n_total)
     relevant_idx = np.where(relevant.values)[0]
-    inf_full[relevant_idx] = inf_local
+    inf_full[relevant_idx] = inf_local * (n_total / n_rel)
 
     return att, se, inf_full
 
@@ -504,14 +509,53 @@ def _reg_att(
     n = len(dy)
     c = 1 - d
 
-    m_hat = _estimate_outcome_reg(dy, c, x, n)
-
     p_d = np.mean(d)
     w1 = d / p_d if p_d > 0 else np.zeros(n)
 
-    att = float(np.mean(w1 * (dy - m_hat)))
+    c_mask = c.astype(bool)
+    c_count = int(c_mask.sum())
 
-    inf_func = w1 * (dy - m_hat) - att * w1
+    use_constant_outcome = x is None or x.shape[1] == 0 or c_count < 2
+    if not use_constant_outcome:
+        k = x.shape[1]
+        use_constant_outcome = c_count <= k + 1
+
+    if use_constant_outcome:
+        m0 = np.mean(dy[c_mask]) if c_count > 0 else 0.0
+        m_hat = np.full(n, m0)
+        resid = dy - m_hat
+        att = float(np.mean(w1 * resid))
+
+        p_c = np.mean(c)
+        control_adjust = c * resid / p_c if p_c > 0 else np.zeros(n)
+    else:
+        try:
+            import statsmodels.api as sm
+            x_const_control = sm.add_constant(x[c_mask])
+            ols = sm.OLS(dy[c_mask], x_const_control)
+            result = ols.fit()
+            x_const = sm.add_constant(x)
+            m_hat = result.predict(x_const)
+            resid = dy - m_hat
+            att = float(np.mean(w1 * resid))
+
+            # Outcome-regression inference must include the uncertainty in
+            # the control regression used to estimate m0(X).  For the OLS
+            # first stage this is the delta-method term:
+            #   - E[D X / p]' (E[C X X'])^{-1} C X_i u_i.
+            a_mat = (x_const_control.T @ x_const_control) / n
+            xbar_treat = np.mean(w1[:, None] * x_const, axis=0)
+            lever = x_const @ (np.linalg.pinv(a_mat).T @ xbar_treat)
+            control_adjust = c * resid * lever
+        except Exception:
+            m0 = np.mean(dy[c_mask]) if c_count > 0 else 0.0
+            m_hat = np.full(n, m0)
+            resid = dy - m_hat
+            att = float(np.mean(w1 * resid))
+            p_c = np.mean(c)
+            control_adjust = c * resid / p_c if p_c > 0 else np.zeros(n)
+
+    inf_func = w1 * (resid - att) - control_adjust
     se = float(np.sqrt(np.mean(inf_func ** 2) / n))
 
     return att, se, inf_func

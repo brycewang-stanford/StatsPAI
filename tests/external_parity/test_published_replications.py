@@ -29,7 +29,7 @@ import statspai as sp
 
 # mpdta — CS 2021 simple ATT
 PINNED_MPDTA_CS_ATT = -0.0330
-PINNED_MPDTA_CS_SE = 0.0027
+PINNED_MPDTA_CS_SE = 0.00774
 
 # Card 1995 — OLS and IV coefficients on educ
 PINNED_CARD_OLS_EDUC = 0.1100

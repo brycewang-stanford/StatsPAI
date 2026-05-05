@@ -4,7 +4,7 @@
 \small
 \setlength{\tabcolsep}{2pt}
 \begin{longtable}{@{}p{0.055\linewidth}p{0.205\linewidth}p{0.30\linewidth}p{0.30\linewidth}p{0.10\linewidth}@{}}
-\caption{Track A parity headline at \statspai{} 1.13.0 against the canonical \proglang{R} reference \emph{and} (where one exists) the canonical \proglang{Stata} reference, on the calibrated replicas. The ID column is the two-digit module prefix; the two diff columns report the worst residual gap across each module's headline rows (point estimates only; per-row SE diffs and documented gap rows are reported in \code{tests/r\_parity/results/parity\_table\_3way.md}). ``no canonical ref'' marks modules whose \proglang{Stata} ecosystem has no authoritative port we can compare to without fabricating one. Verdicts use PASS, GAP, and SE GAP; common-specification passes and convention gaps are explained in the parenthetical notes and per-module \code{extra} block in \code{tests/r\_parity/results/} and \code{tests/stata\_parity/results/}.}
+\caption{Track A parity headline at \statspai{} 1.13.0 against the canonical \proglang{R} reference \emph{and} (where one exists) the canonical \proglang{Stata} reference, on the calibrated replicas. The ID column is the two-digit module prefix; the two diff columns report the worst residual gap across each module's headline rows (point estimates only; per-row SE diffs and documented gap rows are reported in \code{tests/r\_parity/results/parity\_table\_3way.md}). ``no canonical ref'' marks modules whose \proglang{Stata} ecosystem has no authoritative port we can compare to without fabricating one. Verdicts use PASS and GAP; common-specification passes, small-sample SE conventions, and convention gaps are explained in the parenthetical notes and per-module \code{extra} block in \code{tests/r\_parity/results/} and \code{tests/stata\_parity/results/}.}
 \label{tab:track-a-parity}\\
 \toprule
 ID & Method & Worst diff vs \proglang{R} & Worst diff vs \proglang{Stata} & Verdict \\
@@ -20,7 +20,7 @@ ID & Method & Worst diff vs \proglang{R} & Worst diff vs \proglang{Stata} & Verd
 \code{01} & OLS + HC1 SE & rel $\le 1.1e-12$ & rel $\le 1.3e-12$ & \textbf{PASS} \\
 \code{02} & 2SLS + HC1 SE & rel $\le 1.1e-11$ & rel $\le 1.1e-11$ & \textbf{PASS} \\
 \code{03} & HDFE 2-way FE & rel $\le 6.5e-15$ {\footnotesize (SE differs by 1-df convention)} & rel $\le 5.3e-15$ & \textbf{PASS} \\
-\code{04} & CS-DiD simple ATT & rel $\le 1.3e-15$ {\footnotesize (SE under-covers; v0.9.6 roadmap)} & rel $\le 1.3e-15$ & \textbf{SE GAP} \\
+\code{04} & CS-DiD simple ATT & rel $\le 1.3e-15$ {\footnotesize (SE within 1\% analytic tolerance)} & rel $\le 1.3e-15$ & \textbf{PASS} \\
 \code{05} & Sun--Abraham event study & rel $\le 2.8e-11$ {\footnotesize (aggregation rule differs)} & rel $\le 2.7e-11$ & \textbf{PASS} \\
 \code{06} & RD CCT bias-corrected & rel $\le 1.6e-14$ {\footnotesize (at forced common $h$; default-$h$ selector differs)} & rel $\le 1.7e-14$ & \textbf{PASS} \\
 \code{07} & Classical SCM & rel $\le 0.12$ {\footnotesize (SCM non-uniqueness)} & rel $\le 0.098$ & \textit{GAP} \\

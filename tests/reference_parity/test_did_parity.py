@@ -73,6 +73,25 @@ class TestDID2x2Recovery:
             f"se={r.se:.4f}"
         )
 
+    def test_cs_reg_2x2_se_matches_four_mean_delta(self, did_2x2_data):
+        """REG-path IF must include treated and control delta uncertainty."""
+        df = did_2x2_data.copy()
+        df['cohort'] = df['treated']
+        r = callaway_santanna(df, y='y', g='cohort', t='t', i='i',
+                              estimator='reg', control_group='nevertreated')
+
+        y_wide = df.pivot(index='i', columns='t', values='y')
+        unit_g = df.groupby('i')['cohort'].first()
+        dy = y_wide[1] - y_wide[0]
+        dy_treated = dy[unit_g == 1]
+        dy_control = dy[unit_g == 0]
+        manual_se = np.sqrt(
+            dy_treated.var(ddof=0) / len(dy_treated)
+            + dy_control.var(ddof=0) / len(dy_control)
+        )
+
+        assert abs(r.se - manual_se) < 1e-12
+
 
 # ---------------------------------------------------------------------------
 # Staggered + homogeneous: all heterogeneity-robust estimators must agree

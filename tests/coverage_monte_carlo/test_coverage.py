@@ -119,23 +119,12 @@ def test_did_2x2_ci_coverage():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.slow
-@pytest.mark.xfail(
-    reason="CS simple-ATT aggregation underestimates SE by ignoring the "
-           "correlation induced by the shared never-treated control group. "
-           "Observed coverage ~50% on homogeneous DGPs. Fix: replace "
-           "iid-weighted-sum SE with multiplier-bootstrap (R did::aggte) or "
-           "full influence-function aggregation respecting (g,t) covariance. "
-           "Tracked as a v0.9.6 roadmap item.",
-    strict=False,
-)
 def test_cs_staggered_ci_coverage():
     """CS2021 on homogeneous staggered DGP: coverage must be calibrated.
 
-    CURRENT STATUS (marked xfail): simple-ATT aggregation produces
-    CIs that are systematically too tight by ~3x.  This does not
-    affect point estimates (CS remains unbiased under heterogeneity)
-    but inference is not calibrated until the aggregation step uses
-    a covariance-aware bootstrap.
+    This guards the simple-ATT aggregation against influence-function
+    scaling bugs: the group-time IFs are estimated on treated/control
+    subsets but aggregated over the full unit universe.
     """
     B = min(B_DEFAULT, 200)   # CS is slow; cap at 200
     truth = 1.5
