@@ -1,0 +1,44 @@
+[
+  {
+    "name": "sp.ivreg (HC1) weak instrument (pi=0.10)",
+    "B": 1000,
+    "covered": 882,
+    "rate": 0.882,
+    "F_median": 2.505714983088154,
+    "F_mean": 3.506065867810919,
+    "abs_bias_median": 0.294016028143151,
+    "documented_band": [
+      0.85,
+      0.95
+    ],
+    "wall_s": 2.3
+  },
+  {
+    "name": "sp.callaway_santanna heterogeneous timing+magnitude",
+    "B": 1000,
+    "truth": 2.5833333333333335,
+    "covered": 946,
+    "rate": 0.946,
+    "abs_bias_median": 0.07169635595039381,
+    "documented_band": [
+      0.92,
+      0.96
+    ],
+    "wall_s": 11.2
+  },
+  {
+    "name": "sp.causal_forest AIPW under overlap loss",
+    "B": 300,
+    "covered": 295,
+    "rate": 0.9833333333333333,
+    "p_min_avg": 0.0006617666761435226,
+    "p_max_avg": 0.987005580711971,
+    "abs_bias_median": 0.3736890213658128,
+    "documented_band": [
+      0.85,
+      0.99
+    ],
+    "note": "Capped at B=300 (wall-clock cap; AIPW IF dominates).",
+    "wall_s": 494.0
+  }
+]
