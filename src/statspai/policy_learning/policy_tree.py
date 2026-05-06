@@ -31,6 +31,241 @@ from ..core.results import CausalResult
 
 
 # ======================================================================
+# Result class — promoted from a plain dict to a rich result object
+# (Athey-Wager 2021; Sverdrup-Kanodia-Zhou-Athey-Wager 2020 policytree).
+# ======================================================================
+
+
+class PolicyTreeResult(dict):
+    """Result of :func:`policy_tree`.
+
+    Inherits from :class:`dict` so the legacy ``result['policy']`` API
+    keeps working (and ``isinstance(result, dict)`` is still True), while
+    also exposing rich attribute access plus methods:
+
+    * :attr:`value_policy_se` — influence-function SE of the policy value,
+      computed from the AIPW scores :math:`\\Gamma_i` and the binary
+      policy :math:`\\hat\\pi(X_i)`. Under the standard cross-fit /
+      overlap conditions this is asymptotically valid.
+    * :meth:`summary` / :meth:`plot_tree` / :meth:`to_latex` / :meth:`cite`
+      that match the Stata / R reporting idioms.
+    * :meth:`to_excel` for publication exports.
+
+    The ``tree`` attribute holds the fitted :class:`PolicyTree` instance
+    so :meth:`PolicyTree.predict` is reachable downstream.
+    """
+
+    def __init__(
+        self, *,
+        tree: "PolicyTree",
+        policy: np.ndarray,
+        value_treat_all: float,
+        value_treat_none: float,
+        value_policy: float,
+        value_gain: float,
+        fraction_treated: float,
+        rules: str,
+        n_obs: int,
+        scores: Optional[np.ndarray] = None,
+        value_policy_se: float = float("nan"),
+        value_policy_ci: Tuple[float, float] = (float("nan"), float("nan")),
+        value_gain_se: float = float("nan"),
+        policy_covariates: Tuple[str, ...] = (),
+        max_depth: int = 0,
+    ):
+        super().__init__(
+            tree=tree, policy=policy,
+            value_treat_all=value_treat_all,
+            value_treat_none=value_treat_none,
+            value_policy=value_policy, value_gain=value_gain,
+            fraction_treated=fraction_treated, rules=rules,
+            n_obs=n_obs, scores=scores,
+            value_policy_se=value_policy_se,
+            value_policy_ci=value_policy_ci,
+            value_gain_se=value_gain_se,
+            policy_covariates=policy_covariates,
+            max_depth=max_depth,
+        )
+
+    # Attribute access mirrors dict keys for ergonomic .field syntax.
+    def __getattr__(self, key):
+        try:
+            return self[key]
+        except KeyError as e:
+            raise AttributeError(key) from e
+
+    # ------- reporting -------
+    def summary(self) -> str:
+        lo, hi = self.value_policy_ci
+        return (
+            "Policy Tree (Athey-Wager 2021)\n"
+            "----------------------------------------\n"
+            f"  Max depth          : {self.max_depth}\n"
+            f"  Policy covariates  : {', '.join(self.policy_covariates)}\n"
+            f"  Observations       : {self.n_obs:,}\n"
+            f"  Fraction treated   : {self.fraction_treated:.3f}\n"
+            f"  V(treat all)       : {self.value_treat_all:+.4f}\n"
+            f"  V(treat none)      : {self.value_treat_none:+.4f}\n"
+            f"  V(learned policy)  : {self.value_policy:+.4f}"
+            f"  (SE {self.value_policy_se:.4f}, "
+            f"95% CI [{lo:+.4f}, {hi:+.4f}])\n"
+            f"  Value gain vs best uniform : {self.value_gain:+.4f}\n"
+            "\nLearned policy:\n" + self.rules
+        )
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return self.summary()
+
+    def plot_tree(self, ax=None, figsize=(8.0, 5.0), node_color="#e8f0fe"):
+        """Draw the policy tree as a labeled hierarchical diagram.
+
+        Each split node shows ``feature ≤ threshold``; each leaf shows
+        ``TREAT`` / ``DON'T TREAT`` plus the leaf value (mean AIPW score).
+        Requires matplotlib.
+        """
+        try:
+            import matplotlib.pyplot as plt
+            import matplotlib.patches as mpatches
+        except ImportError as e:  # pragma: no cover
+            raise ImportError("matplotlib required for plot_tree()") from e
+
+        # Recursively assign x-positions via leaf count.
+        node = self.tree._tree
+        var_names = list(self.policy_covariates)
+
+        def _count_leaves(n):
+            if n["type"] == "leaf":
+                return 1
+            return _count_leaves(n["left"]) + _count_leaves(n["right"])
+
+        total_leaves = _count_leaves(node)
+        positions: List[Dict[str, Any]] = []
+
+        def _assign(n, depth, x_left, x_right):
+            x = (x_left + x_right) / 2
+            entry = {"node": n, "depth": depth, "x": x}
+            if n["type"] == "leaf":
+                positions.append(entry)
+                return
+            left_leaves = _count_leaves(n["left"])
+            right_leaves = _count_leaves(n["right"])
+            split_x = x_left + (x_right - x_left) * (left_leaves /
+                                                    (left_leaves + right_leaves))
+            _assign(n["left"], depth + 1, x_left, split_x)
+            _assign(n["right"], depth + 1, split_x, x_right)
+            positions.append(entry)
+
+        _assign(node, 0, 0.0, float(total_leaves))
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize=figsize)
+        else:
+            fig = ax.figure
+
+        max_depth = max(p["depth"] for p in positions)
+
+        def _draw(n, x, depth):
+            y = max_depth - depth
+            if n["type"] == "leaf":
+                action = "TREAT" if n["action"] == 1 else "DON'T TREAT"
+                color = "#a3d9a5" if n["action"] == 1 else "#f5b7b1"
+                ax.add_patch(mpatches.FancyBboxPatch(
+                    (x - 0.45, y - 0.25), 0.9, 0.5,
+                    boxstyle="round,pad=0.02",
+                    fc=color, ec="#555", lw=1.0,
+                ))
+                ax.text(x, y, f"{action}\nv={n['value']:+.3f}\nn={n['n']}",
+                        ha="center", va="center", fontsize=8)
+                return
+
+            # split node
+            feat = var_names[n["feature"]] if n["feature"] < len(var_names) \
+                else f"X{n['feature']}"
+            ax.add_patch(mpatches.FancyBboxPatch(
+                (x - 0.55, y - 0.22), 1.1, 0.45,
+                boxstyle="round,pad=0.02",
+                fc=node_color, ec="#333", lw=1.0,
+            ))
+            ax.text(x, y, f"{feat}\n≤ {n['threshold']:.3f}",
+                    ha="center", va="center", fontsize=9)
+
+            # children positions: pull out next-level entries from `positions`
+            left_entry = next(p for p in positions if p["node"] is n["left"])
+            right_entry = next(p for p in positions if p["node"] is n["right"])
+            ax.plot([x, left_entry["x"]], [y - 0.22, max_depth - left_entry["depth"] + 0.22],
+                    color="#555", lw=1.0)
+            ax.plot([x, right_entry["x"]], [y - 0.22, max_depth - right_entry["depth"] + 0.22],
+                    color="#555", lw=1.0)
+            _draw(n["left"], left_entry["x"], depth + 1)
+            _draw(n["right"], right_entry["x"], depth + 1)
+
+        root_entry = next(p for p in positions if p["node"] is node)
+        _draw(node, root_entry["x"], 0)
+
+        ax.set_xlim(-0.5, total_leaves + 0.5)
+        ax.set_ylim(-0.5, max_depth + 0.8)
+        ax.set_axis_off()
+        ax.set_title(f"Policy Tree (depth ≤ {self.max_depth})", fontsize=12)
+        return fig, ax
+
+    def to_latex(self, caption: Optional[str] = None,
+                 label: str = "tab:policy_tree") -> str:
+        """Render a publication-style summary table (LaTeX)."""
+        cap = caption or "Policy Learning Results (Athey-Wager 2021)"
+        lo, hi = self.value_policy_ci
+        return (
+            "\\begin{table}[htbp]\n"
+            "\\centering\n"
+            f"\\caption{{{cap}}}\n"
+            f"\\label{{{label}}}\n"
+            "\\begin{tabular}{lc}\n"
+            "\\hline\\hline\n"
+            "Quantity & Estimate \\\\\n"
+            "\\hline\n"
+            f"V(treat all) & {self.value_treat_all:+.4f} \\\\\n"
+            f"V(treat none) & {self.value_treat_none:+.4f} \\\\\n"
+            f"V(learned policy) & {self.value_policy:+.4f} "
+            f"({self.value_policy_se:.4f}) \\\\\n"
+            f"\\hspace{{1em}}95\\% CI & "
+            f"[{lo:+.4f}, {hi:+.4f}] \\\\\n"
+            f"Value gain & {self.value_gain:+.4f} \\\\\n"
+            f"Fraction treated & {self.fraction_treated:.3f} \\\\\n"
+            "\\hline\n"
+            f"Observations & {self.n_obs:,} \\\\\n"
+            "\\hline\\hline\n"
+            "\\end{tabular}\n"
+            "\\begin{tablenotes}\\footnotesize\n"
+            "\\item Standard errors in parentheses (influence-function "
+            "SE on AIPW scores).\n"
+            "\\end{tablenotes}\n"
+            "\\end{table}"
+        )
+
+    def to_excel(self, path: str, digits: int = 4) -> str:
+        """Write a single-sheet Excel summary."""
+        df = pd.DataFrame({
+            "quantity": ["V(treat_all)", "V(treat_none)", "V(policy)",
+                         "V(policy)_SE", "V(policy)_CI_lo", "V(policy)_CI_hi",
+                         "value_gain", "fraction_treated", "n_obs"],
+            "value": [
+                self.value_treat_all, self.value_treat_none,
+                self.value_policy, self.value_policy_se,
+                self.value_policy_ci[0], self.value_policy_ci[1],
+                self.value_gain, self.fraction_treated, self.n_obs,
+            ],
+        })
+        with pd.ExcelWriter(path) as writer:
+            df.round(digits).to_excel(writer, sheet_name="Summary", index=False)
+            pd.DataFrame({"rules": [self.rules]}).to_excel(
+                writer, sheet_name="Rules", index=False
+            )
+        return path
+
+    def cite(self, format: str = "bibtex") -> str:
+        return CausalResult._CITATIONS["policy_tree"]
+
+
+# ======================================================================
 # Public API
 # ======================================================================
 
@@ -226,17 +461,38 @@ class PolicyTree:
         self._tree = tree
         self._scores = scores
 
-        return {
-            'tree': self,
-            'policy': policy_decisions,
-            'value_treat_all': value_all,
-            'value_treat_none': value_none,
-            'value_policy': value_policy,
-            'value_gain': value_policy - max(value_all, value_none),
-            'fraction_treated': fraction_treated,
-            'rules': rules,
-            'n_obs': n,
-        }
+        # Influence-function SE on the policy value:
+        # V̂(π̂) = (1/n) Σ Γ_i π̂(X_i)  →  IF_i = Γ_i π̂(X_i) - V̂.
+        # The same construction yields an SE on V_gain by replacing the
+        # contrast policy with the best uniform policy.
+        contrib_pol = scores * policy_decisions
+        v_se = float(np.std(contrib_pol, ddof=1) / np.sqrt(n)) if n > 1 else float("nan")
+        from scipy import stats as _stats
+        z = float(_stats.norm.ppf(1 - self.alpha / 2))
+        v_ci = (value_policy - z * v_se, value_policy + z * v_se)
+
+        contrast = (np.zeros_like(scores) if value_all <= value_none
+                    else np.ones_like(scores))
+        contrib_gain = scores * (policy_decisions - contrast)
+        gain_se = float(np.std(contrib_gain, ddof=1) / np.sqrt(n)) if n > 1 else float("nan")
+
+        return PolicyTreeResult(
+            tree=self,
+            policy=policy_decisions,
+            value_treat_all=value_all,
+            value_treat_none=value_none,
+            value_policy=value_policy,
+            value_gain=value_policy - max(value_all, value_none),
+            fraction_treated=fraction_treated,
+            rules=rules,
+            n_obs=n,
+            scores=scores,
+            value_policy_se=v_se,
+            value_policy_ci=v_ci,
+            value_gain_se=gain_se,
+            policy_covariates=tuple(self.policy_covariates),
+            max_depth=self.max_depth,
+        )
 
     def predict(self, X_new: np.ndarray) -> np.ndarray:
         """

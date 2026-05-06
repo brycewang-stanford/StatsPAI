@@ -101,4 +101,10 @@ class DoubleMLPLR(_DoubleMLBase):
             ),
             "weighted": sample_weight is not None,
         }
+        # Stash residuals for downstream sensitivity / diagnostics. The
+        # base class will copy these onto the CausalResult.model_info.
+        self._last_rep_residuals = {
+            "y_resid": y_resid,
+            "d_resid": d_resid,
+        }
         return theta, se

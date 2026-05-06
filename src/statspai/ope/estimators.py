@@ -30,16 +30,37 @@ import numpy as np
 
 @dataclass
 class OPEResult:
+    """Canonical Off-Policy Evaluation result.
+
+    All `sp.ope.*` and `sp.direct_method/ips/snips/doubly_robust` estimators
+    return this class (the policy_learning OPEResult subclass is a thin alias
+    that adds an ``estimator`` attribute for back-compat). ``isinstance(res,
+    sp.OPEResult)`` therefore holds for results from either entry point.
+    """
+
     method: str
     value: float
     se: float
-    ci: tuple[float, float]
+    ci: tuple
     diagnostics: dict
 
+    @property
+    def estimator(self) -> str:
+        """Backwards-compatible alias for :attr:`method`."""
+        return self.method
+
+    @property
+    def n_obs(self) -> int:
+        """Convenience accessor: returns ``diagnostics['n']`` or ``diagnostics['n_obs']`` if present."""
+        return int(
+            self.diagnostics.get("n_obs", self.diagnostics.get("n", 0))
+        )
+
     def summary(self) -> str:
+        lo, hi = self.ci
         return (
             f"OPE({self.method}): V(pi_e) = {self.value:.4f} "
-            f"(SE {self.se:.4f}, 95% CI [{self.ci[0]:.4f}, {self.ci[1]:.4f}])"
+            f"(SE {self.se:.4f}, 95% CI [{lo:.4f}, {hi:.4f}])"
         )
 
 

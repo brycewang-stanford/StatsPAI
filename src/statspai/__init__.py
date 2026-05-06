@@ -61,7 +61,8 @@ from .did import (
     did, did_2x2, overlap_weighted_did, dl_propensity_score,
     ddd, callaway_santanna, sun_abraham,
     bacon_decomposition, honest_did, breakdown_m, event_study,
-    did_analysis, DIDAnalysis, did_multiplegt, did_imputation, stacked_did, cic,
+    did_analysis, DIDAnalysis, did_multiplegt, did_imputation,
+    bjs, borusyak_jaravel_spiess, stacked_did, cic,
     gardner_did, did_2stage,
     harvest_did, HarvestDIDResult,
     wooldridge_did, etwfe, etwfe_emfx, drdid, twfe_decomposition,
@@ -127,6 +128,9 @@ from .dml import (
     dml_model_averaging, model_averaging_dml, DMLAveragingResult,
     # v1.7 long-panel DML
     dml_panel, DMLPanelResult,
+    # v1.13 DML-OVB sensitivity + diagnostics
+    dml_sensitivity, DMLSensitivityResult,
+    dml_diagnostics, DMLDiagnostics,
 )
 # Eager: ``deepiv`` is both a function (sp.deepiv(...)) and a subpackage.
 # Lazy-loading collides with the subpackage attachment — see the
@@ -232,6 +236,7 @@ from .metalearners import (
     focal_cate, FunctionalCATEResult,
     cluster_cate, ClusterCATEResult,
 )
+from .metalearners import cate_eval, CATEEvalResult
 # bayes — lazy-loaded (PyMC pulls heavy deps); see _LAZY_ATTRS below.
 from .regression.heckman import heckman
 from .regression.quantile import qreg, sqreg
@@ -247,7 +252,7 @@ from .tmle import (
     ltmle, LTMLEResult, ltmle_survival, LTMLESurvivalResult,
     hal_tmle, HALRegressor, HALClassifier,
 )
-from .policy_learning import policy_tree, PolicyTree, policy_value, direct_method, ips, snips, doubly_robust
+from .policy_learning import policy_tree, PolicyTree, PolicyTreeResult, policy_value, direct_method, ips, snips, doubly_robust
 # ``OPEResult`` is intentionally *not* eagerly imported from
 # ``.policy_learning`` here: the canonical class lives in
 # ``statspai.ope.estimators`` and is what ``sp.ope.ips(...)`` returns.
@@ -575,6 +580,8 @@ __all__ = [
     "DIDAnalysis",
     "did_multiplegt",
     "did_imputation",
+    "bjs",
+    "borusyak_jaravel_spiess",
     "stacked_did",
     "gardner_did",
     "did_2stage",
@@ -673,6 +680,11 @@ __all__ = [
     "dml_model_averaging",
     "model_averaging_dml",
     "DMLAveragingResult",
+    # v1.13 DML-OVB sensitivity + diagnostics (Chernozhukov-Cinelli-Newey 2022)
+    "dml_sensitivity",
+    "DMLSensitivityResult",
+    "dml_diagnostics",
+    "DMLDiagnostics",
     # v1.7 long-panel DML
     "dml_panel",
     "DMLPanelResult",
@@ -945,6 +957,7 @@ __all__ = [
     # Policy Learning
     "policy_tree",
     "PolicyTree",
+    "PolicyTreeResult",
     "policy_value",
     # Conformal Causal Inference
     "conformal_cate",
@@ -1343,6 +1356,8 @@ __all__ = [
     # Meta-learner frontier
     "focal_cate", "FunctionalCATEResult",
     "cluster_cate", "ClusterCATEResult",
+    # v1.13 backbone-agnostic CATE evaluation (RATE / AUTOC / Qini)
+    "cate_eval", "CATEEvalResult",
     # Bunching frontier
     "general_bunching", "GeneralBunchingResult",
     "kink_unified", "KinkUnifiedResult",

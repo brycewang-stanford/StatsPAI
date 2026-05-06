@@ -749,40 +749,132 @@ class CausalForest(BaseModel):
         self,
         X_test: Optional[np.ndarray] = None,
         alpha: float = 0.05,
+        clip: float = 0.01,
     ) -> pd.DataFrame:
-        """Best Linear Projection (BLP) heterogeneity test (Chernozhukov et al. 2020).
+        r"""Best Linear Projection (BLP) of CATE on features (Semenova-Chernozhukov 2021).
 
-        Regress CATE(X_i) on the features X_i:
+        Constructs the augmented inverse-propensity-weighted (AIPW) doubly-robust
+        score :math:`\Gamma_i` and regresses it on :math:`X_i` with HC1 standard
+        errors:
 
-            CATE_i = β₀ + X_i' β₁ + ε_i
+        .. math::
+            \Gamma_i = \hat{\tau}(X_i)
+                + \frac{T_i - \hat{e}(X_i)}{\hat{e}(X_i)(1-\hat{e}(X_i))}
+                  \bigl(Y_i - \hat{m}(X_i) - (T_i - \hat{e}(X_i))\hat{\tau}(X_i)\bigr).
 
-        A joint F-test on β₁ = 0 tests for systematic treatment-effect
-        heterogeneity. Individual t-tests indicate which features drive it.
+        :math:`\Gamma_i` is unbiased for :math:`\tau(X_i)` under standard
+        cross-fitting / overlap conditions; OLS of :math:`\Gamma_i` on
+        :math:`(1, X_i)` recovers the population BLP coefficients with
+        valid heteroscedasticity-robust inference (HC1).
 
-        Returns a DataFrame with coefficient, SE, t-stat, p-value per feature.
+        This replaces the earlier plug-in OLS of :math:`\hat{\tau}(X_i)` on
+        :math:`X_i`, which produces anti-conservative SEs (the SE on a fitted
+        model is not the SE on the population BLP).
+
+        Parameters
+        ----------
+        X_test : array-like, optional
+            Features to evaluate the BLP at; defaults to in-sample X.
+        alpha : float, default=0.05
+            Significance level for CIs (reported alongside coef/SE).
+        clip : float, default=0.01
+            Propensity clip (binary discrete treatment only) to prevent the
+            inverse-propensity term from blowing up under near-violations of
+            overlap. Counts of clipped units are exposed via ``self.diagnostics``.
+
+        Returns
+        -------
+        pd.DataFrame
+            Index ``["Intercept", *features]`` with columns
+            ``[coef, se, t, p, ci_lower, ci_upper]``. HC1 SEs.
+
+        References
+        ----------
+        Semenova V., Chernozhukov V. (2021).
+        "Debiased Machine Learning of Conditional Average Treatment Effects
+        and Other Causal Functions." *Econometrics Journal* 24(2): 264-289.
+        DOI: 10.1093/ectj/utaa027.
         """
         if not self.fitted_:
             raise ValueError("Model must be fitted first")
+        from scipy import stats as _stats
+
         X = X_test if X_test is not None else self._X_original
-        X = np.asarray(X)
-        cate = self.effect(X)
+        X = np.asarray(X, dtype=float)
         n, k = X.shape
-        # Standardise X so coefficients are comparable
-        X_std = (X - X.mean(axis=0)) / (X.std(axis=0) + 1e-12)
+
+        # Use the in-sample DR construction (requires Y, T, m̂, ê).
+        if X_test is not None and X_test.shape[0] != self._Y_original.shape[0]:
+            warnings.warn(
+                "best_linear_projection: X_test has a different sample size "
+                "than the training data; falling back to the plug-in CATE "
+                "regression with HC1 SE (no DR construction possible "
+                "out-of-sample).",
+                UserWarning, stacklevel=2,
+            )
+            cate = self.effect(X)
+            gamma = cate
+            T_used = None
+        else:
+            tau = self.effect(self._X_original)
+            Y = self._Y_original.astype(float)
+            T = self._T_original.astype(float)
+            m_hat = np.asarray(self._m_insample, dtype=float)
+            e_hat = np.asarray(self._e_insample, dtype=float)
+
+            if self.discrete_treatment:
+                e_clip = np.clip(e_hat, clip, 1.0 - clip)
+                n_clipped = int(np.sum((e_hat < clip) | (e_hat > 1 - clip)))
+                weight = (T - e_clip) / (e_clip * (1.0 - e_clip))
+            else:
+                # Continuous treatment: use partialled-out Robinson form.
+                # Γ_i = τ̂(X_i) + (T_i - ê(X_i))(Y_i - m̂(X_i) - (T_i-ê)τ̂)/Var(T-ê)
+                resid_T = T - e_hat
+                var_T = float(np.mean(resid_T**2)) + 1e-12
+                weight = resid_T / var_T
+                n_clipped = 0
+
+            mu_hat = m_hat + (T - e_hat) * tau
+            gamma = tau + weight * (Y - mu_hat)
+
+            self.diagnostics = dict(self.diagnostics or {})
+            self.diagnostics["blp_n_clipped_propensities"] = n_clipped
+            T_used = T
+
+        # Regress Γ_i on (1, X_std) with HC1 SE.
+        X_mean = X.mean(axis=0)
+        X_sd = X.std(axis=0) + 1e-12
+        X_std = (X - X_mean) / X_sd
         D = np.column_stack([np.ones(n), X_std])
-        DtD_inv = np.linalg.inv(D.T @ D)
-        beta = DtD_inv @ (D.T @ cate)
-        e = cate - D @ beta
-        sigma2 = float(e @ e) / (n - k - 1)
-        se = np.sqrt(np.diag(sigma2 * DtD_inv))
-        tvals = beta / se
-        from scipy import stats
-        pvals = 2 * (1 - stats.t.cdf(np.abs(tvals), df=n - k - 1))
+        DtD = D.T @ D
+        try:
+            DtD_inv = np.linalg.inv(DtD)
+        except np.linalg.LinAlgError:
+            DtD_inv = np.linalg.pinv(DtD)
+        beta = DtD_inv @ (D.T @ gamma)
+        resid = gamma - D @ beta
+
+        # HC1 White SE with (n / (n - p)) finite-sample correction.
+        p = D.shape[1]
+        omega = D * resid[:, None]
+        meat = omega.T @ omega
+        cov = DtD_inv @ meat @ DtD_inv * (n / max(n - p, 1))
+        se = np.sqrt(np.diag(cov))
+        tvals = beta / np.where(se > 0, se, np.nan)
+        df = max(n - p, 1)
+        pvals = 2.0 * (1.0 - _stats.t.cdf(np.abs(tvals), df=df))
+        z = float(_stats.t.ppf(1.0 - alpha / 2.0, df=df))
+
         names = ["Intercept"] + (
             self._feature_names or [f"X{j}" for j in range(k)]
         )
         return pd.DataFrame({
-            "coef": beta, "se": se, "t": tvals, "p": pvals,
+            "coef": beta,
+            "se": se,
+            "t": tvals,
+            "p": pvals,
+            "ci_lower": beta - z * se,
+            "ci_upper": beta + z * se,
         }, index=names)
 
     def ate(self, X: Optional[np.ndarray] = None) -> float:

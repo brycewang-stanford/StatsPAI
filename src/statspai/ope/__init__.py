@@ -17,10 +17,6 @@ from .estimators import (
     evaluate,
     OPEResult,
 )
-from .sharp_confounding import (
-    sharp_ope_unobserved, causal_policy_forest,
-    SharpOPEResult, CausalPolicyForestResult,
-)
 
 __all__ = [
     "direct_method",
@@ -33,3 +29,20 @@ __all__ = [
     "sharp_ope_unobserved", "causal_policy_forest",
     "SharpOPEResult", "CausalPolicyForestResult",
 ]
+
+_SHARP_EXPORTS = {
+    "sharp_ope_unobserved",
+    "causal_policy_forest",
+    "SharpOPEResult",
+    "CausalPolicyForestResult",
+}
+
+
+def __getattr__(name):
+    """Load sklearn-backed sharp OPE extensions only on first use."""
+    if name in _SHARP_EXPORTS:
+        from . import sharp_confounding as _sharp
+        obj = getattr(_sharp, name)
+        globals()[name] = obj
+        return obj
+    raise AttributeError(f"module 'statspai.ope' has no attribute {name!r}")

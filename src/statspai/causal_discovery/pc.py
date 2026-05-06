@@ -232,7 +232,8 @@ class PCAlgorithm:
         self._cpdag = cpdag
         self._var_names = var_names
 
-        return {
+        from ._viz import DAGDict
+        return DAGDict({
             'skeleton': skeleton_df,
             'cpdag': cpdag_df,
             'edges': directed_edges,
@@ -243,7 +244,7 @@ class PCAlgorithm:
             'n_obs': n,
             'alpha': self.alpha,
             'ci_test': self.ci_test,
-        }
+        })
 
     def _learn_skeleton(self, X, d, n, max_k):
         """

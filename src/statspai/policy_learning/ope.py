@@ -31,7 +31,6 @@ for counterfactual learning." *NeurIPS*.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Optional, Sequence, Dict, Any, Callable, Union
 
 import numpy as np
@@ -42,28 +41,22 @@ from scipy import stats
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
 # file when the user never touches ope.
 
+# Single canonical OPEResult lives in ``ope.estimators``; re-exporting it
+# here so ``isinstance(sp.direct_method(...), sp.OPEResult)`` is True
+# regardless of which entry point the user picked. The historical
+# policy_learning OPEResult dataclass (with extra ``estimator/n_obs/detail``
+# fields) is replicated as properties / diagnostics on the canonical class.
+from ..ope.estimators import OPEResult as _CanonicalOPEResult
 
-@dataclass
-class OPEResult:
-    estimator: str
-    value: float
-    se: float
-    ci: tuple
-    n_obs: int
-    detail: Dict[str, Any] = field(default_factory=dict)
+OPEResult = _CanonicalOPEResult
 
-    def summary(self) -> str:  # pragma: no cover
-        lo, hi = self.ci
-        return (
-            f"Off-Policy Evaluation ({self.estimator})\n"
-            f"  V(pi_e)  = {self.value:.4f}\n"
-            f"  SE       = {self.se:.4f}\n"
-            f"  95% CI   = [{lo:.4f}, {hi:.4f}]\n"
-            f"  N        = {self.n_obs}"
-        )
 
-    def __repr__(self) -> str:  # pragma: no cover
-        return f"OPEResult({self.estimator}, V={self.value:.4f})"
+def _wrap(estimator: str, value: float, se: float, ci: tuple,
+          n_obs: int, **detail: Any) -> OPEResult:
+    """Pack policy_learning-style returns into the canonical OPEResult."""
+    diag: Dict[str, Any] = {"n_obs": int(n_obs), **detail}
+    return OPEResult(method=estimator, value=value, se=se, ci=ci,
+                     diagnostics=diag)
 
 
 # --------------------------------------------------------------------
@@ -142,7 +135,8 @@ def direct_method(
     V = float(V_per.mean())
     se = float(V_per.std(ddof=1) / np.sqrt(len(A)))
     crit = float(stats.norm.ppf(1 - alpha / 2))
-    return OPEResult("direct", V, se, (V - crit * se, V + crit * se), n_obs=len(A))
+    return _wrap("direct", V, se, (V - crit * se, V + crit * se),
+                 n_obs=len(A), n_actions=int(n_actions))
 
 
 def ips(
@@ -160,7 +154,11 @@ def ips(
     V = float(V_per.mean())
     se = float(V_per.std(ddof=1) / np.sqrt(len(A)))
     crit = float(stats.norm.ppf(1 - alpha / 2))
-    return OPEResult("IPS", V, se, (V - crit * se, V + crit * se), n_obs=len(A))
+    return _wrap("IPS", V, se, (V - crit * se, V + crit * se),
+                 n_obs=len(A),
+                 ess=float(ratio.sum() ** 2 / max(np.sum(ratio ** 2), 1e-12)),
+                 weight_max=float(np.max(ratio)),
+                 weight_mean=float(np.mean(ratio)))
 
 
 def snips(
@@ -184,7 +182,11 @@ def snips(
     se = float(np.sqrt(max(numer_var / denom - V * cov * 2 / denom + V ** 2 * denom_var / denom, 0)
                         / n))
     crit = float(stats.norm.ppf(1 - alpha / 2))
-    return OPEResult("SNIPS", V, se, (V - crit * se, V + crit * se), n_obs=n)
+    return _wrap("SNIPS", V, se, (V - crit * se, V + crit * se),
+                 n_obs=n,
+                 ess=float(ratio.sum() ** 2 / max(np.sum(ratio ** 2), 1e-12)),
+                 weight_max=float(np.max(ratio)),
+                 weight_mean=float(np.mean(ratio)))
 
 
 def doubly_robust(
@@ -219,7 +221,11 @@ def doubly_robust(
     V = float(V_per.mean())
     se = float(V_per.std(ddof=1) / np.sqrt(len(A)))
     crit = float(stats.norm.ppf(1 - alpha / 2))
-    return OPEResult("Doubly Robust", V, se, (V - crit * se, V + crit * se), n_obs=len(A))
+    return _wrap("Doubly Robust", V, se, (V - crit * se, V + crit * se),
+                 n_obs=len(A),
+                 ess=float(ratio.sum() ** 2 / max(np.sum(ratio ** 2), 1e-12)),
+                 weight_max=float(np.max(ratio)),
+                 n_actions=int(n_actions))
 
 
 __all__ = ["direct_method", "ips", "snips", "doubly_robust", "OPEResult"]

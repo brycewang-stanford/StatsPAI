@@ -28,6 +28,8 @@ from .model_averaging import (
     dml_model_averaging, model_averaging_dml, DMLAveragingResult,
 )
 from .panel_dml import dml_panel, DMLPanelResult
+from ._sensitivity import dml_sensitivity, DMLSensitivityResult
+from ._diagnostics import dml_diagnostics, DMLDiagnostics
 
 __all__ = [
     'dml',
@@ -42,4 +44,9 @@ __all__ = [
     # v1.7 long-panel DML (Semenova-Chernozhukov 2023)
     'dml_panel',
     'DMLPanelResult',
+    # v1.13 sensitivity + diagnostics (Chernozhukov-Cinelli-Newey 2022)
+    'dml_sensitivity',
+    'DMLSensitivityResult',
+    'dml_diagnostics',
+    'DMLDiagnostics',
 ]

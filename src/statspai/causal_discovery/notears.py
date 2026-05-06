@@ -182,7 +182,8 @@ class NOTEARS:
         self._W = W_est
         self._var_names = var_names
 
-        return {
+        from ._viz import DAGDict
+        return DAGDict({
             'adjacency': adj_df,
             'edges': edges,
             'dag': dag_df,
@@ -192,7 +193,7 @@ class NOTEARS:
             'n_obs': n,
             'lambda1': self.lambda1,
             'w_threshold': self.w_threshold,
-        }
+        })
 
     def _notears_linear(self, X, d, n):
         """

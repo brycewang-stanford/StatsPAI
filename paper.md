@@ -270,17 +270,47 @@ interface: `.summary()`, `.plot()`, `.to_latex()`, `.to_docx()`, and
   A critical Jondrow-posterior sign error in all prior frontier
   implementations is fixed in 0.9.3; efficiency scores computed on
   any prior version should be re-estimated.
-- **Modern ML causal inference:** double/debiased ML
-  [@chernozhukov2018double] including the new partially linear IV
-  variant `sp.dml(model='pliv')` (v0.9.3); causal forests
+- **Modern ML causal inference (refreshed v1.13):** double/debiased ML
+  [@chernozhukov2018double; @bach2024doubleml] with PLR / IRM / PLIV /
+  IIVM under one `sp.dml(model=...)` dispatcher; causal forests
   [@wager2018estimation]; meta-learners S/T/X/R/DR
-  [@kunzel2019metalearners]; TMLE [@vanderlaan2011targeted]; neural
-  causal models (TARNet, CFRNet, DragonNet) [@shalit2017estimating;
-  @shi2019adapting]; causal discovery (NOTEARS, PC algorithm, LiNGAM,
-  GES) [@zheng2018dags]; policy trees [@athey2021policy]; Bayesian
-  causal forests [@hahn2020bayesian]; matrix completion; conformal
-  inference for causal effects; dose--response curves;
-  dynamic-treatment regimes; interference and spillover.
+  [@kunzel2019metalearners; @nie2021quasi]; TMLE
+  [@vanderlaan2011targeted]; neural causal models (TARNet, CFRNet,
+  DragonNet) [@shalit2017estimating; @shi2019adapting]; causal discovery
+  (NOTEARS [@zheng2018dags], PC, LiNGAM, GES, FCI, ICP, PCMCI / LPCMCI
+  / DYNOTEARS); policy trees [@athey2021policy]; Bayesian causal forests
+  [@hahn2020bayesian]; matrix completion [@athey2021matrix]; conformal
+  inference for causal effects [@lei2021conformal]; proximal causal
+  inference; dose--response curves; dynamic-treatment regimes;
+  interference and spillover. The v1.13 release adds five
+  cross-cutting upgrades that the package needed to compete with
+  DoubleML / EconML / grf / lmtp on the 2024--2026 reporting frontier:
+  (i) `sp.dml_sensitivity()` ships the Chernozhukov--Cinelli--Newey
+  ``Long Story Short'' DML-OVB sensitivity bound
+  [@chernozhukov2022long], returning the robustness value $\mathrm{RV}_q$,
+  the significance-loss value $\mathrm{RV}_{q,\alpha}$, scenario
+  bias bounds, benchmark-covariate comparisons, and a
+  bias-contour `plot()` that mirrors the R `sensemakr` interface;
+  (ii) `sp.dml_diagnostics()` bundles overlap, score-density,
+  residual-balance, and orthogonality-test reports with a single 2$\times$2
+  publication panel matching DoubleML's defaults
+  [@bach2024doubleml]; (iii) `sp.cate_eval()` computes the
+  Yadlowsky--Fleming--Shah--Brunskill--Wager Rank-weighted Average
+  Treatment Effect (RATE / AUTOC / Qini) [@yadlowsky2025evaluating]
+  with closed-form influence-function standard errors for *any*
+  CATE array, decoupling the metric from the forest backbone so
+  meta-learner, BCF, conformal-CATE and neural-CATE estimates can
+  all be ranked on the same footing; (iv) the causal-forest
+  `best_linear_projection()` is rewritten to use the
+  Semenova--Chernozhukov AIPW pseudo-outcome
+  $\Gamma_i$ [@semenova2021debiased] with HC1 standard errors,
+  fixing an anti-conservative SE bug in the previous plug-in
+  implementation; and (v) every `causal_discovery` algorithm
+  (NOTEARS, PC, LiNGAM, GES, FCI, ICP, PCMCI / LPCMCI / DYNOTEARS)
+  now exposes `.to_networkx()` / `.to_dot()` / `.plot()` /
+  `.edge_list()`, and `sp.policy_tree()` returns a `PolicyTreeResult`
+  with influence-function SE on the policy value and a Graphviz-style
+  `plot_tree()`.
 - **Classical and modern econometrics beyond causal inference:**
   mixed-logit random-coefficient multinomial choice (`sp.mixlogit`,
   v0.9.3); instrumental-variable quantile regression
@@ -413,7 +443,17 @@ half-normal, exponential, and truncated-normal distributions has been
 verified to within Monte Carlo tolerance against known data-generating
 processes; kernel-density integration tests
 ($\int f(\epsilon)\,d\epsilon = 1$) guard the three frontier
-log-likelihoods against regressions.
+log-likelihoods against regressions. The v1.13 `sp.cate_eval()`
+implementation reproduces the
+Yadlowsky--Fleming--Shah--Brunskill--Wager [@yadlowsky2025evaluating]
+RATE / AUTOC / Qini point estimates and influence-function standard
+errors of `grf::rank_average_treatment_effect()` to within Monte Carlo
+tolerance ($N = 1{,}000$, $B = 200$ replications); the rewritten causal
+forest `best_linear_projection()` that uses the
+Semenova--Chernozhukov AIPW pseudo-outcome [@semenova2021debiased]
+recovers the true heterogeneity slope to within $0.05$ on the
+$Y = X_1 \cdot T + \varepsilon$ benchmark with HC1 standard errors
+(verified across 50 forest replications).
 
 **Monte Carlo coverage.** Simulations (200 replications) on built-in
 data-generating processes show negligible mean bias ($< 0.01$) and

@@ -37,21 +37,73 @@ class MediateSensitivityResult:
     rho_at_zero: Optional[float]     # ρ where ACME crosses zero
     acme_at_zero: float              # ACME at ρ=0 (the baseline)
 
-    def plot(self, ax=None, **kwargs):
-        import matplotlib.pyplot as plt
+    def plot(self, ax=None, *, fill: bool = True, annotate: bool = True,
+             figsize=(7.0, 4.5), **kwargs):
+        """Publication-style sensitivity plot.
+
+        Shows ACME(ρ) vs the mediator-outcome confounder strength ρ,
+        with a coloured fill for the *region of nullability* (any ρ in
+        ``[ρ_at_zero, 1]`` flips the ACME sign), the ρ at which the
+        ACME crosses zero (annotated), and reference lines at ρ=0
+        (i.e. sequential-ignorability) and ACME=0.
+
+        Parameters
+        ----------
+        ax : matplotlib Axes, optional
+        fill : bool, default True
+            Fill the {ACME(ρ) > 0} region in light blue and the
+            {ACME(ρ) < 0} region in light red, à la sensemakr.
+        annotate : bool, default True
+            Annotate ρ_at_zero, baseline ACME, and an interpretive note.
+        """
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError as e:  # pragma: no cover
+            raise ImportError("matplotlib required for plot()") from e
         if ax is None:
-            _, ax = plt.subplots(figsize=(6, 4))
-        ax.plot(self.rho_grid, self.acme_at_rho, "-", color="C0")
-        ax.axhline(0, color="grey", linewidth=0.6)
-        ax.axvline(0, color="grey", linewidth=0.6, linestyle="--")
+            fig, ax = plt.subplots(figsize=figsize)
+        else:
+            fig = ax.figure
+
+        rho = self.rho_grid
+        acme = self.acme_at_rho
+
+        if fill:
+            ax.fill_between(rho, 0, acme, where=(acme >= 0),
+                            color="#1f77b4", alpha=0.18, label="ACME ≥ 0")
+            ax.fill_between(rho, 0, acme, where=(acme < 0),
+                            color="#d62728", alpha=0.18, label="ACME < 0")
+        ax.plot(rho, acme, color="#1f77b4", lw=1.8)
+        ax.axhline(0, color="#333", lw=0.7)
+        ax.axvline(0, color="#333", lw=0.7, ls=":",
+                   label=r"$\rho=0$ (sequential ignorability)")
+
+        # Mark the baseline ACME and ρ_at_zero
+        ax.scatter([0.0], [self.acme_at_zero], color="#1f77b4",
+                   s=60, zorder=5)
+        if annotate:
+            ax.annotate(
+                f"baseline ACME = {self.acme_at_zero:+.3f}",
+                xy=(0.0, self.acme_at_zero),
+                xytext=(8, 8), textcoords="offset points", fontsize=9,
+            )
+
         if self.rho_at_zero is not None:
-            ax.axvline(self.rho_at_zero, color="C3", linewidth=1, linestyle="--",
-                       label=f"ACME=0 at ρ={self.rho_at_zero:.2f}")
-            ax.legend()
-        ax.set_xlabel("ρ (mediator-outcome error correlation)")
-        ax.set_ylabel("ACME(ρ)")
-        ax.set_title("Mediation sensitivity analysis")
-        return ax
+            ax.axvline(self.rho_at_zero, color="#d62728", lw=1.2, ls="--",
+                       label=fr"ACME=0 at $\rho={self.rho_at_zero:.3f}$")
+            if annotate:
+                ax.annotate(
+                    "robustness threshold",
+                    xy=(self.rho_at_zero, 0),
+                    xytext=(6, -20), textcoords="offset points",
+                    fontsize=8, color="#d62728",
+                )
+
+        ax.set_xlabel(r"$\rho$ — confounder strength on (mediator, outcome) errors")
+        ax.set_ylabel(r"$\widehat{\mathrm{ACME}}(\rho)$")
+        ax.set_title("Mediation sensitivity analysis (Imai-Keele-Yamamoto 2010)")
+        ax.legend(loc="best", fontsize=8)
+        return fig, ax
 
     def summary(self) -> str:
         lines = [

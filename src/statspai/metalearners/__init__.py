@@ -40,6 +40,8 @@ from .auto_cate_tuned import auto_cate_tuned
 # v0.10 meta-learner frontier
 from .focal import focal_cate, FunctionalCATEResult
 from .cluster_cate import cluster_cate, ClusterCATEResult
+# v1.13 backbone-agnostic CATE evaluation (Yadlowsky 2025 RATE)
+from .cate_eval import cate_eval, CATEEvalResult
 
 __all__ = [
     'metalearner',
@@ -61,4 +63,5 @@ __all__ = [
     'auto_cate_tuned',
     'focal_cate', 'FunctionalCATEResult',
     'cluster_cate', 'ClusterCATEResult',
+    'cate_eval', 'CATEEvalResult',
 ]

@@ -303,8 +303,10 @@ class _DoubleMLBase:
         thetas: List[float] = []
         ses: List[float] = []
         per_rep_diags: List[dict] = []
+        last_residuals: dict = {}
         for rep in range(self.n_rep):
             self._last_rep_diagnostics = {}
+            self._last_rep_residuals = {}
             theta_r, se_r = self._fit_one_rep(
                 Y, D, X, Z, n, rng_seed=self.random_state + rep,
                 sample_weight=sample_weight,
@@ -313,6 +315,8 @@ class _DoubleMLBase:
             ses.append(se_r)
             if self._last_rep_diagnostics:
                 per_rep_diags.append(self._last_rep_diagnostics)
+            if self._last_rep_residuals:
+                last_residuals = self._last_rep_residuals
 
         if len(thetas) == 1:
             theta, se = thetas[0], ses[0]
@@ -351,6 +355,20 @@ class _DoubleMLBase:
             model_info['se_all_reps'] = ses
         if per_rep_diags:
             model_info['diagnostics'] = self._aggregate_diagnostics(per_rep_diags)
+        # Stash residuals + design matrix for downstream sensitivity /
+        # diagnostics (sp.dml_sensitivity, sp.dml_diagnostics). These are
+        # NumPy arrays so they don't serialise in to_dict, but they're
+        # available on the in-memory model_info.
+        if last_residuals:
+            model_info.update({
+                "_y_resid": last_residuals.get("y_resid"),
+                "_d_resid": last_residuals.get("d_resid"),
+                "_pscore": last_residuals.get("pscore"),
+            })
+        model_info["_X_design"] = X
+        model_info["_T"] = D
+        model_info["_Y"] = Y
+        model_info["_covariate_names"] = list(self.covariates)
 
         return CausalResult(
             method=f'Double ML ({self._MODEL_TAG})',

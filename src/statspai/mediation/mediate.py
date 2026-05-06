@@ -186,31 +186,64 @@ class MediationAnalysis:
         acme, ade, total = self._estimate_effects(Y, T, M, X)
         prop_mediated = acme / total if abs(total) > 1e-10 else np.nan
 
-        # Bootstrap inference
+        # Bootstrap inference. We collect successful draws into lists rather
+        # than overwriting failed draws with the point estimate (which silently
+        # shrinks SE and underestimates uncertainty). Up to ``max_retries`` per
+        # failure are attempted; remaining failures are dropped, and we abort
+        # the SE/CI computation if the failure rate exceeds 10%.
         rng = np.random.default_rng(self.seed)
-        boot_acme = np.zeros(self.n_boot)
-        boot_ade = np.zeros(self.n_boot)
-        boot_total = np.zeros(self.n_boot)
+        boot_acme: List[float] = []
+        boot_ade: List[float] = []
+        boot_total: List[float] = []
+        n_failed = 0
+        max_retries = 5
 
-        for b in range(self.n_boot):
-            idx = rng.choice(n, size=n, replace=True)
-            Y_b, T_b, M_b = Y[idx], T[idx], M[idx]
-            X_b = X[idx] if X is not None else None
+        for _b in range(self.n_boot):
+            success = False
+            for _retry in range(max_retries):
+                idx = rng.choice(n, size=n, replace=True)
+                Y_b, T_b, M_b = Y[idx], T[idx], M[idx]
+                X_b = X[idx] if X is not None else None
+                try:
+                    a, d, t = self._estimate_effects(Y_b, T_b, M_b, X_b)
+                    if not (np.isfinite(a) and np.isfinite(d) and np.isfinite(t)):
+                        continue
+                    boot_acme.append(a)
+                    boot_ade.append(d)
+                    boot_total.append(t)
+                    success = True
+                    break
+                except Exception:  # noqa: BLE001 — bootstrap fit failure
+                    continue
+            if not success:
+                n_failed += 1
 
-            try:
-                a, d, t = self._estimate_effects(Y_b, T_b, M_b, X_b)
-                boot_acme[b] = a
-                boot_ade[b] = d
-                boot_total[b] = t
-            except Exception:
-                boot_acme[b] = acme
-                boot_ade[b] = ade
-                boot_total[b] = total
+        n_kept = len(boot_acme)
+        if n_kept == 0:
+            raise RuntimeError(
+                "Mediation bootstrap: every replicate failed to fit. "
+                "Inspect data for collinearity or insufficient variation."
+            )
+        fail_rate = n_failed / self.n_boot
+        if fail_rate > 0.10:
+            warnings.warn(
+                f"Mediation bootstrap: {n_failed}/{self.n_boot} replicates "
+                f"({fail_rate:.1%}) failed after {max_retries} retries; "
+                "standard errors based on remaining draws may be unreliable.",
+                RuntimeWarning, stacklevel=3,
+            )
+
+        boot_acme_arr = np.asarray(boot_acme, dtype=float)
+        boot_ade_arr = np.asarray(boot_ade, dtype=float)
+        boot_total_arr = np.asarray(boot_total, dtype=float)
 
         # Standard errors and CIs
-        se_acme = float(np.std(boot_acme, ddof=1))
-        se_ade = float(np.std(boot_ade, ddof=1))
-        se_total = float(np.std(boot_total, ddof=1))
+        se_acme = float(np.std(boot_acme_arr, ddof=1))
+        se_ade = float(np.std(boot_ade_arr, ddof=1))
+        se_total = float(np.std(boot_total_arr, ddof=1))
+        boot_acme = boot_acme_arr  # retain old name for downstream code
+        boot_ade = boot_ade_arr
+        boot_total = boot_total_arr
 
         lo = self.alpha / 2
         hi = 1 - self.alpha / 2
@@ -243,7 +276,10 @@ class MediationAnalysis:
             'ade': ade,
             'total_effect': total,
             'prop_mediated': prop_mediated,
-            'n_boot': self.n_boot,
+            'n_boot_requested': self.n_boot,
+            'n_boot_successful': n_kept,
+            'n_boot_failed': n_failed,
+            'boot_failure_rate': fail_rate,
             'se_acme': se_acme,
             'se_ade': se_ade,
             'ci_acme': ci_acme,
