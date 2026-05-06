@@ -154,15 +154,144 @@ def test_percentile_ci_contains_true_value_for_well_specified_dgp():
 def test_invalid_bootstrap_type_raises():
     df = _make_panel(seed=20)
     with pytest.raises(ValueError, match="bootstrap="):
-        feols_jax_bootstrap("y ~ x1", df, n_boot=10, bootstrap="wild")
+        feols_jax_bootstrap("y ~ x1", df, n_boot=10, bootstrap="bayesian")
 
 
 def test_cluster_bootstrap_without_cluster_raises():
     df = _make_panel(seed=21)
-    with pytest.raises(ValueError, match="cluster="):
+    with pytest.raises(ValueError, match="cluster"):
         feols_jax_bootstrap(
             "y ~ x1", df, n_boot=10, bootstrap="cluster",
         )
+
+
+def test_wild_cluster_without_cluster_raises():
+    df = _make_panel(seed=21)
+    with pytest.raises(ValueError, match="cluster"):
+        feols_jax_bootstrap(
+            "y ~ x1", df, n_boot=10, bootstrap="wild_cluster",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Phase 4c: wild + wild_cluster bootstrap
+# ---------------------------------------------------------------------------
+
+def test_wild_bootstrap_se_converges_to_hc1():
+    """Wild row-level SE → HC1 SE as B → ∞ (asymptotic equivalence)."""
+    df = _make_panel(n=2_000, n_firm=80, seed=40)
+    fit_hc1 = feols("y ~ x1 + x2 | firm", df, vcov="hc1")
+    boot = feols_jax_bootstrap(
+        "y ~ x1 + x2 | firm", df, n_boot=2_000, seed=0,
+        bootstrap="wild",
+    )
+    # Wild bootstrap with Rademacher weights converges to HC SE (not
+    # HC1 — the n/(n-k) factor is asymptotically 1). 10% rtol matches
+    # the pairs-bootstrap convergence rate at B=2000.
+    np.testing.assert_allclose(
+        boot.se_boot["x1"], fit_hc1.se()["x1"], rtol=0.10,
+    )
+    np.testing.assert_allclose(
+        boot.se_boot["x2"], fit_hc1.se()["x2"], rtol=0.10,
+    )
+
+
+def test_wild_cluster_bootstrap_se_converges_to_cr1():
+    """Wild cluster SE → CR1 SE as B → ∞."""
+    df = _make_panel(n=2_000, n_firm=80, seed=41)
+    fit_cr1 = feols(
+        "y ~ x1 + x2 | firm", df, vcov="cr1", cluster="cluster",
+    )
+    boot = feols_jax_bootstrap(
+        "y ~ x1 + x2 | firm", df, n_boot=2_000, seed=0,
+        bootstrap="wild_cluster", cluster="cluster",
+    )
+    # Wild cluster convergence is slower; allow 15%.
+    np.testing.assert_allclose(
+        boot.se_boot["x1"], fit_cr1.se()["x1"], rtol=0.15,
+    )
+
+
+def test_wild_bootstrap_point_estimate_matches_feols_jax():
+    """Point estimate is from the original fit, identical across variants."""
+    df = _make_panel(seed=42)
+    fit = feols_jax("y ~ x1 + x2 | firm", df, vcov="iid")
+    for variant in ("pairs", "cluster", "wild", "wild_cluster"):
+        kw = {"n_boot": 50, "seed": 0, "bootstrap": variant}
+        if variant in ("cluster", "wild_cluster"):
+            kw["cluster"] = "cluster"
+        boot = feols_jax_bootstrap("y ~ x1 + x2 | firm", df, **kw)
+        np.testing.assert_allclose(
+            boot.coef.values, fit.coef_vec, atol=1e-12,
+        )
+
+
+def test_wild_bootstrap_same_seed_is_bit_identical():
+    df = _make_panel(seed=43)
+    b1 = feols_jax_bootstrap(
+        "y ~ x1 + x2 | firm", df, n_boot=100, seed=42, bootstrap="wild",
+    )
+    b2 = feols_jax_bootstrap(
+        "y ~ x1 + x2 | firm", df, n_boot=100, seed=42, bootstrap="wild",
+    )
+    np.testing.assert_array_equal(b1.boot_betas.values, b2.boot_betas.values)
+
+
+def test_wild_cluster_bootstrap_same_seed_is_bit_identical():
+    df = _make_panel(seed=44)
+    b1 = feols_jax_bootstrap(
+        "y ~ x1 + x2 | firm", df, n_boot=100, seed=42,
+        bootstrap="wild_cluster", cluster="cluster",
+    )
+    b2 = feols_jax_bootstrap(
+        "y ~ x1 + x2 | firm", df, n_boot=100, seed=42,
+        bootstrap="wild_cluster", cluster="cluster",
+    )
+    np.testing.assert_array_equal(b1.boot_betas.values, b2.boot_betas.values)
+
+
+def test_wild_bootstrap_records_correct_type():
+    df = _make_panel(seed=45)
+    boot_w = feols_jax_bootstrap(
+        "y ~ x1", df, n_boot=20, bootstrap="wild",
+    )
+    assert boot_w.bootstrap_type == "wild"
+    boot_wc = feols_jax_bootstrap(
+        "y ~ x1", df, n_boot=20, bootstrap="wild_cluster", cluster="cluster",
+    )
+    assert boot_wc.bootstrap_type == "wild_cluster"
+
+
+def test_wild_score_bootstrap_matches_literal_refit_on_pseudo_y():
+    """The score formulation β* = β̂ + (X'X)^-1 X'(η⊙û) is mathematically
+    identical to fitting OLS on y* = Xβ̂ + η⊙û. Verify on a small
+    Rademacher draw with no FE so the algebra is transparent."""
+    df = _make_panel(seed=46).drop(columns=["firm"])  # no FE
+    # Same RNG seed for reproducibility on both paths.
+    boot = feols_jax_bootstrap(
+        "y ~ x1 + x2", df, n_boot=1, seed=99, bootstrap="wild",
+    )
+    score_beta = boot.boot_betas.iloc[0].values
+
+    # Literal refit: pull X, y, residuals from feols, draw the same
+    # Rademacher sequence using the same JAX PRNG, build y*, refit OLS.
+    fit = feols("y ~ x1 + x2", df, vcov="iid")
+    import jax
+    import jax.numpy as jnp
+    n = len(df)
+    key = jax.random.split(jax.random.PRNGKey(99), 1)[0]
+    eta = (2 * jax.random.bernoulli(key, p=0.5, shape=(n,)).astype(jnp.float64) - 1)
+    eta_np = np.asarray(eta)
+    X = np.column_stack([np.ones(n), df["x1"].values, df["x2"].values])
+    y = df["y"].values
+    beta_hat = fit.coef_vec
+    resid = y - X @ beta_hat
+    y_star = X @ beta_hat + eta_np * resid
+    refit_beta = np.linalg.solve(X.T @ X, X.T @ y_star)
+
+    # The two should agree to numerical precision (same Rademacher
+    # draw + algebraic identity).
+    np.testing.assert_allclose(score_beta, refit_beta, atol=1e-9)
 
 
 def test_n_boot_below_one_raises():

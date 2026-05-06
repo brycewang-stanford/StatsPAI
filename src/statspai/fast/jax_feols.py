@@ -498,7 +498,51 @@ def _make_bootstrap_kernels():
 
         return _one_cluster_boot
 
-    return _one_pairs_boot, _build_cluster_boot
+    # ─── Phase 4c: wild + wild cluster bootstrap (score formulation) ───
+    #
+    # Wild bootstrap (Wu 1986, Cameron-Gelbach-Miller 2008): pseudo-y*_i
+    # = X_i β̂ + η_i ⊙ û_i with η_i Rademacher draws. Refitting OLS on
+    # (X, y*) gives β* = β̂ + (X'WX)^{-1} X'W (η ⊙ û). The right-hand
+    # form is the "score bootstrap" — mathematically identical, much
+    # cheaper per iteration (one mat-vec instead of a full QR), and
+    # exposes the per-iteration randomness as a single Rademacher draw.
+    #
+    # ``rademacher`` is implemented as ``2 * Bernoulli(0.5) - 1`` for
+    # portability across JAX versions (``jax.random.rademacher`` only
+    # arrived in jax >= 0.4.x).
+
+    @jit
+    def _one_wild_boot(key, X, w_base, residuals, beta_hat, XtWX_inv):
+        """One row-level wild-bootstrap iteration (score form)."""
+        n = X.shape[0]
+        eta = (2 * jax.random.bernoulli(key, p=0.5, shape=(n,))
+               .astype(X.dtype) - 1)
+        score = X.T @ (w_base * eta * residuals)        # (p,)
+        return beta_hat + XtWX_inv @ score
+
+    def _build_wild_cluster_boot(n_clusters: int):
+        """Build a JIT-compiled wild-cluster-bootstrap kernel for a fixed
+        ``n_clusters``. Each iteration draws one Rademacher per cluster
+        and broadcasts to rows via ``cluster_codes``."""
+        n_clusters_int = int(n_clusters)
+
+        @jit
+        def _one_wild_cluster_boot(
+            key, X, w_base, residuals, beta_hat, XtWX_inv, cluster_codes,
+        ):
+            eta_g = (2 * jax.random.bernoulli(
+                key, p=0.5, shape=(n_clusters_int,)
+            ).astype(X.dtype) - 1)
+            eta = eta_g[cluster_codes]                  # (n,)
+            score = X.T @ (w_base * eta * residuals)   # (p,)
+            return beta_hat + XtWX_inv @ score
+
+        return _one_wild_cluster_boot
+
+    return (
+        _one_pairs_boot, _build_cluster_boot,
+        _one_wild_boot, _build_wild_cluster_boot,
+    )
 
 
 def _jax_prep_inputs(
@@ -690,19 +734,29 @@ def feols_jax_bootstrap(
         Number of bootstrap resamples.
     seed : int, default 0
         Seed for the JAX PRNG.
-    bootstrap : {"pairs", "cluster"}, default "pairs"
+    bootstrap : {"pairs", "cluster", "wild", "wild_cluster"}, default "pairs"
         - ``"pairs"`` — Efron pairs bootstrap; each iteration resamples
           rows with replacement (multinomial counts become the
-          bootstrap weights).
-        - ``"cluster"`` — cluster bootstrap (Cameron, Gelbach & Miller
-          2008 §III.A); each iteration resamples *clusters* with
+          bootstrap weights). Asymptotic target: HC1 SE.
+        - ``"cluster"`` — Cameron-Gelbach-Miller (2008) §III.A cluster
+          bootstrap; each iteration resamples *clusters* with
           replacement; observations in a cluster sampled k times get
-          weight k. Use for inference with few-but-non-tiny clusters
-          (G ≥ 30 typical). For G < 20, prefer wild-cluster (Phase 4c)
-          or Bayesian-bootstrap variants.
+          weight k. Use with G ≥ 30 typical clusters. Asymptotic
+          target: CR1 SE.
+        - ``"wild"`` — Wu (1986) row-level wild bootstrap; each
+          iteration draws independent Rademacher signs ``η_i ∈ {-1, +1}``
+          per row and uses the score formulation ``β* = β̂ +
+          (X'WX)^{-1} X'W (η ⊙ û)`` (one mat-vec, no per-iteration
+          QR). Mathematically identical to the literal "refit on
+          y* = X β̂ + η ⊙ û" formulation. Asymptotic target: HC SE.
+        - ``"wild_cluster"`` — Cameron-Gelbach-Miller (2008) §III.B
+          wild cluster bootstrap; same score formulation as ``"wild"``
+          but Rademacher signs are drawn *per cluster*. The standard
+          tool for few-cluster inference (G < 30); especially good
+          when ``G < 10``. Asymptotic target: CR SE.
     cluster : str, optional
         Column name with cluster identifiers; required when
-        ``bootstrap="cluster"``.
+        ``bootstrap`` is ``"cluster"`` or ``"wild_cluster"``.
     ci_alpha : float, default 0.05
         Percentile-CI level (2-sided ``1 - alpha``).
     vmap_chunk_size : int, default 200
@@ -735,12 +789,15 @@ def feols_jax_bootstrap(
             "jax is not installed; pip install jax jaxlib to enable "
             "feols_jax_bootstrap."
         )
-    if bootstrap not in ('pairs', 'cluster'):
+    if bootstrap not in ('pairs', 'cluster', 'wild', 'wild_cluster'):
         raise ValueError(
-            f"bootstrap={bootstrap!r}; supported: 'pairs' or 'cluster'"
+            f"bootstrap={bootstrap!r}; supported: 'pairs', 'cluster', "
+            f"'wild', or 'wild_cluster'"
         )
-    if bootstrap == 'cluster' and cluster is None:
-        raise ValueError("bootstrap='cluster' requires cluster=<column name>")
+    if bootstrap in ('cluster', 'wild_cluster') and cluster is None:
+        raise ValueError(
+            f"bootstrap={bootstrap!r} requires cluster=<column name>"
+        )
     if dtype not in ('float64', 'float32'):
         raise ValueError(f"dtype={dtype!r}; supported: 'float64' or 'float32'")
     if n_boot < 1:
@@ -774,9 +831,10 @@ def feols_jax_bootstrap(
         cluster_codes_kept, _ = pd.factorize(cluster_kept, sort=False)
         cluster_codes_kept = cluster_codes_kept.astype(np.int32)
         n_clusters = int(cluster_codes_kept.max()) + 1 if cluster_codes_kept.size else 0
-        if n_clusters < 2 and bootstrap == 'cluster':
+        if n_clusters < 2 and bootstrap in ('cluster', 'wild_cluster'):
             raise ValueError(
-                f"bootstrap='cluster' requires ≥ 2 clusters; got {n_clusters}"
+                f"bootstrap={bootstrap!r} requires ≥ 2 clusters; "
+                f"got {n_clusters}"
             )
     else:
         cluster_codes_kept = None
@@ -789,13 +847,17 @@ def feols_jax_bootstrap(
     y_j = jnp.asarray(prep['y_dem'], dtype=jax_dtype)
     w_j = jnp.asarray(prep['w'], dtype=jax_dtype)
 
-    # Point estimate (single solve).
+    # Point estimate (single solve). Wild bootstrap variants also need
+    # the residuals and bread XtWX_inv from this fit.
     _wls_solve, _, _ = _make_jax_kernels()
-    beta_point_j, _, _, _ = _wls_solve(X_j, y_j, w_j)
+    beta_point_j, resid_j, _, XtWX_inv_j = _wls_solve(X_j, y_j, w_j)
     beta_point = np.asarray(beta_point_j, dtype=np_dtype)
 
     # Bootstrap.
-    _one_pairs_boot, _build_cluster_boot = _make_bootstrap_kernels()
+    (
+        _one_pairs_boot, _build_cluster_boot,
+        _one_wild_boot, _build_wild_cluster_boot,
+    ) = _make_bootstrap_kernels()
     key = jax.random.PRNGKey(int(seed))
     keys = jax.random.split(key, int(n_boot))
 
@@ -804,7 +866,7 @@ def feols_jax_bootstrap(
             return jax.vmap(
                 _one_pairs_boot, in_axes=(0, None, None, None),
             )(keys_chunk, X_j, y_j, w_j)
-    else:  # cluster
+    elif bootstrap == 'cluster':
         cluster_codes_j = jnp.asarray(cluster_codes_kept)
         _one_cluster_boot = _build_cluster_boot(n_clusters)
 
@@ -813,6 +875,24 @@ def feols_jax_bootstrap(
                 _one_cluster_boot,
                 in_axes=(0, None, None, None, None),
             )(keys_chunk, X_j, y_j, w_j, cluster_codes_j)
+    elif bootstrap == 'wild':
+        def _run_chunk(keys_chunk):
+            return jax.vmap(
+                _one_wild_boot,
+                in_axes=(0, None, None, None, None, None),
+            )(keys_chunk, X_j, w_j, resid_j, beta_point_j, XtWX_inv_j)
+    else:  # wild_cluster
+        cluster_codes_j = jnp.asarray(cluster_codes_kept)
+        _one_wild_cluster_boot = _build_wild_cluster_boot(n_clusters)
+
+        def _run_chunk(keys_chunk):
+            return jax.vmap(
+                _one_wild_cluster_boot,
+                in_axes=(0, None, None, None, None, None, None),
+            )(
+                keys_chunk, X_j, w_j, resid_j, beta_point_j, XtWX_inv_j,
+                cluster_codes_j,
+            )
 
     chunks: List[np.ndarray] = []
     for start in range(0, int(n_boot), int(vmap_chunk_size)):
