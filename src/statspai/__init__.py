@@ -212,6 +212,8 @@ del _importlib
 # Expose Kernel IV / Continuous-LATE at top level for agent discoverability.
 from .iv.kernel_iv import kernel_iv, KernelIVResult
 from .iv.continuous_late import continuous_iv_late, ContinuousLATEResult
+# Modern IV reporting bundle (post-2022 standard) — top-level for ergonomics.
+from .iv.iv_diag import iv_diag, iv_compare, IVDiagResult
 from .plots import binscatter, set_theme, list_themes, use_chinese, interactive, get_code
 from .utils import (
     label_var, label_vars, get_label, get_labels, describe, pwcorr, winsor, read_data,
@@ -1209,6 +1211,7 @@ __all__ = [
     # IV frontier (v1.1)
     "kernel_iv", "KernelIVResult",
     "continuous_iv_late", "ContinuousLATEResult",
+    "iv_diag", "iv_compare", "IVDiagResult",
     # Recommendations metadata
     "available_methods",
     # === Article-facing aliases (blog API sugar) ===

@@ -2,6 +2,227 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Headline
+
+Two pushes in this cycle. First, an IV-module polish to the post-2022
+reporting standard (the `sp.iv.iv_diag` bundle, see below). Second, a
+synthetic-control polish pass: every estimator the package already
+ships now has a publication-grade table-export pipeline, the trajectory
+and gap plots gain prediction-interval / pre-RMSPE ribbon options
+following Cattaneo, Feng and Titiunik (2021, *JASA* 116, DOI
+10.1080/01621459.2021.1979561) and Cattaneo, Feng, Palomba and Titiunik
+(2025, *JSS* 113(1), DOI 10.18637/jss.v113.i01), and the SDID schema
+is canonicalised end-to-end so `sp.synth_report(method='sdid', ...)`
+produces a full Markdown / text / LaTeX report rather than a row of
+N/As. Seven 2022–2025 SCM citations were added to `paper.bib`,
+each verified independently via Crossref / arXiv (refs verified
+via `crossref` + `arxiv`).
+
+### Added — synthetic control polish
+
+- `sp.synth_to_latex(obj, ...)` — booktabs LaTeX for any
+  `CausalResult` from `sp.synth(method=...)` or for a
+  `SynthComparison` (side-by-side multi-method layout). Optional
+  donor-weights panel, configurable significance stars, and a
+  `\\hline` fall-back for non-booktabs documents.
+- `sp.synth_to_markdown(obj, ...)` — pipe-table Markdown counterpart
+  rendering on GitHub, in pandoc, and in static-site generators.
+- `sp.synth_to_excel(obj, path, ...)` — multi-sheet workbook with
+  Summary / Weights / Diagnostics / per-method Gap sheets. Soft
+  dependency on `openpyxl`; raises an actionable `ModuleNotFoundError`
+  with install hint when missing.
+- `SynthComparison.to_latex()`, `.to_markdown()`, `.to_excel()` —
+  thin object-method wrappers over the three exporters above.
+- `sp.synthplot(..., pi_band=True)` — overlay the
+  prediction-interval / conformal CI ribbon on the synthetic
+  counterfactual when the result carries `period_results` with
+  `pi_lower` / `pi_upper` columns (`sp.scpi`,
+  `sp.conformal_synth`).
+- `sp.synthplot(..., pre_band=True)` — overlay a
+  $\\pm 1.96 \\times$pre-RMSPE noise envelope on the trajectory and
+  gap plots (the convention popularised in Abadie, Diamond and
+  Hainmueller 2010, *JASA*).
+- Method-aware citations in `sp.synth_report()`: SDID, scpi,
+  conformal, gsynth, augmented, matrix-completion, multi-outcome,
+  cluster, sparse, fdid, BSTS, and penalised SCM each close with
+  their own citation rather than the generic Abadie--Diamond--
+  Hainmueller (2010) reference.
+- SDID schema canonicalisation in `sp.synth_report()`: the report
+  now backfills `n_pre_periods` / `n_post_periods` / `n_donors` /
+  `pre_treatment_rmse` / `gap_table` from SDID-style keys
+  (`T_pre`, `T_post`, `n_control`, `Y_obs`) so the Markdown / text
+  / LaTeX output is uniform across SC variants.
+- Seven new verified bib entries in `paper.bib`:
+  Abadie & Cattaneo (2021, *JASA* 116(536), 1713–1715,
+  DOI 10.1080/01621459.2021.2002600); Abadie & Vives-i-Bastida
+  (2022, arXiv:2203.06279); Cattaneo, Feng, Palomba & Titiunik
+  (2025, *JSS* 113(1), DOI 10.18637/jss.v113.i01); Liu, Wang & Xu
+  (2024, *AJPS* 68(1), 160–176, DOI 10.1111/ajps.12723); Qiu, Shi,
+  Miao, Dobriban & Tchetgen Tchetgen (2024, *Biometrics* 80(2),
+  ujae055, DOI 10.1093/biomtc/ujae055); Clarke, Pailañir, Athey &
+  Imbens (2024, *Stata Journal* 24(4), 557–598, DOI
+  10.1177/1536867X241297914); Bottmer, Imbens, Spiess & Warnick
+  (2024, *JBES* 42(2), 762–773, DOI 10.1080/07350015.2023.2238788).
+- 17 new tests in `tests/test_synth_exports.py` covering single-result
+  and comparison LaTeX / Markdown / Excel exports, the new plot
+  options, and SDID-canonicalised reports.
+
+### Added
+
+- `sp.iv.iv_diag(data, y, endog, instruments, exog, ...)` — modern IV
+  reporting bundle. Returns an `IVDiagResult` containing:
+  - 2SLS point estimate, analytic + pairs / wild Rademacher bootstrap
+    SEs and CIs (cluster-aware) following Davidson--MacKinnon (2010)
+    and Young (2022, *EER* 147, 104112);
+  - Olea--Pflueger (2013, *JBES* 31(3), 358–369) robust effective F;
+  - Lee--McCrary--Moreira--Porter (2022, *AER* 112(10), 3260–3290)
+    `tF` adjusted critical value and tF-corrected confidence interval;
+  - Anderson--Rubin (1949) / optional Moreira (2003) CLR / optional
+    Kleibergen (2002) K weak-IV-robust confidence sets;
+  - Kleibergen--Paap (2006, *J. Econometrics* 133, 97–126) rk LM and
+    Wald F;
+  - Conley--Hansen--Rossi (2012, *ReStat* 94(1), 260–272)
+    plausibly-exogenous LTZ sensitivity CI;
+  - Blandhol--Bonney--Mogstad--Torgovitsky (NBER WP 29709, latest
+    revision Jan 2025) and Słoczyński (2024, arXiv:2011.06695)
+    `TSLS-as-LATE` negative-weights caveat — automatically surfaced
+    when covariates are present and the endogenous regressor is
+    binary 0/1;
+  - OLS comparator (informative; not causal) per Young (2022).
+- `IVDiagResult` exposes `.summary()`, `.to_frame()`, `.to_dict()`,
+  `.to_latex()`, `.to_excel()`, `.to_word()`, and
+  `.plot('diagnostic'|'forest'|'weak_iv'|'first_stage')`.
+- `sp.iv.iv_compare(formula, data, methods=...)` — run several
+  k-class / JIVE estimators side-by-side and return a one-row-per-
+  method comparison DataFrame (point, SE, CI, first-stage F).
+  Auto-resolves the endogenous coefficient name across heterogeneous
+  result classes.
+- `sp.iv.plot.plot_iv_forest(table, reference=...)` — forest plot of
+  estimates and CIs across methods.
+- `sp.iv.plot.plot_iv_forest_from_diag(result)` — forest plot built
+  directly from an `IVDiagResult` bundle.
+- `sp.iv.plot.plot_weak_iv_ci_overlay(result)` — Wald / tF / AR /
+  CLR / K / pairs- and wild-bootstrap / LTZ confidence-set overlay.
+- `sp.iv.plot.plot_iv_diagnostics(result)` — 2x2 panel: first-stage
+  scatter, AR set, weak-IV-CI overlay, leverage diagnostic
+  (Young 2022 spirit).
+- `sp.iv_diag`, `sp.iv_compare`, `sp.IVDiagResult` re-exported at top
+  level for agent ergonomics; both also wired into `sp.list_functions`
+  via the registry.
+- New verified `paper.bib` entries (DOI / arXiv ID double-checked
+  against Crossref + journal pages, May 2026): `keane2024practical`,
+  `young2022consistency`, `lal2024much`, `mikusheva2022inference`,
+  `borusyak2023nonrandom`, `borusyak2025practical`,
+  `kaido2021decentralization`, `chernozhukov2022automatic`,
+  `chernozhukov2022rieszn`, `brinch2017beyond`, `bennett2023minimax`,
+  `blandhol2025tsls`, `sloczynski2024should`. Existing entries
+  enriched with verified volume / issue / pages: `mikusheva2024weak`,
+  `lee2022valid`, `borusyak2022quasi`, `masten2021salvaging`.
+
+### Changed
+
+- `docs/guides/choosing_iv_estimator.md` adds §10 (`sp.iv.iv_compare`
+  forest comparison), §11 (`sp.iv.iv_diag` modern reporting bundle),
+  and a TL;DR pointer to the new bundle.
+- `paper.md` (JOSS) gains a self-contained IV bullet under
+  *Methodological coverage* documenting the new bundle and recent
+  methodology references.
+
+### Notes
+
+- `iv_diag` is single-endogenous by design; for multi-endogenous
+  specifications continue to use `sp.weakrobust` plus
+  `sp.iv.sanderson_windmeijer` per regressor.
+- Existing IV functions (`sp.iv`, `sp.weakrobust`,
+  `sp.kleibergen_paap_rk`, `sp.anderson_rubin_test`, etc.) are
+  unchanged — `iv_diag` is purely additive and does not alter any
+  numeric path. The 18 new tests in `tests/iv/test_iv_diag.py` all
+  pass; no regressions in the 188 prior IV tests.
+
+## [1.15.0] — 2026-05-05
+
+### Headline
+
+RDD module polish to state-of-the-art (2018–2026 literature). Six
+additions close the gap between `sp.rd` and the canonical R/Stata
+`rdpackages` ecosystem on three fronts — *recent methodology*,
+*publication-grade reporting*, and *automatic diagnostics*:
+
+- **Three new estimators** corresponding to flagship 2018–2025 papers:
+  - `sp.rd_flex` — flexible (machine-learning) covariate adjustment
+    via cross-fit residualisation following Noack, Olma & Rothe (2025,
+    arXiv:2107.07942 v5). Built-in learners `boost`/`forest`/`ridge`/
+    `lasso` (any sklearn regressor accepted) with K-fold cross-fitting;
+    reduces τ̂ variance whenever covariates predict the outcome and
+    remains consistent under free-of-cutoff continuity of η. Reports
+    out-of-sample R² and variance reduction relative to plain
+    `rdrobust`.
+  - `sp.rd_bias_aware_fuzzy` — Anderson–Rubin-style bias-aware CI for
+    fuzzy RD following Noack & Rothe (2024, *Econometrica* 92(3),
+    687–711, doi:10.3982/ECTA19466). Robust to weak first stages and
+    avoids the power asymmetry of conventional fuzzy 2SLS-style CIs
+    documented by Kaliski, Keane & Neal (2025, NBER 33972).  Reports
+    first-stage F and warns on F < 10.
+  - `sp.rd_discrete` — honest CIs for RD with a discrete running
+    variable following Kolesár & Rothe (2018, *AER* 108(8),
+    2277–2304, doi:10.1257/aer.20160945).  Two smoothness classes:
+    bounded second derivative (`bsd`) and bounded misspecification
+    (`bm`).  Both have provable finite-sample coverage when standard
+    rdrobust asymptotics break down because mass points are sparse.
+
+- **Three new reporting helpers** for the standard CCT–Cattaneo–
+  Idrobo–Titiunik best-practice workflow:
+  - `sp.rd_dashboard` — single-figure 4-panel diagnostic (RD plot,
+    CJM-2020 density, covariate balance, bandwidth sensitivity)
+    following the recommendations of Calonico, Cattaneo & Titiunik
+    (2015, *JASA* 110(512), doi:10.1080/01621459.2015.1017578) and
+    Cattaneo, Idrobo & Titiunik (2024, doi:10.1017/9781009441896).
+  - `sp.rd_compare` — side-by-side estimation across an arbitrary
+    list of methods (`rdrobust`, `honest`, `randinf`, `flex`, …) on
+    the same data; returns a tidy `pd.DataFrame` ready for
+    `sp.outreg2` / `sp.modelsummary`.
+  - `sp.rd_robustness_table` — sweep over kernel × bandwidth × poly
+    × donut, returning publication-ready specifications with
+    `to_latex()` / `to_excel()` for one-shot supplemental tables.
+
+- **`sp.rdrobust` polish**:
+  - New `rho` parameter — Calonico, Cattaneo & Farrell (2018,
+    *JASA* 113(522)) ratio bandwidth `b = h / rho`.
+  - Auto warning when running variable has < 30 distinct values,
+    pointing to `sp.rd_discrete`.
+  - Auto warning on fuzzy first-stage F < 10, pointing to
+    `sp.rd_bias_aware_fuzzy` and quoting the Kaliski-Keane-Neal
+    (2025) ITT recommendation.  Both warnings can be silenced via
+    `warn_mass_points=False` / `warn_weak_first_stage=False`.
+  - First-stage F now exposed at
+    `result.model_info['first_stage_F']`.
+
+- **`sp.rdplotdensity` upgrade**: replaced the legacy kernel-sum
+  density estimate with the boundary-adaptive local-polynomial CDF-
+  regression density of Cattaneo, Jansson & Ma (2020, *JASA* 115(531),
+  1449–1455).  Same signature; better boundary behaviour.
+
+- **Dispatcher**: `sp.rd(..., method='flex' | 'bias_aware' | 'discrete')`
+  with full alias coverage (`rd_flex`, `flexible`, `ml_adjust`,
+  `bias_aware_fuzzy`, `noack_rothe`, `rd_discrete`,
+  `kolesar_rothe`, `discrete_rv`, …).
+
+### Tests
+
+- New `tests/test_rd_polish.py` with 21 checks: estimator parity
+  recovery, dispatcher routing, warning behaviour, dashboard smoke
+  tests.
+- All 156 RD tests (existing + new) pass on Python 3.13 / macOS.
+
+### Citations
+
+DOI-verified via Crossref / publisher pages 2026-05-05:
+`noack2024biasaware`, `noack2025flexible`, `kolesar2018inference`,
+`kaliski2025power`, `cattaneo2024extensions`,
+`cattaneopalomba2025covariates`, `calonico2015optimal`.
+
 ## [1.14.0] — 2026-05-05
 
 ### Headline

@@ -4150,6 +4150,87 @@ def _build_registry():
     ))
 
     register(FunctionSpec(
+        name="iv_diag",
+        category="causal",
+        description=(
+            "Modern IV reporting bundle (R `ivDiag` analogue). Combines "
+            "2SLS point estimate, analytic + pairs/wild bootstrap SEs, "
+            "Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) "
+            "tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-"
+            "robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-"
+            "Rossi (2012) plausibly-exogenous LTZ sensitivity, and a "
+            "Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Słoczyński "
+            "(2024) `TSLS-as-LATE` caveat into a single IVDiagResult."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True, description="Outcome column"),
+            ParamSpec("endog", "str", True, description="Single endogenous regressor"),
+            ParamSpec("instruments", "list[str] | str", True),
+            ParamSpec("exog", "list[str] | str", False, None,
+                      description="Optional included exogenous controls"),
+            ParamSpec("cluster", "str | array", False, None,
+                      description="Cluster column for cluster-robust SE / cluster bootstrap"),
+            ParamSpec("h0", "float", False, 0.0,
+                      description="Null hypothesis for AR/CLR/K"),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("vcov", "str", False, "HC1",
+                      description="Heteroskedasticity-robust covariance type",
+                      enum=["HC0", "HC1", "classic"]),
+            ParamSpec("n_boot", "int", False, 1000,
+                      description="Bootstrap replications (0 to skip)"),
+            ParamSpec("boot_methods", "tuple[str]", False, "('pairs',)",
+                      description="Subset of {'pairs','wild'}"),
+            ParamSpec("include_clr_ci", "bool", False, False),
+            ParamSpec("include_k_ci", "bool", False, False),
+            ParamSpec("ltz_gamma_sd", "float", False, None,
+                      description="Standard deviation of CHR (2012) LTZ Gaussian prior on γ"),
+            ParamSpec("random_state", "int", False, None),
+        ],
+        returns="IVDiagResult",
+        example=(
+            "sp.iv.iv_diag(df, y='wage', endog='educ', "
+            "instruments=['nearc4','nearc2'], exog=['exper','south'], "
+            "n_boot=500, ltz_gamma_sd=0.05, random_state=42)"
+        ),
+        tags=["iv", "weak-instruments", "anderson-rubin", "tF", "bootstrap",
+              "plausibly-exogenous", "ivDiag", "reporting"],
+        reference=(
+            "Lal, Lockhart, Xu and Zu (2024) Political Analysis 32(4), 521-540. "
+            "Lee, McCrary, Moreira and Porter (2022) AER 112(10), 3260-3290. "
+            "Olea and Pflueger (2013) JBES 31(3), 358-369. "
+            "Conley, Hansen and Rossi (2012) ReStat 94(1), 260-272. "
+            "Blandhol, Bonney, Mogstad and Torgovitsky (2022/2025) NBER WP 29709. "
+            "Słoczyński (2024) arXiv:2011.06695."
+        ),
+    ))
+
+    register(FunctionSpec(
+        name="iv_compare",
+        category="causal",
+        description=(
+            "Run several k-class / JIVE estimators on the same IV "
+            "specification and return a one-row-per-method comparison "
+            "DataFrame (estimate, SE, CI, first-stage F). Useful as a "
+            "sensitivity sanity check before reporting."
+        ),
+        params=[
+            ParamSpec("formula", "str", True),
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("methods", "tuple[str]", False, "('2sls','liml','fuller','jive')"),
+            ParamSpec("alpha", "float", False, 0.05),
+            ParamSpec("endog_name", "str", False, None,
+                      description="Override endogenous-coefficient name lookup"),
+        ],
+        returns="DataFrame",
+        example=(
+            "sp.iv.iv_compare('wage ~ (educ ~ nearc4 + nearc2) + exper', "
+            "data=df, methods=('2sls','liml','fuller','jive','ujive'))"
+        ),
+        tags=["iv", "comparison", "k-class", "jive", "robustness"],
+    ))
+
+    register(FunctionSpec(
         name="continuous_iv_late",
         category="causal",
         description=(
@@ -7922,6 +8003,115 @@ def _build_registry():
             ),
         ],
         alternatives=["rdrobust", "rdrbounds", "rdsensitivity"],
+        typical_n_min=500,
+    ))
+
+    register(FunctionSpec(
+        name="rd_flex",
+        category="causal",
+        description=(
+            "RD with flexible covariate adjustment via cross-fit ML "
+            "residualisation (Noack-Olma-Rothe 2025).  Reduces variance "
+            "of τ̂ at the cutoff by subtracting an ML estimate of "
+            "E[Y|W] before running rdrobust; consistent under "
+            "free-of-cutoff continuity of η, asymptotically efficient "
+            "when η̂ converges to E[Y|X=c, W]."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("x", "str", True),
+            ParamSpec("c", "float", False, 0.0),
+            ParamSpec("W", "list[str]", False, None,
+                      "Covariates used by the flexible adjustment"),
+            ParamSpec("learner", "str", False, "boost",
+                      "Built-in learner",
+                      ["boost", "forest", "ridge", "lasso"]),
+            ParamSpec("n_folds", "int", False, 5,
+                      "Cross-fit folds (1 disables CV)"),
+            ParamSpec("fuzzy", "str", False, None),
+            ParamSpec("kernel", "str", False, "triangular",
+                      "", ["triangular", "epanechnikov", "uniform"]),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult",
+        example='sp.rd_flex(df, y="y", x="score", c=0, W=["age","baseline"], learner="boost")',
+        tags=["rd", "flexible", "ml", "covariate", "noack-olma-rothe"],
+        reference="Noack, Olma & Rothe (2025) arXiv:2107.07942 [@noack2025flexible]",
+        alternatives=["rdrobust", "rd_lasso", "rd_forest"],
+        typical_n_min=500,
+    ))
+
+    register(FunctionSpec(
+        name="rd_bias_aware_fuzzy",
+        category="causal",
+        description=(
+            "Bias-aware confidence interval for fuzzy RD via Anderson-"
+            "Rubin test inversion (Noack-Rothe 2024 Econometrica).  "
+            "Robust to weak first stages and avoids the power asymmetry "
+            "of conventional 2SLS-style fuzzy RD CIs (Kaliski-Keane-Neal "
+            "2025)."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("x", "str", True),
+            ParamSpec("fuzzy", "str", True, description="Treatment indicator column"),
+            ParamSpec("c", "float", False, 0.0),
+            ParamSpec("M_y", "float", False, None,
+                      "Bound on |g_Y''|; auto if None"),
+            ParamSpec("M_d", "float", False, None,
+                      "Bound on |g_D''|; auto if None"),
+            ParamSpec("h", "float", False, None),
+            ParamSpec("kernel", "str", False, "triangular",
+                      "", ["triangular", "epanechnikov", "uniform"]),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult with bias-aware CI",
+        example='sp.rd_bias_aware_fuzzy(df, y="earnings", x="age", fuzzy="retired", c=65)',
+        tags=["rd", "fuzzy", "bias-aware", "weak-iv", "noack-rothe"],
+        reference=(
+            "Noack & Rothe (2024) Econometrica 92(3):687-711 "
+            "doi:10.3982/ECTA19466 [@noack2024biasaware]"
+        ),
+        alternatives=["rdrobust", "rd_honest"],
+        typical_n_min=500,
+    ))
+
+    register(FunctionSpec(
+        name="rd_discrete",
+        category="causal",
+        description=(
+            "Honest CI for RD when the running variable takes only a "
+            "moderate number of distinct values (Kolesár-Rothe 2018 "
+            "AER).  Uses bounded second derivative or bounded "
+            "misspecification smoothness classes; robust to the loss "
+            "of asymptotics that affects rdrobust under sparse mass "
+            "points."
+        ),
+        params=[
+            ParamSpec("data", "DataFrame", True),
+            ParamSpec("y", "str", True),
+            ParamSpec("x", "str", True, description="Discrete running variable"),
+            ParamSpec("c", "float", False, 0.0),
+            ParamSpec("M", "float", False, None,
+                      "Bound on |g''|; auto if None (BSD method)"),
+            ParamSpec("K", "float", False, None,
+                      "Bound on per-side linear-approximation bias; "
+                      "auto if None (BM method)"),
+            ParamSpec("method", "str", False, "bsd",
+                      "Smoothness class", ["bsd", "bm"]),
+            ParamSpec("h", "float", False, None),
+            ParamSpec("alpha", "float", False, 0.05),
+        ],
+        returns="CausalResult with honest CI for discrete RV",
+        example='sp.rd_discrete(df, y="earnings", x="age_in_years", c=18)',
+        tags=["rd", "discrete", "honest", "kolesar-rothe", "mass-points"],
+        reference=(
+            "Kolesár & Rothe (2018) AER 108(8):2277-2304 "
+            "doi:10.1257/aer.20160945 [@kolesar2018inference]"
+        ),
+        alternatives=["rdrobust", "rd_honest"],
         typical_n_min=500,
     ))
 

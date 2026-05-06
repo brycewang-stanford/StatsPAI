@@ -320,9 +320,225 @@ def plot_plausibly_exogenous(
     return ax
 
 
+# ═══════════════════════════════════════════════════════════════════════
+#  Forest plot of IV estimates across methods (sp.iv.iv_compare output)
+# ═══════════════════════════════════════════════════════════════════════
+
+def plot_iv_forest(
+    table: pd.DataFrame,
+    estimate_col: str = "estimate",
+    lo_col: str = "CI lower",
+    hi_col: str = "CI upper",
+    label_col: str = "method",
+    *,
+    ax=None,
+    sort_by: Optional[str] = None,
+    reference: Optional[float] = None,
+    title: Optional[str] = None,
+):
+    """
+    Forest plot of point estimates and CIs across IV estimators.
+
+    Parameters
+    ----------
+    table : DataFrame
+        Output of :func:`sp.iv.iv_compare` *or* a custom table with at
+        least ``estimate_col`` / ``lo_col`` / ``hi_col`` / ``label_col``.
+    sort_by : str, optional
+        Column name to sort rows by.  By default, preserves table order.
+    reference : float, optional
+        Vertical guideline (e.g. OLS, prior literature, or H0).
+    """
+    plt = _mpl()
+    df = table.copy()
+    if sort_by is not None and sort_by in df.columns:
+        df = df.sort_values(sort_by).reset_index(drop=True)
+
+    own_ax = ax is None
+    if own_ax:
+        fig, ax = plt.subplots(figsize=(7.5, 0.5 + 0.45 * max(len(df), 4)))
+
+    ys = np.arange(len(df))[::-1]
+    estimates = df[estimate_col].astype(float).values
+    lows = df[lo_col].astype(float).values
+    highs = df[hi_col].astype(float).values
+    labels = df[label_col].astype(str).values
+
+    # CI whiskers
+    ax.hlines(ys, lows, highs, color="#1f77b4", lw=2.0, alpha=0.85)
+    # Point estimates
+    ax.scatter(estimates, ys, s=46, color="#1f77b4", zorder=3,
+               edgecolor="white", linewidth=0.8)
+
+    if reference is not None and np.isfinite(reference):
+        ax.axvline(reference, color="#d62728", linestyle="--", lw=1.0,
+                   label=f"reference = {reference:.3f}")
+        ax.legend(loc="best", frameon=False, fontsize=9)
+
+    ax.set_yticks(ys)
+    ax.set_yticklabels(labels)
+    ax.set_xlabel("estimate")
+    ax.set_title(title or "IV forest plot — point estimates and 95% CIs")
+    ax.grid(axis="x", alpha=0.3)
+    if own_ax:
+        fig.tight_layout()
+    return ax
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Forest plot built directly from an IVDiagResult bundle
+# ═══════════════════════════════════════════════════════════════════════
+
+def plot_iv_forest_from_diag(result, ax=None, title: Optional[str] = None):
+    """Forest plot of all CIs reported by :func:`sp.iv.iv_diag`."""
+    df = result.to_frame()
+    return plot_iv_forest(
+        df,
+        estimate_col="estimate",
+        lo_col="CI lower",
+        hi_col="CI upper",
+        label_col="estimator",
+        ax=ax,
+        reference=result.beta_2sls,
+        title=title or "IV diagnostic bundle — point estimates and CIs",
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Weak-IV-robust CI overlay (AR / CLR / K)
+# ═══════════════════════════════════════════════════════════════════════
+
+def plot_weak_iv_ci_overlay(result, ax=None, title: Optional[str] = None):
+    """Compact panel showing analytic, tF, AR (and optional CLR/K) sets."""
+    plt = _mpl()
+    rows: List[Tuple[str, float, float, float, str]] = []
+    rows.append(("Wald", *result.ci_analytic_2sls, result.beta_2sls, "#1f77b4"))
+    rows.append(("LMMP tF", *result.tF_adjusted_ci, result.beta_2sls, "#9467bd"))
+    rows.append(("AR", *result.ar_ci, result.beta_2sls, "#2ca02c"))
+    if result.clr_ci is not None:
+        rows.append(("CLR", *result.clr_ci, result.beta_2sls, "#ff7f0e"))
+    if result.k_ci is not None:
+        rows.append(("K", *result.k_ci, result.beta_2sls, "#8c564b"))
+    if result.bootstrap_ci_pairs is not None:
+        rows.append(("pairs boot", *result.bootstrap_ci_pairs,
+                     result.beta_2sls, "#17becf"))
+    if result.bootstrap_ci_wild is not None:
+        rows.append(("wild boot", *result.bootstrap_ci_wild,
+                     result.beta_2sls, "#bcbd22"))
+    if result.ltz_ci is not None:
+        rows.append(("CHR LTZ", *result.ltz_ci, result.beta_2sls, "#7f7f7f"))
+
+    own_ax = ax is None
+    if own_ax:
+        fig, ax = plt.subplots(figsize=(7.5, 0.5 + 0.55 * len(rows)))
+    ys = np.arange(len(rows))[::-1]
+    for i, (lab, lo, hi, b, color) in enumerate(rows):
+        y = ys[i]
+        if not np.isfinite(lo):
+            lo = b - 8 * abs(result.se_2sls)
+            ax.annotate("←", xy=(lo, y), fontsize=14, ha="left", va="center",
+                        color=color)
+        if not np.isfinite(hi):
+            hi = b + 8 * abs(result.se_2sls)
+            ax.annotate("→", xy=(hi, y), fontsize=14, ha="right", va="center",
+                        color=color)
+        ax.hlines(y, lo, hi, color=color, lw=2.4, alpha=0.85)
+        ax.scatter([b], [y], s=42, color=color, zorder=3,
+                   edgecolor="white", linewidth=0.8)
+    ax.set_yticks(ys)
+    ax.set_yticklabels([r[0] for r in rows])
+    ax.axvline(result.beta_2sls, color="0.4", linestyle=":", lw=1)
+    ax.set_xlabel(r"$\beta$")
+    ax.set_title(title or
+                 f"IV confidence sets — F = {result.first_stage_F:.1f}, "
+                 f"effective F = {result.effective_F:.1f}")
+    ax.grid(axis="x", alpha=0.3)
+    if own_ax:
+        fig.tight_layout()
+    return ax
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  2x2 diagnostic panel built from an IVDiagResult
+# ═══════════════════════════════════════════════════════════════════════
+
+def plot_iv_diagnostics(result, fig=None, suptitle: Optional[str] = None):
+    """A four-panel ``IVDiagResult`` summary:
+
+    (top-left)  first-stage fit / instrument strength
+    (top-right) AR confidence set on a β-grid
+    (bot-left)  forest plot of all CI methods
+    (bot-right) leverage-vs-residual diagnostic (Young 2022 spirit)
+    """
+    plt = _mpl()
+    if fig is None:
+        fig, axes = plt.subplots(2, 2, figsize=(12.5, 9))
+    else:
+        axes = fig.subplots(2, 2)
+
+    raw = result.raw
+
+    # 1) first-stage scatter
+    plot_first_stage(
+        endog=raw["D"], instruments=raw["Z"],
+        exog=raw["W_no_const"],
+        endog_name=result.endog,
+        ax=axes[0][0],
+    )
+
+    # 2) AR set with a quick grid (re-uses analytic AR set)
+    grid_lo, grid_hi = result.ar_ci
+    if not np.isfinite(grid_lo) or not np.isfinite(grid_hi):
+        grid_lo = result.beta_2sls - 8 * result.se_2sls
+        grid_hi = result.beta_2sls + 8 * result.se_2sls
+    pad = (grid_hi - grid_lo) * 0.4 + 1e-6
+    grid = np.linspace(grid_lo - pad, grid_hi + pad, 401)
+    try:
+        # call the legacy plot_ar_confidence_set with the bundled raw arrays
+        plot_ar_confidence_set(
+            y=raw["Y"], endog=raw["D"], instruments=raw["Z"],
+            exog=raw["W_no_const"],
+            beta_grid=grid, level=1.0 - result.alpha, ax=axes[0][1],
+        )
+    except Exception:  # pragma: no cover
+        axes[0][1].set_visible(False)
+
+    # 3) forest plot of all CIs
+    plot_weak_iv_ci_overlay(result, ax=axes[1][0])
+
+    # 4) leverage / residual scatter — compute the diagonal of the hat
+    # matrix only; the explicit n × n form is OOM-unsafe at n ≥ 50k.
+    Y, D, Z, W = raw["Y"], raw["D"], raw["Z"], raw["W"]
+    Z_full = np.column_stack([Z, W])
+    V = np.linalg.pinv(Z_full.T @ Z_full)
+    leverage = np.einsum("ij,jk,ik->i", Z_full, V, Z_full)
+    resid = raw.get("resid_2sls")
+    ax_lev = axes[1][1]
+    ax_lev.scatter(leverage, resid, s=8, alpha=0.4, color="0.5")
+    high_lev = leverage > 2 * np.mean(leverage)
+    if high_lev.any():
+        ax_lev.scatter(leverage[high_lev], resid[high_lev],
+                       s=22, color="#d62728", label="high leverage")
+        ax_lev.legend(loc="best", frameon=False, fontsize=9)
+    ax_lev.axhline(0, color="0.4", lw=0.8)
+    ax_lev.set_xlabel("hat-matrix leverage on Z + W")
+    ax_lev.set_ylabel("2SLS residual")
+    ax_lev.set_title("Leverage diagnostic (Young 2022)")
+    ax_lev.grid(alpha=0.3)
+
+    if suptitle:
+        fig.suptitle(suptitle, fontsize=13, y=1.01)
+    fig.tight_layout()
+    return fig
+
+
 __all__ = [
     "plot_first_stage",
     "plot_ar_confidence_set",
     "plot_mte_curve",
     "plot_plausibly_exogenous",
+    "plot_iv_forest",
+    "plot_iv_forest_from_diag",
+    "plot_weak_iv_ci_overlay",
+    "plot_iv_diagnostics",
 ]

@@ -18,6 +18,13 @@ Do you have concerns about INSTRUMENT EXOGENEITY?
   Untestable          -> sp.bounds (bounds analysis)
 ```
 
+> **For an integrated post-2022 reporting bundle in a single call** —
+> 2SLS + bootstrap SEs + Olea–Pflueger effective F + LMMP tF
+> critical value + Anderson–Rubin / CLR / K confidence sets +
+> Kleibergen–Paap rk + Conley–Hansen–Rossi LTZ sensitivity +
+> the Blandhol-et-al. *TSLS-as-LATE* caveat — use `sp.iv.iv_diag(...)`.
+> See §11 below.
+
 ## 1. The default: 2SLS with robust SE
 
 ```python
@@ -150,7 +157,73 @@ too restrictive, v1.2 ships two non-parametric alternatives:
 
 See [v1.2 frontier estimators](v1_2_frontier.md) for a detailed walkthrough.
 
-## 10. Sanity checks
+## 10. Sanity checks across estimators (`sp.iv.iv_compare`)
+
+Compare 2SLS to bias-corrected k-class and JIVE estimators in one call:
+
+```python
+table = sp.iv.iv_compare(
+    "wage ~ (educ ~ nearc4 + nearc2) + exper + south",
+    data=df,
+    methods=("2sls", "liml", "fuller", "jive", "ujive"),
+)
+print(table)
+sp.iv.plot.plot_iv_forest(table, reference=ols_estimate)
+```
+
+Wide divergence between LIML and 2SLS (especially with many instruments)
+is a flag for many-weak-IV bias.
+
+## 11. Modern reporting bundle (`sp.iv.iv_diag`)
+
+The single highest-leverage IV addition in StatsPAI v1.14 is
+`sp.iv.iv_diag` — a Python port of R `ivDiag`
+[@lal2024much] that consolidates the post-2022
+reporting standard into one call:
+
+```python
+r = sp.iv.iv_diag(
+    df, y="wage", endog="educ",
+    instruments=["nearc4", "nearc2"],
+    exog=["exper", "south"],
+    n_boot=1000,
+    boot_methods=("pairs", "wild"),
+    include_clr_ci=True,
+    include_k_ci=True,
+    ltz_gamma_sd=0.05,        # CHR (2012) plausibly-exogenous prior
+    cluster="state",          # cluster-bootstrap + cluster-robust SE
+    random_state=42,
+)
+
+print(r.summary())            # publication-ready text panel
+r.to_frame()                  # tidy DataFrame, one row per CI method
+r.plot("diagnostic")          # 2x2 panel: first-stage / AR / forest / leverage
+r.plot("forest")              # forest plot of all CI methods
+r.plot("weak_iv")             # AR / CLR / K / tF overlay
+r.to_latex(caption="IV bundle", label="tab:iv")
+r.to_excel("iv_bundle.xlsx")
+r.to_word("iv_bundle.docx")
+```
+
+What you get back:
+
+| Block          | Statistic                                                   | Reference                                                                                |
+| -------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Strength       | First-stage F, Olea–Pflueger effective F, KP rk LM/F        | [@olea2013robust; @kleibergen2006generalized]                                            |
+| Inference      | 2SLS analytic SE, pairs / wild bootstrap                    | [@young2022consistency; @cameron2008bootstrap]                                           |
+| Weak-IV-robust | AR set, optional CLR / K, tF-corrected CI                   | [@anderson1949estimation; @moreira2003conditional; @kleibergen2002pivotal; @lee2022valid]|
+| Sensitivity    | Conley–Hansen–Rossi LTZ CI                                  | [@conley2012plausibly]                                                                   |
+| Caveats        | TSLS-as-LATE warning when exog is present + endog is binary | [@blandhol2025tsls; @sloczynski2024should]                                               |
+| Comparator     | OLS for OLS-vs-IV gap (informative, not causal)             | [@young2022consistency]                                                                  |
+
+Why bundle? The post-2022 picture (Keane & Neal 2024
+[@keane2024practical]; Lal et al. 2024 [@lal2024much]; Young 2022
+[@young2022consistency]) is unanimous: a single F is not enough.
+A modern IV report needs the **F + AR + tF + bootstrap + LTZ + (when
+applicable) MTE caveat** stack. `iv_diag` produces all of that, and
+`r.to_frame()` is already in publication-table shape.
+
+## 12. Sanity checks
 
 Every IV paper should include these:
 

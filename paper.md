@@ -96,6 +96,21 @@ analysis, and publication-ready output within a single API---nor
 exposes machine-readable function schemas for LLM-driven workflows.
 `StatsPAI` fills this gap.
 
+The synthetic-control sub-ecosystem in particular is fragmented across
+languages and packages: R offers `Synth` [@abadie2010synthetic] for the
+classical estimator, `gsynth` [@xu2017generalized] for interactive
+fixed effects, `augsynth` [@benmichael2021augmented] for the augmented
+estimator, `synthdid` [@arkhangelsky2021synthetic] for synthetic DID,
+`scpi` [@cattaneo2025scpi] for prediction intervals, and `fect`
+[@liu2024practical] for unified counterfactual diagnostics. Stata
+exposes parallel implementations including the `sdid` package
+[@clarke2024synthetic]. `StatsPAI`'s `sp.synth(method=...)` dispatcher
+folds these methodological branches into a single Python entry point
+with shared input/output schema, common diagnostics, and the
+`SynthComparison` object that runs the entire menu and recommends
+an estimator under pre-RMSPE / parsimony tie-breaking---a workflow
+unavailable in any single existing package.
+
 # Software Design
 
 `StatsPAI` is organised into roughly fifty modular subpackages. All
@@ -108,28 +123,117 @@ interface: `.summary()`, `.plot()`, `.to_latex()`, `.to_docx()`, and
 
 - **Classical regression and panel:** OLS/IV/panel/GLM,
   fixed-effect high-dimensional estimation.
+- **Instrumental variables (24+ estimators, v1.14 modern reporting
+  bundle):** k-class 2SLS / LIML / Fuller / GMM / JIVE; modern JIVE
+  variants (UJIVE, IJIVE, RJIVE) and many-weak-instrument inference
+  via Mikusheva--Sun jackknife AR / LM
+  [@mikusheva2022inference; @mikusheva2024weak]; post-Lasso BCH
+  [@chernozhukov2013inference]; non-parametric IV (Newey--Powell;
+  kernel IV; DeepIV; IV-DML); Bayesian IV (Chernozhukov--Hong);
+  marginal treatment effects and the Mogstad--Santos--Torgovitsky
+  partial-identification linear program
+  [@brinch2017beyond]; quantile IV (Chernozhukov--Hansen 2005/06/08);
+  shift-share / Bartik with quasi-experimental shock-level inference
+  [@borusyak2022quasi; @borusyak2025practical] and Adão--Kolesár--
+  Morales corrected SEs [@adao2019shift]; recentered shift-share
+  under non-random exposure to exogenous shocks [@borusyak2023nonrandom];
+  Conley--Hansen--Rossi plausibly-exogenous LTZ / UCI sensitivity
+  [@conley2012plausibly; @vankippersluis2018beyond]; Masten--Poirier
+  falsification-adaptive set [@masten2021salvaging]. The unified
+  reporting bundle `sp.iv.iv_diag` (new in v1.14, port of R `ivDiag`
+  [@lal2024much]) returns 2SLS analytic + pairs / wild bootstrap CIs
+  [@young2022consistency], the Olea--Pflueger effective F
+  [@olea2013robust], the Lee--McCrary--Moreira--Porter (2022) tF
+  adjusted critical value [@lee2022valid], the Anderson--Rubin /
+  Moreira CLR / Kleibergen K confidence sets
+  [@anderson1949estimation; @moreira2003conditional; @kleibergen2002pivotal],
+  Kleibergen--Paap rk LM / Wald F [@kleibergen2006generalized],
+  Conley--Hansen--Rossi LTZ sensitivity, and a Blandhol--Bonney--
+  Mogstad--Torgovitsky / Słoczyński negative-weight `TSLS-as-LATE`
+  caveat [@blandhol2025tsls; @sloczynski2024should] in a single
+  `IVDiagResult` with `.summary()`, `.to_frame()`, `.to_latex()`,
+  `.to_excel()`, `.to_word()`, and `.plot('diagnostic'|'forest'|
+  'weak_iv'|'first_stage')` for publication-ready output. Companion
+  `sp.iv.iv_compare(formula, methods=...)` runs k-class / JIVE
+  estimators side-by-side. The modern post-2022 reporting checklist
+  follows Keane--Neal [@keane2024practical] and Lal--Lockhart--Xu--Zu
+  [@lal2024much].
 - **Difference-in-differences (10+ variants):** Callaway and Sant'Anna
   [@callaway2021difference], Sun and Abraham [@sun2021estimating],
   Borusyak--Jaravel--Spiess imputation, de Chaisemartin--D'Haultfoeuille,
   ETWFE, Goodman-Bacon decomposition [@goodmanbacon2021difference], and
   Rambachan--Roth honest-parallel-trends sensitivity.
-- **Regression discontinuity (18+ estimators, v0.9.1):** sharp/fuzzy/kink
-  RD with bias-corrected robust inference [@calonico2014robust];
-  covariate-adjusted local polynomials; 2D / boundary RD (Cattaneo,
-  Titiunik and Yu 2025); multi-cutoff and multi-score designs; honest
-  confidence intervals (Armstrong--Kolesar); local randomisation
-  (`rdrandinf`, `rdwinselect`, `rdsensitivity`); Cattaneo--Jansson--Ma
-  density tests; Rosenbaum bounds; CATE via `rdhte` and ML variants
-  (`rd_forest`, `rd_boost`, `rd_lasso`); Angrist--Rokkanen
-  extrapolation; power analysis (`rdpower`, `rdsampsi`).
-- **Synthetic control (20 estimators + 6 inference strategies, v0.9.0):**
-  classical SCM [@abadie2010synthetic], SDID [@arkhangelsky2021synthetic],
-  Augmented SCM (Ben-Michael et al. 2021), Bayesian SCM (Dirichlet
-  MCMC), BSTS / CausalImpact (Kalman smoother), Penalised SCM
-  (Abadie--L'Hour 2021), Forward DID, cluster SCM, sparse (LASSO) SCM,
-  kernel SCM, kernel-ridge SCM, and a Research Workflow
-  (`synth_compare`, `synth_recommend`, `synth_power`, `synth_mde`,
-  `synth_sensitivity`, `synth_report`).
+- **Regression discontinuity (25+ estimators, v1.15):** sharp / fuzzy /
+  kink RD with bias-corrected robust inference [@calonico2014robust],
+  including the CCT-2018 ratio bandwidth ``rho``; covariate-adjusted
+  local polynomials [@cattaneopalomba2025covariates]; flexible
+  (machine-learning) covariate adjustment via cross-fit residualisation
+  (``sp.rd_flex``) [@noack2025flexible]; 2D / boundary RD
+  [@cattaneo2025boundary]; multi-cutoff and multi-score designs;
+  honest confidence intervals [@armstrong2018optimal;
+  @armstrong2020simple]; honest inference for *discrete* running
+  variables (``sp.rd_discrete``) [@kolesar2018inference];
+  bias-aware fuzzy CIs robust to weak first stages
+  (``sp.rd_bias_aware_fuzzy``) [@noack2024biasaware], with built-in
+  warnings flagging the power asymmetry of conventional fuzzy
+  2SLS-style CIs documented by [@kaliski2025power]; local
+  randomisation (``rdrandinf``, ``rdwinselect``, ``rdsensitivity``);
+  boundary-adaptive Cattaneo--Jansson--Ma density tests
+  [@cattaneo2020simple] for manipulation; Rosenbaum bounds; CATE via
+  ``rdhte`` [@calonico2025rdhte] and ML variants (``rd_forest``,
+  ``rd_boost``, ``rd_lasso``); Angrist--Rokkanen extrapolation; power
+  analysis (``rdpower``, ``rdsampsi``).  Reporting helpers
+  ``sp.rd_dashboard`` (4-panel diagnostic plot following the
+  recommendations of [@calonico2015optimal; @cattaneo2024extensions]),
+  ``sp.rd_compare`` (multi-method side-by-side estimation), and
+  ``sp.rd_robustness_table`` (kernel × bandwidth × polynomial × donut
+  sweep with native ``.to_latex()`` / ``.to_excel()`` export) package
+  the standard best-practice RD reporting workflow into one call.
+- **Synthetic control (20 estimators + 6 inference strategies):**
+  the unified `sp.synth(method=...)` dispatcher covers classical SCM
+  [@abadie2010synthetic], penalised / ridge SCM, Ferman--Pinto
+  de-meaned SCM under imperfect pre-fit [@ferman2021synthetic],
+  Doudchenko--Imbens unconstrained / elastic-net SCM
+  [@doudchenko2016balancing], Augmented SCM
+  [@benmichael2021augmented], Synthetic Difference-in-Differences
+  [@arkhangelsky2021synthetic] with a separate
+  staggered-adoption estimator `sp.sequential_sdid`, the
+  Ben-Michael--Feller--Rothstein partially-pooled staggered SCM
+  [@benmichael2022synthetic], generalised SCM with interactive
+  fixed effects [@xu2017generalized], matrix-completion SCM
+  [@athey2021matrix], distributional SCM [@gunsilius2023distributional],
+  multi-outcome SCM [@sun2023multiple], penalised SCM with
+  pairwise discrepancy [@abadie2021penalized], forward DID
+  [@li2024forward], cluster SCM with donor selection
+  [@rho2025clustersc], sparse / LASSO SCM, kernel and kernel-ridge
+  SCM, Bayesian SCM, BSTS / CausalImpact
+  [@brodersen2015inferring], synthetic survival control, and SC for
+  experimental design. Two complementary inference paths are
+  built in: prediction intervals
+  [@cattaneo2021prediction; @cattaneo2025scpi] via `sp.scpi`, which
+  combine in-sample and out-of-sample uncertainty, and the
+  Chernozhukov--Wüthrich--Zhu permutation-residual conformal test
+  [@chernozhukov2021exact] via `sp.conformal_synth`. A research
+  workflow---`sp.synth_compare`, `sp.synth_recommend`,
+  `sp.synth_power`, `sp.synth_mde`, `sp.synth_sensitivity`, and
+  `sp.synth_report`---runs all variants side-by-side, recommends
+  the best estimator under pre-RMSPE / parsimony tie-breaking,
+  computes minimum detectable effects, and packages the standard
+  diagnostic suite (leave-one-out, in-time placebos, donor-pool
+  bootstrap, RMSPE-filtered placebos) into a single Markdown / LaTeX /
+  text report. New in v1.13 the publication-grade exporters
+  `sp.synth_to_latex`, `sp.synth_to_markdown` and `sp.synth_to_excel`
+  emit booktabs LaTeX, pandoc Markdown and a multi-sheet Excel
+  workbook (estimates, weights, gap series, diagnostics) for any
+  single result or `SynthComparison` object; `sp.synthplot(...,
+  pi_band=True, pre_band=True)` overlays the prediction-interval
+  ribbon and a $\pm 1.96 \times$pre-RMSPE noise envelope on the
+  trajectory and gap plots. Pedagogical positioning follows the
+  Abadie (2021) JEL review and the Abadie--Cattaneo (2021)
+  *JASA* special-section editorial
+  [@abadie2021synthetic; @abadiecattaneo2021introduction], with
+  staggered-adoption diagnostics aligned to Liu--Wang--Xu's
+  practical guide [@liu2024practical] and Stata `sdid` [@clarke2024synthetic].
 - **Decomposition analysis (18 methods, v0.9.2):** Blinder--Oaxaca with
   five reference-coefficient conventions (Neumark 1988, Cotton 1988,
   Reimers 1983), Gelbach (2016) sequential OVB, Fairlie (1999/2005)
@@ -278,7 +382,16 @@ we replicate the IV returns-to-schooling estimate from Angrist and
 Pischke [@angrist2009mostly] Table 4.1.1. `StatsPAI` produces
 $\hat\beta_{\text{OLS}} = 0.074$ (published: 0.075) and
 $\hat\beta_{\text{IV}} = 0.132$ (published: 0.132), matching within
-rounding precision.
+rounding precision. The same specification fed into
+`sp.iv.iv_diag(...)` returns the post-2022 reporting bundle
+(analytic + pairs / wild bootstrap confidence intervals, Olea--Pflueger
+robust effective F, Lee--McCrary--Moreira--Porter tF-adjusted critical
+value and CI, Anderson--Rubin / Moreira CLR / Kleibergen K confidence
+sets, Kleibergen--Paap rk LM and Wald F, and a Conley--Hansen--Rossi
+LTZ sensitivity envelope) in a single call, mirroring R `ivDiag`
+[@lal2024much] and the integrated post-2022 reporting standards of
+Keane and Neal [@keane2024practical] and Young
+[@young2022consistency].
 
 **LaLonde (1986).** Using the exact Dehejia--Wahba NSW experimental
 subsample ($N = 445$), the raw difference in means is $\$1{,}794$---an

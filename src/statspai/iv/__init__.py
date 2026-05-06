@@ -142,6 +142,9 @@ from .kernel_iv import kernel_iv, KernelIVResult
 from .continuous_late import continuous_iv_late, ContinuousLATEResult
 from .ivdml import ivdml, IVDMLResult
 
+# ─── v1.14 modern reporting bundle (R `ivDiag` analogue) ─────────────────
+from .iv_diag import iv_diag, iv_compare, IVDiagResult
+
 # ─── Shift-share / DeepIV re-exports ────────────────────────────────────
 # These stay lazy on purpose.  Importing them eagerly here pollutes the
 # parent package during ``import statspai`` because Python attaches
@@ -641,8 +644,9 @@ __all__ = [
     "kernel_iv", "KernelIVResult",
     # Continuous-instrument LATE (Xie et al. 2025)
     "continuous_iv_late", "ContinuousLATEResult",
-    # IVDML
     "ivdml", "IVDMLResult",
+    # Modern reporting bundle
+    "iv_diag", "iv_compare", "IVDiagResult",
     # re-exports
     "bartik", "shift_share_se", "BartikIV", "ssaggregate",
     "deepiv", "DeepIV",
