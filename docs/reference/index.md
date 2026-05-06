@@ -15,7 +15,7 @@ namespace. Reference pages are grouped by methodological area:
 | Causal ML | [causal](causal.md) | `causal_forest`, `s_learner` … `dr_learner`, `tmle`, `tarnet`, `dragonnet`, `notears`, `policy_tree`, `bcf` |
 | Sensitivity | [sensitivity](sensitivity.md) | `oster`, `sensemakr`, `e_value`, `rosenbaum_bounds`, `manski_bounds`, `spec_curve`, `robustness_report` |
 | Smart workflow | [smart](smart.md) | `recommend`, `compare_estimators`, `assumption_audit`, `verify`, `verify_benchmark` |
-| Spatial econometrics | [spatial](spatial.md) | `spatial_weights`, `moran_i`, `geary_c`, `sar`, `sem`, `sdm`, `gwr`, `mgwr`, `spatial_panel` |
+| Spatial econometrics | [spatial](spatial.md) | `spatial_weights`, `moran_i`, `geary_c`, `sar`, `sem`, `sdm`, `gwr`, `mgwr`, `spatial_panel`, `spatial_did` |
 | Time series | [timeseries](timeseries.md) | `arima`, `var`, `bvar`, `garch`, `cointegration`, `local_projections`, `structural_break` |
 | Survival | [survival](survival.md) | `cox`, `aft`, `frailty`, `kaplan_meier`, `log_rank_test`, `competing_risks` |
 
