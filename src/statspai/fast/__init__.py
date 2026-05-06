@@ -38,6 +38,21 @@ except ImportError:  # pragma: no cover
     def jax_device_info() -> str:
         return "jax: not installed"
 
+# JAX-backed end-to-end feols (Phase 4). Drops in for sp.fast.feols on
+# CUDA/TPU; CPU JAX path is correctness-grade but typically slower than
+# the Rust/numpy default. Lazy-load — module import stays jax-free.
+try:
+    from .jax_feols import feols_jax  # noqa: F401
+    _HAS_JAX_FEOLS = True
+except ImportError:  # pragma: no cover
+    _HAS_JAX_FEOLS = False
+
+    def feols_jax(*_args, **_kwargs):  # type: ignore[no-redef]
+        raise ImportError(
+            "jax is not installed; pip install jax jaxlib to enable "
+            "feols_jax. Plain sp.fast.feols runs without JAX."
+        )
+
 # Torch device diagnostic — mirrors jax_device_info for the optional
 # neural backends (deepiv / neural_causal / cevae). See
 # ``utils/_torch_device.py`` for the resolution policy.
@@ -81,6 +96,7 @@ __all__ = [
     'EventStudyResult',
     'jax_device_info',
     'torch_device_info',
+    'feols_jax',
     'etable',
     'demean_polars',
     'fepois_polars',
