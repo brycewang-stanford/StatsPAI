@@ -32,7 +32,7 @@ ID & Method & Worst diff vs \proglang{R} & Worst diff vs \proglang{Stata} & Verd
 \code{13} & Causal forest (AIPW) & rel $\le 3.3$ {\footnotesize (NSW-DW propensity overlap)} & \emph{no canonical ref} & \textit{GAP} \\
 \code{14} & OLS + cluster-robust SE & rel $\le 1.2e-09$ & rel $\le 1.2e-09$ & \textbf{PASS} \\
 \code{15} & HDFE + cluster SE & rel $\le 6.5e-15$ {\footnotesize (SE 1.27\% (ssc convention))} & rel $\le 5.3e-15$ & \textbf{PASS} \\
-\code{16} & BJS imputation & rel $\le 0.36$ {\footnotesize (aggregation rule differs)} & rel $\le 0.47$ & \textit{GAP} \\
+\code{16} & BJS imputation & rel $\le 4.9e-08$ {\footnotesize (point estimate matches; SE convention differs)} & rel $\le 0.17$ & \textbf{PASS} \\
 \code{17} & Wooldridge ETWFE & rel $\le 0.078$ {\footnotesize (aggregation rule differs)} & rel $\le 0.078$ & \textit{GAP} \\
 \code{18} & Augmented SCM & rel $\le 0.34$ {\footnotesize (SCM non-uniqueness)} & \emph{no canonical ref} & \textit{GAP} \\
 \code{19} & Generalized SCM (Xu 2017) & rel $\le 0.59$ {\footnotesize (SCM non-uniqueness; both pick r=1)} & \emph{no canonical ref} & \textit{GAP} \\

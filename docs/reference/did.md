@@ -53,6 +53,16 @@ Liang–Zeger cluster-robust sandwich SEs.
 ### `sp.did_imputation(data, ..., horizon=None)`
 
 Borusyak, Jaravel & Spiess (2024) imputation estimator.
+Also available through the unified entry point:
+
+```python
+sp.did(df, y="y", treat="first_treat", time="year", id="unit",
+       method="bjs", horizon=list(range(-4, 5)))
+```
+
+`horizon` attaches the BJS event-study table to
+`result.model_info["event_study"]`, so `result.plot()` and
+`sp.honest_did(result, ...)` work the same way as CS/SA event studies.
 
 ### `sp.did_multiplegt(data, ..., placebo=0, dynamic=0)`
 

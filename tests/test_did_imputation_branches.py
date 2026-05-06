@@ -126,6 +126,90 @@ def test_did_imputation_with_controls_and_horizon(staggered_panel):
     assert {"statistic", "df", "pvalue"} <= set(pre.keys())
 
 
+def test_did_imputation_matches_r_mpdta_point_estimate():
+    """BJS first-stage TWFE must be fit on the unbalanced untreated panel.
+
+    The R reference is didimputation::did_imputation on the same mpdta
+    replica. A one-pass unit/time mean approximation gives about -0.0224;
+    the correct untreated-only TWFE projection gives -0.035108278.
+    """
+    df = sp.datasets.mpdta()
+    res = did_imputation(
+        df,
+        y="lemp",
+        group="countyreal",
+        time="year",
+        first_treat="first_treat",
+    )
+    assert res.estimate == pytest.approx(-0.0351082782986021, abs=1e-8)
+
+
+def test_did_method_bjs_dispatch_matches_direct_call(staggered_panel):
+    dispatch = sp.did(
+        staggered_panel,
+        y="y",
+        treat="first_treat",
+        time="time",
+        id="unit",
+        method="bjs",
+        horizon=[-2, -1, 0, 1, 2],
+    )
+    direct = did_imputation(
+        staggered_panel,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        horizon=[-2, -1, 0, 1, 2],
+    )
+    assert dispatch.estimate == pytest.approx(direct.estimate)
+    assert dispatch.se == pytest.approx(direct.se)
+    assert "event_study" in dispatch.model_info
+
+
+def test_bjs_aliases_match_did_imputation(staggered_panel):
+    direct = did_imputation(
+        staggered_panel,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+    )
+    alias = sp.borusyak_jaravel_spiess(
+        staggered_panel,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+    )
+    short = sp.bjs(
+        staggered_panel,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+    )
+    assert alias.estimate == pytest.approx(direct.estimate)
+    assert short.estimate == pytest.approx(direct.estimate)
+
+
+def test_did_analysis_bjs_uses_bjs_event_study(staggered_panel):
+    report = sp.did_analysis(
+        staggered_panel,
+        y="y",
+        treat="first_treat",
+        time="time",
+        id="unit",
+        method="bjs",
+        run_bacon=False,
+        run_sensitivity=False,
+        event_window=(-2, 2),
+    )
+    assert report.method_used.startswith("Borusyak-Jaravel-Spiess")
+    assert report.event_study_result is report.main_result
+    assert "event_study" in report.main_result.model_info
+
+
 def test_did_imputation_explicit_cluster_overrides_default(staggered_panel):
     """Pass an explicit cluster column (must exist) and check it lands in
     model_info."""

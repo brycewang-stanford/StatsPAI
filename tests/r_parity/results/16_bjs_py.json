@@ -6,10 +6,10 @@
       "module": "16_bjs",
       "side": "py",
       "statistic": "att_bjs",
-      "estimate": -0.02236535439025298,
-      "se": 0.005706236417742885,
-      "ci_lo": -0.03354937225629989,
-      "ci_hi": -0.01118133652420607,
+      "estimate": -0.03510827660804013,
+      "se": 0.005666274075306875,
+      "ci_lo": -0.046213969722174605,
+      "ci_hi": -0.02400258349390566,
       "n": 2500,
       "extra": {}
     }
@@ -18,6 +18,6 @@
     "method": "did_imputation",
     "n_treated_obs": 875,
     "n_control_obs": 1625,
-    "aggregation_note": "sp.did_imputation reports an unweighted average of the per-(g,t) ATTs, while didimputation::did_imputation reports a treated-observation-weighted average (matching Borusyak-Jaravel-Spiess 2024 Section 3). On the mpdta replica sp returns -0.022 while R returns -0.035 (~36% rel gap). Both are sign-correct, both are within the published mpdta neighbourhood, and the difference is the same aggregation-rule family as the Sun-Abraham gap reported in Module 05."
+    "parity_note": "sp.did_imputation fits the untreated-only TWFE first stage on the unbalanced untreated panel and matches didimputation::did_imputation's simple ATT on the mpdta replica. SE conventions may differ slightly because StatsPAI uses its in-package cluster IF approximation."
   }
 }

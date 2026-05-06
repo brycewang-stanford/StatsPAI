@@ -183,7 +183,7 @@ def auto_did(
         # did_imputation is the BJS name in statspai; keep the mapping
         # explicit here so the leaderboard label stays 'bjs'.
         "bjs": lambda: _bjs_mod.did_imputation(
-            data=data, y=y, group=g, time=t, first_treat=g,
+            data=data, y=y, group=i, time=t, first_treat=g,
             controls=x, alpha=alpha,
         ),
     }

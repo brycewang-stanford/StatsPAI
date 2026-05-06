@@ -235,6 +235,8 @@ from .did.design_robust import design_robust_event_study as design_robust_event_
 from .did.did_2x2 import did_2x2 as did_2x2
 from .did.did_bcf import did_bcf as did_bcf
 from .did.did_imputation import did_imputation as did_imputation
+from .did.did_imputation import did_imputation as bjs
+from .did.did_imputation import did_imputation as borusyak_jaravel_spiess
 from .did.did_multiplegt import did_multiplegt as did_multiplegt
 from .did.did_multiplegt_dyn import did_multiplegt_dyn as did_multiplegt_dyn
 from .did.event_study import event_study as event_study

@@ -18,7 +18,8 @@ from typing import Optional, List, Dict, Any, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from scipy import stats
+from scipy import sparse, stats
+from scipy.sparse.linalg import lsqr
 
 from ..core.results import CausalResult
 
@@ -140,116 +141,58 @@ def did_imputation(
 
     untreated = df[df['_untreated_obs']].copy()
 
-    # Outcome vector for untreated obs
-    y_u = untreated[y].values.astype(float)
-
-    # Controls matrix for untreated obs (if any)
     has_controls = controls is not None and len(controls) > 0
-    if has_controls:
-        X_u = untreated[controls].values.astype(float)
-        X_all = df[controls].values.astype(float)
-    else:
-        X_u = np.empty((len(untreated), 0))
-        X_all = np.empty((len(df), 0))
-
-    n_controls = X_u.shape[1]
-
-    # Solve TWFE via demeaning (Frisch-Waugh-Lovell):
-    # Demean by unit and time among untreated, then regress residuals
-    # to get beta for controls. Then recover FEs.
-
     uid_u = untreated['_uid'].values
     tid_u = untreated['_tid'].values
 
-    # Compute unit means and time means among untreated
-    unit_y_sum = np.zeros(n_units)
-    unit_count = np.zeros(n_units)
-    time_y_sum = np.zeros(n_times)
-    time_count = np.zeros(n_times)
+    unit_adj_count = np.bincount(uid_u, minlength=n_units).astype(float)
+    time_resid_count = np.bincount(tid_u, minlength=n_times).astype(float)
 
-    for idx in range(len(y_u)):
-        ui, ti = uid_u[idx], tid_u[idx]
-        unit_y_sum[ui] += y_u[idx]
-        unit_count[ui] += 1
-        time_y_sum[ti] += y_u[idx]
-        time_count[ti] += 1
+    treated_mask = df['_treated_obs'].values
+    treated_uids = np.unique(df.loc[treated_mask, '_uid'].values)
+    treated_tids = np.unique(df.loc[treated_mask, '_tid'].values)
+    missing_units = [
+        unit_ids[int(ui)] for ui in treated_uids if unit_adj_count[int(ui)] <= 0
+    ]
+    missing_times = [
+        time_ids[int(ti)] for ti in treated_tids if time_resid_count[int(ti)] <= 0
+    ]
+    if missing_units:
+        preview = ", ".join(map(str, missing_units[:5]))
+        raise ValueError(
+            "BJS imputation needs at least one untreated observation for "
+            "every treated unit to estimate its unit fixed effect. "
+            f"Missing untreated history for unit(s): {preview}"
+            + (" ..." if len(missing_units) > 5 else "")
+        )
+    if missing_times:
+        preview = ", ".join(map(str, missing_times[:5]))
+        raise ValueError(
+            "BJS imputation needs at least one untreated observation in "
+            "every treated time period to estimate its time fixed effect. "
+            f"Missing untreated comparison period(s): {preview}"
+            + (" ..." if len(missing_times) > 5 else "")
+        )
 
-    # Avoid division by zero for units/times not in untreated
-    unit_count_safe = np.where(unit_count > 0, unit_count, 1)
-    time_count_safe = np.where(time_count > 0, time_count, 1)
+    y0_hat, beta = _fit_untreated_twfe_sparse(
+        df=df,
+        untreated=untreated,
+        y=y,
+        controls=controls if has_controls else None,
+        uid_col='_uid',
+        tid_col='_tid',
+        n_units=n_units,
+        n_times=n_times,
+    )
 
-    unit_y_mean = unit_y_sum / unit_count_safe
-    time_y_mean = time_y_sum / time_count_safe
-    grand_y_mean = np.sum(y_u) / len(y_u) if len(y_u) > 0 else 0.0
-
-    if has_controls:
-        # Compute unit and time means for controls
-        unit_x_sum = np.zeros((n_units, n_controls))
-        time_x_sum = np.zeros((n_times, n_controls))
-
-        for idx in range(len(y_u)):
-            ui, ti = uid_u[idx], tid_u[idx]
-            unit_x_sum[ui] += X_u[idx]
-            time_x_sum[ti] += X_u[idx]
-
-        unit_x_mean = unit_x_sum / unit_count_safe[:, None]
-        time_x_mean = time_x_sum / time_count_safe[:, None]
-        grand_x_mean = X_u.mean(axis=0)
-
-        # Double-demean Y and X
-        y_dm = np.empty_like(y_u)
-        X_dm = np.empty_like(X_u)
-        for idx in range(len(y_u)):
-            ui, ti = uid_u[idx], tid_u[idx]
-            y_dm[idx] = y_u[idx] - unit_y_mean[ui] - time_y_mean[ti] + grand_y_mean
-            X_dm[idx] = X_u[idx] - unit_x_mean[ui] - time_x_mean[ti] + grand_x_mean
-
-        # OLS on demeaned data
-        beta = _ols_coef(X_dm, y_dm)
-    else:
-        beta = np.array([])
-
-    # ── Recover fixed effects ──────────────────────────────────── #
-    # alpha_i = mean_i(Y - X'beta) among untreated for unit i
-    # lambda_t = mean_t(Y - X'beta) among untreated for time t - mean(alpha)
-
-    if has_controls:
-        y_adj_u = y_u - X_u @ beta
-    else:
-        y_adj_u = y_u.copy()
-
-    # Unit FE: mean of adjusted Y for each unit in untreated
-    unit_adj_sum = np.zeros(n_units)
-    unit_adj_count = np.zeros(n_units)
-    for idx in range(len(y_adj_u)):
-        ui = uid_u[idx]
-        unit_adj_sum[ui] += y_adj_u[idx]
-        unit_adj_count[ui] += 1
-
-    unit_adj_count_safe = np.where(unit_adj_count > 0, unit_adj_count, 1)
-    alpha_hat = unit_adj_sum / unit_adj_count_safe  # unit FE
-
-    # Time FE: mean of (adjusted Y - alpha_i) for each time period
-    time_resid_sum = np.zeros(n_times)
-    time_resid_count = np.zeros(n_times)
-    for idx in range(len(y_adj_u)):
-        ui, ti = uid_u[idx], tid_u[idx]
-        time_resid_sum[ti] += y_adj_u[idx] - alpha_hat[ui]
-        time_resid_count[ti] += 1
-
-    time_resid_count_safe = np.where(time_resid_count > 0, time_resid_count, 1)
-    lambda_hat = time_resid_sum / time_resid_count_safe  # time FE
+    # These arguments are retained for the existing SE helper API.  The
+    # helper only needs the untreated counts and residuals; fitted values
+    # now come from the exact sparse TWFE solve above.
+    alpha_hat = np.zeros(n_units)
+    lambda_hat = np.zeros(n_times)
 
     # ── Step 3: Impute counterfactual for treated observations ── #
-    treated_mask = df['_treated_obs'].values
-    uid_all = df['_uid'].values
-    tid_all = df['_tid'].values
     y_all = df[y].values.astype(float)
-
-    # Predicted Y(0) for ALL observations
-    y0_hat = alpha_hat[uid_all] + lambda_hat[tid_all]
-    if has_controls:
-        y0_hat += X_all @ beta
 
     # Individual treatment effects for treated obs
     tau_hat = y_all - y0_hat  # defined for all obs; meaningful for treated
@@ -269,9 +212,6 @@ def did_imputation(
 
     # ── Step 5: Standard errors ────────────────────────────────── #
     # Cluster-robust SEs with influence-function approach
-    cluster_ids = df[cluster].values
-    treated_clusters = treated_df[cluster].values
-
     # Compute residuals on untreated for the FE model
     resid_u = np.zeros(len(df))
     resid_u[~treated_mask] = y_all[~treated_mask] - y0_hat[~treated_mask]
@@ -434,6 +374,104 @@ def _ols_coef(X: np.ndarray, y: np.ndarray) -> np.ndarray:
         return np.linalg.lstsq(X, y, rcond=None)[0]
     except np.linalg.LinAlgError:
         return np.zeros(X.shape[1])
+
+
+def _fit_untreated_twfe_sparse(
+    df: pd.DataFrame,
+    untreated: pd.DataFrame,
+    y: str,
+    controls: Optional[List[str]],
+    uid_col: str,
+    tid_col: str,
+    n_units: int,
+    n_times: int,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Fit untreated-only TWFE by sparse least squares and predict all rows.
+
+    The untreated sample in staggered DID is usually unbalanced: early
+    cohorts contribute fewer untreated periods than late or never-treated
+    cohorts.  A one-pass "unit mean + time mean - grand mean" transform is
+    exact only on balanced panels.  BJS needs the actual least-squares
+    projection on unit and time fixed effects, so we solve the dummy
+    regression directly with a sparse design matrix.
+    """
+    controls = list(controls or [])
+    y_u = untreated[y].values.astype(float)
+    uid_u = untreated[uid_col].values.astype(int)
+    tid_u = untreated[tid_col].values.astype(int)
+
+    unit_seen = np.bincount(uid_u, minlength=n_units) > 0
+    time_seen = np.bincount(tid_u, minlength=n_times) > 0
+    if not unit_seen.any() or not time_seen.any():
+        raise ValueError("No untreated observations available for BJS TWFE fit.")
+
+    ref_unit = int(np.flatnonzero(unit_seen)[0])
+    ref_time = int(np.flatnonzero(time_seen)[0])
+
+    unit_cols = np.full(n_units, -1, dtype=int)
+    next_col = 1  # intercept
+    for u in range(n_units):
+        if u != ref_unit:
+            unit_cols[u] = next_col
+            next_col += 1
+
+    time_cols = np.full(n_times, -1, dtype=int)
+    for t_idx in range(n_times):
+        if t_idx != ref_time:
+            time_cols[t_idx] = next_col
+            next_col += 1
+
+    n_fe_cols = next_col
+
+    def _design(frame: pd.DataFrame) -> sparse.csr_matrix:
+        n = len(frame)
+        rows_parts = [np.arange(n, dtype=int)]
+        cols_parts = [np.zeros(n, dtype=int)]
+        data_parts = [np.ones(n, dtype=float)]
+
+        uid = frame[uid_col].values.astype(int)
+        ucols = unit_cols[uid]
+        u_mask = ucols >= 0
+        if u_mask.any():
+            rows_parts.append(np.flatnonzero(u_mask))
+            cols_parts.append(ucols[u_mask])
+            data_parts.append(np.ones(int(u_mask.sum()), dtype=float))
+
+        tid = frame[tid_col].values.astype(int)
+        tcols = time_cols[tid]
+        t_mask = tcols >= 0
+        if t_mask.any():
+            rows_parts.append(np.flatnonzero(t_mask))
+            cols_parts.append(tcols[t_mask])
+            data_parts.append(np.ones(int(t_mask.sum()), dtype=float))
+
+        fixed = sparse.coo_matrix(
+            (
+                np.concatenate(data_parts),
+                (np.concatenate(rows_parts), np.concatenate(cols_parts)),
+            ),
+            shape=(n, n_fe_cols),
+        ).tocsr()
+
+        if not controls:
+            return fixed
+
+        x = sparse.csr_matrix(frame[controls].values.astype(float))
+        return sparse.hstack([fixed, x], format='csr')
+
+    X_u = _design(untreated)
+    n_cols = X_u.shape[1]
+    fit = lsqr(
+        X_u,
+        y_u,
+        atol=1e-10,
+        btol=1e-10,
+        iter_lim=max(1000, 4 * n_cols),
+    )
+    coef = fit[0]
+    y0_hat = np.asarray(_design(df) @ coef, dtype=float)
+    beta = coef[-len(controls):] if controls else np.array([])
+    return y0_hat, np.asarray(beta, dtype=float)
 
 
 def _cluster_se_imputation(

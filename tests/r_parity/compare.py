@@ -77,7 +77,7 @@ TOLERANCES: dict[str, dict[str, float]] = {
     "13_causal_forest":{"rel_est": 5.0, "rel_se": 5.0},  # NSW-DW overlap
     "14_ols_cluster": {"rel_est": 1e-3, "rel_se": 1e-3},
     "15_hdfe_cluster":{"rel_est": 1e-6, "rel_se": 5e-2},  # ssc convention
-    "16_bjs":         {"rel_est": 0.50, "rel_se": 1.0},   # aggregation rule
+    "16_bjs":         {"rel_est": 1e-6, "rel_se": 0.25},  # SE convention
     "17_etwfe":       {"rel_est": 0.10, "rel_se": 0.50},  # aggregation rule
     "18_augsynth":    {"rel_est": 0.50, "rel_se": 1.0},   # SCM non-uniqueness
     "19_gsynth":      {"rel_est": 1.0,  "rel_se": 1.0},   # SCM non-uniqueness
@@ -343,8 +343,8 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "name": "BJS imputation",
         "headline_filter": lambda d: d.statistic == "att_bjs",
         "metric": "rel_est",
-        "verdict": "\\textit{GAP}",
-        "gap_note": "aggregation rule differs",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "point estimate matches; SE convention differs",
     },
     "20_bacon": {
         "name": "Goodman--Bacon decomposition",

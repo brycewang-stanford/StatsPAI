@@ -81,6 +81,8 @@ class DIDAnalysis:
             mi = self.event_study_result.model_info or {}
             lines.append("--- Event Study ---")
             pretrend_p = mi.get('pretrend_pvalue')
+            if pretrend_p is None and isinstance(mi.get('pretrend_test'), dict):
+                pretrend_p = mi['pretrend_test'].get('pvalue')
             if pretrend_p is not None:
                 lines.append(f"  Pre-trend test p-value = {pretrend_p:.4f}")
                 if pretrend_p < 0.05:
@@ -160,7 +162,7 @@ def did_analysis(
     covariates : list of str, optional
         Control variables.
     method : str, default 'auto'
-        Estimation method: 'auto', '2x2', 'cs', 'sa', 'sdid'.
+        Estimation method: 'auto', '2x2', 'cs', 'sa', 'bjs', 'sdid'.
     estimator : str, default 'dr'
         For CS: 'dr', 'ipw', or 'reg'.
     control_group : str, default 'nevertreated'
@@ -207,6 +209,7 @@ def did_analysis(
     from .did_2x2 import did_2x2
     from .callaway_santanna import callaway_santanna
     from .sun_abraham import sun_abraham
+    from .did_imputation import did_imputation
     from .bacon import bacon_decomposition
     from .honest_did import honest_did
     from .event_study import event_study
@@ -302,6 +305,36 @@ def did_analysis(
             covariates=covariates, cluster=cluster, alpha=alpha,
         )
         method_label = 'Sun-Abraham (IW)'
+    elif method in ('bjs', 'did_imputation', 'borusyak_jaravel_spiess'):
+        if id is None:
+            from statspai.exceptions import MethodIncompatibility
+            raise MethodIncompatibility(
+                "'id' is required for BJS imputation.",
+                recovery_hint=(
+                    "Pass the unit identifier column via id='...', or use "
+                    "method='2x2' if you only have two periods."
+                ),
+                diagnostics={"method": "did_imputation", "missing": "id"},
+                alternative_functions=["sp.did"],
+            )
+        bjs_horizon = None
+        if run_event_study:
+            lo, hi = event_window or (-4, 4)
+            bjs_horizon = list(range(int(lo), int(hi) + 1))
+        main_result = did_imputation(
+            data,
+            y=y,
+            group=id,
+            time=time,
+            first_treat=treat,
+            controls=covariates,
+            horizon=bjs_horizon,
+            cluster=cluster,
+            alpha=alpha,
+        )
+        if bjs_horizon is not None and 'event_study' in main_result.model_info:
+            es_result = main_result
+        method_label = 'Borusyak-Jaravel-Spiess (Imputation)'
     elif method == 'sdid':
         from ..synth.sdid import sdid as _sdid
         # SDID requires different parameter mapping
@@ -324,7 +357,13 @@ def did_analysis(
     )
 
     # ── Step 4: Event study ────────────────────────────────────────── #
-    if run_event_study and design == 'staggered' and id is not None:
+    bjs_methods = ('bjs', 'did_imputation', 'borusyak_jaravel_spiess')
+    if (
+        run_event_study
+        and design == 'staggered'
+        and id is not None
+        and method not in bjs_methods
+    ):
         try:
             window = event_window or (-4, 4)
             es_result = event_study(
@@ -343,6 +382,18 @@ def did_analysis(
             diag['pretrend_pvalue'] = pretrend_p
         except Exception as e:
             steps.append(f"Event study skipped: {e}")
+    elif run_event_study and es_result is not None:
+        mi = es_result.model_info or {}
+        pt = mi.get('pretrend_test')
+        pretrend_p = pt.get('pvalue') if isinstance(pt, dict) else None
+        if pretrend_p is not None:
+            steps.append(
+                f"Event study: BJS pre-trend test p = {pretrend_p:.4f}"
+                + (" ✓" if pretrend_p >= 0.05 else " ⚠ VIOLATION")
+            )
+        else:
+            steps.append("Event study: BJS coefficients computed")
+        diag['pretrend_pvalue'] = pretrend_p
 
     # ── Step 5: Honest DID sensitivity ─────────────────────────────── #
     if run_sensitivity and es_result is not None:

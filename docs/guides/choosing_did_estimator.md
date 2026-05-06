@@ -65,7 +65,7 @@ TWFE over them.
 | You want group-time ATT(g,t) + event study          | `sp.callaway_santanna(df, y, g, t, i)`                                              |
 | Heavy-weight covariates                             | `sp.callaway_santanna(..., x=[...], estimator='dr')`                                |
 | Sun-Abraham interaction-weighted event              | `sp.sun_abraham(df, y, g, t, i)`                                                    |
-| Imputation-style (no TWFE needed)                   | `sp.did_imputation(df, y, i, t, g)`                                                 |
+| Imputation-style (BJS untreated-only TWFE)          | `sp.did(df, y='y', treat='first_treat', time='t', id='i', method='bjs')`             |
 | Two-stage regression (event study + covariate ix)   | `sp.gardner_did(df, y=..., group=..., time=..., first_treat=..., event_study=True)` |
 | One-call harvesting + precision-weighted            | `sp.harvest_did(df, outcome=..., unit=..., time=..., cohort=...)`                   |
 | Two-way Mundlak / ETWFE                             | `sp.wooldridge_did(df, y, group, time, first_treat)`                                |

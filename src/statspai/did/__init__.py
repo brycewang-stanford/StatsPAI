@@ -68,6 +68,9 @@ from .plots import (
     did_summary_plot,
 )
 
+bjs = did_imputation
+borusyak_jaravel_spiess = did_imputation
+
 
 def did(
     data: pd.DataFrame,
@@ -145,6 +148,8 @@ def did(
         - ``'ddd'`` — triple differences (requires ``subgroup``).
         - ``'callaway_santanna'`` or ``'cs'`` — staggered DID.
         - ``'sun_abraham'``, ``'sa'``, or ``'sunab'`` — IW event study.
+        - ``'bjs'`` or ``'did_imputation'`` — Borusyak-Jaravel-Spiess
+          imputation DID.
         - ``'sdid'`` — synthetic DID (Arkhangelsky et al. 2021).
     estimator : str, default 'dr'
         For staggered DID: ``'dr'`` (doubly robust), ``'ipw'``, ``'reg'``.
@@ -363,6 +368,33 @@ def did(
             alpha=alpha,
         )
 
+    if method in (
+        'bjs',
+        'did_imputation',
+        'borusyak_jaravel_spiess',
+        'borusyak',
+    ):
+        if id is None:
+            raise ValueError(
+                "'id' (unit identifier) is required for BJS imputation."
+            )
+        horizon = kwargs.pop('horizon', None)
+        event_window = kwargs.pop('event_window', None)
+        if horizon is None and event_window is not None:
+            lo, hi = int(event_window[0]), int(event_window[1])
+            horizon = list(range(lo, hi + 1))
+        return did_imputation(
+            data,
+            y=y,
+            group=id,
+            time=time,
+            first_treat=treat,
+            controls=covariates,
+            horizon=horizon,
+            cluster=cluster,
+            alpha=alpha,
+        )
+
     if method == 'sdid':
         from ..synth.sdid import sdid as _sdid
         if id is None:
@@ -386,7 +418,8 @@ def did(
     raise ValueError(
         f"Unknown DID method: '{method}'. "
         "Available: '2x2' (or 'classic', 'twfe'), 'ddd', "
-        "'callaway_santanna' (or 'cs'), 'sun_abraham' (or 'sa'), 'sdid'."
+        "'callaway_santanna' (or 'cs'), 'sun_abraham' (or 'sa'), "
+        "'bjs' (or 'did_imputation'), 'sdid'."
     )
 
 
@@ -410,6 +443,8 @@ __all__ = [
     'DIDAnalysis',
     'did_multiplegt',
     'did_imputation',
+    'bjs',
+    'borusyak_jaravel_spiess',
     'stacked_did',
     'gardner_did',
     'did_2stage',

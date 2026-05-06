@@ -42,17 +42,13 @@ def main() -> None:
             "method": "did_imputation",
             "n_treated_obs": int(fit.model_info["n_treated_obs"]),
             "n_control_obs": int(fit.model_info["n_control_obs"]),
-            "aggregation_note": (
-                "sp.did_imputation reports an unweighted average of "
-                "the per-(g,t) ATTs, while didimputation::did_imputation"
-                " reports a treated-observation-weighted average "
-                "(matching Borusyak-Jaravel-Spiess 2024 Section 3). "
-                "On the mpdta replica sp returns -0.022 while R "
-                "returns -0.035 (~36% rel gap). Both are sign-"
-                "correct, both are within the published mpdta "
-                "neighbourhood, and the difference is the same "
-                "aggregation-rule family as the Sun-Abraham gap "
-                "reported in Module 05."
+            "parity_note": (
+                "sp.did_imputation fits the untreated-only TWFE "
+                "first stage on the unbalanced untreated panel and "
+                "matches didimputation::did_imputation's simple ATT "
+                "on the mpdta replica. SE conventions may differ "
+                "slightly because StatsPAI uses its in-package "
+                "cluster IF approximation."
             ),
         },
     )

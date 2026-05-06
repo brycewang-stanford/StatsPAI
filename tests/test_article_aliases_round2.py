@@ -291,6 +291,23 @@ def test_auto_did_bjs_rejects_cohort_string_g():
         )
 
 
+def test_auto_did_bjs_uses_unit_identifier():
+    """auto_did must pass i= as BJS's unit FE, not g= as the unit."""
+    df = sp.dgp_did(
+        n_units=120, n_periods=8, staggered=True, n_groups=4,
+        effect=0.5, heterogeneous=True, seed=17,
+    )
+    race = sp.auto_did(
+        df, y="y", g="first_treat", t="time", i="unit", methods=["bjs"],
+    )
+    direct = sp.did_imputation(
+        df, y="y", group="unit", time="time", first_treat="first_treat",
+    )
+    bjs = race.candidates["bjs"]
+    assert bjs.estimate == pytest.approx(direct.estimate)
+    assert bjs.se == pytest.approx(direct.se)
+
+
 def test_auto_did_terse_repr():
     df = sp.dgp_did(
         n_units=60, n_periods=6, staggered=True, n_groups=3, effect=0.4, seed=8,
