@@ -1033,6 +1033,243 @@ class IVRegression(BaseModel):
 #  Unified public API: iv()
 # ====================================================================== #
 
+# ====================================================================== #
+#  Absorb (HDFE) preprocessing for sp.iv(..., absorb=...)
+# ====================================================================== #
+
+def _normalise_absorb(absorb: Optional[Union[str, List[str]]]) -> List[str]:
+    """Normalise an ``absorb=`` argument to a list of column names.
+
+    Accepts ``None``, ``"firm"``, ``"firm + year"``, or ``["firm", "year"]``.
+    """
+    if absorb is None:
+        return []
+    if isinstance(absorb, str):
+        return [t.strip() for t in absorb.split('+') if t.strip()]
+    return [str(t) for t in absorb]
+
+
+def _iv_absorb_preprocess(
+    formula: str,
+    data: pd.DataFrame,
+    absorb_terms: List[str],
+    cluster_name: Optional[str] = None,
+    fe_tol: float = 1e-10,
+    fe_maxiter: int = 1_000,
+) -> Dict[str, Any]:
+    """Demean IV inputs by ``absorb_terms`` via the HDFE Phase 1 kernel.
+
+    Returns a dict with the residualised matrices, var-name dictionary,
+    cluster series (post-singleton-mask), and FE diagnostics. The
+    intercept is dropped because the absorbed FEs span the constant.
+
+    Same convention as ``sp.fast.feols``: ``fe_dof = sum(G_k - 1)``.
+    """
+    # Lazy import — keeps regression/iv.py free of fast/* dependencies
+    # at module import time.
+    from ..fast.demean import demean as _demean
+
+    parsed = parse_formula(formula)
+    if not parsed['endogenous'] or not parsed['instruments']:
+        raise ValueError(
+            "IV formula must specify endogenous variables and instruments. "
+            "Use syntax: \"y ~ (endog ~ z1 + z2) + exog\""
+        )
+
+    dependent = parsed['dependent']
+    exog_names = parsed['exogenous']
+    endog_names = parsed['endogenous']
+    instrument_names = parsed['instruments']
+
+    needed = [dependent] + exog_names + endog_names + instrument_names
+    needed += list(absorb_terms)
+    if cluster_name is not None:
+        needed.append(cluster_name)
+    missing = [v for v in needed if v not in data.columns]
+    if missing:
+        raise ValueError(f"Variables not found in data: {missing}")
+    missing_absorb = [c for c in absorb_terms if c not in data.columns]
+    if missing_absorb:
+        raise ValueError(
+            f"absorb columns not found in data: {missing_absorb}"
+        )
+
+    clean = data[needed].dropna(subset=needed)
+    n_obs = len(clean)
+    if n_obs == 0:
+        raise ValueError("No rows remain after dropping NaNs")
+
+    y = clean[dependent].to_numpy(dtype=np.float64)
+    X_exog = (
+        clean[exog_names].to_numpy(dtype=np.float64)
+        if exog_names else np.empty((n_obs, 0), dtype=np.float64)
+    )
+    if X_exog.ndim == 1:
+        X_exog = X_exog.reshape(-1, 1)
+    X_endog = clean[endog_names].to_numpy(dtype=np.float64)
+    if X_endog.ndim == 1:
+        X_endog = X_endog.reshape(-1, 1)
+    Z = clean[instrument_names].to_numpy(dtype=np.float64)
+    if Z.ndim == 1:
+        Z = Z.reshape(-1, 1)
+
+    n_exog = X_exog.shape[1]
+    n_endog = X_endog.shape[1]
+    n_z = Z.shape[1]
+
+    # Stack everything that needs to be residualised into one matrix so
+    # the AP loop runs once.
+    stacked = np.column_stack([y, X_exog, X_endog, Z])
+    fe_df = clean[absorb_terms]
+    stacked_dem, info = _demean(
+        stacked, fe_df,
+        drop_singletons=True,
+        tol=1e-12, max_iter=fe_maxiter, tol_abs=fe_tol,
+    )
+
+    keep_mask = info.keep_mask
+    n_kept = int(info.n_kept)
+    n_dropped = int(info.n_dropped)
+    fe_card = list(info.n_fe)
+    fe_dof = sum(int(g) - 1 for g in fe_card)
+
+    # Slice out columns from the stacked residualised matrix.
+    y_dem = stacked_dem[:, 0]
+    col = 1
+    X_exog_dem = stacked_dem[:, col:col + n_exog]
+    col += n_exog
+    X_endog_dem = stacked_dem[:, col:col + n_endog]
+    col += n_endog
+    Z_dem = stacked_dem[:, col:col + n_z]
+
+    # Subset cluster column to kept rows so downstream ``_cluster_cov``
+    # sees aligned data.
+    if cluster_name is not None:
+        cluster_kept = clean[cluster_name].iloc[keep_mask].reset_index(drop=True)
+    else:
+        cluster_kept = None
+
+    # Do not include an intercept — the absorbed FE block already spans
+    # the constant. ``var_names`` mirrors the keys IVRegression uses
+    # when invoked via the matrix interface.
+    var_names = {
+        'dependent': dependent,
+        'exog': list(exog_names),
+        'endog': list(endog_names),
+        'instruments': list(instrument_names),
+    }
+
+    return {
+        'y': y_dem,
+        'X_exog': X_exog_dem,
+        'X_endog': X_endog_dem,
+        'Z': Z_dem,
+        'cluster_series': cluster_kept,
+        'var_names': var_names,
+        'n_obs': int(n_obs),
+        'n_kept': n_kept,
+        'n_dropped': n_dropped,
+        'fe_dof': int(fe_dof),
+        'fe_cardinality': fe_card,
+        'absorb_terms': list(absorb_terms),
+    }
+
+
+def _iv_absorb_run(
+    formula: str,
+    data: pd.DataFrame,
+    absorb_terms: List[str],
+    method: str,
+    robust: str,
+    cluster: Optional[str],
+    **kwargs: Any,
+):
+    """Internal helper: run 2SLS with HDFE absorption.
+
+    Returns ``(result, model, pre)`` where ``pre`` is the dict from
+    :func:`_iv_absorb_preprocess`. The dispatcher uses ``model`` to
+    attach Kleibergen-Paap / Sanderson-Windmeijer / effective-F
+    diagnostics in residualised space.
+
+    Restricted to ``method='2sls'`` for now — LIML/Fuller/GMM/JIVE need
+    their kappa / weighting reformulated in residualised space (Phase 3b).
+    """
+    if method != '2sls':
+        raise NotImplementedError(
+            f"absorb= is currently only wired for method='2sls'; got "
+            f"method={method!r}. LIML/Fuller/GMM/JIVE need a kappa / "
+            "weighting reformulation in residualised space — track in "
+            "Phase 3b."
+        )
+
+    pre = _iv_absorb_preprocess(
+        formula=formula, data=data,
+        absorb_terms=absorb_terms,
+        cluster_name=cluster,
+    )
+    if pre['cluster_series'] is not None:
+        cluster_df = pd.DataFrame({cluster: pre['cluster_series']})
+    else:
+        cluster_df = None
+
+    model = IVRegression(
+        method='2sls',
+        y=pre['y'],
+        X_exog=pre['X_exog'],
+        X_endog=pre['X_endog'],
+        Z=pre['Z'],
+        var_names=pre['var_names'],
+    )
+    # Inject cluster_df so fit()'s ``cluster_var = self.data[cluster]``
+    # branch finds the kept-rows cluster series.
+    model.data = cluster_df
+    result = model.fit(robust=robust, cluster=cluster, **kwargs)
+
+    k_total = pre['X_exog'].shape[1] + pre['X_endog'].shape[1]
+    _scale_vcov_for_fe_dof(
+        result, fe_dof=pre['fe_dof'],
+        n_kept=pre['n_kept'], k=k_total,
+    )
+
+    if hasattr(result, 'model_info') and isinstance(result.model_info, dict):
+        result.model_info['absorb'] = list(absorb_terms)
+        result.model_info['fe_cardinality'] = list(pre['fe_cardinality'])
+        result.model_info['fe_dof'] = int(pre['fe_dof'])
+        result.model_info['n_dropped_singletons'] = int(pre['n_dropped'])
+
+    return result, model, pre
+
+
+def _scale_vcov_for_fe_dof(
+    result: EconometricResults,
+    fe_dof: int,
+    n_kept: int,
+    k: int,
+) -> None:
+    """Charge ``fe_dof`` against the residual DOF on a fitted IV result.
+
+    Multiplies the variance matrix by ``(n - k) / (n - k - fe_dof)`` —
+    correct for nonrobust, HC1, and CR1 because all three small-sample
+    factors contain ``1 / (n - k)`` in exactly that position. Updates
+    std_errors, t-stats, p-values, and ``df_resid`` to match.
+    """
+    df_resid_old = max(n_kept - k, 1)
+    df_resid_new = max(n_kept - k - fe_dof, 1)
+    if fe_dof <= 0 or df_resid_new == df_resid_old:
+        return
+    factor = df_resid_old / df_resid_new
+    sqrt_factor = float(np.sqrt(factor))
+    # ``EconometricResults`` stores SE as a Series and exposes the raw
+    # var_cov via ``_var_cov`` (private). We touch both so any consumer
+    # downstream sees a consistent view.
+    if hasattr(result, '_var_cov') and result._var_cov is not None:
+        result._var_cov = result._var_cov * factor
+    if hasattr(result, 'std_errors') and result.std_errors is not None:
+        result.std_errors = result.std_errors * sqrt_factor
+    if hasattr(result, 'data_info') and isinstance(result.data_info, dict):
+        result.data_info['df_resid'] = int(df_resid_new)
+
+
 def iv(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,
@@ -1040,6 +1277,7 @@ def iv(
     robust: str = 'nonrobust',
     cluster: Optional[str] = None,
     fuller_alpha: float = 1.0,
+    absorb: Optional[Union[str, List[str]]] = None,
     **kwargs,
 ) -> EconometricResults:
     """
@@ -1079,6 +1317,18 @@ def iv(
         Variable name for clustered standard errors.
     fuller_alpha : float, default 1.0
         Fuller modification constant (only used when ``method='fuller'``).
+    absorb : str or list of str, optional
+        Column name(s) of high-dimensional fixed effects to **partial out**
+        before fitting (e.g. ``absorb="firm"`` or
+        ``absorb=["firm", "year"]``). Routes ``y``, exogenous controls,
+        endogenous regressors, and instruments through
+        :func:`sp.fast.demean` (Rust HDFE backend) and drops singletons,
+        then runs 2SLS in residualised space. The intercept is dropped
+        because the absorbed FEs span the constant. The residual DOF is
+        adjusted by ``sum(G_k - 1)``, mirroring
+        :func:`sp.fast.feols(absorb=...)`. Currently only wired for
+        ``method='2sls'``; LIML / Fuller / GMM / JIVE raise
+        ``NotImplementedError`` (Phase 3b).
 
     Returns
     -------
@@ -1140,11 +1390,25 @@ def iv(
     - Hansen (1982), for GMM.
     - Angrist, Imbens & Krueger (1999), for JIVE.
     """
-    model = IVRegression(
-        formula=formula, data=data, method=method,
-        fuller_alpha=fuller_alpha,
-    )
-    _result = model.fit(robust=robust, cluster=cluster, **kwargs)
+    absorb_terms = _normalise_absorb(absorb)
+    if absorb_terms:
+        if formula is None or data is None:
+            raise ValueError(
+                "absorb= requires (formula, data) — matrix mode is not "
+                "supported. Build the formula and pass the DataFrame."
+            )
+        _result, _model, _pre = _iv_absorb_run(
+            formula=formula, data=data,
+            absorb_terms=absorb_terms,
+            method=method, robust=robust, cluster=cluster,
+            **kwargs,
+        )
+    else:
+        model = IVRegression(
+            formula=formula, data=data, method=method,
+            fuller_alpha=fuller_alpha,
+        )
+        _result = model.fit(robust=robust, cluster=cluster, **kwargs)
     try:
         from ..output._lineage import attach_provenance as _attach_prov
         _attach_prov(
@@ -1156,6 +1420,7 @@ def iv(
                 "robust": robust,
                 "cluster": cluster,
                 "fuller_alpha": fuller_alpha,
+                "absorb": list(absorb_terms) if absorb_terms else None,
                 **{k: v for k, v in kwargs.items()
                    if k in ("weights", "se_type", "vcov")},
             },

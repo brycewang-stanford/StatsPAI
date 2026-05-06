@@ -300,11 +300,23 @@ def _dispatch(
         fuller_alpha = kwargs.pop("fuller_alpha", 1.0)
         robust = kwargs.pop("robust", "nonrobust")
         cluster = kwargs.pop("cluster", None)
-        model = IVRegression(
-            formula=formula, data=data, method=canon,
-            fuller_alpha=fuller_alpha,
-        )
-        result = model.fit(robust=robust, cluster=cluster, **kwargs)
+        absorb = kwargs.pop("absorb", None)
+
+        from ..regression.iv import _normalise_absorb, _iv_absorb_run
+        absorb_terms = _normalise_absorb(absorb)
+        if absorb_terms:
+            result, model, _pre = _iv_absorb_run(
+                formula=formula, data=data,
+                absorb_terms=absorb_terms,
+                method=canon, robust=robust, cluster=cluster,
+                **kwargs,
+            )
+        else:
+            model = IVRegression(
+                formula=formula, data=data, method=canon,
+                fuller_alpha=fuller_alpha,
+            )
+            result = model.fit(robust=robust, cluster=cluster, **kwargs)
         if augmented_diagnostics:
             _attach_augmented_diagnostics(model, result)
         return result
