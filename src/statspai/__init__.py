@@ -177,7 +177,7 @@ from .output._bibliography import (
     citations_to_bib_entries,
     write_bib,
 )
-from .postestimation import margins, margins_table, event_study_table, marginsplot, margins_at, margins_at_plot, contrast, pwcompare, test, lincom
+from .postestimation import margins, margins_table, event_study_table, marginsplot, margins_at, margins_at_plot, contrast, pwcompare, test, lincom, postestimation_contract, postestimation_report
 from .diagnostics import oster_bounds, mccrary_test, diagnose, het_test, reset_test, vif, sensemakr, rddensity, hausman_test, anderson_rubin_test, effective_f_test, tF_critical_value, evalue, evalue_from_result, diagnose_result, estat, kitagawa_test, KitagawaResult, rosenbaum_bounds, rosenbaum_gamma, RosenbaumResult, weakrobust, WeakRobustResult
 from .inference import (
     wild_cluster_bootstrap, aipw, ri_test, ipw, bootstrap, BootstrapResult,
@@ -808,6 +808,8 @@ __all__ = [
     "pwcompare",
     "test",
     "lincom",
+    "postestimation_contract",
+    "postestimation_report",
     # Mediation
     "mediate",
     "MediationAnalysis",
