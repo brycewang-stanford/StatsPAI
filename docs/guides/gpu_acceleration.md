@@ -22,7 +22,7 @@
 | Neural IV: Deep IV (Hartford et al. 2017) | `sp.deepiv` | PyTorch | same env var |
 | HDFE demean (alternating projection) | `sp.fast.demean(backend="jax")` | JAX / XLA | install `jax[cuda]` |
 | OLS / WLS with HDFE | `sp.fast.feols_jax` | JAX / XLA | install `jax[cuda]` |
-| **Bootstrap (pairs / cluster)** | `sp.fast.feols_jax_bootstrap` | JAX / XLA `vmap` | install `jax[cuda]` |
+| **Bootstrap (pairs / cluster / wild / wild_cluster)** | `sp.fast.feols_jax_bootstrap` | JAX / XLA `vmap` | install `jax[cuda]` |
 
 The CPU paths (`sp.fast.demean`, `sp.fast.feols`, `sp.fast.fepois`,
 `sp.fast.boottest`, `sp.iv`, `sp.did`, `sp.rd`, `sp.synth`, …) all
@@ -44,13 +44,24 @@ time`; on CPU JAX it's still ~equal to a numpy sequential bootstrap
 (JIT overhead amortises around B ≈ 100). The speedup curve crosses
 favourably very quickly.
 
-**Pairs bootstrap** (Efron 1979): each draw resamples *rows* with
-replacement; multinomial counts become per-row WLS weights. Asymptotic
-target: HC1 standard errors.
+**Pairs bootstrap**: each draw resamples *rows* with replacement;
+multinomial counts become per-row WLS weights. Asymptotic target:
+HC1 standard errors.
 
 **Cluster bootstrap** (Cameron, Gelbach & Miller 2008 §III.A): each
 draw resamples *clusters* with replacement; observations in a cluster
 sampled k times get weight k. Asymptotic target: CR1 standard errors.
+
+**Wild bootstrap**: each draw assigns independent Rademacher signs
+``η_i ∈ {-1, +1}`` per row and uses the *score formulation*
+``β* = β̂ + (X'WX)⁻¹ X'W (η ⊙ û)``, mathematically identical to
+refitting on ``y* = X β̂ + η ⊙ û`` but with one mat-vec per
+iteration instead of a full QR.
+
+**Wild cluster bootstrap** (Cameron, Gelbach & Miller 2008 §III.B):
+same score formulation as wild, but the Rademacher signs are drawn
+*per cluster*. The standard tool for few-cluster inference (G < 30,
+especially G < 10) where cluster bootstrap can over-reject.
 
 ```python
 import statspai as sp
@@ -162,12 +173,11 @@ Performance Shaders) when CUDA is unavailable.
 | Bayesian causal (PyMC) | NumPyro / JAX backend optional | Routing to GPU works *via PyMC*; we don't reimplement. |
 
 Future GPU candidates (open issues welcome):
+
 - **Permutation tests / placebo studies** — `vmap` over permutations is
   the obvious follow-up to bootstrap.
 - **DML cross-fitting** — k-fold parallel nuisance fits.
 - **Synthetic control matrix completion** — large-K SVD on GPU.
-- **Wild cluster bootstrap (Cameron-Gelbach-Miller §III.B)** —
-  Phase 4c; closely related to the existing pairs / cluster bootstrap.
 - **Causal forest training** — wire `xgboost` / `cuml` for tree fits.
 
 ---
