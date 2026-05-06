@@ -152,6 +152,14 @@ class TestSpPaperDispatch:
         assert tex.startswith("\\documentclass")
         assert "Question" in tex
 
+    def test_dispatch_reviewer_mode(self, panel_df):
+        q = sp.causal_question(
+            "trained", "wage", data=panel_df, design="rct",
+        )
+        draft = sp.paper(q, reviewer_mode=True)
+        assert "Reviewer Audit" in draft.sections
+        assert "Reviewer checklist" in draft.sections["Reviewer Audit"]
+
 
 # ---------------------------------------------------------------------------
 # Provenance integration

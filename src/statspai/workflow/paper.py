@@ -213,7 +213,7 @@ class PaperDraft:
         order = [
             "Question", "Data", "Identification",
             "Estimator", "Results", "Robustness",
-            "Pipeline notes", "Causal DAG", "References",
+            "Reviewer Audit", "Pipeline notes", "Causal DAG", "References",
         ]
         chunks: List[str] = []
         for title in order:
@@ -405,7 +405,7 @@ class PaperDraft:
         order = [
             "Question", "Data", "Identification",
             "Estimator", "Results", "Robustness",
-            "Pipeline notes", "Causal DAG", "References",
+            "Reviewer Audit", "Pipeline notes", "Causal DAG", "References",
         ]
         # When self.dag is set, regenerate the Causal DAG body with the
         # Quarto-native mermaid block instead of the markdown text-art.
@@ -1021,6 +1021,124 @@ def _section_from_workflow(
     return sections
 
 
+def _reviewer_audit_section(
+    *,
+    workflow: Any = None,
+    result: Any = None,
+    estimator: Optional[str] = None,
+    degradations: Optional[List[Dict[str, Any]]] = None,
+) -> str:
+    """Build a reviewer-facing audit section for a fitted draft."""
+    lines: List[str] = []
+    lines.append("**Reviewer-mode audit**")
+    lines.append("")
+
+    # Estimator registry evidence.
+    est_name = estimator
+    if not est_name and workflow is not None:
+        rec = getattr(workflow, "recommendation", None)
+        try:
+            if rec is not None and rec.recommendations:
+                est_name = rec.recommendations[0].get("function")
+        except Exception:
+            est_name = None
+    if est_name:
+        try:
+            from ..registry import describe_function
+            spec = describe_function(est_name)
+            lines.append(
+                f"- **Registry**: `sp.{est_name}` is "
+                f"`stability={spec.get('stability')}`, "
+                f"`validation_status={spec.get('validation_status')}`."
+            )
+            notes = spec.get("validation_notes") or []
+            if notes:
+                shown = "; ".join(str(n) for n in notes[:3])
+                lines.append(f"- **Validation evidence**: {shown}.")
+            limitations = spec.get("limitations") or []
+            if limitations:
+                lines.append("- **Known implementation limitations**:")
+                lines.extend(f"    - {lim}" for lim in limitations[:5])
+        except Exception as exc:
+            lines.append(
+                f"- **Registry**: lookup for `sp.{est_name}` failed "
+                f"({type(exc).__name__}: {exc})."
+            )
+
+    # Identification report.
+    diag = getattr(workflow, "diagnostics", None) if workflow is not None else None
+    if diag is not None:
+        verdict = getattr(diag, "verdict", None)
+        if verdict:
+            lines.append(f"- **Identification verdict**: `{verdict}`.")
+        findings = getattr(diag, "findings", None) or []
+        if findings:
+            lines.append("- **Identification findings to defend**:")
+            for finding in findings[:6]:
+                sev = getattr(finding, "severity", "info")
+                msg = getattr(finding, "message", str(finding))
+                lines.append(f"    - [{str(sev).upper()}] {msg}")
+
+    # Post-estimation contract.
+    target = result or getattr(workflow, "result", None)
+    if target is not None:
+        try:
+            from ..postestimation import postestimation_contract
+            contract = postestimation_contract(target)
+            available = ", ".join(sorted(contract["available"].keys())[:10])
+            lines.append(f"- **Post-estimation surface**: {available}.")
+        except Exception as exc:
+            lines.append(
+                f"- **Post-estimation surface**: unavailable "
+                f"({type(exc).__name__}: {exc})."
+            )
+
+        violations = getattr(target, "violations", None)
+        if callable(violations):
+            try:
+                v = violations()
+                if v:
+                    lines.append("- **Result violations**:")
+                    if isinstance(v, dict):
+                        iterable = list(v.items())[:8]
+                        lines.extend(f"    - `{k}`: {val}" for k, val in iterable)
+                    else:
+                        lines.append(f"    - {v}")
+                else:
+                    lines.append("- **Result violations**: none reported by result.")
+            except Exception as exc:
+                lines.append(
+                    f"- **Result violations**: check failed "
+                    f"({type(exc).__name__}: {exc})."
+                )
+
+        prov = get_provenance(target)
+        if prov is not None:
+            lines.append(
+                f"- **Provenance**: run `{prov.run_id}`, "
+                f"data hash `{prov.data_hash or 'not recorded'}`."
+            )
+        else:
+            lines.append("- **Provenance**: no attached provenance record found.")
+
+    if degradations:
+        lines.append("- **Pipeline degradations**:")
+        for item in degradations[:8]:
+            detail = f" ({item.get('detail')})" if item.get("detail") else ""
+            lines.append(
+                f"    - {item.get('section')}: {item.get('error_type')}: "
+                f"{item.get('message')}{detail}"
+            )
+
+    lines.append("")
+    lines.append("**Reviewer checklist**")
+    lines.append("- Re-run the replication script or `sp.replication_pack()` output.")
+    lines.append("- Check identification assumptions against the study design, not only the code.")
+    lines.append("- Inspect overlap, pre-trends, weak instruments, or bandwidth sensitivity when relevant.")
+    lines.append("- Confirm exported tables are generated from `tidy()`/`glance()`/`sp.collect()` artifacts.")
+    return "\n".join(lines)
+
+
 # --------------------------------------------------------------------- #
 #  Top-level entry point
 # --------------------------------------------------------------------- #
@@ -1054,6 +1172,7 @@ def paper(
     # v1.13: forwarded to sp.causal -> sp.recommend; default False
     # keeps frontier MVP estimators out of auto-generated drafts.
     allow_experimental: bool = False,
+    reviewer_mode: bool = False,
 ) -> PaperDraft:
     """End-to-end "data → publication-draft" pipeline.
 
@@ -1097,6 +1216,10 @@ def paper(
         when you are explicitly drafting a paper around frontier
         methods (e.g. ``causal_text`` or ``did_multiplegt_dyn``); the
         Pipeline notes section records what was filtered.
+    reviewer_mode : bool, default False
+        Add a "Reviewer Audit" section summarizing registry validation
+        status, identification findings, post-estimation capabilities,
+        provenance, violations, and a replication checklist.
 
     Returns
     -------
@@ -1142,6 +1265,7 @@ def paper(
             output_path=output_path,
             include_robustness=include_robustness,
             cite=cite, dag=dag,
+            reviewer_mode=reviewer_mode,
         )
 
     cols = list(data.columns)
@@ -1348,11 +1472,19 @@ def paper(
                     exc=exc,
                     detail=f"result_type={type(workflow.result).__name__}",
                 )
-    sections["References"] = (
+    references_body = (
         "\n".join(f"- {c}" for c in citations)
         if citations else "_(No explicit citations attached — see "
         "`workflow.result.cite()` if available.)_"
     )
+
+    if reviewer_mode:
+        sections["Reviewer Audit"] = _reviewer_audit_section(
+            workflow=workflow,
+            result=workflow.result,
+            degradations=degradations,
+        )
+    sections["References"] = references_body
 
     pipeline_notes: List[str] = []
     for error in pipeline_errors:
@@ -1402,6 +1534,7 @@ def paper_from_question(
     include_robustness: bool = True,
     cite: bool = True,
     dag: Any = None,
+    reviewer_mode: bool = False,
 ) -> PaperDraft:
     """Build a :class:`PaperDraft` from a :class:`CausalQuestion`.
 
@@ -1446,6 +1579,9 @@ def paper_from_question(
         Pre-built ``sp.dag`` graph. When provided, the draft's
         Identification section gains a *Causal DAG* subsection (text
         rendering for markdown / mermaid for qmd).
+    reviewer_mode : bool, default False
+        Add a reviewer-facing audit section with registry validation,
+        post-estimation capabilities, provenance, and replication checks.
 
     Returns
     -------
@@ -1621,12 +1757,22 @@ def paper_from_question(
                     exc=exc,
                     detail=f"underlying_type={type(result.underlying).__name__}",
                 )
-    sections["References"] = (
+    references_body = (
         "\n".join(f"- {c}" for c in citations)
         if citations
         else "_(No explicit citations attached — see "
              "`result.underlying.cite()` if available.)_"
     )
+
+    if reviewer_mode:
+        target = result.underlying if result.underlying is not None else result
+        sections["Reviewer Audit"] = _reviewer_audit_section(
+            workflow=None,
+            result=target,
+            estimator=plan.estimator,
+            degradations=degradations,
+        )
+    sections["References"] = references_body
 
     # DAG appendix when the user attached one.
     if dag is not None:

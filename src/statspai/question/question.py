@@ -218,7 +218,8 @@ class CausalQuestion:
               output_path: Optional[str] = None,
               dag: Any = None,
               include_robustness: bool = True,
-              cite: bool = True):
+              cite: bool = True,
+              reviewer_mode: bool = False):
         """Build a full :class:`PaperDraft` from this declared question.
 
         Convenience wrapper around :func:`statspai.paper_from_question`.
@@ -243,6 +244,7 @@ class CausalQuestion:
             include_robustness=include_robustness,
             cite=cite,
             dag=dag,
+            reviewer_mode=reviewer_mode,
         )
 
 

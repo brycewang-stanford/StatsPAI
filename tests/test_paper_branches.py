@@ -370,6 +370,20 @@ def test_paper_writes_output_path(rct_data, tmp_path):
     assert isinstance(d, PaperDraft)
 
 
+def test_paper_reviewer_mode_adds_audit_section(rct_data):
+    d = paper(
+        rct_data,
+        question="effect of trained on wage",
+        design="rct",
+        reviewer_mode=True,
+    )
+    assert "Reviewer Audit" in d.sections
+    body = d.sections["Reviewer Audit"]
+    assert "Post-estimation surface" in body
+    assert "Reviewer checklist" in body
+    assert "Registry" in body
+
+
 # --------------------------------------------------------------------- #
 #  PaperDraft.summary / to_dict surfaces
 # --------------------------------------------------------------------- #
