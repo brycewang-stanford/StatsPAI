@@ -480,7 +480,8 @@ class TARNet:
         Y_s, self._y_mean, self._y_std = _standardise(Y.reshape(-1, 1))
         Y_s = Y_s.ravel()
 
-        device = torch.device('cpu')
+        from ..utils._torch_device import resolve_torch_device
+        device = resolve_torch_device()
         x_dim = X_s.shape[1]
 
         # Build networks
@@ -539,8 +540,8 @@ class TARNet:
 
         with torch.no_grad():
             phi = repr_net(X_t)
-            mu0 = head_0(phi).squeeze().numpy()
-            mu1 = head_1(phi).squeeze().numpy()
+            mu0 = head_0(phi).squeeze().cpu().numpy()
+            mu1 = head_1(phi).squeeze().cpu().numpy()
 
         # Rescale to original Y scale
         cate = (mu1 - mu0) * self._y_std[0]
@@ -602,8 +603,8 @@ class TARNet:
 
         with torch.no_grad():
             phi = self._repr_net(X_t)
-            mu0 = self._head_0(phi).squeeze().numpy()
-            mu1 = self._head_1(phi).squeeze().numpy()
+            mu0 = self._head_0(phi).squeeze().cpu().numpy()
+            mu1 = self._head_1(phi).squeeze().cpu().numpy()
 
         return (mu1 - mu0) * self._y_std[0]
 
@@ -713,7 +714,8 @@ class CFRNet:
         Y_s, self._y_mean, self._y_std = _standardise(Y.reshape(-1, 1))
         Y_s = Y_s.ravel()
 
-        device = torch.device('cpu')
+        from ..utils._torch_device import resolve_torch_device
+        device = resolve_torch_device()
         x_dim = X_s.shape[1]
 
         repr_net, repr_dim = _build_repr_net(x_dim, self.repr_layers, self.dropout)
@@ -781,8 +783,8 @@ class CFRNet:
 
         with torch.no_grad():
             phi = repr_net(X_t)
-            mu0 = head_0(phi).squeeze().numpy()
-            mu1 = head_1(phi).squeeze().numpy()
+            mu0 = head_0(phi).squeeze().cpu().numpy()
+            mu1 = head_1(phi).squeeze().cpu().numpy()
 
         cate = (mu1 - mu0) * self._y_std[0]
         ate = float(np.mean(cate))
@@ -850,8 +852,8 @@ class CFRNet:
 
         with torch.no_grad():
             phi = self._repr_net(X_t)
-            mu0 = self._head_0(phi).squeeze().numpy()
-            mu1 = self._head_1(phi).squeeze().numpy()
+            mu0 = self._head_0(phi).squeeze().cpu().numpy()
+            mu1 = self._head_1(phi).squeeze().cpu().numpy()
 
         return (mu1 - mu0) * self._y_std[0]
 
@@ -950,7 +952,8 @@ class DragonNet:
         Y_s, self._y_mean, self._y_std = _standardise(Y.reshape(-1, 1))
         Y_s = Y_s.ravel()
 
-        device = torch.device('cpu')
+        from ..utils._torch_device import resolve_torch_device
+        device = resolve_torch_device()
         x_dim = X_s.shape[1]
 
         # Build three-headed network
@@ -1051,9 +1054,9 @@ class DragonNet:
 
         with torch.no_grad():
             phi = repr_net(X_t)
-            mu0 = head_0(phi).squeeze().numpy()
-            mu1 = head_1(phi).squeeze().numpy()
-            e_hat = prop_head(phi).squeeze().numpy()
+            mu0 = head_0(phi).squeeze().cpu().numpy()
+            mu1 = head_1(phi).squeeze().cpu().numpy()
+            e_hat = prop_head(phi).squeeze().cpu().numpy()
             e_hat = np.clip(e_hat, 0.01, 0.99)
 
         # Rescale outcomes to original Y scale
@@ -1144,8 +1147,8 @@ class DragonNet:
 
         with torch.no_grad():
             phi = self._repr_net(X_t)
-            mu0 = self._head_0(phi).squeeze().numpy()
-            mu1 = self._head_1(phi).squeeze().numpy()
+            mu0 = self._head_0(phi).squeeze().cpu().numpy()
+            mu1 = self._head_1(phi).squeeze().cpu().numpy()
 
         return (mu1 - mu0) * self._y_std[0]
 
@@ -1180,7 +1183,7 @@ class DragonNet:
 
         with torch.no_grad():
             phi = self._repr_net(X_t)
-            e = self._prop_head(phi).squeeze().numpy()
+            e = self._prop_head(phi).squeeze().cpu().numpy()
 
         return np.clip(e, 0.01, 0.99)
 

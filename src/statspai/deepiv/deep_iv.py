@@ -342,7 +342,8 @@ class DeepIV:
         Z_s = (Z - Z_means) / Z_stds
         X_s = (X - X_means) / X_stds
 
-        device = torch.device('cpu')
+        from ..utils._torch_device import resolve_torch_device
+        device = resolve_torch_device()
 
         # ---------------------------------------------------------------
         # Stage 1: Mixture Density Network for P(T | Z, X)
@@ -473,8 +474,8 @@ class DeepIV:
             tx0 = torch.cat([t0_vec, X_t], dim=1)
             tx1 = torch.cat([t1_vec, X_t], dim=1)
 
-            y0 = response_net(tx0).squeeze().numpy()
-            y1 = response_net(tx1).squeeze().numpy()
+            y0 = response_net(tx0).squeeze().cpu().numpy()
+            y1 = response_net(tx1).squeeze().cpu().numpy()
 
         # Rescale back to original Y scale
         effects = (y1 - y0) * self._y_std
@@ -504,8 +505,8 @@ class DeepIV:
                 tv1 = torch.full((n, 1), t_up, dtype=torch.float32, device=device)
                 txv0 = torch.cat([tv0, X_t], dim=1)
                 txv1 = torch.cat([tv1, X_t], dim=1)
-                eff = (response_net(txv1).squeeze().numpy()
-                       - response_net(txv0).squeeze().numpy()) * self._y_std
+                eff = (response_net(txv1).squeeze().cpu().numpy()
+                       - response_net(txv0).squeeze().cpu().numpy()) * self._y_std
             t_level = self._t_mean + delta_sd * self._t_std
             detail_rows.append({
                 'treatment_level': round(float(t_level), 4),
@@ -591,14 +592,15 @@ class DeepIV:
         t1_s = (t1 - self._t_mean) / self._t_std
         n = len(X_s)
 
-        device = torch.device('cpu')
+        from ..utils._torch_device import resolve_torch_device
+        device = resolve_torch_device()
         X_t = torch.tensor(X_s, dtype=torch.float32, device=device)
 
         with torch.no_grad():
             tv0 = torch.full((n, 1), t0_s, dtype=torch.float32, device=device)
             tv1 = torch.full((n, 1), t1_s, dtype=torch.float32, device=device)
-            y0 = self._response_net(torch.cat([tv0, X_t], dim=1)).squeeze().numpy()
-            y1 = self._response_net(torch.cat([tv1, X_t], dim=1)).squeeze().numpy()
+            y0 = self._response_net(torch.cat([tv0, X_t], dim=1)).squeeze().cpu().numpy()
+            y1 = self._response_net(torch.cat([tv1, X_t], dim=1)).squeeze().cpu().numpy()
 
         return (y1 - y0) * self._y_std
 

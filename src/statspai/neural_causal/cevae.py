@@ -82,7 +82,8 @@ class CEVAE:
         import torch.nn.functional as F
 
         torch.manual_seed(self.seed or 0)
-        device = torch.device("cpu")
+        from ..utils._torch_device import resolve_torch_device
+        device = resolve_torch_device()
 
         Xt = torch.tensor(X, dtype=torch.float32, device=device)
         tt = torch.tensor(t, dtype=torch.float32, device=device).unsqueeze(-1)

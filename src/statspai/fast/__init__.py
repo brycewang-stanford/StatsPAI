@@ -38,6 +38,11 @@ except ImportError:  # pragma: no cover
     def jax_device_info() -> str:
         return "jax: not installed"
 
+# Torch device diagnostic — mirrors jax_device_info for the optional
+# neural backends (deepiv / neural_causal / cevae). See
+# ``utils/_torch_device.py`` for the resolution policy.
+from ..utils._torch_device import torch_device_info  # noqa: F401
+
 # Polars / Arrow direct path is optional; only loaded if polars is installed.
 try:
     from .polars_io import demean_polars, fepois_polars  # noqa: F401
@@ -75,6 +80,7 @@ __all__ = [
     'event_study',
     'EventStudyResult',
     'jax_device_info',
+    'torch_device_info',
     'etable',
     'demean_polars',
     'fepois_polars',
