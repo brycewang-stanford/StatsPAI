@@ -1,519 +1,176 @@
 ---
-title: 'StatsPAI: A Unified, Agent-Native Python Toolkit for Causal Inference and Applied Econometrics'
+title: 'StatsPAI: An Agent-Native Python Toolkit for Causal Inference and Applied Econometrics'
 tags:
   - Python
   - causal inference
   - econometrics
-  - difference-in-differences
-  - regression discontinuity
-  - synthetic control
-  - stochastic frontier
-  - mixed-effects models
-  - decomposition analysis
+  - policy evaluation
   - machine learning
-  - heterogeneous treatment effects
+  - reproducible research
 authors:
   - name: Biaoyue Wang
     orcid: 0000-0002-1828-2208
+    email: brycew6m@stanford.edu
     corresponding: true
     affiliation: "1, 2"
+  - name: Scott Rozelle
+    email: rozelle@stanford.edu
+    affiliation: "1, 2"
 affiliations:
-  - name: StatsPAI
+  - name: Rural Education Action Program, Stanford Center on China's Economy and Institutions, Stanford University, United States
     index: 1
-  - name: Stanford REAP Program, Stanford University, United States
-    index: 2
     ror: 00f54p054
-date: 1 May 2026
+  - name: StatsPAI Inc., United States
+    index: 2
+date: 9 May 2026
 bibliography: paper.bib
 ---
 
 # Summary
 
-`StatsPAI` is an open-source Python package providing a unified API for
-causal inference and applied econometrics. A single import
-(`import statspai as sp`) exposes **950+ public functions** spanning
-classical econometric models, modern ML-based causal methods, stochastic
-frontier analysis, multilevel mixed-effects models, decomposition
-analysis, and publication-ready output generation. The package
-consolidates functionality that previously required dozens of separate
-R packages (`did`, `rdrobust`, `Synth`, `sfaR`, `lme4`, `oaxaca`,
-`ddecompose`, `mlogit`, `grf`, …) or proprietary software such as
-Stata (`frontier`, `xtfrontier`, `mixed`, `meglm`, `mixlogit`, `ivqreg`,
-…) into one coherent library. Uniquely, `StatsPAI` is *agent-native*:
-every function exposes structured result objects and machine-readable
-schemas (`list_functions()`, `describe_function()`, `function_schema()`),
-making it the first econometrics toolkit purpose-built for LLM-driven
-research workflows while remaining fully ergonomic for human researchers.
+`StatsPAI` is an open-source Python package for causal inference and
+applied econometrics. It gives empirical researchers a single interface
+for estimating, diagnosing, comparing, and reporting models that are
+usually spread across many specialized packages or proprietary
+statistical environments. The package currently exposes more than 950
+registered functions across more than 80 submodules, covering classical
+regression, instrumental variables, panel data, difference-in-differences,
+regression discontinuity, synthetic control, matching,
+stochastic frontier analysis, mixed-effects models, decomposition
+methods, sensitivity analysis, and modern machine-learning estimators
+for heterogeneous treatment effects.
+
+The package is designed for policy evaluation, social science research,
+and other empirical workflows where researchers must move between
+research design, estimation, diagnostics, robustness checks, and
+publication tables. A common result contract gives users `.summary()`,
+`.plot()`, `.to_latex()`, `.to_docx()`, and `.cite()` methods where
+appropriate. `StatsPAI` is also agent-native: registered functions
+expose machine-readable schemas and structured failure metadata so that
+LLM-driven research assistants can discover estimators, choose among
+alternatives, and surface assumptions without parsing free-form prose.
+The source code is available at
+[https://github.com/brycewang-stanford/statspai](https://github.com/brycewang-stanford/statspai).
 
 # Statement of Need
 
-Empirical researchers face a fragmented software landscape for causal
-inference and applied econometrics. Stata offers a broad but proprietary
-and closed ecosystem that lacks modern ML causal methods and exposes no
-programmatic schema for AI agent integration. R scatters equivalent
-functionality across twenty or more packages with incompatible APIs,
-data structures, and output conventions. Python's existing libraries
-occupy non-overlapping niches: `DoWhy` [@sharma2020dowhy] emphasises
-causal graphs and assumption refutation; `EconML` [@econml] focuses on
-ML-based heterogeneous treatment effects; `CausalML` [@chen2020causalml]
-specialises in uplift modelling; `DoubleML` [@bach2022doubleml] provides
-selected double/debiased ML estimators; `linearmodels` covers IV and
-panel estimation. None provides the full empirical workflow---from OLS
-and panel models through DID, RD, synthetic control, decomposition,
-stochastic frontier, and mixed-effects models to publication tables in
-Word, Excel, and LaTeX---in a single interface.
+Applied researchers face a fragmented software landscape. Stata offers
+an integrated workflow, but it is proprietary and does not expose a
+typed, machine-readable interface for AI-assisted analysis. R provides
+excellent method-specific packages such as `did`, `rdrobust`, `Synth`,
+`grf`, and `lme4`, but these packages use different APIs, object
+systems, output conventions, and diagnostic workflows
+[@callaway2021difference; @calonico2014robust; @abadie2010synthetic;
+@wager2018estimation; @bates2015lme4]. Python has strong pieces of the
+causal inference ecosystem, including `DoWhy` for graphical causal
+models [@sharma2020dowhy], `EconML` for machine-learning treatment
+effect estimation [@econml], `CausalML` for uplift modeling
+[@chen2020causalml], and `DoubleML` for double/debiased machine
+learning [@bach2022doubleml]. None of these tools, however, is intended
+to cover the full applied-econometrics workflow from design diagnosis
+through estimation, robustness, and publication output.
 
-`StatsPAI` addresses this gap for applied researchers who need to move
-fluidly between classical and modern methods, and for AI coding agents
-that discover and invoke statistical functions through self-describing
-schemas.
+`StatsPAI` addresses this gap for graduate students, applied
+economists, policy researchers, and data scientists who want a
+Python-native workflow without giving up the breadth of Stata or the
+methodological depth of R. Its goal is not to replace every specialized
+implementation. Instead, it provides a coherent empirical workspace:
+shared formula conventions, common result objects, consistent export
+methods, citations attached to estimators, and validation metadata that
+make the relationship between methods, assumptions, and evidence
+explicit.
 
 # State of the Field
 
-Several Python packages address parts of the causal inference pipeline.
-`DoWhy` [@sharma2020dowhy] provides a graph-based framework for causal
-assumptions but does not implement econometric estimators such as DID,
-RD, or IV. `EconML` [@econml] offers ML-based heterogeneous treatment
-effect estimators (DML, causal forests, DR-Learner) yet omits classical
-regression, panel methods, and publication output. `DoubleML`
-[@bach2022doubleml] implements Chernozhukov et al.'s double/debiased ML
-for partially linear and interactive regression models but not, until
-`StatsPAI` 0.9.3, the partially linear IV variant. `CausalML`
-[@chen2020causalml] targets uplift modelling for marketing applications.
-On the R side, packages like `did` [@callaway2021difference],
-`rdrobust` [@calonico2014robust], `Synth` [@abadie2010synthetic],
-`sfaR`, `lme4` [@bates2015lme4], `oaxaca`, and `grf`
-[@wager2018estimation] each excel in one method family but require
-users to learn separate APIs and data structures. Stata remains the
-most integrated platform for applied economists, yet it is
-proprietary, lacks native ML causal methods, and offers no
-programmatic schema for AI agent integration.
+Existing Python packages are strongest when they focus on a narrower
+problem. `DoWhy` emphasizes identification, graphical assumptions, and
+refutation; `EconML` and `CausalML` focus on heterogeneous effects and
+uplift modeling; `DoubleML` implements orthogonal-score estimators for a
+well-defined family of double machine-learning designs. These packages
+are complementary to `StatsPAI`, and several ideas in `StatsPAI` follow
+the same methodological literature, including double/debiased machine
+learning [@chernozhukov2018double], causal forests
+[@wager2018estimation], and meta-learners [@kunzel2019metalearners].
 
-No existing package unifies classical econometric models, modern
-ML-based causal estimators, stochastic frontier analysis,
-multilevel/mixed-effects models, decomposition analysis, sensitivity
-analysis, and publication-ready output within a single API---nor
-exposes machine-readable function schemas for LLM-driven workflows.
-`StatsPAI` fills this gap.
-
-The synthetic-control sub-ecosystem in particular is fragmented across
-languages and packages: R offers `Synth` [@abadie2010synthetic] for the
-classical estimator, `gsynth` [@xu2017generalized] for interactive
-fixed effects, `augsynth` [@benmichael2021augmented] for the augmented
-estimator, `synthdid` [@arkhangelsky2021synthetic] for synthetic DID,
-`scpi` [@cattaneo2025scpi] for prediction intervals, and `fect`
-[@liu2024practical] for unified counterfactual diagnostics. Stata
-exposes parallel implementations including the `sdid` package
-[@clarke2024synthetic]. `StatsPAI`'s `sp.synth(method=...)` dispatcher
-folds these methodological branches into a single Python entry point
-with shared input/output schema, common diagnostics, and the
-`SynthComparison` object that runs the entire menu and recommends
-an estimator under pre-RMSPE / parsimony tie-breaking---a workflow
-unavailable in any single existing package.
+The build-versus-contribute case for `StatsPAI` is therefore about
+scope and interface rather than a single estimator. Contributing one
+more estimator to each existing project would still leave users with
+many incompatible result classes, separate diagnostic conventions, and
+no unified agent-facing schema. `StatsPAI` contributes an integration
+layer with substantive statistical content: broad method coverage,
+shared reporting, explicit estimator citations, stable/experimental API
+metadata, cross-language parity checks, and an LLM-oriented registry
+that can expose statistical tools safely to automated workflows.
 
 # Software Design
 
-`StatsPAI` is organised into roughly fifty modular subpackages. All
-functions return structured result objects inheriting from
-`CausalResult` or `EconometricResults`, providing a consistent
-interface: `.summary()`, `.plot()`, `.to_latex()`, `.to_docx()`, and
-`.cite()`.
+`StatsPAI` is organized around method families and a registry layer.
+Researchers can call focused functions, such as an IV or
+regression-discontinuity estimator, or use higher-level dispatchers that select
+among variants within a design family. The registry records function
+names, parameters, examples, stability tiers, limitations, citations,
+and schema information. This makes the package usable both from a
+notebook and from external systems such as a Model Context Protocol
+server.
 
-**Methodological coverage** includes:
+The central design choice is a shared result interface. Estimators
+return structured objects that store coefficients, uncertainty
+estimates, diagnostics, fitted values, plots, and exporter hooks in
+predictable locations. This reduces the switching cost between classical
+econometric estimators and modern machine-learning estimators, and it
+also makes validation easier because tests can compare common fields
+across implementations.
 
-- **Classical regression and panel:** OLS/IV/panel/GLM,
-  fixed-effect high-dimensional estimation.
-- **Instrumental variables (24+ estimators, v1.14 modern reporting
-  bundle):** k-class 2SLS / LIML / Fuller / GMM / JIVE; modern JIVE
-  variants (UJIVE, IJIVE, RJIVE) and many-weak-instrument inference
-  via Mikusheva--Sun jackknife AR / LM
-  [@mikusheva2022inference; @mikusheva2024weak]; post-Lasso BCH
-  [@chernozhukov2013inference]; non-parametric IV (Newey--Powell;
-  kernel IV; DeepIV; IV-DML); Bayesian IV (Chernozhukov--Hong);
-  marginal treatment effects and the Mogstad--Santos--Torgovitsky
-  partial-identification linear program
-  [@brinch2017beyond]; quantile IV (Chernozhukov--Hansen 2005/06/08);
-  shift-share / Bartik with quasi-experimental shock-level inference
-  [@borusyak2022quasi; @borusyak2025practical] and Adão--Kolesár--
-  Morales corrected SEs [@adao2019shift]; recentered shift-share
-  under non-random exposure to exogenous shocks [@borusyak2023nonrandom];
-  Conley--Hansen--Rossi plausibly-exogenous LTZ / UCI sensitivity
-  [@conley2012plausibly; @vankippersluis2018beyond]; Masten--Poirier
-  falsification-adaptive set [@masten2021salvaging]. The unified
-  reporting bundle `sp.iv.iv_diag` (new in v1.14, port of R `ivDiag`
-  [@lal2024much]) returns 2SLS analytic + pairs / wild bootstrap CIs
-  [@young2022consistency], the Olea--Pflueger effective F
-  [@olea2013robust], the Lee--McCrary--Moreira--Porter (2022) tF
-  adjusted critical value [@lee2022valid], the Anderson--Rubin /
-  Moreira CLR / Kleibergen K confidence sets
-  [@anderson1949estimation; @moreira2003conditional; @kleibergen2002pivotal],
-  Kleibergen--Paap rk LM / Wald F [@kleibergen2006generalized],
-  Conley--Hansen--Rossi LTZ sensitivity, and a Blandhol--Bonney--
-  Mogstad--Torgovitsky / Słoczyński negative-weight `TSLS-as-LATE`
-  caveat [@blandhol2025tsls; @sloczynski2024should] in a single
-  `IVDiagResult` with `.summary()`, `.to_frame()`, `.to_latex()`,
-  `.to_excel()`, `.to_word()`, and `.plot('diagnostic'|'forest'|
-  'weak_iv'|'first_stage')` for publication-ready output. Companion
-  `sp.iv.iv_compare(formula, methods=...)` runs k-class / JIVE
-  estimators side-by-side. The modern post-2022 reporting checklist
-  follows Keane--Neal [@keane2024practical] and Lal--Lockhart--Xu--Zu
-  [@lal2024much].
-- **Difference-in-differences (10+ variants):** Callaway and Sant'Anna
-  [@callaway2021difference], Sun and Abraham [@sun2021estimating],
-  Borusyak--Jaravel--Spiess imputation, de Chaisemartin--D'Haultfoeuille,
-  ETWFE, Goodman-Bacon decomposition [@goodmanbacon2021difference], and
-  Rambachan--Roth honest-parallel-trends sensitivity.
-- **Regression discontinuity (25+ estimators, v1.15):** sharp / fuzzy /
-  kink RD with bias-corrected robust inference [@calonico2014robust],
-  including the CCT-2018 ratio bandwidth ``rho``; covariate-adjusted
-  local polynomials [@cattaneopalomba2025covariates]; flexible
-  (machine-learning) covariate adjustment via cross-fit residualisation
-  (``sp.rd_flex``) [@noack2025flexible]; 2D / boundary RD
-  [@cattaneo2025boundary]; multi-cutoff and multi-score designs;
-  honest confidence intervals [@armstrong2018optimal;
-  @armstrong2020simple]; honest inference for *discrete* running
-  variables (``sp.rd_discrete``) [@kolesar2018inference];
-  bias-aware fuzzy CIs robust to weak first stages
-  (``sp.rd_bias_aware_fuzzy``) [@noack2024biasaware], with built-in
-  warnings flagging the power asymmetry of conventional fuzzy
-  2SLS-style CIs documented by [@kaliski2025power]; local
-  randomisation (``rdrandinf``, ``rdwinselect``, ``rdsensitivity``);
-  boundary-adaptive Cattaneo--Jansson--Ma density tests
-  [@cattaneo2020simple] for manipulation; Rosenbaum bounds; CATE via
-  ``rdhte`` [@calonico2025rdhte] and ML variants (``rd_forest``,
-  ``rd_boost``, ``rd_lasso``); Angrist--Rokkanen extrapolation; power
-  analysis (``rdpower``, ``rdsampsi``).  Reporting helpers
-  ``sp.rd_dashboard`` (4-panel diagnostic plot following the
-  recommendations of [@calonico2015optimal; @cattaneo2024extensions]),
-  ``sp.rd_compare`` (multi-method side-by-side estimation), and
-  ``sp.rd_robustness_table`` (kernel × bandwidth × polynomial × donut
-  sweep with native ``.to_latex()`` / ``.to_excel()`` export) package
-  the standard best-practice RD reporting workflow into one call.
-- **Synthetic control (20 estimators + 6 inference strategies):**
-  the unified `sp.synth(method=...)` dispatcher covers classical SCM
-  [@abadie2010synthetic], penalised / ridge SCM, Ferman--Pinto
-  de-meaned SCM under imperfect pre-fit [@ferman2021synthetic],
-  Doudchenko--Imbens unconstrained / elastic-net SCM
-  [@doudchenko2016balancing], Augmented SCM
-  [@benmichael2021augmented], Synthetic Difference-in-Differences
-  [@arkhangelsky2021synthetic] with a separate
-  staggered-adoption estimator `sp.sequential_sdid`, the
-  Ben-Michael--Feller--Rothstein partially-pooled staggered SCM
-  [@benmichael2022synthetic], generalised SCM with interactive
-  fixed effects [@xu2017generalized], matrix-completion SCM
-  [@athey2021matrix], distributional SCM [@gunsilius2023distributional],
-  multi-outcome SCM [@sun2023multiple], penalised SCM with
-  pairwise discrepancy [@abadie2021penalized], forward DID
-  [@li2024forward], cluster SCM with donor selection
-  [@rho2025clustersc], sparse / LASSO SCM, kernel and kernel-ridge
-  SCM, Bayesian SCM, BSTS / CausalImpact
-  [@brodersen2015inferring], synthetic survival control, and SC for
-  experimental design. Two complementary inference paths are
-  built in: prediction intervals
-  [@cattaneo2021prediction; @cattaneo2025scpi] via `sp.scpi`, which
-  combine in-sample and out-of-sample uncertainty, and the
-  Chernozhukov--Wüthrich--Zhu permutation-residual conformal test
-  [@chernozhukov2021exact] via `sp.conformal_synth`. A research
-  workflow---`sp.synth_compare`, `sp.synth_recommend`,
-  `sp.synth_power`, `sp.synth_mde`, `sp.synth_sensitivity`, and
-  `sp.synth_report`---runs all variants side-by-side, recommends
-  the best estimator under pre-RMSPE / parsimony tie-breaking,
-  computes minimum detectable effects, and packages the standard
-  diagnostic suite (leave-one-out, in-time placebos, donor-pool
-  bootstrap, RMSPE-filtered placebos) into a single Markdown / LaTeX /
-  text report. New in v1.13 the publication-grade exporters
-  `sp.synth_to_latex`, `sp.synth_to_markdown` and `sp.synth_to_excel`
-  emit booktabs LaTeX, pandoc Markdown and a multi-sheet Excel
-  workbook (estimates, weights, gap series, diagnostics) for any
-  single result or `SynthComparison` object; `sp.synthplot(...,
-  pi_band=True, pre_band=True)` overlays the prediction-interval
-  ribbon and a $\pm 1.96 \times$pre-RMSPE noise envelope on the
-  trajectory and gap plots. Pedagogical positioning follows the
-  Abadie (2021) JEL review and the Abadie--Cattaneo (2021)
-  *JASA* special-section editorial
-  [@abadie2021synthetic; @abadiecattaneo2021introduction], with
-  staggered-adoption diagnostics aligned to Liu--Wang--Xu's
-  practical guide [@liu2024practical] and Stata `sdid` [@clarke2024synthetic].
-- **Decomposition analysis (19 methods, v0.9.2 / refreshed v1.15):**
-  Blinder--Oaxaca [@blinder1973wage; @oaxaca1973male] with five
-  reference-coefficient conventions [@neumark1988employers;
-  @cotton1988estimation; @reimers1983labor; @jann2008blinder],
-  Gelbach (2016) sequential OVB [@gelbach2016covariates],
-  Fairlie (1999/2005) nonlinear [@fairlie2005extension],
-  Bauer--Sinning (2008) [@bauer2008extension],
-  Firpo--Fortin--Lemieux (2009, 2018) RIF and two-step
-  [@firpo2009unconditional; @firpo2018decomposing],
-  DiNardo--Fortin--Lemieux (1996) reweighting [@dinardo1996labor],
-  Machado--Mata (2005) [@machado2005counterfactual],
-  Melly (2005) [@melly2005decomposition],
-  Chernozhukov--Fernández-Val--Melly (2013) distribution regression
-  [@chernozhukov2013inference], Theil/Atkinson/Dagum--Gini
-  decompositions with closed-form influence functions
-  [@cowell2007income; @shorrocks1980class],
-  Shorrocks--Shapley allocation [@shorrocks2013decomposition],
-  Lerman--Yitzhaki source decomposition [@lerman1985income],
-  Kitagawa (1955) and Das Gupta (1993) demographic standardisation
-  [@kitagawa1955components; @dasgupta1993standardization;
-  @kroger2021kitagawa; @oaxaca2025meets], Lundberg (2021)
-  gap-closing [@lundberg2021gap], VanderWeele
-  mediation/disparity decomposition [@vanderweele2014unification;
-  @jackson2018decomposition], and Yu--Elwert (2025) nonparametric
-  causal decomposition of group disparities into baseline,
-  prevalence, average-effect, and selection mechanisms with efficient
-  influence functions [@yu2025nonparametric] — implemented as both
-  a plug-in and a doubly-robust (cross-fit) estimator. v1.15 added a
-  unified ``DecompResultMixin`` so every result class shares
-  ``.cite()``, ``.confint()``, ``.to_dict()``, ``.to_excel()``, and
-  ``.to_word()`` exporters; plots adopt a common palette and add
-  forest, mediation-forest, and Yu--Elwert mechanism charts with
-  optional 95\% CI whiskers. Reference parity is provided against
-  Stata's ``oaxaca``/``rifreg``/``ddecompose`` and R's
-  ``ddecompose``/``oaxaca``/``cdgd`` packages.
-- **Stochastic frontier analysis (v0.9.3):** cross-sectional `sp.frontier`
-  with half-normal/exponential/truncated-normal, heteroskedastic
-  inefficiency (Caudill--Ford--Gropper 1995) and noise (Wang 2002),
-  Battese--Coelli (1995) inefficiency determinants, Battese--Coelli
-  (1988) and JLMS technical efficiency, Kodde--Palm (1986) mixed-$\bar
-  \chi^2$ LR test; panel `sp.xtfrontier` with Pitt--Lee (1981),
-  Battese--Coelli (1992) time-decay, Battese--Coelli (1995),
-  Greene (2005) true fixed/random effects, and Dhaene--Jochmans (2015)
-  split-panel jackknife bias correction; Kumbhakar--Parmeter--Tsionas
-  (2013) Zero-Inefficiency SFA (`sp.zisf`); Orea--Kumbhakar (2004) /
-  Greene (2005) Latent-Class SFA (`sp.lcsf`); Färe--Grosskopf--Lindgren--
-  Roos (1994) Malmquist TFP index (`sp.malmquist`); Cobb--Douglas →
-  translog design helper (`sp.translog_design`).
-- **Multilevel / mixed-effects (v0.9.3):** `sp.mixed` linear mixed models
-  with unstructured random-effect covariance (default), three-level
-  nested models, BLUP posterior standard errors, Nakagawa--Schielzeth
-  marginal and conditional $R^2$; `sp.melogit` / `sp.mepoisson` /
-  `sp.meglm` / `sp.megamma` / `sp.menbreg` / `sp.meologit` GLMMs fitted
-  by Laplace approximation or adaptive Gauss--Hermite quadrature
-  (AGHQ, `nAGQ>1`) matching Stata `intpoints()` and R `lme4::glmer`
-  semantics; `sp.icc` intra-class correlation with delta-method CI;
-  `sp.lrtest` with Self--Liang mixed-$\bar\chi^2$ boundary correction.
-  A critical Jondrow-posterior sign error in all prior frontier
-  implementations is fixed in 0.9.3; efficiency scores computed on
-  any prior version should be re-estimated.
-- **Modern ML causal inference (refreshed v1.13):** double/debiased ML
-  [@chernozhukov2018double; @bach2024doubleml] with PLR / IRM / PLIV /
-  IIVM under one `sp.dml(model=...)` dispatcher; causal forests
-  [@wager2018estimation]; meta-learners S/T/X/R/DR
-  [@kunzel2019metalearners; @nie2021quasi]; TMLE
-  [@vanderlaan2011targeted]; neural causal models (TARNet, CFRNet,
-  DragonNet) [@shalit2017estimating; @shi2019adapting]; causal discovery
-  (NOTEARS [@zheng2018dags], PC, LiNGAM, GES, FCI, ICP, PCMCI / LPCMCI
-  / DYNOTEARS); policy trees [@athey2021policy]; Bayesian causal forests
-  [@hahn2020bayesian]; matrix completion [@athey2021matrix]; conformal
-  inference for causal effects [@lei2021conformal]; proximal causal
-  inference; dose--response curves; dynamic-treatment regimes;
-  interference and spillover. The v1.13 release adds five
-  cross-cutting upgrades that the package needed to compete with
-  DoubleML / EconML / grf / lmtp on the 2024--2026 reporting frontier:
-  (i) `sp.dml_sensitivity()` ships the Chernozhukov--Cinelli--Newey
-  ``Long Story Short'' DML-OVB sensitivity bound
-  [@chernozhukov2022long], returning the robustness value $\mathrm{RV}_q$,
-  the significance-loss value $\mathrm{RV}_{q,\alpha}$, scenario
-  bias bounds, benchmark-covariate comparisons, and a
-  bias-contour `plot()` that mirrors the R `sensemakr` interface;
-  (ii) `sp.dml_diagnostics()` bundles overlap, score-density,
-  residual-balance, and orthogonality-test reports with a single 2$\times$2
-  publication panel matching DoubleML's defaults
-  [@bach2024doubleml]; (iii) `sp.cate_eval()` computes the
-  Yadlowsky--Fleming--Shah--Brunskill--Wager Rank-weighted Average
-  Treatment Effect (RATE / AUTOC / Qini) [@yadlowsky2025evaluating]
-  with closed-form influence-function standard errors for *any*
-  CATE array, decoupling the metric from the forest backbone so
-  meta-learner, BCF, conformal-CATE and neural-CATE estimates can
-  all be ranked on the same footing; (iv) the causal-forest
-  `best_linear_projection()` is rewritten to use the
-  Semenova--Chernozhukov AIPW pseudo-outcome
-  $\Gamma_i$ [@semenova2021debiased] with HC1 standard errors,
-  fixing an anti-conservative SE bug in the previous plug-in
-  implementation; and (v) every `causal_discovery` algorithm
-  (NOTEARS, PC, LiNGAM, GES, FCI, ICP, PCMCI / LPCMCI / DYNOTEARS)
-  now exposes `.to_networkx()` / `.to_dot()` / `.plot()` /
-  `.edge_list()`, and `sp.policy_tree()` returns a `PolicyTreeResult`
-  with influence-function SE on the policy value and a Graphviz-style
-  `plot_tree()`.
-- **Classical and modern econometrics beyond causal inference:**
-  mixed-logit random-coefficient multinomial choice (`sp.mixlogit`,
-  v0.9.3); instrumental-variable quantile regression
-  (`sp.ivqreg`, Chernozhukov--Hansen 2005/06/08, v0.9.3); propensity
-  score matching [@rosenbaum1983central]; matching estimators; spatial
-  econometrics (weights, ESDA, ML/GMM, GWR, MGWR, spatial panel);
-  time-series (ARIMA, VAR, BVAR, GARCH, cointegration, local
-  projections, structural break); survival (Cox, AFT, frailty);
-  survey calibration and complex-survey regression; bunching;
-  Mendelian randomisation.
-- **Sensitivity analysis:** Oster [@oster2019unobservable]; sensemakr
-  [@cinelli2020making]; E-values [@vanderweele2017sensitivity];
-  Rosenbaum bounds; Manski bounds; specification curve analysis
-  [@simonsohn2020specification] via `sp.spec_curve()`; and
-  `sp.robustness_report()` batteries.
-
-**Unique features** include:
-
-1. A **Smart Workflow Engine** (`sp.recommend()` suggests estimators
-   given data and research questions; `sp.compare_estimators()` runs
-   multiple methods on the same data; `sp.assumption_audit()` tests
-   all assumptions in one call; `sp.verify()` / `sp.verify_benchmark()`
-   aggregate bootstrap stability, placebo pass rate, and subsample
-   agreement into a posterior `verify_score ∈ [0, 100]` for any
-   recommendation, new in v0.9.3).
-2. **Specification curve analysis** [@simonsohn2020specification] via
-   `sp.spec_curve()` and automated robustness batteries via
-   `sp.robustness_report()`.
-3. **Publication-ready output** to Word, Excel, LaTeX, and HTML via
-   `sp.modelsummary()` and `sp.outreg2()`; every result object
-   supports `.to_latex()`, `.to_docx()`, and `.cite()`.
-4. An **agent-native API** with `sp.function_schema()` returning JSON
-   schemas for all 950+ functions, and `sp.list_functions()` /
-   `sp.describe_function()` for discoverability. Since v1.9.0 this
-   surface includes `sp.detect_design()` (heuristic shape
-   identification), `sp.preflight()` (cheap pre-estimation gate),
-   `sp.audit()` (missing-evidence checklist for fitted results),
-   `sp.session()` (deterministic-RNG context manager),
-   `result.brief()` (one-line dashboard view),
-   `result.cite(format="bibtex"|"apa"|"json")` and `sp.bib_for()`
-   (zero-hallucination multi-format citations), `sp.examples()`
-   (runnable code snippets), plus a Model Context Protocol server
-   (`statspai-mcp`) exposing every estimator as a typed tool with
-   structured exception envelopes (`error_kind` /
-   `recovery_hint` / `alternative_functions`) so LLM agents can
-   branch on typed failure codes rather than regex-parsing prose.
-   Versions 1.10--1.14 extend this surface with an estimand-first
-   DSL (`sp.causal_question(...)` routes a research question to an
-   appropriate estimator and emits a shared robustness audit),
-   built-in Stata-to-Python and R-to-Python translators (covering
-   roughly 95% of common applied-econometrics Stata commands and
-   the `lme4` / `plm` / `MatchIt` / base-GLM idioms in R) that the
-   MCP server uses to map external code into StatsPAI tool calls,
-   a concurrent MCP runner with per-tool timeouts and
-   progress notifications, and `sp.citation()` together with a
-   `paper.bib`-checked DOI verifier that refuses to emit citations
-   not present in the curated bibliography.
-5. **Selective accelerator backends.** Three workloads opt into
-   accelerators without changing the public API: neural causal
-   estimators route through PyTorch CUDA / MPS via the
-   `STATSPAI_TORCH_DEVICE` environment variable;
-   `sp.fast.feols_jax` runs end-to-end OLS on JAX / XLA; and
-   `sp.fast.feols_jax_bootstrap` lifts a JIT-compiled WLS kernel to
-   a `jax.vmap` batched primitive for pairs, cluster, wild, and
-   wild-cluster bootstrap [@cameron2008bootstrap], delivering a
-   10--100x speedup over sequential CPU bootstrap on CUDA / TPU
-   at $B \geq 1{,}000$. The rest of the package is CPU-only by
-   design (DiD, RD, synth, GMM are bandwidth-bound or small-$K$
-   convex programs); a Rust + Rayon `cluster_meat` kernel and the
-   new `sp.iv(absorb=...)` HDFE-2SLS path keep the CPU side
-   competitive. The unified architecture story is documented in
-   the JSS companion paper.
-
-The package is implemented in pure Python atop NumPy, SciPy, Pandas,
-statsmodels, scikit-learn, and linearmodels, with optional PyTorch and
-JAX backends and a Rust HDFE / cluster-meat kernel
-(`statspai_hdfe`, PyO3 + Rayon) that the Python wrappers prefer when
-built and silently fall through when absent. It supports Python
-$\geq$ 3.9 and is distributed via PyPI under the MIT license.
-
-# Validation
-
-We validate `StatsPAI` through replication of published results on
-real datasets, cross-validation against established reference
-implementations, and Monte Carlo coverage studies.
-
-**Card (1995).** Using the Wooldridge textbook dataset ($N = 3{,}010$),
-we replicate the IV returns-to-schooling estimate from Angrist and
-Pischke [@angrist2009mostly] Table 4.1.1. `StatsPAI` produces
-$\hat\beta_{\text{OLS}} = 0.074$ (published: 0.075) and
-$\hat\beta_{\text{IV}} = 0.132$ (published: 0.132), matching within
-rounding precision. The same specification fed into
-`sp.iv.iv_diag(...)` returns the post-2022 reporting bundle
-(analytic + pairs / wild bootstrap confidence intervals, Olea--Pflueger
-robust effective F, Lee--McCrary--Moreira--Porter tF-adjusted critical
-value and CI, Anderson--Rubin / Moreira CLR / Kleibergen K confidence
-sets, Kleibergen--Paap rk LM and Wald F, and a Conley--Hansen--Rossi
-LTZ sensitivity envelope) in a single call, mirroring R `ivDiag`
-[@lal2024much] and the integrated post-2022 reporting standards of
-Keane and Neal [@keane2024practical] and Young
-[@young2022consistency].
-
-**LaLonde (1986).** Using the exact Dehejia--Wahba NSW experimental
-subsample ($N = 445$), the raw difference in means is $\$1{,}794$---an
-exact match to the published benchmark. All causal estimators (OLS,
-PSM, DML, AIPW) produce positive, economically meaningful estimates.
-
-**Lee (2008).** The RD incumbency-advantage estimate is 0.062
-(published: $\sim$0.08), consistent with modern bias-corrected
-inference [@calonico2014robust]. The Cattaneo--Jansson--Ma density
-test ($p = 0.90$) confirms no manipulation around the cutoff.
-
-**Cross-validation against reference implementations.**
-DML on Card (1995) yields 0.0741 in `StatsPAI` vs. 0.0749 in `EconML`
-(difference: 0.0008). `sp.mixed` linear mixed-model fixed effects and
-variance components agree with `statsmodels.MixedLM` to four decimal
-places on random-intercept and unstructured random-slope
-specifications. Stochastic frontier parameter recovery for the
-half-normal, exponential, and truncated-normal distributions has been
-verified to within Monte Carlo tolerance against known data-generating
-processes; kernel-density integration tests
-($\int f(\epsilon)\,d\epsilon = 1$) guard the three frontier
-log-likelihoods against regressions. The v1.13 `sp.cate_eval()`
-implementation reproduces the
-Yadlowsky--Fleming--Shah--Brunskill--Wager [@yadlowsky2025evaluating]
-RATE / AUTOC / Qini point estimates and influence-function standard
-errors of `grf::rank_average_treatment_effect()` to within Monte Carlo
-tolerance ($N = 1{,}000$, $B = 200$ replications); the rewritten causal
-forest `best_linear_projection()` that uses the
-Semenova--Chernozhukov AIPW pseudo-outcome [@semenova2021debiased]
-recovers the true heterogeneity slope to within $0.05$ on the
-$Y = X_1 \cdot T + \varepsilon$ benchmark with HC1 standard errors
-(verified across 50 forest replications).
-
-**Monte Carlo coverage.** Simulations (200 replications) on built-in
-data-generating processes show negligible mean bias ($< 0.01$) and
-empirical 95\% confidence-interval coverage of 96.5--100\% for DID,
-RD, and IV estimators. Frontier panel models (Pitt--Lee, BC92, BC95)
-recover true variance components within the expected sampling range,
-and the Dhaene--Jochmans split-panel jackknife reduces the
-incidental-parameters bias in Greene (2005) true-fixed-effects
-frontier from $\hat\sigma_u = 0.374$ to $\hat\sigma_u = 0.359$
-(true value 0.350) at $T = 30$, $N = 25$.
-
-**Test suite.** The package ships with approximately 1{,}900 unit and
-integration tests spanning all subpackages; these are executed in
-continuous integration across macOS, Linux, and Windows on Python
-3.10--3.13.
+The package is implemented mainly in Python on top of NumPy, SciPy,
+Pandas, statsmodels, scikit-learn, and linearmodels. This keeps the
+installation path familiar for Python users and supports Python 3.9 and
+newer. Optional accelerator backends are used only where they materially
+change the computation: PyTorch for neural causal estimators, JAX for
+selected bootstrap and linear algebra workloads, and a Rust/PyO3 kernel
+for high-dimensional fixed-effect and cluster-variance routines. This
+keeps the default package inspectable while allowing heavy workloads to
+use specialized backends when available. The package is distributed via
+PyPI under the MIT license.
 
 # Research Impact Statement
 
-`StatsPAI` lowers the barrier to rigorous causal inference by
-consolidating methods that previously required proficiency across
-multiple languages and packages. Graduate students and applied
-researchers can now move from OLS through DML to causal forests
-without switching toolkits, reducing both onboarding time and the
-risk of implementation errors. The agent-native API enables a new
-class of AI-assisted empirical workflows: LLM agents can discover,
-invoke, and interpret statistical methods through structured
-schemas, accelerating literature replication and robustness
-analysis. Early adoption in Stanford REAP research projects has
-demonstrated its utility for rapid policy-evaluation prototyping.
-By unifying classical and modern methods under one roof,
-`StatsPAI` facilitates direct comparison of estimators on the same
-data, encouraging the methodological transparency increasingly
-demanded by journals and funding agencies.
+`StatsPAI` has a concrete validation and community-readiness dossier.
+The repository includes Python tests, 36 R-parity modules,
+21 Stata-parity modules, original-paper replay fixtures, and Monte Carlo
+coverage checks. Published-reference anchors include Card-style
+returns-to-schooling IV estimates, LaLonde/Dehejia-Wahba job-training benchmarks,
+Lee-style regression discontinuity estimates, Callaway-Sant'Anna
+difference-in-differences examples, and synthetic-control benchmarks.
+The validation suite also includes a 1000-replication coverage run for
+representative OLS, difference-in-differences, and strong-instrument IV
+designs, with empirical coverage close to the nominal 95 percent level.
+
+The near-term research impact is a more reproducible empirical workflow
+for applied policy evaluation. Because methods share one interface,
+researchers can compare estimators on the same data, export tables with
+the same metadata, and record the citations and assumptions attached to
+each analysis. Early use in Stanford REAP research workflows has shown
+the value of the package for rapid policy-evaluation prototyping, while
+the agent-native registry supports a second use case: AI-assisted
+replication and robustness analysis in which statistical tools are
+discovered and invoked through explicit schemas rather than informal
+prompts.
 
 # AI Usage Disclosure
 
-Portions of code documentation were generated with Claude
-(Anthropic). All content was reviewed and validated by the author.
-Statistical implementations were verified against published
-references and benchmark datasets.
+Generative AI tools, including Claude and OpenAI/Codex, were used to
+draft portions of the documentation, assist with code generation, and
+revise this manuscript. The corresponding author reviewed AI-generated
+text, checked citations and software claims against repository evidence,
+and retained responsibility for the correctness of the package and this
+paper.
 
 # Acknowledgements
 
-The author thanks the Stanford REAP Program for institutional support
-and the CoPaper.AI team for feedback. The author is grateful to the
-developers of NumPy, SciPy, statsmodels, scikit-learn, linearmodels,
-and PyTorch, whose foundational libraries StatsPAI builds upon.
+The authors thank the Stanford REAP research community and the
+CoPaper.AI team for feedback on early workflows. The authors are also
+grateful to the developers of NumPy, SciPy, Pandas, statsmodels,
+scikit-learn, linearmodels, PyTorch, JAX, and the broader open-source
+scientific Python ecosystem that `StatsPAI` builds upon.
 
 # References
