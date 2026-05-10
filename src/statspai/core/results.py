@@ -706,6 +706,14 @@ class EconometricResults:
         f_stat = self.diagnostics.get('F-statistic', None)
         f_pv = self.diagnostics.get('F p-value', self.diagnostics.get('Prob (F-statistic)', None))
 
+        def _safe(v: Any) -> str:
+            return _html_escape(str(v))
+
+        def _fmt(v: Any, spec: str = "") -> str:
+            if isinstance(v, (int, float, np.integer, np.floating)) and not pd.isna(v):
+                return format(v, spec)
+            return _safe(v)
+
         def _s(pv):
             if pd.isna(pv): return ''
             if pv < 0.01: return '<span style="color:#E74C3C;">***</span>'
@@ -714,7 +722,9 @@ class EconometricResults:
             return ''
 
         def _val(v):
-            return f'{v:.4f}' if isinstance(v, float) else str(v)
+            if isinstance(v, (int, float, np.integer, np.floating)) and not pd.isna(v):
+                return f'{v:.4f}'
+            return _safe(v)
 
         # CSS
         S = ('<style scoped>'
@@ -745,10 +755,10 @@ class EconometricResults:
         # --- Header ---
         sub_parts = []
         if dep_var:
-            sub_parts.append(f'Y = {dep_var}')
+            sub_parts.append(f'Y = {_safe(dep_var)}')
         if method:
-            sub_parts.append(method)
-        h.append(f'<div class="sp-hdr"><h3>{model_type}</h3>')
+            sub_parts.append(_safe(method))
+        h.append(f'<div class="sp-hdr"><h3>{_safe(model_type)}</h3>')
         if sub_parts:
             h.append(f'<div class="sp-sub">{" · ".join(sub_parts)}</div>')
         h.append('</div>')
@@ -756,10 +766,10 @@ class EconometricResults:
         # --- Key Metrics Bar ---
         h.append('<div class="sp-metrics">')
         if r2 is not None:
-            h.append(f'<div class="sp-metric"><div class="sp-val">{r2:.4f}</div><div class="sp-lab">R-squared</div></div>')
+            h.append(f'<div class="sp-metric"><div class="sp-val">{_fmt(r2, ".4f")}</div><div class="sp-lab">R-squared</div></div>')
         if f_stat is not None:
-            h.append(f'<div class="sp-metric"><div class="sp-val">{f_stat:.1f}</div><div class="sp-lab">F-statistic</div></div>')
-        h.append(f'<div class="sp-metric"><div class="sp-val">{n_obs:,}</div><div class="sp-lab">Observations</div></div>')
+            h.append(f'<div class="sp-metric"><div class="sp-val">{_fmt(f_stat, ".1f")}</div><div class="sp-lab">F-statistic</div></div>')
+        h.append(f'<div class="sp-metric"><div class="sp-val">{_fmt(n_obs, ",")}</div><div class="sp-lab">Observations</div></div>')
         h.append(f'<div class="sp-metric"><div class="sp-val">{len(self.params)}</div><div class="sp-lab">Parameters</div></div>')
         h.append('</div>')
 
@@ -777,7 +787,7 @@ class EconometricResults:
             lo = self.conf_int_lower.iloc[i] if isinstance(self.conf_int_lower, pd.Series) else self.conf_int_lower[i]
             hi = self.conf_int_upper.iloc[i] if isinstance(self.conf_int_upper, pd.Series) else self.conf_int_upper[i]
             pv_color = '#DC2626' if pv < 0.01 else ('#EA580C' if pv < 0.05 else ('#D97706' if pv < 0.1 else '#64748B'))
-            h.append(f'<tr><td>{var}</td>')
+            h.append(f'<tr><td>{_safe(var)}</td>')
             h.append(f'<td>{coef:.4f} {_s(pv)}</td>')
             h.append(f'<td style="color:#94A3B8;">({se:.4f})</td>')
             h.append(f'<td>{t:.2f}</td>')
@@ -791,7 +801,7 @@ class EconometricResults:
         if diag_items:
             h.append('<div class="sp-diag">')
             for k, v in diag_items:
-                h.append(f'<div class="sp-diag-item"><span class="sp-diag-k">{k}</span><span class="sp-diag-v">{_val(v)}</span></div>')
+                h.append(f'<div class="sp-diag-item"><span class="sp-diag-k">{_safe(k)}</span><span class="sp-diag-v">{_val(v)}</span></div>')
             h.append('</div>')
 
         # --- IV-specific: First-stage diagnostics ---
@@ -802,11 +812,11 @@ class EconometricResults:
             h.append('<div class="sp-diag">')
             for k in iv_keys:
                 v = self.diagnostics[k]
-                h.append(f'<div class="sp-diag-item"><span class="sp-diag-k">{k}</span><span class="sp-diag-v">{_val(v)}</span></div>')
+                h.append(f'<div class="sp-diag-item"><span class="sp-diag-k">{_safe(k)}</span><span class="sp-diag-v">{_val(v)}</span></div>')
             h.append('</div></details>')
 
         # --- Footer ---
-        h.append(f'<div class="sp-foot"><span>N = {n_obs:,}</span><span>* p&lt;0.1 &nbsp; ** p&lt;0.05 &nbsp; *** p&lt;0.01</span></div>')
+        h.append(f'<div class="sp-foot"><span>N = {_fmt(n_obs, ",")}</span><span>* p&lt;0.1 &nbsp; ** p&lt;0.05 &nbsp; *** p&lt;0.01</span></div>')
         h.append('</div>')
         return '\n'.join(h)
 
@@ -2153,6 +2163,19 @@ class CausalResult:
         pct = int(100 * (1 - self.alpha))
         stars_raw = self._stars(self.pvalue)
 
+        def _safe(v: Any) -> str:
+            return _html_escape(str(v))
+
+        def _fmt(v: Any, spec: str = "") -> str:
+            if isinstance(v, (int, float, np.integer, np.floating)) and not pd.isna(v):
+                return format(v, spec)
+            return _safe(v)
+
+        def _td(v: Any) -> str:
+            if isinstance(v, (int, float, np.integer, np.floating)) and not pd.isna(v):
+                return f'<td>{v:.4f}</td>'
+            return f'<td>{_safe(v)}</td>'
+
         def _s(pv):
             if pd.isna(pv): return ''
             if pv < 0.01: return '<span style="color:#DC2626">***</span>'
@@ -2208,12 +2231,13 @@ class CausalResult:
         h = [S, '<div class="sp-box">']
 
         # ── Header ──
-        h.append(f'<div class="sp-hdr"><h3>{self.method}</h3>')
-        sub = f'{self.estimand}'
+        h.append(f'<div class="sp-hdr"><h3>{_safe(self.method)}</h3>')
+        sub_parts = [self.estimand]
         if mi.get('rd_type'):
-            sub += f' · {mi["rd_type"]} RD'
+            sub_parts.append(f'{mi["rd_type"]} RD')
         elif mi.get('distance'):
-            sub += f' · {mi["distance"]} {mi.get("method", "")}'
+            sub_parts.append(f'{mi["distance"]} {mi.get("method", "")}')
+        sub = _safe(" · ".join(str(p) for p in sub_parts if p is not None))
         h.append(f'<div class="sp-sub">{sub}</div></div>')
 
         # ── Main Effect Card ──
@@ -2227,28 +2251,28 @@ class CausalResult:
 
         # ── Model-Specific Metric Bars ──
         h.append('<div class="sp-metrics">')
-        h.append(f'<div class="sp-metric"><div class="sp-val">{self.n_obs:,}</div><div class="sp-lab">Observations</div></div>')
+        h.append(f'<div class="sp-metric"><div class="sp-val">{_fmt(self.n_obs, ",")}</div><div class="sp-lab">Observations</div></div>')
 
         if self._is_synth_result():
             # SC metrics
             for key, label in [('n_donors', 'Donors'), ('n_pre_periods', 'Pre-periods'), ('n_post_periods', 'Post-periods')]:
                 if key in mi:
-                    h.append(f'<div class="sp-metric"><div class="sp-val">{mi[key]}</div><div class="sp-lab">{label}</div></div>')
+                    h.append(f'<div class="sp-metric"><div class="sp-val">{_fmt(mi[key])}</div><div class="sp-lab">{label}</div></div>')
             if 'pre_treatment_rmse' in mi:
-                h.append(f'<div class="sp-metric"><div class="sp-val">{mi["pre_treatment_rmse"]:.3f}</div><div class="sp-lab">Pre-RMSE</div></div>')
+                h.append(f'<div class="sp-metric"><div class="sp-val">{_fmt(mi["pre_treatment_rmse"], ".3f")}</div><div class="sp-lab">Pre-RMSE</div></div>')
         elif mi.get('rd_type') is not None:
             # RD metrics
             for key, label in [('n_effective_left', 'N Left (eff.)'), ('n_effective_right', 'N Right (eff.)'),
                                ('bandwidth_h', 'Bandwidth')]:
                 if key in mi:
                     v = mi[key]
-                    vs = f'{v:.3f}' if isinstance(v, float) else str(v)
+                    vs = _fmt(v, ".3f")
                     h.append(f'<div class="sp-metric"><div class="sp-val">{vs}</div><div class="sp-lab">{label}</div></div>')
         elif self.detail is not None and 'smd' in getattr(self.detail, 'columns', []):
             # Matching metrics
             for key, label in [('n_treated', 'Treated'), ('n_control', 'Control'), ('n_matches', 'Matches')]:
                 if key in mi:
-                    h.append(f'<div class="sp-metric"><div class="sp-val">{mi[key]}</div><div class="sp-lab">{label}</div></div>')
+                    h.append(f'<div class="sp-metric"><div class="sp-val">{_fmt(mi[key])}</div><div class="sp-lab">{label}</div></div>')
         h.append('</div>')
 
         # ── SC: Donor Weights ──
@@ -2263,7 +2287,7 @@ class CausalResult:
                     w = row['weight']
                     pct_w = (w / max_w) * 100
                     h.append(f'<div style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:11px;">'
-                             f'<span style="width:60px;color:#334155;font-weight:500;">Unit {unit_name}</span>'
+                             f'<span style="width:60px;color:#334155;font-weight:500;">Unit {_safe(unit_name)}</span>'
                              f'<div style="flex:1;background:#F1F5F9;border-radius:3px;height:8px;">'
                              f'<div class="sp-bar" style="width:{pct_w:.0f}%;background:{accent};"></div></div>'
                              f'<span style="width:50px;text-align:right;color:#64748B;">{w:.3f}</span></div>')
@@ -2275,13 +2299,12 @@ class CausalResult:
             h.append('<details class="sp-section"><summary>Period-by-Period Effects</summary>')
             h.append('<table class="sp-tbl"><tr>')
             for c in gap.columns:
-                h.append(f'<th>{c}</th>')
+                h.append(f'<th>{_safe(c)}</th>')
             h.append('</tr>')
             for _, row in gap.iterrows():
                 h.append('<tr>')
                 for c in gap.columns:
-                    v = row[c]
-                    h.append(f'<td>{v:.4f}</td>' if isinstance(v, float) else f'<td>{v}</td>')
+                    h.append(_td(row[c]))
                 h.append('</tr>')
             h.append('</table></details>')
 
@@ -2303,7 +2326,7 @@ class CausalResult:
                 pvc = '#DC2626' if pv < 0.01 else ('#EA580C' if pv < 0.05 else ('#D97706' if pv < 0.1 else '#64748B'))
                 bold = 'font-weight:600;' if 'Robust' in str(meth) else ''
                 h.append(f'<tr style="{bold}">')
-                h.append(f'<td>{meth}</td><td>{est:.4f} {_s(pv)}</td>')
+                h.append(f'<td>{_safe(meth)}</td><td>{est:.4f} {_s(pv)}</td>')
                 h.append(f'<td style="color:#94A3B8;">({se_v:.4f})</td><td>{z_v:.2f}</td>')
                 h.append(f'<td style="color:{pvc};font-weight:600;">{pv:.4f}</td>')
                 h.append(f'<td style="color:#94A3B8;">[{lo:.4f}, {hi:.4f}]</td></tr>')
@@ -2319,7 +2342,7 @@ class CausalResult:
             for key, label in rd_params:
                 if key in mi:
                     v = mi[key]
-                    vs = f'{v:.4f}' if isinstance(v, float) else str(v)
+                    vs = _fmt(v, ".4f")
                     h.append(f'<div class="sp-grid-item"><span class="sp-gk">{label}</span><span class="sp-gv">{vs}</span></div>')
             h.append('</div></details>')
 
@@ -2338,7 +2361,7 @@ class CausalResult:
                 smd_abs = abs(smd) if not pd.isna(smd) else 0
                 bar_color = '#059669' if smd_abs < 0.1 else ('#D97706' if smd_abs < 0.25 else '#DC2626')
                 bar_w = min(smd_abs / 0.5 * 100, 100)
-                h.append(f'<tr><td>{var}</td>')
+                h.append(f'<tr><td>{_safe(var)}</td>')
                 h.append(f'<td>{mt:.2f}</td><td>{mc:.2f}</td>')
                 h.append(f'<td style="color:{bar_color};font-weight:600;">{smd:.3f}</td>')
                 h.append(f'<td style="width:80px;"><div style="background:#F1F5F9;border-radius:3px;height:6px;">'
@@ -2361,7 +2384,7 @@ class CausalResult:
             for key, label in match_params:
                 if key in mi:
                     v = mi[key]
-                    vs = f'{v:.4f}' if isinstance(v, float) else str(v)
+                    vs = _fmt(v, ".4f")
                     h.append(f'<div class="sp-grid-item"><span class="sp-gk">{label}</span><span class="sp-gv">{vs}</span></div>')
             h.append('</div></details>')
 
@@ -2404,17 +2427,16 @@ class CausalResult:
             else:
                 cols = list(self.detail.columns)
                 title_str = 'Detail'
-            h.append(f'<details class="sp-section"><summary>{title_str}</summary>')
+            h.append(f'<details class="sp-section"><summary>{_safe(title_str)}</summary>')
             h.append('<table class="sp-tbl"><tr>')
             for c in cols:
-                h.append(f'<th>{c}</th>')
+                h.append(f'<th>{_safe(c)}</th>')
             h.append('</tr>')
             max_rows = 20
             for _, row in self.detail[cols].head(max_rows).iterrows():
                 h.append('<tr>')
                 for c in cols:
-                    v = row[c]
-                    h.append(f'<td>{v:.4f}</td>' if isinstance(v, float) else f'<td>{v}</td>')
+                    h.append(_td(row[c]))
                 h.append('</tr>')
             if len(self.detail) > max_rows:
                 h.append(f'<tr><td colspan="{len(cols)}" style="text-align:center;color:#94A3B8;">... {len(self.detail)-max_rows} more</td></tr>')
@@ -2429,12 +2451,12 @@ class CausalResult:
             for key, label in sc_params:
                 if key in mi:
                     v = mi[key]
-                    vs = f'{v:.4f}' if isinstance(v, float) else str(v)
+                    vs = _fmt(v, ".4f")
                     h.append(f'<div class="sp-grid-item"><span class="sp-gk">{label}</span><span class="sp-gv">{vs}</span></div>')
             h.append('</div></details>')
 
         # ── Footer ──
-        h.append(f'<div class="sp-foot"><span>N = {self.n_obs:,}</span><span>* p&lt;0.1 &nbsp; ** p&lt;0.05 &nbsp; *** p&lt;0.01</span></div>')
+        h.append(f'<div class="sp-foot"><span>N = {_fmt(self.n_obs, ",")}</span><span>* p&lt;0.1 &nbsp; ** p&lt;0.05 &nbsp; *** p&lt;0.01</span></div>')
         h.append('</div>')
         return '\n'.join(h)
 

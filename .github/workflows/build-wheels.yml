@@ -103,7 +103,7 @@ jobs:
       CIBW_TEST_REQUIRES: "pytest numpy pandas numba"
       CIBW_TEST_COMMAND: >
         python -c "import statspai; assert statspai.__version__"
-        && pytest {project}/tests/test_fast_hdfe.py -x -q || true
+        && pytest {project}/tests/test_fast_demean.py {project}/tests/test_hdfe_native.py -x -q
       CIBW_ARCHS_LINUX: ${{ matrix.arch }}
 
     steps:

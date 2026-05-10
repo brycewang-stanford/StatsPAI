@@ -8,9 +8,12 @@ include pyproject.toml
 
 # Include package source code
 recursive-include src *.py
+recursive-include src *.pyi
+recursive-include src py.typed
 
-# Include tests
-recursive-include tests *.py
+# Include tests and fixtures so source distributions can run the shipped
+# parity/snapshot suites without regenerating reference artifacts.
+recursive-include tests *
 
 # Exclude internal documentation and development files
 exclude PROJECT_SUMMARY.md
@@ -31,12 +34,13 @@ recursive-exclude .github *
 # Exclude build and cache files
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
+recursive-exclude * .DS_Store
+recursive-exclude tests *.log
 exclude .git*
 exclude .pytest_cache
 exclude .mypy_cache
 exclude htmlcov
 exclude .coverage
-exclude .DS_Store
 exclude *.egg-info
 exclude build/
 exclude dist/
