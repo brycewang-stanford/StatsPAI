@@ -139,6 +139,10 @@ _PALETTES = {
 
 _original_rcparams = None
 
+# State for auto-CJK fallback registration (see _register_cjk_fallback).
+_cjk_fallback_registered = False
+_cjk_fallback_info: Dict[str, Any] = {}
+
 
 def _get_cn_serif_fonts() -> list:
     """Auto-detect the best Chinese serif fonts on this system."""
@@ -169,6 +173,162 @@ def _get_cn_serif_fonts() -> list:
         ]
     found.extend(['Times New Roman', 'DejaVu Serif'])
     return found
+
+
+def _get_cn_sans_fonts() -> list:
+    """Auto-detect the best Chinese sans-serif fonts on this system."""
+    try:
+        from matplotlib.font_manager import fontManager
+        available = {f.name for f in fontManager.ttflist}
+    except Exception:
+        available = set()
+
+    candidates = [
+        # macOS
+        'PingFang SC', 'PingFang HK', 'Hiragino Sans GB',
+        'Heiti TC', 'STHeiti', 'Hiragino Sans',
+        # Windows
+        'Microsoft YaHei', 'Microsoft JhengHei', 'SimHei',
+        # Linux (apt install fonts-noto-cjk / fonts-wqy-*)
+        'Noto Sans CJK SC', 'Noto Sans CJK TC',
+        'Noto Sans CJK JP', 'Noto Sans CJK KR',
+        'WenQuanYi Zen Hei', 'WenQuanYi Micro Hei',
+        # Adobe / Google Source Han (cross-platform, Docker/cloud images)
+        'Source Han Sans SC', 'Source Han Sans CN', 'Source Han Sans',
+    ]
+    found = [f for f in candidates if f in available]
+    if not found:
+        _cjk_sans_kws = ('CJK', 'Han Sans', 'WenQuanYi', 'YaHei', 'PingFang', 'Heiti')
+        found = [
+            n for n in sorted(available)
+            if any(kw in n for kw in _cjk_sans_kws)
+        ]
+    return found
+
+
+def _register_cjk_fallback(force: bool = False) -> Dict[str, Any]:
+    """
+    Append detected CJK fonts to matplotlib's ``font.family`` list so per-glyph
+    fallback (mpl 3.6+) handles Chinese text automatically.
+
+    **Why ``font.family`` and not ``font.sans-serif`` / ``font.serif``?**
+    Matplotlib's per-glyph fallback walks the ``font.family`` list, not the
+    family-specific lists. Empirically verified on mpl 3.10: appending a CJK
+    font to ``font.sans-serif`` does NOT trigger fallback when ``DejaVu Sans``
+    is already first there. Appending to ``font.family`` does.
+
+    Semantics:
+
+    - The user's primary family (``'sans-serif'`` by default, resolving to
+      DejaVu Sans on a fresh install) stays at index 0 → **Latin glyphs are
+      unchanged**.
+    - CJK font names are appended → matplotlib falls through per-glyph when
+      the primary font lacks the codepoint → **Chinese renders without boxes**.
+    - The user's later ``rcParams['font.family'] = 'Times New Roman'`` (or any
+      assignment) fully replaces our list → **explicit user config wins**.
+
+    Other guarantees:
+
+    - Does **NOT** touch ``axes.unicode_minus`` (matplotlib renders U+2212
+      from the Latin primary, so the minus sign stays correct on non-CJK plots).
+    - Does **NOT** touch ``font.sans-serif`` / ``font.serif`` (theme defaults
+      and user-set fallback lists for the *primary* family are preserved).
+    - Idempotent: subsequent calls without ``force`` are no-ops.
+    - Opt-out: set env var ``STATSPAI_NO_AUTO_CJK=1`` before importing statspai.
+
+    Parameters
+    ----------
+    force : bool, default False
+        Re-run detection and re-append even if already registered.
+
+    Returns
+    -------
+    dict
+        ``{'sans': <font name or None>, 'serif': <font name or None>,
+        'appended': list[str], 'skipped': bool, 'reason': str}``.
+        Inspect via the (semi-public) attribute
+        ``statspai.plots.themes._cjk_fallback_info``.
+    """
+    global _cjk_fallback_registered, _cjk_fallback_info
+
+    if _cjk_fallback_registered and not force:
+        return _cjk_fallback_info
+
+    import os
+    opt_out = os.environ.get('STATSPAI_NO_AUTO_CJK', '').strip().lower()
+    if opt_out in ('1', 'true', 'yes', 'on'):
+        _cjk_fallback_registered = True
+        _cjk_fallback_info = {
+            'sans': None, 'serif': None, 'appended': [],
+            'skipped': True, 'reason': 'STATSPAI_NO_AUTO_CJK env var set',
+        }
+        return _cjk_fallback_info
+
+    try:
+        import matplotlib as mpl
+    except ImportError:
+        _cjk_fallback_registered = True
+        _cjk_fallback_info = {
+            'sans': None, 'serif': None, 'appended': [],
+            'skipped': True, 'reason': 'matplotlib not installed',
+        }
+        return _cjk_fallback_info
+
+    try:
+        sans_candidates = _get_cn_sans_fonts()
+        serif_candidates = [
+            f for f in _get_cn_serif_fonts()
+            if f not in ('Times New Roman', 'DejaVu Serif')
+        ]
+        chosen_sans = sans_candidates[0] if sans_candidates else None
+        chosen_serif = serif_candidates[0] if serif_candidates else None
+
+        # Normalise font.family to a list (it can be a str like 'sans-serif'
+        # or a list).
+        current_family = mpl.rcParams.get('font.family', ['sans-serif'])
+        if isinstance(current_family, str):
+            family_list = [current_family]
+        else:
+            family_list = list(current_family)
+
+        appended = []
+        # Order: sans first (most modern defaults are sans-serif), then serif.
+        # matplotlib's per-glyph fallback walks the list in order, so the first
+        # CJK font that has the missing glyph wins.
+        for cand in (chosen_sans, chosen_serif):
+            if cand and cand not in family_list:
+                family_list.append(cand)
+                appended.append(cand)
+
+        if appended:
+            mpl.rcParams['font.family'] = family_list
+
+        _cjk_fallback_registered = True
+        _cjk_fallback_info = {
+            'sans': chosen_sans,
+            'serif': chosen_serif,
+            'appended': appended,
+            'skipped': False,
+            'reason': '' if appended else 'no CJK font found on system',
+        }
+    except Exception as exc:
+        # matplotlib is present but registration failed — warn loudly per
+        # project policy: silent degradation hides correctness regressions.
+        import warnings
+        warnings.warn(
+            f"StatsPAI: CJK font auto-registration failed "
+            f"({type(exc).__name__}: {exc}). "
+            f"Chinese text in plots may show as boxes. "
+            f"Call sp.use_chinese() manually or set STATSPAI_NO_AUTO_CJK=1.",
+            UserWarning, stacklevel=2,
+        )
+        _cjk_fallback_registered = True
+        _cjk_fallback_info = {
+            'sans': None, 'serif': None, 'appended': [],
+            'skipped': True, 'reason': f'{type(exc).__name__}: {exc}',
+        }
+
+    return _cjk_fallback_info
 
 
 def use_chinese(style: str = 'auto') -> str:

@@ -4,6 +4,36 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.15.4] — 2026-05-18
+
+### Added — Auto-CJK font fallback on import
+
+- `import statspai as sp` now auto-registers a detected CJK font (PingFang
+  SC / Microsoft YaHei / Noto Sans CJK / SimHei / Source Han Sans / …) as
+  a per-glyph fallback in matplotlib's `font.family` list. **Chinese text
+  in plots renders correctly without calling `sp.use_chinese()`** on any
+  system that already has a CJK font installed (default on macOS / Windows /
+  most modern Linux desktops).
+- Safe-by-design: the user's primary family stays at `font.family[0]`, so
+  Latin text is rendered with the original primary font (DejaVu Sans /
+  Helvetica / Times New Roman / …) — **no visual change for English-only
+  plots**. `axes.unicode_minus` is untouched, so the minus sign on tick
+  labels stays as the proper U+2212 from the Latin primary.
+- Opt-out: set environment variable `STATSPAI_NO_AUTO_CJK=1` before
+  importing statspai. The explicit `sp.use_chinese()` entry point still
+  exists for users who want a specific font or who need primary-font
+  control (e.g., `sp.use_chinese('serif')`).
+- Mechanism: `font.family` becomes `['sans-serif', '<best CJK sans>',
+  '<best CJK serif>']` (or whatever family was set). matplotlib 3.6+
+  per-glyph fallback walks this list, so CJK glyphs missing from the
+  primary fall through to the appended CJK font without affecting Latin
+  glyphs. Empirically required vs. appending to `font.sans-serif`, which
+  does not trigger fallback in matplotlib 3.10.
+- New tests: [`tests/test_auto_cjk_fallback.py`](tests/test_auto_cjk_fallback.py)
+  covers the 7-point behavior contract (primary preserved, unicode_minus
+  preserved, family-specific lists preserved, Chinese renders without
+  warnings, user override wins, idempotent, env var opt-out).
+
 ## [1.15.3] — 2026-05-17
 
 ### Fixed — PyPI long-description hero banner
