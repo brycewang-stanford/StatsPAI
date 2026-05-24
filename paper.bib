@@ -1696,10 +1696,13 @@
   doi={10.1007/978-0-387-21700-0}
 }
 
-% NOTE: ``@article{vanderlaan2023efficient}`` lives in the
-% TMLE-citations block further down (with full volume/number/pages
-% from the IJB record). The earlier entry was a duplicate; deleting
-% it here keeps a single source of truth (CLAUDE.md §10).
+% NOTE: the `vanderlaan2023efficient` entry lives in the TMLE-citations
+% block further down (with full volume/number/pages from the IJB record).
+% The earlier entry was a duplicate; deleting it here keeps a single
+% source of truth (CLAUDE.md §10). Do not write the literal at-sign +
+% open-brace pattern here, because BibTeX has no line-comment marker
+% and strict parsers (pybtex, bibtex-ruby used by JOSS editorialbot)
+% treat any such token as a real entry start regardless of a leading %.
 
 @article{lambert1992zero,
   title={Zero-Inflated Poisson Regression, with an Application to Defects in Manufacturing},
