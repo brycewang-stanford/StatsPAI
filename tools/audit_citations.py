@@ -92,19 +92,24 @@ NBER_RE = re.compile(
 # like ``10.1016/S0169-7218(11)00407-2``, Emerald volume 20 like
 # ``10.1108/S1049-2585(2012)0000020009``). Up to 2 levels of nesting
 # is plenty in practice.
-_DOI_NO_PAREN = r"[^\s()\"'`,;}\]\[]+"
+#
+# ``<`` / ``>`` are excluded so that markdown autolinks of the form
+# ``<https://doi.org/10.xxxx/yyyy>`` don't pull the trailing ``>`` into
+# the DOI body. RFC 3986 reserves angle brackets in URIs (they must be
+# percent-encoded), so no real DOI contains a literal ``<`` or ``>``.
+_DOI_NO_PAREN = r"[^\s()<>\"'`,;}\]\[]+"
 _DOI_PAREN = rf"\(?:{_DOI_NO_PAREN}\)?"  # placeholder, see verbose form
 DOI_RE = re.compile(
     r"""
     \b(?P<id>
         10\.\d{4,9}/                       # DOI prefix
         (?:
-              [^\s()"'`,;}\]\[]            # non-paren body char
-            | \( [^\s()"'`,;}\]\[]* \)     # balanced (...) one level
+              [^\s()<>"'`,;}\]\[]          # non-paren body char
+            | \( [^\s()<>"'`,;}\]\[]* \)   # balanced (...) one level
         )+?
     )
     \.?                                    # optional trailing period
-    (?= [\s)\"'`,;}\]\[] | $ )
+    (?= [\s)<>\"'`,;}\]\[] | $ )
     """,
     re.VERBOSE,
 )
@@ -645,7 +650,8 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
         "author={", "title={", "journal={", "booktitle={",
         "year={", "doi={", "volume={", "number={", "pages={",
         "publisher={", "@article{", "@inproceedings{", "@book{",
-        "@misc{", "@techreport{", "@phdthesis{",
+        "@misc{", "@techreport{", "@phdthesis{", "@software{",
+        "@unpublished{", "@incollection{",
     )
     is_bibtex = any(m in c.claim_block for m in _bibtex_markers)
 
