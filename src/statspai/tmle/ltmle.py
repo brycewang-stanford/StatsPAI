@@ -47,8 +47,9 @@ van der Laan, M. J., & Gruber, S. (2012).
 time point interventions." *The International Journal of Biostatistics*,
 8(1). [@vanderlaan2012targeted]
 
-Schwab, J., Lendle, S., Petersen, M., & van der Laan, M. J. (2014).
-ltmle: Longitudinal Targeted Maximum Likelihood Estimation (R package). [@schwab2013ltmle]
+Lendle, S. D., Schwab, J., Petersen, M. L., & van der Laan, M. J. (2017).
+"ltmle: An R Package Implementing Targeted Minimum Loss-Based Estimation
+for Longitudinal Data." *Journal of Statistical Software*, 81(1). [@lendle2017ltmle]
 """
 
 from __future__ import annotations
