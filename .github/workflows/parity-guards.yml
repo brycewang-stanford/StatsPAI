@@ -25,6 +25,7 @@ jobs:
   reference-parity:
     name: Numerical reference parity
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -49,16 +50,19 @@ jobs:
   registry-drift:
     name: Registry / API surface drift
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-      - name: Install (minimal — registry boot only)
+      # ``[dev]`` is required: pyproject ``tool.pytest.ini_options.addopts``
+      # injects ``--cov`` unconditionally, which needs ``pytest-cov``.
+      - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e ".[dev]"
       - name: registry_stats --check
         run: |
           python scripts/registry_stats.py --check
@@ -68,17 +72,52 @@ jobs:
 
   citation-audit:
     name: Citation audit (§10 zero-hallucination)
+    # ``--strict`` would conflate "fabricated citation" (mismatch — the real
+    # §10 red line) with "network glitch" (unresolved). Run in the default
+    # mismatch-only mode so transient arxiv / crossref / NBER outages don't
+    # paint the gate red. Unresolved entries are still surfaced in the
+    # audit_report.md artifact for human follow-up.
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Per-step ``paths-filter`` skips the network-heavy verification when no
+    # citation-bearing file changed (e.g. rust/, benchmarks/, .gitignore).
+    # This bounds outbound API load and reduces transient arxiv / crossref
+    # outage flake on unrelated commits.
     steps:
       - uses: actions/checkout@v4
+      - name: Detect citation-bearing changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            cite:
+              - 'src/**'
+              - 'docs/**'
+              - 'paper.md'
+              - 'paper.bib'
+              - 'README.md'
+              - 'README_CN.md'
+              - 'CHANGELOG.md'
+              - 'MIGRATION.md'
+              - 'tools/audit_citations.py'
       - name: Set up Python
+        if: steps.changes.outputs.cite == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
       - name: Install
+        if: steps.changes.outputs.cite == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-      - name: tools/audit_citations.py --strict
+      - name: tools/audit_citations.py (mismatch-only)
+        if: steps.changes.outputs.cite == 'true'
         run: |
-          python tools/audit_citations.py --strict
+          python tools/audit_citations.py
+      - name: Upload audit report
+        if: steps.changes.outputs.cite == 'true' && (success() || failure())
+        uses: actions/upload-artifact@v4
+        with:
+          name: citation-audit-report
+          path: audit_report.md
+          if-no-files-found: ignore
