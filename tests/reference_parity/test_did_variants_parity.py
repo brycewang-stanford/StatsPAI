@@ -69,16 +69,12 @@ def r_reference():
 #   (c) never-treated treatment of g=0 / 9999 sentinel is handled
 #       differently between the two stacks.
 #
-# Tests are xfailed (not skipped) so CI keeps reading the discrepancy
-# numerically.  Strict=False keeps the suite green; flip to True
-# once a fix lands.
+# The BJS divergence flagged in v1.11 was fixed in commit 3607a2f
+# (``fix(did): repair BJS imputation support``); both tests below now
+# match the R reference within 10%. The previous ``@pytest.mark.xfail``
+# markers were left stale and have been removed — a future regression
+# will fail the suite loudly rather than be hidden as XPASS.
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="sp.did_imputation drifts ~24% from R didimputation on "
-           "staggered DGP — flagged for v1.11. Not a tolerance "
-           "issue; investigate horizon/cohort weighting in BJS path.",
-)
 def test_bjs_did_imputation_matches_R(cs_data, r_reference):
     bjs_meta = r_reference["bjs"]["meta"]
     if not bjs_meta.get("available", False):
@@ -96,10 +92,6 @@ def test_bjs_did_imputation_matches_R(cs_data, r_reference):
     )
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="Same v1.11 BJS divergence as test_bjs_did_imputation_matches_R.",
-)
 def test_bjs_did_imputation_close_to_truth(cs_data, r_reference):
     if not r_reference["bjs"]["meta"].get("available", False):
         pytest.skip("BJS R reference unavailable")
