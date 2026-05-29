@@ -41,5 +41,23 @@
     "method": ["nearest"],
     "replace": [true],
     "ratio": [1]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "MatchIt": "4.7.2",
+      "chk": "0.10.0",
+      "compiler": "4.5.2",
+      "backports": "1.5.0",
+      "cli": "3.6.5",
+      "tools": "4.5.2",
+      "Rcpp": "1.1.1-1.1",
+      "jsonlite": "2.0.0",
+      "lifecycle": "1.0.5",
+      "rlang": "1.1.7"
+    }
   }
 }

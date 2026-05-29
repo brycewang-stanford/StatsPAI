@@ -7,9 +7,9 @@
       "side": "R",
       "statistic": "beta_(Intercept)",
       "estimate": -18.448958272457,
-      "se": 5.06540051198484,
-      "ci_lo": -28.376960843218,
-      "ci_hi": -8.52095570169596,
+      "se": 5.06540050907329,
+      "ci_lo": -28.3769608375115,
+      "ci_hi": -8.52095570740248,
       "n": 2500,
       "extra": []
     },
@@ -18,9 +18,9 @@
       "side": "R",
       "statistic": "beta_treat",
       "estimate": -0.0559494414173295,
-      "se": 0.0122203609647293,
-      "ci_lo": -0.0799009087862782,
-      "ci_hi": -0.0319979740483809,
+      "se": 0.0122203609644141,
+      "ci_lo": -0.0799009087856604,
+      "ci_hi": -0.0319979740489987,
       "n": 2500,
       "extra": []
     },
@@ -29,9 +29,9 @@
       "side": "R",
       "statistic": "beta_year",
       "estimate": 0.0132998687569915,
-      "se": 0.002528605022542,
-      "ci_lo": 0.00834389398168209,
-      "ci_hi": 0.0182558435323009,
+      "se": 0.00252860502164486,
+      "ci_lo": 0.00834389398344046,
+      "ci_hi": 0.0182558435305426,
       "n": 2500,
       "extra": []
     }
@@ -40,5 +40,19 @@
     "formula": ["lemp ~ treat + year"],
     "vcov": ["cluster (CR1)"],
     "cluster_var": ["countyreal"]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "sandwich": "3.1-1",
+      "zoo": "1.8-15",
+      "compiler": "4.5.2",
+      "grid": "4.5.2",
+      "jsonlite": "2.0.0",
+      "lattice": "0.22-7"
+    }
   }
 }

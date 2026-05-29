@@ -16,5 +16,30 @@
   ],
   "extra": {
     "method": ["did_imputation"]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "didimputation": "0.5.1",
+      "data.table": "1.18.2.1",
+      "fixest": "0.14.0",
+      "zoo": "1.8-15",
+      "compiler": "4.5.2",
+      "Matrix": "1.7-4",
+      "sandwich": "3.1-1",
+      "tools": "4.5.2",
+      "dreamerr": "1.5.0",
+      "Rcpp": "1.1.1-1.1",
+      "nlme": "3.1-168",
+      "grid": "4.5.2",
+      "jsonlite": "2.0.0",
+      "Formula": "1.2-5",
+      "numDeriv": "2016.8-1.1",
+      "stringmagic": "1.2.0",
+      "lattice": "0.22-7"
+    }
   }
 }

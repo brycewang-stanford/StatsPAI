@@ -28,7 +28,11 @@ PARITY_SEED <- 42L
 
 HERE <- dirname(.this_file())
 DATA_DIR    <- file.path(HERE, "data")
-RESULTS_DIR <- file.path(HERE, "results")
+# RESULTS_DIR is overridable via env var so a reproducibility-verification
+# run can write to a staging directory and diff against the committed
+# golden JSON without clobbering it. Defaults to the committed results/.
+RESULTS_DIR <- Sys.getenv("STATSPAI_R_PARITY_RESULTS_DIR",
+                          unset = file.path(HERE, "results"))
 dir.create(DATA_DIR,    showWarnings = FALSE, recursive = TRUE)
 dir.create(RESULTS_DIR, showWarnings = FALSE, recursive = TRUE)
 
@@ -70,16 +74,52 @@ parity_row <- function(module, statistic, estimate,
 }
 
 
+# Capture the exact R software environment that produced these numbers,
+# so the committed _R.json is self-describing for JSS reproducibility
+# (Section 8, "Reproducibility of this paper"). We record the R version,
+# the platform triple, and the version of every attached/loaded
+# non-base package -- this is the package set that the reference
+# implementation in the calling NN_<name>.R script actually used.
+# A reviewer can diff this block against their own sessionInfo() and
+# explain any residual numerical gap by a package-version delta rather
+# than guessing. The full machine-readable manifest also lives in
+# tests/r_parity/R_ENVIRONMENT.md and the renv-style renv.lock.
+.r_provenance <- function() {
+  si <- utils::sessionInfo()
+  pkgs <- list()
+  add_pkgs <- function(src) {
+    if (is.null(src)) return(invisible())
+    for (p in names(src)) {
+      v <- tryCatch(as.character(src[[p]]$Version), error = function(e) NA)
+      if (!is.na(v) && is.null(pkgs[[p]])) pkgs[[p]] <<- jsonlite::unbox(v)
+    }
+  }
+  add_pkgs(si$otherPkgs)   # library()-attached reference packages
+  add_pkgs(si$loadedOnly)  # pkg::fn namespace loads (e.g. via ::)
+  list(
+    r_version    = jsonlite::unbox(R.version.string),
+    platform     = jsonlite::unbox(R.version$platform),
+    running       = jsonlite::unbox(si$running %||% NA),
+    captured_via = jsonlite::unbox("tests/r_parity/_common.R::write_results"),
+    packages     = if (length(pkgs) == 0) list() else pkgs
+  )
+}
+
+# Null-coalescing helper (base R has no %||% before 4.4 in all builds).
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0) b else a
+
+
 write_results <- function(module, rows, extra = list()) {
   if (!requireNamespace("jsonlite", quietly = TRUE)) {
     install.packages("jsonlite", repos = "https://cloud.r-project.org")
   }
   out <- file.path(RESULTS_DIR, paste0(module, "_R.json"))
   payload <- list(
-    module = jsonlite::unbox(module),
-    side   = jsonlite::unbox("R"),
-    rows   = rows,
-    extra  = if (length(extra) == 0) list() else extra
+    module     = jsonlite::unbox(module),
+    side       = jsonlite::unbox("R"),
+    rows       = rows,
+    extra      = if (length(extra) == 0) list() else extra,
+    provenance = .r_provenance()
   )
   # digits = NA emits full IEEE-754 precision (15-17 significant
   # digits) so the parity comparator sees the actual numerical

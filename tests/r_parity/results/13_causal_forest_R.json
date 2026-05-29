@@ -28,5 +28,21 @@
   "extra": {
     "num.trees": [2000],
     "seed": [42]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "grf": "2.6.1",
+      "compiler": "4.5.2",
+      "Matrix": "1.7-4",
+      "tools": "4.5.2",
+      "Rcpp": "1.1.1-1.1",
+      "grid": "4.5.2",
+      "jsonlite": "2.0.0",
+      "lattice": "0.22-7"
+    }
   }
 }

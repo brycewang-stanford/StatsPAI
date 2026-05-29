@@ -7,9 +7,9 @@
       "side": "R",
       "statistic": "beta_(Intercept)",
       "estimate": 4.40846027041945,
-      "se": 0.25172225548358,
-      "ci_lo": 3.91509371556444,
-      "ci_hi": 4.90182682527446,
+      "se": 0.251722255483599,
+      "ci_lo": 3.91509371556441,
+      "ci_hi": 4.90182682527449,
       "n": 3010,
       "extra": []
     },
@@ -18,8 +18,8 @@
       "side": "R",
       "statistic": "beta_exper",
       "estimate": 0.0289771475273828,
-      "se": 0.00541443492619631,
-      "ci_lo": 0.0183650500754023,
+      "se": 0.00541443492619632,
+      "ci_lo": 0.0183650500754022,
       "ci_hi": 0.0395892449793634,
       "n": 3010,
       "extra": []
@@ -31,7 +31,7 @@
       "estimate": -0.000566828729388432,
       "se": 0.000241246548703379,
       "ci_lo": -0.00103966327624164,
-      "ci_hi": -9.39941825352211e-05,
+      "ci_hi": -9.39941825352213e-05,
       "n": 3010,
       "extra": []
     },
@@ -73,9 +73,9 @@
       "side": "R",
       "statistic": "beta_educ",
       "estimate": 0.141834408660172,
-      "se": 0.0185446222489824,
-      "ci_lo": 0.105487616945266,
-      "ci_hi": 0.178181200375077,
+      "se": 0.0185446222489833,
+      "ci_lo": 0.105487616945264,
+      "ci_hi": 0.178181200375079,
       "n": 3010,
       "extra": []
     }
@@ -83,5 +83,28 @@
   "extra": {
     "formula": ["lwage ~ exper + expersq + black + south + smsa + educ | exper + ", "    expersq + black + south + smsa + nearc4"],
     "vcov": ["HC1"]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "AER": "1.2-16",
+      "survival": "3.8-3",
+      "sandwich": "3.1-1",
+      "lmtest": "0.9-40",
+      "zoo": "1.8-15",
+      "car": "3.1-5",
+      "carData": "3.0-6",
+      "compiler": "4.5.2",
+      "Matrix": "1.7-4",
+      "abind": "1.4-8",
+      "splines": "4.5.2",
+      "grid": "4.5.2",
+      "jsonlite": "2.0.0",
+      "Formula": "1.2-5",
+      "lattice": "0.22-7"
+    }
   }
 }

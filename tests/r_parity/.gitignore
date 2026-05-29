@@ -1,0 +1,3 @@
+# Reproducibility-verification staging dir (verify_reproduce.py); never commit.
+results/_repro_check/
+results/_repro_check_full.log
