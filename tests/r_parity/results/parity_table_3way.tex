@@ -4,7 +4,7 @@
 \small
 \setlength{\tabcolsep}{2pt}
 \begin{longtable}{@{}p{0.055\linewidth}p{0.205\linewidth}p{0.30\linewidth}p{0.30\linewidth}p{0.10\linewidth}@{}}
-\caption{Track A parity headline at \statspai{} 1.13.1 against the canonical \proglang{R} reference \emph{and} (where one exists) the canonical \proglang{Stata} reference, on the calibrated replicas. The ID column is the two-digit module prefix; the two diff columns report the worst residual gap across each module's headline rows (point estimates only; per-row SE diffs and documented gap rows are reported in \code{tests/r\_parity/results/parity\_table\_3way.md}). ``no canonical ref'' marks modules whose \proglang{Stata} ecosystem has no authoritative port we can compare to without fabricating one. Verdicts use PASS and GAP; common-specification passes, small-sample SE conventions, and convention gaps are explained in the parenthetical notes and per-module \code{extra} block in \code{tests/r\_parity/results/} and \code{tests/stata\_parity/results/}.}
+\caption{Track A parity headline at \statspai{} 1.15.6 against the canonical \proglang{R} reference \emph{and} (where one exists) the canonical \proglang{Stata} reference, on the calibrated replicas. The ID column is the two-digit module prefix; the two diff columns report the worst residual gap across each module's headline rows (point estimates only; per-row SE diffs and documented gap rows are reported in \code{tests/r\_parity/results/parity\_table\_3way.md}). ``no canonical ref'' marks modules whose \proglang{Stata} ecosystem has no authoritative port we can compare to without fabricating one. Verdicts use PASS and GAP; common-specification passes, small-sample SE conventions, and convention gaps are explained in the parenthetical notes and per-module \code{extra} block in \code{tests/r\_parity/results/} and \code{tests/stata\_parity/results/}.}
 \label{tab:track-a-parity}\\
 \toprule
 ID & Method & Worst diff vs \proglang{R} & Worst diff vs \proglang{Stata} & Verdict \\
@@ -53,19 +53,19 @@ ID & Method & Worst diff vs \proglang{R} & Worst diff vs \proglang{Stata} & Verd
 \code{34} & Local projections & abs $\le 0.132$ {\footnotesize (Cholesky-orthogonalised vs OLS shock)} & abs $\le 2.22e-16$ & \textit{GAP} \\
 \code{35} & Panel FE/RE + Hausman & rel $\le 1.1e-15$ {\footnotesize (FE/RE coefs match; Hausman variance differs)} & rel $\le 1.5e-15$ & \textbf{PASS} \\
 \code{36} & Causal mediation (IKT) & rel $\le 6.7e-15$ & rel $\le 3.6e-15$ & \textbf{PASS} \\
-\code{37} & PPML + HDFE & rel $\le 4.9e-13$ {\footnotesize (sp HC1 SE 50\% larger than fixest/Stata; betas match 1e-9)} & rel $\le 2.2e-15$ & \textbf{PASS} \\
+\code{37} & PPML + HDFE & rel $\le 4.9e-13$ {\footnotesize (post PPML FE-score fix; robust SE within 0.5\% of fixest)} & rel $\le 2.2e-15$ & \textbf{PASS} \\
 \code{38} & DR-DID (SZ 2020) & rel $\le 0.0005$ {\footnotesize (R-only (Stata drdid is Ferman's different DR formula))} & \emph{Stata DRDID = Ferman (different DR formula)} & \textbf{PASS} \\
 \code{39} & ARIMA(2,0,0) & rel $\le 0.0053$ {\footnotesize (sp uses Kalman exact MLE; R/Stata use CSS-ML (0.5\% method gap))} & rel $\le 0.0053$ & \textbf{PASS} \\
-\code{40} & Quantile reg (median) & rel $\le 3.3e-15$ {\footnotesize (sp.qreg SE bug (extra n in sandwich) fixed in-session)} & rel $\le 4.4e-15$ & \textbf{PASS} \\
-\code{41} & Tobit (left-censored) & rel $\le 2.8e-08$ {\footnotesize (sp uses BFGS hess_inv approx; SE 13-30\% off)} & rel $\le 2.8e-08$ & \textbf{PASS} \\
+\code{40} & Quantile reg (median) & rel $\le 3.3e-15$ {\footnotesize (post sqrt(n) sandwich-scaling fix)} & rel $\le 4.4e-15$ & \textbf{PASS} \\
+\code{41} & Tobit (left-censored) & rel $\le 2.8e-08$ {\footnotesize (post observed-information Hessian fix)} & rel $\le 2.8e-08$ & \textbf{PASS} \\
 \code{42} & Negative binomial & rel $\le 6e-10$ & rel $\le 1.3e-10$ & \textbf{PASS} \\
 \code{43} & Heckman 2-step & rel $\le 1e-11$ & rel $\le 1e-11$ & \textbf{PASS} \\
-\code{44} & Multinomial logit & rel $\le 1.1e-05$ {\footnotesize (sp SE ~2\% inflated vs nnet/Stata)} & rel $\le 7.4e-09$ & \textbf{PASS} \\
-\code{45} & Ordered logit & rel $\le 2.4e-06$ {\footnotesize (sp beta\_x SE 26\% inflated (cut-points within 6\%))} & rel $\le 3.5e-07$ & \textbf{PASS} \\
+\code{44} & Multinomial logit & rel $\le 1.1e-05$ {\footnotesize (post observed-information Hessian fix)} & rel $\le 7.4e-09$ & \textbf{PASS} \\
+\code{45} & Ordered logit & rel $\le 2.4e-06$ {\footnotesize (post observed-information Hessian fix)} & rel $\le 3.5e-07$ & \textbf{PASS} \\
 \code{46} & Conditional logit & rel $\le 1.3e-08$ & rel $\le 1.3e-08$ & \textbf{PASS} \\
 \code{47} & PPML + 3-way HDFE & rel $\le 1.2e-15$ {\footnotesize (Post Gauss-Seidel multi-FE fix; sp matches at 1e-15)} & rel $\le 1.2e-16$ & \textbf{PASS} \\
 \code{48} & Binary probit & rel $\le 3.1e-07$ & rel $\le 1.6e-08$ & \textbf{PASS} \\
 \code{49} & Ordered probit & rel $\le 3.4e-07$ & rel $\le 2.8e-08$ & \textbf{PASS} \\
-\code{51} & Newey-West HAC OLS & rel $\le 1.8e-15$ {\footnotesize (Post sp HAC sandwich fix (was off by sqrt(n), finding #13))} & rel $\le 3.6e-16$ & \textbf{PASS} \\
+\code{51} & Newey-West HAC OLS & rel $\le 1.8e-15$ {\footnotesize (post HAC sandwich sqrt(n) scaling fix)} & rel $\le 3.6e-16$ & \textbf{PASS} \\
 \end{longtable}
 \endgroup
