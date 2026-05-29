@@ -85,11 +85,45 @@ class TestArellanoBond:
         assert isinstance(result, CausalResult)
         assert result.model_info['twostep'] is True
 
-    def test_system_gmm(self, dynamic_panel):
-        """System (Blundell-Bond) method should work."""
-        result = xtabond(dynamic_panel, y='y', x=['x'],
-                         id='id', time='time', method='system')
-        assert 'Blundell-Bond' in result.method
+    def test_system_gmm_not_implemented(self, dynamic_panel):
+        """System (Blundell-Bond) GMM is gated until it has a parity ref.
+
+        Proper system GMM needs a stacked level equation; rather than
+        return an unvalidated (and previously distorted) estimate, the
+        method raises loudly and points at the difference estimator.
+        """
+        with pytest.raises(NotImplementedError, match="system GMM"):
+            xtabond(dynamic_panel, y='y', x=['x'],
+                    id='id', time='time', method='system')
+
+    def test_parity_matches_stata_xtabond(self):
+        """Difference GMM (one-step robust) must match Stata's xtabond to
+        machine precision on the parity DGP (tests/r_parity/50_xtabond.py).
+
+        Stata `xtabond y x, lags(1) vce(robust)`:
+            beta_y_lag = 0.39117889 (se 0.04632272)
+            beta_x     = 0.21695482 (se 0.04361645)
+        """
+        rng = np.random.default_rng(42)
+        N, T = 100, 8
+        rows, y_prev = [], np.zeros(N)
+        for t in range(T):
+            xx = rng.normal(0, 1, N)
+            yy = 0.5 * y_prev + 0.3 * xx + rng.normal(0, 1, N)
+            for i in range(N):
+                rows.append({'id': i, 'time': t,
+                             'y': float(yy[i]), 'x': float(xx[i])})
+            y_prev = yy
+        df = pd.DataFrame(rows)
+        res = xtabond(df, y='y', x=['x'], id='id', time='time', lags=1,
+                      gmm_lags=(2, None), method='difference',
+                      twostep=False, robust=True)
+        d = {r['variable']: (r['coefficient'], r['se'])
+             for _, r in res.detail.iterrows()}
+        assert abs(d['_y_lag1'][0] - 0.39117889) < 1e-5
+        assert abs(d['_y_lag1'][1] - 0.04632272) < 1e-5
+        assert abs(d['x'][0] - 0.21695482) < 1e-5
+        assert abs(d['x'][1] - 0.04361645) < 1e-5
 
     def test_no_exogenous(self, dynamic_panel):
         """Should work with only lagged Y (no X)."""

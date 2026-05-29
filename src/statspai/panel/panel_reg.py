@@ -384,7 +384,7 @@ def panel(
     alpha: float = 0.05,
     balance: bool = False,
     lags: int = 1,
-    gmm_lags: Tuple[int, int] = (2, 5),
+    gmm_lags: Tuple[int, Optional[int]] = (2, None),
     twostep: bool = False,
 ) -> PanelResults:
     """Public ``sp.panel`` entry point — see ``_dispatch_panel_impl``
@@ -439,7 +439,7 @@ def _dispatch_panel_impl(
     balance: bool = False,
     # Dynamic panel (AB/System GMM) options
     lags: int = 1,
-    gmm_lags: Tuple[int, int] = (2, 5),
+    gmm_lags: Tuple[int, Optional[int]] = (2, None),
     twostep: bool = False,
 ) -> PanelResults:
     """
@@ -492,7 +492,7 @@ def _dispatch_panel_impl(
         estimation (equivalent to R's ``make.pbalanced()``).
     lags : int, default 1
         Number of AR lags (for dynamic panel methods ``'ab'``/``'system'``).
-    gmm_lags : tuple, default (2, 5)
+    gmm_lags : tuple, default (2, None)
         GMM instrument lag range (for ``'ab'``/``'system'``).
     twostep : bool, default False
         Two-step GMM (for ``'ab'``/``'system'``).
