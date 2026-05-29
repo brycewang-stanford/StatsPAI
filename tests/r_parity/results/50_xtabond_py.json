@@ -1,0 +1,33 @@
+{
+  "module": "50_xtabond",
+  "side": "py",
+  "rows": [
+    {
+      "module": "50_xtabond",
+      "side": "py",
+      "statistic": "beta_y_lag",
+      "estimate": 0.3911788897381624,
+      "se": 0.04632271608474091,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": {}
+    },
+    {
+      "module": "50_xtabond",
+      "side": "py",
+      "statistic": "beta_x",
+      "estimate": 0.21695482367580302,
+      "se": 0.04361644997956831,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "Arellano-Bond difference GMM",
+    "step": "one-step",
+    "vcov": "robust"
+  }
+}
