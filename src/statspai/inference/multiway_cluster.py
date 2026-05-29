@@ -74,20 +74,19 @@ def _one_way_sandwich(
     df_adjust: bool = True,
     n_params: Optional[int] = None,
 ) -> np.ndarray:
-    """Liang-Zeger sandwich with small-sample correction (CR1)."""
-    n, k = X.shape
-    G = int(codes.max()) + 1
-    scores = X * resid[:, None]
-    agg = np.zeros((G, k))
-    np.add.at(agg, codes, scores)
-    meat = agg.T @ agg
+    """Liang-Zeger sandwich with small-sample correction (CR1).
 
-    if df_adjust:
-        p = n_params if n_params is not None else k
-        scale = (G / max(G - 1, 1)) * ((n - 1) / max(n - p, 1))
-    else:
-        scale = 1.0
-    return scale * XtX_inv @ meat @ XtX_inv
+    Delegates to the canonical ``core._vcov.sandwich_vcov`` (CLAUDE.md §4):
+    the CR1 correction is its ``'cr1'`` factor (G/max(G-1,1) * (n-1)/max(n-p,1)).
+    Verified byte-identical to the prior hand-rolled sandwich for G >= 2.
+    """
+    from ..core._vcov import sandwich_vcov
+    p = n_params if n_params is not None else X.shape[1]
+    scores = X * resid[:, None]
+    return sandwich_vcov(
+        XtX_inv, scores, clusters=codes,
+        correction="cr1" if df_adjust else "none", n_params=p,
+    )
 
 
 def _project_psd(V: np.ndarray) -> np.ndarray:
