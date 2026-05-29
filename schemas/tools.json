@@ -269,10 +269,7 @@
         },
         "exog": {
           "description": "Included exogenous controls.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "h0": {
           "default": 0,
@@ -1591,10 +1588,7 @@
         },
         "controls": {
           "description": "Additional control covariates.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "first_treat": {
           "description": "Column indicating the period of first treatment. Use ``np.inf``, ``np.nan``, or ``0`` for never-treated units.",
@@ -1606,7 +1600,7 @@
         },
         "horizon": {
           "description": "Relative time periods for event study estimates, e.g. ``list(range(-5, 6))``. If ``None``, reports only the overall ATT (no event study disaggregation).",
-          "type": "integer"
+          "type": "string"
         },
         "time": {
           "description": "Time period column.",
@@ -1797,10 +1791,7 @@
         },
         "controls": {
           "description": "Additional control covariates.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "first_treat": {
           "description": "Column indicating the period of first treatment. Use ``np.inf``, ``np.nan``, or ``0`` for never-treated units.",
@@ -1812,7 +1803,7 @@
         },
         "horizon": {
           "description": "Relative time periods for event study estimates, e.g. ``list(range(-5, 6))``. If ``None``, reports only the overall ATT (no event study disaggregation).",
-          "type": "integer"
+          "type": "string"
         },
         "time": {
           "description": "Time period column.",
@@ -1971,11 +1962,11 @@
         },
         "bin_width": {
           "description": "Width of bins. If None, computed from data range / n_bins.",
-          "type": "number"
+          "type": "string"
         },
         "bunch_region": {
           "description": "(lower, upper) bounds of the bunching region. If None, uses [threshold - 2*bin_width, threshold + 2*bin_width].",
-          "type": "number"
+          "type": "string"
         },
         "design": {
           "default": "kink",
@@ -1984,11 +1975,11 @@
         },
         "dt": {
           "description": "Change in marginal tax rate at the kink (for elasticity). E.g., 0.10 for a 10pp increase.",
-          "type": "number"
+          "type": "string"
         },
         "exclude_region": {
           "description": "Same as bunch_region unless otherwise specified.",
-          "type": "number"
+          "type": "string"
         },
         "n_bins": {
           "default": 50,
@@ -2365,7 +2356,7 @@
           "type": "string"
         },
         "title": {
-          "description": "title parameter (Optional[str]).",
+          "description": "title parameter (Optional).",
           "type": "string"
         }
       },
@@ -2410,7 +2401,7 @@
           "type": "string"
         },
         "title": {
-          "description": "title parameter (Optional[str]).",
+          "description": "title parameter (Optional).",
           "type": "string"
         }
       },
@@ -3238,7 +3229,7 @@
         },
         "method_hints": {
           "description": "Per-method keyword overrides, merged with the shared kwargs when dispatching each estimator. Structure:: {'proximal': {'proxy_z': ['z'], 'proxy_w': ['w']}, 'msm': {'time_varying': ['L_lag']}, 'principal_strat': {'strata': 's'}} **Collision rule** (docs/ROADMAP.md \u00a76): per-method hints take precedence over the shared kwargs for the method they name. If the top-level ``covariates=['age']`` disagrees with ``method_hints={'proximal': {'covariates': ['age', 'educ']}}``, proximal uses the hint and every other method uses the shared arg. A ``UserWarning`` fires on conflict so the override is visible in the log.",
-          "type": "object"
+          "type": "string"
         },
         "methods": {
           "description": "Estimators to compare. Default auto-selects based on data. Classical options: ``'ols'``, ``'matching'``, ``'ipw'``, ``'aipw'``, ``'dml'``, ``'g_computation'``, ``'causal_forest'``, ``'did'``, ``'panel_fe'``. Hint-driven Sprint-B options (require ``method_hints``): ``'proximal'``, ``'msm'``, ``'principal_strat'``, ``'mediate'``, ``'mediate_interventional'``, ``'front_door'``. Each needs method-specific kwargs the shared signature does not expose (proxy_z/proxy_w, time_varying, strata, mediator, etc.) \u2014 pass them through ``method_hints``.",
@@ -3281,10 +3272,7 @@
         },
         "learners": {
           "description": "Which learners to compare. Default: all five ('s','t','x','r','dr'). Additional arguments passed to ``metalearner()``.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "treat": {
           "description": "Binary treatment variable (0/1).",
@@ -5112,10 +5100,7 @@
         },
         "controls": {
           "description": "Control-variable column names.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "first_treat": {
           "description": "first_treat parameter (str).",
@@ -5132,11 +5117,8 @@
         },
         "methods": {
           "default": "auto",
-          "description": "methods parameter (Union[str, List[str]]).",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "description": "methods parameter (Union).",
+          "type": "string"
         },
         "plot_sort_by": {
           "default": "estimate",
@@ -5187,10 +5169,7 @@
         },
         "controls": {
           "description": "Time-varying covariates passed to methods that support them.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "first_treat": {
           "description": "First-treatment period per unit; NaN (or 0) for never-treated.",
@@ -5208,10 +5187,7 @@
         "methods": {
           "default": "auto",
           "description": "Methods to run. Valid keys: ``'cs'``, ``'sa'``, ``'bjs'``, ``'etwfe'``, ``'stacked'``, or ``'all'`` / ``'auto'`` for all.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "time": {
           "description": "Time / period variable (integer-valued).",
@@ -6167,10 +6143,7 @@
         },
         "exog": {
           "description": "Included exogenous controls (a constant is added automatically).",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "instruments": {
           "description": "Excluded instruments.",
@@ -6551,7 +6524,7 @@
         },
         "ci": {
           "description": "Confidence interval (lower, upper). If not provided, computed from estimate +/- z * se.",
-          "type": "number"
+          "type": "string"
         },
         "estimate": {
           "description": "Point estimate of the treatment effect. - For measure='RR': risk ratio (must be > 0). - For measure='OR': odds ratio (must be > 0). - For measure='HR': hazard ratio (must be > 0). - For measure='diff': risk difference (between -1 and 1). - For measure='SMD': standardised mean difference. - For measure='RD': same as 'diff'.",
@@ -6569,7 +6542,7 @@
         },
         "se": {
           "description": "Standard error of the estimate (used to compute CI if ci is not provided).",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [
@@ -6850,7 +6823,7 @@
         },
         "vcov": {
           "description": "Variance-covariance estimator. Additional arguments passed to ``pyfixest.feglm()``.",
-          "type": "object"
+          "type": "string"
         }
       },
       "required": [
@@ -6889,7 +6862,7 @@
         },
         "vcov": {
           "description": "Variance-covariance estimator. - ``\"iid\"`` \u2014 classical - ``\"HC1\"``, ``\"HC2\"``, ``\"HC3\"`` \u2014 heteroskedasticity-robust - ``{\"CRV1\": \"firm\"}`` \u2014 cluster-robust - ``{\"CRV1\": \"firm + year\"}`` \u2014 two-way clustering",
-          "type": "object"
+          "type": "string"
         },
         "weights": {
           "description": "Column name for regression weights.",
@@ -6937,7 +6910,7 @@
         },
         "vcov": {
           "description": "Variance-covariance estimator.",
-          "type": "object"
+          "type": "string"
         },
         "weights": {
           "description": "Column name for regression weights.",
@@ -7051,10 +7024,7 @@
         },
         "controls": {
           "description": "Control variables for covariate-adjusted inference. When provided, the test statistic is computed on residuals from regressing Y on controls.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "n_perm": {
           "default": 10000,
@@ -7063,7 +7033,7 @@
         },
         "seed": {
           "description": "Random seed for reproducibility.",
-          "type": "integer"
+          "type": "string"
         },
         "statistic": {
           "default": "ate",
@@ -7449,10 +7419,7 @@
         },
         "propensity_covariates": {
           "description": "Covariates for propensity model at each stage. If None, uses covariates_by_stage.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "random_state": {
           "default": 42,
@@ -8661,11 +8628,11 @@
         },
         "y_lower": {
           "description": "Known lower bound of Y. Defaults to observed min.",
-          "type": "number"
+          "type": "string"
         },
         "y_upper": {
           "description": "Known upper bound of Y. Defaults to observed max.",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [
@@ -9092,10 +9059,7 @@
         },
         "controls": {
           "description": "Control variables (residualized out via OLS).",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "instrument": {
           "description": "Instrument variable (binary).",
@@ -9408,14 +9372,14 @@
           "type": "string"
         },
         "x_endog": {
-          "description": "x_endog parameter (List[str]).",
+          "description": "x_endog parameter (List).",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "x_exog": {
-          "description": "x_exog parameter (List[str]).",
+          "description": "x_exog parameter (List).",
           "items": {
             "type": "string"
           },
@@ -9721,7 +9685,7 @@
         },
         "seed": {
           "description": "Random seed for reproducibility.",
-          "type": "integer"
+          "type": "string"
         },
         "treatment": {
           "description": "Endogenous binary treatment variable (D).",
@@ -9765,14 +9729,14 @@
           "type": "string"
         },
         "x_endog": {
-          "description": "x_endog parameter (List[str]).",
+          "description": "x_endog parameter (List).",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "x_exog": {
-          "description": "x_exog parameter (List[str]).",
+          "description": "x_exog parameter (List).",
           "items": {
             "type": "string"
           },
@@ -9878,10 +9842,7 @@
         },
         "covariates": {
           "description": "Not used in basic Lee bounds, reserved for conditional bounds.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "n_bootstrap": {
           "default": 500,
@@ -10298,7 +10259,10 @@
             7
           ],
           "description": "(width, height). Height defaults to 0.4 * n_covariates + 1.",
-          "type": "number"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "ps_method": {
           "default": "logit",
@@ -10605,11 +10569,11 @@
         },
         "y_lower": {
           "description": "Known lower bound of the outcome. If None, uses observed min.",
-          "type": "number"
+          "type": "string"
         },
         "y_upper": {
           "description": "Known upper bound of the outcome. If None, uses observed max.",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [
@@ -10631,7 +10595,7 @@
         },
         "at": {
           "description": "Fix covariates at specific values for conditional margins. E.g., ``{'age': 30, 'female': 1}``.",
-          "type": "object"
+          "type": "string"
         },
         "eps": {
           "default": 1e-05,
@@ -10649,10 +10613,7 @@
         },
         "variables": {
           "description": "Variables to compute dy/dx for. Default: all regressors.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         }
       },
       "required": [
@@ -10717,13 +10678,10 @@
         },
         "palette": {
           "description": "Colours for each ``by`` group.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "title": {
-          "description": "title parameter (Optional[str]).",
+          "description": "title parameter (Optional).",
           "type": "string"
         },
         "x": {
@@ -10731,7 +10689,7 @@
           "type": "string"
         },
         "xlabel": {
-          "description": "xlabel parameter (Optional[str]).",
+          "description": "xlabel parameter (Optional).",
           "type": "string"
         },
         "ylabel": {
@@ -10757,8 +10715,8 @@
           "type": "number"
         },
         "at": {
-          "description": "at parameter (Optional[Dict[str, Any]]).",
-          "type": "object"
+          "description": "at parameter (Optional).",
+          "type": "string"
         },
         "eps": {
           "default": 1e-05,
@@ -10775,11 +10733,8 @@
           "type": "string"
         },
         "variables": {
-          "description": "variables parameter (Optional[List[str]]).",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "description": "variables parameter (Optional).",
+          "type": "string"
         }
       },
       "required": [
@@ -10818,7 +10773,7 @@
           "type": "string"
         },
         "title": {
-          "description": "title parameter (Optional[str]).",
+          "description": "title parameter (Optional).",
           "type": "string"
         }
       },
@@ -10910,7 +10865,7 @@
         },
         "lambda_reg": {
           "description": "Nuclear norm regularisation parameter. If None, estimated via the universal threshold: lambda = sigma * sqrt(n).",
-          "type": "number"
+          "type": "string"
         },
         "max_iter": {
           "default": 1000,
@@ -10919,7 +10874,7 @@
         },
         "max_rank": {
           "description": "Maximum rank for the completed matrix. If None, no constraint.",
-          "type": "integer"
+          "type": "string"
         },
         "n_bootstrap": {
           "default": 200,
@@ -12429,7 +12384,7 @@
         },
         "exclude_range": {
           "description": "Range around the notch to exclude from the counterfactual fit. If None, defaults to (notch_point - 3*bin_width, notch_point + 5*bin_width).",
-          "type": "number"
+          "type": "string"
         },
         "n_boot": {
           "default": 500,
@@ -12498,10 +12453,7 @@
         },
         "variables": {
           "description": "Column names to use. If None, uses all numeric columns.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "w_threshold": {
           "default": 0.3,
@@ -12820,7 +12772,10 @@
             2.0
           ],
           "description": "Range of proportional selection parameter delta.",
-          "type": "number"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "n_boot": {
           "default": 500,
@@ -12891,7 +12846,10 @@
             4
           ],
           "description": "Figure size (width, height).",
-          "type": "number"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "method": {
           "default": "logit",
@@ -13555,7 +13513,7 @@
         },
         "seed": {
           "description": "Random seed for reproducibility.",
-          "type": "integer"
+          "type": "string"
         },
         "treatment": {
           "description": "Binary treatment indicator (only in data_experiment).",
@@ -13598,28 +13556,19 @@
         },
         "forbidden": {
           "description": "Background knowledge: edges that must NOT appear in the final graph (treated as undirected \u2014 both ``(a, b)`` and ``(b, a)`` are forbidden when either is given). The skeleton phase keeps these absent regardless of CI test outcomes.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "max_cond_size": {
           "description": "Maximum conditioning set size. If None, goes up to d-2.",
-          "type": "integer"
+          "type": "string"
         },
         "required": {
           "description": "Background knowledge: directed edges ``a -> b`` that must appear in the CPDAG. The skeleton phase preserves them regardless of CI rejection, and the orientation phase pins their direction.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "variables": {
           "description": "Column names to use. If None, uses all numeric columns.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         }
       },
       "required": [],
@@ -14553,7 +14502,7 @@
         },
         "trim": {
           "description": "If set, draw vertical lines at (trim, 1-trim) to show the recommended trimming region.",
-          "type": "number"
+          "type": "string"
         }
       },
       "required": [
@@ -14967,7 +14916,7 @@
         },
         "h": {
           "description": "Manual bandwidth. If None, MSE-optimal bandwidth is selected.",
-          "type": "number"
+          "type": "string"
         },
         "kernel": {
           "default": "triangular",
@@ -15615,17 +15564,11 @@
         },
         "covs": {
           "description": "Covariate names for overlap and CI testing.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "target_x_range": {
           "description": "Running variable range ``(x_low, x_high)`` defining the target population. Defaults to the full data range.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "x": {
           "description": "Running variable name.",
@@ -15660,10 +15603,7 @@
         },
         "covs": {
           "description": "Covariate names for conditional independence. Required.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "eval_points": {
           "description": "Running variable values at which to extrapolate the CATE. If None, ``n_eval`` equally spaced points spanning the data range.",
@@ -15671,7 +15611,7 @@
         },
         "h_local": {
           "description": "Bandwidth for local RD estimate at the cutoff (for comparison). If None, the MSE-optimal bandwidth from ``rdrobust`` is used.",
-          "type": "number"
+          "type": "string"
         },
         "method": {
           "default": "ols",
@@ -16000,7 +15940,10 @@
         },
         "cutoffs": {
           "description": "Cutoff values. Must contain at least 2 cutoffs.",
-          "type": "number"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "eval_points": {
           "description": "Running variable values at which to predict tau(x). Defaults to 30 equally spaced points spanning the data range.",
@@ -16173,14 +16116,11 @@
         },
         "covs": {
           "description": "Covariate names to test. If None, tests all numeric columns except x.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "h": {
           "description": "Manual bandwidth. If None, uses MSE-optimal per covariate.",
-          "type": "number"
+          "type": "string"
         },
         "kernel": {
           "default": "triangular",
@@ -16233,10 +16173,7 @@
         },
         "z": {
           "description": "Covariate(s) for treatment effect heterogeneity.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         }
       },
       "required": [
@@ -16273,10 +16210,7 @@
         },
         "covs": {
           "description": "Covariate column names. When provided, the variance estimates used in bandwidth selection account for covariate adjustment, typically yielding narrower bandwidths.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "deriv": {
           "default": 0,
@@ -16299,7 +16233,7 @@
         },
         "q": {
           "description": "Polynomial order for bias correction. Default is p + 1.",
-          "type": "integer"
+          "type": "string"
         },
         "x": {
           "description": "Running variable column name.",
@@ -16333,7 +16267,7 @@
         },
         "bw_grid": {
           "description": "Explicit bandwidth values to evaluate. If None, auto-generates a grid as multiples of the MSE-optimal bandwidth.",
-          "type": "number"
+          "type": "string"
         },
         "bw_range": {
           "default": [
@@ -16444,7 +16378,7 @@
         },
         "h": {
           "description": "Bandwidth. Default: automatic (Cattaneo-Jansson-Ma rule).",
-          "type": "number"
+          "type": "string"
         },
         "p": {
           "default": 2,
@@ -16474,7 +16408,7 @@
         },
         "b": {
           "description": "Bandwidth for bias correction. Defaults to h.",
-          "type": "number"
+          "type": "string"
         },
         "bwselect": {
           "default": "mserd",
@@ -16496,7 +16430,7 @@
         },
         "h": {
           "description": "Bandwidth for estimation. If None, MSE-optimal bandwidth is selected.",
-          "type": "number"
+          "type": "string"
         },
         "kernel": {
           "default": "triangular",
@@ -16523,10 +16457,7 @@
         },
         "z": {
           "description": "Covariate(s) for treatment effect heterogeneity.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         }
       },
       "required": [
@@ -16637,7 +16568,10 @@
         },
         "cutoffs": {
           "description": "Cutoff values.",
-          "type": "number"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "kernel": {
           "default": "triangular",
@@ -16767,7 +16701,7 @@
         },
         "placebo_cutoffs": {
           "description": "Explicit placebo cutoff values. If None, auto-generates from the data distribution.",
-          "type": "number"
+          "type": "string"
         },
         "side": {
           "default": "both",
@@ -16816,10 +16750,7 @@
         },
         "covs": {
           "description": "Covariates to partial out before binning and plotting.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "donut": {
           "default": 0,
@@ -16839,7 +16770,7 @@
         },
         "h": {
           "description": "Bandwidth to display.",
-          "type": "number"
+          "type": "string"
         },
         "hide_ci": {
           "default": false,
@@ -16853,7 +16784,7 @@
         },
         "nbins": {
           "description": "Bins per side. If None, uses data-driven selection via binselect.",
-          "type": "integer"
+          "type": "string"
         },
         "p": {
           "default": 4,
@@ -16876,7 +16807,7 @@
           "type": "boolean"
         },
         "title": {
-          "description": "title parameter (Optional[str]).",
+          "description": "title parameter (Optional).",
           "type": "string"
         },
         "weights": {
@@ -16888,7 +16819,7 @@
           "type": "string"
         },
         "x_label": {
-          "description": "x_label parameter (Optional[str]).",
+          "description": "x_label parameter (Optional).",
           "type": "string"
         },
         "y": {
@@ -16896,7 +16827,7 @@
           "type": "string"
         },
         "y_label": {
-          "description": "y_label parameter (Optional[str]).",
+          "description": "y_label parameter (Optional).",
           "type": "string"
         }
       },
@@ -16939,7 +16870,7 @@
         },
         "h": {
           "description": "Bandwidth. If None, side-specific Silverman pilot.",
-          "type": "number"
+          "type": "string"
         },
         "hist": {
           "default": true,
@@ -16962,7 +16893,7 @@
           "type": "integer"
         },
         "title": {
-          "description": "title parameter (Optional[str]).",
+          "description": "title parameter (Optional).",
           "type": "string"
         },
         "x": {
@@ -17048,10 +16979,7 @@
         },
         "covs": {
           "description": "Covariate names to partial out before testing.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "fuzzy": {
           "description": "Actual treatment variable for fuzzy RD. The Wald (IV) estimator is computed within the window.",
@@ -17084,11 +17012,11 @@
         },
         "wl": {
           "description": "Window left bound offset from cutoff (typically negative). The left edge of the window is ``c + wl``.",
-          "type": "number"
+          "type": "string"
         },
         "wr": {
           "description": "Window right bound offset from cutoff (typically positive). The right edge of the window is ``c + wr``.",
-          "type": "number"
+          "type": "string"
         },
         "x": {
           "description": "Running variable name.",
@@ -17118,7 +17046,7 @@
         },
         "gamma_list": {
           "description": "Odds ratios to evaluate. Defaults to [1, 1.5, 2, 2.5, 3, 4, 5]. gamma=1 is pure randomization; gamma>1 allows confounding.",
-          "type": "number"
+          "type": "string"
         },
         "n_perms": {
           "default": 1000,
@@ -17137,11 +17065,11 @@
         },
         "wl": {
           "description": "Window left bound offset (typically negative).",
-          "type": "number"
+          "type": "string"
         },
         "wr": {
           "description": "Window right bound offset (typically positive).",
-          "type": "number"
+          "type": "string"
         },
         "x": {
           "description": "Running variable name.",
@@ -17290,7 +17218,7 @@
         },
         "wlist": {
           "description": "Symmetric half-window widths to evaluate. If None, an evenly-spaced grid is generated automatically.",
-          "type": "number"
+          "type": "string"
         },
         "x": {
           "description": "Running variable name.",
@@ -17325,10 +17253,7 @@
         },
         "covs": {
           "description": "Pre-treatment covariates for balance test.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "full": {
           "default": false,
@@ -17392,10 +17317,7 @@
         },
         "covs": {
           "description": "Covariate names to test balance for. If None, uses quantiles of the running variable as pseudo-covariates.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "nwindows": {
           "default": 10,
@@ -17419,11 +17341,11 @@
         },
         "wmin": {
           "description": "Minimum half-window width. Defaults to the smallest gap between adjacent observations near the cutoff.",
-          "type": "number"
+          "type": "string"
         },
         "wstep": {
           "description": "Window increment. Defaults to ``(max_range - wmin) / nwindows``.",
-          "type": "number"
+          "type": "string"
         },
         "x": {
           "description": "Running variable name.",
@@ -17601,7 +17523,7 @@
         },
         "seed": {
           "description": "Random seed.",
-          "type": "integer"
+          "type": "string"
         },
         "stat": {
           "default": "diff_means",
@@ -17712,7 +17634,7 @@
         },
         "h": {
           "description": "Bandwidth. If None, an MSE-optimal bandwidth is selected automatically.",
-          "type": "number"
+          "type": "string"
         },
         "kernel": {
           "default": "triangular",
@@ -18210,10 +18132,7 @@
         },
         "covariates": {
           "description": "Reserved for future covariate-adjusted extensions.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "method": {
           "default": "sdid",
@@ -18246,7 +18165,7 @@
         },
         "seed": {
           "description": "Random seed for reproducibility.",
-          "type": "integer"
+          "type": "string"
         },
         "time": {
           "description": "Time period column.",
@@ -18337,10 +18256,7 @@
         },
         "covariates": {
           "description": "Covariates to condition on for tighter (conditional) bounds.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "method": {
           "default": "conditional",
@@ -18847,8 +18763,8 @@
           "type": "number"
         },
         "quantiles": {
-          "description": "quantiles parameter (Optional[List[float]]).",
-          "type": "number"
+          "description": "quantiles parameter (Optional).",
+          "type": "string"
         },
         "x": {
           "description": "Primary running variable, regressor, or feature input for this estimator.",
@@ -18876,10 +18792,7 @@
       "properties": {
         "baseline": {
           "description": "Baseline covariates.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "id": {
           "description": "Unit and time identifiers.",
@@ -19423,10 +19336,7 @@
         },
         "equations": {
           "description": "Mapping from equation name to (dep_var, list_of_regressors).",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "object"
         },
         "maxiter": {
           "default": 100,
@@ -19502,7 +19412,7 @@
         },
         "seed": {
           "description": "Random seed for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "string"
         },
         "survival": {
           "description": "survival parameter (str).",
@@ -20548,7 +20458,7 @@
           "type": "string"
         },
         "title": {
-          "description": "title parameter (Optional[str]).",
+          "description": "title parameter (Optional).",
           "type": "string"
         },
         "treated_color": {
@@ -20788,11 +20698,8 @@
           "type": "number"
         },
         "equations": {
-          "description": "equations parameter (Dict[str, Tuple[str, List[str], List[str]]]).",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "description": "equations parameter (Dict).",
+          "type": "object"
         },
         "instruments": {
           "description": "Full set of instruments (all exogenous variables in the system).",
@@ -21339,10 +21246,7 @@
         },
         "exog": {
           "description": "Included exogenous controls. An intercept is always added.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+          "type": "string"
         },
         "grid_size": {
           "default": 401,
@@ -21373,7 +21277,7 @@
         },
         "random_state": {
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "string"
         },
         "vcov": {
           "default": "HC1",
@@ -21423,7 +21327,7 @@
         },
         "seed": {
           "description": "Random seed for reproducibility.",
-          "type": "integer"
+          "type": "string"
         },
         "variable": {
           "description": "Name of the coefficient to test (H0: beta = 0).",
