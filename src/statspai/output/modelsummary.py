@@ -328,6 +328,147 @@ def coefplot(
     return fig, ax
 
 
+def _coefplot_tikz_escape(s: str) -> str:
+    """Minimal LaTeX escaping for axis labels / legend entries."""
+    out = str(s)
+    for ch, rep in (("\\", r"\textbackslash{}"), ("&", r"\&"),
+                    ("%", r"\%"), ("$", r"\$"), ("#", r"\#"),
+                    ("_", r"\_"), ("{", r"\{"), ("}", r"\}"),
+                    ("~", r"\textasciitilde{}"), ("^", r"\textasciicircum{}")):
+        out = out.replace(ch, rep)
+    return out
+
+
+def coefplot_tikz(
+    *models,
+    model_names: Optional[List[str]] = None,
+    variables: Optional[List[str]] = None,
+    coef_labels: Optional[Dict[str, str]] = None,
+    level: float = 0.95,
+    title: Optional[str] = None,
+    xlabel: str = "Coefficient estimate",
+    standalone: bool = False,
+) -> str:
+    """Return ``pgfplots`` / TikZ source for a coefficient forest plot.
+
+    The vector-graphics, LaTeX-native counterpart to :func:`coefplot` (which
+    returns a Matplotlib ``(fig, ax)`` you can ``fig.savefig("plot.pdf")`` /
+    ``.png``). Each model becomes one ``\\addplot`` series of point estimates
+    with horizontal confidence-interval error bars; variables run down the
+    y-axis with a dashed reference line at zero — the same forest layout as
+    :func:`coefplot`, emitted as editable LaTeX.
+
+    Parameters
+    ----------
+    *models
+        Model result objects (``EconometricResults`` / ``CausalResult`` /
+        any object exposing ``params`` / ``std_errors``).
+    model_names : list of str, optional
+        Legend labels. Default ``Model 1``, ``Model 2``, …
+    variables : list of str, optional
+        Which coefficients to plot. Default: every shared variable, sorted.
+    coef_labels : dict, optional
+        Rename variables on the y-axis, e.g. ``{"x": "Treatment"}``.
+    level : float, default 0.95
+        Confidence level for the error bars (normal approximation
+        ``b ± z·se``, matching :func:`coefplot`).
+    title : str, optional
+        Plot title. Default ``"Coefficient plot"``.
+    xlabel : str, default ``"Coefficient estimate"``
+        x-axis label.
+    standalone : bool, default False
+        When ``True``, wrap the ``tikzpicture`` in a compilable
+        ``standalone`` document (with the required ``\\usepackage{pgfplots}``).
+        Otherwise return just the ``tikzpicture`` to ``\\input`` into a paper
+        (needs ``\\usepackage{pgfplots}`` in the preamble).
+
+    Returns
+    -------
+    str
+        ``pgfplots`` source.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> m1 = sp.regress("y ~ x + z", data=df)         # doctest: +SKIP
+    >>> tikz = sp.coefplot_tikz(m1, coef_labels={"x": "Treatment"})
+    >>> open("coefplot.tex", "w").write(tikz)         # doctest: +SKIP
+    """
+    from scipy import stats as sp_stats
+
+    z_crit = float(sp_stats.norm.ppf(1 - (1 - level) / 2))
+    if model_names is None:
+        model_names = [f"Model {i + 1}" for i in range(len(models))]
+    coef_data = [_extract_coefs(m) for m in models]
+    if variables is None:
+        all_v: set = set()
+        for cd in coef_data:
+            all_v.update(cd.keys())
+        variables = sorted(all_v)
+    coef_labels = coef_labels or {}
+
+    n_vars = len(variables)
+    n_models = len(models)
+    if n_models > 1:
+        offsets = np.linspace(-0.15 * (n_models - 1),
+                              0.15 * (n_models - 1), n_models)
+    else:
+        offsets = np.zeros(1)
+
+    yt_labels = ", ".join(
+        _coefplot_tikz_escape(coef_labels.get(v, v)) for v in variables
+    )
+
+    lines: List[str] = []
+    if standalone:
+        lines += [
+            "\\documentclass{standalone}",
+            "\\usepackage{pgfplots}",
+            "\\pgfplotsset{compat=1.18}",
+            "\\begin{document}",
+        ]
+    lines.append("\\begin{tikzpicture}")
+    lines.append("\\begin{axis}[")
+    lines.append(f"  title={{{_coefplot_tikz_escape(title or 'Coefficient plot')}}},")
+    lines.append(f"  xlabel={{{_coefplot_tikz_escape(xlabel)}}},")
+    lines.append(f"  ytick={{{','.join(str(i) for i in range(n_vars))}}},")
+    lines.append(f"  yticklabels={{{yt_labels}}},")
+    lines.append("  y dir=reverse,")
+    lines.append(f"  ymin=-0.5, ymax={n_vars - 0.5:g},")
+    lines.append("  axis lines=left,")
+    lines.append("  legend pos=south east, legend cell align=left,")
+    lines.append("]")
+    # Zero reference line.
+    lines.append(
+        f"\\draw[gray,dashed] (axis cs:0,-0.5) -- (axis cs:0,{n_vars - 0.5:g});"
+    )
+    for m_idx, (cd, name) in enumerate(zip(coef_data, model_names)):
+        coords: List[str] = []
+        for v_idx, var in enumerate(variables):
+            if var not in cd:
+                continue
+            coef, se, _ = cd[var]
+            if not np.isfinite(coef):
+                continue
+            err = z_crit * se if (se is not None and np.isfinite(se)) else 0.0
+            y = v_idx + offsets[m_idx]
+            coords.append(f"({coef:.6g},{y:g}) +- ({err:.6g},0)")
+        if not coords:
+            continue
+        lines.append(
+            "\\addplot+[only marks, error bars/.cd, x dir=both, x explicit] "
+            "coordinates {"
+        )
+        lines.append("  " + " ".join(coords))
+        lines.append("};")
+        lines.append(f"\\addlegendentry{{{_coefplot_tikz_escape(name)}}}")
+    lines.append("\\end{axis}")
+    lines.append("\\end{tikzpicture}")
+    if standalone:
+        lines.append("\\end{document}")
+    return "\n".join(lines)
+
+
 def _extract_coefs(model) -> Dict[str, tuple]:
     """Extract {var_name: (coef, se, pvalue)} from a model object.
 

@@ -49,7 +49,7 @@ design doc; ``regtable`` is the canonical one):
 # ── Regression-table renderers ──────────────────────────────────────────
 from .regression_table import regtable, RegtableResult
 from .estimates import eststo, estclear, esttab, EstimateTableResult
-from .modelsummary import modelsummary, coefplot
+from .modelsummary import modelsummary, coefplot, coefplot_tikz
 from .outreg2 import OutReg2, outreg2
 
 # ── Single-table helpers ────────────────────────────────────────────────
@@ -109,6 +109,7 @@ __all__ = [
     "estclear",
     "EstimateTableResult",
     "coefplot",
+    "coefplot_tikz",
     # Single-table helpers
     "sumstats",
     "balance_table",

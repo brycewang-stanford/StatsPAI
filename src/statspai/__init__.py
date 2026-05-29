@@ -306,7 +306,7 @@ from .bartik import (
     ShiftSharePoliticalPanelResult,
 )
 from .output.outreg2 import OutReg2, outreg2
-from .output.modelsummary import modelsummary, coefplot
+from .output.modelsummary import modelsummary, coefplot, coefplot_tikz
 from .output.sumstats import sumstats, balance_table
 from .output.tab import tab
 from .output.estimates import eststo, estclear, esttab
@@ -1181,6 +1181,7 @@ __all__ = [
     "outreg2",
     "modelsummary",
     "coefplot",
+    "coefplot_tikz",
     "sumstats",
     "balance_table",
     "tab",
