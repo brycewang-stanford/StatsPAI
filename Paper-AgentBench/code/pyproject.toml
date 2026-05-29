@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "causalagentbench"
+version = "0.1.0"
+description = "CausalAgentBench — a behavioural benchmark for LLM agents performing causal inference, integrated with the StatsPAI platform (JSS Track D)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Biaoyue (Bryce) Wang", email = "brycew6m@stanford.edu" }]
+keywords = ["causal-inference", "benchmark", "llm-agent", "econometrics", "statspai"]
+
+# Core deps. statspai is REQUIRED: it supplies the known-truth DGPs, the
+# canonical datasets, and the StatsPAI agent surface (condition C1/C2).
+dependencies = [
+    "statspai>=1.16.0",
+    "numpy>=1.23",
+    "pandas>=1.5",
+]
+
+[project.optional-dependencies]
+# LLM driver backends. Installed only when actually running the
+# Claude / GPT conditions (C1-C6). The harness imports them lazily so the
+# reference-oracle path (no API key) runs with the core deps alone.
+anthropic = ["anthropic>=0.40"]
+openai = ["openai>=1.40"]
+llm = ["anthropic>=0.40", "openai>=1.40"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+cab = "causalagentbench.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/brycewang-stanford/StatsPAI/tree/main/Paper-AgentBench"
+Preregistration = "https://osf.io/"  # OSF DOI recorded at deposit time
+
+[tool.setuptools]
+packages = ["causalagentbench", "causalagentbench.adapters"]

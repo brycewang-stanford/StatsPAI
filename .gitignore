@@ -191,7 +191,10 @@ audit_report.json
 # Paper JSS and JOSS submissions 
 Paper-JSS/
 Paper-JOSS/
-Paper-AgentBench/
+# Paper-AgentBench workspace stays out of the public repo, EXCEPT the
+# benchmark code, which is force-tracked under code/ (nested .gitignore applies).
+Paper-AgentBench/*
+!Paper-AgentBench/code/
 
 # Temp files
 MORNING_REPORT_2026-04-29.md
