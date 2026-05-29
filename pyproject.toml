@@ -150,3 +150,12 @@ python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+# Optional heavy deps (pymc / torch / jax / sklearn / statsmodels / pandas
+# / scipy …) are lazily imported and are NOT in the lean ``.[dev]`` install
+# CI uses for the mypy baseline gate. Without this, every unresolved import
+# raises ``import-not-found`` / ``import-untyped`` and the error COUNT becomes
+# a function of which packages happen to be installed — so CI (lean env) and a
+# local dev venv (deps present) disagreed by ~700 errors, breaking the
+# ``scripts/quality_gate.py mypy`` ratchet. Ignoring missing imports makes the
+# count depend only on our own typed code, so it is reproducible across envs.
+ignore_missing_imports = true
