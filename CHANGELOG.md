@@ -32,6 +32,50 @@ All notable changes to StatsPAI will be documented in this file.
   `tools/list` payload ~1.2 MB smaller (the schema is byte-identical per
   tool, so inlining it everywhere was 50% duplication).
 
+### Added — JSS reproducibility hardening (Track A R/Stata parity)
+
+- **R reference environment locked + proven reproducible
+  (`tests/r_parity/`)** — every committed `results/*_R.json` golden value
+  now carries an inline `provenance` block (R version, platform,
+  BLAS/LAPACK, and the version of each attached/loaded package), emitted by
+  `_common.R::.r_provenance`. The full 245-package dependency closure is
+  pinned in `tests/r_parity/renv.lock` (exact versions; true GitHub commit
+  SHAs for `augsynth`/`synthdid`), with a human-readable manifest in
+  `tests/r_parity/R_ENVIRONMENT.md`. A new `verify_reproduce.py` re-runs
+  each R reference on the committed CSV bytes and diffs every statistic
+  against the golden value at a 1e-9 reproducibility tolerance: 46 of 47
+  data-driven modules reproduce bit-for-bit under R 4.5.2; the report is
+  `results/REPRODUCIBILITY_REPORT.md`.
+- **`r-parity.yml` CI workflow** — re-runs the closed-form / MLE / matching
+  R core (fixest, sandwich, AER, survival, MASS, oaxaca, MatchIt) on every
+  push and fails the build on any drift from the committed golden JSON, so
+  the cross-language closed-form parity is genuinely refreshed in CI rather
+  than only frozen.
+- **`sp.validation_report(collect_tests=True)`** — shells out to
+  `pytest --collect-only` and returns the authoritative, parametrize-expanded
+  parity test counts (114 reference-parity, 50 external-parity, 12 coverage
+  Monte Carlo on the 1.16.0 tree); a regression test pins those three to the
+  JSS manuscript headline so a parity test added/removed without updating the
+  paper fails CI. Default `validation_report()` path is unchanged (fast,
+  metadata-only).
+- **Strictness-tier breakdown in the Track A parity tables
+  (`tests/r_parity/compare.py`)** — each module is classified by its
+  registered point-estimate tolerance into machine / iterative / moderate /
+  methodological tiers (6 / 26 / 9 / 9 on the 50 R-rendered modules), shown
+  in the Markdown ledger and the LaTeX appendix caption so a machine-precision
+  match is not flattened together with a deliberately loose
+  methodological-difference tolerance.
+
+### Changed — Track A R golden values regenerated under the locked environment
+
+- The 50 committed `results/*_R.json` were regenerated under R 4.5.2 with
+  the `renv.lock` package set so each is self-describing. The only material
+  numerical movement is `07_scm` (classical SCM), whose headline estimate
+  shifted by 2.18e-8 — L-BFGS-B / Apple-Accelerate-BLAS non-associativity,
+  far inside that module's 0.20 SCM non-uniqueness parity tolerance. All
+  cross-language verdicts are unchanged (42 PASS / 10 GAP). This is a
+  reference-fixture refresh, not a `statspai` estimator-output change.
+
 ### Fixed — MCP cold-start bundle drift
 
 - **Stale schema-bundle guard (`.github/workflows/parity-guards.yml`)** —
