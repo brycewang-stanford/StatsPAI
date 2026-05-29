@@ -2,6 +2,8 @@
 Tests for Arellano-Bond / Blundell-Bond dynamic panel GMM.
 """
 
+import warnings
+
 import pytest
 import numpy as np
 import pandas as pd
@@ -96,14 +98,9 @@ class TestArellanoBond:
             xtabond(dynamic_panel, y='y', x=['x'],
                     id='id', time='time', method='system')
 
-    def test_parity_matches_stata_xtabond(self):
-        """Difference GMM (one-step robust) must match Stata's xtabond to
-        machine precision on the parity DGP (tests/r_parity/50_xtabond.py).
-
-        Stata `xtabond y x, lags(1) vce(robust)`:
-            beta_y_lag = 0.39117889 (se 0.04632272)
-            beta_x     = 0.21695482 (se 0.04361645)
-        """
+    @staticmethod
+    def _parity_panel():
+        """Balanced AR(1) parity DGP (matches tests/r_parity/50_xtabond.py)."""
         rng = np.random.default_rng(42)
         N, T = 100, 8
         rows, y_prev = [], np.zeros(N)
@@ -114,16 +111,72 @@ class TestArellanoBond:
                 rows.append({'id': i, 'time': t,
                              'y': float(yy[i]), 'x': float(xx[i])})
             y_prev = yy
-        df = pd.DataFrame(rows)
+        return pd.DataFrame(rows)
+
+    def test_parity_matches_stata_xtabond(self):
+        """Difference GMM (one-step robust) must match Stata's xtabond to
+        machine precision on the parity DGP.
+
+        Stata `xtabond y x, lags(1) noconstant vce(robust)`:
+            L1.y = 0.39117889 (se 0.04632272); x = 0.21695482 (se 0.04361645)
+        """
+        df = self._parity_panel()
         res = xtabond(df, y='y', x=['x'], id='id', time='time', lags=1,
                       gmm_lags=(2, None), method='difference',
                       twostep=False, robust=True)
         d = {r['variable']: (r['coefficient'], r['se'])
              for _, r in res.detail.iterrows()}
-        assert abs(d['_y_lag1'][0] - 0.39117889) < 1e-5
-        assert abs(d['_y_lag1'][1] - 0.04632272) < 1e-5
+        assert abs(d['L1.y'][0] - 0.39117889) < 1e-5
+        assert abs(d['L1.y'][1] - 0.04632272) < 1e-5
         assert abs(d['x'][0] - 0.21695482) < 1e-5
         assert abs(d['x'][1] - 0.04361645) < 1e-5
+
+    def test_parity_all_variants_vs_stata(self):
+        """SEs, Sargan/Hansen, and AR tests must match Stata across the
+        one-step (robust/non-robust) and two-step (conventional/Windmeijer)
+        variants. Ground truth: Stata 18 `xtabond y x, lags(1) noconstant
+        [vce(robust)] [twostep]`.
+        """
+        df = self._parity_panel()
+        # (twostep, robust): seL, sex, overid (1-step Sargan / 2-step Hansen),
+        #                    ar1_z, ar2_z, betaL
+        cases = {
+            (False, False): (0.05186975, 0.04906476, 13.22746,
+                             -9.8663, -0.66112, 0.39117889),
+            (False, True):  (0.04632272, 0.04361645, 13.22746,
+                             -6.8961, -0.72073, 0.39117889),
+            (True, False):  (0.04038861, 0.03527729, 12.62734,
+                             -6.9592, -0.62856, 0.40206281),
+            (True, True):   (0.04906360, 0.04024339, 12.62734,
+                             -6.6252, -0.62642, 0.40206281),
+        }
+        for (ts, rob), (seL, sex, overid, ar1, ar2, bL) in cases.items():
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                res = xtabond(df, y='y', x=['x'], id='id', time='time',
+                              lags=1, gmm_lags=(2, None), twostep=ts,
+                              robust=rob)
+            d = {r['variable']: (r['coefficient'], r['se'])
+                 for _, r in res.detail.iterrows()}
+            mi = res.model_info
+            tag = f"twostep={ts}, robust={rob}"
+            assert abs(d['L1.y'][0] - bL) < 1e-5, f"betaL {tag}"
+            assert abs(d['L1.y'][1] - seL) < 2e-4, f"seL {tag}"
+            assert abs(d['x'][1] - sex) < 2e-4, f"sex {tag}"
+            got_overid = mi['hansen_stat'] if ts else mi['sargan_stat']
+            assert abs(got_overid - overid) < 1e-3, f"overid {tag}"
+            # AR(1)/AR(2): exact for one-step; ~0.1%/~few% for two-step
+            ar_tol = 5e-3 if not ts else 6e-2
+            assert abs(mi['ar1_z'] - ar1) < abs(ar1) * ar_tol, f"ar1 {tag}"
+            assert abs(mi['ar2_z'] - ar2) < max(abs(ar2) * 5e-2, 1e-2), \
+                f"ar2 {tag}"
+
+    def test_internal_gap_warns(self):
+        """Panels with interior gaps emit a parity-caveat warning."""
+        df = self._parity_panel()
+        df = df[~((df['id'] == 0) & (df['time'] == 3))]  # drop an interior obs
+        with pytest.warns(UserWarning, match="internal time gaps"):
+            xtabond(df, y='y', x=['x'], id='id', time='time')
 
     def test_no_exogenous(self, dynamic_panel):
         """Should work with only lagged Y (no X)."""

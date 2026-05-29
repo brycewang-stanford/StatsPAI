@@ -35,9 +35,9 @@ def main():
     dct = {str(v): (float(coef[i]), float(se[i])) for i, v in enumerate(var_)}
 
     rows = []
-    # y_lag1 in sp, L.y in Stata
-    if "_y_lag1" in dct:
-        est, sev = dct["_y_lag1"]
+    # sp labels the lagged dependent "L1.y"; Stata reports it as "L.y".
+    if "L1.y" in dct:
+        est, sev = dct["L1.y"]
         rows.append(ParityRecord(MODULE, "py", "beta_y_lag",
             estimate=est, se=sev, n=int(len(df))))
     if "x" in dct:
