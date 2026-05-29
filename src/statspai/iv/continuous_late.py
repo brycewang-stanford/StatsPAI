@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 from scipy import stats
 
@@ -109,7 +110,7 @@ def continuous_iv_late(
             boot[b], _ = _wald_per_bin(Y[idx], D[idx], Z[idx])
         except Exception:
             pass
-    se = float(np.nanstd(boot, ddof=1)) or 1e-6
+    se = _bootstrap_se(boot, label="iv.continuous_late")
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (estimate - z_crit * se, estimate + z_crit * se)
     _result = ContinuousLATEResult(

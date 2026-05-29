@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 import numpy as np
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 from scipy import stats
 
@@ -172,7 +173,7 @@ def cohort_anchored_event_study(
                     boot[b] = float(np.average(att_vals_b, weights=w_vals_b))
             except Exception:
                 pass
-        se_k = float(np.nanstd(boot, ddof=1)) or 1e-6
+        se_k = _bootstrap_se(boot, label="did.cohort_anchored")
         z_crit = float(stats.norm.ppf(1 - alpha / 2))
         es_rows.append({
             'rel_time': k, 'att': att_k, 'se': se_k,

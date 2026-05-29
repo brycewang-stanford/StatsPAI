@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 from scipy import stats
 
@@ -114,7 +115,7 @@ def general_bunching(
             boot[b] = _elasticity(R[idx], order=polynomial_order)
         except Exception:
             pass
-    se = float(np.nanstd(boot, ddof=1)) or 1e-6
+    se = _bootstrap_se(boot, label="bunching.general")
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (corrected - z_crit * se, corrected + z_crit * se)
 

@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 import numpy as np
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 
 from .core import BridgeResult, _agreement_test, _dr_combine, _register
@@ -139,8 +140,8 @@ def ewm_cate_bridge(
             ))
         except Exception:
             continue
-    se_cate = float(np.nanstd(boot_cate, ddof=1)) or 1e-6
-    se_ewm = float(np.nanstd(boot_ewm, ddof=1)) or 1e-6
+    se_cate = _bootstrap_se(boot_cate, label="bridge.ewm_cate")
+    se_ewm = _bootstrap_se(boot_ewm, label="bridge.ewm_cate")
 
     diff, diff_se, diff_p = _agreement_test(
         value_ewm, se_ewm, value_cate, se_cate

@@ -24,6 +24,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 import numpy as np
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 
 from ..core.results import CausalResult
@@ -127,7 +128,7 @@ def did_bcf(
                 )
             except Exception:
                 pass
-        se = float(np.nanstd(boot, ddof=1)) or 1e-6
+        se = _bootstrap_se(boot, label="did.did_bcf")
         catt_by_cohort = {}
         for c in np.unique(cohort_arr[D == 1]):
             mask = (cohort_arr == c) & (D == 1)

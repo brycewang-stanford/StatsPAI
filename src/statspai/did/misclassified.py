@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 import numpy as np
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 from scipy import stats
 
@@ -209,7 +210,7 @@ def did_misclassified(
                 )
         except Exception:
             continue
-    se = float(np.nanstd(boot, ddof=1)) or 1e-6
+    se = _bootstrap_se(boot, label="did.misclassified")
 
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (corrected_att - z_crit * se, corrected_att + z_crit * se)

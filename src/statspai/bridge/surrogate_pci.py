@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 import numpy as np
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 
 from .core import BridgeResult, _agreement_test, _dr_combine, _register
@@ -129,8 +130,8 @@ def surrogate_pci_bridge(
             boot_p[b] = _pci(Y[idx], D[idx], S[idx], X[idx])
         except Exception:
             pass
-    se_s = float(np.nanstd(boot_s, ddof=1)) or 1e-6
-    se_p = float(np.nanstd(boot_p, ddof=1)) or 1e-6
+    se_s = _bootstrap_se(boot_s, label="bridge.surrogate_pci")
+    se_p = _bootstrap_se(boot_p, label="bridge.surrogate_pci")
 
     if np.isnan(att_surr):
         att_surr, se_s = att_pci, se_p

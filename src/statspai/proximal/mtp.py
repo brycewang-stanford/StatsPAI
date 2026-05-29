@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 import numpy as np
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 from scipy import stats
 
@@ -93,7 +94,7 @@ def pci_mtp(
             boot[b] = _mtp(Y[idx], D[idx], Z[idx], W[idx], X[idx], delta)
         except Exception:
             pass
-    se = float(np.nanstd(boot, ddof=1)) or 1e-6
+    se = _bootstrap_se(boot, label="proximal.mtp")
 
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (tau - z_crit * se, tau + z_crit * se)

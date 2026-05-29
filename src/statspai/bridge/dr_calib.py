@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import List
 
 import numpy as np
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 
 from .core import BridgeResult, _agreement_test, _dr_combine, _register
@@ -96,8 +97,8 @@ def dr_calib_bridge(
             boot_c[b] = _aipw_one(Y[idx], D[idx], X[idx], calibrate=True)
         except Exception:
             pass
-    se_a = float(np.nanstd(boot_a, ddof=1)) or 1e-6
-    se_c = float(np.nanstd(boot_c, ddof=1)) or 1e-6
+    se_a = _bootstrap_se(boot_a, label="bridge.dr_calib")
+    se_c = _bootstrap_se(boot_c, label="bridge.dr_calib")
 
     diff, diff_se, diff_p = _agreement_test(ate_aipw, se_a, ate_cal, se_c)
     est_dr, se_dr = _dr_combine(ate_aipw, se_a, ate_cal, se_c, diff_p)
