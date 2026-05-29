@@ -124,32 +124,28 @@ def _build_matrices(
 
 
 def _robust_se(score_obs: np.ndarray, hessian_inv: np.ndarray) -> np.ndarray:
-    """HC0 (White) robust standard errors via sandwich formula."""
-    meat = score_obs.T @ score_obs
-    sandwich = hessian_inv @ meat @ hessian_inv
-    return np.sqrt(np.maximum(np.diag(sandwich), 1e-20))
+    """HC0 (White) robust standard errors via sandwich formula.
+
+    Delegates to the canonical ``core._vcov.sandwich_vcov`` (CLAUDE.md §4);
+    bread is the MLE inverse-Hessian. Byte-identical to the prior sandwich.
+    """
+    from ..core._vcov import sandwich_vcov
+    V = sandwich_vcov(hessian_inv, score_obs, correction="none")
+    return np.sqrt(np.maximum(np.diag(V), 1e-20))
 
 
 def _cluster_se(
     score_obs: np.ndarray, hessian_inv: np.ndarray, clusters: np.ndarray
 ) -> np.ndarray:
-    """Clustered standard errors (Liang-Zeger)."""
-    unique_clusters = np.unique(clusters)
-    G = len(unique_clusters)
-    n = score_obs.shape[0]
-    k = score_obs.shape[1]
+    """Clustered standard errors (Liang-Zeger).
 
-    # Sum scores within clusters
-    cluster_scores = np.zeros((G, k))
-    for i, c in enumerate(unique_clusters):
-        mask = clusters == c
-        cluster_scores[i] = score_obs[mask].sum(axis=0)
-
-    meat = cluster_scores.T @ cluster_scores
-    # Small-sample correction: G/(G-1) * n/(n-k)
-    correction = (G / max(G - 1, 1)) * (n / max(n - k, 1))
-    sandwich = correction * (hessian_inv @ meat @ hessian_inv)
-    return np.sqrt(np.maximum(np.diag(sandwich), 1e-20))
+    Correction G/(G-1) * n/(n-k) = core._vcov ``'stacked'`` factor; bread is
+    the MLE inverse-Hessian. Byte-identical for G >= 2.
+    """
+    from ..core._vcov import sandwich_vcov
+    V = sandwich_vcov(hessian_inv, score_obs, clusters=clusters,
+                      correction="stacked")
+    return np.sqrt(np.maximum(np.diag(V), 1e-20))
 
 
 def _numerical_hessian(func, x0, eps=1e-5):
