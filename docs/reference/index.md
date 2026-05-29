@@ -6,6 +6,8 @@ namespace. Reference pages are grouped by methodological area:
 | Area | Page | Flagship functions |
 | --- | --- | --- |
 | Difference-in-differences | [did](did.md) | `callaway_santanna`, `aggte`, `sun_abraham`, `bjs`, `dcdh`, `etwfe`, `cs_report`, `honest_did`, `breakdown_m` |
+| Instrumental variables | [iv](iv.md) | `iv`, `ivreg`, `iv_diag`, `iv_compare`, `kernel_iv`, `continuous_iv_late`, `ivdml`, `npiv`, `mte` |
+| Matching / balancing | [matching](matching.md) | `match`, `ebalance`, `cbps`, `genmatch`, `sbw`, `overlap_weights`, `balance_diagnostics`, `love_plot` |
 | Regression discontinuity | [rd](rd.md) | `rdrobust`, `rd2d`, `rkd`, `rdit`, `rdhonest`, `rdrandinf`, `rdpower`, `rd_forest`, `rdsummary` |
 | Synthetic control | [synth](synth.md) | `synth`, `sdid`, `ascm`, `bayesian_synth`, `bsts_synth`, `penscm`, `synth_compare`, `synth_recommend`, `synth_report` |
 | Decomposition | [decomposition](decomposition.md) | `decompose`, `oaxaca`, `gelbach`, `ffl_decompose`, `dfl_decompose`, `machado_mata`, `shapley_inequality`, `gap_closing` |
@@ -18,6 +20,7 @@ namespace. Reference pages are grouped by methodological area:
 | Spatial econometrics | [spatial](spatial.md) | `spatial_weights`, `moran_i`, `geary_c`, `sar`, `sem`, `sdm`, `gwr`, `mgwr`, `spatial_panel`, `spatial_did` |
 | Time series | [timeseries](timeseries.md) | `arima`, `var`, `bvar`, `garch`, `cointegration`, `local_projections`, `structural_break` |
 | Survival | [survival](survival.md) | `cox`, `aft`, `frailty`, `kaplan_meier`, `log_rank_test`, `competing_risks` |
+| Agent-native workflows | [smart](smart.md) | `detect_design`, `preflight`, `audit`, `examples`, `session`, `brief`, `bib_for` |
 
 Every result object follows the same contract:
 

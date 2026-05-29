@@ -16,6 +16,8 @@ backends only when you want them:
 ```bash
 pip install "StatsPAI[plotting]"   # matplotlib / seaborn / plotly figures
 pip install "StatsPAI[bayes]"      # PyMC + ArviZ for Bayesian estimators
+pip install "StatsPAI[tune]"       # Optuna for tuned meta-learners / Auto-CATE
+pip install "StatsPAI[rd-cct]"     # rdrobust for exact CCT RD parity
 pip install "StatsPAI[performance]"# JAX backend for fast feols / bootstrap
 ```
 

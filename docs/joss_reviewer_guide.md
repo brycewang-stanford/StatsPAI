@@ -8,7 +8,8 @@ checking representative functionality without running the full test suite.
 StatsPAI is a Python package for causal inference and applied econometrics. The
 core package is pip-installable, ships small teaching datasets, and can be
 tested offline. Optional extras cover plotting, pyfixest integration, neural
-causal estimators, JAX-backed workloads, and Bayesian workflows.
+causal estimators, JAX-backed workloads, Bayesian workflows, Optuna tuning,
+and exact Calonico-Cattaneo-Titiunik RD parity via `rdrobust`.
 
 ## Install
 
@@ -24,6 +25,12 @@ For review from a repository checkout:
 ```bash
 python -m pip install -e ".[dev,plotting]"
 ```
+
+The core install declares the runtime dependencies in `pyproject.toml`:
+NumPy, SciPy, Pandas, statsmodels, scikit-learn, linearmodels, formulaic,
+numba, patsy, openpyxl, xlsxwriter, python-docx, and tabulate. Optional extras
+are named `plotting`, `fixest`, `deepiv`, `neural`, `performance`, `bayes`,
+`tune`, `rd-cct`, `text`, and `docs`.
 
 ## Smoke Test
 

@@ -346,10 +346,13 @@ class DAG:
                     else:
                         roles.add("confounder")
 
-        # Instrument: causes exposure, no direct/backdoor path to outcome
-        # except through exposure
-        if node in self.ancestors(exposure) and node not in self.ancestors(outcome):
-            # Check: removing exposure, is node d-separated from outcome?
+        # Instrument: causes exposure, with no open path to outcome once the
+        # exposure's outgoing arrows are removed. A valid instrument is usually
+        # an ancestor of the outcome through exposure, so do not reject merely
+        # because ``node in ancestors(outcome)``.
+        if node in self.ancestors(exposure):
+            # Check: after deleting causal arrows out of exposure, is node
+            # d-separated from outcome?
             modified = DAG()
             for n in self._nodes:
                 modified.add_node(n)

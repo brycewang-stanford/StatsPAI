@@ -317,22 +317,18 @@ def _ols_predict(beta, X):
 
 
 def _logit_fit(y, X):
-    """Logistic regression — falls back to empirical mean on singular design."""
-    try:
-        import statsmodels.api as sm
-        design = sm.add_constant(X, has_constant='add')
-        fit = sm.Logit(y, design).fit(disp=0, maxiter=200, warn_convergence=False)
-        return fit
-    except Exception:
-        return None
+    """Logistic regression — falls back to empirical mean on singular design.
+
+    Thin wrapper over the shared ``core._glm_fit.safe_logit_fit`` primitive
+    (kept as a module-level name so it stays mockable in tests).
+    """
+    from ..core._glm_fit import safe_logit_fit
+    return safe_logit_fit(y, X)
 
 
 def _logit_predict(fit, X, fallback):
-    if fit is None:
-        return np.full(X.shape[0], fallback)
-    import statsmodels.api as sm
-    design = sm.add_constant(X, has_constant='add')
-    return np.clip(fit.predict(design), 1e-6, 1 - 1e-6)
+    from ..core._glm_fit import safe_logit_predict
+    return safe_logit_predict(fit, X, fallback)
 
 
 def _front_door_ate(Y, D, M, X, mediator_type, n_mc, rng, integrate_by='marginal'):

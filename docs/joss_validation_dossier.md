@@ -81,10 +81,10 @@ and reviewer-verifiable examples rather than published downstream citations.
 ## Public Distribution And Community Signals
 
 StatsPAI is publicly distributed on PyPI and archived on Zenodo. The GitHub
-repository has public stars, forks, issue templates, discussions links,
-contribution instructions, support instructions, release notes, and CI status
-checks. These are treated as community-readiness and public-interest signals,
-not as evidence of independent scholarly adoption.
+repository has public stars, forks, issue templates, a dedicated support
+discussion channel, contribution instructions, support instructions, release
+notes, and CI status checks. These are treated as community-readiness and
+public-interest signals, not as evidence of independent scholarly adoption.
 
 The public fork list is available through GitHub at
 <https://github.com/brycewang-stanford/StatsPAI/forks>. As of 2026-05-29, the

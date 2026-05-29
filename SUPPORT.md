@@ -8,7 +8,7 @@ For "**how do I**", "**which estimator should I use**", "**why does my result di
 
 - **GitHub Discussions** — <https://github.com/brycewang-stanford/StatsPAI/discussions>
   - Best place for open-ended questions, methodological discussion, and Q&A that may help future users.
-  - Please search existing threads first — many common questions are already answered.
+  - Please search existing threads first — many common questions may already be answered.
 
 When asking, please include:
 

@@ -106,3 +106,33 @@ The core requirements are **relevance** (a non-zero first stage),
 **exclusion** (the instrument affects the outcome only through the treatment),
 **exogeneity / independence** of the instrument, and — for a LATE
 interpretation — **monotonicity** (no defiers).
+
+## Method-level API
+
+The public top-level entry points used in examples and agent workflows are
+documented here explicitly; the exhaustive namespace listing remains available
+under [Full API reference -> iv](api/iv.md).
+
+### `sp.iv(...)`
+
+::: statspai.regression.iv.iv
+
+### `sp.ivreg(...)`
+
+::: statspai.regression.iv.ivreg
+
+### `sp.kernel_iv(...)`
+
+::: statspai.iv.kernel_iv
+
+### `sp.continuous_iv_late(...)`
+
+::: statspai.iv.continuous_iv_late
+
+### `sp.iv_diag(...)`
+
+::: statspai.iv.iv_diag
+
+### `sp.iv_compare(...)`
+
+::: statspai.iv.iv_compare

@@ -72,3 +72,37 @@ Calibration card: top-method `verify_score` is typically 85–95 on
 clean DGPs (RD lower at ≈ 74 due to local-polynomial bootstrap
 variance). `sp.verify_benchmark(...)` runs verify against synthetic
 DGPs to calibrate what threshold constitutes "trust it".
+
+## Agent-native method-level API
+
+These functions are guide-friendly, but they are also public API calls used by
+agents and notebook workflows. Their docstrings are exposed here so the
+Reference navigation includes method-level details.
+
+### `sp.detect_design(...)`
+
+::: statspai.detect_design
+
+### `sp.preflight(...)`
+
+::: statspai.preflight
+
+### `sp.audit(...)`
+
+::: statspai.audit
+
+### `sp.examples(...)`
+
+::: statspai.examples
+
+### `sp.session(...)`
+
+::: statspai.session
+
+### `sp.brief(...)`
+
+::: statspai.brief
+
+### `sp.bib_for(...)`
+
+::: statspai.bib_for

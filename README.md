@@ -895,6 +895,9 @@ With optional dependencies:
 ```bash
 pip install statspai[plotting]    # matplotlib, seaborn
 pip install statspai[fixest]      # pyfixest for high-dimensional FE
+pip install statspai[bayes]       # PyMC + ArviZ for Bayesian estimators
+pip install statspai[tune]        # Optuna for tuned meta-learners / Auto-CATE
+pip install statspai[rd-cct]      # rdrobust for exact CCT RD parity
 pip install statspai[deepiv]      # PyTorch for DeepIV
 pip install statspai[neural]      # PyTorch for TARNet/CFRNet/DragonNet
 pip install statspai[text]        # sentence-transformers for sbert text embeddings
@@ -909,7 +912,7 @@ installation.
 
 **Requirements:** Python >= 3.9
 
-**Core dependencies:** NumPy, SciPy, Pandas, statsmodels, scikit-learn, linearmodels, patsy, openpyxl, python-docx
+**Core dependencies:** NumPy, SciPy, Pandas, statsmodels, scikit-learn, linearmodels, formulaic, numba, patsy, openpyxl, xlsxwriter, python-docx, tabulate
 
 ---
 

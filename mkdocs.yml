@@ -120,6 +120,7 @@ nav:
       - "Overview": reference/index.md
       - "Difference-in-differences": reference/did.md
       - "Instrumental variables": reference/iv.md
+      - "Matching / balancing": reference/matching.md
       - "Panel data": reference/panel.md
       - "Regression discontinuity": reference/rd.md
       - "Synthetic control": reference/synth.md
