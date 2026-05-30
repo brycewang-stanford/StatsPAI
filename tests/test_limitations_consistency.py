@@ -33,6 +33,13 @@ ALLOWED_PHRASES: Tuple[str, ...] = (
     "fallback",
     "silently",
     "deterministic fallback",
+    # Vetted convention-gap vocabulary: T4-style disclosures that an
+    # estimand is identified but the implementation-level object is not
+    # unique, or that a default selector/aggregation convention differs
+    # from the reference. These describe a documented parity boundary
+    # (Section 5.4 validation tiers), not a code path that raises.
+    "convention",
+    "can differ",
 )
 
 
@@ -58,6 +65,31 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         # always-survivor SACE under Mealli & Pacini (2013) partial
         # identification, which has no hard exception to test.
         "Always-survivor SACE under encouragement design",
+    ],
+    # ----- T4-style documented convention-gap disclosures -------------
+    # These describe a parity boundary (default selector/aggregation
+    # convention, or implementation-level non-uniqueness) rather than a
+    # code path that raises; they are graded T4 in Section 5.4 and the
+    # cross-language row is retained only as a disclosed gap.
+    "causal_forest": [
+        "validated against grf on clean-overlap designs only",
+    ],
+    "did_imputation": [
+        "different autosample/aggregation convention",
+    ],
+    "etwfe": [
+        "aggregation-convention sensitive",
+        "cohort-share weighting convention",
+    ],
+    "rddensity": [
+        "not a reference-parity guarantee",
+    ],
+    "rdrobust": [
+        "R-parity certification applies",
+    ],
+    "synth": [
+        "documented Kaul-style convention",
+        "regularisation or local-optimum convention gaps",
     ],
 }
 
@@ -136,10 +168,28 @@ def _matches_allowed_vocabulary(limitation: str) -> bool:
 
 
 def _all_limitations() -> List[Tuple[str, str]]:
-    """List every (function_name, limitation_string) pair in the registry."""
+    """List every (function_name, limitation_string) pair in the registry.
+
+    Forces a full submodule import first so the registry is fully
+    populated regardless of which other tests have run in the same
+    process; otherwise the parametrised set would be import-order
+    dependent and the contract could pass standalone but fail in a full
+    suite run (or vice versa).
+    """
+    import importlib
+    import pkgutil
+
+    import statspai
     import statspai as sp
 
     sp.list_functions()
+    for _m in pkgutil.walk_packages(statspai.__path__, "statspai."):
+        try:
+            importlib.import_module(_m.name)
+        except Exception:
+            # Optional-extra modules (torch/jax/pymc) may be absent; the
+            # registry entries we audit do not depend on importing them.
+            pass
     from statspai.registry import _REGISTRY
 
     out: List[Tuple[str, str]] = []

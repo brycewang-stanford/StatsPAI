@@ -12,10 +12,11 @@ import statspai as sp
 # manuscript in the same commit — that lockstep is the whole point of the
 # drift-guard test below.
 JSS_HEADLINE_TEST_COUNTS = {
-    "reference_parity": 114,
+    "reference_parity": 124,
     "external_parity": 50,
     "coverage_monte_carlo": 12,
 }
+JSS_CERTIFIED_VALIDATED_SYMBOLS = 244
 
 
 def test_validation_report_summarizes_source_tree_evidence():
@@ -64,6 +65,48 @@ def test_parity_gap_report_surfaces_open_gaps():
     assert any("next_action" in row for row in rows)
     md = sp.parity_gap_report(fmt="markdown")
     assert "next_action" in md
+
+
+def test_certified_functions_surface_variant_level_gaps():
+    """Certified must not read as blanket exact parity for every option."""
+    expected_fragments = {
+        "rdrobust": "bwselect='cct'",
+        "rddensity": "bandwidth selector",
+        "synth": "special_predictors",
+        "causal_forest": "overlap",
+        "did_imputation": "aggregation",
+        "etwfe": "aggregation",
+    }
+    for name, fragment in expected_fragments.items():
+        spec = sp.describe_function(name)
+        text = " ".join(spec.get("limitations", []) + spec.get("validation_notes", []))
+        assert fragment in text, f"{name} does not expose {fragment!r}: {text}"
+
+
+def test_certified_validated_symbols_have_attached_evidence_notes():
+    """The JSS validated-core count must not include naked status flags."""
+    certified = sp.list_functions(validation_status="certified")
+    validated = sp.list_functions(validation_status="validated")
+    names = sorted(set(certified) | set(validated))
+
+    assert len(names) == JSS_CERTIFIED_VALIDATED_SYMBOLS
+
+    missing_notes = []
+    certified_without_grade = []
+    for name in names:
+        spec = sp.describe_function(name)
+        notes = spec.get("validation_notes", [])
+        if not notes:
+            missing_notes.append(name)
+        if spec.get("validation_status") == "certified" and not any(
+            "R parity module" in note
+            or "Stata parity module" in note
+            for note in notes
+        ):
+            certified_without_grade.append(name)
+
+    assert not missing_notes
+    assert not certified_without_grade
 
 
 def test_reproduce_jss_tables_dry_run_core_plan():

@@ -220,10 +220,22 @@ class FunctionSpec:
         if self.validation_status not in {"certified", "api_stable"}:
             description = f"{description} Validation: {self.validation_status}."
         elif self.validation_status == "certified":
-            description = f"{description} Validation: certified parity evidence."
+            if self.limitations:
+                description = (
+                    f"{description} Validation: certified evidence with "
+                    "scoped limitations."
+                )
+            else:
+                description = f"{description} Validation: certified parity evidence."
         if self.limitations:
-            joined = "; ".join(self.limitations)
-            description = f"{description} Known limitations: {joined}."
+            cleaned_limitations = [
+                str(item).strip().rstrip(".;")
+                for item in self.limitations
+                if str(item).strip()
+            ]
+            if cleaned_limitations:
+                joined = "; ".join(cleaned_limitations)
+                description = f"{description} Known limitations: {joined}."
 
         return {
             "name": self.name,
@@ -11069,6 +11081,97 @@ _CERTIFIED_SEED_FUNCTIONS: frozenset = frozenset(
     }
 )
 
+
+_CERTIFIED_VARIANT_LIMITATIONS: Dict[str, Dict[str, List[str]]] = {
+    "rdrobust": {
+        "limitations": [
+            "R-parity certification applies to bwselect='cct' or manually "
+            "matched h/b bandwidths; the dependency-light default "
+            "bwselect='mserd' uses StatsPAI's calibrated selector and can "
+            "differ from rdrobust::rdrobust defaults.",
+        ],
+        "validation_notes": [
+            "Variant-level certification: bwselect='cct' delegates to "
+            "official rdrobust for canonical R parity; default mserd is "
+            "documented as a bandwidth-convention gap.",
+        ],
+    },
+    "rddensity": {
+        "limitations": [
+            "Certified conclusion-level density-test evidence is available, "
+            "but the native default bandwidth selector and local-density "
+            "estimates can differ from "
+            "rddensity::rddensity; use backend='r' with R/rddensity installed "
+            "when exact cross-language selector/test-statistic matching "
+            "matters. Manual side-specific bandwidths are sensitivity controls, "
+            "not a reference-parity guarantee.",
+        ],
+        "validation_notes": [
+            "Track A rddensity module records a default-bandwidth convention "
+            "gap while preserving the manipulation-test conclusion; the "
+            "function now also supports side-specific manual bandwidths and an "
+            "optional backend='r' bridge for canonical rddensity::rddensity "
+            "selector/test-statistic parity. Manual bandwidths are reported as "
+            "native sensitivity controls rather than as rddensity numeric "
+            "parity.",
+        ],
+    },
+    "synth": {
+        "limitations": [
+            "Classical SCM certification is specification-specific: "
+            "ADH/Synth parity requires passing the same special_predictors "
+            "recipe; the default outcome-only V=I path is a documented "
+            "Kaul-style convention.",
+            "SDID, augmented SCM, and generalized SCM parity rows include "
+            "regularisation or local-optimum convention gaps; inspect "
+            "model_info and parity_gap_report() before claiming exact "
+            "cross-language equivalence.",
+        ],
+        "validation_notes": [
+            "SCM certification is variant-level; exact ADH parity is obtained "
+            "with the canonical special_predictors recipe, while default "
+            "and regularised variants document convention gaps.",
+        ],
+    },
+    "causal_forest": {
+        "limitations": [
+            "The AIPW ATE/ATT are validated against grf on clean-overlap "
+            "designs only; under severe propensity-overlap loss the AIPW "
+            "influence function inflates the standard error (conservative, "
+            "over-covering inference), so inspect the sp.audit overlap "
+            "diagnostic before interpreting the ATE on that kind of sample.",
+        ],
+        "validation_notes": [
+            "Causal-forest parity evidence is overlap-sensitive; the paper "
+            "documents the NSW-DW row as an overlap failure mode.",
+        ],
+    },
+    "did_imputation": {
+        "limitations": [
+            "R parity is for the documented untreated-only TWFE and simple "
+            "ATT convention; Stata did_imputation uses a different "
+            "autosample/aggregation convention on mpdta.",
+        ],
+        "validation_notes": [
+            "BJS certification is convention-specific; parity_gap_report() "
+            "records the Stata autosample/aggregation gap.",
+        ],
+    },
+    "etwfe": {
+        "limitations": [
+            "The top-level sp.etwfe estimate preserves StatsPAI's historical "
+            "cohort-share weighting convention. For R etwfe::emfx(type='simple') "
+            "point-estimate parity, use sp.etwfe(..., panel=False) followed "
+            "by sp.etwfe_emfx(..., weighting='treated').",
+        ],
+        "validation_notes": [
+            "ETWFE certification uses the explicit emfx-compatible "
+            "aggregation path; cohort-share and treated-observation "
+            "summaries remain separately labelled.",
+        ],
+    },
+}
+
 _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     # DiD long tail with deterministic unit / numerical regression tests.
     "did": ["tests/reference_parity/test_did_parity.py", "tests/test_did.py"],
@@ -11175,6 +11278,9 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "bcf_longitudinal": ["tests/test_bcf_longitudinal.py"],
     "bcf_ordinal": ["tests/test_bcf_ordinal.py"],
     "cevae": ["tests/test_ope_cevae.py", "tests/test_neural_causal_exports.py"],
+    "tarnet": ["tests/test_neural_causal.py", "tests/test_neural_causal_exports.py"],
+    "cfrnet": ["tests/test_neural_causal.py", "tests/test_neural_causal_exports.py"],
+    "dragonnet": ["tests/test_neural_causal.py", "tests/test_neural_causal_exports.py"],
     # DAG, LLM, workflow, and paper-generation surfaces.
     "bridge": ["tests/test_bridge.py", "tests/test_bridge_full.py"],
     "causal_mas": ["tests/test_causal_mas.py"],
@@ -11284,6 +11390,26 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "target_trial_protocol": ["tests/test_target_trial.py"],
     "unified_sensitivity": ["tests/test_unified_sensitivity.py"],
 }
+
+_API_STABLE_TEST_EVIDENCE: Dict[str, List[str]] = {
+    # These helper/client surfaces are API-contract tested, but they are not
+    # numerical estimators.  Keep their validation_status at "api_stable" so
+    # they do not inflate the JSS certified/validated denominator.
+    "anthropic_client": ["tests/test_api_stable_evidence.py"],
+    "dag_example": ["tests/test_api_stable_evidence.py"],
+    "dag_recommend_estimator": ["tests/test_api_stable_evidence.py"],
+    "echo_client": ["tests/test_api_stable_evidence.py"],
+    "evidence_without_injustice": ["tests/test_api_stable_evidence.py"],
+    "gformula_ice_fn": ["tests/test_api_stable_evidence.py"],
+    "openai_client": ["tests/test_api_stable_evidence.py"],
+    "panel_compare": ["tests/test_api_stable_evidence.py"],
+    "sensitivity_rr": ["tests/test_api_stable_evidence.py"],
+    "synth_experimental_design": ["tests/test_api_stable_evidence.py"],
+    "target_trial_checklist": ["tests/test_api_stable_evidence.py"],
+    "target_trial_report": ["tests/test_api_stable_evidence.py"],
+    "transport_weights_fn": ["tests/test_api_stable_evidence.py"],
+}
+
 
 #: Variant → canonical parent mapping for ``inherits_from``.
 #:
@@ -12579,6 +12705,32 @@ def _api_name_from_readme_cell(text: str) -> str:
     return clean.split(".")[-1]
 
 
+_TRACK_A_MODULE_ALIASES: Dict[str, Tuple[str, ...]] = {
+    # The Track-A README often names a dispatcher call while the registry also
+    # exposes method-specific aliases.  Attach the same module evidence to the
+    # alias so "certified" never relies on a bare seed note.
+    "02_iv": ("iv",),
+    "03_hdfe": ("hdfe_ols",),
+    "15_hdfe_cluster": ("hdfe_ols",),
+    "17_etwfe": ("wooldridge_did",),
+    "18_augsynth": ("augsynth",),
+    "19_gsynth": ("gsynth",),
+    "30_oaxaca": ("oaxaca",),
+    "31_dfl": ("dfl_decompose",),
+    "36_mediation": ("mediate",),
+}
+
+
+def _append_evidence(
+    evidence: Dict[str, List[str]],
+    name: str,
+    note: str,
+) -> None:
+    notes = evidence.setdefault(name, [])
+    if note not in notes:
+        notes.append(note)
+
+
 def _scan_parity_readme(root: Path) -> Dict[str, List[str]]:
     """Map API names to Track A parity evidence from tests/r_parity."""
     readme = root / "tests" / "r_parity" / "README.md"
@@ -12600,7 +12752,10 @@ def _scan_parity_readme(root: Path) -> Dict[str, List[str]]:
         module_id = number_to_module.get(number, number)
         api_name = _api_name_from_readme_cell(api_cell)
         if api_name and module_id in matched:
-            evidence.setdefault(api_name, []).append(f"R parity module {module_id}")
+            note = f"R parity module {module_id}"
+            _append_evidence(evidence, api_name, note)
+            for alias in _TRACK_A_MODULE_ALIASES.get(module_id, ()):
+                _append_evidence(evidence, alias, note)
 
     st_results = root / "tests" / "stata_parity" / "results"
     stata_modules = {
@@ -12684,6 +12839,26 @@ def _apply_validation_evidence() -> None:
             continue
         spec.validation_status = "validated"
         for note in notes[:5]:
+            if note not in spec.validation_notes:
+                spec.validation_notes.append(note)
+
+    for name, paths in _API_STABLE_TEST_EVIDENCE.items():
+        spec = _REGISTRY.get(name)
+        if spec is None or spec.stability != "stable":
+            continue
+        for path in paths:
+            note = f"API/unit contract evidence: {path}"
+            if note not in spec.validation_notes:
+                spec.validation_notes.append(note)
+
+    for name, payload in _CERTIFIED_VARIANT_LIMITATIONS.items():
+        spec = _REGISTRY.get(name)
+        if spec is None:
+            continue
+        for limitation in payload.get("limitations", []):
+            if limitation not in spec.limitations:
+                spec.limitations.append(limitation)
+        for note in payload.get("validation_notes", []):
             if note not in spec.validation_notes:
                 spec.validation_notes.append(note)
 
