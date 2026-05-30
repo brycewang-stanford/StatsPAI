@@ -262,6 +262,9 @@ def wooldridge_did(
         t_g = att_g / se_g if se_g > 0 else np.nan
         p_g = float(2 * (1 - stats.t.cdf(abs(t_g), max(df_resid, 1))))
         n_g = int((df_valid["_ft"] == g).sum())
+        n_treated_g = int(
+            ((df_valid["_ft"] == g) & (df_valid[time] >= g)).sum()
+        )
         cohort_results.append({
             "cohort": int(g),
             "att": att_g,
@@ -269,6 +272,7 @@ def wooldridge_did(
             "tstat": t_g,
             "pvalue": p_g,
             "n_obs": n_g,
+            "n_treated_obs": n_treated_g,
         })
         cohort_sizes.append(n_g)
         cohort_atts.append(att_g)
@@ -322,12 +326,18 @@ def wooldridge_did(
                     rel_val = int(rel_part)
                 coh_val = int(coh_part)
                 idx_j = j + 1
+                n_treated_ev = int(
+                    ((df_valid["_ft"] == coh_val)
+                     & (df_valid[time] == coh_val + rel_val)
+                     & (df_valid[time] >= coh_val)).sum()
+                )
                 ev_rows.append({
                     "cohort": coh_val,
                     "rel_time": rel_val,
                     "estimate": float(ev_beta[idx_j]),
                     "se": float(ev_se[idx_j]),
                     "_vcov_idx": idx_j,
+                    "n_treated_obs": n_treated_ev,
                 })
             event_study_df = pd.DataFrame(ev_rows)
             # Keep only the event-study coefficient submatrix of vcov
@@ -344,6 +354,8 @@ def wooldridge_did(
         "cluster_var": cluster or group,
         "n_clusters": len(np.unique(cl_arr)) if cl_arr is not None else None,
         "cohort_weights": {int(g): float(w) for g, w in zip(cohorts, weights)},
+        "cohort_weighting": "cohort",
+        "cohort_vcov": cohort_vcov,
     }
     if event_study_df is not None:
         model_info["event_study"] = event_study_df
@@ -713,6 +725,9 @@ def _etwfe_with_xvar(
             row["slope_se"] = row[f"slope_{only}_se"]
             row["slope_pvalue"] = row[f"slope_{only}_pvalue"]
         row["n_obs"] = int((dfv["_ft"] == g).sum())
+        row["n_treated_obs"] = int(
+            ((dfv["_ft"] == g) & (dfv[time] >= g)).sum()
+        )
         cohort_results.append(row)
 
     detail = pd.DataFrame(cohort_results)
@@ -739,6 +754,8 @@ def _etwfe_with_xvar(
         "xvar_means": x_centers,
         "heterogeneity": ("ATT(g) = baseline(g) + Σ_j slope_j(g) * "
                           "(x_j - mean(x_j))"),
+        "cohort_weighting": "cohort",
+        "cohort_vcov": base_vcov,
     }
 
     x_label = ", ".join(f"{x}={x_centers[x]:.4g}" for x in xvar)
@@ -871,9 +888,11 @@ def _etwfe_repeated_cs(
         s_ = float(se[idx])
         p = float(2 * (1 - stats.t.cdf(abs(att / s_) if s_ > 0 else 0, df_resid)))
         n_g = int((dfv["_ft"] == g).sum())
+        n_treated_g = int(((dfv["_ft"] == g) & (dfv[time] >= g)).sum())
         cohort_rows.append({"cohort": int(g), "att": att, "se": s_,
                             "tstat": att / s_ if s_ > 0 else np.nan,
-                            "pvalue": p, "n_obs": n_g})
+                            "pvalue": p, "n_obs": n_g,
+                            "n_treated_obs": n_treated_g})
     detail = pd.DataFrame(cohort_rows)
     sizes = detail["n_obs"].values.astype(float)
     w = sizes / sizes.sum() if sizes.sum() > 0 else np.ones(k) / k
@@ -884,6 +903,54 @@ def _etwfe_repeated_cs(
     p_overall = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid)))
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
     ci = (att_overall - t_crit * att_se, att_overall + t_crit * att_se)
+
+    event_study_df = None
+    event_vcov = None
+    if not xvar:
+        event_cols: List[str] = []
+        event_meta: List[Tuple[int, int, int]] = []
+        for g in cohorts:
+            for tt in periods:
+                rel = int(tt - g)
+                if rel < 0:
+                    continue
+                col = f"_coh{int(g)}_rel{rel}"
+                df[col] = ((df["_ft"] == g) & (df[time] == tt)).astype(float)
+                event_cols.append(col)
+                event_meta.append((int(g), rel, int(tt)))
+        ev_design_cols = coh_dummies + time_dummies + event_cols + ctrl_cols
+        ev_keep = ["_y"] + ev_design_cols
+        ev_valid = df[ev_keep].notna().all(axis=1)
+        ev_dfv = df.loc[ev_valid].reset_index(drop=True)
+        if len(event_cols) > 0 and len(ev_dfv) > len(ev_design_cols) + 2:
+            ev_y = ev_dfv["_y"].values
+            ev_X = np.column_stack(
+                [np.ones(len(ev_y))] + [ev_dfv[c].values for c in ev_design_cols]
+            )
+            ev_cl = ev_dfv[cluster].values if cluster else None
+            ev_beta, ev_se, ev_vcov_full = _ols_fit(ev_X, ev_y, cluster=ev_cl)
+            event_start = 1 + len(coh_dummies) + len(time_dummies)
+            ev_rows = []
+            for j, (col, (coh_val, rel_val, time_val)) in enumerate(
+                zip(event_cols, event_meta)
+            ):
+                idx_j = event_start + j
+                n_treated_ev = int(
+                    ((ev_dfv["_ft"] == coh_val) & (ev_dfv[time] == time_val)).sum()
+                )
+                ev_rows.append({
+                    "cohort": coh_val,
+                    "rel_time": rel_val,
+                    "estimate": float(ev_beta[idx_j]),
+                    "se": float(ev_se[idx_j]),
+                    "_vcov_idx": j + 1,
+                    "n_treated_obs": n_treated_ev,
+                })
+            event_study_df = pd.DataFrame(ev_rows)
+            event_vcov = ev_vcov_full[
+                event_start:event_start + len(event_cols),
+                event_start:event_start + len(event_cols),
+            ]
 
     return CausalResult(
         method="Wooldridge (2021) ETWFE — repeated cross-section",
@@ -896,6 +963,10 @@ def _etwfe_repeated_cs(
             "controls": controls or [],
             "xvar": list(xvar), "xvar_means": x_centers,
             "cgroup": cgroup,
+            "cohort_weighting": "cohort",
+            "cohort_vcov": base_vcov,
+            "event_study": event_study_df,
+            "event_vcov": event_vcov,
         },
         _citation_key="wooldridge_twfe",
     )
@@ -968,6 +1039,12 @@ def _etwfe_never_only(
             "se": float(r.se),
             "pvalue": float(r.pvalue) if r.pvalue is not None else np.nan,
             "n_obs": int(r.n_obs),
+            "n_treated_obs": int(
+                r.detail["n_treated_obs"].sum()
+            ) if (
+                isinstance(r.detail, pd.DataFrame)
+                and "n_treated_obs" in r.detail.columns
+            ) else int(r.n_obs),
         })
         ses.append(float(r.se))
 
@@ -995,6 +1072,8 @@ def _etwfe_never_only(
             "cgroup": "nevertreated",
             "controls": controls or [],
             "xvar": list(xvar) if xvar else None,
+            "cohort_weighting": "cohort",
+            "cohort_vcov": np.diag(np.array(ses, dtype=float) ** 2),
         },
         _citation_key="wooldridge_twfe",
     )
@@ -1538,6 +1617,7 @@ def etwfe_emfx(
     type: str = "simple",
     alpha: float = 0.05,
     include_leads: bool = False,
+    weighting: str = "cohort",
 ) -> CausalResult:
     """
     R ``etwfe::emfx``-style aggregated marginal effects for an ETWFE fit.
@@ -1572,6 +1652,11 @@ def etwfe_emfx(
         event-study output matching the R ``etwfe::emfx(type='event')``
         default. ``rel_time = -1`` is always the reference category
         and is excluded.
+    weighting : {'cohort', 'treated'}, default 'cohort'
+        Aggregation weights for cohort-level marginal effects. ``'cohort'``
+        preserves the historical StatsPAI cohort-share weighting. ``'treated'``
+        uses the number of treated post-period observations in each cohort,
+        matching R ``etwfe::emfx(type='simple')`` on balanced staggered panels.
 
     Returns
     -------
@@ -1604,6 +1689,13 @@ def etwfe_emfx(
     valid = {"simple", "group", "event", "calendar"}
     if type not in valid:
         raise ValueError(f"type must be one of {sorted(valid)}; got {type!r}")
+    valid_weighting = {"cohort", "treated", "treated_observations"}
+    if weighting not in valid_weighting:
+        raise ValueError(
+            "weighting must be one of "
+            f"{sorted(valid_weighting)}; got {weighting!r}"
+        )
+    weighting = "treated" if weighting == "treated_observations" else weighting
 
     if not isinstance(result.model_info, dict) or "cohorts" not in result.model_info:
         raise ValueError(
@@ -1613,32 +1705,121 @@ def etwfe_emfx(
 
     mi = result.model_info
     cohorts = mi["cohorts"]
-    cohort_weights = mi.get("cohort_weights", {})
     event_study = mi.get("event_study")
+
+    def _weighted_headline(
+        use_event_cells: bool = False,
+    ) -> Tuple[float, float, float, Tuple[float, float], Dict[str, Any]]:
+        if use_event_cells and weighting == "treated" and event_study is not None:
+            es = event_study.copy()
+            es = es.loc[es["rel_time"] >= 0].copy()
+            if len(es) > 0 and "n_treated_obs" in es.columns:
+                w_raw = es["n_treated_obs"].astype(float).to_numpy()
+                w = w_raw / float(w_raw.sum()) if float(w_raw.sum()) > 0 else \
+                    np.full(len(es), 1.0 / len(es))
+                est_vec = es["estimate"].astype(float).to_numpy()
+                est = float(w @ est_vec)
+                event_vcov = mi.get("event_vcov")
+                has_vcov = event_vcov is not None and "_vcov_idx" in es.columns
+                if has_vcov:
+                    idx = es["_vcov_idx"].astype(int).values - 1
+                    V_sub = np.asarray(event_vcov, dtype=float)[np.ix_(idx, idx)]
+                    se = float(np.sqrt(max(w @ V_sub @ w, 0.0)))
+                    se_method = "event-cell vcov-based (delta method)"
+                else:
+                    se_vec = es["se"].astype(float).to_numpy()
+                    se = float(np.sqrt(np.sum((w * se_vec) ** 2)))
+                    se_method = "event-cell independent-coefficient approximation"
+                df_resid = max(result.n_obs - len(cohorts), 1)
+                t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
+                t_stat = est / se if se > 0 else np.nan
+                p = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid))) \
+                    if not np.isnan(t_stat) else np.nan
+                ci = (est - t_crit * se, est + t_crit * se) \
+                    if np.isfinite(se) else (np.nan, np.nan)
+                info = {
+                    "weighting": weighting,
+                    "weight_column": "event_n_treated_obs",
+                    "aggregation_unit": "cohort_time",
+                    "se_method": se_method,
+                }
+                return est, se, p, ci, info
+
+        det = result.detail.copy()
+        if "att_at_xmean" in det.columns:
+            est_col = "att_at_xmean"
+        elif "att" in det.columns:
+            est_col = "att"
+        else:
+            raise ValueError("ETWFE detail must contain 'att' or 'att_at_xmean'.")
+
+        weight_col = "n_obs" if weighting == "cohort" else "n_treated_obs"
+        if weight_col not in det.columns:
+            raise ValueError(
+                f"weighting={weighting!r} requires '{weight_col}' in result.detail; "
+                "refit with a current StatsPAI ETWFE result."
+            )
+
+        w_raw = det[weight_col].astype(float).to_numpy()
+        if not np.isfinite(w_raw).all() or float(w_raw.sum()) <= 0:
+            w = np.full(len(det), 1.0 / max(len(det), 1))
+        else:
+            w = w_raw / float(w_raw.sum())
+        est_vec = det[est_col].astype(float).to_numpy()
+        est = float(w @ est_vec)
+
+        vcov = mi.get("cohort_vcov")
+        V = np.asarray(vcov, dtype=float) if vcov is not None else None
+        if V is not None and V.shape == (len(w), len(w)):
+            se = float(np.sqrt(max(w @ V @ w, 0.0)))
+            se_method = "vcov-based (delta method)"
+        else:
+            if "se" in det.columns:
+                se_vec = det["se"].astype(float).to_numpy()
+            elif "att_se" in det.columns:
+                se_vec = det["att_se"].astype(float).to_numpy()
+            else:
+                se_vec = np.full(len(w), np.nan)
+            se = float(np.sqrt(np.sum((w * se_vec) ** 2)))
+            se_method = "independent-coefficient approximation (fallback)"
+
+        df_resid = max(result.n_obs - len(cohorts), 1)
+        t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
+        t_stat = est / se if se > 0 else np.nan
+        p = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid))) \
+            if not np.isnan(t_stat) else np.nan
+        ci = (est - t_crit * se, est + t_crit * se) \
+            if np.isfinite(se) else (np.nan, np.nan)
+        weight_map = {
+            int(c): float(w_i)
+            for c, w_i in zip(det["cohort"].astype(int).tolist(), w.tolist())
+        } if "cohort" in det.columns else {}
+        info = {
+            "weighting": weighting,
+            "weight_column": weight_col,
+            "weights": weight_map,
+            "se_method": se_method,
+        }
+        return est, se, p, ci, info
 
     # ── simple ──
     if type == "simple":
-        # Just return a tidy one-row result
-        df_resid = max(result.n_obs - len(cohorts), 1)
-        t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
-        est = float(result.estimate)
-        se = float(result.se)
-        ci = (est - t_crit * se, est + t_crit * se)
+        est, se, p, ci, weight_info = _weighted_headline(use_event_cells=True)
         detail = pd.DataFrame([{
             "aggregation": "simple",
-            "estimate": est, "se": se,
-            "pvalue": float(result.pvalue) if result.pvalue is not None else np.nan,
+            "estimate": est, "se": se, "pvalue": p,
             "ci_low": ci[0], "ci_high": ci[1],
             "n_cohorts": len(cohorts),
+            "weighting": weighting,
         }])
         return CausalResult(
             method="ETWFE — simple aggregation (overall ATT)",
             estimand="Overall ATT",
-            estimate=est, se=se,
-            pvalue=float(result.pvalue) if result.pvalue is not None else np.nan,
+            estimate=est, se=se, pvalue=p,
             ci=ci, alpha=alpha, n_obs=int(result.n_obs),
             detail=detail,
-            model_info={"type": "simple", "source_method": result.method},
+            model_info={"type": "simple", "source_method": result.method,
+                        **weight_info},
             _citation_key="wooldridge_twfe",
         )
 
@@ -1663,21 +1844,17 @@ def etwfe_emfx(
                 "n_obs": int(r["n_obs"]),
             })
         out_det = pd.DataFrame(rows)
-        # H2 fix: the group aggregation's headline == simple overall ATT.
-        headline_est = float(result.estimate)
-        headline_se = float(result.se)
-        t_head = headline_est / headline_se if headline_se > 0 else np.nan
-        p_head = float(2 * (1 - stats.t.cdf(abs(t_head), df_resid))) \
-            if not np.isnan(t_head) else np.nan
-        ci_head = (headline_est - t_crit * headline_se,
-                   headline_est + t_crit * headline_se)
+        # H2 fix: the group aggregation's headline == simple overall ATT
+        # under the caller-selected aggregation weighting.
+        headline_est, headline_se, p_head, ci_head, weight_info = _weighted_headline()
         return CausalResult(
             method="ETWFE — group aggregation (ATT per cohort)",
             estimand="ATT(g) per cohort",
             estimate=headline_est, se=headline_se,
             pvalue=p_head, ci=ci_head, alpha=alpha,
             n_obs=int(result.n_obs), detail=out_det,
-            model_info={"type": "group", "source_method": result.method},
+            model_info={"type": "group", "source_method": result.method,
+                        **weight_info},
             _citation_key="wooldridge_twfe",
         )
 
@@ -1690,9 +1867,10 @@ def etwfe_emfx(
     es = event_study.copy()
     det = result.detail
     weight_by_cohort: Dict[int, float] = {}
-    if "n_obs" in det.columns:
+    weight_col = "n_obs" if weighting == "cohort" else "n_treated_obs"
+    if weight_col in det.columns:
         weight_by_cohort = dict(zip(det["cohort"].astype(int),
-                                    det["n_obs"].astype(float)))
+                                    det[weight_col].astype(float)))
 
     df_resid = max(result.n_obs - len(cohorts), 1)
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
@@ -1750,6 +1928,8 @@ def etwfe_emfx(
         pvalue=np.nan, ci=(np.nan, np.nan), alpha=alpha,
         n_obs=int(result.n_obs), detail=out_det,
         model_info={"type": type, "source_method": result.method,
-                    "se_method": se_method},
+                    "se_method": se_method,
+                    "weighting": weighting,
+                    "weight_column": weight_col},
         _citation_key="wooldridge_twfe",
     )

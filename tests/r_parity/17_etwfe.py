@@ -21,15 +21,17 @@ def main() -> None:
     dump_csv(df, MODULE)
 
     fit = sp.etwfe(df, y="lemp", group="countyreal", time="year",
-                   first_treat="first_treat")
+                   first_treat="first_treat", cluster="countyreal",
+                   panel=False)
+    simple = sp.etwfe_emfx(fit, type="simple", weighting="treated")
 
     rows: list[ParityRecord] = [
         ParityRecord(
             module=MODULE, side="py", statistic="att_etwfe",
-            estimate=float(fit.estimate),
-            se=float(fit.se),
-            ci_lo=float(fit.ci[0]) if fit.ci is not None else None,
-            ci_hi=float(fit.ci[1]) if fit.ci is not None else None,
+            estimate=float(simple.estimate),
+            se=float(simple.se),
+            ci_lo=float(simple.ci[0]) if simple.ci is not None else None,
+            ci_hi=float(simple.ci[1]) if simple.ci is not None else None,
             n=int(len(df)),
         )
     ]
@@ -37,14 +39,15 @@ def main() -> None:
     write_results(
         MODULE, "py", rows,
         extra={
-            "method": "Wooldridge ETWFE",
+            "method": "Wooldridge ETWFE + emfx simple aggregation",
             "n_cohorts": int(fit.model_info["n_cohorts"]),
             "aggregation_note": (
-                "Wooldridge ETWFE pools cohort-specific ATTs; sp uses "
-                "cohort-share weighting while etwfe::etwfe + emfx() uses "
-                "treated-observation weighting. On mpdta the gap is "
-                "~8% (sp -0.038 vs R -0.035); same family as the BJS "
-                "and Sun-Abraham aggregation gaps in Modules 5 and 16."
+                "Parity row uses the R etwfe default no-ivar fixed-effect "
+                "structure (StatsPAI panel=False) and sp.etwfe_emfx("
+                "weighting='treated'), which averages cohort-time marginal "
+                "effects over treated post-period observations like "
+                "etwfe::emfx(type='simple'). Point estimates and clustered "
+                "delta-method SEs match the R reference."
             ),
         },
     )

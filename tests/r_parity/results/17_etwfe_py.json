@@ -6,17 +6,17 @@
       "module": "17_etwfe",
       "side": "py",
       "statistic": "att_etwfe",
-      "estimate": -0.037848079532845066,
-      "se": 0.005804584497109654,
-      "ci_lo": -0.04923037556958828,
-      "ci_hi": -0.026465783496101854,
+      "estimate": -0.035108276608100494,
+      "se": 0.006925091828811967,
+      "ci_lo": -0.04868778949168407,
+      "ci_hi": -0.021528763724516918,
       "n": 2500,
       "extra": {}
     }
   ],
   "extra": {
-    "method": "Wooldridge ETWFE",
+    "method": "Wooldridge ETWFE + emfx simple aggregation",
     "n_cohorts": 3,
-    "aggregation_note": "Wooldridge ETWFE pools cohort-specific ATTs; sp uses cohort-share weighting while etwfe::etwfe + emfx() uses treated-observation weighting. On mpdta the gap is ~8% (sp -0.038 vs R -0.035); same family as the BJS and Sun-Abraham aggregation gaps in Modules 5 and 16."
+    "aggregation_note": "Parity row uses the R etwfe default no-ivar fixed-effect structure (StatsPAI panel=False) and sp.etwfe_emfx(weighting='treated'), which averages cohort-time marginal effects over treated post-period observations like etwfe::emfx(type='simple'). Point estimates match to machine precision; SEs retain a fixest/marginaleffects delta-method convention difference."
   }
 }

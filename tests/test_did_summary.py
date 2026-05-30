@@ -161,6 +161,26 @@ def test_etwfe_emfx_simple_matches_fit(staggered_df):
     assert abs(float(simple.se) - float(fit.se)) < 1e-10
 
 
+def test_etwfe_emfx_treated_weighting_matches_r_emfx_point_estimate():
+    df = sp.datasets.mpdta()
+    fit = sp.etwfe(
+        df, y="lemp", time="year", first_treat="first_treat",
+        group="countyreal", cluster="countyreal", panel=False,
+    )
+    simple = sp.etwfe_emfx(fit, type="simple", weighting="treated")
+    assert abs(float(simple.estimate) - (-0.0351082766081059)) < 1e-10
+    assert abs(float(simple.se) - 0.00692510847384087) < 1e-6
+    assert simple.model_info["aggregation_unit"] == "cohort_time"
+    assert simple.model_info["weight_column"] == "event_n_treated_obs"
+
+
+def test_etwfe_emfx_rejects_bad_weighting(staggered_df):
+    fit = sp.etwfe(staggered_df, y="y", time="time",
+                   first_treat="first_treat", group="unit")
+    with pytest.raises(ValueError, match="weighting must be"):
+        sp.etwfe_emfx(fit, type="simple", weighting="unit")
+
+
 def test_etwfe_emfx_group_one_row_per_cohort(staggered_df):
     fit = sp.etwfe(staggered_df, y="y", time="time",
                    first_treat="first_treat", group="unit")
