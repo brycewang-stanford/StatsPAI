@@ -91,5 +91,13 @@
     "S": "1",
     "package": "Stata frontier (built-in)",
     "stata_command": "frontier lny lnk lnl, distribution(hnormal)"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
   }
 }

@@ -77,5 +77,13 @@
   "extra": {
     "test_kind": "Cattaneo-Jansson-Ma (2020)",
     "stata_command": "rddensity margin, c(0)"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
   }
 }

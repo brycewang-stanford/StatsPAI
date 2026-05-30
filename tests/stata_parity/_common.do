@@ -28,7 +28,17 @@ program define stata_parity_init
     global STATA_PARITY_MODULE  "`module'"
     global STATA_PARITY_HERE    "`c(pwd)'"
     global STATA_PARITY_DATA    "../r_parity/data"
-    global STATA_PARITY_RESULTS "results"
+    * Results dir is overridable via the STATSPAI_STATA_PARITY_RESULTS env
+    * var so a reproducibility-verification run can write to a staging dir
+    * and diff against the committed golden JSON without clobbering it
+    * (mirrors tests/r_parity/_common.R). Defaults to the committed results/.
+    local _res_override : environment STATSPAI_STATA_PARITY_RESULTS
+    if "`_res_override'" != "" {
+        global STATA_PARITY_RESULTS "`_res_override'"
+    }
+    else {
+        global STATA_PARITY_RESULTS "results"
+    }
     global STATA_PARITY_LOGS    "logs"
     global STATA_PARITY_ROWS    "logs/`module'.rows.tmp"
     global STATA_PARITY_EXTRAS  "logs/`module'.extras.tmp"
@@ -247,7 +257,28 @@ program define stata_parity_close
         file close `inextras'
     }
 
+    file write `final' "  }," _n
+
+    * Provenance block: record the exact Stata engine that produced these
+    * numbers, so the committed _Stata.json is self-describing for JSS
+    * reproducibility (mirrors the R side's provenance block). The community
+    * ado package versions live in tests/stata_parity/STATA_ENVIRONMENT.md
+    * (Stata has no per-result packageVersion() primitive), captured by
+    * _capture_stata_env.do.
+    local _sv = c(stata_version)
+    local _ed "`c(edition_real)'"
+    local _os "`c(os)'"
+    local _mt "`c(machine_type)'"
+    local _bd "`c(born_date)'"
+    file write `final' `"  "provenance": {"' _n
+    file write `final' `"    "stata_version": "' "`_sv'" "," _n
+    file write `final' `"    "edition": ""' "`_ed'" `"","' _n
+    file write `final' `"    "os": ""' "`_os'" `"","' _n
+    file write `final' `"    "machine_type": ""' "`_mt'" `"","' _n
+    file write `final' `"    "born_date": ""' "`_bd'" `"","' _n
+    file write `final' `"    "captured_via": "tests/stata_parity/_common.do::stata_parity_close""' _n
     file write `final' "  }" _n
+
     file write `final' "}" _n
     file close `final'
 
