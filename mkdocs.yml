@@ -79,9 +79,9 @@ nav:
   - Cookbook: cookbook.md
   - FAQ & troubleshooting: faq.md
   - Ecosystem stats: stats.md
-  - JSS source-audit dossier: jss_source_audit_dossier.md
   - JOSS reviewer guide: joss_reviewer_guide.md
   - JOSS validation dossier: joss_validation_dossier.md
+  - JSS source-audit dossier: jss_source_audit_dossier.md
   - Guides:
       - "Staggered DiD (Callaway–Sant'Anna)": guides/callaway_santanna.md
       - "Report card: cs_report()": guides/cs_report.md

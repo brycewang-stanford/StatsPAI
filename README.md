@@ -24,10 +24,11 @@ It places Python-native implementations, selected R-style causal workflows, and 
 
 ## For Journal Reviewers
 
-StatsPAI has two parallel software-paper submissions. Pick the path for your venue:
+StatsPAI currently has one active journal review path and one separate
+long-form manuscript workspace. Use the path that matches your role:
 
-1. **JOSS reviewers** — install and smoke-test the package with [`docs/joss_reviewer_guide.md`](docs/joss_reviewer_guide.md), then inspect validation evidence in [`docs/joss_validation_dossier.md`](docs/joss_validation_dossier.md).
-2. **JSS reviewers** — start with the replication guide in [`Paper-JSS/README.md`](Paper-JSS/README.md), then inspect source-audit evidence in [`docs/jss_source_audit_dossier.md`](docs/jss_source_audit_dossier.md).
+1. **Current JOSS review** — install and smoke-test the package with [`docs/joss_reviewer_guide.md`](docs/joss_reviewer_guide.md), then inspect validation evidence in [`docs/joss_validation_dossier.md`](docs/joss_validation_dossier.md).
+2. **JSS manuscript workspace, in preparation** — maintained separately from the package repository. Local manuscript work starts from `Paper-JSS/README.md`; the public source-audit summary is [`docs/jss_source_audit_dossier.md`](docs/jss_source_audit_dossier.md). This material is separate from the JOSS software-paper review.
 3. Run representative offline examples from [`examples/`](examples/).
 4. Check contribution and support pathways in [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SUPPORT.md`](SUPPORT.md), and the GitHub issue templates under [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/).
 
