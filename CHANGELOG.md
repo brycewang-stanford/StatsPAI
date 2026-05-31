@@ -4,6 +4,8 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.16.0+source.20260531] — 2026-05-31
+
 ### Correctness fix — RD density native path now ports `rddensity` defaults
 
 - **`sp.rddensity(backend="native")` now mirrors the default
