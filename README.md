@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/brycewang-stanford/statspai/blob/main/LICENSE)
 [![Tests](https://github.com/brycewang-stanford/statspai/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/brycewang-stanford/statspai/actions)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19933900.svg)](https://doi.org/10.5281/zenodo.19933900)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19933900-blue.svg)](https://doi.org/10.5281/zenodo.19933900)
 
 StatsPAI is a **validation-tiered** Python platform for causal inference and applied econometrics. One `import`, **1,000+ registered functions** across **80+ submodules** (live count: `python scripts/registry_stats.py`), covering the empirical research workflow from classical econometrics to ML/AI causal methods to manuscript-ready tables in Word, Excel, and LaTeX.
 
