@@ -142,6 +142,20 @@ StatsPAI's focus is **causal inference**. The grid below summarizes method-famil
 
 **Validation tiers matter**: `stability="stable"` means the public API is SemVer-stable; it does not by itself mean R/Stata/paper parity. Use `sp.list_functions(validation_status="certified")` for cross-language or published-reference evidence, and inspect `sp.describe_function(name)["limitations"]` before production use. See [`docs/guides/stability.md`](docs/guides/stability.md).
 
+**📦 v1.16.1 (2026-06-01) — synthetic-control default + weight-simplex correctness fixes**
+
+StatsPAI 1.16.1 restores the bare `sp.synth(...)` default to the canonical
+classic synthetic control (Abadie, Diamond & Hainmueller 2010) — the signature
+default had silently drifted to Augmented SCM — so a default call again returns
+convex, non-negative, sum-to-one donor weights. The shared simplex W-solver now
+projects sub-tolerance negative weights back onto the unit simplex; both flagged
+⚠️ **Correctness**, so re-run affected synthetic-control analyses. Agent schema
+generation (`sp.function_schema`) also keeps parametrised typing annotations
+(e.g. `Optional[Dict[str, Any]]`) intact on Python 3.10+. Full notes in
+[`CHANGELOG.md`](CHANGELOG.md) under `[1.16.1]`.
+
+---
+
 **📦 v1.16.0 (2026-05-29) — correctness fixes and cross-language parity expansion**
 
 StatsPAI 1.16.0 corrects the `sp.qreg` Powell sandwich standard error (was off

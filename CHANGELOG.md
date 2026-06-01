@@ -4,6 +4,8 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.16.1] — 2026-06-01
+
 ### ⚠️ Correctness fix — `sp.synth()` default restored to canonical classic SCM
 
 - **`sp.synth(...)` now defaults to `method='classic'`** (the Abadie, Diamond
@@ -38,6 +40,29 @@ All notable changes to StatsPAI will be documented in this file.
   solution, so reference parity is preserved (verified against the synth
   parity suite). Guarded by
   `tests/test_synth.py::TestSyntheticControl::test_weights_non_negative`.
+
+### Fixed — agent schema generation preserves full typing shapes
+
+- **`sp.function_schema` / the registry schema generator now keep
+  parametrised typing annotations intact across Python 3.9–3.13.**
+  `registry._stringify_annotation` checked `hasattr(ann, "__name__")` before
+  inspecting typing generics; on Python 3.10+ aliases such as
+  `Optional[Dict[str, Any]]` expose `__name__`, so the helper collapsed them to
+  the bare origin name (`Optional`, `Dict`) and dropped the inner element
+  types. It now resolves `typing.`-prefixed and `__origin__`-bearing
+  annotations first, so the machine-readable parameter shapes agents consume
+  stay stable and version-independent. No estimator numbers change.
+
+### Docs
+
+- Reviewer-facing validation docs (`docs/joss_reviewer_guide.md`,
+  `docs/joss_validation_dossier.md`, `README.md`) refreshed: the focused
+  reviewer follow-up regression command is documented, the
+  `tests/test_joss_reviewer_followups.py` compatibility path is restored for
+  the public review thread (delegating to
+  `tests/test_external_reviewer_followups.py`), and the activity/measurement
+  dates are updated to 2026-06-01. Live `docs/stats.md` counts re-measured
+  against the 1.16.1 source tree (source LOC 269,010).
 
 ## [1.16.0+source.20260531] — 2026-05-31
 
