@@ -33,7 +33,7 @@ applied econometrics. It gives empirical researchers a single interface
 for estimating, diagnosing, comparing, and reporting models that are
 usually spread across many specialized packages or proprietary
 statistical environments. The package currently exposes more than 1,000
-registered functions across 80 submodules, covering classical
+registered functions across 81 submodules, covering classical
 regression, instrumental variable analysis, panel data, difference-in-differences,
 regression discontinuity, synthetic control, matching,
 stochastic frontier analysis, mixed-effects models, decomposition

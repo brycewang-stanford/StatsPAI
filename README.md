@@ -57,7 +57,7 @@ df = sp.datasets.mpdta()
 cs = sp.callaway_santanna(data=df, y='lemp', t='year',
                           i='countyreal', g='first_treat')
 print(sp.aggte(cs, type='simple').summary())
-# Simple ATT ≈ -0.033, bootstrap SE ≈ 0.004, p < 0.001
+# Simple ATT ≈ -0.033, bootstrap SE ≈ 0.008, p < 0.001
 ```
 
 ### IV — Card (1995) returns to schooling
@@ -98,7 +98,7 @@ df = sp.datasets.california_prop99()
 sc = sp.synth(data=df, outcome='cigsale', unit='state', time='year',
               treated_unit='California', treatment_time=1989)
 print(sc.summary())
-# Post-1988 ATT ≈ -13.3 packs/capita
+# Post-1988 ATT ≈ -13.1 packs/capita
 ```
 
 ### What each result object gives you for free
