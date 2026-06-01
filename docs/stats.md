@@ -13,7 +13,7 @@
 | Ecosystem / Project                  | Method     |  Files | Lines of code | Primary focus                      |
 | ------------------------------------ | ---------- | -----: | ------------: | ---------------------------------- |
 | **StatsPAI** `src/statspai/`         | measured   |    647 |   **269,004** | validation-tiered causal inference |
-| StatsPAI tests (`tests/`)            | measured   |    528 |        96,404 | —                                  |
+| StatsPAI tests (`tests/`)            | measured   |    528 |        96,408 | —                                  |
 | statsmodels 0.14.x                   | measured   |    948 |   **381,981** | GLM / time series / general        |
 | linearmodels                         | measured   |    131 |        36,607 | panel / IV                         |
 | **Python causal-inference subtotal** |            |  1,079 |   **418,588** |                                    |
