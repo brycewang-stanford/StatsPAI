@@ -3984,6 +3984,36 @@
     "name": "cs_report"
   },
   {
+    "description": "Cumulative incidence functions for competing risks (Aalen-Johansen).",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for the confidence bands.",
+          "type": "number"
+        },
+        "duration": {
+          "description": "Column name for the follow-up time.",
+          "type": "string"
+        },
+        "event": {
+          "description": "Column name for the event indicator. ``0`` = censored; ``1, 2, ...`` = competing causes.",
+          "type": "string"
+        },
+        "group": {
+          "description": "Column name for a grouping variable. When supplied, CIFs are estimated per group and Gray's K-sample test is reported per cause.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "duration",
+        "event"
+      ],
+      "type": "object"
+    },
+    "name": "cuminc"
+  },
+  {
     "description": "CUSUM test for parameter stability.",
     "input_schema": {
       "properties": {
@@ -7054,6 +7084,55 @@
       "type": "object"
     },
     "name": "ffl_decompose"
+  },
+  {
+    "description": "Fine & Gray (1999) proportional subdistribution hazards model.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals.",
+          "type": "number"
+        },
+        "cause": {
+          "default": 1,
+          "description": "Cause of interest (default ``1``).",
+          "type": "integer"
+        },
+        "duration": {
+          "description": "Follow-up-time column.",
+          "type": "string"
+        },
+        "event": {
+          "description": "Event indicator: ``0`` = censored, ``1, 2, ...`` = causes.",
+          "type": "string"
+        },
+        "max_iter": {
+          "default": 50,
+          "description": "Newton-Raphson controls.",
+          "type": "integer"
+        },
+        "tol": {
+          "default": 1e-07,
+          "description": "Newton-Raphson controls.",
+          "type": "number"
+        },
+        "x": {
+          "description": "Covariate column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "duration",
+        "event",
+        "x"
+      ],
+      "type": "object"
+    },
+    "name": "finegray"
   },
   {
     "description": "Fisher's exact randomization test with enhanced features.",
