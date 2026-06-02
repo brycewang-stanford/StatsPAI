@@ -864,6 +864,10 @@ from .survey.estimators import svyglm as svyglm
 from .survey.estimators import svymean as svymean
 from .survey.estimators import svytotal as svytotal
 from .survival.aft import aft as aft
+from .survival.competing_risks import CumIncResult as CumIncResult
+from .survival.competing_risks import FineGrayResult as FineGrayResult
+from .survival.competing_risks import cuminc as cuminc
+from .survival.competing_risks import finegray as finegray
 from .survival.frailty import cox_frailty as cox_frailty
 from .survival.models import CoxResult as CoxResult
 from .survival.models import KMResult as KMResult

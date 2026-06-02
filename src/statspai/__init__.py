@@ -1562,6 +1562,10 @@ __all__ = [
     "CoxResult",
     "KMResult",
     "logrank_test",
+    "cuminc",
+    "finegray",
+    "CumIncResult",
+    "FineGrayResult",
     # Nonparametric
     "lpoly",
     "LPolyResult",
@@ -2644,6 +2648,10 @@ _register_lazy(
     "causal_survival_forest",
     "causal_survival",
     "CausalSurvivalForestResult",
+    "cuminc",
+    "finegray",
+    "CumIncResult",
+    "FineGrayResult",
 )
 _register_lazy(
     "nonparametric",

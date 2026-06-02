@@ -12,8 +12,8 @@
 
 | Ecosystem / Project                  | Method     |  Files | Lines of code | Primary focus                      |
 | ------------------------------------ | ---------- | -----: | ------------: | ---------------------------------- |
-| **StatsPAI** `src/statspai/`         | measured   |    647 |   **269,043** | validation-tiered causal inference |
-| StatsPAI tests (`tests/`)            | measured   |    529 |        96,514 | —                                  |
+| **StatsPAI** `src/statspai/`         | measured   |    648 |   **269,748** | validation-tiered causal inference |
+| StatsPAI tests (`tests/`)            | measured   |    530 |        96,664 | —                                  |
 | statsmodels 0.14.x                   | measured   |    948 |   **381,981** | GLM / time series / general        |
 | linearmodels                         | measured   |    131 |        36,607 | panel / IV                         |
 | **Python causal-inference subtotal** |            |  1,079 |   **418,588** |                                    |
@@ -66,6 +66,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `dag` | 2,924 | 9 | 19 |
 | `metalearners` | 2,913 | 8 | 23 |
 | `structural` | 2,784 | 9 | 12 |
+| `survival` | 2,661 | 6 | 12 |
 | `neural_causal` | 2,651 | 6 | 16 |
 | `causal_llm` | 2,612 | 10 | 11 |
 | `timeseries` | 2,354 | 9 | 18 |
@@ -74,7 +75,6 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `robustness` | 2,243 | 6 | 11 |
 | `forest` | 2,168 | 5 | 8 |
 | `conformal_causal` | 2,002 | 9 | 19 |
-| `survival` | 1,964 | 5 | 8 |
 | `utils` | 1,906 | 8 | 32 |
 | `epi` | 1,860 | 6 | 20 |
 | `interference` | 1,837 | 10 | 18 |
@@ -120,7 +120,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `censoring` | 284 | 2 | 2 |
 | `causal` | 101 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **269,043** | **647** | **1020** |
+| **Total** | **269,748** | **648** | **1024** |
 
 ## 3 · Causal-inference coverage matrix (full)
 

@@ -30753,6 +30753,179 @@
     }
   },
   {
+    "description": "Cumulative incidence functions for competing risks (Aalen-Johansen).",
+    "name": "cuminc",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for the confidence bands.",
+          "type": "number"
+        },
+        "data": {
+          "description": "Input data.",
+          "type": "string"
+        },
+        "duration": {
+          "description": "Column name for the follow-up time.",
+          "type": "string"
+        },
+        "event": {
+          "description": "Column name for the event indicator. ``0`` = censored; ``1, 2, ...`` = competing causes.",
+          "type": "string"
+        },
+        "group": {
+          "description": "Column name for a grouping variable. When supplied, CIFs are estimated per group and Gray's K-sample test is reported per cause.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "duration",
+        "event"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Fine & Gray (1999) proportional subdistribution hazards model.",
+    "name": "finegray",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals.",
+          "type": "number"
+        },
+        "cause": {
+          "default": 1,
+          "description": "Cause of interest (default ``1``).",
+          "type": "integer"
+        },
+        "data": {
+          "description": "Input data.",
+          "type": "string"
+        },
+        "duration": {
+          "description": "Follow-up-time column.",
+          "type": "string"
+        },
+        "event": {
+          "description": "Event indicator: ``0`` = censored, ``1, 2, ...`` = causes.",
+          "type": "string"
+        },
+        "max_iter": {
+          "default": 50,
+          "description": "Newton-Raphson controls.",
+          "type": "integer"
+        },
+        "tol": {
+          "default": 1e-07,
+          "description": "Newton-Raphson controls.",
+          "type": "number"
+        },
+        "x": {
+          "description": "Covariate column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data",
+        "duration",
+        "event",
+        "x"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Cumulative incidence functions for competing risks.",
+    "name": "CumIncResult",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "causes": {
+          "description": "causes parameter (List[int]).",
+          "type": "integer"
+        },
+        "cif_table": {
+          "description": "cif_table parameter (pd.DataFrame).",
+          "type": "string"
+        },
+        "gray_test": {
+          "description": "gray_test parameter (Optional[Dict[int, Dict[str, float]]]).",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cif_table",
+        "causes"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Fine-Gray proportional subdistribution hazards model result.",
+    "name": "FineGrayResult",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "bse": {
+          "description": "bse parameter (np.ndarray).",
+          "type": "string"
+        },
+        "cause": {
+          "description": "cause parameter (int).",
+          "type": "integer"
+        },
+        "covariates": {
+          "description": "Covariate matrix, DataFrame, or column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "loglik": {
+          "description": "loglik parameter (float).",
+          "type": "number"
+        },
+        "n_events": {
+          "description": "Number of events.",
+          "type": "integer"
+        },
+        "n_obs": {
+          "description": "Number of obs.",
+          "type": "integer"
+        },
+        "params": {
+          "description": "params parameter (np.ndarray).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "params",
+        "bse",
+        "covariates",
+        "cause",
+        "n_obs",
+        "n_events",
+        "loglik"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Local polynomial regression.",
     "name": "lpoly",
     "parameters": {
