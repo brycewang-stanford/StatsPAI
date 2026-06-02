@@ -23,6 +23,7 @@ from .multiway_cluster import (
     cluster_robust_se,
     cr3_jackknife_vcov,
 )
+from .meta_analysis import meta_analysis, MetaAnalysisResult
 
 __all__ = [
     'wild_cluster_bootstrap',
@@ -47,4 +48,6 @@ __all__ = [
     'multiway_cluster_vcov',
     'cluster_robust_se',
     'cr3_jackknife_vcov',
+    'meta_analysis',
+    'MetaAnalysisResult',
 ]

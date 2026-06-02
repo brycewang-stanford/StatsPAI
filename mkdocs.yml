@@ -98,6 +98,7 @@ nav:
   - Guides:
       - "Competing risks — cumulative incidence (Aalen-Johansen) + Fine-Gray + Gray's test": guides/competing_risks.md
       - "Power & sample size for epidemiological designs (two-proportion / log-rank / case-control)": guides/power_epi.md
+      - "Meta-analysis (fixed/random-effects, heterogeneity, Egger, forest/funnel)": guides/meta_analysis.md
       - "Staggered DiD (Callaway–Sant'Anna)": guides/callaway_santanna.md
       - "Report card: cs_report()": guides/cs_report.md
       - "Repeated cross-sections": guides/repeated_cross_sections.md

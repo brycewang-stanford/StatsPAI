@@ -12,8 +12,8 @@
 
 | Ecosystem / Project                  | Method     |  Files | Lines of code | Primary focus                      |
 | ------------------------------------ | ---------- | -----: | ------------: | ---------------------------------- |
-| **StatsPAI** `src/statspai/`         | measured   |    649 |   **270,058** | validation-tiered causal inference |
-| StatsPAI tests (`tests/`)            | measured   |    531 |        96,763 | —                                  |
+| **StatsPAI** `src/statspai/`         | measured   |    650 |   **270,375** | validation-tiered causal inference |
+| StatsPAI tests (`tests/`)            | measured   |    532 |        96,841 | —                                  |
 | statsmodels 0.14.x                   | measured   |    948 |   **381,981** | GLM / time series / general        |
 | linearmodels                         | measured   |    131 |        36,607 | panel / IV                         |
 | **Python causal-inference subtotal** |            |  1,079 |   **418,588** |                                    |
@@ -53,8 +53,8 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `plots` | 5,176 | 6 | 6 |
 | `spatial` | 5,136 | 29 | 35 |
 | `core` | 4,951 | 10 | 2 |
+| `inference` | 4,941 | 15 | 24 |
 | `panel` | 4,914 | 12 | 17 |
-| `inference` | 4,629 | 14 | 22 |
 | `matching` | 4,052 | 9 | 23 |
 | `frontier` | 4,008 | 8 | 12 |
 | `workflow` | 3,890 | 5 | 1 |
@@ -120,7 +120,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `censoring` | 284 | 2 | 2 |
 | `causal` | 101 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **270,058** | **649** | **1027** |
+| **Total** | **270,375** | **650** | **1029** |
 
 ## 3 · Causal-inference coverage matrix (full)
 
