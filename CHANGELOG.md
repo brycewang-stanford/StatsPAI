@@ -4,6 +4,22 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **CI: `schemas/functions.json` no longer drifts by pandas version.** The
+  auto-registered schema export stringified parameter annotations via
+  `str(typing.Optional[pandas.DataFrame])`, which pandas 3.0 renders as
+  `pandas.DataFrame` while pandas < 3.0 renders as the internal
+  `pandas.core.frame.DataFrame`. Because pandas 3.0 requires Python >= 3.11,
+  the committed bundle matched the CI `ubuntu x 3.10` shard but was flagged
+  stale on every 3.11/3.12/3.13 shard, failing `CI/CD Pipeline`
+  (`tests/test_schema_export.py::test_committed_schemas_dir_is_in_sync`).
+  `_stringify_annotation` now canonicalises pandas internal module paths to
+  their public form, so the exported bundle is byte-identical across pandas
+  versions. Verified by regenerating under both pandas 2.x and pandas 3.0 and
+  confirming identical output. Agent-facing schema metadata only — no
+  numerical effect.
+
 ## [1.16.1] — 2026-06-01
 
 ### ⚠️ Correctness fix — `sp.synth()` default restored to canonical classic SCM

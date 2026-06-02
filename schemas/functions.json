@@ -16089,7 +16089,7 @@
     "parameters": {
       "properties": {
         "ps": {
-          "description": "ps parameter (Optional[pandas.core.series.Series]).",
+          "description": "ps parameter (Optional[pandas.Series]).",
           "type": "string"
         },
         "summary": {
@@ -17232,7 +17232,7 @@
           "type": "string"
         },
         "_panel_data": {
-          "description": "_panel_data parameter (Optional[pandas.core.frame.DataFrame]).",
+          "description": "_panel_data parameter (Optional[pandas.DataFrame]).",
           "type": "string"
         },
         "_time": {
@@ -21431,7 +21431,7 @@
           "type": "boolean"
         },
         "regional_shocks": {
-          "description": "regional_shocks parameter (Optional[pandas.core.frame.DataFrame]).",
+          "description": "regional_shocks parameter (Optional[pandas.DataFrame]).",
           "type": "string"
         },
         "robust": {
@@ -22846,7 +22846,7 @@
           "type": "number"
         },
         "bounds": {
-          "description": "bounds parameter (Optional[pandas.core.frame.DataFrame]).",
+          "description": "bounds parameter (Optional[pandas.DataFrame]).",
           "type": "string"
         },
         "effects": {
@@ -30711,7 +30711,7 @@
           "type": "number"
         },
         "tables": {
-          "description": "tables parameter (Dict[str, pandas.core.frame.DataFrame]).",
+          "description": "tables parameter (Dict[str, pandas.DataFrame]).",
           "type": "object"
         }
       },

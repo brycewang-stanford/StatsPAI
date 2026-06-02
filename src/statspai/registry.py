@@ -12359,20 +12359,35 @@ _expand_family_seeds()
 _SP_CALL_RE = re.compile(r"\bsp\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(")
 
 
+#: Collapse a dependency's *internal* module path to its public one so the
+#: exported schema is byte-stable across dependency versions.  pandas >= 3.0
+#: stringifies public types as ``pandas.DataFrame`` while older pandas exposes
+#: the internal ``pandas.core.frame.DataFrame`` path; without this the
+#: ``schemas/functions.json`` bundle drifts purely by which pandas a runner
+#: resolves (pandas 3.0 needs Python >= 3.11, so CI's 3.10 shard and 3.11+
+#: shards disagreed). Normalising to the public path keeps the bundle identical
+#: on every matrix entry — agent-facing metadata only, no numerical effect.
+_INTERNAL_PANDAS_PATH = re.compile(r"\bpandas\.core(?:\.[a-z_]+)+\.([A-Z]\w*)")
+
+
+def _canonicalize_annotation_path(text: str) -> str:
+    return _INTERNAL_PANDAS_PATH.sub(r"pandas.\1", text)
+
+
 def _stringify_annotation(ann: Any) -> str:
     if ann is inspect._empty:
         return "Any"
     if isinstance(ann, str):
-        return ann
+        return _canonicalize_annotation_path(ann)
     # Python 3.10+ exposes ``__name__`` on typing aliases such as
     # ``Optional[Dict[str, Any]]``.  Check typing/generic objects before the
     # plain-class branch so schema generation keeps the full parameter shape
     # stable across supported Python versions.
     if str(ann).startswith("typing.") or hasattr(ann, "__origin__"):
-        return str(ann).replace("typing.", "")
+        return _canonicalize_annotation_path(str(ann).replace("typing.", ""))
     if hasattr(ann, "__name__"):
-        return ann.__name__
-    return str(ann).replace("typing.", "")
+        return _canonicalize_annotation_path(ann.__name__)
+    return _canonicalize_annotation_path(str(ann).replace("typing.", ""))
 
 
 _COMMON_PARAM_DESCRIPTIONS: Dict[str, str] = {
