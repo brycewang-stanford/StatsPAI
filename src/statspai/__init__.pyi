@@ -378,6 +378,8 @@ from .inference.conley import conley as conley
 from .inference.front_door import front_door as front_door
 from .inference.g_computation import g_computation as g_computation
 from .inference.ipw import ipw as ipw
+from .inference.meta_analysis import MetaAnalysisResult as MetaAnalysisResult
+from .inference.meta_analysis import meta_analysis as meta_analysis
 from .inference.jackknife import cr2_se as cr2_se
 from .inference.jackknife import jackknife_se as jackknife_se
 from .inference.jackknife import wild_cluster_boot as wild_cluster_boot

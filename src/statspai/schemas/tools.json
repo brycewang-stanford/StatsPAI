@@ -11658,6 +11658,48 @@
     "name": "mepoisson"
   },
   {
+    "description": "Summary-data meta-analysis with fixed- and random-effects pooling.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence/prediction intervals.",
+          "type": "number"
+        },
+        "effects": {
+          "description": "Per-study effect sizes (e.g. log odds ratios, mean differences).",
+          "type": "number"
+        },
+        "labels": {
+          "description": "Study labels for the forest plot.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "method": {
+          "default": "DL",
+          "description": "Which model the headline ``estimate`` reports: DerSimonian-Laird random effects (default) or fixed-effect inverse-variance. Both are always computed and available on the result.",
+          "enum": [
+            "DL",
+            "fixed"
+          ],
+          "type": "string"
+        },
+        "se": {
+          "description": "Per-study standard errors (must be positive).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "effects",
+        "se"
+      ],
+      "type": "object"
+    },
+    "name": "meta_analysis"
+  },
+  {
     "description": "Meta-learner framework for CATE: S-, T-, X-, R-, DR-Learner. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness: Y(d) perp D | X; Overlap: 0 < P(D=1 | X) < 1; For R-Learner / DR-Learner: orthogonality between treatment residual and outcome residual. Pre-conditions: binary treatment (0/1); covariates numeric; categoricals encoded; enough treated AND control to train separate outcome models (T/X/DR-Learner). Failure modes: Large divergence across learner types -> Use sp.compare_metalearners to identify which learner is biased; DR-Learner is safest under model misspecification; S-Learner estimates near zero regardless of true effect -> S-Learner regularization smooths treatment coefficient toward zero; use T/X/DR instead; X-Learner fails when treated group is very small -> X-Learner needs well-identified control-outcome model; fall back to T-Learner or weighted T-Learner. Alternatives: sp.causal_forest, sp.dml, sp.tmle, sp.bcf. Typical minimum N: 500.",
     "input_schema": {
       "properties": {

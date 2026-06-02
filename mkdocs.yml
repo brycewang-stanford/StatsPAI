@@ -96,6 +96,7 @@ nav:
   - JOSS validation dossier: joss_validation_dossier.md
   - JSS source-audit dossier: jss_source_audit_dossier.md
   - Guides:
+      - "Meta-analysis (fixed/random-effects, heterogeneity, Egger, forest/funnel)": guides/meta_analysis.md
       - "Staggered DiD (Callaway–Sant'Anna)": guides/callaway_santanna.md
       - "Report card: cs_report()": guides/cs_report.md
       - "Repeated cross-sections": guides/repeated_cross_sections.md

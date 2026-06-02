@@ -409,6 +409,8 @@ from .inference import (
     cr3_jackknife_vcov,
     g_computation,
     front_door,
+    meta_analysis,
+    MetaAnalysisResult,
 )
 
 # Eager: ``msm`` collides (function + subpackage of same name).
@@ -1327,6 +1329,9 @@ __all__ = [
     # G-methods family (g-computation / front-door)
     "g_computation",
     "front_door",
+    # Meta-analysis (evidence synthesis)
+    "meta_analysis",
+    "MetaAnalysisResult",
     # Marginal Structural Models (time-varying treatment)
     "msm",
     "MarginalStructuralModel",

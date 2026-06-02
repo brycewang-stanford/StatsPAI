@@ -22758,6 +22758,173 @@
     }
   },
   {
+    "description": "Summary-data meta-analysis with fixed- and random-effects pooling.",
+    "name": "meta_analysis",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence/prediction intervals.",
+          "type": "number"
+        },
+        "effects": {
+          "description": "Per-study effect sizes (e.g. log odds ratios, mean differences).",
+          "type": "number"
+        },
+        "labels": {
+          "description": "Study labels for the forest plot.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "method": {
+          "default": "DL",
+          "description": "Which model the headline ``estimate`` reports: DerSimonian-Laird random effects (default) or fixed-effect inverse-variance. Both are always computed and available on the result.",
+          "enum": [
+            "DL",
+            "fixed"
+          ],
+          "type": "string"
+        },
+        "se": {
+          "description": "Per-study standard errors (must be positive).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "effects",
+        "se"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Result of a summary-data meta-analysis.",
+    "name": "MetaAnalysisResult",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "ci": {
+          "description": "ci parameter (tuple).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "effects": {
+          "description": "effects parameter (np.ndarray).",
+          "type": "string"
+        },
+        "estimate": {
+          "description": "estimate parameter (float).",
+          "type": "number"
+        },
+        "fixed_estimate": {
+          "description": "fixed_estimate parameter (float).",
+          "type": "number"
+        },
+        "fixed_se": {
+          "description": "fixed_se parameter (float).",
+          "type": "number"
+        },
+        "h2": {
+          "description": "h2 parameter (float).",
+          "type": "number"
+        },
+        "i2": {
+          "description": "i2 parameter (float).",
+          "type": "number"
+        },
+        "labels": {
+          "description": "labels parameter (List[str]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "method": {
+          "description": "Estimator or algorithm variant to use.",
+          "type": "string"
+        },
+        "p_value": {
+          "description": "p_value parameter (float).",
+          "type": "number"
+        },
+        "prediction_interval": {
+          "description": "prediction_interval parameter (Optional[tuple]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "q": {
+          "description": "Quantile level.",
+          "type": "number"
+        },
+        "q_df": {
+          "description": "q_df parameter (int).",
+          "type": "integer"
+        },
+        "q_pvalue": {
+          "description": "q_pvalue parameter (float).",
+          "type": "number"
+        },
+        "random_estimate": {
+          "description": "random_estimate parameter (float).",
+          "type": "number"
+        },
+        "random_se": {
+          "description": "random_se parameter (float).",
+          "type": "number"
+        },
+        "se": {
+          "description": "se parameter (float).",
+          "type": "number"
+        },
+        "se_studies": {
+          "description": "se_studies parameter (np.ndarray).",
+          "type": "string"
+        },
+        "tau2": {
+          "description": "tau2 parameter (float).",
+          "type": "number"
+        },
+        "weights": {
+          "description": "Observation weights.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "estimate",
+        "se",
+        "ci",
+        "p_value",
+        "method",
+        "fixed_estimate",
+        "fixed_se",
+        "random_estimate",
+        "random_se",
+        "tau2",
+        "q",
+        "q_df",
+        "q_pvalue",
+        "i2",
+        "h2",
+        "prediction_interval",
+        "weights",
+        "effects",
+        "se_studies",
+        "labels"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Class wrapper around :func:`msm` for programmatic access.",
     "name": "MarginalStructuralModel",
     "parameters": {
