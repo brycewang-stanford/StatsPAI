@@ -726,6 +726,9 @@ from .power import (
     power_cluster_rct,
     power_ols,
     mde,
+    power_two_proportions,
+    power_logrank,
+    power_case_control,
 )
 from .decomposition import (
     oaxaca,
@@ -1480,6 +1483,9 @@ __all__ = [
     "power_cluster_rct",
     "power_ols",
     "mde",
+    "power_two_proportions",
+    "power_logrank",
+    "power_case_control",
     # Decomposition
     "oaxaca",
     "gelbach",

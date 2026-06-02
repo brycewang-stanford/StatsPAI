@@ -642,6 +642,9 @@ from .power.power import power_iv as power_iv
 from .power.power import power_ols as power_ols
 from .power.power import power_rct as power_rct
 from .power.power import power_rd as power_rd
+from .power.study_designs import power_case_control as power_case_control
+from .power.study_designs import power_logrank as power_logrank
+from .power.study_designs import power_two_proportions as power_two_proportions
 from .principal_strat.principal_strat import PrincipalStratResult as PrincipalStratResult
 from .principal_strat.principal_strat import principal_strat as principal_strat
 from .principal_strat.principal_strat import survivor_average_causal_effect as survivor_average_causal_effect

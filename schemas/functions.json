@@ -28079,6 +28079,147 @@
     }
   },
   {
+    "description": "Power (or sample size) to detect a difference between two proportions.",
+    "name": "power_two_proportions",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number"
+        },
+        "alternative": {
+          "default": "two-sided",
+          "description": "Test sidedness.",
+          "enum": [
+            "two-sided",
+            "one-sided"
+          ],
+          "type": "string"
+        },
+        "n": {
+          "description": "Total sample size (both groups). Pass ``None`` together with ``power_target`` to solve for the smallest ``n`` achieving that power.",
+          "type": "string"
+        },
+        "p1": {
+          "default": 0.5,
+          "description": "Outcome probabilities in group 1 (reference) and group 2.",
+          "type": "number"
+        },
+        "p2": {
+          "default": 0.5,
+          "description": "Outcome probabilities in group 1 (reference) and group 2.",
+          "type": "number"
+        },
+        "power_target": {
+          "description": "Desired power; when supplied with ``n=None`` the function returns the required total sample size.",
+          "type": "number"
+        },
+        "ratio": {
+          "default": 1.0,
+          "description": "Allocation ratio ``n2 / n1`` (1.0 = equal allocation).",
+          "type": "number"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Power (or sample size) for a two-arm log-rank / survival comparison.",
+    "name": "power_logrank",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number"
+        },
+        "alternative": {
+          "default": "two-sided",
+          "description": "alternative parameter (str).",
+          "enum": [
+            "two-sided",
+            "one-sided"
+          ],
+          "type": "string"
+        },
+        "hazard_ratio": {
+          "default": 0.5,
+          "description": "Hazard ratio between the two arms (must be > 0, != 1).",
+          "type": "number"
+        },
+        "n": {
+          "description": "Total sample size. ``None`` + ``power_target`` solves for ``n``.",
+          "type": "string"
+        },
+        "power_target": {
+          "description": "Desired power; solve for ``n`` when supplied with ``n=None``.",
+          "type": "number"
+        },
+        "prob_event": {
+          "default": 1.0,
+          "description": "Probability that a randomly chosen subject is observed to have the event during follow-up (the overall event rate). ``D = n*prob_event``.",
+          "type": "number"
+        },
+        "ratio": {
+          "default": 1.0,
+          "description": "Allocation ratio ``n2 / n1``.",
+          "type": "number"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Power (or number of cases) for an unmatched case-control study.",
+    "name": "power_case_control",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number"
+        },
+        "alternative": {
+          "default": "two-sided",
+          "description": "alternative parameter (str).",
+          "enum": [
+            "two-sided",
+            "one-sided"
+          ],
+          "type": "string"
+        },
+        "exposure_prevalence": {
+          "default": 0.3,
+          "description": "Exposure prevalence among controls (the source-population exposure probability), in (0, 1).",
+          "type": "number"
+        },
+        "n_cases": {
+          "description": "Number of cases. ``None`` + ``power_target`` solves for the number of cases.",
+          "type": "string"
+        },
+        "odds_ratio": {
+          "default": 2.0,
+          "description": "Exposure odds ratio to detect (must be > 0, != 1).",
+          "type": "number"
+        },
+        "power_target": {
+          "description": "Desired power; solve for the number of cases when ``n_cases=None``.",
+          "type": "number"
+        },
+        "ratio": {
+          "default": 1.0,
+          "description": "Number of controls per case.",
+          "type": "number"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
     "description": "Oaxaca-Blinder decomposition of mean outcome gaps. Validation: certified parity evidence.",
     "name": "oaxaca",
     "parameters": {

@@ -12,8 +12,8 @@
 
 | Ecosystem / Project                  | Method     |  Files | Lines of code | Primary focus                      |
 | ------------------------------------ | ---------- | -----: | ------------: | ---------------------------------- |
-| **StatsPAI** `src/statspai/`         | measured   |    647 |   **269,043** | validation-tiered causal inference |
-| StatsPAI tests (`tests/`)            | measured   |    529 |        96,514 | —                                  |
+| **StatsPAI** `src/statspai/`         | measured   |    648 |   **269,353** | validation-tiered causal inference |
+| StatsPAI tests (`tests/`)            | measured   |    530 |        96,613 | —                                  |
 | statsmodels 0.14.x                   | measured   |    948 |   **381,981** | GLM / time series / general        |
 | linearmodels                         | measured   |    131 |        36,607 | panel / IV                         |
 | **Python causal-inference subtotal** |            |  1,079 |   **418,588** |                                    |
@@ -89,6 +89,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `bunching` | 1,206 | 5 | 8 |
 | `target_trial` | 1,151 | 7 | 9 |
 | `mediation` | 1,133 | 4 | 4 |
+| `power` | 1,099 | 3 | 12 |
 | `policy_learning` | 981 | 3 | 3 |
 | `principal_strat` | 923 | 2 | 3 |
 | `gmm` | 876 | 3 | 2 |
@@ -96,7 +97,6 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `dtr` | 833 | 5 | 2 |
 | `fairness` | 833 | 3 | 6 |
 | `longitudinal` | 800 | 3 | 7 |
-| `power` | 795 | 2 | 9 |
 | `experimental` | 794 | 4 | 9 |
 | `survey` | 789 | 4 | 7 |
 | `causal_rl` | 782 | 5 | 9 |
@@ -120,7 +120,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `censoring` | 284 | 2 | 2 |
 | `causal` | 101 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **269,043** | **647** | **1020** |
+| **Total** | **269,353** | **648** | **1023** |
 
 ## 3 · Causal-inference coverage matrix (full)
 
