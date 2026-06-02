@@ -96,7 +96,12 @@ nav:
   - JOSS validation dossier: joss_validation_dossier.md
   - JSS source-audit dossier: jss_source_audit_dossier.md
   - Guides:
+      - "Public health & epidemiology — overview & design→method map": guides/public_health.md
+      - "Epidemiological measures (OR/RR/RD/IRR/NNT, Mantel–Haenszel, standardization, diagnostic accuracy)": guides/epi_measures.md
+      - "G-methods for time-varying confounding (g-formula / MSM / LTMLE / target-trial emulation)": guides/g_methods_ph.md
+      - "Survival analysis for public health (KM / Cox / AFT / IPCW / causal survival)": guides/survival_ph.md
       - "Competing risks — cumulative incidence (Aalen-Johansen) + Fine-Gray + Gray's test": guides/competing_risks.md
+      - "Complex-survey analysis (NHANES / BRFSS / DHS — svydesign / svyglm / calibration)": guides/survey_ph.md
       - "Power & sample size for epidemiological designs (two-proportion / log-rank / case-control)": guides/power_epi.md
       - "Meta-analysis (fixed/random-effects, heterogeneity, Egger, forest/funnel)": guides/meta_analysis.md
       - "Staggered DiD (Callaway–Sant'Anna)": guides/callaway_santanna.md
