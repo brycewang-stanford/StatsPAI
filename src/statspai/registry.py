@@ -12822,12 +12822,25 @@ def _scan_reference_tests(root: Path) -> Dict[str, List[str]]:
         base = root / rel_dir
         if not base.exists():
             continue
-        for path in sorted(base.rglob("test_*.py")):
+        # Sort on the POSIX string, not the raw Path: ``WindowsPath`` sorts
+        # case-insensitively with backslash separators, so a bare
+        # ``sorted(rglob(...))`` could order the note list differently on
+        # Windows and drift agent_cards.json even with forward-slash content.
+        for path in sorted(
+            base.rglob("test_*.py"),
+            key=lambda p: p.relative_to(root).as_posix(),
+        ):
             try:
                 text = path.read_text(encoding="utf-8")
             except OSError:
                 continue
-            rel = str(path.relative_to(root))
+            # ``as_posix()`` (not ``str()``) so the note is byte-identical on
+            # Windows and POSIX. ``str(PurePath)`` emits OS-native separators,
+            # which made the Windows runners write ``tests\reference_parity\...``
+            # backslash notes: that both failed the JSS evidence-grade marker
+            # check (markers are forward-slash) and drifted agent_cards.json
+            # away from the POSIX-generated committed bundle (stale on Windows).
+            rel = path.relative_to(root).as_posix()
             for name in sorted(set(_SP_CALL_RE.findall(text))):
                 evidence.setdefault(name, []).append(rel)
     return evidence

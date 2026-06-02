@@ -294,6 +294,50 @@ def test_experimental_schema_prefix_is_not_duplicated():
 # --------------------------------------------------------------------------- #
 
 
+def test_schema_bundle_uses_posix_path_separators():
+    """Validation-evidence notes must be OS-independent (forward slashes).
+
+    A Windows runner that recorded ``tests\\reference_parity\\...`` notes both
+    failed the JSS evidence-grade marker check and drifted ``agent_cards.json``
+    away from the POSIX-generated committed bundle. This invariant catches the
+    regression on *any* OS, not only on the Windows shard whose regeneration
+    diverged — the `--check` guard alone fires only where the artifact differs.
+    """
+    files = render_files(build_schemas())
+    bad = []
+    for fname in ("functions.json", "agent_cards.json", "tools.json"):
+        for _path, value in _walk_strings(json.loads(files[fname])):
+            if re.search(r"tests\\", value) or re.search(
+                r"\\(reference_parity|external_parity|r_parity)", value
+            ):
+                bad.append(f"{fname}:{_path}: {value!r}")
+    assert not bad, (
+        "OS-native (backslash) path separators leaked into the schema bundle "
+        "— use Path.as_posix():\n  " + "\n  ".join(bad[:20])
+    )
+
+
+def test_schema_bundle_has_no_internal_pandas_paths():
+    """Annotations must use the public pandas path, stable across versions.
+
+    pandas >= 3.0 renders ``pandas.DataFrame`` while older pandas renders the
+    internal ``pandas.core.frame.DataFrame``; pinning to the public path keeps
+    ``functions.json`` byte-identical regardless of which pandas a runner
+    resolves (pandas 3.0 needs Python >= 3.11, so this used to split the CI
+    matrix). Guards :func:`statspai.registry._canonicalize_annotation_path`.
+    """
+    files = render_files(build_schemas())
+    bad = []
+    for fname in ("functions.json", "agent_cards.json", "tools.json"):
+        for _path, value in _walk_strings(json.loads(files[fname])):
+            if "pandas.core." in value:
+                bad.append(f"{fname}:{_path}: {value!r}")
+    assert not bad, (
+        "Internal pandas module paths leaked into the schema bundle "
+        "(version-fragile):\n  " + "\n  ".join(bad[:20])
+    )
+
+
 def test_committed_schemas_dir_is_in_sync():
     """`scripts/dump_schemas.py --check` must pass against committed schemas/.
 

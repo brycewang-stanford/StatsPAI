@@ -20,6 +20,18 @@ All notable changes to StatsPAI will be documented in this file.
   confirming identical output. Agent-facing schema metadata only — no
   numerical effect.
 
+- **CI: Windows shards no longer fail on validation-evidence path separators.**
+  `_scan_reference_tests` recorded each parity test as a validation-evidence
+  note via `str(path.relative_to(root))`, which emits OS-native separators —
+  so Windows runners wrote `tests\reference_parity\...` backslash notes. That
+  (a) failed `tests/test_jss_validation_api.py::test_certified_validated_symbols_have_attached_evidence_notes`
+  because the JSS evidence-grade markers are forward-slash, and (b) drifted
+  `agent_cards.json` away from the POSIX-generated committed bundle, failing
+  the schema-sync guard on every Windows shard. Notes are now built with
+  `Path.as_posix()` and the test files are iterated in a POSIX-keyed sort, so
+  the evidence notes — and the exported bundle — are byte-identical on Windows
+  and POSIX. Agent-facing metadata only — no numerical effect.
+
 ## [1.16.1] — 2026-06-01
 
 ### ⚠️ Correctness fix — `sp.synth()` default restored to canonical classic SCM
