@@ -81,8 +81,19 @@ StatsPAI is a validation-tiered Python package for causal inference and applied 
 This skill drives StatsPAI through the **canonical pipeline of an applied AER empirical paper**. Each step emits a paper-ready artifact (Table 1, event-study figure, Table 2 main results, robustness panel, replication stamp).
 
 - **Source**: https://github.com/brycewang-stanford/StatsPAI
-- **Install**: `pip install statspai` (>= 1.6)
+- **Install**: `pip install "statspai[fixest,plotting]"` (verified against **statspai 1.16.1**). The bare `pip install statspai` is **not enough** for the default pipeline — see the dependency matrix below.
 - **Paper**: JOSS submission under review; JSS materials in `Paper-JSS/README.md` and `docs/jss_source_audit_dossier.md`
+
+> **Install the right extras or the documented calls will raise `ImportError`.** Several core functions live behind optional dependency groups (verified from `pyproject.toml`):
+>
+> | You use… | Needs extra | Install | Symptom if missing |
+> |---|---|---|---|
+> | `sp.feols` / `sp.fepois` / `sp.feglm` (high-dim FE — the **default** for any `y ~ x \| fe` regression) | `fixest` (pyfixest) | `pip install "statspai[fixest]"` | `ImportError: pyfixest is required …` |
+> | Any figure (`sp.coefplot`, `sp.binscatter`, event-study/RD/SCM plots, `.plot()`) | `plotting` (matplotlib/seaborn) | `pip install "statspai[plotting]"` | `ImportError` on first plot |
+> | `sp.dragonnet` / `sp.tarnet` / `sp.cfrnet` / `sp.cevae` (neural causal) | `neural` (torch) | `pip install "statspai[neural]"` | `ImportError: PyTorch is required …` |
+> | `sp.causal_text.*` (text-as-treatment) | `text` (sentence-transformers) | `pip install "statspai[text]"` | `ImportError` on embed |
+>
+> A one-shot install covering the whole skill: `pip install "statspai[fixest,plotting,neural,text]"`. `sp.regtable` / `sp.collect` / Word+Excel+LaTeX export, `sp.regress`, IV, RD, DID (`callaway_santanna`), matching, DML, meta-learners, causal forest, BCF, TMLE, and the epi stack work on the base install.
 
 ## Why for Agents
 
