@@ -5,6 +5,33 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="msm-singleperiod-iptw"></a>
+
+## Unreleased — ⚠️ `sp.stabilized_weights` / `sp.msm` single-period IPTW correctness fix
+
+**What changed.** On a **single-period (point-treatment) panel**,
+`sp.stabilized_weights(...)` (and therefore `sp.msm(...)`) previously returned
+stabilized weights that were all exactly `1.0`. The within-unit lagged-
+treatment column is all-zero in that setting, which made the logistic
+treatment-model design singular; the failure was silently caught and the
+weights fell back to the marginal mean for both the numerator and denominator,
+cancelling to `1.0`. The MSM then silently reduced to an unweighted,
+**confounded** regression. The fix drops zero-variance columns before fitting,
+so the confounders are now used and the weights are computed correctly.
+
+**Who is affected.** Anyone who called `sp.stabilized_weights` / `sp.msm` on a
+panel with **one period per unit** (point treatment). Multi-period panels —
+the intended MSM use case — are **unaffected** (their weights already varied
+correctly and are numerically identical before and after).
+
+**What to do.** Re-run any single-period MSM analyses: the previous output was
+equivalent to an unadjusted regression and should not be relied on. The fixed
+weights match a textbook stabilized-IPTW computation to machine precision. If
+the treatment model genuinely cannot be fit (e.g. perfect separation), you now
+get a `RuntimeWarning` instead of a silent fallback.
+
+---
+
 <a id="sp-synth-default-classic"></a>
 
 ## Unreleased — ⚠️ `sp.synth()` default method restored to `'classic'`

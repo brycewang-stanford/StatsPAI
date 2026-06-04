@@ -66,6 +66,7 @@ Weights for Marginal Structural Models." *American Journal of
 Epidemiology*, 168(6), 656-664. [@cole2008constructing]
 """
 
+import warnings
 from typing import Optional, List, Union
 import numpy as np
 import pandas as pd
@@ -421,13 +422,37 @@ def stabilized_weights(
 
 
 def _logit_proba(X, y):
-    """Logistic regression predicted P(Y=1|X). Falls back to marginal mean."""
+    """Logistic regression predicted ``P(Y=1|X)``.
+
+    Zero-variance columns (e.g. the all-zero lagged-treatment column in a
+    single-period panel) are dropped before fitting — they only duplicate
+    the intercept that :func:`statsmodels.api.add_constant` already adds, and
+    leaving them in makes the design singular. If the fit still fails (e.g.
+    perfect separation), the function falls back to the marginal mean **and
+    warns loudly**: that fallback removes the confounding adjustment carried
+    by ``X``, so silently swallowing the failure would hide a correctness
+    regression (CLAUDE.md §7).
+    """
+    X = np.asarray(X, dtype=float)
+    if X.ndim == 1:
+        X = X.reshape(-1, 1)
+    if X.shape[1]:
+        keep = np.std(X, axis=0) > 0
+        X = X[:, keep] if keep.any() else X[:, :0]
     try:
         import statsmodels.api as sm
         design = sm.add_constant(X, has_constant='add')
         fit = sm.Logit(y, design).fit(disp=0, maxiter=200, warn_convergence=False)
         return np.clip(fit.predict(design), 1e-6, 1 - 1e-6)
-    except Exception:
+    except Exception as exc:
+        warnings.warn(
+            "MSM treatment model failed to fit "
+            f"({type(exc).__name__}: {exc}); falling back to the marginal "
+            "mean for this term, which drops its confounding adjustment. "
+            "Check for perfect separation or collinear confounders.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         mean = float(np.clip(np.mean(y), 1e-6, 1 - 1e-6))
         return np.full(len(y), mean)
 

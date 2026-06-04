@@ -23,6 +23,24 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **⚠️ Correctness — `sp.stabilized_weights` / `sp.msm` silently dropped all
+  IPTW adjustment on single-period panels.** On a single-period (point-
+  treatment) panel the within-unit lagged-treatment column is all-zero, which
+  made the logistic treatment-model design singular. The internal
+  `_logit_proba` helper swallowed the resulting `LinAlgError` and silently
+  returned the marginal mean for *both* the numerator and denominator models,
+  so every stabilized weight collapsed to exactly `1.0` — turning the marginal
+  structural model into an unweighted, **confounded** regression with no
+  warning (a CLAUDE.md §7 silent-degradation violation). `_logit_proba` now
+  drops zero-variance columns before fitting (the numerically correct move:
+  such columns only duplicate the intercept that `add_constant` adds) and,
+  if the treatment model still fails to converge (e.g. perfect separation),
+  emits a `RuntimeWarning` instead of silently degrading. On the regression
+  fixture the fixed path reproduces a textbook stabilized-IPTW computation to
+  machine precision (`max|Δw| = 1.8e-15`); the already-correct multi-period
+  path is unchanged. Verified by `tests/test_msm_singleperiod_iptw_regression.py`
+  (3 new tests) plus the existing `tests/test_msm.py` (8 green total). See
+  MIGRATION.md.
 - **CI: scikit-learn 1.9 compatibility — `LassoCV(n_alphas=...)` removal.**
   scikit-learn 1.7 deprecated the `n_alphas` argument of the coordinate-descent
   CV estimators (`LassoCV`/`ElasticNetCV`/…) in favour of passing an integer to
