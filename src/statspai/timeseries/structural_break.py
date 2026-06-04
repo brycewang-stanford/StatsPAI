@@ -384,7 +384,23 @@ def cusum_test(
     Returns
     -------
     dict
-        Keys: 'cusum', 'critical_value', 'reject', 'n_obs'.
+        Keys: 'cusum' (the standardized CUSUM path S_t), 'boundary' (the
+        Brown-Durbin-Evans linear boundary evaluated along the path),
+        'boundary_coefficient' (the BDE constant a), 'max_cusum',
+        'critical_value' (= a, for back-compat), 'reject', 'n_obs'.
+
+    Notes
+    -----
+    Implements the recursive-residual CUSUM test of Brown, Durbin & Evans
+    (1975). Under H0 the standardized path behaves like a Brownian motion, and
+    the 5% test rejects when the path crosses the *diverging linear* boundary
+    ``±a·(1 + 2(t-k)/(T-k))`` with ``a = 0.948`` (``0.850`` at 10%, ``1.143`` at
+    1%) -- not a flat constant. Comparing ``max|S_t|`` to a constant grossly
+    over-rejects (~32% size at the nominal 5% level).
+
+    References
+    ----------
+    Brown, Durbin & Evans (1975); see module docstring for the full citation.
     """
     y_data = data[y].values.astype(float)
     n = len(y_data)
@@ -410,19 +426,32 @@ def cusum_test(
     rec_resid = np.array(rec_resid)
     sigma = np.std(rec_resid, ddof=1)
 
-    # CUSUM statistic
+    # CUSUM path: S_t = cumsum(recursive residuals) / (sigma * sqrt(T - k)).
+    # Under H0 this behaves like a standard Brownian motion on [0, 1].
     cusum = np.cumsum(rec_resid) / (sigma * np.sqrt(n - k))
-    max_cusum = np.max(np.abs(cusum))
+    max_cusum = float(np.max(np.abs(cusum)))
 
-    # Critical values (Brownian bridge)
-    # Approximate: critical value ≈ 1.358 for 5%
-    crit_vals = {0.01: 1.628, 0.05: 1.358, 0.10: 1.224}
-    cv = crit_vals.get(alpha, 1.358)
+    # Brown, Durbin & Evans (1975): reject if the path crosses the *diverging
+    # linear* boundary +/- a * (1 + 2 s), s = (t - k) / (T - k) in (0, 1] --
+    # NOT a constant. The crossing constant a is 0.850 / 0.948 / 1.143 at the
+    # 10% / 5% / 1% level. Comparing max|S_t| to a flat constant (e.g. the
+    # Kolmogorov-bridge 1.358) is a different, badly oversized test: it rejects
+    # ~32% of stable series at the nominal 5% level.
+    a_coef = {0.01: 1.143, 0.05: 0.948, 0.10: 0.850}.get(alpha, 0.948)
+    m = len(cusum)
+    s_grid = np.arange(1, m + 1) / m
+    boundary = a_coef * (1.0 + 2.0 * s_grid)
+    crossing = np.abs(cusum) > boundary
+    reject = bool(np.any(crossing))
 
     return {
         'cusum': cusum,
         'max_cusum': max_cusum,
-        'critical_value': cv,
-        'reject': max_cusum > cv,
+        'boundary': boundary,
+        'boundary_coefficient': a_coef,
+        # Back-compat key: the BDE crossing constant a. The boundary is linear,
+        # so there is no single scalar critical value -- use 'boundary'.
+        'critical_value': a_coef,
+        'reject': reject,
         'n_obs': n,
     }

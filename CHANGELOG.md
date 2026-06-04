@@ -46,6 +46,20 @@ All notable changes to StatsPAI will be documented in this file.
   pre-periods) instead of an opaque NumPy error. No output changes for any call
   that previously succeeded. Covered by `tests/test_pretrends_power.py`.
 
+- **⚠️ Correctness — `cusum_test` used a flat boundary and was grossly
+  oversized.** The recursive-residual CUSUM test of Brown, Durbin & Evans
+  (1975) rejects when the standardized path crosses the *diverging linear*
+  boundary `±a·(1 + 2(t−k)/(T−k))` (`a = 0.948` at 5%; `0.850`/`1.143` at
+  10%/1%). The code instead compared `max|S_t|` to a flat constant `1.358` (a
+  Kolmogorov-bridge value), which rejected **~32%** of stable series at the
+  nominal 5% level (measured, n ∈ {100, 200, 400}, with and without a
+  regressor). The boundary is now the BDE linear one, restoring size to
+  ~0.04–0.05 with power retained (1.00 for a mean shift). The result dict gains
+  `boundary` (the linear boundary along the path) and `boundary_coefficient`
+  (`a`); `critical_value` now holds `a` for back-compat. Covered by
+  `tests/test_cusum_boundary.py`. Reference already in the module docstring
+  (`brown1975techniques`). See `MIGRATION.md`.
+
 - **⚠️ Correctness — `sp.lee_bounds` / `sp.manski_bounds` confidence interval
   was the wrong (over-covering) interval.** Both applied the two-sided
   `z_{1-α/2}` (≈1.96) to *both* bound endpoints — `[lb − 1.96·se_lb,

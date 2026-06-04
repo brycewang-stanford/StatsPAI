@@ -5,6 +5,36 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="cusum-linear-boundary"></a>
+
+## Unreleased — ⚠️ `cusum_test` now uses the Brown-Durbin-Evans linear boundary
+
+**What changed.** The recursive-residual CUSUM test compared `max|S_t|` to a
+flat constant (`1.358` at 5%, a Kolmogorov-bridge value). The correct Brown,
+Durbin & Evans (1975) test rejects when the standardized CUSUM path crosses the
+*diverging linear* boundary `±a·(1 + 2·(t−k)/(T−k))`, with `a = 0.948` at 5%
+(`0.850` at 10%, `1.143` at 1%). The flat-constant version was grossly
+oversized: it rejected ~32% of stable (H0) series at the nominal 5% level. The
+test now uses the BDE linear boundary, restoring size to ~0.04–0.05 with power
+retained.
+
+**Who is affected.** Anyone using the `reject` (or `critical_value`) field of
+`cusum_test`. The previous test flagged instability far too often; many prior
+`reject=True` results on stable series were false positives.
+
+**What to do.** Re-run any CUSUM stability checks. The return dict changed:
+`reject` now reflects the linear-boundary crossing; two new keys `boundary`
+(the linear boundary evaluated along the path) and `boundary_coefficient`
+(`a`) are added; `critical_value` now holds `a` (the BDE coefficient) rather
+than the old flat `1.358` — to plot the test, compare `cusum` against
+`boundary` (and its negative), not against a single constant.
+
+**Reference.** Brown, R. L., Durbin, J. & Evans, J. M. (1975). "Techniques for
+Testing the Constancy of Regression Relationships Over Time." *JRSS-B*, 37(2),
+149-192 (`paper.bib`: `brown1975techniques`).
+
+---
+
 <a id="lee-manski-imbens-manski-ci"></a>
 
 ## Unreleased — ⚠️ `sp.lee_bounds` / `sp.manski_bounds` now report the Imbens-Manski parameter CI
