@@ -68,6 +68,7 @@ jobs:
             any::jsonlite
             any::fixest
             any::sandwich
+            any::clubSandwich
             any::lmtest
             any::AER
             any::survival
@@ -82,7 +83,7 @@ jobs:
         run: |
           python3 tests/r_parity/verify_reproduce.py \
             01_ols 02_iv 03_hdfe 05_sunab \
-            14_ols_cluster 15_hdfe_cluster \
+            14_ols_cluster 15_hdfe_cluster 53_cr2 \
             11_psm 24_coxph 30_oaxaca \
             42_nbreg 48_probit 49_oprobit 51_newey \
             --timeout 300
