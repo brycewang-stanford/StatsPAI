@@ -23,6 +23,21 @@ pass can pick it up cold).
 | `142aceb` | agent-UX | 29 statically-broken registered examples repaired + permanent bind-guard test | 373 examples bind green; runtime-confirmed for the rebuilt ones |
 | `118b551` (on `main`) | ⚠️ correctness | **B.1 done** — `structural_break` sup-F p-value → Andrews (1993) null (was naive `F(k,n-2k)`). | white-noise false-positive 33–37% → ~5%; power 1.00/0.88; 7 tests |
 | `fd932c5` (branch `worktree-improve-correctness`) | ⚠️ correctness | **B.2 done** — `lpoly` SE now includes the `XᵀW²X` sandwich meat + exact weighted dof. | SE/MC-truth 0.75–0.96 → 0.99–1.03; 95% CI coverage restored; 4 tests |
+| `ed72a8c` (branch) | ⚠️ correctness | **B.3 done** — `lee_bounds`/`manski_bounds` now use the Imbens-Manski (2004) `C_n` (was two-sided z on both ends → set CI, over-covered). | binding-endpoint coverage ~0.98 → ~0.95; `C_n∈[1.645,1.96]`; 4 tests |
+| `be9f1aa` (branch) | ⚠️ correctness | **B.4 done** — `cusum_test` now uses the Brown-Durbin-Evans diverging linear boundary (was flat `1.358`). | H0 rejection ~32% → ~4-5%; power 1.00; 5 tests |
+
+> **Section B (correctness) is now fully cleared (B.1–B.4).** All four were
+> measured-as-broken, fixed, and validated (size/coverage + power). The
+> performance backlog (Section C) was **evaluated and deferred**: the wild
+> cluster bootstrap / romano-wolf speedups require batching the RNG draw
+> (`rng.choice(size=(n_boot,G))`) and reordering per-cluster summations. Neither
+> is *bit-identical* across numpy versions, and the reference-parity tests pin
+> this output — so a "numerically identical" claim is not safely guaranteeable
+> without risking reproducibility drift on a numpy upgrade. Correctness and
+> reproducibility-stability win: these are left for a deliberate pass that
+> either (a) re-seeds + re-pins the parity fixtures, or (b) keeps the per-iter
+> RNG draw and only vectorizes the bit-identical `Y_star` build. Section D.1
+> (`ExportMixin`) remains the highest-leverage *additive* (non-numerical) item.
 
 > **Working model (updated 2026-06-04):** the shared single working tree caused
 > branch-switch churn (the `118b551` fix landed on `main` directly when the tree
