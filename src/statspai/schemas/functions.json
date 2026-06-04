@@ -29143,7 +29143,7 @@
       "properties": {
         "collect_tests": {
           "default": false,
-          "description": "Run ``pytest --collect-only`` on the reference-parity, external-parity, and coverage Monte Carlo directories and record the authoritative collected-test counts (the integers the JSS manuscript headlines, e.g. 114 / 50 / 12). Off by default because it spawns pytest collection (seconds); the cheap metadata-only path reports test *file* counts instead.",
+          "description": "Run ``pytest --collect-only`` on the reference-parity, external-parity, and coverage Monte Carlo directories and record the authoritative collected-test counts (the integers the JSS manuscript headlines, e.g. 124 / 52 / 12). Off by default because it spawns pytest collection (seconds); the cheap metadata-only path reports test *file* counts instead.",
           "type": "boolean"
         },
         "fmt": {
