@@ -1,0 +1,77 @@
+{
+  "module": "55_hc2_hc3",
+  "side": "py",
+  "rows": [
+    {
+      "module": "55_hc2_hc3",
+      "side": "py",
+      "statistic": "hc2_(Intercept)",
+      "estimate": -18.44895829404092,
+      "se": 5.796681954324579,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "55_hc2_hc3",
+      "side": "py",
+      "statistic": "hc2_treat",
+      "estimate": -0.05594944143386111,
+      "se": 0.008275548538648014,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "55_hc2_hc3",
+      "side": "py",
+      "statistic": "hc2_year",
+      "estimate": 0.01329986876775945,
+      "se": 0.0028919395236496627,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "55_hc2_hc3",
+      "side": "py",
+      "statistic": "hc3_(Intercept)",
+      "estimate": -18.44895829404092,
+      "se": 5.801443076370714,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "55_hc2_hc3",
+      "side": "py",
+      "statistic": "hc3_treat",
+      "estimate": -0.05594944143386111,
+      "se": 0.008282112651650807,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "55_hc2_hc3",
+      "side": "py",
+      "statistic": "hc3_year",
+      "estimate": 0.01329986876775945,
+      "se": 0.002894315217988952,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "formula": "lemp ~ treat + year",
+    "vcov": "HC2 + HC3 (MacKinnon-White 1985)",
+    "matches": "sandwich::vcovHC(type='HC2'/'HC3')"
+  }
+}

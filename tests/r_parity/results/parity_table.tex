@@ -67,4 +67,5 @@ Module & Method & Worst headline diff & Verdict \\
 \code{52\_scm\_unique} & Classical SCM (unique solution) & rel $\le 0.0074$ {\footnotesize (identified convex SCM; sp recovers exact weights+gap)} & \textbf{PASS} \\
 \code{53\_cr2} & Cluster-robust CR2 / CR3 SE & abs $\le 1.59e-08$ {\footnotesize (CR2 machine-precision; exact CR3 jackknife vs analytic CR3 differs $\sim10^{-3}$)} & \textbf{PASS} \\
 \code{54\_twoway\_cluster} & Two-way cluster-robust SE & abs $\le 6.72e-16$ {\footnotesize (matches sandwich::vcovCL(HC1,cadjust); fixest min-G df convention differs $\sim10^{-3}$)} & \textbf{PASS} \\
+\code{55\_hc2\_hc3} & HC2 / HC3 robust SE & abs $\le 2.49e-09$ & \textbf{PASS} \\
 \end{longtable}

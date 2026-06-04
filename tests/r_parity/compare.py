@@ -54,6 +54,7 @@ STATA_SKIP_REASON: dict[str, str] = {
     "52_scm_unique":    "no canonical Stata SCM port",
     "53_cr2":           "Stata native vce(cluster)=CR1; CR2/CR3 need community summclust",
     "54_twoway_cluster": "Stata native vce(cluster) is one-way; two-way needs community vcemway / reghdfe",
+    "55_hc2_hc3":        "Stata regress vce(hc2)/vce(hc3) is native but not yet materialized in the Stata harness",
 }
 
 TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
@@ -263,6 +264,10 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # match (rel_se ~1e-16). fixest's single min-G df factor differs at
     # ~1e-3 and is NOT the convention reference here.
     "54_twoway_cluster": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # HC2/HC3 (MacKinnon-White) heteroskedasticity-robust SE. sp.regress
+    # robust="hc2"/"hc3" matches sandwich::vcovHC(type="HC2"/"HC3") to
+    # machine precision (module 01 covers HC1).
+    "55_hc2_hc3":       {"rel_est": 1e-6, "rel_se": 1e-6},
 }
 
 
@@ -956,6 +961,15 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_se",
         "verdict": "\\textbf{PASS}",
         "gap_note": "matches sandwich::vcovCL(HC1,cadjust); fixest min-G df convention differs $\\sim10^{-3}$",
+    },
+    "55_hc2_hc3": {
+        "name": "HC2 / HC3 robust SE",
+        # Both the HC2 and HC3 SE rows match sandwich::vcovHC at machine
+        # precision (MacKinnon-White small-sample heteroskedasticity-robust).
+        "headline_filter": lambda d: d.statistic.startswith("hc"),
+        "metric": "rel_se",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "",
     },
 }
 

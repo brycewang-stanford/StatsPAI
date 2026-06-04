@@ -89,6 +89,7 @@
       "R parity module 01_ols",
       "R parity module 14_ols_cluster",
       "R parity module 51_newey",
+      "R parity module 55_hc2_hc3",
       "Stata parity module 01_ols",
       "Stata parity module 14_ols_cluster",
       "Stata parity module 51_newey"

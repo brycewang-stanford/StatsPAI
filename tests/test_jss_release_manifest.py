@@ -759,7 +759,7 @@ def test_r_parity_readme_does_not_hide_native_t4_rows() -> None:
     readme = (REPO_ROOT / "tests" / "r_parity" / "README.md").read_text()
     for row in (
         "Historical verification worklog (not the current source-snapshot audit)",
-        "modules 01--49 and 51--54",
+        "modules 01--49 and 51--55",
         '| 07 | Classical SCM | `sp.synth(method="classic", backend="native")`',
         '| 09 | RD density (CJM) | `sp.rddensity(backend="native")`',
         '| 12 | Synthetic DID | `sp.sdid(backend="native")`',
