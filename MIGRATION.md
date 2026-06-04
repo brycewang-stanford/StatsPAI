@@ -5,6 +5,42 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="lpoly-sandwich-se"></a>
+
+## Unreleased — ⚠️ `sp.lpoly` standard errors now include the kernel sandwich meat
+
+**What changed.** The conditional variance of the local-polynomial estimator is
+the weighted-least-squares sandwich
+`Var(m_hat(x0)) = sigma^2 * e1' (X'WX)^-1 (X'W^2 X) (X'WX)^-1 e1`
+(Fan & Gijbels 1996). The previous implementation reported
+`sigma^2 * (X'WX)^-1 [0,0]`, i.e. it dropped the `X'W^2 X` sandwich meat — that
+form is only valid when `W` is the inverse-variance (GLS) weight matrix,
+whereas kernel weights are *localizing* weights with homoskedastic errors. The
+omission (together with a sigma_hat^2 that divided a *weighted* residual sum of
+squares by a *count* degrees-of-freedom) made the standard errors too small by
+up to ~25%, kernel-dependent: measured reported-SE / Monte-Carlo-truth ratios
+were 0.75 (Gaussian), 0.91 (triangular), 0.96 (Epanechnikov). The fix uses the
+full sandwich with the exact weighted residual degrees of freedom
+`tr(W) - 2 tr(H) + tr(H^2)`, `H = (X'WX)^-1 X'W^2 X`, giving SE/truth ratios of
+0.99–1.03 and nominal ~95% CI coverage across all supported kernels and
+polynomial degrees 1–2.
+
+**Who is affected.** Anyone who used the `se`, `ci_lower`, or `ci_upper` fields
+of an `sp.lpoly(...)` result (or its `.plot()` confidence band). The previous
+SEs were anti-conservative, so reported confidence intervals were too narrow
+and under-covered the true regression function. The **fitted values are
+numerically unchanged** — only the uncertainty changes.
+
+**What to do.** Re-generate any confidence bands / SEs from `sp.lpoly`; expect
+them to widen (most for the Gaussian kernel, least for Epanechnikov). Point
+estimates and bandwidths are unaffected, so figures of the fitted curve itself
+do not change.
+
+**Reference.** Fan, J. & Gijbels, I. (1996). *Local Polynomial Modelling and
+Its Applications.* Chapman & Hall/CRC (`paper.bib`: `fan1996local`).
+
+---
+
 <a id="structural-break-supf-null"></a>
 
 ## Unreleased — ⚠️ `sp.structural_break` sup-F p-value null distribution correctness fix

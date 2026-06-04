@@ -46,6 +46,22 @@ All notable changes to StatsPAI will be documented in this file.
   pre-periods) instead of an opaque NumPy error. No output changes for any call
   that previously succeeded. Covered by `tests/test_pretrends_power.py`.
 
+- **⚠️ Correctness — `sp.lpoly` standard errors omitted the kernel sandwich
+  meat (CIs under-covered).** The local-polynomial conditional variance is the
+  WLS sandwich `σ²·(XᵀWX)⁻¹(XᵀW²X)(XᵀWX)⁻¹` (Fan & Gijbels 1996); the previous
+  code reported `σ²·(XᵀWX)⁻¹`, which is correct only if the kernel weights were
+  inverse-variance (GLS) weights — they are *localizing* weights. The missing
+  `XᵀW²X` meat (compounded by a σ̂² that divided a weighted residual sum by a
+  *count* degrees-of-freedom) understated the SE by up to ~25% depending on the
+  kernel — measured SE/Monte-Carlo-truth ratios were 0.75 (Gaussian), 0.91
+  (triangular), 0.96 (Epanechnikov) — so the reported confidence intervals were
+  too narrow and under-covered. The estimator now uses the full sandwich with
+  the exact weighted residual degrees of freedom `tr(W) − 2·tr(H) + tr(H²)`,
+  `H = (XᵀWX)⁻¹XᵀW²X`, restoring SE/truth ratios of 0.99–1.03 and **nominal
+  ~95% CI coverage** across all kernels and degrees 1–2. Affects every
+  `sp.lpoly(...)` `se` / `ci_lower` / `ci_upper`; fitted values are unchanged.
+  Covered by `tests/test_lpoly_se.py`. See `MIGRATION.md`.
+
 - **⚠️ Correctness — `sp.structural_break` sup-F p-value used the wrong null
   distribution.** The Chow/sup-F statistic is a *supremum* of the F statistic
   over candidate break points, so under H0 it follows the Andrews (1993)

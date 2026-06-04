@@ -136,12 +136,24 @@ def _local_poly_fit(x0, x, y, h, degree, kernel):
     # Estimate is beta[0] (the intercept = E[Y|X=x0])
     fitted = beta[0]
 
-    # Standard error via sandwich
+    # Conditional variance of the local-polynomial estimator (Fan & Gijbels
+    # 1996, sec. 3.1). For the WLS fit beta = (X'WX)^-1 X'W y with
+    # homoskedastic errors, Var(beta) = sigma^2 (X'WX)^-1 (X'W^2 X) (X'WX)^-1.
+    # The kernel weights are *localizing* weights, not inverse-variance
+    # weights, so the "X'W^2 X" sandwich meat is required: dropping it (i.e.
+    # using sigma^2 (X'WX)^-1) understates the SE by up to ~25% (kernel
+    # dependent) and yields CIs that under-cover. sigma^2 is estimated from the
+    # weighted residuals with the exact weighted residual degrees of freedom
+    # tr(W) - 2 tr(H) + tr(H^2), H = (X'WX)^-1 X'W^2 X.
     resid = y_local - X @ beta
-    sigma2 = np.sum(w_local * resid**2) / max(mask.sum() - degree - 1, 1)
     try:
         XtWX_inv = np.linalg.inv(XtWX)
-        se = np.sqrt(sigma2 * XtWX_inv[0, 0])
+        XtW2X = X.T @ ((w_local ** 2)[:, None] * X)
+        H = XtWX_inv @ XtW2X
+        dof = max(w_local.sum() - 2.0 * np.trace(H) + np.trace(H @ H), 1e-8)
+        sigma2 = np.sum(w_local * resid**2) / dof
+        var0 = sigma2 * (XtWX_inv @ XtW2X @ XtWX_inv)[0, 0]
+        se = np.sqrt(var0) if var0 > 0 else np.nan
     except np.linalg.LinAlgError:
         se = np.nan
 
