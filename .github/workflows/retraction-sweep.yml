@@ -1,0 +1,77 @@
+name: Retraction sweep
+
+# Periodic §10 zero-hallucination guard for *retracted* citations.
+# tools/audit_retractions.py resolves every paper.bib DOI against OpenAlex's
+# Retraction-Watch-sourced ``is_retracted`` flag. A retracted citation is the
+# same trust failure as a fabricated one, but CrossRef author/year/title
+# verification (citation-audit.yml) cannot catch a paper withdrawn *after*
+# publication.
+#
+# This is a separate, low-frequency workflow on purpose: the sweep makes
+# ~500 OpenAlex calls, which is too slow / rate-limit-prone for the per-PR
+# citation-audit gate. The offline logic of the tool is still guarded on
+# every relevant PR by Gate 0 of citation-audit.yml
+# (tests/test_audit_retractions.py).
+#
+# Exit-code contract (tools/audit_retractions.py main()):
+#   0 — clean: every resolvable DOI is not retracted.
+#   1 — a cited DOI is retracted → real §10 failure → fails the run.
+#   2 — soft: the only issues were unreachable / OpenAlex-missing DOIs
+#       (e.g. SSRN / arXiv-form DOIs) → surfaced as a warning, does not fail.
+
+on:
+  schedule:
+    # Monthly, 04:17 UTC on the 1st (off the top of the hour to avoid the
+    # cron thundering herd). Re-resolves the whole bibliography so a paper
+    # retracted since the last sweep is caught within a month.
+    - cron: '17 4 1 * *'
+  workflow_dispatch:
+  # Also run when the bibliography or the tool itself changes, so a newly
+  # added citation is retraction-checked at merge time.
+  push:
+    branches: [ main ]
+    paths:
+      - 'paper.bib'
+      - 'tools/audit_retractions.py'
+      - '.github/workflows/retraction-sweep.yml'
+
+concurrency:
+  group: retraction-sweep-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sweep:
+    name: Sweep paper.bib DOIs for retractions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install certifi
+        run: python -m pip install --quiet certifi
+
+      - name: Retraction sweep (soft on network / OpenAlex-coverage gaps)
+        run: |
+          set +e
+          python tools/audit_retractions.py --out retraction_report.md --sleep 0.05
+          code=$?
+          if [ "$code" -eq 2 ]; then
+            echo "::warning title=Retraction sweep soft failure::Some DOIs were unreachable or absent from OpenAlex (e.g. SSRN / arXiv-form DOIs); no retraction detected — treating as a soft pass (exit 2)."
+            exit 0
+          fi
+          exit "$code"
+
+      - name: Upload retraction report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retraction-report
+          path: retraction_report.md
+          retention-days: 90
