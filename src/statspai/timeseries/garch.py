@@ -23,9 +23,11 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 
+from ..core.results import ExportMixin
+
 
 @dataclass
-class GARCHResult:
+class GARCHResult(ExportMixin):
     omega: float
     alpha: np.ndarray        # (q,)
     beta: np.ndarray         # (p,)

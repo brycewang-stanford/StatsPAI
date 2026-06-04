@@ -27,9 +27,11 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+from ..core.results import ExportMixin
+
 
 @dataclass
-class BVARResult:
+class BVARResult(ExportMixin):
     coef: np.ndarray                 # (K*p + 1, K)  posterior mean B
     sigma: np.ndarray                # (K, K) posterior mean of Sigma
     fitted: np.ndarray               # (T-p, K)

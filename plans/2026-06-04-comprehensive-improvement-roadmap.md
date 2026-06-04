@@ -108,6 +108,17 @@ same "pin to reference / equal-output test" treatment used for `conley`.
 
 ## D. Deferred — API consistency & agent-native surface
 
+> **D.1 ENGINE DONE** (`ExportMixin` in `core/results.py`, rolled out to
+> `ARIMA/GARCH/VAR/BVAR/LocalProjections/Bootstrap` result classes; 11 tests).
+> The mixin is *faithful by construction* — `tidy()` → coef-table-from-attrs →
+> single-estimate row → scalar card; **never** flattens a coefficient matrix
+> into a misleading table (verified on `BVARResult`'s 2-D `coef`); `cite()`
+> never fabricates (§10). Remaining rollout is one line per class
+> (`class XResult(ExportMixin, ...)`) **after** checking that class's
+> `_export_frame()` is faithful (the per-class check is the whole point — a
+> blanket attach to all 270 classes is *not* safe). Next batch: regression /
+> panel / DID result classes with a clean `params`/`std_errors` pair.
+
 1. **[HIGH leverage] Generic `ExportMixin` for result objects.** 244/257
    result classes have `.summary()` but only ~11 have the full export quartet;
    `to_markdown` (8%), `cite` (11%), `to_word` (12%), `to_excel` (14%),

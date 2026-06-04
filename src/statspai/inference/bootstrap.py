@@ -29,9 +29,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from ..core.results import ExportMixin
+
 
 @dataclass
-class BootstrapResult:
+class BootstrapResult(ExportMixin):
     """Container for bootstrap inference results."""
 
     estimate: float

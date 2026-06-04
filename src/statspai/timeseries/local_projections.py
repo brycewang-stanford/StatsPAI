@@ -22,6 +22,7 @@ import pandas as pd
 from scipy import stats
 
 from ..exceptions import DataInsufficient
+from ..core.results import ExportMixin
 
 
 # --------------------------------------------------------------------- #
@@ -54,7 +55,7 @@ def _newey_west(X: np.ndarray, e: np.ndarray, lags: int) -> np.ndarray:
 # --------------------------------------------------------------------- #
 
 @dataclass
-class LocalProjectionsResult:
+class LocalProjectionsResult(ExportMixin):
     horizons: np.ndarray              # (H+1,)
     irf: np.ndarray                   # (H+1,)
     se: np.ndarray                    # (H+1,)

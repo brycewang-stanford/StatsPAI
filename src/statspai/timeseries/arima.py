@@ -19,9 +19,11 @@ from typing import Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from ..core.results import ExportMixin
+
 
 @dataclass
-class ARIMAResult:
+class ARIMAResult(ExportMixin):
     order: Tuple[int, int, int]
     seasonal_order: Optional[Tuple[int, int, int, int]]
     params: pd.Series

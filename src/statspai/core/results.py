@@ -3,7 +3,9 @@ Unified results class for all econometric models
 """
 
 from html import escape as _html_escape
+from pathlib import Path
 from typing import Dict, Any, Optional, List, Union
+import dataclasses
 import pandas as pd
 import numpy as np
 
@@ -105,6 +107,221 @@ def _filter_jsonable_scalars(d: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(j, (int, float, str, bool)) or j is None:
             out[str(k)] = j
     return out
+
+
+def _is_number(x: Any) -> bool:
+    return (isinstance(x, (int, float, np.integer, np.floating))
+            and not isinstance(x, bool))
+
+
+def _as_1d_float(v: Any) -> Optional[np.ndarray]:
+    """Coerce a Series / 1-D array / flat list to a 1-D float ndarray, else None.
+
+    Multi-dimensional inputs (e.g. a VAR coefficient *matrix*) return None on
+    purpose: flattening them into a one-column "coef table" would be a
+    misleading export, so such results fall through to the scalar card.
+    """
+    if v is None or callable(v):
+        return None
+    try:
+        a = v.to_numpy() if isinstance(v, pd.Series) else np.asarray(v, dtype=float)
+        a = np.asarray(a, dtype=float)
+        if a.ndim != 1 or a.size == 0:
+            return None
+        return a
+    except Exception:
+        return None
+
+
+def _coef_table_from_attrs(obj: Any) -> Optional[pd.DataFrame]:
+    """Build a broom-style coefficient frame from ``params`` / ``std_errors``
+    style attributes, or return None when the object has no such pair.
+
+    Faithful: it only reads attributes that already exist on the result and
+    aligns optional columns (std error, statistic, p-value, CI) by length.
+    """
+    params = None
+    for name in ("params", "coef", "coefficients", "coefs"):
+        v = getattr(obj, name, None)
+        if v is not None and not callable(v):
+            params = v
+            break
+    if params is None:
+        return None
+    terms: Optional[List[str]] = None
+    est: Optional[np.ndarray] = None
+    if isinstance(params, pd.Series):
+        terms = [str(t) for t in params.index]
+        est = _as_1d_float(params)
+    elif isinstance(params, dict):
+        terms = [str(k) for k in params]
+        est = _as_1d_float(list(params.values()))
+    else:
+        est = _as_1d_float(params)
+        if est is not None:
+            terms = [f"param[{i}]" for i in range(len(est))]
+    if est is None or terms is None or len(terms) != len(est):
+        return None
+    n = len(est)
+    cols: Dict[str, Any] = {"term": terms, "estimate": est}
+    for name in ("std_errors", "se", "bse", "standard_errors"):
+        se = _as_1d_float(getattr(obj, name, None))
+        if se is not None and len(se) == n:
+            cols["std_error"] = se
+            break
+    for src, dst in (("tvalues", "statistic"), ("pvalues", "p_value"),
+                     ("conf_int_lower", "conf_low"),
+                     ("conf_int_upper", "conf_high")):
+        a = _as_1d_float(getattr(obj, src, None))
+        if a is not None and len(a) == n:
+            cols[dst] = a
+    return pd.DataFrame(cols)
+
+
+def _scalar_card(obj: Any) -> pd.DataFrame:
+    """A two-column (field, value) frame of the result's JSON-scalar fields.
+
+    Array / nested fields are intentionally omitted -- they are not dropped
+    silently into a misleading table; ``to_dict()`` / the result's own
+    accessors remain the route to full detail.
+    """
+    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+        src = {f.name: getattr(obj, f.name, None)
+               for f in dataclasses.fields(obj)}
+    else:
+        src = {k: v for k, v in vars(obj).items() if not k.startswith("_")}
+    scal = _filter_jsonable_scalars(src)
+    if not scal:
+        return pd.DataFrame({"field": ["result_type"],
+                             "value": [type(obj).__name__]})
+    return pd.DataFrame({"field": list(scal.keys()),
+                         "value": list(scal.values())})
+
+
+class ExportMixin:
+    """Generic, faithful export methods for result objects.
+
+    Add this to a result class's bases and it gains ``to_markdown`` /
+    ``to_latex`` / ``to_excel`` / ``to_word`` / ``cite`` for free. A method the
+    subclass defines itself always wins (normal MRO), so attaching the mixin
+    never overrides a bespoke ``to_latex`` etc.
+
+    The exported table is **faithful by construction** and never fabricated:
+    it is, in precedence order, the result's ``tidy()`` coefficient table; else
+    a coefficient table built from a recognized ``params`` / ``std_errors``
+    pair; else a single-estimate row (``estimate`` + se/CI/p when present); else
+    a two-column card of the result's JSON-scalar fields. ``cite()`` returns
+    only verified citations registered on the class (``_CITATIONS`` /
+    ``_citation_key``) and never invents a reference (CLAUDE.md §10).
+    """
+
+    def _export_frame(self) -> pd.DataFrame:
+        tidy = getattr(self, "tidy", None)
+        if callable(tidy):
+            try:
+                df = tidy()
+                if isinstance(df, pd.DataFrame) and len(df.index):
+                    return df.reset_index(drop=True)
+            except Exception:
+                pass
+        coef = _coef_table_from_attrs(self)
+        if coef is not None and len(coef.index):
+            return coef
+        est = getattr(self, "estimate", None)
+        if isinstance(est, (int, float, np.integer, np.floating)) and not isinstance(est, bool):
+            row: Dict[str, Any] = {"estimate": float(est)}
+            for src, dst in (("se", "std_error"), ("std_error", "std_error"),
+                             ("pvalue", "p_value"), ("p_value", "p_value")):
+                v = getattr(self, src, None)
+                if (isinstance(v, (int, float, np.integer, np.floating))
+                        and not isinstance(v, bool) and dst not in row):
+                    row[dst] = float(v)
+            ci = getattr(self, "ci", None)
+            if (isinstance(ci, (tuple, list)) and len(ci) == 2
+                    and all(_is_number(c) for c in ci)):
+                row["conf_low"] = float(ci[0])
+                row["conf_high"] = float(ci[1])
+            return pd.DataFrame([row])
+        return _scalar_card(self)
+
+    def to_markdown(self, path: Optional[str] = None, *,
+                    index: bool = False) -> Any:
+        """Render the result's export frame as a GitHub-flavored Markdown table.
+
+        Writes to ``path`` (returning the path) when given, else returns the
+        Markdown string.
+        """
+        md = self._export_frame().to_markdown(index=index)
+        if path is not None:
+            Path(str(path)).write_text(md, encoding="utf-8")
+            return str(path)
+        return SummaryText(md)
+
+    def to_latex(self, path: Optional[str] = None, *,
+                 caption: Optional[str] = None, label: Optional[str] = None,
+                 index: bool = False) -> Any:
+        """Render the result's export frame as a LaTeX ``tabular``."""
+        df = self._export_frame()
+        try:
+            tex = df.to_latex(index=index, escape=True,
+                              caption=caption, label=label)
+        except TypeError:  # older pandas signatures
+            tex = df.to_latex(index=index)
+        if path is not None:
+            Path(str(path)).write_text(tex, encoding="utf-8")
+            return str(path)
+        return tex
+
+    def to_excel(self, path: str, *, index: bool = False) -> str:
+        """Write the result's export frame to an ``.xlsx`` file."""
+        self._export_frame().to_excel(str(path), index=index)
+        return str(path)
+
+    def to_word(self, path: str) -> str:
+        """Write the result's export frame to a ``.docx`` file as a table."""
+        from docx import Document  # core dependency
+        df = self._export_frame()
+        doc = Document()
+        table = doc.add_table(rows=1, cols=len(df.columns))
+        try:
+            table.style = "Light Grid Accent 1"
+        except Exception:
+            pass
+        for j, col in enumerate(df.columns):
+            table.rows[0].cells[j].text = str(col)
+        for _, r in df.iterrows():
+            cells = table.add_row().cells
+            for j, col in enumerate(df.columns):
+                val = r[col]
+                cells[j].text = ("" if val is None else
+                                 (f"{val:.6g}" if _is_number(val) else str(val)))
+        doc.save(str(path))
+        return str(path)
+
+    def cite(self, format: str = "bibtex") -> Any:
+        """Return verified citation(s) registered on the class -- never invent.
+
+        Looks up ``_citation_key`` against the class ``_CITATIONS`` table (the
+        same mechanism :class:`CausalResult` uses). When no verified citation
+        is registered it says so rather than fabricating one (CLAUDE.md §10).
+        """
+        cites = getattr(self, "_CITATIONS", None)
+        key = getattr(self, "_citation_key", None)
+        if isinstance(cites, dict) and cites:
+            if key and key in cites:
+                entries = [cites[key]]
+            elif key is None:
+                entries = list(cites.values())
+            else:
+                entries = []
+            if entries:
+                return SummaryText("\n\n".join(str(e) for e in entries))
+        return SummaryText(
+            f"% No verified citation is registered for "
+            f"{type(self).__name__}. Attach a verified bib key via "
+            f"`_citation_key` + `_CITATIONS` to enable cite() "
+            f"(citations are never auto-generated; see CLAUDE.md §10)."
+        )
 
 
 class EconometricResults:

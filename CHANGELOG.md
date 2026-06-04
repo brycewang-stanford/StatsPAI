@@ -6,6 +6,26 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`ExportMixin` — uniform, faithful export quartet for result objects.** A
+  new `statspai.core.results.ExportMixin` gives any result class
+  `to_markdown` / `to_latex` / `to_excel` / `to_word` plus a non-fabricating
+  `cite()` simply by adding it to the class's bases — no per-class
+  boilerplate. The exported table is **faithful by construction**: it is the
+  result's `tidy()` coefficient table when available, else a coefficient table
+  built from a recognized `params`/`std_errors` pair, else a single-estimate
+  row, else a two-column card of the result's JSON-scalar fields. Array- and
+  matrix-valued fields (e.g. a VAR coefficient *matrix*) are **never flattened
+  into a misleading table** — such results degrade to the scalar card. A
+  subclass's own export method always wins (MRO), so attaching the mixin never
+  overrides a bespoke renderer. `cite()` returns only verified citations
+  registered on the class (`_citation_key` + `_CITATIONS`) and never invents a
+  reference (CLAUDE.md §10). Rolled out to `ARIMAResult`, `GARCHResult`,
+  `VARResult`, `BVARResult`, `LocalProjectionsResult`, and `BootstrapResult`;
+  adoption is one line (`class XResult(ExportMixin, ...)`) per result class.
+  Covered by `tests/test_export_mixin.py` (11 tests: per-shape faithfulness,
+  renderers + Excel round-trip, no-fabricate `cite`, subclass-override-wins,
+  matrix-not-flattened, real-estimator integration).
+
 - **Registry-example bind guard (`tests/test_registry_examples_bind.py`).**
   A parametrized test now statically parses every registered `example` string
   and binds the keyword arguments of its `sp.<name>(...)` call against the real

@@ -23,9 +23,10 @@ import pandas as pd
 from scipy import stats
 
 from ..exceptions import MethodIncompatibility
+from ..core.results import ExportMixin
 
 
-class VARResult:
+class VARResult(ExportMixin):
     """Results from VAR estimation."""
 
     def __init__(self, coefs, se, residuals, sigma_u, var_names, lags,
