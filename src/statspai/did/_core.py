@@ -86,14 +86,25 @@ def cluster_bootstrap_draw(
     clusters = df[cluster_col].unique()
     sampled = rng.choice(clusters, size=len(clusters), replace=True)
 
-    frames = []
+    # Pre-group the row positions of each cluster once, then build the draw
+    # with a single fancy-index instead of a boolean scan + copy per cluster.
+    # Equivalent to the old per-cluster ``df[df[cluster_col] == c]`` + concat,
+    # but O(n) per draw rather than O(n_clusters * n).
+    group_pos = df.groupby(cluster_col, sort=False).indices
+    pos_chunks = []
+    draw_suffix_chunks = []
     for j, c in enumerate(sampled):
-        chunk = df[df[cluster_col] == c].copy()
-        suffix = f"{sep}{j}"
-        for col in relabel_cols:
-            chunk[col] = chunk[col].astype(str) + suffix
-        frames.append(chunk)
-    return pd.concat(frames, ignore_index=True)
+        idx = group_pos[c]
+        pos_chunks.append(idx)
+        draw_suffix_chunks.append(np.full(len(idx), j, dtype=np.int64))
+    positions = np.concatenate(pos_chunks)
+    draw_suffix = np.concatenate(draw_suffix_chunks)
+
+    out = df.iloc[positions].reset_index(drop=True)
+    suffixes = np.char.add(sep, draw_suffix.astype(str))
+    for col in relabel_cols:
+        out[col] = out[col].astype(str).to_numpy() + suffixes
+    return out
 
 
 # ----------------------------------------------------------------------
