@@ -5,6 +5,44 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="lee-manski-imbens-manski-ci"></a>
+
+## Unreleased — ⚠️ `sp.lee_bounds` / `sp.manski_bounds` now report the Imbens-Manski parameter CI
+
+**What changed.** Both functions previously formed their confidence interval as
+`[lb - z*se_lb, ub + z*se_ub]` with `z = z_{1-alpha/2}` (≈1.96 at the default
+5%) applied to *both* endpoints. That is the Horowitz-Manski interval for the
+identified *set*; for the partially-identified *parameter* (the ATE) it
+over-covers. The interval now uses the Imbens & Manski (2004) critical value
+`C_n`, which solves `Phi(C_n + (ub-lb)/max(se_lb,se_ub)) - Phi(-C_n) = 1-alpha`
+and lies between the one-sided `z_{1-alpha}` (≈1.645, wide identified set) and
+the two-sided `z_{1-alpha/2}` (≈1.96, point-identified limit). At the binding
+endpoint of an informative set this restores ~95% coverage of the true
+parameter, versus ~98% over-coverage before.
+
+**Who is affected.** Anyone reading the `ci` field of `sp.lee_bounds` or
+`sp.manski_bounds`. The interval is now **narrower** (never wider): `C_n <=
+1.96` always. The point bounds (`lower_bound`, `upper_bound`), the midpoint
+`estimate`, and the `pvalue` are **unchanged** — only the interval width
+changes.
+
+**What to do.** Re-read any reported confidence intervals from these two
+functions; they will tighten (toward the one-sided width when the identified
+set is wide relative to the standard errors). If you specifically wanted a
+confidence interval for the whole identified *set* (Horowitz-Manski), construct
+it manually as `[lb - z*se_lb, ub + z*se_ub]` with `z = norm.ppf(1-alpha/2)`.
+
+**Caveat.** As in Imbens & Manski (2004), `C_n` can be conservative when the
+set width is small relative to the standard errors; the Stoye (2009) refinement
+is noted in the code but not implemented.
+
+**Reference.** Imbens, G. W. & Manski, C. F. (2004). "Confidence Intervals for
+Partially Identified Parameters." *Econometrica*, 72(6), 1845-1857.
+doi:10.1111/j.1468-0262.2004.00555.x (verified via Wiley, RePEc, and the
+Econometric Society).
+
+---
+
 <a id="lpoly-sandwich-se"></a>
 
 ## Unreleased — ⚠️ `sp.lpoly` standard errors now include the kernel sandwich meat

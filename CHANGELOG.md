@@ -46,6 +46,24 @@ All notable changes to StatsPAI will be documented in this file.
   pre-periods) instead of an opaque NumPy error. No output changes for any call
   that previously succeeded. Covered by `tests/test_pretrends_power.py`.
 
+- **⚠️ Correctness — `sp.lee_bounds` / `sp.manski_bounds` confidence interval
+  was the wrong (over-covering) interval.** Both applied the two-sided
+  `z_{1-α/2}` (≈1.96) to *both* bound endpoints — `[lb − 1.96·se_lb,
+  ub + 1.96·se_ub]`. That is the Horowitz-Manski interval for the identified
+  *set*; for the partially-identified *parameter* (the ATE) it over-covers.
+  The documented and intended interval is Imbens & Manski (2004), which uses a
+  critical value `C_n ∈ [z_{1-α}, z_{1-α/2}]` solving
+  `Φ(C_n + (ub−lb)/max(se_lb,se_ub)) − Φ(−C_n) = 1−α`; it equals the one-sided
+  1.645 when the set is wide relative to the SEs and the two-sided 1.96 in the
+  point-identified limit. Validated at the binding endpoint: IM coverage ≈0.95
+  (nominal) vs the old ~0.98 (over-covering) once the set is informative. The
+  point bounds are unchanged — only the reported `ci` narrows. (As in Imbens &
+  Manski 2004, `C_n` can be conservative when the set width is small relative
+  to the SEs; the Stoye 2009 refinement is noted but not implemented.) Covered
+  by `tests/test_lee_manski_im_ci.py`. Reference verified via Wiley / RePEc /
+  Econometric Society: Imbens & Manski (2004), *Econometrica* 72(6), 1845-1857,
+  doi:10.1111/j.1468-0262.2004.00555.x. See `MIGRATION.md`.
+
 - **⚠️ Correctness — `sp.lpoly` standard errors omitted the kernel sandwich
   meat (CIs under-covered).** The local-polynomial conditional variance is the
   WLS sandwich `σ²·(XᵀWX)⁻¹(XᵀW²X)(XᵀWX)⁻¹` (Fan & Gijbels 1996); the previous

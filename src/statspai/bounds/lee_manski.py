@@ -29,6 +29,11 @@ Review of Economic Studies, 76(3), 1071-1102. [@lee2009training]
 
 Manski, C. F. (1990). "Nonparametric Bounds on Treatment Effects."
 American Economic Review P&P, 80(2), 319-323. [@manski1990nonparametric]
+
+Imbens, G. W. & Manski, C. F. (2004). "Confidence Intervals for Partially
+Identified Parameters." Econometrica, 72(6), 1845-1857.
+doi:10.1111/j.1468-0262.2004.00555.x.
+(Critical value C_n for the confidence interval of the parameter.)
 """
 
 from typing import Optional, List, Dict, Any, Tuple
@@ -37,6 +42,49 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
+
+
+def _imbens_manski_cn(lb: float, ub: float, se_lb: float, se_ub: float,
+                      alpha: float) -> float:
+    """Imbens & Manski (2004) critical value for a partially-identified scalar.
+
+    Returns ``C_n`` solving
+    ``Phi(C_n + (ub - lb) / max(se_lb, se_ub)) - Phi(-C_n) = 1 - alpha``.
+    ``C_n`` lies between the one-sided ``z_{1-alpha}`` (wide identified set) and
+    the two-sided ``z_{1-alpha/2}`` (point-identified limit), so the interval
+    ``[lb - C_n*se_lb, ub + C_n*se_ub]`` covers the *true parameter* (a point in
+    the set) with probability ``1 - alpha``. This is narrower than applying the
+    two-sided ``z_{1-alpha/2}`` to both endpoints, which is the Horowitz-Manski
+    interval for the whole identified *set* and over-covers any single
+    parameter value.
+
+    Note: as in Imbens & Manski (2004), ``C_n`` can be conservative when the
+    set width is small relative to the standard errors (see Stoye 2009 for a
+    refinement, not implemented here).
+
+    Reference: Imbens, G.W. & Manski, C.F. (2004), "Confidence Intervals for
+    Partially Identified Parameters," Econometrica 72(6), 1845-1857,
+    doi:10.1111/j.1468-0262.2004.00555.x.
+    """
+    se_max = max(float(se_lb), float(se_ub))
+    z_two = float(sp_stats.norm.ppf(1 - alpha / 2))
+    if not np.isfinite(se_max) or se_max <= 0:
+        return z_two
+    width = max(float(ub) - float(lb), 0.0)
+    z_one = float(sp_stats.norm.ppf(1 - alpha))
+
+    def g(c: float) -> float:
+        return float(sp_stats.norm.cdf(c + width / se_max)
+                     - sp_stats.norm.cdf(-c) - (1 - alpha))
+
+    # g(z_one) <= 0 <= g(z_two) always; handle the boundary (degenerate) cases
+    # explicitly, otherwise root-find in between.
+    if g(z_one) >= 0:   # width -> infinity: one-sided
+        return z_one
+    if g(z_two) <= 0:   # width -> 0: two-sided
+        return z_two
+    from scipy.optimize import brentq
+    return float(brentq(g, z_one, z_two, xtol=1e-10))
 
 
 # ======================================================================
@@ -78,7 +126,8 @@ def lee_bounds(
     -------
     CausalResult
         estimate = midpoint of bounds.
-        ci = Imbens-Manski confidence interval for the identified set.
+        ci = Imbens & Manski (2004) confidence interval for the partially-
+        identified parameter (covers the true ATE, not the whole set).
         model_info contains 'lower_bound' and 'upper_bound'.
 
     Examples
@@ -145,13 +194,16 @@ def lee_bounds(
         else:
             boot_lb[b], boot_ub[b] = lb, ub
 
-    # Imbens-Manski CI for the identified set
-    z_crit = sp_stats.norm.ppf(1 - alpha / 2)
+    # Imbens & Manski (2004) CI for the partially-identified ATE. The previous
+    # code applied the two-sided z_{1-alpha/2} to both endpoints, which is the
+    # Horowitz-Manski interval for the whole identified set and over-covers any
+    # single parameter value; C_n is the correct (narrower) critical value.
     se_lb = np.std(boot_lb, ddof=1)
     se_ub = np.std(boot_ub, ddof=1)
+    c_n = _imbens_manski_cn(lb, ub, float(se_lb), float(se_ub), alpha)
 
-    ci_lower = lb - z_crit * se_lb
-    ci_upper = ub + z_crit * se_ub
+    ci_lower = lb - c_n * se_lb
+    ci_upper = ub + c_n * se_ub
 
     midpoint = (lb + ub) / 2
     se_mid = (se_lb + se_ub) / 2
@@ -331,12 +383,15 @@ def manski_bounds(
         else:
             boot_lb[b], boot_ub[b] = lb, ub
 
-    z_crit = sp_stats.norm.ppf(1 - alpha / 2)
+    # Imbens & Manski (2004) CI for the partially-identified ATE (see
+    # _imbens_manski_cn); the prior two-sided-on-both-ends interval covered the
+    # identified set rather than the parameter and over-covered.
     se_lb = np.std(boot_lb, ddof=1)
     se_ub = np.std(boot_ub, ddof=1)
+    c_n = _imbens_manski_cn(lb, ub, float(se_lb), float(se_ub), alpha)
 
-    ci_lower = lb - z_crit * se_lb
-    ci_upper = ub + z_crit * se_ub
+    ci_lower = lb - c_n * se_lb
+    ci_upper = ub + c_n * se_ub
 
     midpoint = (lb + ub) / 2
     se_mid = (se_lb + se_ub) / 2
