@@ -21,6 +21,17 @@ pass can pick it up cold).
 | `15d21d7` | performance | `conley` spatial-HAC sandwich vectorized (`Xe.T@Xe`; `M+M.T`) | ~140× on dense pairs; pinned to explicit-loop reference (2 tests) |
 | `623eb20` | performance | `did._core.cluster_bootstrap_draw` pre-grouped fancy-index build | ~40× (6.6s→0.16s/200 draws); byte-identical to old loop (3 tests) |
 | `142aceb` | agent-UX | 29 statically-broken registered examples repaired + permanent bind-guard test | 373 examples bind green; runtime-confirmed for the rebuilt ones |
+| `118b551` (on `main`) | ⚠️ correctness | **B.1 done** — `structural_break` sup-F p-value → Andrews (1993) null (was naive `F(k,n-2k)`). | white-noise false-positive 33–37% → ~5%; power 1.00/0.88; 7 tests |
+| `fd932c5` (branch `worktree-improve-correctness`) | ⚠️ correctness | **B.2 done** — `lpoly` SE now includes the `XᵀW²X` sandwich meat + exact weighted dof. | SE/MC-truth 0.75–0.96 → 0.99–1.03; 95% CI coverage restored; 4 tests |
+
+> **Working model (updated 2026-06-04):** the shared single working tree caused
+> branch-switch churn (the `118b551` fix landed on `main` directly when the tree
+> was switched under us). To stop that, this lane now runs in an **isolated git
+> worktree** at `.claude/worktrees/improve-correctness` on branch
+> `worktree-improve-correctness` (based on `origin/main`). Test edits and `paper`
+> P1-WIP remain the sibling agent's lane on `main`. Merge this branch back after
+> review. Rhythm: one verified correctness/perf fix per commit, each with a
+> reproduction + post-fix validation before it lands.
 
 ---
 
@@ -28,19 +39,15 @@ pass can pick it up cold).
 
 Ranked by whether a user would publish a wrong number.
 
-1. **[HIGH] `timeseries/structural_break.py:162,215` — sup-F / Bai–Perron use
-   the naive F p-value.** Both paths compute `1 - stats.f.cdf(best_f, k, n-2k)`
-   on the *maximized* F, which does not follow an F distribution under H₀.
-   *Reproduced:* on pure white noise the sup-F rejects **38%** of the time and
-   Bai–Perron flags ≥1 spurious break **36%** of the time (nominal 5%). *Fix:*
-   use Andrews (1993) / Hansen (1997) sup-F asymptotic critical values over the
-   trimmed break fraction (the docstring already claims "Andrews–Ploberger").
-   Needs a critical-value table or the Hansen p-value approximation; ships with
-   a CHANGELOG ⚠️ + MIGRATION note.
+1. ~~**[HIGH] `timeseries/structural_break.py` — sup-F / Bai–Perron naive F
+   p-value.**~~ **DONE** in `118b551` (Andrews 1993 null via seeded simulation;
+   white-noise false-positive 33–37% → ~5%, power retained; Bai-Perron now
+   exposes `f_stats`/`p_values`). Kept for provenance.
 
-2. **[MED] `nonparametric/lpoly.py:141` — local-polynomial SE omits the kernel
-   sandwich meat.** Reports `σ²·(XᵀWX)⁻¹` (treats kernel weights as
-   inverse-variance) instead of `(XᵀWX)⁻¹(XᵀW²X)(XᵀWX)⁻¹·σ²` (Fan & Gijbels
+2. ~~**[MED] `nonparametric/lpoly.py` — local-polynomial SE omits the kernel
+   sandwich meat.**~~ **DONE** in `fd932c5`. Reported `σ²·(XᵀWX)⁻¹` (treats
+   kernel weights as inverse-variance) instead of
+   `(XᵀWX)⁻¹(XᵀW²X)(XᵀWX)⁻¹·σ²` (Fan & Gijbels
    1996). *Reproduced:* reported SE = **0.66×** Monte-Carlo truth ⇒ CIs ~34%
    too narrow (n=4000). *Fix:* swap in the sandwich; ⚠️ correctness note.
 
