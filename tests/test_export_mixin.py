@@ -155,3 +155,34 @@ def test_real_estimators_gain_exports_keep_summary():
     # ARIMA exposes a real coefficient table; bootstrap a single estimate row.
     assert "term" in arima._export_frame().columns
     assert "estimate" in boot._export_frame().columns
+
+
+def test_econometric_results_family_gains_cite_keeps_bespoke_exports():
+    """Adding the mixin to EconometricResults fills cite() for the whole
+    family without overriding its bespoke to_latex/to_markdown/to_excel."""
+    from statspai.core.results import EconometricResults
+    # bespoke exports win; cite is the mixin's (the only gap).
+    assert EconometricResults.to_latex is not ExportMixin.to_latex
+    assert EconometricResults.to_markdown is not ExportMixin.to_markdown
+    assert EconometricResults.cite is ExportMixin.cite
+    import statspai as sp
+    rng = np.random.default_rng(0)
+    d = pd.DataFrame({"x1": rng.normal(0, 1, 300), "x2": rng.normal(0, 1, 300)})
+    d["ybin"] = (rng.random(300) > 0.5).astype(int)
+    r = sp.logit("ybin ~ x1 + x2", d)
+    assert "No verified citation" in str(r.cite())  # honest, not fabricated
+    assert "tabular" in r.to_latex() or "begin" in r.to_latex()
+    assert r.summary()
+
+
+def test_structural_break_result_exports_scalar_card():
+    import statspai as sp
+    rng = np.random.default_rng(0)
+    y = np.concatenate([rng.normal(0, 1, 100), rng.normal(3, 1, 100)])
+    r = sp.structural_break(data=pd.DataFrame({"y": y}), y="y",
+                            method="bai-perron")
+    f = r._export_frame()
+    assert list(f.columns) == ["field", "value"]
+    assert "n_breaks" in set(f["field"])
+    assert "|" in r.to_markdown()
+    assert "tabular" in r.to_latex()

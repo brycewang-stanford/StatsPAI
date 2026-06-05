@@ -28,6 +28,8 @@ from typing import List, Dict, Any
 import numpy as np
 import pandas as pd
 
+from ..core.results import ExportMixin
+
 
 _SUPF_SEED = 20240601
 
@@ -95,7 +97,7 @@ def _supf_pvalue(stat: float, q: int, n: int, trimming: float) -> float:
     return float((1 + np.count_nonzero(null >= stat)) / (null.size + 1))
 
 
-class StructuralBreakResult:
+class StructuralBreakResult(ExportMixin):
     """Results from structural break tests."""
 
     def __init__(self, test_type, break_dates, f_stats, p_values,

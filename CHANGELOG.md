@@ -19,12 +19,20 @@ All notable changes to StatsPAI will be documented in this file.
   subclass's own export method always wins (MRO), so attaching the mixin never
   overrides a bespoke renderer. `cite()` returns only verified citations
   registered on the class (`_citation_key` + `_CITATIONS`) and never invents a
-  reference (CLAUDE.md §10). Rolled out to `ARIMAResult`, `GARCHResult`,
-  `VARResult`, `BVARResult`, `LocalProjectionsResult`, and `BootstrapResult`;
-  adoption is one line (`class XResult(ExportMixin, ...)`) per result class.
-  Covered by `tests/test_export_mixin.py` (11 tests: per-shape faithfulness,
-  renderers + Excel round-trip, no-fabricate `cite`, subclass-override-wins,
-  matrix-not-flattened, real-estimator integration).
+  reference (CLAUDE.md §10). Rolled out to the standalone result classes
+  `ARIMAResult`, `GARCHResult`, `VARResult`, `BVARResult`,
+  `LocalProjectionsResult`, `BootstrapResult`, and `StructuralBreakResult`, and
+  to the `EconometricResults` family — attaching the mixin to that one base
+  fills the missing `cite()` for `EconometricResults` itself and its subclasses
+  `PanelResults`, `FrontierResult`, `ProductionResult`, `CoxResult` (and every
+  regression estimator that returns it: `logit` / `poisson` / `nbreg` /
+  `truncreg` / `betareg` / …), while their bespoke `to_latex` / `to_markdown` /
+  `to_excel` / `to_word` keep winning via MRO. Adoption is one line
+  (`class XResult(ExportMixin, ...)`) per result class. Covered by
+  `tests/test_export_mixin.py` (13 tests: per-shape faithfulness, renderers +
+  Excel round-trip, no-fabricate `cite`, subclass-override-wins,
+  matrix-not-flattened, family-cite, real-estimator integration). Verified no
+  regression across 534 regression / panel / survival / frontier tests.
 
 - **Registry-example bind guard (`tests/test_registry_examples_bind.py`).**
   A parametrized test now statically parses every registered `example` string

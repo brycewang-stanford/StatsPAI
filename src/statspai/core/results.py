@@ -324,7 +324,7 @@ class ExportMixin:
         )
 
 
-class EconometricResults:
+class EconometricResults(ExportMixin):
     """
     Unified results class for econometric models
     
