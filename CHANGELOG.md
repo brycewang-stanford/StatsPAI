@@ -6,6 +6,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Performance — `sp.wild_cluster_bootstrap` ~25× faster (output unchanged).**
+  The two per-cluster Python loops inside the bootstrap (the `Y*` assembly and
+  the CR1 sandwich "meat") are now vectorized: a single gather builds `Y*` and
+  one matmul builds the per-cluster score matrix `S` (meat `= SᵀS`), replacing
+  the `O(n_boot · G)` interpreter loops. The per-draw weight draw is **byte-for-
+  byte unchanged**, so the bootstrap is identical given a seed: `p_boot` is
+  exactly equal and the t-distribution matches the old implementation to
+  floating-point summation order (~1e-15), verified against the previous code
+  on rademacher / webb / mammen weights. Measured speedups: **25.5×**
+  (n=2000, G=50), **14.9×** (n=5000, G=20), **6.0×** (n=800, G=8), all at
+  B=999. Covered by `tests/test_wild_bootstrap_vectorized.py` (vectorized-meat
+  == per-cluster-loop identity, determinism, validity).
+
 - **`ExportMixin` — uniform, faithful export quartet for result objects.** A
   new `statspai.core.results.ExportMixin` gives any result class
   `to_markdown` / `to_latex` / `to_excel` / `to_word` plus a non-fabricating

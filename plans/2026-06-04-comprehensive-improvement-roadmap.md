@@ -27,17 +27,17 @@ pass can pick it up cold).
 | `be9f1aa` (branch) | ⚠️ correctness | **B.4 done** — `cusum_test` now uses the Brown-Durbin-Evans diverging linear boundary (was flat `1.358`). | H0 rejection ~32% → ~4-5%; power 1.00; 5 tests |
 
 > **Section B (correctness) is now fully cleared (B.1–B.4).** All four were
-> measured-as-broken, fixed, and validated (size/coverage + power). The
-> performance backlog (Section C) was **evaluated and deferred**: the wild
-> cluster bootstrap / romano-wolf speedups require batching the RNG draw
-> (`rng.choice(size=(n_boot,G))`) and reordering per-cluster summations. Neither
-> is *bit-identical* across numpy versions, and the reference-parity tests pin
-> this output — so a "numerically identical" claim is not safely guaranteeable
-> without risking reproducibility drift on a numpy upgrade. Correctness and
-> reproducibility-stability win: these are left for a deliberate pass that
-> either (a) re-seeds + re-pins the parity fixtures, or (b) keeps the per-iter
-> RNG draw and only vectorizes the bit-identical `Y_star` build. Section D.1
-> (`ExportMixin`) remains the highest-leverage *additive* (non-numerical) item.
+> measured-as-broken, fixed, and validated (size/coverage + power).
+>
+> **Section C.1 DONE — `wild_cluster_bootstrap` ~25× faster, output unchanged.**
+> The profile settled the earlier worry: the RNG draw is *negligible* (0.6 % of
+> runtime); the cost is the two per-cluster Python loops. So the per-draw weight
+> draw is kept byte-identical (no re-pin needed) and only the deterministic
+> inner loops are vectorized (`Y*` gather + `S = Ind'·(X∘e)`, meat `= S'S`).
+> Verified against the old code: `p_boot` exactly equal, t-dist to ~1e-15, on
+> rademacher/webb/mammen. The romano-wolf / margins speedups (C.2/C.3) remain;
+> they likely admit the same "keep RNG, vectorize the deterministic core"
+> treatment now that the parity worry is understood.
 
 > **Working model (updated 2026-06-04):** the shared single working tree caused
 > branch-switch churn (the `118b551` fix landed on `main` directly when the tree
