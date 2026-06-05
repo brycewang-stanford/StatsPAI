@@ -65,6 +65,18 @@ def rdd(
     Parameters match the blog post signature ``sp.rdd(df, y, running, cutoff)``
     and are forwarded to :func:`statspai.rd.rdrobust` using its
     ``(x=<running>, c=<cutoff>)`` convention.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> run = rng.uniform(-1, 1, 500)
+    >>> y = 1.5 * (run >= 0) + run + rng.normal(size=500)
+    >>> df = pd.DataFrame({"y": y, "run": run})
+    >>> result = sp.rdd(df, y="y", running="run", cutoff=0.0)
+    >>> isinstance(result.estimate, float)
+    True
     """
     from .rd.rdrobust import rdrobust
 
@@ -128,6 +140,19 @@ def xlearner(
     Passing ``learner=...`` is rejected — callers who want a different
     meta-learner should use :func:`sp.metalearner` instead of silently
     getting an X-Learner under a misleading name.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> df = pd.DataFrame({"x1": rng.normal(size=400),
+    ...                    "x2": rng.normal(size=400)})
+    >>> df["d"] = (rng.random(400) < 0.5).astype(int)
+    >>> df["y"] = df["d"] * (1 + df["x1"]) + df["x1"] + rng.normal(size=400)
+    >>> result = sp.xlearner(df, y="y", d="d", X=["x1", "x2"])
+    >>> isinstance(result.estimate, float)
+    True
     """
     if "learner" in kwargs:
         raise TypeError(

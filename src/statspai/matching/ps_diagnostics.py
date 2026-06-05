@@ -66,6 +66,18 @@ def propensity_score(
     -------
     pd.Series
         Propensity scores indexed like *data*.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> df = pd.DataFrame({"x1": rng.normal(size=300),
+    ...                    "x2": rng.normal(size=300)})
+    >>> df["d"] = (rng.random(300) < 0.5).astype(int)
+    >>> ps = sp.propensity_score(df, treatment="d", covariates=["x1", "x2"])
+    >>> bool((ps >= 0).all() and (ps <= 1).all())
+    True
     """
     D = data[treatment].values.astype(float)
     X = data[covariates].values.astype(float)

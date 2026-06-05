@@ -1461,6 +1461,21 @@ def ivreg(
     Returns
     -------
     EconometricResults
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> z1 = rng.normal(size=400)
+    >>> z2 = rng.normal(size=400)
+    >>> x1 = rng.normal(size=400)
+    >>> d = ((0.8 * z1 + 0.5 * z2 + rng.normal(size=400)) > 0).astype(float)
+    >>> y = 2.0 * d + x1 + rng.normal(size=400)
+    >>> df = pd.DataFrame({"y": y, "d": d, "x1": x1, "z1": z1, "z2": z2})
+    >>> result = sp.ivreg("y ~ (d ~ z1 + z2) + x1", df)
+    >>> callable(result.summary)
+    True
     """
     kwargs.setdefault('method', '2sls')
     return iv(formula=formula, data=data,

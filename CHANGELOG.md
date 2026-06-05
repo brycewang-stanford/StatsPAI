@@ -6,6 +6,15 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Docs — runnable, doctest-backed `Examples` for `sp.rdd`, `sp.xlearner`,
+  `sp.propensity_score`, `sp.ivreg`.** Each gains a complete copy-pasteable
+  `Examples` section (construct data → call → a stable `isinstance`/`bool`
+  check) that is *executed* by `tests/test_docstring_examples_run.py`, so the
+  agent/human copy-paste path is guaranteed to run and cannot silently rot.
+  The `ivreg` example also documents the correct `"y ~ (endog ~ z1 + z2) +
+  exog"` formula syntax. (No `References` were added — per CLAUDE.md §10,
+  citations are never auto-generated.)
+
 - **Agent-native — 8 `*args/**kwargs` alias functions now expose their real
   parameter schema.** `sp.function_schema(...)` returned an *empty* parameter
   list for `multi_cutoff_rd`, `geographic_rd`, `boundary_rd`, `multi_score_rd`,
