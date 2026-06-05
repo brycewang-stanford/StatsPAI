@@ -21,6 +21,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
+from statspai.panel.panel_reg import panel_compare
 
 
 def _balanced_panel(n_id=30, T=8, seed=7):
@@ -115,3 +116,63 @@ def test_panel_logit_fe_drops_constant_outcome_units():
     beta = np.asarray(getattr(res, "params", getattr(res, "beta", None)),
                       dtype=float).ravel()
     assert np.all(np.isfinite(beta))
+
+
+def test_panel_logit_cre_mundlak_means():
+    # method='cre' adds within-unit means (Mundlak device); a single x
+    # exercises the Series branch of ``_add_mundlak_means``.
+    rng = np.random.default_rng(4)
+    rows = []
+    for i in range(30):
+        a = rng.normal()
+        for t in range(6):
+            x1 = rng.normal() + 0.5 * a
+            p = 1.0 / (1.0 + np.exp(-(0.3 + 1.0 * x1 + 0.5 * a)))
+            rows.append({"id": i, "time": t, "y": int(rng.random() < p), "x1": x1})
+    df = pd.DataFrame(rows)
+    res = sp.panel_logit(df, "y", ["x1"], id="id", time="time", method="cre")
+    beta = np.asarray(getattr(res, "params", getattr(res, "beta", None)),
+                      dtype=float).ravel()
+    assert np.all(np.isfinite(beta))
+
+
+# ── panel_compare: a failing method is reported, not crashed on ─────────
+
+
+def test_panel_compare_reports_failed_method():
+    df = _balanced_panel()
+    out = panel_compare(
+        df, "y ~ x1 + x2", entity="id", time="time",
+        methods=["fe", "definitely_not_a_method"],
+    )
+    assert isinstance(out, pd.DataFrame)
+    # The bogus method surfaces as an 'error' cell (loud, not silently dropped).
+    assert (out.astype(str) == "error").any().any()
+    # The valid FE method still produced a real coefficient table.
+    fe_col = [c for c in out.columns if "FE" in c or c == "fe"]
+    assert fe_col, f"no FE column in {list(out.columns)}"
+
+
+# ── panel_diagnostics: Pesaran CD with no overlapping entity pairs ──────
+
+
+def test_pesaran_cd_no_overlapping_pairs():
+    # Each entity is observed on a disjoint time window ⇒ no entity pair
+    # shares >=3 common periods ⇒ the CD statistic is undefined (NaN), and
+    # the routine says so rather than fabricating a number.
+    rng = np.random.default_rng(6)
+    rows = []
+    for i in range(6):
+        base = i * 100  # disjoint time windows per entity
+        for t in range(8):
+            x1 = rng.normal()
+            rows.append({"id": i, "time": base + t, "y": 1.5 * x1 + rng.normal(),
+                         "x1": x1})
+    df = pd.DataFrame(rows)
+    r = sp.panel(df, "y ~ x1", entity="id", time="time", method="fe")
+    out = r.pesaran_cd_test()
+    # Cannot form cross-sectional correlations ⇒ undefined statistic, and the
+    # routine reports why rather than fabricating a number (CLAUDE.md §7).
+    assert np.isnan(out["statistic"])
+    assert out["interpretation"] and ("pairs" in out["interpretation"].lower()
+                                      or "insufficient" in out["interpretation"].lower())
