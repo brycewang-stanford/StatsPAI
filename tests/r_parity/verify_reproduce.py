@@ -66,6 +66,22 @@ REPRO_TOL_OVERRIDE: dict[str, float] = {
     # (compare.py parity tol = 0.20), so 1e-6 is still 5 orders tighter
     # than the parity contract.
     "07_scm": 1e-6,
+    # Cluster- / heteroskedasticity-robust SE family. The point estimates
+    # for these modules reproduce to ~6e-14 (machine precision), but the
+    # sandwich "meat" matrix -- sum over clusters of the residual outer
+    # products (X_g' e_g)(X_g' e_g)' -- accumulates via BLAS GEMM, whose
+    # summation order is not fixed across backends. The golden JSONs were
+    # generated under Apple Accelerate BLAS; CI runs reference/OpenBLAS on
+    # Ubuntu, which reassociates the meat sum and shifts the SE in the last
+    # ~8 significant digits (observed worst rel Δse: 14_ols_cluster 1.1e-8,
+    # 53_cr2 1.2e-8, 55_hc2_hc3 9.8e-10 -- the latter cleared 1e-9 only by
+    # luck). This is floating-point non-associativity, not algorithm drift.
+    # 1e-7 sits ~8x above the observed noise yet stays 1-4 orders tighter
+    # than each module's cross-language parity budget in compare.py
+    # (rel_se: 14_ols_cluster 1e-3; 53_cr2 / 55_hc2_hc3 1e-6).
+    "14_ols_cluster": 1e-7,
+    "53_cr2": 1e-7,
+    "55_hc2_hc3": 1e-7,
 }
 
 
