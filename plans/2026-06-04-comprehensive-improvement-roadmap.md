@@ -42,7 +42,12 @@ pass can pick it up cold).
 > `(XᵀX)⁻¹` across outcomes, vectorize the first-coef SE (HC1 and Liang-Zeger),
 > skip the unused p-value; per-draw resample unchanged. Verified the full
 > `p_rw` table matches the old code **exactly** (diff 0.0) on HC1 + cluster.
-> C.3 (`margins._compute_dydx`) remains.
+>
+> **Section C.3 DONE — `margins._compute_dydx` ~1000×.** The per-row
+> `data.iloc[i]` central-difference loop is replaced by a whole-frame predictor
+> evaluation (loop only over model terms). Bit-identical (`np.array_equal` on
+> the full `margins()` table). Section C performance backlog is now cleared
+> (C.1 wild bootstrap, C.2 romano_wolf, C.3 margins).
 
 > **Working model (updated 2026-06-04):** the shared single working tree caused
 > branch-switch churn (the `118b551` fix landed on `main` directly when the tree

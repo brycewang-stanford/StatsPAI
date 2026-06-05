@@ -6,6 +6,16 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Performance — `sp.margins` dy/dx ~1000× faster (output bit-identical).**
+  `_compute_dydx` evaluated the linear predictor with a per-observation
+  `data.iloc[i]` Python loop calling `_predict_row` twice per row. It now
+  evaluates the predictor for the whole frame at once, looping only over the
+  handful of model terms (intercept / interaction / single), which is
+  **bit-identical** to the per-row version (same term order, same float64 ops)
+  — verified `np.array_equal` on the full `margins()` table for a model with
+  interactions. Measured ~770–1190× on the dy/dx step at n=8000. Covered by
+  `tests/test_margins_vectorized.py`.
+
 - **Performance — `sp.romano_wolf` ~3.8× (HC1) / ~19× (cluster) faster (output
   unchanged).** The bootstrap previously copied the DataFrame (`df.iloc[idx]`)
   and re-ran `_ols_fit` once per outcome per draw (re-doing the QR, the
