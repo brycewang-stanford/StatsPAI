@@ -248,8 +248,54 @@
   {
     "description": "Anderson-Rubin confidence set -- re-export of",
     "input_schema": {
-      "properties": {},
-      "required": [],
+      "properties": {
+        "add_const": {
+          "default": true,
+          "description": "add_const parameter (bool).",
+          "type": "boolean"
+        },
+        "beta_grid": {
+          "description": "Grid of beta values to evaluate.",
+          "type": "string"
+        },
+        "endog": {
+          "description": "endog parameter (Union[np.ndarray, pd.Series, str]).",
+          "type": "string"
+        },
+        "exog": {
+          "description": "exog parameter (Optional[Union[np.ndarray, pd.DataFrame, List[str]]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "instruments": {
+          "description": "instruments parameter (Union[np.ndarray, pd.DataFrame, List[str]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Confidence level or reporting level.",
+          "type": "number"
+        },
+        "n_grid": {
+          "default": 401,
+          "description": "Number of grid.",
+          "type": "integer"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "endog",
+        "instruments",
+        "y"
+      ],
       "type": "object"
     },
     "name": "anderson_rubin_ci"
@@ -1846,8 +1892,72 @@
   {
     "description": "User-friendly alias for :func:`sp.rd2d` (boundary discontinuity design). Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
     "input_schema": {
-      "properties": {},
-      "required": [],
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "approach": {
+          "default": "distance",
+          "description": "approach parameter (str).",
+          "type": "string"
+        },
+        "boundary": {
+          "description": "boundary parameter (Optional[Callable]).",
+          "type": "string"
+        },
+        "bwselect": {
+          "default": "mserd",
+          "description": "bwselect parameter (str).",
+          "type": "string"
+        },
+        "eval_points": {
+          "description": "eval_points parameter (Optional[numpy.ndarray]).",
+          "type": "string"
+        },
+        "h": {
+          "description": "Bandwidth used for local smoothing or kernel weighting.",
+          "type": "number"
+        },
+        "kernel": {
+          "default": "triangular",
+          "description": "Kernel function used for weighting or smoothing.",
+          "type": "string"
+        },
+        "n_eval": {
+          "default": 1,
+          "description": "Number of eval.",
+          "type": "integer"
+        },
+        "p": {
+          "default": 1,
+          "description": "p parameter (int).",
+          "type": "integer"
+        },
+        "treatment": {
+          "description": "Treatment indicator, treatment variable, or treatment array.",
+          "type": "string"
+        },
+        "x1": {
+          "description": "x1 parameter (str).",
+          "type": "string"
+        },
+        "x2": {
+          "description": "x2 parameter (str).",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "treatment",
+        "x1",
+        "x2",
+        "y"
+      ],
       "type": "object"
     },
     "name": "boundary_rd"
@@ -3317,8 +3427,63 @@
   {
     "description": "Moreira (2003) CLR confidence set -- re-export of",
     "input_schema": {
-      "properties": {},
-      "required": [],
+      "properties": {
+        "add_const": {
+          "default": true,
+          "description": "add_const parameter (bool).",
+          "type": "boolean"
+        },
+        "beta_grid": {
+          "description": "Grid of beta values to evaluate.",
+          "type": "string"
+        },
+        "endog": {
+          "description": "endog parameter (Union[np.ndarray, pd.Series, str]).",
+          "type": "string"
+        },
+        "exog": {
+          "description": "exog parameter (Optional[Union[np.ndarray, pd.DataFrame, List[str]]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "instruments": {
+          "description": "instruments parameter (Union[np.ndarray, pd.DataFrame, List[str]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Confidence level or reporting level.",
+          "type": "number"
+        },
+        "n_grid": {
+          "default": 201,
+          "description": "Number of grid.",
+          "type": "integer"
+        },
+        "n_sim": {
+          "default": 5000,
+          "description": "Number of sim.",
+          "type": "integer"
+        },
+        "random_state": {
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "endog",
+        "instruments",
+        "y"
+      ],
       "type": "object"
     },
     "name": "conditional_lr_ci"
@@ -7850,8 +8015,49 @@
   {
     "description": "User-friendly alias for :func:`sp.rdms` (multi-score RD). Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
     "input_schema": {
-      "properties": {},
-      "required": [],
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "bandwidth": {
+          "description": "Bandwidth used for local smoothing or kernel weighting.",
+          "type": "number"
+        },
+        "cutoff1": {
+          "default": 0,
+          "description": "cutoff1 parameter (float).",
+          "type": "number"
+        },
+        "cutoff2": {
+          "default": 0,
+          "description": "cutoff2 parameter (float).",
+          "type": "number"
+        },
+        "kernel": {
+          "default": "triangular",
+          "description": "Kernel function used for weighting or smoothing.",
+          "type": "string"
+        },
+        "x1": {
+          "description": "x1 parameter (str).",
+          "type": "string"
+        },
+        "x2": {
+          "description": "x2 parameter (str).",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x1",
+        "x2",
+        "y"
+      ],
       "type": "object"
     },
     "name": "geographic_rd"
@@ -12151,8 +12357,44 @@
   {
     "description": "User-friendly alias for :func:`sp.rdmc` (multi-cutoff RD). Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
     "input_schema": {
-      "properties": {},
-      "required": [],
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "bandwidth": {
+          "description": "Bandwidth used for local smoothing or kernel weighting.",
+          "type": "number"
+        },
+        "cutoffs": {
+          "description": "cutoffs parameter (List[float]).",
+          "type": "number"
+        },
+        "kernel": {
+          "default": "triangular",
+          "description": "Kernel function used for weighting or smoothing.",
+          "type": "string"
+        },
+        "pooling": {
+          "default": "ivw",
+          "description": "pooling parameter (str).",
+          "type": "string"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cutoffs",
+        "x",
+        "y"
+      ],
       "type": "object"
     },
     "name": "multi_cutoff_rd"
@@ -12228,8 +12470,42 @@
   {
     "description": "User-friendly alias for :func:`sp.rd_multi_score`. Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
     "input_schema": {
-      "properties": {},
-      "required": [],
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "bandwidth": {
+          "description": "Bandwidth used for local smoothing or kernel weighting.",
+          "type": "number"
+        },
+        "cutoffs": {
+          "description": "cutoffs parameter (List[float]).",
+          "type": "number"
+        },
+        "kernel": {
+          "default": "triangular",
+          "description": "Kernel function used for weighting or smoothing.",
+          "type": "string"
+        },
+        "running_vars": {
+          "description": "running_vars parameter (List[str]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cutoffs",
+        "running_vars",
+        "y"
+      ],
       "type": "object"
     },
     "name": "multi_score_rd"

@@ -404,6 +404,12 @@ def prevalence_ratio(*args, **kwargs) -> RR2x2Result:
     )
 
 
+# Expose ``relative_risk``'s signature so ``sp.function_schema`` / inspect
+# derive the real parameters (this ``*args, **kwargs`` alias otherwise yields
+# an empty agent-facing schema).
+setattr(prevalence_ratio, "__wrapped__", relative_risk)
+
+
 # --------------------------------------------------------------------------- #
 #  Risk difference
 # --------------------------------------------------------------------------- #

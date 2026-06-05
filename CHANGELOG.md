@@ -6,6 +6,21 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Agent-native — 8 `*args/**kwargs` alias functions now expose their real
+  parameter schema.** `sp.function_schema(...)` returned an *empty* parameter
+  list for `multi_cutoff_rd`, `geographic_rd`, `boundary_rd`, `multi_score_rd`,
+  `anderson_rubin_ci`, `conditional_lr_ci`, `prevalence_ratio`, and
+  `diagnostic_test` — thin `*args, **kwargs` re-exports gave an agent reading
+  the schema no parameter guidance. Each now sets `__wrapped__` to its target
+  (`rdmc` / `rdms` / `rd2d` / `rd_multi_score` / `iv.weak_iv_ci.*` /
+  `relative_risk` / `sensitivity_specificity`), so `inspect.signature` and
+  `function_schema` derive the **real** parameters (7–14 each) and stay in sync
+  with the target automatically — no hand-duplicated, drift-prone param list.
+  `etable` is intentionally left as-is (it is genuinely variadic: `*results`
+  plus pyfixest pass-through `**kwargs`). The `schemas/` bundle is regenerated
+  accordingly. Verified: 449 registry / schema / agent-schema / example-bind
+  tests pass; behaviour unchanged.
+
 - **Performance — `sp.margins` dy/dx ~1000× faster (output bit-identical).**
   `_compute_dydx` evaluated the linear predictor with a per-observation
   `data.iloc[i]` Python loop calling `_predict_row` twice per row. It now

@@ -161,6 +161,11 @@ def diagnostic_test(*args, **kwargs) -> DiagnosticTestResult:
     return sensitivity_specificity(*args, **kwargs)
 
 
+# Expose the target signature so ``sp.function_schema`` / inspect derive the
+# real parameters instead of an empty schema from ``*args, **kwargs``.
+setattr(diagnostic_test, "__wrapped__", sensitivity_specificity)
+
+
 # --------------------------------------------------------------------------- #
 #  ROC curve + AUC
 # --------------------------------------------------------------------------- #

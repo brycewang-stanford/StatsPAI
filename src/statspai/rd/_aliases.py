@@ -56,3 +56,14 @@ def multi_score_rd(*args, **kwargs):
     that the rules are axis-aligned.
     """
     return rd_multi_score(*args, **kwargs)
+
+
+# Expose each wrapped target's signature so ``inspect.signature`` /
+# ``sp.function_schema`` derive the real parameters: these ``*args, **kwargs``
+# pass-throughs would otherwise hand agents an empty parameter schema.
+# ``__wrapped__`` is what ``inspect.signature`` follows by default, and it
+# stays in sync with the target automatically (no hand-duplicated param list).
+setattr(multi_cutoff_rd, "__wrapped__", rdmc)
+setattr(geographic_rd, "__wrapped__", rdms)
+setattr(boundary_rd, "__wrapped__", rd2d)
+setattr(multi_score_rd, "__wrapped__", rd_multi_score)

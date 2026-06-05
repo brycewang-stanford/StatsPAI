@@ -354,6 +354,22 @@ def conditional_lr_ci(*args, **kwargs):
     return _impl(*args, **kwargs)
 
 
+# Expose the underlying weak-IV CI signatures so ``sp.function_schema`` /
+# inspect derive the real parameters (these ``*args, **kwargs`` re-exports
+# otherwise hand agents an empty schema). ``__wrapped__`` is what
+# ``inspect.signature`` follows; narrow ``ImportError`` guard is an import-order
+# safety net (the underlying module imports lazily inside the wrappers above).
+try:
+    from .iv.weak_iv_ci import (
+        anderson_rubin_ci as _ar_impl,
+        conditional_lr_ci as _clr_impl,
+    )
+    setattr(anderson_rubin_ci, "__wrapped__", _ar_impl)
+    setattr(conditional_lr_ci, "__wrapped__", _clr_impl)
+except ImportError:  # pragma: no cover - import-order safety net
+    pass
+
+
 # ---------------------------------------------------------------------------
 # Lee-McCrary-Moreira-Porter (2022) tF adjustment
 # ---------------------------------------------------------------------------

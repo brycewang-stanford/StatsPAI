@@ -30631,8 +30631,49 @@
       "description": "User-friendly alias for :func:`sp.rdmc` (multi-cutoff RD).",
       "name": "multi_cutoff_rd",
       "parameters": {
-        "properties": {},
-        "required": [],
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "bandwidth": {
+            "description": "Bandwidth used for local smoothing or kernel weighting.",
+            "type": "number"
+          },
+          "cutoffs": {
+            "description": "cutoffs parameter (List[float]).",
+            "type": "number"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "kernel": {
+            "default": "triangular",
+            "description": "Kernel function used for weighting or smoothing.",
+            "type": "string"
+          },
+          "pooling": {
+            "default": "ivw",
+            "description": "pooling parameter (str).",
+            "type": "string"
+          },
+          "x": {
+            "description": "Primary running variable, regressor, or feature input for this estimator.",
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome variable column name or outcome array.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x",
+          "cutoffs"
+        ],
         "type": "object"
       }
     },
@@ -30681,8 +30722,54 @@
       "description": "User-friendly alias for :func:`sp.rdms` (multi-score RD).",
       "name": "geographic_rd",
       "parameters": {
-        "properties": {},
-        "required": [],
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "bandwidth": {
+            "description": "Bandwidth used for local smoothing or kernel weighting.",
+            "type": "number"
+          },
+          "cutoff1": {
+            "default": 0,
+            "description": "cutoff1 parameter (float).",
+            "type": "number"
+          },
+          "cutoff2": {
+            "default": 0,
+            "description": "cutoff2 parameter (float).",
+            "type": "number"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "kernel": {
+            "default": "triangular",
+            "description": "Kernel function used for weighting or smoothing.",
+            "type": "string"
+          },
+          "x1": {
+            "description": "x1 parameter (str).",
+            "type": "string"
+          },
+          "x2": {
+            "description": "x2 parameter (str).",
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome variable column name or outcome array.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x1",
+          "x2"
+        ],
         "type": "object"
       }
     },
@@ -30731,8 +30818,77 @@
       "description": "User-friendly alias for :func:`sp.rd2d` (boundary discontinuity design).",
       "name": "boundary_rd",
       "parameters": {
-        "properties": {},
-        "required": [],
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "approach": {
+            "default": "distance",
+            "description": "approach parameter (str).",
+            "type": "string"
+          },
+          "boundary": {
+            "description": "boundary parameter (Optional[Callable]).",
+            "type": "string"
+          },
+          "bwselect": {
+            "default": "mserd",
+            "description": "bwselect parameter (str).",
+            "type": "string"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "eval_points": {
+            "description": "eval_points parameter (Optional[numpy.ndarray]).",
+            "type": "string"
+          },
+          "h": {
+            "description": "Bandwidth used for local smoothing or kernel weighting.",
+            "type": "number"
+          },
+          "kernel": {
+            "default": "triangular",
+            "description": "Kernel function used for weighting or smoothing.",
+            "type": "string"
+          },
+          "n_eval": {
+            "default": 1,
+            "description": "Number of eval.",
+            "type": "integer"
+          },
+          "p": {
+            "default": 1,
+            "description": "p parameter (int).",
+            "type": "integer"
+          },
+          "treatment": {
+            "description": "Treatment indicator, treatment variable, or treatment array.",
+            "type": "string"
+          },
+          "x1": {
+            "description": "x1 parameter (str).",
+            "type": "string"
+          },
+          "x2": {
+            "description": "x2 parameter (str).",
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome variable column name or outcome array.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x1",
+          "x2",
+          "treatment"
+        ],
         "type": "object"
       }
     },
@@ -30781,8 +30937,47 @@
       "description": "User-friendly alias for :func:`sp.rd_multi_score`.",
       "name": "multi_score_rd",
       "parameters": {
-        "properties": {},
-        "required": [],
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "bandwidth": {
+            "description": "Bandwidth used for local smoothing or kernel weighting.",
+            "type": "number"
+          },
+          "cutoffs": {
+            "description": "cutoffs parameter (List[float]).",
+            "type": "number"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "kernel": {
+            "default": "triangular",
+            "description": "Kernel function used for weighting or smoothing.",
+            "type": "string"
+          },
+          "running_vars": {
+            "description": "running_vars parameter (List[str]).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Outcome variable column name or outcome array.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "running_vars",
+          "cutoffs"
+        ],
         "type": "object"
       }
     },
