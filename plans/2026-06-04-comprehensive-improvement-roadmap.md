@@ -126,8 +126,22 @@ same "pin to reference / equal-output test" treatment used for `conley`.
 > never fabricates (§10). Remaining rollout is one line per class
 > (`class XResult(ExportMixin, ...)`) **after** checking that class's
 > `_export_frame()` is faithful (the per-class check is the whole point — a
-> blanket attach to all 270 classes is *not* safe). Next batch: regression /
-> panel / DID result classes with a clean `params`/`std_errors` pair.
+> blanket attach to all 270 classes is *not* safe).
+>
+> **D.1 CAMPAIGN DONE — 54 of 277 result-like classes now exportable** (up from
+> ~21). Rolled out + verified: 6 timeseries/inference standalones, the
+> `EconometricResults` family (cite for Panel/Frontier/Production/Cox + all
+> regression estimators), GenMatch/CardinalityMatch/ClusterCATE, and a 33-class
+> high-value batch (coef-table: JIVE/FEOLS/SpatialPanel/PeerEffects; epi 2×2
+> measures; DML/IV; MR frontier; +misc). The coef-table builder also learned
+> the `t_stats`/`p_values`/`ci_*` name variants. Guarded by
+> `tests/test_export_rollout.py` (per-class faithfulness + a coverage ratchet
+> ≥50). **Phase 3 (the remaining ~181 scalar-card dataclasses + 42 non-dataclass)
+> is DEFERRED**: they all fail synthetic construction (complex required fields /
+> `__post_init__`), so their export cannot be verified faithful without
+> instantiating each via its real estimator API — and they yield only thin
+> 2-field cards. Not a safe/worthwhile blanket rollout; revisit per-class only
+> when a specific thin-card result is actually wanted in a paper.
 
 1. **[HIGH leverage] Generic `ExportMixin` for result objects.** 244/257
    result classes have `.summary()` but only ~11 have the full export quartet;
