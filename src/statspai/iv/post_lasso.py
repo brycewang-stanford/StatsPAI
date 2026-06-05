@@ -178,7 +178,7 @@ def _lasso_with_loadings(
         max_delta = 0.0
         for j in range(p):
             if psi[j] <= 0 or col_sq[j] <= 0:
-                continue
+                continue  # pragma: no cover
             rj = r + X[:, j] * beta[j]
             rho = X[:, j] @ rj
             thresh = lam * psi[j]

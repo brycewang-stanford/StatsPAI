@@ -243,7 +243,7 @@ def mte(
     sigma1 = float(resid1 @ resid1) / max(len(resid1) - M1.shape[1], 1)
     try:
         var1 = sigma1 * np.linalg.inv(M1.T @ M1)
-    except np.linalg.LinAlgError:
+    except np.linalg.LinAlgError:  # pragma: no cover
         var1 = sigma1 * np.linalg.pinv(M1.T @ M1)
     se1_flat = np.sqrt(np.maximum(np.diag(var1), 0))
 
@@ -255,7 +255,7 @@ def mte(
     sigma0 = float(resid0 @ resid0) / max(len(resid0) - M0.shape[1], 1)
     try:
         var0 = sigma0 * np.linalg.inv(M0.T @ M0)
-    except np.linalg.LinAlgError:
+    except np.linalg.LinAlgError:  # pragma: no cover
         var0 = sigma0 * np.linalg.pinv(M0.T @ M0)
     se0_flat = np.sqrt(np.maximum(np.diag(var0), 0))
 
@@ -310,7 +310,7 @@ def mte(
                     Y[idx], D[idx], Z[idx], X_raw[idx],
                     K, u_grid, propensity_model, trim,
                 )
-            except (ValueError, np.linalg.LinAlgError):
+            except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
                 continue
             boot_mte[b] = pt["mte_curve"]
             boot_ate[b] = pt["ate"]
@@ -397,7 +397,7 @@ def _fit_propensity(D: np.ndarray, Z: np.ndarray, model: str = "logit") -> np.nd
         g = Z.T @ resid
         try:
             step = np.linalg.solve(H + 1e-8 * np.eye(k), g)
-        except np.linalg.LinAlgError:
+        except np.linalg.LinAlgError:  # pragma: no cover
             step = np.linalg.lstsq(H, g, rcond=None)[0]
         beta += step
         if np.linalg.norm(step) < 1e-8:

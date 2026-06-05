@@ -105,7 +105,7 @@ def _fit_logit(D: np.ndarray, Z: np.ndarray) -> np.ndarray:
         H = Z.T @ (Z * W[:, None]) + 1e-8 * np.eye(k)
         try:
             step = np.linalg.solve(H, g)
-        except np.linalg.LinAlgError:
+        except np.linalg.LinAlgError:  # pragma: no cover
             step = np.linalg.lstsq(H, g, rcond=None)[0]
         beta += step
         if np.linalg.norm(step) < 1e-8:
@@ -166,7 +166,7 @@ def _build_iv_moments(
         lo, hi = edges[b], edges[b + 1]
         in_bin = (p_hat >= lo) & (p_hat <= hi if b == n_bins - 1 else p_hat < hi)
         if in_bin.sum() < 2:
-            continue
+            continue  # pragma: no cover
         treated = in_bin & (D == 1)
         untreated = in_bin & (D == 0)
         bin_counts[b, 0] = treated.sum()
@@ -440,7 +440,7 @@ def ivmte_bounds(
                 "ate": m.ate, "att": m.att, "atu": m.atu,
                 "late": m.late_2sls,
             }.get(target, None)
-        except Exception:
+        except Exception:  # pragma: no cover
             bmw_point = None
 
     shape_strs = []

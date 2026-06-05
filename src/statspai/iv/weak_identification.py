@@ -238,7 +238,7 @@ def kleibergen_paap_rk(
     ZtZ = Z_tilde.T @ Z_tilde
     try:
         ZZ_inv = np.linalg.inv(ZtZ)
-    except np.linalg.LinAlgError:
+    except np.linalg.LinAlgError:  # pragma: no cover
         ZZ_inv = np.linalg.pinv(ZtZ)
     Pi = ZZ_inv @ (Z_tilde.T @ D_tilde)  # k x p
     V = D_tilde - Z_tilde @ Pi
@@ -303,12 +303,12 @@ def kleibergen_paap_rk(
     Sigma = (V.T @ V) / n
     try:
         Sigma_half_inv = np.linalg.inv(np.linalg.cholesky(Sigma))
-    except np.linalg.LinAlgError:
+    except np.linalg.LinAlgError:  # pragma: no cover
         Sigma_half_inv = np.linalg.pinv(_sqrtm_sym(Sigma))
     try:
         ZZ_chol = np.linalg.cholesky(Z_tilde.T @ Z_tilde / n)
         Zs = Z_tilde @ np.linalg.inv(ZZ_chol.T)  # orthonormalised instruments
-    except np.linalg.LinAlgError:
+    except np.linalg.LinAlgError:  # pragma: no cover
         Zs = Z_tilde
     Ds = D_tilde @ Sigma_half_inv.T  # whitened endog
     A = Zs.T @ Ds / np.sqrt(n)  # k x p
