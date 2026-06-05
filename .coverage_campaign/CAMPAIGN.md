@@ -73,12 +73,22 @@ Sequencing (cheapest first, big three last): **iv → dml → panel → did → 
 
 | module | start | current | target | status |
 |---|---|---|---|---|
-| iv | 86.7 | — | 95 | 🟡 in progress |
+| iv | 86.7 | 91.8 | 95 | 🟡 in progress — +90 lines left (defensive/error tail) |
 | dml | 75.7 | — | 95 | ⬜ queued |
 | panel | 54.0 | — | 95 | ⬜ queued |
 | did | 74.6 | — | 95 | ⬜ queued |
 | rd | 66.3 | — | 95 | ⬜ queued |
-| synth | 66.0 | — | 95 | ⬜ queued |
+| synth | 66.0 | 🟡 | 95 | 🟡 plots layer started (handoff) |
+
+**Method calibration (from iv):** a module's last ~3–5% is overwhelmingly
+defensive `except`/validation/"unreachable" branches. The eight iv test files
+(86.7→91.8%, +144 reachable lines) covered the happy paths, dispatcher routes,
+exports, summaries, weak-robust sets, JIVE/NPIV/IVMTE/plots and array-input
+forms. The remaining +90 lines are error-handling tails with steep
+diminishing returns — closing them to a *hard* 95% needs either per-branch
+fault-injection tests or `# pragma: no cover` on genuinely-unreachable defensive
+code (the repo already uses this idiom, e.g. `iv/__init__.py:424`,
+`iv/iv_diag.py:340`). **Tail-handling policy is a pending maintainer decision.**
 
 ---
 
@@ -115,7 +125,20 @@ Sequencing (cheapest first, big three last): **iv → dml → panel → did → 
 
 ---
 
-## Acceptance checklist (for the maintainer to verify all results)
+### 2026-06-05 — session 2: iv push 86.7 → 91.8%
+
+Added 8 iv coverage files (94 tests, all green, all committed + pushed to main):
+`test_iv_cov_dispatcher_routes / _diag / _weak_and_jive / _array_inputs /
+_plots / _ivmte_bounds / _edges / _summaries.py`. Measured via the fast union
+method (`scripts/coverage_campaign.py union iv`): baseline 86.7% + 144 reachable
+lines newly covered → 91.8%. Remaining +90 to 95% is the defensive/error tail
+(weak_identification 31, npiv 25, mte 24, __init__ dispatcher-error 21, iv_diag
+fallbacks 19, …) — see tail-handling policy decision above.
+
+Next: (a) maintainer picks tail-handling policy; (b) finish iv tail; (c) move to
+dml (75.7%, next cheapest).
+
+
 
 Run, then confirm each line:
 
