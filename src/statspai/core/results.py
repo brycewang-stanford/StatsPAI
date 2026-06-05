@@ -169,12 +169,22 @@ def _coef_table_from_attrs(obj: Any) -> Optional[pd.DataFrame]:
         if se is not None and len(se) == n:
             cols["std_error"] = se
             break
-    for src, dst in (("tvalues", "statistic"), ("pvalues", "p_value"),
-                     ("conf_int_lower", "conf_low"),
-                     ("conf_int_upper", "conf_high")):
-        a = _as_1d_float(getattr(obj, src, None))
-        if a is not None and len(a) == n:
-            cols[dst] = a
+    # Optional inference columns, accepting the common attribute-name variants
+    # different estimators use (e.g. ``t_stats`` vs ``tvalues``). Only a
+    # conformable, real field is ever used -- nothing is fabricated.
+    aux = (
+        ("statistic", ("tvalues", "t_stats", "tstat", "t_stat", "t_values",
+                       "zvalues", "z_stats", "statistic")),
+        ("p_value", ("pvalues", "p_values", "pvals", "pvalue", "p_value")),
+        ("conf_low", ("conf_int_lower", "ci_lower", "ci_low", "conf_low")),
+        ("conf_high", ("conf_int_upper", "ci_upper", "ci_high", "conf_high")),
+    )
+    for dst, names in aux:
+        for name in names:
+            a = _as_1d_float(getattr(obj, name, None))
+            if a is not None and len(a) == n:
+                cols[dst] = a
+                break
     return pd.DataFrame(cols)
 
 

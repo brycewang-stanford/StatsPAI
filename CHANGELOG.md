@@ -67,6 +67,15 @@ All notable changes to StatsPAI will be documented in this file.
   B=999. Covered by `tests/test_wild_bootstrap_vectorized.py` (vectorized-meat
   == per-cluster-loop identity, determinism, validity).
 
+- **ExportMixin coef-table now recognizes inference-column name variants.**
+  The generic `_export_frame` coefficient table now picks up `t_stats` /
+  `t_stat` / `zvalues` (→ `statistic`), `p_values` / `pvals` (→ `p_value`), and
+  `ci_lower` / `ci_high` (→ `conf_low`/`conf_high`) in addition to the
+  statsmodels-style `tvalues` / `pvalues` / `conf_int_*` names — so e.g.
+  `JIVEResult.to_latex()` now includes the t-statistic and p-value columns it
+  stores under `t_stats` / `p_values`. Only real, length-conformable fields are
+  ever used; nothing is fabricated.
+
 - **ExportMixin rollout — 33 more bespoke result classes gain the export
   quartet.** Following a full survey of the ~277 result-like classes, the
   uniform `to_markdown`/`to_latex`/`to_excel`/`to_word` + non-fabricating
