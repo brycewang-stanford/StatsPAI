@@ -528,20 +528,48 @@ def romano_wolf(
     # Store centred bootstrap |t|-statistics: shape (n_boot, S)
     boot_t_abs = np.empty((n_boot, S))
 
+    # Pre-extract the numpy design once. The regressor matrix (treatment +
+    # controls + intercept) is the *same* for every outcome, so each draw can
+    # index numpy arrays (no per-draw DataFrame copy), share the QR / (X'X)^-1
+    # across outcomes, vectorize the first-coefficient SE, and skip the unused
+    # p-value. This is bit-identical to the per-outcome ``_ols_fit`` path up to
+    # floating-point summation order (~1e-14), and ~3x faster.
+    _, x_full = _build_design(df, y[0], x, controls or None)
+    y_mat = df[list(y)].values.astype(float)
+    k = x_full.shape[1]
+    centre = orig_t  # (S,) original t-stats to subtract
+
     for b in range(n_boot):
         idx = _resample_indices(n, cluster_ids, rng)
-        df_boot = df.iloc[idx].reset_index(drop=True)
-        cluster_boot = df_boot[cluster].values if cluster is not None else None
-
-        for s, outcome in enumerate(y):
-            y_vec, X_mat = _build_design(df_boot, outcome, x, controls or None)
-            try:
-                _, _, t_boot, _ = _ols_fit(y_vec, X_mat, cluster_boot)
-            except np.linalg.LinAlgError:
-                # Singular bootstrap sample -- use 0 (conservative)
-                t_boot = 0.0
-            # Centre: subtract original t-stat, then take absolute value
-            boot_t_abs[b, s] = abs(t_boot - orig_t[s])
+        x_b = x_full[idx]
+        y_b = y_mat[idx]
+        try:
+            q_b, r_b = np.linalg.qr(x_b)
+            beta_b = np.linalg.solve(r_b, q_b.T @ y_b)        # (k, S)
+            bread = np.linalg.inv(x_b.T @ x_b)
+            a = bread[0]                                       # first-coef row
+            resid_b = y_b - x_b @ beta_b                       # (n, S)
+            u = x_b @ a                                         # (n,)
+            if cluster_ids is None:
+                # HC1: Var(beta_0) = (n/(n-k)) * sum_i e_i^2 (X a)_i^2
+                v0 = (n / (n - k)) * ((u ** 2) @ (resid_b ** 2))
+            else:
+                # Cluster (Liang-Zeger): a' meat a = sum_g (sum_{i in g} u_i e_i)^2
+                cb = cluster_ids[idx]
+                uniq = np.unique(cb)
+                g_count = len(uniq)
+                dfc = g_count / (g_count - 1) * (n - 1) / (n - k)
+                pos = np.searchsorted(uniq, cb)
+                ind = np.zeros((n, g_count))
+                ind[np.arange(n), pos] = 1.0
+                cscore = ind.T @ (u[:, None] * resid_b)        # (g_count, S)
+                v0 = dfc * (cscore ** 2).sum(axis=0)
+            t0 = beta_b[0] / np.sqrt(v0)                        # (S,)
+            boot_t_abs[b] = np.abs(t0 - centre)
+        except np.linalg.LinAlgError:
+            # Singular bootstrap design -> 0 for every outcome (conservative),
+            # matching the old per-outcome fallback (X is shared across s).
+            boot_t_abs[b] = np.abs(centre)
 
     # ── Step 3: Romano-Wolf stepdown ───────────────────────────────
     abs_t = np.abs(orig_t)

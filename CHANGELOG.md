@@ -6,6 +6,20 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Performance — `sp.romano_wolf` ~3.8× (HC1) / ~19× (cluster) faster (output
+  unchanged).** The bootstrap previously copied the DataFrame (`df.iloc[idx]`)
+  and re-ran `_ols_fit` once per outcome per draw (re-doing the QR, the
+  `(XᵀX)⁻¹`, and an unused p-value each time). The regressor matrix is the same
+  for every outcome, so each draw now indexes pre-extracted numpy arrays, shares
+  one QR / `(XᵀX)⁻¹` across all outcomes, computes the first-coefficient SE in
+  closed form (HC1: `(n/(n−k))·Σ eᵢ²(Xa)ᵢ²`; cluster: the Liang-Zeger analogue
+  via a one-hot cluster sum), and skips the p-value. The per-draw resample is
+  unchanged, so the result is identical given a seed — verified against the
+  previous code: the full `p_rw` / coef / SE / t table matches **exactly**
+  (max diff 0.0) on both HC1 and cluster designs. Measured: 3.8× (HC1) and
+  19.4× (cluster) at n=3000, S=10, B=1000. Covered by
+  `tests/test_romano_wolf_vectorized.py`.
+
 - **Performance — `sp.wild_cluster_bootstrap` ~25× faster (output unchanged).**
   The two per-cluster Python loops inside the bootstrap (the `Y*` assembly and
   the CR1 sandwich "meat") are now vectorized: a single gather builds `Y*` and

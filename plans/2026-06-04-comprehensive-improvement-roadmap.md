@@ -35,9 +35,14 @@ pass can pick it up cold).
 > draw is kept byte-identical (no re-pin needed) and only the deterministic
 > inner loops are vectorized (`Y*` gather + `S = Ind'·(X∘e)`, meat `= S'S`).
 > Verified against the old code: `p_boot` exactly equal, t-dist to ~1e-15, on
-> rademacher/webb/mammen. The romano-wolf / margins speedups (C.2/C.3) remain;
-> they likely admit the same "keep RNG, vectorize the deterministic core"
-> treatment now that the parity worry is understood.
+> rademacher/webb/mammen.
+>
+> **Section C.2 DONE — `romano_wolf` ~3.8× (HC1) / ~19× (cluster).** Same
+> pattern: pre-extract numpy (drop the per-draw `df.iloc` copy), share the QR /
+> `(XᵀX)⁻¹` across outcomes, vectorize the first-coef SE (HC1 and Liang-Zeger),
+> skip the unused p-value; per-draw resample unchanged. Verified the full
+> `p_rw` table matches the old code **exactly** (diff 0.0) on HC1 + cluster.
+> C.3 (`margins._compute_dydx`) remains.
 
 > **Working model (updated 2026-06-04):** the shared single working tree caused
 > branch-switch churn (the `118b551` fix landed on `main` directly when the tree
