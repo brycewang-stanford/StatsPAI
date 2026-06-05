@@ -12,10 +12,11 @@ from typing import Optional
 
 import numpy as np
 from scipy import stats
+from ..core.results import ExportMixin
 
 
 @dataclass
-class ICCResult:
+class ICCResult(ExportMixin):
     """Container for an ICC estimate with a delta-method Wald CI."""
 
     estimate: float

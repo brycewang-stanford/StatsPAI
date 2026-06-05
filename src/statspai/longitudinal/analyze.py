@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 
 from .regime import Regime, regime as _regime
+from ..core.results import ExportMixin
 
 
 __all__ = [
@@ -33,7 +34,7 @@ __all__ = [
 
 
 @dataclass
-class LongitudinalResult:
+class LongitudinalResult(ExportMixin):
     """Result of a unified longitudinal analysis.
 
     Attributes

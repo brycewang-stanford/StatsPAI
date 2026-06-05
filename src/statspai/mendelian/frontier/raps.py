@@ -45,13 +45,14 @@ from scipy import stats
 from scipy.optimize import minimize
 
 from ._common import as_float_arrays, harmonize_signs
+from ...core.results import ExportMixin
 
 
 __all__ = ["MRRapsResult", "mr_raps"]
 
 
 @dataclass
-class MRRapsResult:
+class MRRapsResult(ExportMixin):
     """Output of :func:`mr_raps`.
 
     Attributes

@@ -39,9 +39,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core.results import ExportMixin
+
 
 @dataclass
-class PeerEffectsResult:
+class PeerEffectsResult(ExportMixin):
     endogenous_peer: float  # beta (mean of neighbors' y)
     contextual_peer: Dict[str, float]  # gamma per covariate
     direct: Dict[str, float]  # delta per covariate

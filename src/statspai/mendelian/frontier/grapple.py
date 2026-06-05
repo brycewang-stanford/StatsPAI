@@ -18,13 +18,14 @@ from scipy import stats
 from scipy.optimize import minimize
 
 from ._common import as_float_arrays, harmonize_signs
+from ...core.results import ExportMixin
 
 
 __all__ = ["GrappleResult", "grapple"]
 
 
 @dataclass
-class GrappleResult:
+class GrappleResult(ExportMixin):
     """Output of :func:`grapple`.
 
     Attributes

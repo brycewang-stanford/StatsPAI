@@ -14,6 +14,7 @@ from typing import Union, List, Optional, TYPE_CHECKING
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
+from ..core.results import ExportMixin
 
 if TYPE_CHECKING:
     from .design import SurveyDesign
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
 # ====================================================================== #
 
 @dataclass
-class SurveyResult:
+class SurveyResult(ExportMixin):
     """Container for survey estimation results."""
 
     estimate: pd.Series

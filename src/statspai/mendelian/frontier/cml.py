@@ -18,13 +18,14 @@ import pandas as pd
 from scipy import stats
 
 from ._common import as_float_arrays, harmonize_signs
+from ...core.results import ExportMixin
 
 
 __all__ = ["MRcMLResult", "mr_cml"]
 
 
 @dataclass
-class MRcMLResult:
+class MRcMLResult(ExportMixin):
     """Output of :func:`mr_cml`.
 
     Attributes

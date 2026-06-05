@@ -19,13 +19,14 @@ import numpy as np
 from scipy import stats
 
 from ._common import as_float_arrays, harmonize_signs, mean_f_statistic
+from ...core.results import ExportMixin
 
 
 __all__ = ["MRLapResult", "mr_lap"]
 
 
 @dataclass
-class MRLapResult:
+class MRLapResult(ExportMixin):
     """Output of :func:`mr_lap`.
 
     Attributes

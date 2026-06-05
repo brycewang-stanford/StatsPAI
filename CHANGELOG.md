@@ -67,6 +67,26 @@ All notable changes to StatsPAI will be documented in this file.
   B=999. Covered by `tests/test_wild_bootstrap_vectorized.py` (vectorized-meat
   == per-cluster-loop identity, determinism, validity).
 
+- **ExportMixin rollout — 33 more bespoke result classes gain the export
+  quartet.** Following a full survey of the ~277 result-like classes, the
+  uniform `to_markdown`/`to_latex`/`to_excel`/`to_word` + non-fabricating
+  `cite` interface is now attached to every *high-value* incomplete class — the
+  coefficient-table results `JIVEResult`, `FEOLSResult`, `SpatialPanelResult`,
+  `PeerEffectsResult`; the epidemiology effect measures `OR2x2Result`,
+  `RR2x2Result`, `RD2x2Result`, `IRRResult`, `NNTResult`, `MantelHaenszelResult`;
+  the DML/IV results `DMLDiagnostics`, `DMLPanelResult`, `DMLSensitivityResult`,
+  `ContinuousLATEResult`, `IVDMLResult`, `ManyWeakIVResult`; the
+  Mendelian-randomization frontier results `GrappleResult`, `MRLapResult`,
+  `MRRapsResult`, `MRcMLResult`, `ModeBasedResult`; and a dozen more across
+  bartik / did / interference / longitudinal / multilevel / proximal /
+  question / robustness / surrogate / survey / target_trial. Each was
+  **verified** (coef-table classes confirmed their `params`/`std_errors` are
+  genuine coefficients; every class synthetically constructed and its export
+  frame checked to be faithful — no flattened matrices). Result-like classes
+  with a working export interface rose from ~21 to **54 of 277**; a coverage
+  ratchet (`tests/test_export_rollout.py`) guards against regression and
+  pins per-class faithfulness.
+
 - **`ExportMixin` — uniform, faithful export quartet for result objects.** A
   new `statspai.core.results.ExportMixin` gives any result class
   `to_markdown` / `to_latex` / `to_excel` / `to_word` plus a non-fabricating

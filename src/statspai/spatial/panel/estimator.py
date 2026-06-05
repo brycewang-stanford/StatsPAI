@@ -31,6 +31,7 @@ from scipy.optimize import minimize_scalar
 
 from ..weights.core import W as _W
 from ..models.ml import _coerce_W
+from ...core.results import ExportMixin
 
 
 EffectKind = Literal["fe", "twoways"]
@@ -71,7 +72,7 @@ def _within_transform(arr: np.ndarray, effects: EffectKind) -> np.ndarray:
 # --------------------------------------------------------------------- #
 
 @dataclass
-class SpatialPanelResult:
+class SpatialPanelResult(ExportMixin):
     params: pd.Series            # [x1, x2, …, ρ or λ]
     std_errors: pd.Series
     model: ModelKind

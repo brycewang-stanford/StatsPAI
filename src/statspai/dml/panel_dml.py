@@ -65,13 +65,14 @@ from typing import Any, List, Optional
 import numpy as np
 import pandas as pd
 from scipy import stats
+from ..core.results import ExportMixin
 
 
 __all__ = ["DMLPanelResult", "dml_panel"]
 
 
 @dataclass
-class DMLPanelResult:
+class DMLPanelResult(ExportMixin):
     """Output of :func:`dml_panel`.
 
     Attributes

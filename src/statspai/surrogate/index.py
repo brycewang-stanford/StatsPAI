@@ -35,6 +35,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ..core.results import ExportMixin
 
 
 __all__ = [
@@ -51,7 +52,7 @@ __all__ = [
 
 
 @dataclass
-class SurrogateResult:
+class SurrogateResult(ExportMixin):
     """Structured container for surrogate-index estimation artefacts."""
 
     estimate: float

@@ -39,10 +39,11 @@ import pandas as pd
 from scipy import stats
 
 from .hdfe import Absorber, absorb_ols
+from ..core.results import ExportMixin
 
 
 @dataclass
-class FEOLSResult:
+class FEOLSResult(ExportMixin):
     """Result of ``sp.feols()``.
 
     Attributes

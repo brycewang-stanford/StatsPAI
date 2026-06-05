@@ -44,10 +44,11 @@ from typing import Optional, Sequence, Dict, Any
 import numpy as np
 import pandas as pd
 from scipy import stats
+from ..core.results import ExportMixin
 
 
 @dataclass
-class ManyWeakIVResult:
+class ManyWeakIVResult(ExportMixin):
     estimator: str
     estimate: float
     se: float

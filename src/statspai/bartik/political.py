@@ -44,6 +44,7 @@ from scipy import stats
 
 from ..core.results import CausalResult, EconometricResults
 from .shift_share import bartik as _bartik_cs
+from ..core.results import ExportMixin
 
 
 __all__ = [
@@ -360,7 +361,7 @@ def shift_share_political(
 
 
 @dataclass
-class ShiftSharePoliticalPanelResult:
+class ShiftSharePoliticalPanelResult(ExportMixin):
     """Structured output of :func:`shift_share_political_panel`.
 
     Attributes

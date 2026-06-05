@@ -9,10 +9,11 @@ import numpy as np
 import pandas as pd
 
 from .protocol import TargetTrialProtocol
+from ..core.results import ExportMixin
 
 
 @dataclass
-class TargetTrialResult:
+class TargetTrialResult(ExportMixin):
     """Result of target trial emulation.
 
     Attributes

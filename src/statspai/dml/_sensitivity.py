@@ -48,10 +48,11 @@ from typing import Optional, Sequence, Dict, Any, Tuple, List
 
 import numpy as np
 import pandas as pd
+from ..core.results import ExportMixin
 
 
 @dataclass
-class DMLSensitivityResult:
+class DMLSensitivityResult(ExportMixin):
     """Output of :func:`dml_sensitivity`.
 
     Attributes

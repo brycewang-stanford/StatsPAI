@@ -31,6 +31,7 @@ from typing import List, Optional
 
 import numpy as np
 from scipy import stats
+from ..core.results import ExportMixin
 
 
 __all__ = [
@@ -49,7 +50,7 @@ __all__ = [
 
 
 @dataclass
-class ModeBasedResult:
+class ModeBasedResult(ExportMixin):
     estimate: float
     se: float
     ci: tuple[float, float]

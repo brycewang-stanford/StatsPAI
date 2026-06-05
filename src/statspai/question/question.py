@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
+from ..core.results import ExportMixin
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -84,7 +85,7 @@ class IdentificationPlan:
 
 
 @dataclass
-class EstimationResult:
+class EstimationResult(ExportMixin):
     """Unified view of a causal-question estimate.
 
     Thin wrapper that preserves the underlying estimator's full result

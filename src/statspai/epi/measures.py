@@ -36,6 +36,8 @@ from typing import Optional
 import numpy as np
 from scipy import stats
 
+from ..core.results import ExportMixin
+
 
 __all__ = [
     "OR2x2Result",
@@ -94,7 +96,7 @@ def _z_crit(alpha: float) -> float:
 
 
 @dataclass
-class OR2x2Result:
+class OR2x2Result(ExportMixin):
     """Result of a 2x2 odds-ratio calculation."""
 
     estimate: float
@@ -119,7 +121,7 @@ class OR2x2Result:
 
 
 @dataclass
-class RR2x2Result:
+class RR2x2Result(ExportMixin):
     """Result of a 2x2 relative-risk (risk-ratio) calculation."""
 
     estimate: float
@@ -142,7 +144,7 @@ class RR2x2Result:
 
 
 @dataclass
-class RD2x2Result:
+class RD2x2Result(ExportMixin):
     """Result of a 2x2 risk-difference calculation."""
 
     estimate: float
@@ -184,7 +186,7 @@ class ARResult:
 
 
 @dataclass
-class IRRResult:
+class IRRResult(ExportMixin):
     """Incidence rate ratio from person-time data."""
 
     estimate: float
@@ -212,7 +214,7 @@ class IRRResult:
 
 
 @dataclass
-class NNTResult:
+class NNTResult(ExportMixin):
     estimate: float
     ci: tuple[float, float]
     risk_difference: float

@@ -27,6 +27,8 @@ from typing import List, Sequence, Union
 import numpy as np
 from scipy import stats
 
+from ..core.results import ExportMixin
+
 
 __all__ = [
     "MantelHaenszelResult",
@@ -36,7 +38,7 @@ __all__ = [
 
 
 @dataclass
-class MantelHaenszelResult:
+class MantelHaenszelResult(ExportMixin):
     estimate: float
     ci: tuple[float, float]
     p_value: float

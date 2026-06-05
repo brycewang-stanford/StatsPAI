@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 
 from ..core.results import CausalResult
+from ..core.results import ExportMixin
 
 
 __all__ = [
@@ -51,7 +52,7 @@ __all__ = [
 
 
 @dataclass
-class HarvestDIDResult:
+class HarvestDIDResult(ExportMixin):
     """Full diagnostic output of :func:`harvest_did`."""
 
     estimate: float

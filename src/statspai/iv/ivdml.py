@@ -15,10 +15,11 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 from scipy import stats
+from ..core.results import ExportMixin
 
 
 @dataclass
-class IVDMLResult:
+class IVDMLResult(ExportMixin):
     """Output of IV × DML."""
     estimate: float
     se: float

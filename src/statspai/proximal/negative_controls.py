@@ -47,10 +47,11 @@ from typing import Optional, Sequence, List, Dict, Any
 import numpy as np
 import pandas as pd
 from scipy import stats
+from ..core.results import ExportMixin
 
 
 @dataclass
-class NegativeControlResult:
+class NegativeControlResult(ExportMixin):
     """Unified result for negative-control procedures."""
 
     method: str

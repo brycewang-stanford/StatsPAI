@@ -39,10 +39,11 @@ from typing import Optional, Sequence, Dict, Any, List
 import numpy as np
 import pandas as pd
 from scipy import stats
+from ..core.results import ExportMixin
 
 
 @dataclass
-class DMLDiagnostics:
+class DMLDiagnostics(ExportMixin):
     """Bundled DML diagnostics returned by :func:`dml_diagnostics`."""
 
     n_obs: int

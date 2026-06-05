@@ -16,10 +16,11 @@ import numpy as np
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 from scipy import stats
+from ..core.results import ExportMixin
 
 
 @dataclass
-class ContinuousLATEResult:
+class ContinuousLATEResult(ExportMixin):
     """Continuous-instrument LATE on the maximal complier class."""
     estimate: float
     se: float

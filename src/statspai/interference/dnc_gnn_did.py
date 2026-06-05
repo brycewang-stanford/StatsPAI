@@ -18,10 +18,11 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 from scipy import stats
+from ..core.results import ExportMixin
 
 
 @dataclass
-class DNCGNNDiDResult:
+class DNCGNNDiDResult(ExportMixin):
     """Output of DNC + GNN + DiD."""
     estimate: float
     se: float

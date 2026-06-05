@@ -31,6 +31,7 @@ from typing import Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 from scipy import stats
+from ..core.results import ExportMixin
 
 
 __all__ = [
@@ -42,7 +43,7 @@ __all__ = [
 
 
 @dataclass
-class FrontierSensitivityResult:
+class FrontierSensitivityResult(ExportMixin):
     """Container for frontier sensitivity analysis."""
     method: str
     estimate: float
