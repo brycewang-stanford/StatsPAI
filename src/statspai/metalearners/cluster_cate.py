@@ -16,9 +16,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core.results import ExportMixin
+
 
 @dataclass
-class ClusterCATEResult:
+class ClusterCATEResult(ExportMixin):
     """Per-cluster CATE table."""
     cluster_table: pd.DataFrame      # cols: cluster, n, cate, se, ci_low, ci_high
     n_clusters: int

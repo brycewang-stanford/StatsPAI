@@ -79,7 +79,10 @@ All notable changes to StatsPAI will be documented in this file.
   `PanelResults`, `FrontierResult`, `ProductionResult`, `CoxResult` (and every
   regression estimator that returns it: `logit` / `poisson` / `nbreg` /
   `truncreg` / `betareg` / …), while their bespoke `to_latex` / `to_markdown` /
-  `to_excel` / `to_word` keep winning via MRO. Adoption is one line
+  `to_excel` / `to_word` keep winning via MRO. Also rolled out to the
+  matching / CATE bespoke results `GenMatchResult`, `CardinalityMatchResult`,
+  and `ClusterCATEResult` (each verified to export a faithful card). Adoption
+  is one line
   (`class XResult(ExportMixin, ...)`) per result class. Covered by
   `tests/test_export_mixin.py` (13 tests: per-shape faithfulness, renderers +
   Excel round-trip, no-fabricate `cite`, subclass-override-wins,

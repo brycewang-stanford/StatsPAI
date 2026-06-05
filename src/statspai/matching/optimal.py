@@ -21,6 +21,8 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
+from ..core.results import ExportMixin
+
 
 @dataclass
 class OptimalMatchResult:
@@ -158,7 +160,7 @@ def optimal_match(
 # --------------------------------------------------------------------- #
 
 @dataclass
-class CardinalityMatchResult:
+class CardinalityMatchResult(ExportMixin):
     treated_matched: np.ndarray       # indices of matched treated
     control_matched: np.ndarray       # indices of matched controls
     ate: float

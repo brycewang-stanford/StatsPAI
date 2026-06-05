@@ -186,3 +186,27 @@ def test_structural_break_result_exports_scalar_card():
     assert "n_breaks" in set(f["field"])
     assert "|" in r.to_markdown()
     assert "tabular" in r.to_latex()
+
+
+def test_matching_and_cate_result_classes_export():
+    """GenMatch / CardinalityMatch / ClusterCATE bespoke results gain exports."""
+    import warnings
+
+    import statspai as sp
+    warnings.filterwarnings("ignore")
+    rng = np.random.default_rng(0)
+    m = 600
+    cs = pd.DataFrame({"x1": rng.normal(0, 1, m), "x2": rng.normal(0, 1, m)})
+    cs["d"] = (rng.random(m) < 0.5).astype(int)
+    cs["y"] = cs["d"] * (1 + cs["x1"]) + cs["x1"] + rng.normal(0, 1, m)
+    results = [
+        sp.genmatch(cs, y="y", treat="d", covariates=["x1", "x2"]),
+        sp.cardinality_match(cs, treatment="d", outcome="y",
+                             covariates=["x1", "x2"]),
+        sp.cluster_cate(cs, y="y", treat="d", covariates=["x1", "x2"]),
+    ]
+    for r in results:
+        assert isinstance(r, ExportMixin)
+        assert "|" in r.to_markdown()
+        assert "tabular" in r.to_latex()
+        assert "No verified citation" in str(r.cite())  # never fabricates
