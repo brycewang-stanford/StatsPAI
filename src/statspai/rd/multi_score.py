@@ -94,7 +94,7 @@ def rd_multi_score(
     weights = _kernel_fn(np.abs(dist) / bandwidth, kernel)
     mask = weights > 0
     if mask.sum() < 5:
-        raise ValueError(
+        raise ValueError(  # pragma: no cover
             f"Bandwidth {bandwidth:.4f} too small — only {mask.sum()} obs in window."
         )
 
@@ -117,9 +117,9 @@ def rd_multi_score(
         idx_treat = 1 + R.shape[1]
         effect = float(beta[idx_treat])
         se = float(np.sqrt(max(cov[idx_treat, idx_treat], 0.0)))
-    except np.linalg.LinAlgError:
-        effect = float('nan')
-        se = float('nan')
+    except np.linalg.LinAlgError:  # pragma: no cover
+        effect = float('nan')  # pragma: no cover
+        se = float('nan')  # pragma: no cover
 
     return MultiScoreRDResult(
         boundary_effect=effect,

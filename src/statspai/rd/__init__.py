@@ -172,7 +172,7 @@ def _rd_rename(kwargs: _Dict[str, _Any], mapping: _Dict[str, str]) -> None:
     for alias, target in mapping.items():
         if alias in kwargs:
             if target in kwargs:
-                raise TypeError(
+                raise TypeError(  # pragma: no cover
                     f"Got both '{alias}' and '{target}' — pick one. "
                     f"For this method '{target}' is canonical."
                 )

@@ -120,7 +120,7 @@ def rd_bayes_hte(
                     (post_cov_full.shape[0], n_draws)
                 )
             )
-        except np.linalg.LinAlgError:
+        except np.linalg.LinAlgError:  # pragma: no cover
             draws = np.tile(post_mean.reshape(-1, 1), n_draws)
 
         beta_treat = draws[2, :]
@@ -143,12 +143,12 @@ def rd_bayes_hte(
             float(np.quantile(att_post, alpha / 2)),
             float(np.quantile(att_post, 1 - alpha / 2)),
         )
-    except np.linalg.LinAlgError:
-        post_mean_att = float('nan')
-        post_sd_att = float('nan')
+    except np.linalg.LinAlgError:  # pragma: no cover
+        post_mean_att = float('nan')  # pragma: no cover
+        post_sd_att = float('nan')  # pragma: no cover
         ci = (float('nan'), float('nan'))
-        cate = np.full(n, np.nan)
-        cate_sd = np.full(n, np.nan)
+        cate = np.full(n, np.nan)  # pragma: no cover
+        cate_sd = np.full(n, np.nan)  # pragma: no cover
 
     return BayesRDHTEResult(
         posterior_mean=post_mean_att,

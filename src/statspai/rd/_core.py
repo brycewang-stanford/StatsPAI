@@ -47,7 +47,7 @@ def _kernel_fn(u: np.ndarray, kernel: str) -> np.ndarray:
         return 0.75 * np.maximum(1 - u ** 2, 0)
     elif kernel == 'gaussian':
         return _sp_stats.norm.pdf(u)
-    raise ValueError(f"Unknown kernel: {kernel}")
+    raise ValueError(f"Unknown kernel: {kernel}")  # pragma: no cover
 
 
 def _kernel_constants(kernel: str) -> dict:

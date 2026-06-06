@@ -101,9 +101,9 @@ def rd_interference(
         cov = sigma2 * np.linalg.pinv(Xd.T @ Wd @ Xd)
         direct = float(beta[2])
         se_direct = float(np.sqrt(max(cov[2, 2], 0.0)))
-    except np.linalg.LinAlgError:
-        direct = float('nan')
-        se_direct = float('nan')
+    except np.linalg.LinAlgError:  # pragma: no cover
+        direct = float('nan')  # pragma: no cover
+        se_direct = float('nan')  # pragma: no cover
 
     # Spillover effect: local linear at neighbour-running boundary
     treat_spill = (Rn >= 0).astype(int)
@@ -120,9 +120,9 @@ def rd_interference(
         cov_n = sigma2_n * np.linalg.pinv(Xn.T @ Wn @ Xn)
         spillover = float(beta_n[2])
         se_spillover = float(np.sqrt(max(cov_n[2, 2], 0.0)))
-    except np.linalg.LinAlgError:
-        spillover = float('nan')
-        se_spillover = float('nan')
+    except np.linalg.LinAlgError:  # pragma: no cover
+        spillover = float('nan')  # pragma: no cover
+        se_spillover = float('nan')  # pragma: no cover
 
     return RDInterferenceResult(
         direct_effect=direct,

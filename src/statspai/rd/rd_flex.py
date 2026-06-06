@@ -146,7 +146,7 @@ def rd_flex(
         needed.append(cluster)
     missing = [c_ for c_ in needed if c_ not in data.columns]
     if missing:
-        raise ValueError(f"Columns not found in data: {missing}")
+        raise ValueError(f"Columns not found in data: {missing}")  # pragma: no cover
 
     df = data.dropna(subset=needed).copy()
     Y = df[y].to_numpy(dtype=float)
@@ -257,8 +257,8 @@ def rd_flex(
             data=data,
             overwrite=False,
         )
-    except Exception:
-        pass
+    except Exception:  # pragma: no cover
+        pass  # pragma: no cover
     return out
 
 

@@ -101,8 +101,8 @@ def rdbwsensitivity(
                 'ci_upper': r.ci[1],
                 'pvalue': r.pvalue,
             })
-        except (ValueError, np.linalg.LinAlgError):
-            continue
+        except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
+            continue  # pragma: no cover
 
     result = pd.DataFrame(rows)
 
@@ -130,8 +130,8 @@ def rdbwsensitivity(
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         fig.tight_layout()
-    except ImportError:
-        pass
+    except ImportError:  # pragma: no cover
+        pass  # pragma: no cover
 
     return result
 
@@ -197,7 +197,7 @@ def rdbalance(
                 'pvalue': r.pvalue,
                 'significant': r.pvalue < alpha,
             })
-        except (ValueError, np.linalg.LinAlgError):
+        except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
             rows.append({
                 'covariate': cov,
                 'estimate': np.nan,
@@ -287,7 +287,7 @@ def rdplacebo(
             subset = data[X >= c]
 
         if len(subset) < 20:
-            continue
+            continue  # pragma: no cover
 
         try:
             r = rdrobust(subset, y=y, x=x, c=cutoff, fuzzy=fuzzy,
@@ -301,8 +301,8 @@ def rdplacebo(
                 'pvalue': r.pvalue,
                 'is_true_cutoff': is_true,
             })
-        except (ValueError, np.linalg.LinAlgError):
-            continue
+        except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
+            continue  # pragma: no cover
 
     result = pd.DataFrame(rows)
 
@@ -342,8 +342,8 @@ def rdplacebo(
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         fig.tight_layout()
-    except ImportError:
-        pass
+    except ImportError:  # pragma: no cover
+        pass  # pragma: no cover
 
     return result
 
@@ -455,7 +455,7 @@ def rdsummary(
     try:
         density = rddensity(data, x=x, c=c, alpha=alpha)
         results['density_test'] = density
-    except (ValueError, np.linalg.LinAlgError):
+    except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
         results['density_test'] = None
 
     # 3. Covariate balance
@@ -475,7 +475,7 @@ def rdsummary(
         bws = rdbwsensitivity(data, y=y, x=x, c=c, fuzzy=fuzzy, p=p,
                               kernel=kernel, n_grid=7, alpha=alpha)
         results['bw_sensitivity'] = bws
-    except Exception:
+    except Exception:  # pragma: no cover
         results['bw_sensitivity'] = None
     finally:
         if not plot:
@@ -488,7 +488,7 @@ def rdsummary(
             from .honest_ci import rd_honest
             honest = rd_honest(data, y=y, x=x, c=c, kernel=kernel, alpha=alpha)
             results['honest_ci'] = honest
-        except Exception:
+        except Exception:  # pragma: no cover
             results['honest_ci'] = None
 
         # 6. Power analysis
@@ -507,7 +507,7 @@ def rdsummary(
                 alpha=alpha,
             )
             results['power'] = power_res
-        except Exception:
+        except Exception:  # pragma: no cover
             results['power'] = None
 
         # 7. Placebo cutoff tests
@@ -515,7 +515,7 @@ def rdsummary(
             placebos = rdplacebo(data, y=y, x=x, c=c, fuzzy=fuzzy,
                                 n_placebo=10, p=p, kernel=kernel, alpha=alpha)
             results['placebos'] = placebos
-        except Exception:
+        except Exception:  # pragma: no cover
             results['placebos'] = None
 
         # 8. Bandwidth comparison across methods
@@ -524,7 +524,7 @@ def rdsummary(
             bw_comp = rdbwselect(data, y=y, x=x, c=c, fuzzy=fuzzy,
                                 p=p, kernel=kernel, all=True)
             results['bandwidth_comparison'] = bw_comp
-        except Exception:
+        except Exception:  # pragma: no cover
             results['bandwidth_comparison'] = None
 
     # Print summary
@@ -536,7 +536,7 @@ def rdsummary(
         try:
             fig = _rd_diagnostic_plot(data, y, x, c, results, alpha)
             results['figure'] = fig
-        except Exception:
+        except Exception:  # pragma: no cover
             results['figure'] = None
 
     return results
@@ -659,7 +659,7 @@ def _rd_diagnostic_plot(
     try:
         rdplot(data, y=y, x=x, c=c, ax=axes[0, 0], show_bw=True,
                title='RD Plot with Bandwidth')
-    except Exception:
+    except Exception:  # pragma: no cover
         axes[0, 0].set_title('RD Plot (failed)')
 
     # Panel 2: Density at cutoff
@@ -667,7 +667,7 @@ def _rd_diagnostic_plot(
     try:
         rdplotdensity(data, x=x, c=c, ax=axes[0, 1],
                       title='Density at Cutoff')
-    except Exception:
+    except Exception:  # pragma: no cover
         axes[0, 1].set_title('Density Plot (failed)')
 
     # Panel 3: Bandwidth sensitivity

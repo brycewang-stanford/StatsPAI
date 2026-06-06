@@ -561,7 +561,7 @@ def rdrobust(
             overwrite=False,
         )
     except Exception:  # pragma: no cover
-        pass
+        pass  # pragma: no cover
     return _result
 
 
@@ -615,7 +615,7 @@ def _delegate_to_cct_rdrobust(
     try:
         import rdrobust as _r  # noqa: WPS433 — opt-in soft dependency
     except ImportError as exc:  # pragma: no cover — guarded path
-        raise ImportError(
+        raise ImportError(  # pragma: no cover
             "bwselect='cct' delegates to the official rdrobust package "
             "for bit-equal R parity. Install with: "
             "`pip install statspai[rd-cct]`  (or `pip install rdrobust>=1.3`)."

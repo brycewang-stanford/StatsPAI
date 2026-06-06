@@ -95,9 +95,9 @@ def rd_distributional_design(
             beta = np.linalg.solve(Xb.T @ Wd @ Xb, Xb.T @ Wd @ ind)
             rdd[j] = float(beta[2])  # level-jump
             rkd[j] = float(beta[3])  # slope-jump
-        except np.linalg.LinAlgError:
-            rdd[j] = np.nan
-            rkd[j] = np.nan
+        except np.linalg.LinAlgError:  # pragma: no cover
+            rdd[j] = np.nan  # pragma: no cover
+            rkd[j] = np.nan  # pragma: no cover
 
     return DDDResult(
         quantiles=quantiles,

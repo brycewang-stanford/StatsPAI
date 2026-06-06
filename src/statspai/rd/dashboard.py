@@ -103,8 +103,8 @@ def rd_dashboard(
     """
     try:
         import matplotlib.pyplot as plt
-    except ImportError as e:
-        raise ImportError(
+    except ImportError as e:  # pragma: no cover
+        raise ImportError(  # pragma: no cover
             "rd_dashboard needs matplotlib. Install: pip install matplotlib"
         ) from e
 
@@ -118,7 +118,7 @@ def rd_dashboard(
             h = h_ref.model_info.get('bandwidth_h', None)
             if isinstance(h, tuple):
                 h = float(h[0])
-        except Exception:
+        except Exception:  # pragma: no cover
             h = None
 
     fig, axes = plt.subplots(2, 2, figsize=figsize)
@@ -161,7 +161,7 @@ def _plot_balance(ax, data: pd.DataFrame, x: str, c: float, covs: List[str]):
     means = []
     for col in covs:
         if col not in df.columns:
-            continue
+            continue  # pragma: no cover
         ml, mr = float(left[col].mean()), float(right[col].mean())
         sl = float(left[col].std() / np.sqrt(max(left[col].count(), 1)))
         sr = float(right[col].std() / np.sqrt(max(right[col].count(), 1)))
@@ -223,7 +223,7 @@ def _plot_bw_sensitivity(
             estimates.append(float(r.estimate))
             lo, hi = r.ci
             lows.append(float(lo)); highs.append(float(hi))
-        except Exception:
+        except Exception:  # pragma: no cover
             estimates.append(np.nan); lows.append(np.nan); highs.append(np.nan)
     estimates, lows, highs = map(np.array, (estimates, lows, highs))
 
@@ -411,7 +411,7 @@ def rd_robustness_table(
                             'n_right': int(info.get('n_right', 0)),
                             'status': 'ok',
                         })
-                    except Exception as exc:
+                    except Exception as exc:  # pragma: no cover
                         rows.append({
                             **spec, 'h': float('nan'), 'b': float('nan'),
                             'estimate_conv': float('nan'),

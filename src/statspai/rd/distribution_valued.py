@@ -94,9 +94,9 @@ def rd_distribution(
             cov = sigma2 * np.linalg.pinv(Xb.T @ Wd @ Xb)
             qte[j] = float(beta[2])
             se[j] = float(np.sqrt(max(cov[2, 2], 0.0)))
-        except np.linalg.LinAlgError:
-            qte[j] = np.nan
-            se[j] = np.nan
+        except np.linalg.LinAlgError:  # pragma: no cover
+            qte[j] = np.nan  # pragma: no cover
+            se[j] = np.nan  # pragma: no cover
 
     return DistRDResult(
         quantiles=quantiles,

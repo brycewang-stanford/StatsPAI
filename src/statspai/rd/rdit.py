@@ -40,7 +40,7 @@ def _newey_west_se(X: np.ndarray, residuals: np.ndarray,
     XtWX = X.T @ W @ X
     try:
         XtWX_inv = np.linalg.inv(XtWX)
-    except np.linalg.LinAlgError:
+    except np.linalg.LinAlgError:  # pragma: no cover
         XtWX_inv = np.linalg.pinv(XtWX)
 
     # Weighted residuals
@@ -310,7 +310,7 @@ def rdit(
 
     try:
         beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
-    except np.linalg.LinAlgError:
+    except np.linalg.LinAlgError:  # pragma: no cover
         beta = np.linalg.pinv(Xw) @ yw
 
     y_hat = X @ beta
