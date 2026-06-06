@@ -82,12 +82,26 @@ def cmd_report(args) -> int:
     print(f"# coverage source: {args.xml}\n")
     print(f"{'module':10}{'cov%':>8}{'covered':>10}{'total':>8}{'+to 95%':>10}{'':>4}")
     print("-" * 50)
+    threshold = getattr(args, "min", None) or TARGET
+    below = []
     for m in CORE_MODULES:
         c, tot = agg[m]
         pct = 100 * c / tot if tot else 0.0
-        need = max(0, int(__import__("math").ceil(TARGET / 100 * tot)) - c)
-        flag = "OK" if pct >= TARGET else ""
-        print(f"{m:10}{pct:8.1f}{c:10}{tot:8}{need:10}{flag:>4}")
+        need = max(0, int(__import__("math").ceil(threshold / 100 * tot)) - c)
+        ok = pct >= threshold
+        if not ok:
+            below.append((m, pct))
+        print(f"{m:10}{pct:8.1f}{c:10}{tot:8}{need:10}{'OK' if ok else 'LOW':>4}")
+
+    if getattr(args, "check", False):
+        if below:
+            print(
+                "\nFAIL: core-module coverage ratchet — below "
+                f"{threshold:.1f}%: "
+                + ", ".join(f"{m} ({p:.1f}%)" for m, p in below)
+            )
+            return 1
+        print(f"\nOK: all {len(CORE_MODULES)} core modules ≥ {threshold:.1f}%")
     return 0
 
 
@@ -214,6 +228,18 @@ def main() -> int:
 
     pr = sub.add_parser("report", help="per-module coverage for the 6 core modules")
     pr.add_argument("--xml", default=_default_xml())
+    pr.add_argument(
+        "--check",
+        action="store_true",
+        help="exit non-zero if any core module is below the threshold "
+        "(CI ratchet against silent coverage regressions)",
+    )
+    pr.add_argument(
+        "--min",
+        type=float,
+        default=None,
+        help=f"coverage threshold for --check (default {TARGET})",
+    )
     pr.set_defaults(func=cmd_report)
 
     pu = sub.add_parser(

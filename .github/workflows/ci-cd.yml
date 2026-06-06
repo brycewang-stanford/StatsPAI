@@ -133,6 +133,16 @@ jobs:
       run: |
         pytest tests/ -v --cov=statspai --cov-report=xml --cov-report=term-missing --cov-fail-under=60
 
+    # Per-module ratchet for the six core estimators (did iv rd synth dml panel).
+    # The repo-wide --cov-fail-under above is a soft floor; this gate locks each
+    # core module at the hard ≥95% the coverage campaign achieved so none can
+    # silently regress. Reuses the coverage.xml just produced. Ratchet the --min
+    # upward only after a higher number is confirmed green here.
+    - name: Core-module coverage ratchet (did/iv/rd/synth/dml/panel ≥ 95%)
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+      run: |
+        python scripts/coverage_campaign.py report --xml coverage.xml --check --min 95
+
     - name: Test with pytest (no coverage)
       if: ${{ !(matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10') }}
       run: |

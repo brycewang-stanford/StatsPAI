@@ -65,6 +65,7 @@ dependencies = [
 dev = [
     "pytest>=6.0",
     "pytest-cov",
+    "pytest-xdist",
     "jsonschema>=4.0",
     "build",
     "black",
