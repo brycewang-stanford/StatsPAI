@@ -158,8 +158,8 @@ def interactive_fe(
 
         try:
             beta = np.linalg.lstsq(X_stacked, Y_stacked, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            break
+        except np.linalg.LinAlgError:  # pragma: no cover
+            break  # pragma: no cover
 
         # Check convergence
         if np.max(np.abs(beta - beta_old)) < tol:

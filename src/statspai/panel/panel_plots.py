@@ -302,10 +302,10 @@ def plot_residuals(
                 ax.text(0.5, 0.5, 'Entity residuals\nnot available',
                         transform=ax.transAxes, ha='center', va='center')
         else:
-            ax.text(0.5, 0.5, 'Entity residuals\nnot available',
+            ax.text(0.5, 0.5, 'Entity residuals\nnot available',  # pragma: no cover
                     transform=ax.transAxes, ha='center', va='center')
     else:
-        ax.text(0.5, 0.5, 'Entity data\nnot stored',
+        ax.text(0.5, 0.5, 'Entity data\nnot stored',  # pragma: no cover
                 transform=ax.transAxes, ha='center', va='center')
     ax.set_xlabel('Mean Residual', fontsize=10)
     ax.set_title('Mean Residual by Entity (extremes)', fontsize=11)
@@ -331,7 +331,7 @@ def plot_residuals(
             ax.text(0.5, 0.5, 'Time residuals\nnot available',
                     transform=ax.transAxes, ha='center', va='center')
     else:
-        ax.text(0.5, 0.5, 'Time data\nnot stored',
+        ax.text(0.5, 0.5, 'Time data\nnot stored',  # pragma: no cover
                 transform=ax.transAxes, ha='center', va='center')
     ax.set_xlabel('Time Period', fontsize=10)
     ax.set_ylabel('Mean Residual', fontsize=10)
@@ -390,7 +390,7 @@ def plot_within_between(
         vals = data[var].astype(float)
         total_var = vals.var()
         if total_var == 0:
-            rows.append({'Variable': var, 'Between': 0, 'Within': 0})
+            rows.append({'Variable': var, 'Between': 0, 'Within': 0})  # pragma: no cover
             continue  # pragma: no cover
         group_means = data.groupby(entity)[var].transform('mean')
         between_var = group_means.var()

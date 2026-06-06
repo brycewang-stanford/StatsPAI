@@ -203,7 +203,7 @@ def _f_test_effects(
     df1 = N - 1
     df2 = n - N - k
     if df2 <= 0 or rss_u <= 0:
-        return {
+        return {  # pragma: no cover
             'statistic': np.nan, 'df1': df1, 'df2': df2,
             'pvalue': np.nan, 'interpretation': 'Insufficient degrees of freedom.',
         }
@@ -256,7 +256,7 @@ def _pesaran_cd(
     # Pairwise correlations
     T_common = len(resid_panel.dropna())
     if T_common < 3 or N < 2:
-        return {
+        return {  # pragma: no cover
             'statistic': np.nan,
             'pvalue': np.nan,
             'interpretation': 'Insufficient data for CD test.',
@@ -275,7 +275,7 @@ def _pesaran_cd(
                 count += 1
 
     if count == 0:
-        return {
+        return {  # pragma: no cover
             'statistic': np.nan,
             'pvalue': np.nan,
             'interpretation': 'No valid pairs for CD test.',

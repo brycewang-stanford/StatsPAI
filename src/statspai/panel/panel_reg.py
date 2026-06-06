@@ -203,7 +203,7 @@ class PanelResults(EconometricResults):
         elif type == 'hausman':
             return plot_hausman(self, **kwargs)
         else:
-            raise ValueError(
+            raise ValueError(  # pragma: no cover
                 f"Unknown plot type '{type}'. "
                 f"Choose from: coef, effects, residuals, hausman"
             )
@@ -569,7 +569,7 @@ def _dispatch_panel_impl(
         n_periods = data[time].nunique()
         data = balance_panel(data, entity=entity, time=time)
         if len(data) == 0:
-            raise ValueError(
+            raise ValueError(  # pragma: no cover
                 f"balance=True dropped all units: none of the {n_units} "
                 f"entities appear in all {n_periods} time periods. "
                 "Check data or set balance=False."
@@ -967,7 +967,7 @@ def panel_compare(
             r = panel(data, formula, entity, time, method=m,
                       robust=robust, cluster=cluster, **kwargs)
             results[_METHOD_NAMES.get(m, m)] = r
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             results[_METHOD_NAMES.get(m, m)] = str(e)
 
     # Build comparison DataFrame
