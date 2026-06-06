@@ -138,7 +138,7 @@ StatsPAI's focus is **causal inference**. The grid below summarizes method-famil
 
 **Legend**: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.
 
-**StatsPAI at a glance**: 1,020 registered functions in the live agent registry · 81 submodules · 269k LOC (core) + 100k LOC (tests). All four numbers are reproducible from the canonical generator (`python scripts/registry_stats.py`); the per-module table in [`docs/stats.md`](docs/stats.md) is regenerated from the same script. For the API-breadth matrix (23 method families) and cross-ecosystem line-count comparison, see [`docs/stats.md`](docs/stats.md).
+**StatsPAI at a glance**: 1,020 registered functions in the live agent registry · 81 submodules · 269k LOC (core) + 114k LOC (tests). All four numbers are reproducible from the canonical generator (`python scripts/registry_stats.py`); the per-module table in [`docs/stats.md`](docs/stats.md) is regenerated from the same script. For the API-breadth matrix (23 method families) and cross-ecosystem line-count comparison, see [`docs/stats.md`](docs/stats.md).
 
 **Validation tiers matter**: `stability="stable"` means the public API is SemVer-stable; it does not by itself mean R/Stata/paper parity. Use `sp.list_functions(validation_status="certified")` for cross-language or published-reference evidence, and inspect `sp.describe_function(name)["limitations"]` before production use. See [`docs/guides/stability.md`](docs/guides/stability.md).
 
