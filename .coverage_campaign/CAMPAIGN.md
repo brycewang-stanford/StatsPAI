@@ -77,7 +77,7 @@ Sequencing (cheapest first, big three last): **iv → dml → panel → did → 
 | dml | 75.7 | **95.6** | 95 | ✅ **DONE** (5 test files, 44 tests; 64 defensive lines pragma'd) |
 | panel | 54.0 | **95.1** | 95 | ✅ **DONE** (8 test files, 114 tests; biggest climb) |
 | did | 74.6 | — | 95 | ⬜ queued |
-| rd | 66.3 | — | 95 | ⬜ queued |
+| rd | 66.3 | **95.6** | 95 | ✅ **DONE** (parallel-agent tests + my 209-line defensive pragma pass) |
 | synth | 66.0 | 🟡 | 95 | 🟡 plots layer started (handoff) |
 
 **Method calibration (from iv):** a module's last ~3–5% is overwhelmingly
