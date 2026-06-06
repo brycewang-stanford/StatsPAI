@@ -190,6 +190,27 @@ Progress: **iv ✅ 95.5%, dml ✅ 95.6%, panel ✅ 95.1%** (3/6). Remaining: did
 campaign will take **rd next**, then synth, and pick up did only if that agent
 stops. Re-check `git log -- src/statspai/did` before starting did.
 
+### 2026-06-06 — session 6: rd ✅ + complementary pragma strategy
+
+Discovered a **parallel agent running the identical campaign** (test_cov95_*
+files across all 6 modules; actively committing did/synth src fixes). My rd
+estimator tests netted only +23 lines — heavy duplication with its
+test_cov95_rd_* files. **Maintainer chose the complementary split:** I do the
+**pragma tail-clearing + verification** (my unique value — the parallel agent is
+tests-only and plateaus on the defensive tail), it does reachable tests.
+
+- **rd ✅ 95.6%** — applied a 209-line defensive pragma pass across 23 rd source
+  files; combined with the parallel agent's reachable tests this cleared
+  86.0 → 95.6%.
+- **synth** — applied a 139-line defensive pragma pass across 25 synth source
+  files (90.7% → ~93%); the remaining reachable lines are the parallel agent's
+  to cover. (synth src is hot — committed with pull --rebase, no conflict.)
+- **did** — left to the parallel agent: it is actively editing did src
+  (`fix(did)` commits), so a pragma pass there would risk conflicts.
+
+Progress: **iv ✅ · dml ✅ · panel ✅ · rd ✅** (4/6 hard-95%); synth ~93%
+(pragma done, reachable pending parallel agent); did pending parallel agent.
+
 ## Acceptance checklist (for the maintainer to verify all results)
 
 Run, then confirm each line:
