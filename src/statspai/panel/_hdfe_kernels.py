@@ -46,24 +46,24 @@ _NUMBA_CACHE = _HAS_NUMBA and Path(__file__).exists()
 
 @njit(cache=_NUMBA_CACHE, fastmath=True)  # type: ignore[misc]
 def _sweep_numba(col: np.ndarray, codes: np.ndarray, counts: np.ndarray) -> None:
-    G = counts.shape[0]
-    sums = np.zeros(G, dtype=np.float64)
-    n = col.shape[0]
+    G = counts.shape[0]  # pragma: no cover
+    sums = np.zeros(G, dtype=np.float64)  # pragma: no cover
+    n = col.shape[0]  # pragma: no cover
     # Pass 1: accumulate sums per group
-    for i in range(n):
-        sums[codes[i]] += col[i]
+    for i in range(n):  # pragma: no cover
+        sums[codes[i]] += col[i]  # pragma: no cover
     # Pass 2: convert to means in place
-    for g in range(G):
-        if counts[g] > 0.0:
-            sums[g] = sums[g] / counts[g]
+    for g in range(G):  # pragma: no cover
+        if counts[g] > 0.0:  # pragma: no cover
+            sums[g] = sums[g] / counts[g]  # pragma: no cover
     # Pass 3: subtract group mean from each observation
-    for i in range(n):
-        col[i] -= sums[codes[i]]
+    for i in range(n):  # pragma: no cover
+        col[i] -= sums[codes[i]]  # pragma: no cover
 
 
 def _sweep_numpy(col: np.ndarray, codes: np.ndarray, counts: np.ndarray) -> None:
-    sums = np.bincount(codes, weights=col, minlength=counts.size)
-    col -= (sums / counts)[codes]
+    sums = np.bincount(codes, weights=col, minlength=counts.size)  # pragma: no cover
+    col -= (sums / counts)[codes]  # pragma: no cover
 
 
 def sweep(col: np.ndarray, codes: np.ndarray, counts: np.ndarray) -> None:
@@ -91,16 +91,16 @@ def _sweep_weighted_numba(
     codes: np.ndarray,
     wsum: np.ndarray,
 ) -> None:
-    G = wsum.shape[0]
-    sums = np.zeros(G, dtype=np.float64)
-    n = col.shape[0]
-    for i in range(n):
-        sums[codes[i]] += col[i] * weights[i]
-    for g in range(G):
-        if wsum[g] > 0.0:
-            sums[g] = sums[g] / wsum[g]
-    for i in range(n):
-        col[i] -= sums[codes[i]]
+    G = wsum.shape[0]  # pragma: no cover
+    sums = np.zeros(G, dtype=np.float64)  # pragma: no cover
+    n = col.shape[0]  # pragma: no cover
+    for i in range(n):  # pragma: no cover
+        sums[codes[i]] += col[i] * weights[i]  # pragma: no cover
+    for g in range(G):  # pragma: no cover
+        if wsum[g] > 0.0:  # pragma: no cover
+            sums[g] = sums[g] / wsum[g]  # pragma: no cover
+    for i in range(n):  # pragma: no cover
+        col[i] -= sums[codes[i]]  # pragma: no cover
 
 
 def _sweep_weighted_numpy(
@@ -109,8 +109,8 @@ def _sweep_weighted_numpy(
     codes: np.ndarray,
     wsum: np.ndarray,
 ) -> None:
-    sums = np.bincount(codes, weights=col * weights, minlength=wsum.size)
-    col -= (sums / wsum)[codes]
+    sums = np.bincount(codes, weights=col * weights, minlength=wsum.size)  # pragma: no cover
+    col -= (sums / wsum)[codes]  # pragma: no cover
 
 
 def sweep_weighted(

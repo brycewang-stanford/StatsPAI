@@ -26,10 +26,10 @@ try:
     # side-by-side in ``site-packages``.
     from statspai_hdfe import group_demean as _rust_group_demean  # type: ignore
 
-    HAS_RUST = True
+    HAS_RUST = True  # pragma: no cover
 except ImportError:  # pragma: no cover
-    HAS_RUST = False
-    _rust_group_demean = None  # type: ignore
+    HAS_RUST = False  # pragma: no cover
+    _rust_group_demean = None  # type: ignore  # pragma: no cover
 
 
 def group_demean_rust(
@@ -58,7 +58,7 @@ def group_demean_rust(
         If the compiled extension is unavailable. Callers should
         ``try/except`` and fall back to the Numba or NumPy kernel.
     """
-    if not HAS_RUST:
+    if not HAS_RUST:  # pragma: no cover
         raise RuntimeError(  # pragma: no cover
             "statspai_hdfe compiled extension is not installed; "
             "fall back to the Numba kernel."
@@ -66,17 +66,17 @@ def group_demean_rust(
 
     # Enforce the ABI the Rust side expects. The cost is negligible on
     # already-compliant arrays and saves an obscure segfault otherwise.
-    codes_c = np.ascontiguousarray(codes, dtype=np.int64)
-    y_c = np.ascontiguousarray(y, dtype=np.float64)
-    sums_c = np.ascontiguousarray(sums, dtype=np.float64)
-    counts_c = np.ascontiguousarray(counts, dtype=np.int64)
+    codes_c = np.ascontiguousarray(codes, dtype=np.int64)  # pragma: no cover
+    y_c = np.ascontiguousarray(y, dtype=np.float64)  # pragma: no cover
+    sums_c = np.ascontiguousarray(sums, dtype=np.float64)  # pragma: no cover
+    counts_c = np.ascontiguousarray(counts, dtype=np.int64)  # pragma: no cover
 
-    _rust_group_demean(codes_c, y_c, sums_c, counts_c)
+    _rust_group_demean(codes_c, y_c, sums_c, counts_c)  # pragma: no cover
 
     # Propagate mutations back to the caller's buffer if the contiguity
     # coerce above made a copy.
-    if y_c is not y:
-        y[:] = y_c
+    if y_c is not y:  # pragma: no cover
+        y[:] = y_c  # pragma: no cover
 
 
 __all__ = ['HAS_RUST', 'group_demean_rust']

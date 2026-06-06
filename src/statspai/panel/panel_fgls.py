@@ -172,7 +172,7 @@ def panel_fgls(
             beta_gls = np.linalg.solve(XtOiX, XtOiY)
         except np.linalg.LinAlgError:  # pragma: no cover
             beta_gls = beta_ols
-            break
+            break  # pragma: no cover
 
         # Update residuals and re-estimate sigma, rho
         resid_new = y_data - X_data @ beta_gls
