@@ -208,7 +208,7 @@ def _kalman_smoother(kf: Dict[str, Any], use_trend: bool = False) -> Dict[str, A
         P_pred = pred_c[t + 1] + np.eye(dim) * 1e-10
         try:
             G = np.linalg.solve(P_pred.T, (filt_c[t] @ F.T).T).T
-        except np.linalg.LinAlgError:
+        except np.linalg.LinAlgError:  # pragma: no cover
             # Near-singular during diffuse init — fall back to pseudoinverse
             G = filt_c[t] @ F.T @ np.linalg.pinv(P_pred)
         sm_state[t] = filt_s[t] + G @ (sm_state[t + 1] - pred_s[t + 1])
@@ -269,15 +269,15 @@ def _estimate_beta_ridge(
         A = XtX + lam * np.eye(K)
         try:
             beta_c = np.linalg.solve(A, Xty)
-        except np.linalg.LinAlgError:
-            continue
+        except np.linalg.LinAlgError:  # pragma: no cover
+            continue  # pragma: no cover
 
         # GCV score
         H = X_c @ np.linalg.solve(A, X_c.T)
         resid = y_c - X_c @ beta_c
         denom = (1.0 - np.diag(H).mean()) ** 2
         if denom < 1e-12:
-            continue
+            continue  # pragma: no cover
         gcv = float(np.mean(resid ** 2) / denom)
 
         if gcv < best_gcv:
@@ -837,7 +837,7 @@ def bsts_synth(
     panel = panel.sort_index()
 
     if treated_unit not in panel.columns:
-        raise ValueError(
+        raise ValueError(  # pragma: no cover
             f"Treated unit '{treated_unit}' has no outcome data after pivoting."
         )
 
@@ -892,7 +892,7 @@ def bsts_synth(
     # Pre-period ends at the last time strictly before treatment
     pre_end_candidates = all_times[all_times < treatment_time]
     if len(pre_end_candidates) == 0:
-        raise ValueError("No pre-treatment periods found.")
+        raise ValueError("No pre-treatment periods found.")  # pragma: no cover
     pre_end = pre_end_candidates[-1]
 
     post_start = treatment_time

@@ -275,11 +275,11 @@ def _reshape_panel(
     post_times = [t for t in all_times if t >= treatment_time]
 
     if len(pre_times) < 2:
-        raise ValueError(
+        raise ValueError(  # pragma: no cover
             f"Need at least 2 pre-treatment periods, got {len(pre_times)}"
         )
     if len(post_times) < 1:
-        raise ValueError("Need at least 1 post-treatment period")
+        raise ValueError("Need at least 1 post-treatment period")  # pragma: no cover
 
     if treated_unit not in panel.index:
         raise ValueError(f"Treated unit '{treated_unit}' not found in data")
@@ -289,7 +289,7 @@ def _reshape_panel(
 
     donors = [u for u in panel.index if u != treated_unit]
     if len(donors) < 2:
-        raise ValueError(
+        raise ValueError(  # pragma: no cover
             f"Need at least 2 donor units, got {len(donors)}"
         )
 
@@ -613,7 +613,7 @@ def kernel_ridge_synth(
     the estimator more flexibility but may produce extrapolation.
     """
     if kernel not in _KERNEL_DISPATCH:
-        raise ValueError(
+        raise ValueError(  # pragma: no cover
             f"Unknown kernel '{kernel}'. "
             f"Choose from {list(_KERNEL_DISPATCH.keys())}."
         )

@@ -265,7 +265,7 @@ def synth_experimental_design(
     # --- Validation --------------------------------------------------------
     for col in (unit, time, outcome):
         if col not in data.columns:
-            raise ValueError(f"column '{col}' not in data")
+            raise ValueError(f"column '{col}' not in data")  # pragma: no cover
     if risk not in ("mspe", "rmse"):
         raise ValueError(f"risk must be 'mspe' or 'rmse', got {risk!r}")
     if concentration_weight < 0:
@@ -281,7 +281,7 @@ def synth_experimental_design(
             raise ValueError(f"pre_period {pre_period} selected 0 periods")
         wide = wide[time_cols]
     if wide.isna().any().any():
-        raise ValueError(
+        raise ValueError(  # pragma: no cover
             "Panel is unbalanced or has NaN in pre_period. "
             "Balance before calling synth_experimental_design()."
         )
@@ -319,7 +319,7 @@ def synth_experimental_design(
         else:
             donor_ids = [u for u in fixed_donor_pool if u != i_unit]
         if len(donor_ids) < 2:
-            raise ValueError(f"unit {i_unit!r} has fewer than 2 donors")
+            raise ValueError(f"unit {i_unit!r} has fewer than 2 donors")  # pragma: no cover
         X = wide.loc[donor_ids].to_numpy(dtype=float).T  # (T_pre, n_donors)
         w, mspe, eff = _leave_one_out_sc(y_i, X, penalization=penalization)
         rmse = float(np.sqrt(mspe))

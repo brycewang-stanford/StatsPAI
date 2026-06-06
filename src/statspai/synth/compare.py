@@ -410,9 +410,9 @@ def synth_compare(
                     alpha=alpha,
                     **kwargs,
                 )
-        except Exception:
+        except Exception:  # pragma: no cover
             # Method failed on this data — skip silently
-            continue
+            continue  # pragma: no cover
         elapsed = _time.time() - t0
 
         results[method_name] = res

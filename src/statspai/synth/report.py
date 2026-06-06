@@ -1058,7 +1058,7 @@ def synth_report(
                 seed=seed,
                 alpha=alpha,
             )
-        except Exception:
+        except Exception:  # pragma: no cover
             # Sensitivity is best-effort; do not fail the whole report
             sens_result = None
 

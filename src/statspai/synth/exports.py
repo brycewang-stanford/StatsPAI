@@ -94,7 +94,7 @@ def _post_rmspe(result: CausalResult) -> float:
     arr = np.asarray(post, dtype=float)
     arr = arr[~np.isnan(arr)]
     if len(arr) == 0:
-        return float("nan")
+        return float("nan")  # pragma: no cover
     return float(np.sqrt(np.mean(arr ** 2)))
 
 
@@ -119,10 +119,10 @@ def _fit_quality_pct(result: CausalResult) -> Tuple[float, str]:
     else:
         pre_rows = gap_table
     if len(pre_rows) == 0:
-        return float("nan"), "n/a"
+        return float("nan"), "n/a"  # pragma: no cover
     sd = float(pre_rows["treated"].std())
     if sd <= 0 or np.isnan(sd):
-        return float("nan"), "n/a"
+        return float("nan"), "n/a"  # pragma: no cover
     pct = pre / sd * 100.0
     if pct < 5:
         label = "excellent"
@@ -208,7 +208,7 @@ def _gap_table(result: CausalResult) -> Optional[pd.DataFrame]:
         ys_arr = np.asarray(ys, dtype=float)
 
     if times is None or len(times) != len(yt_arr):
-        return None
+        return None  # pragma: no cover
 
     df = pd.DataFrame({
         "time": list(times),

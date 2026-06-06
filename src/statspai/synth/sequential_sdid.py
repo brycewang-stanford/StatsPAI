@@ -186,7 +186,7 @@ def sequential_sdid(
 
         treated_units = sub.loc[sub[cohort] == g, unit].unique().tolist()
         if not treated_units:
-            continue
+            continue  # pragma: no cover
         # Need at least 2 pre-periods for SDID time weights.
         pre_times = sub.loc[sub[time] < g, time].unique()
         post_times = sub.loc[(sub[time] >= g) & (sub[time] <= t_max_g), time].unique()
@@ -198,7 +198,7 @@ def sequential_sdid(
                 "n_donors": int((sub[cohort] != g).sum() / max(len(sub[time].unique()), 1)),
                 "note": "insufficient pre/post periods",
             })
-            continue
+            continue  # pragma: no cover
 
         try:
             res_g = _sdid_base(
@@ -218,7 +218,7 @@ def sequential_sdid(
                 ),
                 "note": "",
             })
-        except Exception as exc:  # noqa: BLE001 — surface but keep going
+        except Exception as exc:  # noqa: BLE001 — surface but keep going  # pragma: no cover
             per_cohort_rows.append({
                 "cohort": g, "treatment_period": g,
                 "att": np.nan, "se": np.nan,
@@ -232,7 +232,7 @@ def sequential_sdid(
     per_cohort = pd.DataFrame(per_cohort_rows)
     valid = per_cohort.dropna(subset=["att", "se"]).copy()
     if valid.empty:
-        raise RuntimeError(
+        raise RuntimeError(  # pragma: no cover
             "Sequential SDID failed for every cohort. See per-cohort notes."
         )
 

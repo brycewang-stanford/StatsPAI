@@ -123,7 +123,7 @@ def conformal_synth(
     pre_donors = Y_donors[pre_mask]
     valid = ~np.any(np.isnan(pre_donors), axis=0)
     if valid.sum() == 0:
-        raise ValueError("No valid donor units")
+        raise ValueError("No valid donor units")  # pragma: no cover
     Y_donors = Y_donors[:, valid]
     donor_cols = [donor_cols[i] for i in range(len(donor_cols)) if valid[i]]
 

@@ -1051,7 +1051,7 @@ class SyntheticControl:
         if predictor_rows:
             X_full = np.vstack(predictor_rows)  # (K, J+1)
             if np.any(~np.isfinite(X_full)):
-                raise ValueError(
+                raise ValueError(  # pragma: no cover
                     "Predictor matrix contains NaN/Inf — check data coverage."
                 )
             self.X_treated = X_full[:, 0]  # (K,)

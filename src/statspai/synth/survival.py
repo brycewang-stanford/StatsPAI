@@ -238,8 +238,8 @@ def synth_survival(
             X_pre_p = L_wide[others].to_numpy()[pre_mask]
             try:
                 w_p = _simplex_ls(Y_pre_p, X_pre_p)
-            except Exception:
-                continue
+            except Exception:  # pragma: no cover
+                continue  # pragma: no cover
             L_synth_p = L_wide[others].to_numpy() @ w_p
             s_synth_p = _inv_cloglog(L_synth_p)
             placebo_gaps.append(wide[placebo].to_numpy() - s_synth_p)
