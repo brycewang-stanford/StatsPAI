@@ -59,7 +59,7 @@ def _intersection_codes(cluster_list: List[np.ndarray], idx_subset: Sequence[int
     code tuples are relabelled via ``np.unique(..., axis=0)``. This is
     collision-free for any cluster dtype.
 
-    Correctness fix (v1.16.1): the previous implementation joined the
+    Correctness fix (v1.17.0): the previous implementation joined the
     dimensions into a single string with a ``"\\0"`` separator, but NumPy
     fixed-width unicode strips the embedded NUL, so e.g. ``(1, 23)`` and
     ``(12, 3)`` both collapsed to ``"123"``. That undercounted the

@@ -4,6 +4,8 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.17.0] — 2026-06-06
+
 ### Added
 
 - **Registry-example bind guard (`tests/test_registry_examples_bind.py`).**

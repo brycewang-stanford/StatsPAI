@@ -1435,7 +1435,7 @@ resolves to the latest version):
   author       = {Wang, Biaoyue and Rozelle, Scott},
   title        = {StatsPAI: Validation-Tiered Causal Inference and Econometrics Workflows for Python},
   year         = {2026},
-  version      = {1.16.1},
+  version      = {1.17.0},
   doi          = {10.5281/zenodo.19933900},
   url          = {https://doi.org/10.5281/zenodo.19933900},
   license      = {MIT},

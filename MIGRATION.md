@@ -7,7 +7,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="drdid-traditional-normalisation"></a>
 
-## Unreleased — ⚠️ `sp.drdid(method='trad')` ATT correctness fix
+## 1.17.0 — ⚠️ `sp.drdid(method='trad')` ATT correctness fix
 
 **What changed.** The traditional doubly-robust DiD branch of `sp.drdid`
 (Sant'Anna & Zhao 2020) divided each of its four cell terms — treated/control ×
@@ -41,7 +41,7 @@ with one of those two.
 
 <a id="multiway-cluster-intersection"></a>
 
-## Unreleased — ⚠️ `sp.multiway_cluster_vcov` multiway-cluster SE correctness fix
+## 1.17.0 — ⚠️ `sp.multiway_cluster_vcov` multiway-cluster SE correctness fix
 
 **What changed.** `sp.multiway_cluster_vcov` forms the Cameron-Gelbach-Miller
 (2011) variance by inclusion-exclusion over the clustering dimensions, which
@@ -74,7 +74,7 @@ multiway-cluster SEs with ≥2 dimensions; the corrected SEs now agree with
 
 <a id="structural-break-supf-null"></a>
 
-## Unreleased — ⚠️ `sp.structural_break` sup-F p-value null distribution correctness fix
+## 1.17.0 — ⚠️ `sp.structural_break` sup-F p-value null distribution correctness fix
 
 **What changed.** The sup-F / Chow statistic in `sp.structural_break(...)` is a
 *supremum* of the Chow F statistic over all candidate break points. Under the
@@ -113,7 +113,7 @@ RePEc).
 
 <a id="msm-singleperiod-iptw"></a>
 
-## Unreleased — ⚠️ `sp.stabilized_weights` / `sp.msm` single-period IPTW correctness fix
+## 1.17.0 — ⚠️ `sp.stabilized_weights` / `sp.msm` single-period IPTW correctness fix
 
 **What changed.** On a **single-period (point-treatment) panel**,
 `sp.stabilized_weights(...)` (and therefore `sp.msm(...)`) previously returned
