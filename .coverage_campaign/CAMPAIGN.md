@@ -74,7 +74,7 @@ Sequencing (cheapest first, big three last): **iv → dml → panel → did → 
 | module | start | current | target | status |
 |---|---|---|---|---|
 | iv | 86.7 | **95.5** | 95 | ✅ **DONE** (12 test files, 162 tests; 46 defensive lines pragma'd) |
-| dml | 75.7 | — | 95 | ⬜ queued |
+| dml | 75.7 | **95.6** | 95 | ✅ **DONE** (5 test files, 44 tests; 64 defensive lines pragma'd) |
 | panel | 54.0 | — | 95 | ⬜ queued |
 | did | 74.6 | — | 95 | ⬜ queued |
 | rd | 66.3 | — | 95 | ⬜ queued |
@@ -154,6 +154,20 @@ full-suite ≥ this) — the first core module to clear the bar.
   `test_iv_cov_tail.py::test_dispatch_lasso_formula_is_currently_broken`.
 
 Next: **dml** (75.7%, next cheapest), same playbook.
+
+### 2026-06-05 — session 4: dml ✅ reaches 95.6%
+
+**dml DONE at 95.6%** (75.7→95.6%, union method) — second core module cleared.
+5 new test files (44 tests, green): `test_dml_cov_learners / _diag_sens /
+_scores / _base / _averaging_panel.py`. Covered learner resolution, diagnostics
+(summary+plot), sensitivity (summary+plot), model averaging (weighted + all
+validation errors), panel DML (weighted), PLR/IRM weighted scores, PLIV route,
+sample_weight guards. 64 defensive lines pragma'd (except-fallbacks,
+IdentificationFailure/RuntimeError raises, xgboost-absent returns, nan/inf
+sentinels). Zero numeric change.
+
+Progress: **iv ✅ 95.5%, dml ✅ 95.6%** (2/6). Next: **panel** (54.0%, the lowest
+start — largest single climb).
 
 ## Acceptance checklist (for the maintainer to verify all results)
 
