@@ -261,9 +261,9 @@ python scripts/coverage_campaign.py report --xml .coverage_campaign/verify.xml
 python scripts/coverage_campaign.py report --xml .coverage_campaign/verify.xml --check
 ```
 
-Agent-verified on 2026-06-06 against `.coverage_campaign/verify.xml`
-(8334 passed, 89 skipped, 1 xfailed; xdist whole-package run). Re-run the two
-commands above to independently confirm.
+Agent-verified on 2026-06-06 against `.coverage_campaign/verify_green.xml`
+(**8342 passed, 0 failed, 89 skipped, 1 xfailed**; xdist whole-package run,
+`-m 'not slow'`). Re-run the two commands above to independently confirm.
 
 - [x] iv ≥ 95%   — **98.5%**
 - [x] dml ≥ 95%  — **98.6%**
@@ -271,14 +271,15 @@ commands above to independently confirm.
 - [x] did ≥ 95%  — **95.2%** (5745/6037)
 - [x] rd ≥ 95%   — **95.3%**
 - [x] synth ≥ 95% — **96.8%**
-- [x] `pytest tests/ -q` green **except one pre-existing, non-campaign failure**:
-  `test_jss_formal_compliance.py` pins the JSS install-probe version at
-  `1.16.0`; the 1.17.0 release makes a fresh install report 1.17.0. This is the
-  maintainer's JSS submission version-of-record (editorial) — update the audit's
-  expected version when the paper advances to cite 1.17.0. It is git-ignored /
-  local-only and **skips on CI**. No campaign test fails.
-- [x] `tests/reference_parity/` still passes (it ran inside the verify run; the
-  only failure was the JSS pin above — no parity test moved).
+- [x] `pytest tests/ -q` fully green. (The one prior failure —
+  `test_jss_formal_compliance.py` hardcoding the install-probe version `1.16.0` —
+  was a stale *test* literal: the audit it wraps reads `expected_version` from
+  pyproject and was already PASS at 1.17.0. Fixed to assert the version
+  dynamically from pyproject so a release bump never falsely fails it; the
+  manuscript's 1.16.0 source-snapshot prose is the maintainer's editorial
+  version-of-record and was left untouched. Both JSS guard tests now pass.)
+- [x] `tests/reference_parity/` passes — **122 passed, 1 skipped, 1 xfailed**
+  (explicit run; no parity number moved).
 - [x] no estimator numerics changed — every campaign change is a new `tests/`
   file or test-tooling (`scripts/coverage_campaign.py --check`, CI yaml, this
   tracker). `git diff` over `src/statspai/{did,iv,rd,synth,dml,panel}` shows no
