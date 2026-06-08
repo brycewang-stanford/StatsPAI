@@ -214,3 +214,8 @@ MORNING_REPORT_2026-04-29.md
 # Decomposition coverage campaign working dir (private coverage files ignored; tracker kept)
 .cov_decomp/*
 !.cov_decomp/DECOMP_CAMPAIGN.md
+
+# Tier-D/Tier-B validation campaign working dir (regenerable artifacts ignored; tracker + worklist kept)
+.tierd_campaign/*
+!.tierd_campaign/CAMPAIGN.md
+!.tierd_campaign/worklist.md
