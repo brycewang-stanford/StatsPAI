@@ -343,10 +343,21 @@ def _dispatch(
 
     # ── 4. Lasso family ──────────────────────────────────────────────
     if canon == "lasso":
-        if formula is not None and data is not None:
-            kwargs.setdefault("formula", formula)
-            kwargs.setdefault("data", data)
-        elif data is not None:
+        # ``lasso_iv`` takes native ``x_endog``/``z``/``x_exog`` lists, not a
+        # Patsy-style formula. Accept the dispatcher's canonical
+        # ``endog``/``instruments``/``exog`` aliases, and translate a
+        # ``formula`` into those names here (forwarding ``formula=`` verbatim
+        # would raise ``TypeError: unexpected keyword argument 'formula'``).
+        _rename(kwargs, {"endog": "x_endog", "instruments": "z",
+                         "exog": "x_exog"})
+        if formula is not None and data is not None and "x_endog" not in kwargs:
+            y_, endog_, instruments_, exog_ = _formula_to_parts(formula, data)
+            kwargs.setdefault("y", y_)
+            kwargs["x_endog"] = endog_
+            kwargs["z"] = instruments_
+            if exog_:
+                kwargs.setdefault("x_exog", exog_)
+        if data is not None:
             kwargs.setdefault("data", data)
         return lasso_iv(**kwargs)
     if canon == "post_lasso":
