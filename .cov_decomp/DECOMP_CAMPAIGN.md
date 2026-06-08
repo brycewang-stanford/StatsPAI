@@ -57,3 +57,57 @@ decomposition: **71.6%** (2143/2994), ~851 lines to 95%.
   aggregate; Gelbach exact additivity (total_change == base−full coef,
   sum(delta)==total_change); full rendering surface + every validation branch.
   Residual 4 lines (198, 398-399, 869) are defensive/edge.
+
+### 2026-06-07 — session N: decomposition ✅ 100.00% (track COMPLETE)
+
+Took the track from its prior **91.6%** plateau to **100.00% line coverage**
+(2963/2963) under the authoritative whole-package full-suite run
+(`pytest tests/ -n6 -m 'not slow' --cov=statspai`, 8498 passed / 0 failed /
+1 xfailed). **Every** decomposition source file is now at 100%:
+`_common · _results · causal · cfm · datasets · dfl · dispatcher · ffl ·
+inequality · kitagawa · machado_mata · melly · nonlinear · oaxaca · plots ·
+rif · yu_elwert · __init__`.
+
+**What closed the remaining ~250 uncovered lines:**
+
+- **+155 new real-assertion tests** across five files (no mocking of numerical
+  paths — CLAUDE.md §5/§12):
+  - `test_decomposition_cov_internals2.py` (44) — `_common.py` / `_results.py`:
+    cluster-robust vcov symmetry + within-cluster order-invariance, bootstrap /
+    wild-bootstrap failure-count accounting, weighted quantile / ECDF / KDE
+    edges, Gini/Theil/Atkinson degenerate paths, result-mixin
+    confint/cite/to_excel/to_word/JSON-coercion branches.
+  - `test_decomposition_cov_causal2.py` (29) — `causal.py` / `yu_elwert.py`:
+    gap-closing closed-form identities (`total == nde+nie`, `cde == nde`,
+    disparity == raw group gap), `_gap_closing_core` target-dist branches,
+    validation raises, render/confint/to_latex branches, fault-injected
+    bootstrap-failure parsing.
+  - `test_decomposition_cov_ineq2.py` (35) — `inequality.py` / `kitagawa.py`:
+    every index 0 on an equal distribution, GE(2)=½·CV², Shapley & source
+    components add up, Dagum between+within+overlap=total, Kitagawa
+    rate+composition+interaction=gap, Das Gupta factor effects sum to gap.
+  - `test_decomposition_cov_rif2.py` (22) — `dfl.py` / `ffl.py` / `rif.py`:
+    RIF-of-mean == variable, RIF-of-quantile recovers the sample quantile,
+    numerical RIF-of-Gini recovers Gini, DFL reweighting positivity, FFL
+    adding-up across reference={0,1}.
+  - `test_decomposition_cov_misc2.py` (25) — cfm/machado_mata/melly/nonlinear/
+    plots/oaxaca: `reference=1` wiring with `gap == comp + struct`, min-obs
+    raises, singular-design `lstsq`/`pinv` fallbacks, plot artist-count checks.
+
+- **22 `# pragma: no cover`** on genuinely-defensive branches (comment-only,
+  zero numeric change), each individually re-read and verified unreachable:
+  LinAlgError `solve→lstsq` / `inv→pinv` fallbacks; `mu<=0` guards that are dead
+  because the input is `clip`-ed to `1e-12` first; stratified-bootstrap
+  size-floor guards that can't fire (strata preserve group sizes); bare-except
+  fault-tolerance in bootstrap closures; a post-`raise` dead branch; the
+  matplotlib-absent `ImportError` re-raise and the Gelbach delta-sum mismatch
+  warning.
+
+- **One output-preserving robustness fix** (logged in CHANGELOG):
+  `_kernel_density_at` indexed the length-1 `gaussian_kde(...)(point)` array
+  before `float()` to clear the NumPy 1.25 ndim>0→scalar `DeprecationWarning`
+  (identical value; future-proofs against a hard error).
+
+Quality gates green after the work: flake8 baseline 4404 ≤ 4698, mypy 3229 ≤
+3521, full reference-parity unaffected (no estimator numerics touched). Track
+status: **COMPLETE.**

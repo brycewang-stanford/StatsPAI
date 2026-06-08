@@ -247,6 +247,42 @@ rd/iv/dml/panel were comfortably clear.
 
 Progress: **iv ✅ · dml ✅ · panel ✅ · rd ✅ · synth ✅ · did ✅ — 6/6 hard-95%.**
 
+### 2026-06-07 — session 8: independent re-verification + lasso route fix + decomposition track → 100%
+
+Resumed from a stale handoff (a prior session had stopped at the session-6
+state). Rather than trust the tracker, **re-ran the authoritative full-suite
+measurement from scratch** twice (whole-package, `-n6 -m 'not slow'`) and
+independently confirmed the headline result:
+
+- **Core 6/6 still ≥95%** on a clean run: did 95.2 · iv 98.5 · rd 95.3 ·
+  synth 96.8 · dml 98.6 · panel 98.5. CI ratchet (`coverage_campaign.py
+  report --check`) passes. Suite **8498 passed / 0 failed / 1 xfailed**.
+
+- **Closed the last open campaign bug** — `sp.iv(method='lasso', formula=...)`
+  (flagged in session 3, pinned by an xfail in `test_iv_cov_tail.py`). The
+  dispatcher forwarded `formula=` verbatim into `lasso_iv`, which takes native
+  `x_endog`/`z`/`x_exog` lists → `TypeError`. Now it parses the formula into
+  those names (and accepts `endog`/`instruments`/`exog` aliases); the formula
+  path returns **bit-for-bit identical** estimates to the native path
+  (`atol=0`). The xfail became a passing regression test. CHANGELOG logged.
+  No existing numerics move (native path untouched). This is a dispatcher
+  bugfix, not an estimator change — distinct from the frozen-numerics rule.
+
+- **Decomposition track → 100.00%** (was 91.6%). The one coverage track still
+  short of its 95% goal. +155 real-assertion tests (5 files) + 22 verified
+  defensive pragmas + one output-preserving NumPy-1.25 deprecation fix in
+  `rif._kernel_density_at`. Every decomposition source file now 100%. Details
+  in `.cov_decomp/DECOMP_CAMPAIGN.md` session N.
+
+- **Flagged, deliberately untouched:** `sp.wooldridge_did` carries a
+  pre-existing ~22% parity divergence vs R `etwfe` (`xfail(strict=False)`,
+  flagged for v1.11 in `tests/reference_parity/test_did_variants_parity.py`).
+  That is an **estimator-numerics** change — the CLAUDE.md §12 red line under
+  JOSS review #10604 — so it stays untouched pending explicit maintainer
+  sign-off. Not a coverage-campaign item.
+
+Quality gates green: flake8 baseline 4404 ≤ 4698, mypy 3229 ≤ 3521.
+
 ## Acceptance checklist (for the maintainer to verify all results)
 
 Run, then confirm each line:
