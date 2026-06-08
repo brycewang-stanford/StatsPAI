@@ -4,6 +4,22 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`sp.iv(method='lasso', formula=...)` raised `TypeError` instead of
+  fitting.** The IV dispatcher forwarded `formula=` verbatim into
+  `lasso_iv`, which takes native `x_endog`/`z`/`x_exog` lists and does not
+  accept a `formula` argument, so the Patsy-style formula route
+  (`sp.iv(method='lasso', formula="y ~ (d ~ z1 + z2) + x", data=df)`) failed
+  with `lasso_iv() got an unexpected keyword argument 'formula'`. The
+  dispatcher now parses the formula into `lasso_iv`'s native parameter names
+  (and accepts the canonical `endog`/`instruments`/`exog` aliases), so the
+  formula path returns the **same** estimates as the explicit
+  `x_endog=[...]`, `z=[...]` calling convention — verified bit-for-bit
+  (`atol=0`) in `tests/test_iv_cov_tail.py::test_dispatch_lasso_formula_matches_native`.
+  No existing numerics move: the native `lasso_iv` path is unchanged; this only
+  turns a previously-erroring route into a working one.
+
 ## [1.17.0] — 2026-06-06
 
 ### Added
