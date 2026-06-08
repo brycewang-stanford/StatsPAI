@@ -160,6 +160,10 @@ def _ols_fit(
     Q, R = np.linalg.qr(X)
     beta = np.linalg.solve(R, Q.T @ y)
     resid = y - X @ beta
+    # Sandwich bread (X'X)^{-1} = R^{-1} R^{-ᵀ} from the same QR factor — avoids
+    # the extra inv(X'X) (which squares cond(X)); identical on well-conditioned X.
+    R_inv = np.linalg.solve(R, np.eye(k))
+    XtX_inv = R_inv @ R_inv.T
 
     if cluster_ids is not None:
         # Cluster-robust (Liang-Zeger) variance
@@ -172,14 +176,14 @@ def _ols_fit(
             s = Xg_e.sum(axis=0, keepdims=True)  # (1, k)
             meat += s.T @ s
         dfc = G / (G - 1) * (n - 1) / (n - k)
-        bread = np.linalg.inv(X.T @ X)
+        bread = XtX_inv
         V = dfc * bread @ meat @ bread
     else:
         # HC1 robust variance
         leverage_factor = n / (n - k)
         e2 = resid ** 2
         XtDX = (X.T * e2) @ X
-        bread = np.linalg.inv(X.T @ X)
+        bread = XtX_inv
         V = leverage_factor * bread @ XtDX @ bread
 
     se = np.sqrt(np.diag(V))

@@ -38,6 +38,15 @@ All notable changes to StatsPAI will be documented in this file.
   F-statistic is now reported as `inf` (matching the NIST-certified
   "Infinity") with `f_pvalue = 0.0`, computed without tripping the warning. The
   reported value is unchanged for every non-exact fit.
+- **Auxiliary OLS in `sp.did(method='wooldridge')` and the Romano–Wolf step-down
+  (`sp.romano_wolf`) hardened to the same QR solve.** Both carried private
+  `_ols_fit` helpers that still formed `inv(X'X)` — Wooldridge for both the
+  coefficients and the cluster/HC1 sandwich bread, Romano–Wolf for the bread
+  only (its coefficients were already QR). They now reuse the QR factor
+  (`(X'X)⁻¹ = R⁻¹R⁻ᵀ`). Output is **bit-identical to ~1e-15 on well-conditioned
+  designs** (verified directly, and the Callaway–Sant'Anna R-parity pin plus the
+  MHT suites are unchanged); the change only adds headroom on near-collinear
+  designs (e.g. saturated group×period dummies). No API change.
 
 ### Fixed
 

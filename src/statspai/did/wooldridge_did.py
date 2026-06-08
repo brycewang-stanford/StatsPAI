@@ -57,12 +57,19 @@ def _ols_fit(
     Returns (beta, se, vcov).
     """
     n, k = X.shape
+    # QR solve (X = QR): beta = R^{-1} Q'y and (X'X)^{-1} = R^{-1} R^{-ᵀ}.
+    # Avoids squaring cond(X) the way forming inv(X'X) does — same numerical
+    # hardening as the core OLS kernel (cf. NIST StRD certification under
+    # tests/numerical_accuracy/). Well-conditioned DiD designs are unchanged
+    # to ~1e-12; ill-conditioned (many group×period dummies) gain accuracy.
     try:
-        XtX_inv = np.linalg.inv(X.T @ X)
+        Q, R = np.linalg.qr(X)
+        R_inv = np.linalg.solve(R, np.eye(k))
+        XtX_inv = R_inv @ R_inv.T
+        beta = R_inv @ (Q.T @ y)
     except np.linalg.LinAlgError:
         XtX_inv = np.linalg.pinv(X.T @ X)
-
-    beta = XtX_inv @ (X.T @ y)
+        beta = XtX_inv @ (X.T @ y)
     resid = y - X @ beta
 
     if cluster is not None:
