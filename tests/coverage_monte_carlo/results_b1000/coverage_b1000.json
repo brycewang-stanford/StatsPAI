@@ -47,5 +47,19 @@
     "covered": 977,
     "rate": 0.977,
     "wall_s": 1404.3
+  },
+  {
+    "name": "sp.panel two-way FE",
+    "B": 1000,
+    "covered": 948,
+    "rate": 0.948,
+    "wall_s": 8.3
+  },
+  {
+    "name": "sp.sdid placebo (1 treated)",
+    "B": 1000,
+    "covered": 939,
+    "rate": 0.939,
+    "wall_s": 6289.6
   }
 ]
