@@ -114,11 +114,16 @@ def event_study(
     df["__time__"] = df[time]
     df["__unit__"] = df[unit]
 
-    # Convert time to numeric if needed
-    if not np.issubdtype(df["__time__"].dtype, np.number):
+    # Convert time to numeric if needed. Use ``pd.api.types.is_numeric_dtype``
+    # (not ``np.issubdtype(... .dtype, np.number)``) so pandas extension dtypes
+    # are handled: under pandas>=3.0 a string column is a ``StringDtype``, which
+    # ``np.issubdtype`` cannot interpret (raises ``TypeError``). The truth value
+    # is identical to the old check for every numpy numeric dtype, so this only
+    # fixes the string/extension path — no numeric behaviour changes.
+    if not pd.api.types.is_numeric_dtype(df["__time__"]):
         time_map = {t: i for i, t in enumerate(sorted(df["__time__"].unique()))}
         df["__time_num__"] = df["__time__"].map(time_map)
-        if not np.issubdtype(df["__treat_time__"].dtype, np.number):
+        if not pd.api.types.is_numeric_dtype(df["__treat_time__"]):
             df["__treat_time_num__"] = df["__treat_time__"].map(time_map)
         else:
             df["__treat_time_num__"] = df["__treat_time__"]

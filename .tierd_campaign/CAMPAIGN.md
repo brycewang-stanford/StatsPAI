@@ -248,3 +248,26 @@ noisy/forest-dependent — anchored on β₁ + null structure instead.
 1 (`blp`) blocked by the reported bug. Classifier: P1 25 → 1.
 - **Next:** P2 — 222 weak-assert estimators needing known-truth anchors,
   highest-value families first (causal, decomposition, panel, regression).
+
+### 2026-06-09 — session: blp fix + P2 kickoff
+- **blp ⚠️ functionality fix landed.** Root cause: `_gmm_objective(..., maxiter=)`
+  vs param `maxiter_inner` → `TypeError` on every `sp.blp` path (produced no
+  output). Fixed blp.py:853,894; `TestBLPAnalytic` recovers price=-1.5, x1=1.0;
+  logged CHANGELOG (Unreleased, ⚠️ Functionality fix) + MIGRATION (#blp-maxiter-fix);
+  bug report marked RESOLVED. No previously-correct number moved (it crashed).
+- **P1 floor confirmed = 0** (all 25 reference-less estimators anchored).
+- **P2 started (causal/regression/diagnostics):**
+  - `test_tierD_p2_bounds_sensitivity_analytic.py` (14): `evalue_rr`
+    (VanderWeele-Ding E = RR+sqrt(RR(RR-1)) exact + CI bound + symmetry),
+    `manski_bounds` (no-assumption width == outcome range exactly + brackets
+    true ATE), `lee_bounds` (trimming bounds bracket selected-sample effect,
+    midpoint→true, differential selection widens).
+  - `test_tierD_p2_regression_system_analytic.py` (6): `vif` (1/(1-R²) exact +
+    orthogonal→1), `sureg` (Kruskal: identical regressors == OLS + recovery),
+    `jive` (jive1/jive2 recover known IV coef).
+- **P2 worklist: 223 → 217** (6 anchored). 20 new tests, all green + lint clean.
+- **Note (cosmetic):** `mice.py:109` emits a divide-by-zero RuntimeWarning on the
+  fmi=0 (no-missingness) degenerate path; estimate is correct. Candidate for a
+  guarded `r==0` short-circuit later (not a correctness bug).
+- **Next:** continue P2 — dag(10), spatial(9), conformal_causal(7),
+  decomposition(7) families; then LaLonde stale-pin guard.

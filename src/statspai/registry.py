@@ -674,9 +674,11 @@ def _build_registry():
             category="regression",
             description="Quantile regression at specified quantile(s).",
             params=[
-                ParamSpec("formula", "str", True, description="'y ~ x1 + x2'"),
                 ParamSpec("data", "DataFrame", True),
-                ParamSpec("q", "float", False, 0.5, "Quantile (0-1)"),
+                ParamSpec("formula", "str", False, None, "'y ~ x1 + x2' (alternative to y/x)"),
+                ParamSpec("y", "str", False, None, "Outcome column (alternative to formula)"),
+                ParamSpec("x", "list", False, None, "Regressor columns (alternative to formula)"),
+                ParamSpec("quantile", "float", False, 0.5, "Quantile (0-1)"),
             ],
             returns="EconometricResults",
             example='sp.qreg(df, "wage ~ education", quantile=0.9)',
@@ -1760,13 +1762,13 @@ def _build_registry():
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True),
-                ParamSpec("treatment", "str", True),
+                ParamSpec("treat", "str", True, description="Binary treatment column (0/1)"),
                 ParamSpec("covariates", "list", True),
                 ParamSpec(
-                    "method",
+                    "learner",
                     "str",
                     False,
-                    "t",
+                    "dr",
                     "Learner type",
                     ["s", "t", "x", "r", "dr"],
                 ),
@@ -1893,8 +1895,9 @@ def _build_registry():
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True),
-                ParamSpec("treatment", "str", True),
+                ParamSpec("treat", "str", True, description="Binary treatment column (0/1)"),
                 ParamSpec("covariates", "list", True),
+                ParamSpec("estimand", "str", False, "ATE", "Target estimand"),
             ],
             returns="TMLE result",
             example='sp.tmle(df, y="outcome", treat="treat", covariates=["x1","x2","x3"])',
@@ -2074,7 +2077,8 @@ def _build_registry():
             description="Bayesian structural time series for causal impact analysis.",
             params=[
                 ParamSpec("data", "DataFrame", True),
-                ParamSpec("outcome", "str", True),
+                ParamSpec("y", "str", True, description="Outcome time-series column"),
+                ParamSpec("time", "str", True, description="Time / date column"),
                 ParamSpec(
                     "intervention_time",
                     "str",
@@ -2083,7 +2087,7 @@ def _build_registry():
                 ),
             ],
             returns="CausalImpactEstimator result",
-            example='sp.causal_impact(df, y="sales", intervention_time="2020-03-15")',
+            example='sp.causal_impact(df, y="sales", time="date", intervention_time="2020-03-15")',
             tags=["timeseries", "bayesian", "impact", "intervention"],
             reference="Brodersen et al. (2015)",
         )
@@ -2552,17 +2556,21 @@ def _build_registry():
             category="diagnostics",
             description="Sensitivity analysis for omitted variable bias (Cinelli & Hazlett 2020).",
             params=[
-                ParamSpec("result", "EconometricResults", True),
-                ParamSpec("treatment", "str", True),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Outcome column"),
+                ParamSpec("treat", "str", True, description="Treatment column of interest"),
+                ParamSpec("controls", "list", True, description="Observed control variables"),
                 ParamSpec(
-                    "benchmark_covariates",
+                    "benchmark",
                     "list",
                     False,
-                    description="Covariates for benchmarking",
+                    None,
+                    "Covariates to benchmark confounding strength against",
                 ),
+                ParamSpec("alpha", "float", False, 0.05),
             ],
             returns="Sensitivity analysis result",
-            example='sp.sensemakr(result, treat="education", benchmark=["experience"])',
+            example='sp.sensemakr(df, y="wage", treat="education", controls=["experience"], benchmark=["experience"])',
             tags=["sensitivity", "omitted-variable", "robustness"],
             reference="Cinelli & Hazlett (2020)",
         )
@@ -2576,12 +2584,13 @@ def _build_registry():
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True),
-                ParamSpec("treatment", "str", True),
+                ParamSpec("x", "str", True, description="Treatment / focal regressor"),
                 ParamSpec(
                     "controls",
                     "list",
-                    True,
-                    description="All potential control variables",
+                    False,
+                    None,
+                    "Candidate control sets to sweep",
                 ),
             ],
             returns="SpecCurveResult",
@@ -3241,7 +3250,7 @@ def _build_registry():
                 ParamSpec(
                     "covariates", "list", False, description="Pre-treatment confounders"
                 ),
-                ParamSpec("n_sim", "int", False, 1000, "Monte Carlo sims for NDE/NIE"),
+                ParamSpec("n_boot", "int", False, 1000, "Bootstrap reps for NDE/NIE CIs"),
                 ParamSpec("alpha", "float", False, 0.05),
             ],
             returns="MediationAnalysis with .NDE, .NIE, .total, .proportion_mediated",
@@ -3305,6 +3314,12 @@ def _build_registry():
                     "y", "str", True, description="Outcome (e.g. local wage growth)"
                 ),
                 ParamSpec(
+                    "endog",
+                    "str",
+                    True,
+                    description="Endogenous local exposure being instrumented (e.g. employment growth)",
+                ),
+                ParamSpec(
                     "shares",
                     "str",
                     True,
@@ -3316,8 +3331,6 @@ def _build_registry():
                     True,
                     description="Shock column (e.g. industry-level change)",
                 ),
-                ParamSpec("unit", "str", True, description="Region / unit identifier"),
-                ParamSpec("time", "str", False, description="Time column (panel)"),
                 ParamSpec("covariates", "list", False),
             ],
             returns="BartikIV result",
@@ -3382,16 +3395,9 @@ def _build_registry():
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True),
-                ParamSpec("x", "str", True, description="Running variable"),
-                ParamSpec("c", "float", False, 0.0, "Cutoff value"),
-                ParamSpec("p", "int", False, 1, "Polynomial order"),
-                ParamSpec(
-                    "kernel",
-                    "str",
-                    False,
-                    "triangular",
-                    enum=["triangular", "epanechnikov", "uniform"],
-                ),
+                ParamSpec("running", "str", True, description="Running variable"),
+                ParamSpec("cutoff", "float", False, 0.0, "Cutoff value"),
+                ParamSpec("poly", "int", False, 1, "Polynomial order"),
                 ParamSpec("draws", "int", False, 2000),
                 ParamSpec("tune", "int", False, 1000),
                 ParamSpec("chains", "int", False, 4),
@@ -3444,11 +3450,11 @@ def _build_registry():
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True),
                 ParamSpec(
-                    "treatment", "str", True, description="Take-up / treatment received"
+                    "treat", "str", True, description="Take-up / treatment received"
                 ),
-                ParamSpec("x", "str", True, description="Running variable"),
-                ParamSpec("c", "float", False, 0.0, "Cutoff"),
-                ParamSpec("p", "int", False, 1, "Polynomial order"),
+                ParamSpec("running", "str", True, description="Running variable"),
+                ParamSpec("cutoff", "float", False, 0.0, "Cutoff"),
+                ParamSpec("poly", "int", False, 1, "Polynomial order"),
                 ParamSpec("draws", "int", False, 2000),
                 ParamSpec("tune", "int", False, 1000),
                 ParamSpec("chains", "int", False, 4),
@@ -3501,13 +3507,12 @@ def _build_registry():
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True),
-                ParamSpec("treatment", "str", True, description="Binary treatment"),
+                ParamSpec("treat", "str", True, description="Binary treatment"),
                 ParamSpec("instrument", "str", True, description="Instrument(s)"),
                 ParamSpec("covariates", "list", False),
                 ParamSpec("draws", "int", False, 2000),
                 ParamSpec("tune", "int", False, 1000),
                 ParamSpec("chains", "int", False, 4),
-                ParamSpec("n_grid", "int", False, 20, "Grid points for MTE curve"),
             ],
             returns="CausalResult with .mte_grid, .posterior, .rhat, .divergences",
             example='sp.bayes_mte(df, y="y", treat="d", instrument="z")',
@@ -3769,7 +3774,13 @@ def _build_registry():
                 "Switch-DR, DM). Reports value, SE, CI, importance-ratio "
                 "diagnostics."
             ),
-            params=[],
+            params=[
+                ParamSpec("method", "str", True, description="OPE estimator name (ips, snips, dr, switch_dr, dm)"),
+                ParamSpec("value", "float", True, description="Estimated policy value"),
+                ParamSpec("se", "float", True, description="Standard error of the value estimate"),
+                ParamSpec("ci", "tuple", True, description="Confidence interval (lo, hi)"),
+                ParamSpec("diagnostics", "dict", True, description="Importance-ratio diagnostics"),
+            ],
             returns="OPEResult",
             tags=["ope", "contextual_bandits", "rl"],
             reference="Dudik, Langford & Li (2011); Swaminathan & Joachims (2015)",
@@ -5093,13 +5104,32 @@ def _build_registry():
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True, description="Outcome"),
                 ParamSpec(
-                    "g",
+                    "treat",
                     "str",
                     True,
-                    description="First-treatment-period column (0 = never-treated)",
+                    description="Treatment-group indicator (1 = ever-treated)",
                 ),
-                ParamSpec("t", "str", True, description="Time period column"),
-                ParamSpec("i", "str", True, description="Unit identifier"),
+                ParamSpec(
+                    "post",
+                    "str",
+                    True,
+                    description="Post-treatment indicator (1 = post-period)",
+                ),
+                ParamSpec(
+                    "unit",
+                    "str",
+                    False,
+                    None,
+                    "Unit identifier (enables unit random effects)",
+                ),
+                ParamSpec("time", "str", False, None, "Time period column"),
+                ParamSpec(
+                    "cohort",
+                    "str",
+                    False,
+                    None,
+                    "First-treatment-period column for staggered adoption",
+                ),
                 ParamSpec("draws", "int", False, 2000, "Post-warmup draws per chain"),
                 ParamSpec("tune", "int", False, 1000, "Warmup draws per chain"),
                 ParamSpec("chains", "int", False, 4, "Number of parallel chains"),
@@ -5169,7 +5199,7 @@ def _build_registry():
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True, description="Outcome"),
-                ParamSpec("treatment", "str", True, description="Endogenous treatment"),
+                ParamSpec("treat", "str", True, description="Endogenous treatment"),
                 ParamSpec(
                     "instrument", "str", True, description="Instrument(s) — str or list"
                 ),
@@ -5837,9 +5867,9 @@ def _build_registry():
                     "weight_rule",
                     "str",
                     False,
-                    "inverse_risk",
+                    "short_stacking",
                     "Weighting of candidate estimators",
-                    ["inverse_risk", "equal", "single_best"],
+                    ["short_stacking", "single_best", "inverse_risk", "equal"],
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
             ],
@@ -6061,7 +6091,7 @@ def _build_registry():
                     "boot_methods",
                     "tuple[str]",
                     False,
-                    "('pairs',)",
+                    ["pairs"],
                     description="Subset of {'pairs','wild'}",
                 ),
                 ParamSpec("include_clr_ci", "bool", False, False),
@@ -6116,7 +6146,7 @@ def _build_registry():
                 ParamSpec("formula", "str", True),
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec(
-                    "methods", "tuple[str]", False, "('2sls','liml','fuller','jive')"
+                    "methods", "tuple[str]", False, ["2sls", "liml", "fuller", "jive"]
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec(
@@ -6321,13 +6351,12 @@ def _build_registry():
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
-                ParamSpec("states", "list", True),
+                ParamSpec("state", "str", True, description="State column(s)"),
                 ParamSpec("action", "str", True),
                 ParamSpec("reward", "str", True),
-                ParamSpec("next_states", "list", False, None),
-                ParamSpec("terminal", "str", False, None),
-                ParamSpec("gamma", "float", False, 0.95),
-                ParamSpec("n_episodes", "int", False, 50),
+                ParamSpec("next_state", "str", True, description="Next-state column(s)"),
+                ParamSpec("discount", "float", False, 0.95, "Discount factor"),
+                ParamSpec("n_iter", "int", False, 100, "Fitted-Q iterations"),
             ],
             returns="CausalDQNResult",
             example='sp.causal_dqn(df, state="s", action="a", reward="r", next_state="s_next")',
@@ -6403,7 +6432,10 @@ def _build_registry():
                 ParamSpec("proxy_z", "list", True),
                 ParamSpec("proxy_w", "list", True),
                 ParamSpec(
-                    "policy", "Callable", True, description="Function D → D_shifted"
+                    "delta",
+                    "float",
+                    True,
+                    description="Additive shift applied to the treatment under the modified policy",
                 ),
             ],
             returns="CausalResult",
@@ -6426,9 +6458,9 @@ def _build_registry():
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True),
                 ParamSpec("cluster", "str", True),
-                ParamSpec("treatment", "str", True),
+                ParamSpec("treat", "str", True),
                 ParamSpec(
-                    "exposure",
+                    "neighbour_treat_share",
                     "str",
                     True,
                     description="Column with neighbours' treatment share",
@@ -7914,7 +7946,7 @@ def _build_registry():
                     False,
                     description="(lo, hi) over which to evaluate dose-response",
                 ),
-                ParamSpec("n_boot", "int", False, 500),
+                ParamSpec("n_bootstrap", "int", False, 200),
             ],
             returns="DoseResponseResult",
             example='sp.dose_response(df, y="y", treat="dose", covariates=["x1","x2"])',
@@ -8557,9 +8589,9 @@ def _build_registry():
                     "method",
                     "str",
                     False,
-                    "dr",
-                    "Estimation method",
-                    ["dr", "or", "ipw", "reg", "stdipw"],
+                    "imp",
+                    "Estimation method: 'imp' (improved, locally efficient) or 'trad'",
+                    ["imp", "trad"],
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec(
@@ -9011,7 +9043,7 @@ def _build_registry():
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec(
-                    "n_grid", "int", False, 100, "Grid size for inverse-CDF mapping"
+                    "n_grid", "int", False, 200, "Grid size for inverse-CDF mapping"
                 ),
             ],
             returns="CausalResult with quantile-specific effects in detail",
@@ -9075,7 +9107,7 @@ def _build_registry():
                     "never_treated_only",
                     "bool",
                     False,
-                    False,
+                    True,
                     "Use only never-treated as controls (drops late-treated)",
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
@@ -9261,11 +9293,10 @@ def _build_registry():
                 ParamSpec("horizons", "list", False, None),
                 ParamSpec(
                     "reference",
-                    "str",
+                    "int",
                     False,
-                    "pre",
-                    "Reference period convention",
-                    ["pre", "first_treat"],
+                    -1,
+                    "Pre-treatment reference horizon relative to each cohort",
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
             ],
@@ -9351,8 +9382,8 @@ def _build_registry():
                 ParamSpec("treat", "str", True),
                 ParamSpec("time", "str", True),
                 ParamSpec("id", "str", True),
-                ParamSpec("leads", "int", False, 3),
-                ParamSpec("lags", "int", False, 5),
+                ParamSpec("leads", "int", False, 4),
+                ParamSpec("lags", "int", False, 4),
                 ParamSpec("cluster", "str", False, None),
                 ParamSpec("alpha", "float", False, 0.05),
             ],
@@ -9386,8 +9417,8 @@ def _build_registry():
                 ParamSpec("treat", "str", True),
                 ParamSpec("time", "str", True),
                 ParamSpec("id", "str", True),
-                ParamSpec("leads", "int", False, 3),
-                ParamSpec("lags", "int", False, 5),
+                ParamSpec("leads", "int", False, 4),
+                ParamSpec("lags", "int", False, 4),
                 ParamSpec("cluster", "str", False, None),
                 ParamSpec("alpha", "float", False, 0.05),
             ],
@@ -9924,7 +9955,7 @@ def _build_registry():
                 ParamSpec("time", "str", True),
                 ParamSpec("id", "str", True),
                 ParamSpec("covariates", "list", False, None),
-                ParamSpec("n_trees", "int", False, 200),
+                ParamSpec("n_trees", "int", False, 50),
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec("seed", "int", False, None),
             ],
@@ -12625,6 +12656,24 @@ def _parse_docstring_params(doc: str) -> Dict[str, Dict[str, Any]]:
     google_re = re.compile(
         r"^\s*([*]{0,2}[A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\):\s*(.*)$"
     )
+    # NumPy also allows a *type-less* parameter header: the name (or
+    # comma-separated names) on its own line at the section's base indent
+    # (column 0 after ``inspect.getdoc`` dedents), with the description
+    # indented beneath — e.g. ``feols`` / ``causal_forest`` document params
+    # this way. Anchored at column 0 with no colon so it never matches an
+    # indented description line; only accepted when the next non-blank line
+    # is indented (i.e. a real description follows).
+    barename_re = re.compile(
+        r"^([*]{0,2}[A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[*]{0,2}[A-Za-z_][A-Za-z0-9_]*)*)\s*$"
+    )
+
+    def _next_nonblank_is_indented(idx: int) -> bool:
+        for j in range(idx + 1, len(lines)):
+            nxt = lines[j]
+            if not nxt.strip():
+                continue
+            return nxt[:1] in (" ", "\t")
+        return False
 
     def flush() -> None:
         nonlocal current_names, current_type, current_desc
@@ -12671,6 +12720,12 @@ def _parse_docstring_params(doc: str) -> Dict[str, Dict[str, Any]]:
             current_type = g.group(2).strip()
             if g.group(3).strip():
                 current_desc.append(g.group(3).strip())
+            continue
+        b = barename_re.match(line)
+        if b and not line[:1].isspace() and _next_nonblank_is_indented(i):
+            flush()
+            current_names = [n.strip() for n in b.group(1).split(",")]
+            current_type = ""
             continue
         if current_names and (line.startswith(" ") or line.startswith("\t")):
             current_desc.append(stripped)

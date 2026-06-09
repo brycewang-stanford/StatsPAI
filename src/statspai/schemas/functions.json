@@ -127,17 +127,27 @@
           "type": "string"
         },
         "formula": {
-          "description": "'y ~ x1 + x2'",
+          "description": "'y ~ x1 + x2' (alternative to y/x)",
           "type": "string"
         },
-        "q": {
+        "quantile": {
           "default": 0.5,
           "description": "Quantile (0-1)",
           "type": "number"
+        },
+        "x": {
+          "description": "Regressor columns (alternative to formula)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome column (alternative to formula)",
+          "type": "string"
         }
       },
       "required": [
-        "formula",
         "data"
       ],
       "type": "object"
@@ -1198,8 +1208,8 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
-        "method": {
-          "default": "t",
+        "learner": {
+          "default": "dr",
           "description": "Learner type",
           "enum": [
             "s",
@@ -1210,8 +1220,8 @@
           ],
           "type": "string"
         },
-        "treatment": {
-          "description": "Treatment indicator, treatment variable, or treatment array.",
+        "treat": {
+          "description": "Binary treatment column (0/1)",
           "type": "string"
         },
         "y": {
@@ -1222,7 +1232,7 @@
       "required": [
         "data",
         "y",
-        "treatment",
+        "treat",
         "covariates"
       ],
       "type": "object"
@@ -1288,8 +1298,13 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
-        "treatment": {
-          "description": "Treatment indicator, treatment variable, or treatment array.",
+        "estimand": {
+          "default": "ATE",
+          "description": "Target estimand",
+          "type": "string"
+        },
+        "treat": {
+          "description": "Binary treatment column (0/1)",
           "type": "string"
         },
         "y": {
@@ -1300,7 +1315,7 @@
       "required": [
         "data",
         "y",
-        "treatment",
+        "treat",
         "covariates"
       ],
       "type": "object"
@@ -1487,14 +1502,19 @@
           "description": "Date/index of intervention",
           "type": "string"
         },
-        "outcome": {
-          "description": "Outcome variable column name or outcome array.",
+        "time": {
+          "description": "Time / date column",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome time-series column",
           "type": "string"
         }
       },
       "required": [
         "data",
-        "outcome",
+        "y",
+        "time",
         "intervention_time"
       ],
       "type": "object"
@@ -1938,25 +1958,43 @@
     "name": "sensemakr",
     "parameters": {
       "properties": {
-        "benchmark_covariates": {
-          "description": "Covariates for benchmarking",
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "benchmark": {
+          "description": "Covariates to benchmark confounding strength against",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
-        "result": {
-          "description": "result parameter (EconometricResults).",
+        "controls": {
+          "description": "Observed control variables",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
-        "treatment": {
-          "description": "Treatment indicator, treatment variable, or treatment array.",
+        "treat": {
+          "description": "Treatment column of interest",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome column",
           "type": "string"
         }
       },
       "required": [
-        "result",
-        "treatment"
+        "data",
+        "y",
+        "treat",
+        "controls"
       ],
       "type": "object"
     }
@@ -1967,7 +2005,7 @@
     "parameters": {
       "properties": {
         "controls": {
-          "description": "All potential control variables",
+          "description": "Candidate control sets to sweep",
           "items": {
             "type": "string"
           },
@@ -1977,8 +2015,8 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
-        "treatment": {
-          "description": "Treatment indicator, treatment variable, or treatment array.",
+        "x": {
+          "description": "Treatment / focal regressor",
           "type": "string"
         },
         "y": {
@@ -1989,8 +2027,7 @@
       "required": [
         "data",
         "y",
-        "treatment",
-        "controls"
+        "x"
       ],
       "type": "object"
     }
@@ -2709,9 +2746,9 @@
           "description": "Mediator variable",
           "type": "string"
         },
-        "n_sim": {
+        "n_boot": {
           "default": 1000,
-          "description": "Monte Carlo sims for NDE/NIE",
+          "description": "Bootstrap reps for NDE/NIE CIs",
           "type": "integer"
         },
         "treat": {
@@ -2748,20 +2785,16 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
+        "endog": {
+          "description": "Endogenous local exposure being instrumented (e.g. employment growth)",
+          "type": "string"
+        },
         "shares": {
           "description": "Pre-period share column (e.g. industry share)",
           "type": "string"
         },
         "shocks": {
           "description": "Shock column (e.g. industry-level change)",
-          "type": "string"
-        },
-        "time": {
-          "description": "Time column (panel)",
-          "type": "string"
-        },
-        "unit": {
-          "description": "Region / unit identifier",
           "type": "string"
         },
         "y": {
@@ -2772,9 +2805,9 @@
       "required": [
         "data",
         "y",
+        "endog",
         "shares",
-        "shocks",
-        "unit"
+        "shocks"
       ],
       "type": "object"
     }
@@ -2784,15 +2817,15 @@
     "name": "bayes_rd",
     "parameters": {
       "properties": {
-        "c": {
-          "default": 0.0,
-          "description": "Cutoff value",
-          "type": "number"
-        },
         "chains": {
           "default": 4,
           "description": "chains parameter (int).",
           "type": "integer"
+        },
+        "cutoff": {
+          "default": 0.0,
+          "description": "Cutoff value",
+          "type": "number"
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -2803,29 +2836,19 @@
           "description": "draws parameter (int).",
           "type": "integer"
         },
-        "kernel": {
-          "default": "triangular",
-          "description": "Kernel function used for weighting or smoothing.",
-          "enum": [
-            "triangular",
-            "epanechnikov",
-            "uniform"
-          ],
-          "type": "string"
-        },
-        "p": {
+        "poly": {
           "default": 1,
           "description": "Polynomial order",
           "type": "integer"
+        },
+        "running": {
+          "description": "Running variable",
+          "type": "string"
         },
         "tune": {
           "default": 1000,
           "description": "tune parameter (int).",
           "type": "integer"
-        },
-        "x": {
-          "description": "Running variable",
-          "type": "string"
         },
         "y": {
           "description": "Outcome variable column name or outcome array.",
@@ -2835,7 +2858,7 @@
       "required": [
         "data",
         "y",
-        "x"
+        "running"
       ],
       "type": "object"
     }
@@ -2845,15 +2868,15 @@
     "name": "bayes_fuzzy_rd",
     "parameters": {
       "properties": {
-        "c": {
-          "default": 0.0,
-          "description": "Cutoff",
-          "type": "number"
-        },
         "chains": {
           "default": 4,
           "description": "chains parameter (int).",
           "type": "integer"
+        },
+        "cutoff": {
+          "default": 0.0,
+          "description": "Cutoff",
+          "type": "number"
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -2864,12 +2887,16 @@
           "description": "draws parameter (int).",
           "type": "integer"
         },
-        "p": {
+        "poly": {
           "default": 1,
           "description": "Polynomial order",
           "type": "integer"
         },
-        "treatment": {
+        "running": {
+          "description": "Running variable",
+          "type": "string"
+        },
+        "treat": {
           "description": "Take-up / treatment received",
           "type": "string"
         },
@@ -2877,10 +2904,6 @@
           "default": 1000,
           "description": "tune parameter (int).",
           "type": "integer"
-        },
-        "x": {
-          "description": "Running variable",
-          "type": "string"
         },
         "y": {
           "description": "Outcome variable column name or outcome array.",
@@ -2890,8 +2913,8 @@
       "required": [
         "data",
         "y",
-        "treatment",
-        "x"
+        "treat",
+        "running"
       ],
       "type": "object"
     }
@@ -2926,12 +2949,7 @@
           "description": "Instrument(s)",
           "type": "string"
         },
-        "n_grid": {
-          "default": 20,
-          "description": "Grid points for MTE curve",
-          "type": "integer"
-        },
-        "treatment": {
+        "treat": {
           "description": "Binary treatment",
           "type": "string"
         },
@@ -2948,7 +2966,7 @@
       "required": [
         "data",
         "y",
-        "treatment",
+        "treat",
         "instrument"
       ],
       "type": "object"
@@ -3338,8 +3356,38 @@
     "description": "Container returned by sp.ope.* estimators (IPS, SNIPS, DR, Switch-DR, DM). Reports value, SE, CI, importance-ratio diagnostics.",
     "name": "OPEResult",
     "parameters": {
-      "properties": {},
-      "required": [],
+      "properties": {
+        "ci": {
+          "description": "Confidence interval (lo, hi)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "diagnostics": {
+          "description": "Importance-ratio diagnostics",
+          "type": "object"
+        },
+        "method": {
+          "description": "OPE estimator name (ips, snips, dr, switch_dr, dm)",
+          "type": "string"
+        },
+        "se": {
+          "description": "Standard error of the value estimate",
+          "type": "number"
+        },
+        "value": {
+          "description": "Estimated policy value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "method",
+        "value",
+        "se",
+        "ci",
+        "diagnostics"
+      ],
       "type": "object"
     }
   },
@@ -5470,6 +5518,10 @@
           "description": "Number of parallel chains",
           "type": "integer"
         },
+        "cohort": {
+          "description": "First-treatment-period column for staggered adoption",
+          "type": "string"
+        },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
@@ -5479,16 +5531,8 @@
           "description": "Post-warmup draws per chain",
           "type": "integer"
         },
-        "g": {
-          "description": "First-treatment-period column (0 = never-treated)",
-          "type": "string"
-        },
-        "i": {
-          "description": "Unit identifier",
-          "type": "string"
-        },
-        "t": {
-          "description": "Time period column",
+        "post": {
+          "description": "Post-treatment indicator (1 = post-period)",
           "type": "string"
         },
         "target_accept": {
@@ -5496,10 +5540,22 @@
           "description": "HMC target acceptance rate",
           "type": "number"
         },
+        "time": {
+          "description": "Time period column",
+          "type": "string"
+        },
+        "treat": {
+          "description": "Treatment-group indicator (1 = ever-treated)",
+          "type": "string"
+        },
         "tune": {
           "default": 1000,
           "description": "Warmup draws per chain",
           "type": "integer"
+        },
+        "unit": {
+          "description": "Unit identifier (enables unit random effects)",
+          "type": "string"
         },
         "y": {
           "description": "Outcome",
@@ -5509,9 +5565,8 @@
       "required": [
         "data",
         "y",
-        "g",
-        "t",
-        "i"
+        "treat",
+        "post"
       ],
       "type": "object"
     }
@@ -5546,7 +5601,7 @@
           "description": "Instrument(s) -- str or list",
           "type": "string"
         },
-        "treatment": {
+        "treat": {
           "description": "Endogenous treatment",
           "type": "string"
         },
@@ -5563,7 +5618,7 @@
       "required": [
         "data",
         "y",
-        "treatment",
+        "treat",
         "instrument"
       ],
       "type": "object"
@@ -6469,12 +6524,13 @@
           "type": "string"
         },
         "weight_rule": {
-          "default": "inverse_risk",
+          "default": "short_stacking",
           "description": "Weighting of candidate estimators",
           "enum": [
+            "short_stacking",
+            "single_best",
             "inverse_risk",
-            "equal",
-            "single_best"
+            "equal"
           ],
           "type": "string"
         },
@@ -6638,7 +6694,9 @@
           "type": "number"
         },
         "boot_methods": {
-          "default": "('pairs',)",
+          "default": [
+            "pairs"
+          ],
           "description": "Subset of {'pairs','wild'}",
           "items": {
             "type": "string"
@@ -6746,7 +6804,12 @@
           "type": "string"
         },
         "methods": {
-          "default": "('2sls','liml','fuller','jive')",
+          "default": [
+            "2sls",
+            "liml",
+            "fuller",
+            "jive"
+          ],
           "description": "methods parameter (tuple[str]).",
           "items": {
             "type": "string"
@@ -6984,44 +7047,35 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
-        "gamma": {
+        "discount": {
           "default": 0.95,
-          "description": "gamma parameter (float).",
+          "description": "Discount factor",
           "type": "number"
         },
-        "n_episodes": {
-          "default": 50,
-          "description": "Number of episodes.",
+        "n_iter": {
+          "default": 100,
+          "description": "Fitted-Q iterations",
           "type": "integer"
         },
-        "next_states": {
-          "description": "next_states parameter (list).",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+        "next_state": {
+          "description": "Next-state column(s)",
+          "type": "string"
         },
         "reward": {
           "description": "reward parameter (str).",
           "type": "string"
         },
-        "states": {
-          "description": "states parameter (list).",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "terminal": {
-          "description": "terminal parameter (str).",
+        "state": {
+          "description": "State column(s)",
           "type": "string"
         }
       },
       "required": [
         "data",
-        "states",
+        "state",
         "action",
-        "reward"
+        "reward",
+        "next_state"
       ],
       "type": "object"
     }
@@ -7133,9 +7187,9 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
-        "policy": {
-          "description": "Function D -> D_shifted",
-          "type": "string"
+        "delta": {
+          "description": "Additive shift applied to the treatment under the modified policy",
+          "type": "number"
         },
         "proxy_w": {
           "description": "proxy_w parameter (list).",
@@ -7166,7 +7220,7 @@
         "treat",
         "proxy_z",
         "proxy_w",
-        "policy"
+        "delta"
       ],
       "type": "object"
     }
@@ -7184,12 +7238,12 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
-        "exposure": {
+        "neighbour_treat_share": {
           "description": "Column with neighbours' treatment share",
           "type": "string"
         },
-        "treatment": {
-          "description": "Treatment indicator, treatment variable, or treatment array.",
+        "treat": {
+          "description": "Treatment indicator or first-treatment-period column.",
           "type": "string"
         },
         "y": {
@@ -7201,8 +7255,8 @@
         "data",
         "y",
         "cluster",
-        "treatment",
-        "exposure"
+        "treat",
+        "neighbour_treat_share"
       ],
       "type": "object"
     }
@@ -7459,13 +7513,9 @@
           "type": "string"
         },
         "reference": {
-          "default": "pre",
-          "description": "Reference period convention",
-          "enum": [
-            "pre",
-            "first_treat"
-          ],
-          "type": "string"
+          "default": -1,
+          "description": "Pre-treatment reference horizon relative to each cohort",
+          "type": "integer"
         },
         "time": {
           "description": "Time period column.",
@@ -8655,8 +8705,8 @@
           },
           "type": "array"
         },
-        "n_boot": {
-          "default": 500,
+        "n_bootstrap": {
+          "default": 200,
           "description": "Number of bootstrap replications.",
           "type": "integer"
         },
@@ -9086,14 +9136,11 @@
           "type": "string"
         },
         "method": {
-          "default": "dr",
-          "description": "Estimation method",
+          "default": "imp",
+          "description": "Estimation method: 'imp' (improved, locally efficient) or 'trad'",
           "enum": [
-            "dr",
-            "or",
-            "ipw",
-            "reg",
-            "stdipw"
+            "imp",
+            "trad"
           ],
           "type": "string"
         },
@@ -9440,7 +9487,7 @@
           "type": "integer"
         },
         "n_grid": {
-          "default": 100,
+          "default": 200,
           "description": "Grid size for inverse-CDF mapping",
           "type": "integer"
         },
@@ -9507,7 +9554,7 @@
           "type": "string"
         },
         "never_treated_only": {
-          "default": false,
+          "default": true,
           "description": "Use only never-treated as controls (drops late-treated)",
           "type": "boolean"
         },
@@ -9564,12 +9611,12 @@
           "type": "string"
         },
         "lags": {
-          "default": 5,
+          "default": 4,
           "description": "lags parameter (int).",
           "type": "integer"
         },
         "leads": {
-          "default": 3,
+          "default": 4,
           "description": "leads parameter (int).",
           "type": "integer"
         },
@@ -9619,12 +9666,12 @@
           "type": "string"
         },
         "lags": {
-          "default": 5,
+          "default": 4,
           "description": "lags parameter (int).",
           "type": "integer"
         },
         "leads": {
-          "default": 3,
+          "default": 4,
           "description": "leads parameter (int).",
           "type": "integer"
         },
@@ -10010,7 +10057,7 @@
           "type": "string"
         },
         "n_trees": {
-          "default": 200,
+          "default": 50,
           "description": "Number of trees.",
           "type": "integer"
         },
@@ -12995,30 +13042,30 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Same as :func:`did_summary`.",
           "type": "number"
         },
         "cluster": {
-          "description": "Cluster identifier column for clustered standard errors.",
+          "description": "Same as :func:`did_summary`.",
           "type": "string"
         },
         "controls": {
-          "description": "Control-variable column names.",
+          "description": "Same as :func:`did_summary`.",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Same as :func:`did_summary`.",
           "type": "string"
         },
         "first_treat": {
-          "description": "first_treat parameter (str).",
+          "description": "Same as :func:`did_summary`.",
           "type": "string"
         },
         "group": {
-          "description": "Group or cohort identifier.",
+          "description": "Same as :func:`did_summary`.",
           "type": "string"
         },
         "include_sensitivity": {
@@ -13028,7 +13075,7 @@
         },
         "methods": {
           "default": "auto",
-          "description": "methods parameter (Union[str, List[str]]).",
+          "description": "Same as :func:`did_summary`.",
           "items": {
             "type": "string"
           },
@@ -13044,7 +13091,7 @@
           "type": "string"
         },
         "time": {
-          "description": "Time period column.",
+          "description": "Same as :func:`did_summary`.",
           "type": "string"
         },
         "verbose": {
@@ -13053,7 +13100,7 @@
           "type": "boolean"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Same as :func:`did_summary`.",
           "type": "string"
         }
       },
@@ -15463,7 +15510,7 @@
     }
   },
   {
-    "description": "California Proposition 99 tobacco control dataset.",
+    "description": "California Proposition 99 tobacco control dataset. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "california_prop99",
     "parameters": {
       "properties": {},
@@ -20393,7 +20440,7 @@
     "parameters": {
       "properties": {
         "encoding": {
-          "description": "Character encoding (for CSV). Passed to the underlying pandas reader.",
+          "description": "Character encoding (for CSV).",
           "type": "string"
         },
         "path": {
@@ -20816,7 +20863,7 @@
     }
   },
   {
-    "description": "Poisson regression via MLE (IRLS).",
+    "description": "Poisson regression via MLE (IRLS). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "poisson",
     "parameters": {
       "properties": {
@@ -21004,33 +21051,33 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Forwarded verbatim to :func:`margins`.",
           "type": "number"
         },
         "at": {
-          "description": "at parameter (Optional[Dict[str, Any]]).",
+          "description": "Forwarded verbatim to :func:`margins`.",
           "type": "object"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Forwarded verbatim to :func:`margins`.",
           "type": "string"
         },
         "eps": {
           "default": 1e-05,
-          "description": "eps parameter (float).",
+          "description": "Forwarded verbatim to :func:`margins`.",
           "type": "number"
         },
         "method": {
           "default": "ame",
-          "description": "Estimator or algorithm variant to use.",
+          "description": "Forwarded verbatim to :func:`margins`.",
           "type": "string"
         },
         "result": {
-          "description": "Fitted model -- same input ``sp.margins`` accepts. Forwarded verbatim to :func:`margins`.",
+          "description": "Fitted model -- same input ``sp.margins`` accepts.",
           "type": "string"
         },
         "variables": {
-          "description": "variables parameter (Optional[List[str]]).",
+          "description": "Forwarded verbatim to :func:`margins`.",
           "items": {
             "type": "string"
           },
@@ -23802,7 +23849,7 @@
           "type": "string"
         },
         "learners": {
-          "description": "Which learners to compare. Default: all five ('s','t','x','r','dr'). Additional arguments passed to ``metalearner()``.",
+          "description": "Which learners to compare. Default: all five ('s','t','x','r','dr').",
           "items": {
             "type": "string"
           },
@@ -27955,7 +28002,7 @@
           "type": "string"
         },
         "power_target": {
-          "description": "Target power (e.g. 0.80). When *n* is None, the function performs a binary search for the minimum n that achieves this power. Design-specific parameters forwarded to the underlying power function (e.g. ``n_periods``, ``icc``, ``bandwidth``).",
+          "description": "Target power (e.g. 0.80). When *n* is None, the function performs a binary search for the minimum n that achieves this power.",
           "type": "number"
         }
       },
@@ -28269,7 +28316,7 @@
         },
         "power_target": {
           "default": 0.8,
-          "description": "Desired power (default 0.80). Design-specific parameters.",
+          "description": "Desired power (default 0.80).",
           "type": "number"
         }
       },
@@ -30322,7 +30369,7 @@
     }
   },
   {
-    "description": "Zero-Inflated Poisson (ZIP) regression via MLE.",
+    "description": "Zero-Inflated Poisson (ZIP) regression via MLE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "zip_model",
     "parameters": {
       "properties": {
@@ -30382,7 +30429,7 @@
     }
   },
   {
-    "description": "Zero-Inflated Negative Binomial (ZINB) regression via MLE.",
+    "description": "Zero-Inflated Negative Binomial (ZINB) regression via MLE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "zinb",
     "parameters": {
       "properties": {
@@ -30709,7 +30756,7 @@
         },
         "lean": {
           "default": false,
-          "description": "If True, drop large intermediate arrays to save memory. Additional arguments passed to ``pyfixest.feols()``.",
+          "description": "If True, drop large intermediate arrays to save memory.",
           "type": "boolean"
         },
         "ssc": {
@@ -30757,7 +30804,7 @@
         },
         "iwls_maxiter": {
           "default": 25,
-          "description": "Max IWLS iterations. Additional arguments passed to ``pyfixest.fepois()``.",
+          "description": "Max IWLS iterations.",
           "type": "integer"
         },
         "iwls_tol": {
@@ -30804,7 +30851,7 @@
           "type": "string"
         },
         "vcov": {
-          "description": "Variance-covariance estimator. Additional arguments passed to ``pyfixest.feglm()``.",
+          "description": "Variance-covariance estimator.",
           "type": "object"
         }
       },
@@ -32325,7 +32372,7 @@
     "parameters": {
       "properties": {
         "estimator": {
-          "description": "Estimation function that returns an EconometricResults object. Arguments passed to the estimator.",
+          "description": "Estimation function that returns an EconometricResults object.",
           "type": "string"
         },
         "mice_result": {
@@ -34266,7 +34313,7 @@
           "type": "string"
         },
         "method": {
-          "description": "Name of the StatsPAI estimator to pre-flight (e.g. ``\"did\"``, ``\"rdrobust\"``, ``\"ivreg\"``, ``\"callaway_santanna\"``, ``\"ebalance\"``). Unknown methods get only the universal DataFrame-shape sanity checks. Estimator arguments -- column names (``y``, ``treat``, ``time``, ``i``, ``running_var``), a Wilkinson ``formula``, a ``covariates`` list, etc. Passed through unchanged from what the agent intends to use; ``preflight`` doesn't run the estimator.",
+          "description": "Name of the StatsPAI estimator to pre-flight (e.g. ``\"did\"``, ``\"rdrobust\"``, ``\"ivreg\"``, ``\"callaway_santanna\"``, ``\"ebalance\"``). Unknown methods get only the universal DataFrame-shape sanity checks.",
           "type": "string"
         }
       },
@@ -35044,20 +35091,20 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Optimiser controls and inference significance level.",
           "type": "number"
         },
         "cov_type": {
           "default": "unstructured",
-          "description": "Covariance estimator type.",
+          "description": "Parameterisation of the random-effect covariance matrix *G*: ``'unstructured'`` (default), ``'diagonal'``, or ``'identity'``.",
           "type": "string"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Long-format panel / grouped data.",
           "type": "string"
         },
         "group": {
-          "description": "Group or cohort identifier.",
+          "description": "Grouping variable. Pass a list like ``[\"school\", \"class\"]`` to estimate a three-level nested model -- the innermost level is used as the cluster for the random slopes/intercept; the outer levels enter as additional random-intercept blocks.",
           "items": {
             "type": "string"
           },
@@ -35065,35 +35112,35 @@
         },
         "maxiter": {
           "default": 400,
-          "description": "maxiter parameter (int).",
+          "description": "Optimiser controls and inference significance level.",
           "type": "integer"
         },
         "method": {
           "default": "reml",
-          "description": "Estimator or algorithm variant to use.",
+          "description": "``'reml'`` (default) or ``'ml'``.",
           "type": "string"
         },
         "tol": {
           "default": 1e-07,
-          "description": "Numerical convergence tolerance.",
+          "description": "Optimiser controls and inference significance level.",
           "type": "number"
         },
         "x_fixed": {
-          "description": "x_fixed parameter (Sequence[str]).",
+          "description": "Fixed-effect regressors (intercept is added automatically).",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "x_random": {
-          "description": "x_random parameter ('Sequence[str] | None').",
+          "description": "Random-slope variables. ``None`` => random intercept only.",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Dependent variable column.",
           "type": "string"
         }
       },
@@ -35271,66 +35318,66 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Optimisation controls / CI width.",
           "type": "number"
         },
         "cov_type": {
           "default": "unstructured",
-          "description": "Covariance estimator type.",
+          "description": "Random-effect covariance: ``'unstructured'`` (default), ``'diagonal'``, ``'identity'``.",
           "type": "string"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Long-format dataframe.",
           "type": "string"
         },
         "family": {
           "default": "gaussian",
-          "description": "family parameter (str).",
+          "description": "``'gaussian'``, ``'binomial'``, ``'poisson'``, ``'gamma'``, or ``'nbinomial'`` (alias ``'negbin'``).",
           "type": "string"
         },
         "group": {
-          "description": "Group or cohort identifier.",
+          "description": "Grouping variable for random effects.",
           "type": "string"
         },
         "maxiter": {
           "default": 300,
-          "description": "maxiter parameter (int).",
+          "description": "Optimisation controls / CI width.",
           "type": "integer"
         },
         "nAGQ": {
           "default": 1,
-          "description": "nAGQ parameter (int).",
+          "description": "Number of adaptive Gauss-Hermite quadrature points per scalar random effect. ``1`` (default) == Laplace approximation. Use ``nAGQ=7`` to match Stata ``meglm intpoints(7)``; values ``> 1`` require a single scalar random effect (no random slopes).",
           "type": "integer"
         },
         "offset": {
-          "description": "Offset term or offset column.",
+          "description": "Column of fixed offsets added to the linear predictor (e.g. ``log(exposure)`` for Poisson rate models).",
           "type": "string"
         },
         "tol": {
           "default": 1e-06,
-          "description": "Numerical convergence tolerance.",
+          "description": "Optimisation controls / CI width.",
           "type": "number"
         },
         "trials": {
-          "description": "trials parameter (Optional[str]).",
+          "description": "Column of trial counts for binomial responses. Defaults to 1 (Bernoulli).",
           "type": "string"
         },
         "x_fixed": {
-          "description": "x_fixed parameter (Sequence[str]).",
+          "description": "Fixed-effect regressors (intercept added automatically).",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "x_random": {
-          "description": "x_random parameter (Optional[Sequence[str]]).",
+          "description": "Random-slope variables; defaults to random intercept only.",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Outcome column. For binomial models this is the number of successes; pair it with ``trials=`` to model proportions.",
           "type": "string"
         }
       },
@@ -35767,25 +35814,25 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Significance level for the confidence interval. Default 0.05.",
           "type": "number"
         },
         "component": {
           "default": "_cons",
-          "description": "component parameter (str).",
+          "description": "Name of the random-effect variance to put in the numerator. Defaults to the random intercept (``\"_cons\"``).",
           "type": "string"
         },
         "n_boot": {
           "default": 0,
-          "description": "Number of bootstrap replications.",
+          "description": "Number of parametric bootstrap replicates used to compute the CI. ``0`` (default) uses the delta-method approximation on the log-variance scale, which is faster and usually within a few decimals of the parametric-bootstrap answer for moderate N.",
           "type": "integer"
         },
         "result": {
-          "description": "result parameter.",
+          "description": "A ``MixedResult`` returned by :func:`statspai.mixed`.",
           "type": "string"
         },
         "seed": {
-          "description": "Random seed for reproducible stochastic steps.",
+          "description": "RNG seed forwarded to :func:`numpy.random.default_rng`.",
           "type": "integer"
         }
       },
@@ -35801,15 +35848,15 @@
     "parameters": {
       "properties": {
         "boundary": {
-          "description": "boundary parameter ('bool | None').",
+          "description": "Whether to apply the chi2 boundary correction. When ``None`` (default) we infer it from whether the restriction touches a variance component -- the only parameters that live on the boundary of their support.",
           "type": "boolean"
         },
         "full": {
-          "description": "full parameter.",
+          "description": "Two fitted mixed models. ``full`` should strictly nest ``restricted`` -- i.e. the parameter space of the restricted model is a subset of the full model's.",
           "type": "string"
         },
         "restricted": {
-          "description": "restricted parameter.",
+          "description": "Two fitted mixed models. ``full`` should strictly nest ``restricted`` -- i.e. the parameter space of the restricted model is a subset of the full model's.",
           "type": "string"
         }
       },
@@ -36686,7 +36733,7 @@
           "type": "array"
         },
         "labels": {
-          "description": "Labels for ``type='compare'``. Additional arguments passed to individual plotters. Notable: * ``pre_band=True`` -- for ``type='trajectory'`` / ``'gap'`` / ``'both'``: overlay a +/-1.96 x pre-RMSPE noise envelope. * ``pi_band=True`` -- for ``type='trajectory'``: overlay the prediction-interval / conformal CI ribbon around the synthetic counterfactual when the result carries one (``sp.scpi`` / ``sp.conformal_synth``).",
+          "description": "Labels for ``type='compare'``.",
           "items": {
             "type": "string"
           },
@@ -37667,7 +37714,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals. Additional keyword arguments forwarded to ``synth()``.",
+          "description": "Significance level for confidence intervals.",
           "type": "number"
         },
         "data": {
@@ -37738,7 +37785,7 @@
           "type": "string"
         },
         "treatment_time": {
-          "description": "First treatment period (inclusive). Additional keyword arguments forwarded to ``synth_compare()``.",
+          "description": "First treatment period (inclusive).",
           "type": "string"
         },
         "unit": {
@@ -37793,7 +37840,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for CIs and hypothesis tests. Additional keyword arguments forwarded to ``synth()``.",
+          "description": "Significance level for CIs and hypothesis tests.",
           "type": "number"
         },
         "data": {
@@ -37861,7 +37908,7 @@
         },
         "filename": {
           "default": "report.md",
-          "description": "Output file path. Additional keyword arguments forwarded to ``synth()``.",
+          "description": "Output file path.",
           "type": "string"
         },
         "method": {
@@ -42613,11 +42660,11 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Forwarded to each estimator where supported.",
+          "description": "Significance level for confidence intervals and tests.",
           "type": "number"
         },
         "cluster": {
-          "description": "Cluster identifier column for clustered standard errors.",
+          "description": "Forwarded to each estimator where supported.",
           "type": "string"
         },
         "data": {
@@ -42651,7 +42698,7 @@
         },
         "robust": {
           "default": "nonrobust",
-          "description": "Robust standard-error or covariance estimator option.",
+          "description": "Forwarded to each estimator where supported.",
           "type": "string"
         },
         "select_by": {
@@ -42820,19 +42867,19 @@
       "properties": {
         "rare_outcome": {
           "default": false,
-          "description": "rare_outcome parameter (bool).",
+          "description": "Passed through to :func:`evalue` for rare-outcome OR->RR correction.",
           "type": "boolean"
         },
         "rr": {
-          "description": "rr parameter (float).",
+          "description": "Point-estimate risk ratio.",
           "type": "number"
         },
         "rr_lower": {
-          "description": "rr_lower parameter (Optional[float]).",
+          "description": "Optional confidence-interval bounds on the risk ratio scale.",
           "type": "number"
         },
         "rr_upper": {
-          "description": "rr_upper parameter (Optional[float]).",
+          "description": "Optional confidence-interval bounds on the risk ratio scale.",
           "type": "number"
         }
       },

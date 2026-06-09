@@ -283,6 +283,33 @@ independently confirmed the headline result:
 
 Quality gates green: flake8 baseline 4404 ≤ 4698, mypy 3229 ≤ 3521.
 
+### 2026-06-08 — session 8b: pre-existing Windows/macOS CI failures (2 of 3 fixed)
+
+The Linux coverage ratchet is green, but the **CI/CD Pipeline has been red on
+the Windows/macOS matrix since before this campaign** (identical failures on
+`d8b5d4e`, pre-session). Root-caused under a fresh **Python 3.12 / pandas 3.0.3
+/ numpy 2.4.6** repro env. Maintainer scoped me to *fix only the output-
+preserving ones*; the numerics-sensitive one is left for explicit sign-off.
+
+- ✅ **`test_event_study_string_time`** — `np.issubdtype(StringDtype, np.number)`
+  raises under pandas ≥ 3.0 (str cols infer as `StringDtype`). Fixed in
+  `did/event_study.py` with `pd.api.types.is_numeric_dtype` — identical truth
+  value for numpy numeric dtypes, so numeric-time output is byte-for-byte
+  unchanged (verified vs event-study suite + did parity). Output-preserving.
+- ✅ **`test_demean_nan_in_fe_raises`** — `Series.to_numpy()` is read-only under
+  pandas ≥ 3.0, so the test's `fe[0]=np.nan` raised before `sp.demean` was
+  reached. **Test-only** `.copy()`; no src touched.
+- ⏸️ **`test_ar_ci_with_exog_and_multi_instruments`** (`Singular matrix`) —
+  **Windows-only** (passes on macOS even under pandas 3.0/numpy 2.4, so it's a
+  Windows BLAS/LAPACK conditioning difference). Touches AR-CI **estimator
+  numerics** → left untouched pending maintainer decision (JOSS #10604 red
+  line). After the two fixes, the pipeline's Windows leg should drop from 3
+  failures to this 1.
+
+(A 4th, `test_cluster_synth_spectral_method` "fewer than 2 donors", appeared on
+`d8b5d4e` but not on the 26880b1 run — looks nondeterministic; flagged, not
+addressed.)
+
 ## Acceptance checklist (for the maintainer to verify all results)
 
 Run, then confirm each line:

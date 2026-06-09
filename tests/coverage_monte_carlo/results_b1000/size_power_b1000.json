@@ -15,7 +15,7 @@
       0.596,
       0.903
     ],
-    "wall_s": 9.5
+    "wall_s": 8.1
   },
   {
     "name": "sp.did 2x2",
@@ -33,7 +33,7 @@
       0.871,
       0.996
     ],
-    "wall_s": 8.9
+    "wall_s": 5.4
   },
   {
     "name": "sp.ivreg strong-Z",
@@ -51,7 +51,7 @@
       0.935,
       0.996
     ],
-    "wall_s": 11.4
+    "wall_s": 6.3
   },
   {
     "name": "sp.rdrobust sharp",
@@ -69,7 +69,7 @@
       0.558,
       0.824
     ],
-    "wall_s": 1.7
+    "wall_s": 1.6
   },
   {
     "name": "sp.panel two-way FE",
@@ -87,6 +87,42 @@
       0.652,
       0.954
     ],
-    "wall_s": 44.4
+    "wall_s": 26.6
+  },
+  {
+    "name": "sp.callaway_santanna staggered",
+    "B": 300,
+    "size": 0.05,
+    "deltas": [
+      0.0,
+      0.3,
+      0.6,
+      0.9
+    ],
+    "power": [
+      0.05,
+      0.78,
+      1.0,
+      1.0
+    ],
+    "wall_s": 12.0
+  },
+  {
+    "name": "sp.ebalance (conservative)",
+    "B": 1000,
+    "size": 0.0,
+    "deltas": [
+      0.0,
+      0.4,
+      0.7,
+      1.0
+    ],
+    "power": [
+      0.0,
+      0.827,
+      1.0,
+      1.0
+    ],
+    "wall_s": 3.1
   }
 ]

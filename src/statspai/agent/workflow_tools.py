@@ -486,11 +486,24 @@ def _need_result(rid: Optional[str]) -> Any:
         }
     obj = RESULT_CACHE.get(rid)
     if obj is None:
+        reason = RESULT_CACHE.miss_reason(rid)
+        hints = {
+            'ttl': ("result_id expired (server result-cache TTL); the "
+                    "underlying fit may be stale — re-fit the estimator "
+                    "with as_handle=true for a fresh handle."),
+            'lru': ("result_id evicted (LRU cache keeps only the most "
+                    "recent fits); re-fit the estimator with "
+                    "as_handle=true to obtain a fresh handle."),
+            'explicit': ("result_id was explicitly dropped; re-fit the "
+                         "estimator with as_handle=true."),
+            'unknown': ("unknown result_id (never cached, or evicted long "
+                        "ago, or the server restarted); re-fit the "
+                        "estimator with as_handle=true."),
+        }
         return {
             'error': f"result_id {rid!r} not found in cache",
-            'hint': ("LRU cache evicts oldest entries; re-fit the "
-                     "estimator with as_handle=true to obtain a fresh "
-                     "handle."),
+            'reason': reason,
+            'hint': hints.get(reason, hints['unknown']),
             'available_result_ids': RESULT_CACHE.keys(),
         }
     return obj

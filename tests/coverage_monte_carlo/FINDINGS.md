@@ -16,12 +16,9 @@ The suite now validates all three faces of the inference machinery:
 - **Power** — under alternatives, does rejection rise monotonically with the
   effect size and approach 1? (`test_size_power.py`)
 
-All six core estimators named in the project spec (`did`, `iv`, `rd`,
-`synth`, `dml`, `panel`) now carry an explicit Monte Carlo coverage row.
-
 ## Headline B=1000 Coverage Audit
 
-The canonical Track B audit materializes nine known-truth DGPs at
+The canonical Track B audit materializes seven known-truth DGPs at
 `B=1000`. The 99% Wilson band around nominal 0.95 is approximately
 `[0.935, 0.967]`; rows above the band are treated as conservative
 over-coverage, not as evidence of under-calibrated standard errors.
@@ -32,23 +29,14 @@ over-coverage, not as evidence of under-calibrated standard errors.
 | `sp.regress` 2x2 DiD | 2-period homogeneous DiD | 0.955 |
 | `sp.ivreg` (HC1) | Strong binary-Z IV | 0.962 |
 | `sp.callaway_santanna` (REG, simple ATT) | Homogeneous staggered timing | 0.946 |
-| `sp.panel` two-way FE | Unit+time FE, time-varying treatment | 0.948 |
-| `sp.sdid` (placebo SE) | One treated unit, factor-model DGP | 0.939 |
 | `sp.ebalance` | CIA with 2 covariates | 1.000 |
 | `sp.causal_question(design="dml")` | Binary-treatment IRM ATE | 0.969 |
 | `sp.causal_question(design="causal_forest")` | AIPW-IF ATE DGP | 0.977 |
 
 Interpretation:
 
-- Closed-form OLS, DiD, IV, the simple Callaway-Sant'Anna ATT, and the
-  two-way FE panel rows sit inside the Wilson band.
-- `sp.sdid` (0.939) sits at the lower-inside edge of the band — note that
-  classic Abadie SCM has no analytic CI (placebo/permutation inference
-  only), so the calibrated row uses synthetic difference-in-differences
-  (Arkhangelsky et al. 2021, `arkhangelsky2021synthetic`); for a single
-  treated unit the placebo variance estimator is the recommended one
-  (jackknife is undefined with one treated unit and empirically
-  under-covers at ~0.80 on this DGP).
+- Closed-form OLS, DiD, IV, and simple Callaway-Sant'Anna rows sit inside
+  the Wilson band.
 - DML sits just above the upper edge; ebalance and causal forest are more
   visibly conservative. These are over-coverage findings, not hidden
   under-coverage.
@@ -56,7 +44,7 @@ Interpretation:
   the lower-B pytest caps; the committed JSS artifacts record their
   explicit B=1000 rates.
 
-## Size and Power Audit (B=1000, RD at B=500)
+## Size and Power Audit (B=1000; RD at B=500, CS at B=300)
 
 Coverage alone does not distinguish a valid test from a useless one: a CI
 that is always [-inf, +inf] covers the truth 100% of the time but rejects
@@ -73,6 +61,8 @@ null point and equals the size.
 | `sp.ivreg` strong-Z | 0.046 | [0, .20, .40, .60] | [.046, .453, .935, .996] |
 | `sp.rdrobust` sharp | 0.040 | [0, .20, .40, .60] | [.040, .148, .558, .824] |
 | `sp.panel` two-way FE | 0.052 | [0, .15, .30, .45] | [.052, .231, .652, .954] |
+| `sp.callaway_santanna` staggered | 0.050 | [0, .30, .60, .90] | [.050, .780, 1.0, 1.0] |
+| `sp.ebalance` (conservative) | 0.000 | [0, .40, .70, 1.0] | [.000, .827, 1.0, 1.0] |
 
 Interpretation:
 
@@ -82,6 +72,13 @@ Interpretation:
   conservative-but-valid and is documented rather than failed.
 - `sp.did` 2x2 sizes at 0.024 — conservative, exactly mirroring its 0.955
   over-coverage. The two findings are the same fact seen from two sides.
+- `sp.callaway_santanna` sizes at 0.050 — textbook-calibrated, the size-side
+  twin of its 0.946 simple-ATT coverage.
+- `sp.ebalance` sizes at 0.000: it almost never rejects under the null, the
+  direct counterpart of its ~1.0 over-coverage. Its power therefore rises
+  later (needs the effect to clear its wider intervals) but still reaches
+  0.83 by delta=0.40 and 1.0 by delta=0.70 — conservative yet discriminating,
+  not a degenerate never-reject.
 - Every power curve is monotone in the effect size and reaches >=0.82 at the
   largest delta, so each estimator is calibrated *and* discriminating.
 - Cross-fit DML, causal forest, and resampling-based SDID keep

@@ -135,7 +135,10 @@ def test_feols_empty_after_dropna():
 # ── HDFE primitives via sp.demean / sp.absorb_ols ───────────────────────
 
 def test_demean_nan_in_fe_raises(fe_df):
-    fe = fe_df["firm"].astype(float).to_numpy()
+    # ``.to_numpy()`` returns a read-only array under pandas>=3.0; copy so the
+    # NaN injection below is writeable (we are testing demean's NaN guard, not
+    # array mutability).
+    fe = fe_df["firm"].astype(float).to_numpy().copy()
     fe[0] = np.nan
     with pytest.raises(ValueError, match="NaN"):
         sp.demean(fe_df["y"].to_numpy(), fe)

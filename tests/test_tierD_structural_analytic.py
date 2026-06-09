@@ -10,14 +10,17 @@ Levinsohn-Petrin and Olley-Pakes estimators recover the known Cobb-Douglas
 output elasticities. Each alias must also dispatch identically to its underlying
 estimator.
 
-NB: ``sp.blp`` (the third structural P1 estimator) is **deferred** — the Tier D
-probe surfaced a real bug (``_gmm_objective`` called with ``maxiter=`` instead
-of ``maxiter_inner=``); see ``.tierd_campaign/BUG_blp_gmm_objective_maxiter.md``.
-Per the campaign red line it is reported, not silently fixed.
+``sp.blp`` (the third structural P1 estimator) is now covered too: the Tier D
+probe first surfaced a real bug (``_gmm_objective`` called with ``maxiter=``
+instead of ``maxiter_inner=``, raising ``TypeError`` on every estimation path),
+which was reported (``.tierd_campaign/BUG_blp_gmm_objective_maxiter.md``) and
+then fixed by the maintainer per CLAUDE.md §12 (CHANGELOG + MIGRATION,
+``⚠️ Functionality fix``). ``TestBLPAnalytic`` below is the regression guard.
 
 Entry points covered:
     sp.levpet  -> sp.levinsohn_petrin (Levinsohn-Petrin 2003)
     sp.opreg   -> sp.olley_pakes      (Olley-Pakes 1996)
+    sp.blp     -> random-coefficients logit demand (Berry-Levinsohn-Pakes 1995)
 
 Purely additive — no estimator numerics changed (campaign red line).
 """
@@ -104,3 +107,77 @@ class TestOlleyPakesAnalytic:
             df, output="y", free="l", state="k", proxy="i", panel_id="id", time="year"
         )
         assert a.coef["l"] == b.coef["l"] and a.coef["k"] == b.coef["k"]
+
+
+def _blp_logit_panel(seed=1, n_products=6, n_markets=120, alpha=-1.5, beta=1.0):
+    """Well-conditioned BLP panel: a multinomial-logit DGP with an endogenous
+    price driven by two cost shifters (the excluded instruments). With enough
+    markets and instruments, ``Z'Z`` stays well-conditioned, so the GMM
+    weight matrix is non-singular and the estimator recovers the true linear
+    price/characteristic coefficients."""
+    rng = np.random.default_rng(seed)
+    rows = []
+    for mkt in range(n_markets):
+        x = rng.uniform(0, 2, n_products)
+        xi = rng.normal(0, 0.2, n_products)  # demand shock (price endogeneity)
+        cost = rng.uniform(0.5, 2, n_products)
+        z2 = rng.uniform(0, 1, n_products)
+        price = 0.8 * cost + 0.5 * z2 + 0.4 * xi + rng.uniform(0, 0.5, n_products)
+        delta = beta * x + alpha * price + xi
+        ev = np.exp(delta)
+        shares = ev / (1 + ev.sum())  # logit shares with an outside good
+        for j in range(n_products):
+            rows.append(
+                {
+                    "market_id": mkt,
+                    "product_id": j,
+                    "shares": shares[j],
+                    "prices": price[j],
+                    "x1": x[j],
+                    "cost": cost[j],
+                    "z2": z2[j],
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+class TestBLPAnalytic:
+    """BLP random-coefficients logit. On a pure-logit DGP with endogenous
+    price and valid cost instruments, the estimator recovers the known linear
+    price and characteristic coefficients.
+
+    Regression guard for the maxiter keyword fix (CHANGELOG Unreleased /
+    v1.17.0, ``⚠️ Functionality fix``): before the fix ``sp.blp`` raised
+    ``TypeError: _gmm_objective() got an unexpected keyword argument
+    'maxiter'`` on every estimation path and produced no output at all.
+    """
+
+    def test_recovers_linear_price_and_characteristic(self):
+        df = _blp_logit_panel()
+        res = sp.blp(
+            df,
+            shares="shares",
+            prices="prices",
+            x_linear=["x1"],
+            x_random=["x1"],
+            instruments=["cost", "z2"],
+            n_draws=80,
+            seed=0,
+        )
+        assert res.linear_params["prices"] == pytest.approx(-1.5, abs=0.15)
+        assert res.linear_params["x1"] == pytest.approx(1.0, abs=0.15)
+
+    def test_runs_without_maxiter_typeerror(self):
+        # Direct guard: the buggy call raised TypeError before reaching output.
+        df = _blp_logit_panel(seed=2, n_markets=80)
+        res = sp.blp(
+            df,
+            shares="shares",
+            prices="prices",
+            x_linear=["x1"],
+            instruments=["cost", "z2"],
+            n_draws=50,
+            seed=0,
+        )
+        # Price enters utility negatively; own-price elasticities are negative.
+        assert res.own_elasticities.mean() < 0

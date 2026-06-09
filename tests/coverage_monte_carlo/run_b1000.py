@@ -273,9 +273,15 @@ def coverage_sdid() -> dict:
 
 def main() -> None:
     out: list[dict] = []
+    # The canonical Track-B artifact is frozen at the published seven DGPs
+    # while JOSS #10604 is in review (the manuscript narrative pins "seven").
+    # ``coverage_panel_fe`` and ``coverage_sdid`` are kept available for a
+    # post-review expansion but are intentionally NOT in the canonical list;
+    # panel/sdid coverage is still exercised by the pytest rows in
+    # ``test_coverage.py``.
     fns = [coverage_ols, coverage_did_2x2, coverage_iv,
            coverage_cs, coverage_ebalance, coverage_dml,
-           coverage_causal_forest, coverage_panel_fe, coverage_sdid]
+           coverage_causal_forest]
     for fn in fns:
         t0 = time.time()
         rec = fn()

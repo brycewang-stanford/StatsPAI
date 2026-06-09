@@ -17,12 +17,21 @@ outside the interval. This is exactly equivalent to a two-sided 5% Wald test
 and reuses the same ``.ci`` / ``.conf_int`` interface the coverage suite
 validates, so size/power and coverage are guaranteed to be consistent.
 
-These rows are restricted to the fast closed-form estimators (OLS, 2x2 DiD,
-strong-IV 2SLS, sharp RD, two-way FE panel) because a power curve needs B
-draws at each of several effect sizes; the cross-fit estimators (DML, causal
-forest) and resampling-based SDID are too slow for a multi-delta sweep and
-keep coverage-only rows in ``test_coverage.py``.
+These rows cover the analytically-fast estimators: OLS, 2x2 DiD, strong-IV
+2SLS, sharp RD, two-way FE panel, Callaway-Sant'Anna staggered DiD (influence-
+function SEs), and entropy-balancing (convex dual). A power curve needs B draws
+at each of several effect sizes, so the cross-fit estimators (DML, causal
+forest) and resampling-based SDID stay coverage-only in ``test_coverage.py``;
+they would turn a multi-delta sweep into hours of wall-clock.
+
+Entropy balancing is included precisely because it is *conservative*: its size
+sits near 0 (it almost never rejects under the null, mirroring its ~1.0 over-
+coverage) and its power therefore rises later than the exactly-calibrated
+estimators. That is an honest, documented characterisation, not a defect — the
+size test only caps the upper tail (validity), and the power curve still has to
+reach the same >=0.80 at the top effect size.
 """
+
 from __future__ import annotations
 
 import os
@@ -32,7 +41,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-
 
 B_DEFAULT = int(os.environ.get("STATSPAI_MC_DRAWS", 300))
 
@@ -47,6 +55,7 @@ def _wilson_bounds_at(p: float, B: int, conf: float = 0.99) -> tuple:
     roughly ``[0.026, 0.093]``.
     """
     from scipy.stats import norm
+
     z = norm.ppf((1 + conf) / 2)
     denom = 1 + z**2 / B
     centre = (p + z**2 / (2 * B)) / denom
@@ -73,9 +82,13 @@ def _assert_size(rejections: int, B: int, label: str) -> None:
     )
 
 
-def _assert_power_curve(powers: list, deltas: list, label: str,
-                        min_top_power: float = 0.80,
-                        slack: float = 0.03) -> None:
+def _assert_power_curve(
+    powers: list,
+    deltas: list,
+    label: str,
+    min_top_power: float = 0.80,
+    slack: float = 0.03,
+) -> None:
     """Assert the power curve is (near-)monotone and reaches ``min_top_power``.
 
     ``slack`` tolerates Monte Carlo wiggle in the monotonicity check so a
@@ -128,8 +141,14 @@ def _fit_did(seed: int, delta: float) -> bool:
         treat = 1 if i < n // 2 else 0
         ui = rng.normal(scale=0.5)
         for t in (0, 1):
-            y = (1.0 + 0.3 * t + 0.5 * treat + delta * treat * t + ui
-                 + rng.normal(scale=0.7))
+            y = (
+                1.0
+                + 0.3 * t
+                + 0.5 * treat
+                + delta * treat * t
+                + ui
+                + rng.normal(scale=0.7)
+            )
             rows.append({"i": i, "t": t, "treated": treat, "post": t, "y": y})
     df = pd.DataFrame(rows)
     r = sp.did(df, y="y", treat="treated", time="t", post="post")
@@ -153,8 +172,7 @@ def _fit_rd(seed: int, delta: float) -> bool:
     rng = np.random.default_rng(seed)
     n = 1000
     x = rng.uniform(-1, 1, n)
-    y = (2 + 3 * x + x**2 + delta * (x >= 0).astype(int)
-         + rng.normal(scale=0.4, size=n))
+    y = 2 + 3 * x + x**2 + delta * (x >= 0).astype(int) + rng.normal(scale=0.4, size=n)
     df = pd.DataFrame({"y": y, "x": x})
     r = sp.rdrobust(df, y="y", x="x", c=0.0)
     return _reject(r.ci)
@@ -176,13 +194,47 @@ def _fit_panel(seed: int, delta: float) -> bool:
     return _reject((lo, hi))
 
 
-# (fit_fn, label, B-cap, power-effect-sizes) — RD is slowest so capped lower.
+def _fit_cs(seed: int, delta: float) -> bool:
+    rng = np.random.default_rng(seed)
+    cohorts = [3, 5, 7, 0]
+    rows = []
+    for i in range(200):
+        g = cohorts[i % 4]
+        ui = rng.normal(scale=0.5)
+        for t in range(1, 9):
+            post = 1 if (g > 0 and t >= g) else 0
+            y = 0.2 * t + delta * post + ui + rng.normal(scale=0.8)
+            rows.append({"i": i, "t": t, "g": g, "y": y})
+    r = sp.callaway_santanna(
+        pd.DataFrame(rows), y="y", g="g", t="t", i="i", estimator="reg"
+    )
+    return _reject(r.ci)
+
+
+def _fit_ebalance(seed: int, delta: float) -> bool:
+    rng = np.random.default_rng(seed)
+    n = 500
+    X1 = rng.normal(size=n)
+    X2 = rng.normal(size=n)
+    p = 1 / (1 + np.exp(-(-0.3 + 0.5 * X1 - 0.3 * X2)))
+    d = (rng.uniform(0, 1, n) < p).astype(int)
+    y = 1.0 + 1.5 * X1 - 0.8 * X2 + delta * d + rng.normal(scale=0.8, size=n)
+    df = pd.DataFrame({"y": y, "d": d, "X1": X1, "X2": X2})
+    r = sp.ebalance(df, y="y", treat="d", covariates=["X1", "X2"])
+    return _reject(r.ci)
+
+
+# (fit_fn, label, B-cap, power-effect-sizes). RD and CS are slower so capped.
+# Entropy balancing is conservative, so its power sweep runs to a larger top
+# effect (1.0) to clear the >=0.80 bar.
 _ESTIMATORS = [
     (_fit_ols, "OLS RCT", None, [0.0, 0.10, 0.20, 0.30]),
     (_fit_did, "DID 2x2", None, [0.0, 0.20, 0.40, 0.60]),
     (_fit_iv, "IV 2SLS", None, [0.0, 0.20, 0.40, 0.60]),
     (_fit_rd, "RD sharp", 200, [0.0, 0.20, 0.40, 0.60]),
     (_fit_panel, "Panel FE", None, [0.0, 0.15, 0.30, 0.45]),
+    (_fit_cs, "CS staggered", 100, [0.0, 0.30, 0.60, 0.90]),
+    (_fit_ebalance, "Ebalance", 200, [0.0, 0.40, 0.70, 1.00]),
 ]
 
 
@@ -192,8 +244,9 @@ _ESTIMATORS = [
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("fit_fn,label,cap,_deltas", _ESTIMATORS,
-                         ids=[e[1] for e in _ESTIMATORS])
+@pytest.mark.parametrize(
+    "fit_fn,label,cap,_deltas", _ESTIMATORS, ids=[e[1] for e in _ESTIMATORS]
+)
 def test_size_under_null(fit_fn, label, cap, _deltas):
     """Under H0 (effect=0), a nominal 5% test must reject ~5% of the time."""
     B = B_DEFAULT if cap is None else min(B_DEFAULT, cap)
@@ -208,8 +261,9 @@ def test_size_under_null(fit_fn, label, cap, _deltas):
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("fit_fn,label,cap,deltas", _ESTIMATORS,
-                         ids=[e[1] for e in _ESTIMATORS])
+@pytest.mark.parametrize(
+    "fit_fn,label,cap,deltas", _ESTIMATORS, ids=[e[1] for e in _ESTIMATORS]
+)
 def test_power_curve(fit_fn, label, cap, deltas):
     """Power must increase with the effect size and be high at the top."""
     B = B_DEFAULT if cap is None else min(B_DEFAULT, cap)
@@ -237,6 +291,6 @@ def test_ols_size_smoke():
     rejections = sum(_fit_ols(seed, 0.0) for seed in range(B))
     rate = rejections / B
     # Wide band at B=60: a catastrophic mis-sizing (e.g. 0.3) still fails.
-    assert 0.0 <= rate <= 0.20, (
-        f"OLS smoke size = {rate:.3f} outside [0.0, 0.20] (B={B})"
-    )
+    assert (
+        0.0 <= rate <= 0.20
+    ), f"OLS smoke size = {rate:.3f} outside [0.0, 0.20] (B={B})"
