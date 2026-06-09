@@ -33,6 +33,33 @@ known linear price/characteristic coefficients on a pure-logit DGP
 **Action required.** None, beyond noting that `sp.blp` is now usable. Found by
 the Tier D analytic special-case test campaign (CLAUDE.md §5).
 
+<a id="dag-dseparation-fix"></a>
+
+## Unreleased — ⚠️ d-separation corrected (forks & colliders)
+
+**What changed.** `statspai.dag`'s d-separation engine (`_d_separated`, behind
+`DAG.d_separated`, `adjustment_sets`, `backdoor_paths`, `do_rule1/2/3`,
+`do_calculus_apply`, `swig`, `dag_recommend_estimator`) moralised the ancestral
+graph incorrectly — it married *siblings* instead of *co-parents*. So the two
+non-trivial d-separation rules were backwards: conditioning on a common cause
+did **not** block a fork (`A ⊥ C | M` on `M→A, M→C` wrongly returned `False`),
+and conditioning on a collider did **not** open it (`A ⊥ C | K` on `A→K←C`
+wrongly returned `True`). Chains were unaffected. Moralisation now connects
+every pair of a node's parents, so all three canonical structures and the
+adjustment-set / do-calculus routines built on them are correct.
+
+**Who is affected.** Anyone who used `DAG.d_separated`, `adjustment_sets`,
+`backdoor_paths`, the do-calculus rule checkers, `swig`, or
+`dag_recommend_estimator`. **Re-derive any adjustment sets / identification
+conclusions** obtained from these — previous fork/collider answers were
+unreliable. No API change. None of the package's reference-parity or
+JOSS/JSS-dossier numbers come from these graph routines, and all nine
+dag-touching test files pass unchanged (none had encoded the broken behaviour).
+
+**Action required.** None code-wise; re-check any DAG-derived adjustment sets.
+Found by the Tier D analytic special-case campaign (CLAUDE.md §5); guard:
+`tests/test_tierD_p2_dag_dsep_analytic.py`.
+
 <a id="granger-wald-variance-fix"></a>
 
 ## Unreleased — ⚠️ `sp.granger_causality` test statistic corrected

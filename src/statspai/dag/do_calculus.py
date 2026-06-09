@@ -155,20 +155,25 @@ def _d_separated(dag, A, B, C) -> bool:
         for p, ch in dag._edges.items():
             if v in ch and p not in anc:
                 stack.append(p)
-    # Build undirected moralized ancestral graph
+    # Build undirected moralized ancestral graph: add parent--child edges, then
+    # "marry" the co-parents of each node (parents that share a common child).
     adj: dict[str, Set[str]] = {v: set() for v in anc}
+    parents_in: dict[str, list] = {v: [] for v in anc}
     for p, ch in dag._edges.items():
         if p not in anc:
             continue
-        children_in = [c for c in ch if c in anc]
-        for c in children_in:
-            adj[p].add(c)
-            adj[c].add(p)
-        # marry co-parents
-        for i in range(len(children_in)):
-            for j in range(i + 1, len(children_in)):
-                a, b = children_in[i], children_in[j]
-                adj[a].add(b); adj[b].add(a)
+        for c in ch:
+            if c in anc:
+                adj[p].add(c)
+                adj[c].add(p)
+                parents_in[c].append(p)
+    # Moralisation: connect every pair of parents of the same node.
+    for ps in parents_in.values():
+        for i in range(len(ps)):
+            for j in range(i + 1, len(ps)):
+                a, b = ps[i], ps[j]
+                adj[a].add(b)
+                adj[b].add(a)
     # Delete nodes in C
     for c in C:
         adj.pop(c, None)

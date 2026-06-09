@@ -122,6 +122,22 @@ All notable changes to StatsPAI will be documented in this file.
   invalidated (the old statistic was statistically meaningless); no JOSS/JSS
   table uses `granger_causality`. Found by the Tier D campaign (CLAUDE.md §5).
 
+- **⚠️ Correctness fix: d-separation (`statspai.dag`) was wrong on forks and
+  colliders.** The moralisation step in `_d_separated` married *siblings*
+  (children of a common parent) instead of *co-parents* (parents of a common
+  child). As a result conditioning on a common cause failed to block a fork
+  (`A ⊥ C | M` on `M→A, M→C` returned `False`) and conditioning on a collider
+  failed to open it (`A ⊥ C | K` on `A→K←C` returned `True`) — the two
+  non-trivial d-separation cases were both backwards. This propagated to
+  everything built on `_d_separated`: `DAG.d_separated`, `adjustment_sets`,
+  `backdoor_paths`, `do_rule1/2/3`, `do_calculus_apply`, `swig`, and
+  `dag_recommend_estimator`. Moralisation now connects every pair of a node's
+  parents; the chain/fork/collider truths and back-door adjustment-set finding
+  are correct (e.g. `adjustment_sets("X","Y")` on `W→X, W→Y, X→Y` now returns
+  `[{W}]`). Guarded by `tests/test_tierD_p2_dag_dsep_analytic.py`; all 9
+  dag-touching test files still pass (none had pinned the broken behaviour).
+  No JOSS/JSS table uses these graph routines. Found by the Tier D campaign.
+
 - **Agent-UX: `describe_function` advertised stale params / wrong defaults for
   29 hand-written specs (two invariant classes, 18 + 11).** An agent that reads
   the schema and calls `sp.<name>(**kwargs)` verbatim was led into `TypeError`s

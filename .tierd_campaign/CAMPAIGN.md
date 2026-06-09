@@ -336,3 +336,27 @@ noisy/forest-dependent — anchored on β₁ + null structure instead.
   granger; needs a look at the DTE permutation-null path.
 - **P2 tally: 8 batches, 52 tests, 19 estimators.** Reduced batch runtime
   6.5min → 58s (n_boot 50→20; point estimates don't need heavy bootstrap).
+
+### 2026-06-09 (cont.) — P2 conformal batch + ⚠️ THIRD bug (d-separation)
+- `test_tierD_p2_conformal_analytic.py` (5): `weighted_conformal_prediction`
+  (marginal coverage ~1-α in [0.87,0.95]; falls with α), `conformal_ite_interval`
+  (covers known constant ITE τ=3 at ≥1-α; width shrinks as α grows; point ≈ τ).
+- **⚠️ THIRD REAL BUG — `_d_separated` moralization inverted (HIGH/foundational).**
+  Marries siblings instead of co-parents → wrong on forks (A⊥C|M returns False)
+  and colliders (A⊥C|K returns True). Underlies do_rule1/2/3, do_calculus_apply,
+  swig, adjustment-set finding, dag_recommend_estimator. Full diagnosis + ready
+  patch: `.tierd_campaign/BUG_d_separation_moralization.md`. Reported, NOT fixed
+  (broad blast radius → needs sign-off + full dag-suite re-run). dag batch deferred.
+- **P2 tally: 9 batches, 57 tests, 21 estimators.** Three bugs found by campaign:
+  blp (fixed), granger (fixed), d-separation (reported, ready to fix).
+
+### 2026-06-09 (cont.) — ⚠️ d-separation CORRECTNESS FIX (maintainer-approved)
+- Fixed `_d_separated` moralisation: marry co-parents (parents of a common
+  child), not siblings. All 6 canonical chain/fork/collider cases correct;
+  adjustment_sets/backdoor_paths/do_rule2 now correct (adjustment_sets("X","Y")
+  on W→X,W→Y,X→Y → [{W}]). Guard: tests/test_tierD_p2_dag_dsep_analytic.py (7).
+  9 dag-touching test files all pass (217) — none pinned broken behaviour.
+  CHANGELOG + MIGRATION (#dag-dseparation-fix). Bug report RESOLVED.
+- **THREE bugs found AND fixed by the Tier D campaign: blp (functionality),
+  granger_causality (Wald variance), d-separation (moralisation). All §12.**
+- **P2 tally: 10 batches, 64 tests, 23 estimators.**
