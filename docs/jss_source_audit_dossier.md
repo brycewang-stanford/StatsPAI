@@ -36,9 +36,9 @@ does not mean every registered helper is numerically validated.
 
 ## Validation Boundary
 
-Current JSS source-snapshot audit counts: 52 `certified`, 21 `validated`, 944
+Current JSS source-snapshot audit counts: 52 `certified`, 25 `validated`, 940
 `api_stable`, and 3 `experimental` registry symbols. The certified/validated
-surface is therefore 73 symbols, while 755 stable auto-registered symbols
+surface is therefore 77 symbols, while 751 stable auto-registered symbols
 remain API-stable but not parity-backed.
 
 The `validated` tier requires known-truth, reference-parity, external-parity,
@@ -51,6 +51,8 @@ The source-snapshot evidence audit checks that all certified/validated symbols
 have registry-attached evidence notes and that those notes resolve to source
 files included in the JSS package. The current archive includes 133
 registry-evidence source files.
+The current source snapshot also tracks 135 registry-evidence source files
+in the live validation-note inventory.
 
 ## Reproducible Audit Artifacts
 

@@ -134,7 +134,7 @@ docs = [
 notebooks = [
     # Tier-B replication notebooks (Paper-JSS/replication/notebooks/*.ipynb):
     # build them with scripts/build_replication_notebooks.py and execute them
-    # headless (one-click reviewer reproduction + CI drift guard) via
+    # headless (reviewer reproduction + CI drift guard) via
     # tests/test_replication_notebooks.py. All BSD-licensed (MIT-compatible).
     "nbformat>=5.7",
     "nbclient>=0.7",
