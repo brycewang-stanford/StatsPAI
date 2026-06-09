@@ -5,6 +5,27 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="blp-maxiter-fix"></a>
+
+## Unreleased — ⚠️ `sp.blp` functionality fix (was non-functional)
+
+**What changed.** `sp.blp` (BLP random-coefficients logit demand) now runs.
+Previously its GMM inner loop called `_gmm_objective(..., maxiter=1000)` while
+the parameter is named `maxiter_inner`, so **every** `sp.blp` call raised
+`TypeError: _gmm_objective() got an unexpected keyword argument 'maxiter'` as
+soon as the outer optimiser evaluated the objective — i.e. on every estimation
+path (`contraction`, `mpec`, `gmm`).
+
+**Who is affected.** Anyone who tried to call `sp.blp`. Because the function
+produced *no* output before (it crashed), this fix cannot move any
+previously-correct number — JOSS (#10604) / JSS dossier figures are unaffected;
+`sp.blp` was never in those tables. A regression guard now recovers the known
+linear price/characteristic coefficients on a pure-logit DGP
+(`tests/test_tierD_structural_analytic.py::TestBLPAnalytic`).
+
+**Action required.** None, beyond noting that `sp.blp` is now usable. Found by
+the Tier D analytic special-case test campaign (CLAUDE.md §5).
+
 <a id="ols-qr-kernel"></a>
 
 ## Unreleased — ⚠️ OLS kernel switched to a QR solve (numerical accuracy)
