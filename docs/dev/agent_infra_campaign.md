@@ -29,7 +29,7 @@ they do not change a single estimated number.
 |---|------|---------------|--------|
 | 1 | Full schema↔signature drift CI guard (+ fix existing drift) | none (metadata + tests) | **done** |
 | 2 | `EconometricResults.to_dict(detail=)` + `.cite()` (additive) | ~none (additive, default=current) | **done** |
-| 3 | Workflow tools → registry single-source (sync `registry_stats`) | none (metadata; counts re-synced) | pending |
+| 3 | Workflow-tool dispatch contract guard (MCP layer, not registry) | none (test-only) | **done** |
 | 4 | MCP result-cache TTL + structured invalidation | none (runtime only) | pending |
 | 5 | Docstring parsing multi-format (lazy/extras only) | none (metadata extraction) | pending |
 
@@ -86,3 +86,27 @@ mirroring `CausalResult.cite`, resolving the bib key **exactly** from
   forward hook for any future regression estimator that needs a citation.
 
 No existing `to_dict`/`summary` output changed; `.cite()` is a pure addition.
+
+## Item #3 — workflow-tool dispatch contract
+
+**Course-correction.** The original plan ("register workflow tools in the function
+registry") was *wrong on inspection*: `audit_result` / `sensitivity_from_result`
+/ `bibtex` / … are **MCP-only tools** with no `sp.<name>` callable — they operate
+on result handles. Putting them in the function registry would pollute
+`sp.list_functions()` and inflate the public-symbol count that README / `docs/
+stats.md` cite (a JOSS-visible surface). The single source of truth correctly
+stays `WORKFLOW_TOOL_SPECS`; the fix belongs at the manifest/dispatch layer.
+
+**Real gap found.** `execute_workflow_tool` falls through to a *silent error dict*
+(`{'error': 'workflow_tool dispatch missed name ...'}`) — not an exception — when
+a spec has no branch. The existing `test_every_advertised_tool_is_executable`
+only checks `name in WORKFLOW_TOOL_NAMES`, so it **trusts membership** and cannot
+catch a spec added without a dispatch branch: the tool is "executable" yet 500s
+for a real agent.
+
+**Fix (test-only).** `tests/test_workflow_tool_dispatch_contract.py` exercises
+`execute_workflow_tool` for every spec name and rejects the fall-through sentinel,
+plus locks `WORKFLOW_TOOL_NAMES == specs` and validates each spec's JSON-object
+`input_schema` (type/properties/required⊆properties). Adding a spec without
+wiring the dispatcher now fails CI. No production code changed; no registry count
+moved → `registry_stats` untouched.
