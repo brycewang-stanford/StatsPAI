@@ -12,8 +12,8 @@
 
 | Ecosystem / Project                  | Method     |  Files | Lines of code | Primary focus                      |
 | ------------------------------------ | ---------- | -----: | ------------: | ---------------------------------- |
-| **StatsPAI** `src/statspai/`         | measured   |    650 |   **270,953** | validation-tiered causal inference |
-| StatsPAI tests (`tests/`)            | measured   |    755 |       131,431 | —                                  |
+| **StatsPAI** `src/statspai/`         | measured   |    650 |   **271,580** | validation-tiered causal inference |
+| StatsPAI tests (`tests/`)            | measured   |    774 |       134,248 | —                                  |
 | statsmodels 0.14.x                   | measured   |    948 |   **381,981** | GLM / time series / general        |
 | linearmodels                         | measured   |    131 |        36,607 | panel / IV                         |
 | **Python causal-inference subtotal** |            |  1,079 |   **418,588** |                                    |
@@ -40,20 +40,20 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
 | `synth` | 20,256 | 31 | 53 |
-| `did` | 17,183 | 33 | 59 |
+| `did` | 17,188 | 33 | 59 |
 | `rd` | 13,696 | 25 | 53 |
 | `regression` | 11,782 | 19 | 37 |
 | `output` | 10,891 | 21 | 40 |
-| `agent` | 9,567 | 30 | 0 |
+| `agent` | 9,709 | 30 | 0 |
 | `smart` | 8,924 | 17 | 26 |
 | `decomposition` | 7,509 | 18 | 31 |
 | `iv` | 6,599 | 16 | 8 |
-| `diagnostics` | 5,916 | 12 | 20 |
+| `diagnostics` | 6,115 | 12 | 22 |
 | `fast` | 5,799 | 13 | 0 |
 | `plots` | 5,176 | 6 | 6 |
 | `spatial` | 5,136 | 29 | 35 |
+| `core` | 5,004 | 10 | 2 |
 | `inference` | 4,949 | 15 | 24 |
-| `core` | 4,943 | 10 | 2 |
 | `panel` | 4,906 | 12 | 17 |
 | `matching` | 4,052 | 9 | 23 |
 | `frontier` | 4,008 | 8 | 12 |
@@ -62,7 +62,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `multilevel` | 3,719 | 8 | 11 |
 | `dml` | 3,482 | 12 | 14 |
 | `mendelian` | 3,410 | 13 | 38 |
-| `causal_discovery` | 3,371 | 11 | 20 |
+| `causal_discovery` | 3,379 | 11 | 20 |
 | `dag` | 2,924 | 9 | 19 |
 | `metalearners` | 2,916 | 8 | 23 |
 | `structural` | 2,784 | 9 | 12 |
@@ -90,10 +90,10 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `target_trial` | 1,151 | 7 | 9 |
 | `mediation` | 1,133 | 4 | 4 |
 | `power` | 1,099 | 3 | 12 |
+| `datasets` | 1,007 | 2 | 0 |
 | `policy_learning` | 981 | 3 | 3 |
 | `principal_strat` | 923 | 2 | 3 |
 | `gmm` | 876 | 3 | 2 |
-| `datasets` | 870 | 2 | 0 |
 | `dtr` | 833 | 5 | 2 |
 | `fairness` | 833 | 3 | 6 |
 | `longitudinal` | 800 | 3 | 7 |
@@ -120,7 +120,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `censoring` | 284 | 2 | 2 |
 | `causal` | 101 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **270,953** | **650** | **1029** |
+| **Total** | **271,580** | **650** | **1031** |
 
 ## 3 · Causal-inference coverage matrix (full)
 

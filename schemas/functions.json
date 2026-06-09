@@ -2033,7 +2033,7 @@
     }
   },
   {
-    "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming.",
+    "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ipw",
     "parameters": {
       "properties": {
@@ -2362,7 +2362,7 @@
     }
   },
   {
-    "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust.",
+    "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "g_computation",
     "parameters": {
       "properties": {
@@ -22096,35 +22096,51 @@
     }
   },
   {
-    "description": "Compute E-value for sensitivity to unmeasured confounding. Validation: certified parity evidence.",
+    "description": "Compute the E-value for sensitivity to unmeasured confounding. Validation: certified parity evidence.",
     "name": "evalue",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for CI if se is provided but ci is not.",
+          "description": "Significance level used to build a CI from ``se`` when ``ci`` is not supplied (ratio measures).",
           "type": "number"
         },
         "ci": {
-          "description": "Confidence interval (lower, upper). If not provided, computed from estimate +/- z * se.",
+          "description": "Confidence interval on the ``measure`` scale. Takes precedence over ``se`` for ratio measures.",
+          "type": "number"
+        },
+        "delta": {
+          "default": 1.0,
+          "description": "Contrast size for ``OLS`` (E-value for a ``delta``-unit change in the exposure).",
           "type": "number"
         },
         "estimate": {
-          "description": "Point estimate of the treatment effect. - For measure='RR': risk ratio (must be > 0). - For measure='OR': odds ratio (must be > 0). - For measure='HR': hazard ratio (must be > 0). - For measure='diff': risk difference (between -1 and 1). - For measure='SMD': standardised mean difference. - For measure='RD': same as 'diff'.",
+          "description": "Point estimate on the scale given by ``measure``: - ``'RR'`` risk ratio, ``'OR'`` odds ratio, ``'HR'`` hazard ratio (all must be > 0); - ``'MD'`` / ``'SMD'`` standardised mean difference; - ``'OLS'`` raw linear-regression coefficient (supply ``sd``); - ``'DIFF'`` / ``'RD'`` risk difference (approximate scalar path;",
           "type": "number"
         },
         "measure": {
           "default": "RR",
-          "description": "Type of effect measure: 'RR', 'OR', 'HR', 'diff', 'RD', 'SMD'.",
+          "description": "One of ``'RR'``, ``'OR'``, ``'HR'``, ``'MD'``, ``'SMD'``, ``'OLS'``, ``'DIFF'``, ``'RD'``.",
           "type": "string"
         },
-        "rare_outcome": {
-          "default": false,
-          "description": "If True and measure='OR', uses the rare disease approximation (OR approx RR). Otherwise converts OR to RR.",
+        "rare": {
+          "description": "For ``OR`` / ``HR`` only: whether the rare-outcome approximation applies. ``rare=True`` treats OR/HR ~ RR; ``rare=False`` (the default) uses the exact common-outcome conversion to the RR scale (``sqrt(OR)`` for OR; the Ding-VanderWeele formula for HR).",
           "type": "boolean"
         },
+        "rare_outcome": {
+          "description": "Deprecated alias for ``rare`` (kept for backwards compatibility).",
+          "type": "boolean"
+        },
+        "sd": {
+          "description": "Outcome standard deviation, required for ``measure='OLS'`` to standardise the coefficient.",
+          "type": "number"
+        },
         "se": {
-          "description": "Standard error of the estimate (used to compute CI if ci is not provided).",
+          "description": "Standard error of ``estimate``. Required for ``MD`` / ``OLS`` to obtain a confidence-interval E-value; for ratio measures it is used (with ``alpha``) to build a CI when ``ci`` is not given.",
+          "type": "number"
+        },
+        "true": {
+          "description": "Reference value the confounding would have to move the estimate to. Defaults to the null: 1 for ratio measures, 0 for difference measures. A non-null ``true`` gives a \"non-null\" E-value.",
           "type": "number"
         }
       },
@@ -22135,27 +22151,101 @@
     }
   },
   {
-    "description": "Compute E-value from a StatsPAI CausalResult object.",
+    "description": "Compute an E-value from a StatsPAI CausalResult object.",
     "name": "evalue_from_result",
     "parameters": {
       "properties": {
         "measure": {
           "default": "SMD",
-          "description": "How to interpret the estimate. For most causal estimators producing ATE/ATT on continuous outcomes, 'SMD' is appropriate.",
+          "description": "How to interpret ``result.estimate`` (for ATE/ATT on continuous outcomes ``'SMD'`` is appropriate; pass ``'RR'`` / ``'OR'`` / ``'HR'`` for ratio estimates). Passed through to :func:`evalue`.",
           "type": "string"
         },
+        "rare": {
+          "description": "rare parameter (Optional[bool]).",
+          "type": "boolean"
+        },
         "rare_outcome": {
-          "default": false,
-          "description": "rare_outcome parameter (bool).",
+          "description": "rare_outcome parameter (Optional[bool]).",
           "type": "boolean"
         },
         "result": {
-          "description": "Result from any StatsPAI causal estimator.",
+          "description": "Result from any StatsPAI causal estimator exposing a scalar ``estimate`` (and ideally ``se`` / ``ci``).",
           "type": "string"
+        },
+        "true": {
+          "description": "true parameter (Optional[float]).",
+          "type": "number"
         }
       },
       "required": [
         "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Exact E-value for a risk difference from a 2x2 table.",
+    "name": "evalue_rd",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for the confidence-limit E-value.",
+          "type": "number"
+        },
+        "grid": {
+          "default": 0.0001,
+          "description": "Step size of the bias-factor grid search for the CI E-value.",
+          "type": "number"
+        },
+        "n00": {
+          "description": "Unexposed cases and unexposed non-cases.",
+          "type": "number"
+        },
+        "n01": {
+          "description": "Unexposed cases and unexposed non-cases.",
+          "type": "number"
+        },
+        "n10": {
+          "description": "Exposed cases and exposed non-cases.",
+          "type": "number"
+        },
+        "n11": {
+          "description": "Exposed cases and exposed non-cases.",
+          "type": "number"
+        },
+        "true": {
+          "default": 0.0,
+          "description": "Reference risk difference (must be <= the observed RD).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "n11",
+        "n10",
+        "n01",
+        "n00"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Confounding bias factor ``B`` (Ding & VanderWeele 2016).",
+    "name": "bias_factor",
+    "parameters": {
+      "properties": {
+        "rr_eu": {
+          "description": "rr_eu parameter (float).",
+          "type": "number"
+        },
+        "rr_ud": {
+          "description": "rr_ud parameter (float).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "rr_eu",
+        "rr_ud"
       ],
       "type": "object"
     }
@@ -27403,7 +27493,7 @@
     }
   },
   {
-    "description": "G-estimation for a multi-stage dynamic treatment regime.",
+    "description": "G-estimation for a multi-stage dynamic treatment regime. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "g_estimation",
     "parameters": {
       "properties": {
