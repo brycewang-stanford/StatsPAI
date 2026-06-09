@@ -14,7 +14,7 @@
 [![status](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332/status.svg)](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19933900-blue.svg)](https://doi.org/10.5281/zenodo.19933900)
 
-StatsPAI 是一个 **validation-tiered** Python 因果推断与应用计量经济学平台。一个 `import`，**1,000+ 个注册函数**，分布在 **80+ 个子模块**（实时数量请运行 `python scripts/registry_stats.py`），覆盖从经典计量经济学到 ML/AI 因果推断方法，再到论文级 Word、Excel、LaTeX 输出表格的实证研究流程。
+StatsPAI 是一个 **validation-tiered** Python 因果推断与应用计量经济学库。一个 `import`，**1,000+ 个注册函数**，分布在 **80+ 个子模块**（实时数量请运行 `python scripts/registry_stats.py`），覆盖从经典计量经济学到 ML/AI 因果推断方法，再到论文级 Word、Excel、LaTeX 输出表格的实证研究流程。
 
 **面向 AI Agent 的接口层**：注册函数暴露机器可读的 schema（`list_functions()`、`describe_function()`、`function_schema()`），并通过 `validation_status` 区分 certified / validated / api_stable / experimental。数值验证只在有明确证据工件的函数上声明，API 广度不等同于全部函数都完成 R/Stata 对齐。
 
