@@ -30,10 +30,10 @@ import warnings
 from ..core.results import EconometricResults
 from ..core.utils import parse_formula, create_design_matrices, prepare_data
 
-
 # =========================================================================
 # Link functions: CDF, PDF, and derivatives
 # =========================================================================
+
 
 def _logit_cdf(z: np.ndarray) -> np.ndarray:
     """Logistic CDF  Λ(z) = 1/(1+exp(-z))  (numerically stable)."""
@@ -92,15 +92,16 @@ def _cloglog_pdf_deriv(z: np.ndarray) -> np.ndarray:
 
 
 _LINKS = {
-    'logit': (_logit_cdf, _logit_pdf, _logit_pdf_deriv),
-    'probit': (_probit_cdf, _probit_pdf, _probit_pdf_deriv),
-    'cloglog': (_cloglog_cdf, _cloglog_pdf, _cloglog_pdf_deriv),
+    "logit": (_logit_cdf, _logit_pdf, _logit_pdf_deriv),
+    "probit": (_probit_cdf, _probit_pdf, _probit_pdf_deriv),
+    "cloglog": (_cloglog_cdf, _cloglog_pdf, _cloglog_pdf_deriv),
 }
 
 
 # =========================================================================
 # Core MLE engine
 # =========================================================================
+
 
 def _log_likelihood(
     beta: np.ndarray,
@@ -161,13 +162,48 @@ def _hessian(
 
     pq = p * (1.0 - p)
     # d²ℓ/dz² for each obs
-    d2 = (
-        (y - p) * (fp * pq - f**2 * (1.0 - 2.0 * p)) / pq**2
-        - f**2 / pq
-    )
+    d2 = (y - p) * (fp * pq - f**2 * (1.0 - 2.0 * p)) / pq**2 - f**2 / pq
     if weights is not None:
         d2 = d2 * weights
     return X.T @ (d2[:, np.newaxis] * X)
+
+
+def _warn_if_separated(y: np.ndarray, p_hat: np.ndarray) -> None:
+    """Warn on (quasi-)complete separation, where the MLE does not exist.
+
+    Under perfect separation Newton-Raphson does not diverge loudly — it
+    "converges" by the step tolerance while coefficients drift toward ±∞ and
+    the fitted probabilities pile up at 0/1, so the reported estimates and
+    standard errors are artefacts of the stopping rule, not a finite optimum.
+
+    The signature is scale-free: every observation is perfectly classified AND
+    essentially all fitted probabilities sit at the 0/1 extremes. Strong but
+    overlapping signal does not trip it (some fitted probabilities stay in the
+    interior), so it does not fire on well-identified models.
+    """
+    y_arr = np.asarray(y).ravel()
+    p = np.asarray(p_hat).ravel()
+    if p.size == 0:
+        return
+    if not np.array_equal((p >= 0.5).astype(int), y_arr.astype(int)):
+        return
+    frac_extreme = float(np.mean((p < 1e-2) | (p > 1.0 - 1e-2)))
+    if frac_extreme >= 0.99:
+        from ..exceptions import ConvergenceWarning, warn as _sp_warn
+
+        _sp_warn(
+            ConvergenceWarning,
+            "Perfect or quasi-complete separation detected: the outcome is "
+            "perfectly predicted by the linear index, so the maximum-likelihood "
+            "estimates do not exist. The reported coefficients and standard "
+            "errors are driven by the optimizer's stopping rule, not a finite "
+            "optimum, and should not be interpreted.",
+            recovery_hint=(
+                "Use penalized (Firth) logistic regression, drop the perfectly "
+                "separating predictor, or pool sparse categories."
+            ),
+            stacklevel=3,
+        )
 
 
 def _newton_raphson(
@@ -244,6 +280,7 @@ def _newton_raphson(
 # Variance-covariance estimators
 # =========================================================================
 
+
 def _mle_vcov(H: np.ndarray) -> np.ndarray:
     """MLE (observed information) variance: V = -H^{-1}."""
     try:
@@ -313,12 +350,13 @@ def _cluster_vcov(
 # Marginal effects
 # =========================================================================
 
+
 def _marginal_effects(
     beta: np.ndarray,
     X: np.ndarray,
     pdf_func,
     var_names: List[str],
-    kind: str = 'average',
+    kind: str = "average",
     at_values: Optional[Dict[str, float]] = None,
 ) -> pd.DataFrame:
     """
@@ -329,18 +367,18 @@ def _marginal_effects(
     kind : 'average' (AME), 'mean' (MEM), 'at' (MER)
     at_values : dict of variable -> value (for kind='at')
     """
-    if kind == 'average':
+    if kind == "average":
         # AME: average of f(x_i'β) across all obs
         z = X @ beta
         f = pdf_func(z)
         me = np.mean(f) * beta
-    elif kind == 'mean':
+    elif kind == "mean":
         # MEM: f evaluated at sample means
         x_bar = X.mean(axis=0)
         z_bar = x_bar @ beta
         f_bar = pdf_func(np.array([z_bar]))[0]
         me = f_bar * beta
-    elif kind == 'at':
+    elif kind == "at":
         # MER: at representative values
         if at_values is None:
             # Default to means
@@ -357,16 +395,22 @@ def _marginal_effects(
     else:
         raise ValueError(f"Unknown marginal_effects kind: {kind}")
 
-    return pd.DataFrame({
-        'dy/dx': me,
-    }, index=var_names)
+    return pd.DataFrame(
+        {
+            "dy/dx": me,
+        },
+        index=var_names,
+    )
 
 
 # =========================================================================
 # Diagnostics
 # =========================================================================
 
-def _hosmer_lemeshow(y: np.ndarray, p_hat: np.ndarray, n_groups: int = 10) -> Tuple[float, float]:
+
+def _hosmer_lemeshow(
+    y: np.ndarray, p_hat: np.ndarray, n_groups: int = 10
+) -> Tuple[float, float]:
     """
     Hosmer-Lemeshow goodness-of-fit test.
 
@@ -445,11 +489,14 @@ def _classification_table(
     pcp = (tp + tn) / len(y) * 100
 
     return {
-        'tp': int(tp), 'tn': int(tn), 'fp': int(fp), 'fn': int(fn),
-        'sensitivity': sensitivity,
-        'specificity': specificity,
-        'pcp': pcp,
-        'cutoff': cutoff,
+        "tp": int(tp),
+        "tn": int(tn),
+        "fp": int(fp),
+        "fn": int(fn),
+        "sensitivity": sensitivity,
+        "specificity": specificity,
+        "pcp": pcp,
+        "cutoff": cutoff,
     }
 
 
@@ -457,11 +504,12 @@ def _classification_table(
 # Prediction helper
 # =========================================================================
 
+
 def _predict(
     beta: np.ndarray,
     X: np.ndarray,
     cdf_func,
-    pred_type: str = 'response',
+    pred_type: str = "response",
     cutoff: float = 0.5,
 ) -> np.ndarray:
     """
@@ -472,11 +520,11 @@ def _predict(
     pred_type : 'response' (probabilities), 'link' (xβ), 'class' (0/1)
     """
     xb = X @ beta
-    if pred_type == 'link':
+    if pred_type == "link":
         return xb
-    elif pred_type == 'response':
+    elif pred_type == "response":
         return cdf_func(xb)
-    elif pred_type == 'class':
+    elif pred_type == "class":
         return (cdf_func(xb) >= cutoff).astype(int)
     else:
         raise ValueError(f"Unknown predict type: {pred_type}")
@@ -485,6 +533,7 @@ def _predict(
 # =========================================================================
 # Public API
 # =========================================================================
+
 
 def _fit_binary(
     formula: Optional[str],
@@ -519,7 +568,7 @@ def _fit_binary(
         dep_var = y
         X_raw = clean[x].values.astype(float)
         X_mat = np.column_stack([np.ones(len(X_raw)), X_raw])
-        var_names = ['Intercept'] + list(x)
+        var_names = ["Intercept"] + list(x)
     else:
         raise ValueError("Provide either (formula, data) or (y, x, data).")
 
@@ -539,14 +588,14 @@ def _fit_binary(
     # Weights
     w = None
     if weights is not None and data is not None:
-        w = data.loc[X_df.index if formula else clean.index, weights].values.astype(float)
+        w = data.loc[X_df.index if formula else clean.index, weights].values.astype(
+            float
+        )
 
     # Cluster variable
     cluster_arr = None
     if cluster is not None and data is not None:
-        cluster_arr = data.loc[
-            X_df.index if formula else clean.index, cluster
-        ].values
+        cluster_arr = data.loc[X_df.index if formula else clean.index, cluster].values
 
     cdf_func, pdf_func, pdf_deriv_func = _LINKS[link]
 
@@ -559,7 +608,7 @@ def _fit_binary(
     if cluster_arr is not None:
         vcov = _cluster_vcov(H, s_obs, cluster_arr)
         se_type = f"Clustered ({cluster})"
-    elif robust != 'nonrobust':
+    elif robust != "nonrobust":
         vcov = _robust_vcov(H, s_obs)
         se_type = "Robust (sandwich)"
     else:
@@ -574,6 +623,7 @@ def _fit_binary(
 
     # ── Diagnostics ─────────────────────────────────────────────────────
     p_hat = cdf_func(X_mat @ beta)
+    _warn_if_separated(y_vec, p_hat)
     lr_chi2 = 2.0 * (ll - ll_null)
     lr_df = k - 1
     lr_pvalue = 1.0 - stats.chi2.cdf(lr_chi2, lr_df) if lr_df > 0 else np.nan
@@ -587,75 +637,86 @@ def _fit_binary(
     # ── Marginal effects ────────────────────────────────────────────────
     me_df = None
     if marginal_effects is not None:
-        kind_map = {'average': 'average', 'mean': 'mean', 'at': 'at'}
-        kind = kind_map.get(marginal_effects, 'average')
+        kind_map = {"average": "average", "mean": "mean", "at": "at"}
+        kind = kind_map.get(marginal_effects, "average")
         me_df = _marginal_effects(beta, X_mat, pdf_func, var_names, kind, at_values)
 
     # ── Odds ratios (logit only) ────────────────────────────────────────
     or_series = None
-    if odds_ratio and link == 'logit':
+    if odds_ratio and link == "logit":
         or_vals = np.exp(beta)
         or_se = or_vals * std_errors  # delta-method
-        or_series = pd.DataFrame({
-            'OR': or_vals,
-            'Std. Err.': or_se,
-            f'[{alpha/2:.3f}': np.exp(beta - stats.norm.ppf(1 - alpha / 2) * std_errors),
-            f'{1-alpha/2:.3f}]': np.exp(beta + stats.norm.ppf(1 - alpha / 2) * std_errors),
-        }, index=var_names)
+        or_series = pd.DataFrame(
+            {
+                "OR": or_vals,
+                "Std. Err.": or_se,
+                f"[{alpha/2:.3f}": np.exp(
+                    beta - stats.norm.ppf(1 - alpha / 2) * std_errors
+                ),
+                f"{1-alpha/2:.3f}]": np.exp(
+                    beta + stats.norm.ppf(1 - alpha / 2) * std_errors
+                ),
+            },
+            index=var_names,
+        )
 
     # ── Build result ────────────────────────────────────────────────────
     params = pd.Series(beta, index=var_names)
     se_series = pd.Series(std_errors, index=var_names)
 
-    link_label = {'logit': 'Logit', 'probit': 'Probit', 'cloglog': 'Complementary log-log'}
+    link_label = {
+        "logit": "Logit",
+        "probit": "Probit",
+        "cloglog": "Complementary log-log",
+    }
     model_info = {
-        'model_type': link_label[link],
-        'method': 'Maximum Likelihood (Newton-Raphson)',
-        'family': 'binomial',
-        'link': link,
-        'll': ll,
-        'll_null': ll_null,
-        'lr_chi2': lr_chi2,
-        'lr_df': lr_df,
-        'lr_pvalue': lr_pvalue,
-        'pseudo_r2': pseudo_r2,
-        'aic': aic,
-        'bic': bic,
-        'pcp': cls_table['pcp'],
-        'robust': robust,
-        'cluster': cluster,
-        'se_type': se_type,
-        'n_iter': n_iter,
-        'odds_ratio': or_series,
-        'marginal_effects': me_df,
-        'classification': cls_table,
-        'hosmer_lemeshow': {'chi2': hl_chi2, 'p_value': hl_pval},
-        'auc': auc,
+        "model_type": link_label[link],
+        "method": "Maximum Likelihood (Newton-Raphson)",
+        "family": "binomial",
+        "link": link,
+        "ll": ll,
+        "ll_null": ll_null,
+        "lr_chi2": lr_chi2,
+        "lr_df": lr_df,
+        "lr_pvalue": lr_pvalue,
+        "pseudo_r2": pseudo_r2,
+        "aic": aic,
+        "bic": bic,
+        "pcp": cls_table["pcp"],
+        "robust": robust,
+        "cluster": cluster,
+        "se_type": se_type,
+        "n_iter": n_iter,
+        "odds_ratio": or_series,
+        "marginal_effects": me_df,
+        "classification": cls_table,
+        "hosmer_lemeshow": {"chi2": hl_chi2, "p_value": hl_pval},
+        "auc": auc,
     }
 
     data_info = {
-        'nobs': n,
-        'df_model': k - 1,
-        'df_resid': n - k,
-        'dependent_var': dep_var,
-        'fitted_values': p_hat,
-        'residuals': y_vec - p_hat,
-        'X': X_mat,
-        'y': y_vec,
-        'var_cov': vcov,
-        'var_names': var_names,
+        "nobs": n,
+        "df_model": k - 1,
+        "df_resid": n - k,
+        "dependent_var": dep_var,
+        "fitted_values": p_hat,
+        "residuals": y_vec - p_hat,
+        "X": X_mat,
+        "y": y_vec,
+        "var_cov": vcov,
+        "var_names": var_names,
     }
 
     diagnostics = {
-        'Pseudo R-squared': pseudo_r2,
-        'Log-Likelihood': ll,
-        'Log-Lik. (null)': ll_null,
-        'LR chi2': lr_chi2,
-        'Prob > chi2': lr_pvalue,
-        'AIC': aic,
-        'BIC': bic,
-        'PCP': cls_table['pcp'],
-        'AUC (ROC)': auc,
+        "Pseudo R-squared": pseudo_r2,
+        "Log-Likelihood": ll,
+        "Log-Lik. (null)": ll_null,
+        "LR chi2": lr_chi2,
+        "Prob > chi2": lr_pvalue,
+        "AIC": aic,
+        "BIC": bic,
+        "PCP": cls_table["pcp"],
+        "AUC (ROC)": auc,
     }
 
     result = EconometricResults(
@@ -667,8 +728,10 @@ def _fit_binary(
     )
 
     # Attach extra methods
-    result.predict = lambda X_new=None, pred_type='response', cutoff=0.5: (
-        _predict(beta, X_new if X_new is not None else X_mat, cdf_func, pred_type, cutoff)
+    result.predict = lambda X_new=None, pred_type="response", cutoff=0.5: (
+        _predict(
+            beta, X_new if X_new is not None else X_mat, cdf_func, pred_type, cutoff
+        )
     )
     result.classification_table = lambda cutoff=0.5: _classification_table(
         y_vec, p_hat if cutoff == 0.5 else cdf_func(X_mat @ beta), cutoff
@@ -680,6 +743,7 @@ def _fit_binary(
 # =========================================================================
 # Public functions
 # =========================================================================
+
 
 def logit(
     formula: str = None,
@@ -750,10 +814,20 @@ def logit(
     >>> print(result.model_info['marginal_effects'])
     """
     return _fit_binary(
-        formula=formula, data=data, y=y, x=x,
-        link='logit', robust=robust, cluster=cluster, weights=weights,
-        marginal_effects=marginal_effects, odds_ratio=odds_ratio,
-        maxiter=maxiter, tol=tol, alpha=alpha, at_values=at_values,
+        formula=formula,
+        data=data,
+        y=y,
+        x=x,
+        link="logit",
+        robust=robust,
+        cluster=cluster,
+        weights=weights,
+        marginal_effects=marginal_effects,
+        odds_ratio=odds_ratio,
+        maxiter=maxiter,
+        tol=tol,
+        alpha=alpha,
+        at_values=at_values,
     )
 
 
@@ -819,10 +893,20 @@ def probit(
     ...                    cluster='state', marginal_effects='average')
     """
     return _fit_binary(
-        formula=formula, data=data, y=y, x=x,
-        link='probit', robust=robust, cluster=cluster, weights=weights,
-        marginal_effects=marginal_effects, odds_ratio=False,
-        maxiter=maxiter, tol=tol, alpha=alpha, at_values=at_values,
+        formula=formula,
+        data=data,
+        y=y,
+        x=x,
+        link="probit",
+        robust=robust,
+        cluster=cluster,
+        weights=weights,
+        marginal_effects=marginal_effects,
+        odds_ratio=False,
+        maxiter=maxiter,
+        tol=tol,
+        alpha=alpha,
+        at_values=at_values,
     )
 
 
@@ -887,8 +971,18 @@ def cloglog(
     >>> print(result.summary())
     """
     return _fit_binary(
-        formula=formula, data=data, y=y, x=x,
-        link='cloglog', robust=robust, cluster=cluster, weights=weights,
-        marginal_effects=marginal_effects, odds_ratio=False,
-        maxiter=maxiter, tol=tol, alpha=alpha, at_values=at_values,
+        formula=formula,
+        data=data,
+        y=y,
+        x=x,
+        link="cloglog",
+        robust=robust,
+        cluster=cluster,
+        weights=weights,
+        marginal_effects=marginal_effects,
+        odds_ratio=False,
+        maxiter=maxiter,
+        tol=tol,
+        alpha=alpha,
+        at_values=at_values,
     )

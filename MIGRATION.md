@@ -47,6 +47,46 @@ Separately, exact-fit OLS (`R² == 1`) now reports the F-statistic as `inf`
 
 ---
 
+<a id="regress-collinearity-guard"></a>
+
+## Unreleased — ⚠️ `sp.regress` raises on perfect collinearity; `sp.logit`/`sp.probit` warn on separation
+
+**What changed.** Two silent-failure corners now fail loudly:
+
+- **Perfect collinearity** in `sp.regress` — duplicate or proportional
+  regressors, the dummy-variable trap (complementary 0/1 dummies plus an
+  intercept), or a constant non-intercept regressor — previously returned
+  enormous unidentified coefficients (e.g. `~1e14`) with no warning. It now
+  raises `statspai.exceptions.NumericalInstability`, with the offending columns
+  in `error.diagnostics`.
+- **Perfect / quasi-complete separation** in `sp.logit` / `sp.probit` —
+  where the outcome is perfectly predicted and the maximum-likelihood estimate
+  does not exist — previously returned large finite coefficients with no
+  signal. It now emits a `statspai.exceptions.ConvergenceWarning`.
+
+**Why.** The project rule is "fail loudly": returning wrong numbers silently is
+the cheapest way to hide a correctness problem. Neither case has a meaningful
+answer to return.
+
+**What you need to do.**
+
+- If you *intended* collinear regressors, drop one (or remove the intercept for
+  a single constant regressor). The exception names them.
+- For separation, use penalized (Firth) logistic regression, drop the
+  separating predictor, or pool sparse categories.
+
+**Scope / non-goals.** Collinearity detection is deliberately *structural*
+(duplicate/proportional columns, zero-variance regressors), not based on the
+condition number or matrix rank. A rank tolerance loose enough to catch real
+collinearity also flags legitimately ill-conditioned but full-rank designs —
+the NIST StRD Filippelli benchmark is numerically *more* singular
+(`s_min/s_max ~ 6e-16`) than an exactly duplicated column yet must fit. So a
+general exact linear dependence among 3+ columns that is not reducible to a
+pairwise duplicate or a constant column is **not** auto-detected; inspect the
+design's condition number if you suspect one.
+
+---
+
 <a id="drdid-traditional-normalisation"></a>
 
 ## 1.17.0 — ⚠️ `sp.drdid(method='trad')` ATT correctness fix
