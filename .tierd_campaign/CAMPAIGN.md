@@ -321,3 +321,18 @@ noisy/forest-dependent — anchored on β₁ + null structure instead.
   old broken values.
 - **Two real bugs now found + fixed by the Tier D campaign: `sp.blp`
   (functionality) and `sp.granger_causality` (correctness).**
+
+### 2026-06-09 (cont.) — P2 qte/multi-treatment/distributional batch
+- `test_tierD_p2_qte_multitreat_analytic.py` (7): `qte` (location shift τ=2 →
+  constant QTE 2.0 at all quantiles; ate recovers shift; no-effect → 0),
+  `multi_treatment` (AIPW recovers 3-arm effects 1.0/2.5 vs ref; reference
+  excluded; ordering), `distributional_te` (upward shift → treated CDF
+  dominates + ks_stat>0.3; no-effect ks_stat<0.1).
+- Anchored on `ks_stat`+`dte` not `ks_pvalue` (see finding #5).
+- **More edge findings → `.tierd_campaign/FINDINGS_minor_edge_cases.md`** (5):
+  cic/qte n_boot=0 IndexError; dose_response/mice empty-array warnings; and
+  **`distributional_te.ks_pvalue` unreliable** (ks_stat=0.69 ↔ p=0.70 vs scipy
+  KS p≈1e-170) — flagged as a potential reported-p-value correctness bug, like
+  granger; needs a look at the DTE permutation-null path.
+- **P2 tally: 8 batches, 52 tests, 19 estimators.** Reduced batch runtime
+  6.5min → 58s (n_boot 50→20; point estimates don't need heavy bootstrap).
