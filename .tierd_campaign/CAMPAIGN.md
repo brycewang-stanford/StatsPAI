@@ -271,3 +271,53 @@ noisy/forest-dependent — anchored on β₁ + null structure instead.
   guarded `r==0` short-circuit later (not a correctness bug).
 - **Next:** continue P2 — dag(10), spatial(9), conformal_causal(7),
   decomposition(7) families; then LaLonde stale-pin guard.
+
+### 2026-06-09 (cont.) — P2 batches 3-5
+- `test_tierD_p2_decomposition_analytic.py` (6): `gelbach` (exact adding-up
+  total_change == base−full, deltas sum to total, recovers γ·β contributions),
+  `shapley_inequality` (symmetric covariates equal contribution, irrelevant→0,
+  valid shares ≤100%).
+- `test_tierD_p2_spatial_weights_analytic.py` (7): `distance_band` (unit band ==
+  rook contiguity on 3×3 grid: degrees [2,3,2,3,4,3,2,3,2]; symmetric; sqrt2
+  band → queen 8-neighbour), `kernel_weights` (decay near>far; zero diagonal),
+  `getis_ord_local` (hot cluster +z, cold −z, peak in hot cluster).
+- `test_tierD_p2_causal_recovery_analytic.py` (4): `cic` (recovers constant
+  additive effect 2.0; coincides with `did_2x2` under additivity — Athey-Imbens
+  reduction), `dose_response` (avg marginal effect recovers linear slope 1.5;
+  ~0 under no effect).
+- **P2 worklist now 212.** Full Tier D suite: **116 tests green** (40s).
+- **Minor findings logged (not fixed — not numeric-correctness bugs):**
+  1. `sp.cic(n_boot=0)` → `IndexError` (np.percentile over empty bootstrap
+     array); should skip CI or error clearly (fail-loudly). Tests use n_boot>0.
+  2. `sp.dose_response(n_bootstrap=0)` emits an invalid-scalar-divide
+     RuntimeWarning (empty-array std). Estimate correct.
+  3. `mice.py:109` divide-by-zero on fmi=0 path (already noted).
+  These three are candidate guarded-edge-case fixes for a later ⚠️ pass.
+
+### 2026-06-09 (cont.) — P2 inference batch + ⚠️ granger bug found
+- `test_tierD_p2_inference_analytic.py` (5): `fisher_exact` (randomization:
+  observed stat == diff in means exactly; strong effect rejects sharp null
+  p<0.01; null DGP p>0.10), `cluster_robust_se` (singleton clusters == HC0
+  sandwich × CR1 factor sqrt(G/(G-1)·(N-1)/(N-K)), exact to 1e-6).
+- **⚠️ SECOND REAL BUG FOUND — `sp.granger_causality` (HIGH severity).** Wald
+  variance is a placeholder `V = sigma2 * I` (var.py:300) ignoring `(X'X)^-1`;
+  F-stat off by ~factor T·Var(X). Hand F=325.77 (p≈5e-104) reported as F=0.36
+  (p=0.70, reject=False) — the test essentially never rejects. Full diagnosis +
+  proposed fix: `.tierd_campaign/BUG_granger_causality_wald_variance.md`.
+  Reported, NOT fixed (numeric-correctness → needs maintainer OK + §12). Test
+  for `granger_causality` deferred; `engle_granger` also deferred (returns
+  Johansen-style test_stats/critical_values, no p-value — investigate separately).
+- **P2 tally so far: 6 batches, 42 tests, 15 estimators.**
+- **Next:** await maintainer decision on granger fix; continue clean P2
+  (conformal_causal coverage, dag graph-truths, causal/qte recovery).
+
+### 2026-06-09 (cont.) — ⚠️ granger_causality CORRECTNESS FIX (maintainer-approved)
+- Fixed the placeholder Wald variance: `VARResult` now stores `(X'X)^-1`;
+  `granger_causality` forms `σ²_caused·(X'X)^-1`. x→y F=327.83 (p=1.1e-16,
+  reject) == hand OLS F=325.77; y→x F=0.41 (no reject). Removed dead `eq_idx`.
+- Guard: `tests/test_tierD_p2_timeseries_analytic.py` (3 tests). CHANGELOG
+  (Unreleased, ⚠️ Correctness fix) + MIGRATION (#granger-wald-variance-fix).
+  Bug report RESOLVED. 64 timeseries/granger tests green; no test pinned the
+  old broken values.
+- **Two real bugs now found + fixed by the Tier D campaign: `sp.blp`
+  (functionality) and `sp.granger_causality` (correctness).**

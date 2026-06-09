@@ -18,13 +18,44 @@ path (`contraction`, `mpec`, `gmm`).
 
 **Who is affected.** Anyone who tried to call `sp.blp`. Because the function
 produced *no* output before (it crashed), this fix cannot move any
-previously-correct number — JOSS (#10604) / JSS dossier figures are unaffected;
-`sp.blp` was never in those tables. A regression guard now recovers the known
-linear price/characteristic coefficients on a pure-logit DGP
+previously-correct number — JOSS (#10604) / JSS dossier figures are unaffected.
+`sp.blp` (and `BLPResult`) appears in the JSS manuscript only as a
+function-inventory catalog row (`function_inventory_full.tex`), never in any
+numeric or parity table, and the fix does not change that row. **Note the name
+collision:** the "BLP" entries in the JSS parity-change log (`05-parity.tex`,
+`05-parity-compact.tex`) refer to the **Best Linear Projection of CATE**
+(`best_linear_projection` / `blp_test` / `test_calibration`,
+Chernozhukov-Demirer et al.) — a different feature, not this
+Berry-Levinsohn-Pakes demand estimator. A regression guard now recovers the
+known linear price/characteristic coefficients on a pure-logit DGP
 (`tests/test_tierD_structural_analytic.py::TestBLPAnalytic`).
 
 **Action required.** None, beyond noting that `sp.blp` is now usable. Found by
 the Tier D analytic special-case test campaign (CLAUDE.md §5).
+
+<a id="granger-wald-variance-fix"></a>
+
+## Unreleased — ⚠️ `sp.granger_causality` test statistic corrected
+
+**What changed.** `sp.granger_causality` now computes the correct Wald
+statistic. The coefficient covariance used in the test was a placeholder
+`V = sigma2 * I` (the caused equation's residual variance, not its coefficient
+covariance), which omitted the design-matrix factor `(X'X)⁻¹`. The reported
+F-statistic was too small by a factor of roughly `T·Var(regressors)`, so the
+test essentially never rejected — even a textbook-strong lagged link went
+undetected (true F≈326 reported as ≈0.36). `VARResult` now stores `(X'X)⁻¹` and
+the test forms `Var(β̂_caused) = σ²_caused·(X'X)⁻¹`; the F now equals the
+standard restricted-vs-unrestricted OLS F-test.
+
+**Who is affected.** Anyone who called `sp.granger_causality` (directly or via
+`VARResult.granger_test`). **Re-run any Granger conclusions** — prior runs
+almost certainly failed to reject and were not trustworthy. There is no API
+change. No JOSS (#10604) / JSS table uses this function, and the previous output
+was statistically meaningless, so no valid published result is invalidated.
+
+**Action required.** None code-wise; re-run Granger tests and expect them to
+detect real causal directions now. Found by the Tier D analytic special-case
+campaign (CLAUDE.md §5); guard: `tests/test_tierD_p2_timeseries_analytic.py`.
 
 <a id="ols-qr-kernel"></a>
 
