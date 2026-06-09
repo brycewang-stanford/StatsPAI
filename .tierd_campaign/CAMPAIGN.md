@@ -360,3 +360,11 @@ noisy/forest-dependent — anchored on β₁ + null structure instead.
 - **THREE bugs found AND fixed by the Tier D campaign: blp (functionality),
   granger_causality (Wald variance), d-separation (moralisation). All §12.**
 - **P2 tally: 10 batches, 64 tests, 23 estimators.**
+
+### 2026-06-09 (cont.) — P2 survival batch
+- `test_tierD_p2_survival_analytic.py` (8): `kaplan_meier` (no-censoring ==
+  empirical product-limit (n-Σevents)/n exactly; valid monotone curve; median
+  == sample median), `logrank_test` (detects hazard difference p<0.01; equal
+  hazards p>0.10; observed_events partition total events), `survreg` (Weibull
+  AFT recovers slopes 0.5 and 1.2).
+- **P2 tally: 11 batches, 72 tests, 26 estimators.**
