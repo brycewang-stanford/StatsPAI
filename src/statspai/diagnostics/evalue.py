@@ -10,8 +10,12 @@ treatment-outcome association.
 
 where RR is the observed risk ratio (or transformed effect).
 
-For a confidence interval limit:
-    E-value_CI = RR_lower + sqrt(RR_lower * (RR_lower - 1))
+For a confidence interval, the E-value is computed for the confidence
+limit closest to the null:
+    E-value_CI = RR_limit + sqrt(RR_limit * (RR_limit - 1))
+If the interval already contains the null (RR = 1), the E-value for the
+CI is exactly 1.0 (no unmeasured confounding is needed to move it to
+include the null).
 
 Key interpretation: if E-value = 3.5, an unmeasured confounder would
 need to be associated with both treatment and outcome by a risk ratio
@@ -115,11 +119,18 @@ def evalue(
         ci_lower_rr = _to_rr(ci[0], measure, rare_outcome)
         ci_upper_rr = _to_rr(ci[1], measure, rare_outcome)
 
-        # Use the CI limit closest to 1 (the null)
+        # Use the CI limit closest to 1 (the null). If that limit is
+        # already on the null side -- i.e. the confidence interval
+        # contains RR = 1 -- the E-value for the CI is exactly 1.0: no
+        # unmeasured confounding is needed to move the interval to
+        # include the null, because it already does (VanderWeele & Ding
+        # 2017; matches the R `EValue` package). Clamping to 1 here
+        # prevents `_compute_evalue` from reciprocating a limit on the
+        # far side of the null and reporting a spurious E-value > 1.
         if rr >= 1:
-            rr_ci = ci_lower_rr
+            rr_ci = ci_lower_rr if ci_lower_rr > 1.0 else 1.0
         else:
-            rr_ci = ci_upper_rr
+            rr_ci = ci_upper_rr if ci_upper_rr < 1.0 else 1.0
     else:
         rr_ci = None
 

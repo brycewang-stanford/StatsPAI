@@ -98,16 +98,18 @@ rather than hidden:
    interaction-model standardization (3.52) is reproduced directly. The
    IP-weighting (Hájek vs stabilized weights) and SNMM (additive
    encoding) differences are of the same documented kind.
-2. **A minor correctness gap in `sp.evalue` (CI handling).** When a
-   confidence interval already crosses the null (RR = 1), the E-value for
-   the confidence limit should be exactly 1 (VanderWeele & Ding 2017; the
-   R `EValue` package returns 1). `sp.evalue` instead computes the
-   E-value of the far CI limit (e.g. RR = 0.90, CI (0.79, 1.22) returns
-   `evalue_ci` 1.74 rather than 1.0). The point-estimate E-value is
-   correct and matches the closed form / `EValue` to 1e-3; only the
-   CI-limit branch needs a null-crossing guard. Tracked for a separate
-   fix; the bundled E-value tests assert the (correct) point-estimate
-   behaviour.
+2. **A minor correctness gap in `sp.evalue` (CI handling) — fixed.**
+   When a confidence interval already crosses the null (RR = 1), the
+   E-value for the confidence limit should be exactly 1 (VanderWeele &
+   Ding 2017; the R `EValue` package returns 1). `sp.evalue` previously
+   computed the E-value of the far CI limit (e.g. RR = 0.90, CI
+   (0.79, 1.22) returned `evalue_ci` 1.74 rather than 1.0). The
+   point-estimate E-value was always correct and matches the closed form
+   / `EValue` to 1e-3; only the CI-limit branch lacked a null-crossing
+   guard. This was fixed by clamping the relevant CI limit to the null
+   when the interval contains it, with regression tests in
+   `tests/test_evalue.py`; the existing R/Stata E-value parity values are
+   unchanged (their cases do not cross the null on the far side).
 
 Known convention differences are documented in parity reports rather than
 hidden. For example, bandwidth selectors, regularisation constants, small-sample
