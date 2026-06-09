@@ -368,3 +368,10 @@ noisy/forest-dependent — anchored on β₁ + null structure instead.
   hazards p>0.10; observed_events partition total events), `survreg` (Weibull
   AFT recovers slopes 0.5 and 1.2).
 - **P2 tally: 11 batches, 72 tests, 26 estimators.**
+
+### 2026-06-09 (cont.) — P2 epi batch
+- `test_tierD_p2_epi_analytic.py` (8): `attributable_risk` (AF_exposed=(RR-1)/RR
+  + PAF=Pe(RR-1)/[1+Pe(RR-1)] exact; RR=1 → 0), `diagnostic_test` (sens/spec/
+  ppv/npv/LR exact from TP,FP,FN,TN; perfect classifier → all 1), `breslow_day_test`
+  (homogeneous OR → stat~0, p>0.99; heterogeneous → reject). All first-try green.
+- **P2 tally: 12 batches, 80 tests, 29 estimators.**
