@@ -13,12 +13,18 @@ This page is **scope-honest**. StatsPAI's cross-language parity
 certification (`sp.list_functions(validation_status="certified")`) is
 currently anchored on econometrics benchmarks. Most of the
 epidemiology surface below is API-stable but **not yet parity-certified
-against R's `survival`, `epiR`, `gfoRmula`, `ipw`, `ltmle`,
-`survey`, or `MendelianRandomization`**. Treat point estimates as
-correct-by-construction and well tested, but **validate against your
-reference package before publication**, and always read
-`sp.describe_function(name)["limitations"]` first. See
+against R's `epiR`, `survey`, or `MendelianRandomization`**. Treat those
+point estimates as correct-by-construction and well tested, but
+**validate against your reference package before publication**, and
+always read `sp.describe_function(name)["limitations"]` first. See
 [Stability tiers](stability.md).
+
+**Now certified:** the point-treatment **g-methods** core (`sp.ipw`,
+`sp.g_computation`, `sp.g_estimation`), **IP-weighted survival**, and the
+**E-value** are parity-certified on real NHEFS data against both the
+Hernán-Robins *Causal Inference: What If* textbook and an independent
+base-R / `survival` / `EValue` reference — see
+[Reproducing *What If* on NHEFS](whatif_nhefs.md).
 
 ---
 

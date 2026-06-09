@@ -1,0 +1,72 @@
+{
+  "module": "07_nhefs_ch13_gformula",
+  "side": "py",
+  "rows": [
+    {
+      "module": "07_nhefs_ch13_gformula",
+      "side": "py",
+      "statistic": "crude_diff",
+      "estimate": 2.5405814549558885,
+      "se": null,
+      "n": 1566,
+      "published": 2.54,
+      "citation": "Hern\u00e1n-Robins, What If \u00a712.2 (crude)",
+      "extra": {}
+    },
+    {
+      "module": "07_nhefs_ch13_gformula",
+      "side": "py",
+      "statistic": "gformula_ate",
+      "estimate": 3.4626218292255944,
+      "se": 0.4611370977258884,
+      "n": 1566,
+      "published": 3.5,
+      "citation": "Hern\u00e1n-Robins, What If Program 13.3 (standardization)",
+      "extra": {
+        "model": "additive Q(D,X) (no qsmk:smokeintensity)",
+        "ci": [
+          2.579012812215896,
+          4.423976456985007
+        ]
+      }
+    },
+    {
+      "module": "07_nhefs_ch13_gformula",
+      "side": "py",
+      "statistic": "gformula_interaction",
+      "estimate": 3.51737420088519,
+      "se": 0.4748367754560425,
+      "n": 1566,
+      "published": 3.5,
+      "citation": "Hern\u00e1n-Robins, What If Program 13.3 (qsmk:smokeintensity)",
+      "extra": {
+        "model": "wt82_71 ~ qsmk + qsmk:smokeintensity + conf",
+        "ci": [
+          2.6163946294010483,
+          4.511868298158218
+        ]
+      }
+    }
+  ],
+  "extra": {
+    "data_source": "sp.datasets.nhefs (NHEFS / What If)",
+    "n_obs": 1566,
+    "ci_gformula_additive": [
+      2.579012812215896,
+      4.423976456985007
+    ],
+    "ci_gformula_interaction": [
+      2.6163946294010483,
+      4.511868298158218
+    ],
+    "published_gformula_ci": [
+      2.6,
+      4.5
+    ],
+    "aipw_crosscheck": 3.5510849080331877,
+    "aipw_ci": [
+      2.537757097803258,
+      4.564412718263117
+    ]
+  }
+}

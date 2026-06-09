@@ -661,3 +661,128 @@ def angrist_krueger_1991(seed: int = 42) -> pd.DataFrame:
         "exact numerical replication."
     )
     return df
+
+
+# ---------------------------------------------------------------------------
+# Hernán & Robins — NHEFS — *Causal Inference: What If* (public-health canon)
+# ---------------------------------------------------------------------------
+
+def nhefs(complete_case: bool = False) -> pd.DataFrame:
+    """NHEFS — the canonical dataset of Hernán & Robins, *Causal Inference:
+    What If* (2020), bundled as **real, public-domain** data for exact
+    replication of the book's g-methods examples.
+
+    The National Health and Nutrition Examination Survey I (NHANES I)
+    Epidemiologic Followup Study (NHEFS) follows US adults from a
+    1971-1975 baseline to a 1982 re-examination.  The book uses it
+    throughout Part II to estimate the average causal effect of
+    **quitting smoking** (``qsmk``) on **10-year weight change**
+    (``wt82_71``, kg) and on **10-year mortality** (``death``).
+
+    Parameters
+    ----------
+    complete_case : bool, default False
+        If False, return the full NHEFS extract (n=1629, 67 columns).
+        If True, restrict to subjects with a non-missing 1982 weight
+        (``wt82_71`` not null, n=1566) — the analytic sample used for
+        the weight-change examples in Chapters 12-15 of the book.
+
+    Returns
+    -------
+    pd.DataFrame
+        67 columns.  Key modelling variables used in the book:
+
+        ``qsmk``           — quit smoking 1971-1982 (1 = yes; the "treatment")
+        ``wt82_71``        — weight change 1971→1982 in kg (continuous outcome)
+        ``death``          — died by 1992 (1 = yes; the survival outcome)
+        ``yrdth, modth``   — year / month of death (for survival timing)
+        ``sex, race, age`` — demographics (sex: 0 male / 1 female; race 0/1)
+        ``education``      — 5-level education (1-5)
+        ``smokeintensity`` — cigarettes/day at baseline
+        ``smokeyrs``       — years smoked at baseline
+        ``exercise``       — 3-level exercise (0 much / 1 moderate / 2 little)
+        ``active``         — 3-level daily activity (0 / 1 / 2)
+        ``wt71``           — baseline weight (kg)
+
+        ``df.attrs`` records the book citation and the published
+        reference estimates (see Notes).
+
+    Notes
+    -----
+    This is **real** data (``df.attrs['data_source'] == 'real'``), unlike
+    the simulated econometrics replicas in this module.  Because the data
+    are the genuine book extract, StatsPAI reproduces the book's published
+    numbers — not merely their neighbourhood:
+
+    - Crude (unadjusted) mean weight-change difference, quitters vs
+      non-quitters: **2.54 kg** (book §12.2; StatsPAI 2.5406).
+    - IP-weighted average treatment effect (stabilized weights,
+      Chapter 12 MSM): **3.4 kg, 95% CI (2.4, 4.5)** (book Program 12.4;
+      StatsPAI ``sp.ipw`` 3.48, gold statsmodels MSM 3.44).
+    - Parametric g-formula / standardization (Chapter 13): **3.5 kg**.
+    - G-estimation of a structural nested mean model (Chapter 14):
+      ``psi`` ≈ **3.4**.
+
+    Strict numerical reproductions of the full chapter programs live in
+    ``tests/external_parity/test_whatif_nhefs.py`` and the public-health
+    validation notebooks under ``examples/public_health/``.
+
+    Provenance & licence
+    --------------------
+    NHEFS is a US Federal public-use survey (NCHS / NIH) and is therefore
+    in the public domain as a US Government work.  The specific analytic
+    extract bundled here (n=1629 × 67) is the one distributed by Hernán &
+    Robins with the book and re-packaged in the MIT-licensed ``causaldata``
+    package (Huntington-Klein); it is byte-reproducible from
+    ``causaldata.nhefs``.  Redistribution here is consistent with both the
+    public-domain status of the underlying survey and StatsPAI's policy of
+    only bundling freely redistributable datasets.
+
+    References
+    ----------
+    Hernán, M.A. & Robins, J.M. (2020). *Causal Inference: What If*.
+    Boca Raton: Chapman & Hall/CRC. [@hernan2020causal]
+    """
+    df = _load_bundled_csv("nhefs.csv")
+    if complete_case:
+        df = df[df['wt82_71'].notna()].reset_index(drop=True)
+
+    df.attrs['paper'] = (
+        "Hernán, M.A. & Robins, J.M. (2020). Causal Inference: What If. "
+        "Boca Raton: Chapman & Hall/CRC."
+    )
+    df.attrs['data_source'] = 'real'
+    df.attrs['simulated'] = False
+    df.attrs['source_origin'] = (
+        "NHANES I Epidemiologic Followup Study (NHEFS), a US Federal "
+        "public-use survey (NCHS/NIH; public domain).  Analytic extract "
+        "(n=1629 × 67) as distributed with Hernán & Robins, 'Causal "
+        "Inference: What If' and re-packaged in the MIT-licensed "
+        "causaldata package; byte-reproducible from causaldata.nhefs."
+    )
+    df.attrs['n_complete_case'] = 1566
+    # Published reference estimates on this exact data (book Part II):
+    df.attrs['published_crude_wt_diff'] = 2.54        # §12.2
+    df.attrs['published_ipw_att'] = 3.4               # Ch12 MSM (stabilized IPW)
+    df.attrs['published_ipw_att_ci'] = (2.4, 4.5)
+    df.attrs['published_gformula_att'] = 3.5          # Ch13 standardization/g-formula
+    df.attrs['published_gestimation_psi'] = 3.4       # Ch14 SNMM g-estimation
+    # StatsPAI-pinned values verified on this extract (regression refs):
+    df.attrs['statspai_pinned_crude_wt_diff'] = 2.5406
+    df.attrs['statspai_pinned_ipw_att'] = 3.48        # sp.ipw (Hajek ATE)
+    df.attrs['gold_stabilized_ipw_att'] = 3.44        # statsmodels stabilized MSM
+    df.attrs['notes'] = (
+        "Real NHEFS extract used throughout Hernán & Robins, 'Causal "
+        "Inference: What If' (Part II).  Treatment qsmk (quit smoking), "
+        "continuous outcome wt82_71 (10-yr weight change, kg), survival "
+        "outcome death (by 1992).  complete_case=True gives the n=1566 "
+        "weight-analysis sample (non-missing wt82_71).  Reproduces the "
+        "book's published g-methods estimates; see "
+        "tests/external_parity/test_whatif_nhefs.py and "
+        "examples/public_health/."
+    )
+    return df
+
+
+# Public-health-friendly alias (matches the load_* discovery convention)
+load_nhefs = nhefs

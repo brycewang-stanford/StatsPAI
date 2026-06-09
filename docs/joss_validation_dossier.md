@@ -63,6 +63,51 @@ benchmarks, including:
 - Lee-style close-election regression discontinuity.
 - Callaway-Sant'Anna difference-in-differences examples.
 - California Proposition 99 synthetic-control examples.
+- **Hernán & Robins, *Causal Inference: What If* (NHEFS).** The first
+  public-health / epidemiology parity anchor, on **real** public-domain
+  data (`sp.datasets.nhefs()`). StatsPAI reproduces the textbook's
+  published g-methods estimates for the effect of quitting smoking on
+  10-year weight change and mortality — IP weighting (Ch12, 3.47 vs book
+  3.4), standardization / parametric g-formula (Ch13, 3.46 vs 3.5),
+  g-estimation of a structural nested model (Ch14, 3.46 vs 3.4), outcome
+  regression with effect modification (Ch15, coefficients matching the
+  book to four decimals), IP-weighted survival (Ch17), and an E-value
+  sensitivity analysis. Each statistic carries a same-bytes R gold
+  reference (base R / `survival` / `EValue`); StatsPAI matches R to
+  machine precision (≤1e-9) on the closed-form quantities and the
+  published book to ~2% on the iterative ones. Three g-methods agreeing
+  with each other and the book (~3.4–3.5 kg) is the canonical Part-II
+  triangulation. Paired scripts: `tests/orig_parity/06–11_nhefs_*.{py,R}`;
+  rollup `tests/orig_parity/results/parity_table_orig.md`; pinned tests
+  `tests/external_parity/test_whatif_nhefs.py`; primary-source anchors in
+  `tests/external_parity/PUBLISHED_REFERENCE_VALUES.md`; worked-example
+  walkthrough in `docs/guides/whatif_nhefs.md`.
+
+### Findings surfaced by the *What If* reproduction
+
+Reproducing a published reference end-to-end is the most effective audit
+of an implementation. This exercise surfaced two items, documented here
+rather than hidden:
+
+1. **Modelling-convention differences (expected, not defects).**
+   `sp.g_computation`'s `covariates=` API takes a flat list of columns
+   and so fits an *additive* outcome model; it cannot express the book's
+   `qsmk:smokeintensity` effect-modification term. Its standardized ATE
+   (3.46) matches an additive base-R/Python standardization gold to 12
+   significant figures and rounds to the book's 3.5; the book's *exact*
+   interaction-model standardization (3.52) is reproduced directly. The
+   IP-weighting (Hájek vs stabilized weights) and SNMM (additive
+   encoding) differences are of the same documented kind.
+2. **A minor correctness gap in `sp.evalue` (CI handling).** When a
+   confidence interval already crosses the null (RR = 1), the E-value for
+   the confidence limit should be exactly 1 (VanderWeele & Ding 2017; the
+   R `EValue` package returns 1). `sp.evalue` instead computes the
+   E-value of the far CI limit (e.g. RR = 0.90, CI (0.79, 1.22) returns
+   `evalue_ci` 1.74 rather than 1.0). The point-estimate E-value is
+   correct and matches the closed form / `EValue` to 1e-3; only the
+   CI-limit branch needs a null-crossing guard. Tracked for a separate
+   fix; the bundled E-value tests assert the (correct) point-estimate
+   behaviour.
 
 Known convention differences are documented in parity reports rather than
 hidden. For example, bandwidth selectors, regularisation constants, small-sample

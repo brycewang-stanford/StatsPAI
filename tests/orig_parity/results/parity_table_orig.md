@@ -52,3 +52,61 @@ Data source: `rdrobust::rdrobust_RDsenate` (1390 obs)
 | `rd_jump_conventional` | 7.414 | 7.414 | 7.99 | 3.2e-15 | 0.072 | Lee (2008) Table 1; CCT (2014) Table 4 conventional sharp-RD jump |
 | `rd_jump_robust` | 7.507 | 7.507 | — | 3.5e-16 | — | rdrobust::rdrobust bias-corrected robust point and SE |
 
+## Module `06_nhefs_ch12_ipw`
+Data source: `sp.datasets.nhefs (NHEFS / What If)` (1566 obs)
+
+| stat | sp | R | published | rel(sp vs R) | rel(sp vs published) | citation |
+|---|---:|---:|---:|---:|---:|---|
+| `crude_diff` | 2.541 | 2.541 | 2.54 | 1.7e-11 | 0.00023 | Hernán-Robins, What If §12.2 (crude) |
+| `ipw_att` | 3.472 | 3.441 | 3.4 | 0.009 | 0.021 | Hernán-Robins, What If Program 12.4 (IP-weighted ATE) |
+
+## Module `07_nhefs_ch13_gformula`
+Data source: `sp.datasets.nhefs (NHEFS / What If)` (1566 obs)
+
+| stat | sp | R | published | rel(sp vs R) | rel(sp vs published) | citation |
+|---|---:|---:|---:|---:|---:|---|
+| `crude_diff` | 2.541 | 2.541 | 2.54 | 1.7e-11 | 0.00023 | Hernán-Robins, What If §12.2 (crude) |
+| `gformula_ate` | 3.463 | 3.463 | 3.5 | 7.4e-12 | 0.011 | Hernán-Robins, What If Program 13.3 (standardization) |
+| `gformula_interaction` | 3.517 | 3.517 | 3.5 | 4.2e-12 | 0.005 | Hernán-Robins, What If Program 13.3 (qsmk:smokeintensity) |
+
+## Module `08_nhefs_ch14_gestimation`
+Data source: `sp.datasets.nhefs (NHEFS / What If)` (1566 obs)
+
+| stat | sp | R | published | rel(sp vs R) | rel(sp vs published) | citation |
+|---|---:|---:|---:|---:|---:|---|
+| `snmm_psi` | 3.463 | 3.461 | 3.4 | 0.00043 | 0.018 | Hernán-Robins, What If Program 14.2 (G-estimation SNMM psi) |
+| `snmm_psi_linear_check` | 3.463 | — | 3.4 | — | 0.018 | Linear moment-condition g-estimate (StatsPAI algorithm) |
+
+## Module `09_nhefs_ch15_outcome`
+Data source: `sp.datasets.nhefs (NHEFS / What If)` (1566 obs)
+
+| stat | sp | R | published | rel(sp vs R) | rel(sp vs published) | citation |
+|---|---:|---:|---:|---:|---:|---|
+| `om_qsmk_main_coef` | 2.56 | 2.56 | 2.56 | 9.8e-12 | 0.00016 | Hernán-Robins, What If Program 15.1 (qsmk main coef) |
+| `om_qsmk_x_smkint` | 0.04666 | 0.04666 | 0.0467 | 1.1e-11 | 0.0008 | Hernán-Robins, What If Program 15.1 (qsmk:smokeintensity) |
+| `om_effect_smkint5` | 2.793 | 2.793 | 2.79 | 2.6e-12 | 0.001 | Hernán-Robins, What If Program 15.1 (effect at smokeintensity=5) |
+| `om_effect_smkint40` | 4.426 | 4.426 | 4.43 | 7.9e-12 | 0.00088 | Hernán-Robins, What If Program 15.1 (effect at smokeintensity=40) |
+| `ps_in_outcome_ate` | 3.454 | 3.454 | 3.5 | 3.6e-12 | 0.013 | Hernán-Robins, What If Program 15.3 (PS as covariate) |
+| `ps_decile_ate` | 3.358 | 3.358 | 3.5 | 3.7e-12 | 0.041 | Hernán-Robins, What If Program 15.4 (PS-decile stratification) |
+| `gcomp_std_ate` | 3.463 | 3.517 | 3.5 | 0.016 | 0.011 | Hernán-Robins, What If Ch.15 (standardized marginal ATE, cross-ref) |
+
+## Module `10_nhefs_ch17_survival`
+Data source: `sp.datasets.nhefs() full sample (NHEFS / What If)` (1629 obs)
+
+| stat | sp | R | published | rel(sp vs R) | rel(sp vs published) | citation |
+|---|---:|---:|---:|---:|---:|---|
+| `hr_unweighted` | 1.395 | 1.395 | 1.39 | 5.7e-05 | 0.0033 | Hernán-Robins, What If §17 (unadjusted qsmk hazard ratio) |
+| `hr_ipweighted` | 1.001 | 1.001 | 1 | 0.00048 | 0.00081 | Hernán-Robins, What If §17.4 (IP-weighted hazard ratio; pooled-logistic, package-consistent) |
+| `surv120_noquit` | 0.8047 | 0.8047 | 0.805 | 2.1e-11 | 0.00043 | Hernán-Robins, What If Program 17.4 (IP-weighted S(120), A=0) |
+| `surv120_quit` | 0.8067 | 0.8067 | 0.807 | 1.6e-10 | 0.00041 | Hernán-Robins, What If Program 17.4 (IP-weighted S(120), A=1) |
+| `surv120_diff` | 0.002016 | 0.002016 | 0.002 | 5.1e-08 | 0.0078 | Hernán-Robins, What If Program 17.4 (IP-weighted 120-month survival difference, quit - no-quit) |
+
+## Module `11_nhefs_evalue`
+Data source: `sp.datasets.nhefs (NHEFS / What If)` (? obs)
+
+| stat | sp | R | published | rel(sp vs R) | rel(sp vs published) | citation |
+|---|---:|---:|---:|---:|---:|---|
+| `evalue_crude_rr_point` | 1.981 | 1.981 | 1.981 | 7.8e-12 | 0 | VanderWeele-Ding 2017 E = RR + sqrt(RR(RR-1)) (crude mortality RR) |
+| `evalue_ipw_rr_point` | 1.109 | 1.109 | 1 | 2e-11 | 0.11 | VanderWeele-Ding 2017 E-value, IP-weighted mortality RR (~null after adjustment) |
+| `evalue_smd_point` | 2.351 | 2.34 | 2.351 | 0.0049 | 0 | VanderWeele-Ding SMD approx exp(0.91*d) on Ch12 weight effect |
+

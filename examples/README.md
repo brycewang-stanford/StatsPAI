@@ -13,6 +13,7 @@ python examples/did_mpdta.py
 python examples/rd_lee.py
 python examples/synth_prop99.py
 python examples/gmethods_timevarying.py
+python examples/nhefs_whatif.py
 ```
 
 Or after installing the released package:
@@ -32,3 +33,8 @@ The scripts cover canonical causal-inference designs:
   structural model) for time-varying confounding, the signature problem of
   modern causal epidemiology. Uses a self-contained simulation, so it needs
   no bundled dataset.
+- `nhefs_whatif.py` - reproduces the published g-methods estimates from
+  Hernán & Robins, *Causal Inference: What If*, on the real bundled NHEFS
+  data: IP weighting, standardization/g-formula, and g-estimation all
+  recover the book's ~3.4-3.5 kg effect of quitting smoking on weight, plus
+  an E-value sensitivity analysis. Uses `sp.datasets.nhefs()`.

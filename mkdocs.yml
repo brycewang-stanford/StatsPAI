@@ -99,6 +99,7 @@ nav:
   - JSS source-audit dossier: jss_source_audit_dossier.md
   - Guides:
       - "Public health & epidemiology — overview & design→method map": guides/public_health.md
+      - "Reproducing Hernán-Robins *What If* on real NHEFS (g-methods parity certification)": guides/whatif_nhefs.md
       - "Epidemiological measures (OR/RR/RD/IRR/NNT, Mantel–Haenszel, standardization, diagnostic accuracy)": guides/epi_measures.md
       - "G-methods for time-varying confounding (g-formula / MSM / LTMLE / target-trial emulation)": guides/g_methods_ph.md
       - "Survival analysis for public health (KM / Cox / AFT / IPCW / causal survival)": guides/survival_ph.md
