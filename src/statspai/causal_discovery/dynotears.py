@@ -206,7 +206,11 @@ def dynotears(
     if not isinstance(data, pd.DataFrame):
         raise TypeError("`data` must be a pandas DataFrame.")
     if variables is None:
-        variables = [c for c in data.columns if np.issubdtype(data[c].dtype, np.number)]
+        # ``pd.api.types.is_numeric_dtype`` (not ``np.issubdtype(... .dtype,
+        # np.number)``) so a pandas extension dtype — e.g. a ``StringDtype``
+        # column under pandas>=3.0 — is excluded rather than raising TypeError.
+        # Identical column selection for numpy numeric dtypes.
+        variables = [c for c in data.columns if pd.api.types.is_numeric_dtype(data[c])]
     variables = list(variables)
     d = len(variables)
     if d < 2:

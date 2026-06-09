@@ -43,8 +43,8 @@ All notable changes to StatsPAI will be documented in this file.
   `peer_effects`, `notch`, `model_averaging_dml`, `test_calibration`. A
   read-only classifier `scripts/tierd_classify.py` grades every registered
   function's test evidence (reference / anchored / weak / smoke / untested) and
-  emits the worklist; the zero-guard P1 floor went from 25 → 1 (the lone
-  remainder, `blp`, is blocked by a reported bug — see Known issues). Purely
+  emits the worklist; the zero-guard P1 floor went from 25 → 0 (the lone
+  remainder, `blp`, fixed in this release — see Fixed). Purely
   additive: no estimator numerics changed.
 - **Tier B executable replication notebooks
   (`Paper-JSS/replication/notebooks/*.ipynb`).** Self-contained
@@ -64,6 +64,17 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **⚠️ Functionality fix: `sp.blp` was non-functional on every estimation
+  path.** The GMM objective called `_gmm_objective(..., maxiter=1000)` but the
+  parameter is named `maxiter_inner`, so every `sp.blp` call raised
+  `TypeError: _gmm_objective() got an unexpected keyword argument 'maxiter'`
+  before producing any output. Renamed the keyword at both call sites (first-
+  and second-stage GMM). A new analytic recovery test
+  (`tests/test_tierD_structural_analytic.py::TestBLPAnalytic`) recovers the
+  known linear price/characteristic coefficients on a logit DGP with
+  endogenous price and valid cost instruments, and guards the keyword
+  regression directly. This clears the last Tier D zero-guard remainder.
+
 - **`sp.replicate('lalonde_1986')` classic-track 1:1 NN PSM golden number
   refreshed 2012.5 → 1963.4.** The original pin was stale relative to the
   current deterministic `sp.match(method='nearest')` output (a tie-handling
@@ -72,13 +83,6 @@ All notable changes to StatsPAI will be documented in this file.
   pins all three classic LaLonde numbers so future drift fails loudly.
 
 ### Known issues
-
-- **`sp.blp` is non-functional on its estimation path** (`_gmm_objective`
-  called with `maxiter=` but the parameter is `maxiter_inner` →
-  `TypeError`; plus a singular-weight-matrix fragility on thin designs).
-  Surfaced by the Tier D campaign and reported (not auto-fixed); see
-  `.tierd_campaign/BUG_blp_gmm_objective_maxiter.md`. The blp Tier D recovery
-  test is deferred until the fix lands.
 
 - **NIST StRD Linear Least Squares certification for the OLS kernel
   (`tests/numerical_accuracy/test_nist_strd_ols.py`).** All 11 NIST Statistical
@@ -192,6 +196,14 @@ All notable changes to StatsPAI will be documented in this file.
   unchanged (verified against the full event-study suite and the `did`
   reference-parity set); it only repairs the previously-crashing string-time
   path. Surfaced by the Windows/macOS CI matrix on pandas 3.0 / numpy 2.4.
+
+- **`sp.lpcmci` / `sp.dynotears` would crash on string columns under
+  pandas ≥ 3.0.** Their default numeric-variable filter used the same
+  `np.issubdtype(col.dtype, np.number)` anti-pattern, which raises on a
+  `StringDtype` column. Switched to `pd.api.types.is_numeric_dtype` — identical
+  numeric-column selection (verified against the causal-discovery suite), now
+  simply skipping string/extension columns instead of crashing. Pre-emptive
+  hardening found by a repo-wide scan after the `event_study` fix above.
 
 ### Added
 

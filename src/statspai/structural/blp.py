@@ -850,7 +850,7 @@ def blp(
         nonlocal best_delta
         obj, xi, delta = _gmm_objective(
             sigma_vec, s_obs, X_linear, X_random_mat, Z, W,
-            draws, market_ids, best_delta, tol_inner, maxiter=1000,
+            draws, market_ids, best_delta, tol_inner, maxiter_inner=1000,
         )
         best_delta = delta.copy()
         return obj
@@ -891,7 +891,7 @@ def blp(
         nonlocal best_delta_2
         obj, xi, delta = _gmm_objective(
             sigma_vec, s_obs, X_linear, X_random_mat, Z, W_opt,
-            draws, market_ids, best_delta_2, tol_inner, maxiter=1000,
+            draws, market_ids, best_delta_2, tol_inner, maxiter_inner=1000,
         )
         best_delta_2 = delta.copy()
         return obj
