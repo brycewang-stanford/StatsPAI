@@ -1,0 +1,16 @@
+{
+  "meta": {
+    "R_version": "R version 4.5.2 (2025-10-31)",
+    "synthdid_version": "0.0.9",
+    "dataset": "StatsPAI sp.california_prop99() (38 control states, T0=19)",
+    "note": "Point estimate is deterministic and is the parity target; placebo SE is randomization-based, recorded for reference"
+  },
+  "sdid": {
+    "estimate": -17.8985083441579,
+    "N0": 38,
+    "T0": 19,
+    "placebo_se_reference": [
+      [2.41414515505355]
+    ]
+  }
+}

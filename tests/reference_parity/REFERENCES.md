@@ -49,6 +49,7 @@ The test asserts coefficient/SE equality to a tight tolerance.
 | `panel_*` | `sp.panel(method='fe'/'re'/'between')` | `plm` within / Swamy-Arora RE / between (Croissant & Millo 2008, *JSS* 27(2), doi:10.18637/jss.v027.i02) | coef 1e-5, classical SE 1e-5, cluster SE 2e-4 |
 | `count_quantile_*` | `sp.poisson` / `sp.nbreg` / `sp.qreg` / `sp.tobit` | `glm(poisson)` / `MASS::glm.nb` / `quantreg::rq` / `AER::tobit` | coef 1e-5, model SE 1e-4, qreg coef 1e-4 (SE not pinned) |
 | `zeroinfl_*` | `sp.zip_model` / `sp.zinb` | `pscl::zeroinfl` (Zeileis-Kleiber-Jackman 2008, *JSS* 27(8), doi:10.18637/jss.v027.i08) | ZIP coef+SE 1e-4, ZINB coef+theta 1e-3 |
+| `sdid_*` | `sp.sdid` | `synthdid` R package (Arkhangelsky et al. 2021, *AER* 111(12):4088-4118, doi:10.1257/aer.20190159) on `sp.california_prop99()` | estimate 1e-6 (SE not pinned — placebo randomisation) |
 
 For `panel_*`, the cluster-robust convention is `plm::vcovHC(type="HC1",
 cluster="group")`, which `sp.panel(method='fe', cluster=<entity>)`
