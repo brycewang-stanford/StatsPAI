@@ -15,7 +15,7 @@ from .weak_iv import (
     anderson_rubin_test, effective_f_test, tF_critical_value,
     weakrobust, WeakRobustResult,
 )
-from .evalue import evalue, evalue_from_result
+from .evalue import evalue, evalue_from_result, evalue_rd, bias_factor
 from .battery import diagnose_result
 from .estat import estat
 from .late_test import kitagawa_test, KitagawaResult
@@ -38,6 +38,8 @@ __all__ = [
     'WeakRobustResult',
     'evalue',
     'evalue_from_result',
+    'evalue_rd',
+    'bias_factor',
     'diagnose_result',
     'estat',
     'kitagawa_test',

@@ -206,6 +206,8 @@ from .diagnostics.battery import diagnose_result as diagnose_result
 from .diagnostics.estat import estat as estat
 from .diagnostics.evalue import evalue as evalue
 from .diagnostics.evalue import evalue_from_result as evalue_from_result
+from .diagnostics.evalue import evalue_rd as evalue_rd
+from .diagnostics.evalue import bias_factor as bias_factor
 from .diagnostics.hausman import hausman_test as hausman_test
 from .diagnostics.late_test import KitagawaResult as KitagawaResult
 from .diagnostics.late_test import kitagawa_test as kitagawa_test
