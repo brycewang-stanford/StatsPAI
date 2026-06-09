@@ -28,7 +28,7 @@ they do not change a single estimated number.
 | # | Item | Risk to paper | Status |
 |---|------|---------------|--------|
 | 1 | Full schema↔signature drift CI guard (+ fix existing drift) | none (metadata + tests) | **done** |
-| 2 | `EconometricResults.to_dict(detail=)` + `.cite()` (additive) | ~none (additive, default=current) | pending |
+| 2 | `EconometricResults.to_dict(detail=)` + `.cite()` (additive) | ~none (additive, default=current) | **done** |
 | 3 | Workflow tools → registry single-source (sync `registry_stats`) | none (metadata; counts re-synced) | pending |
 | 4 | MCP result-cache TTL + structured invalidation | none (runtime only) | pending |
 | 5 | Docstring parsing multi-format (lazy/extras only) | none (metadata extraction) | pending |
@@ -60,3 +60,29 @@ descriptions/enums under the right param name.
 import time — large blast radius, opaque to a reviewer reading `registry.py`, and
 it would silently drop curated enums attached to renamed params. Hand-fix + CI
 guard gives the same permanence with a 24-spec diff instead of a 224-spec one.
+
+## Item #2 — `EconometricResults` citation parity
+
+**Finding.** The `to_dict(detail=)` half was *already* shipped
+(`minimal`/`standard`/`agent` levels at `core/results.py:728`) — the earlier
+audit was stale. The real gap was `.cite()`: only `CausalResult` had it, so
+`sp.bib_for(regression_result)` (which duck-types on `.cite`) **raised**, and a
+regression result couldn't answer the uniform agent question "cite yourself".
+
+**Fix (additive, results.py only).** Added `EconometricResults.cite(format=)`
+mirroring `CausalResult.cite`, resolving the bib key **exactly** from
+`model_info['citation_key'] → model_type → method` against the shared
+`CausalResult._CITATIONS` table (single source of truth, mirrors `paper.bib`).
+
+- Zero-hallucination (§10): exact-only matching means a textbook estimator with
+  no canonical paper (OLS / logit / probit / poisson) returns a
+  `"% No citation registered"` placeholder rather than a fuzzy — possibly wrong —
+  match. Registered methods (e.g. via `citation_key="tobit"`) resolve to the
+  verified entry; APA/JSON are *derived* from that BibTeX, never generated.
+- Side benefit: `sp.bib_for(result)` now works for regression results too.
+- The realistic `EconometricResults` producers (regress/logit/probit/poisson)
+  legitimately have no canonical paper; tobit/heckman/qreg already return
+  `CausalResult` and were already cited. `model_info['citation_key']` is the
+  forward hook for any future regression estimator that needs a citation.
+
+No existing `to_dict`/`summary` output changed; `.cite()` is a pure addition.

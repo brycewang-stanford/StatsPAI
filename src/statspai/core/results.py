@@ -862,6 +862,67 @@ class EconometricResults:
         })
         return base
 
+    def cite(self, format: str = "bibtex") -> Any:
+        """Return the canonical citation for this estimator, if registered.
+
+        Mirrors :meth:`CausalResult.cite` so an agent can call ``.cite()`` on
+        *any* fitted result uniformly — and ``sp.bib_for(result)`` (which
+        duck-types on ``.cite``) now works for regression results too.
+
+        Parameters
+        ----------
+        format : {"bibtex", "apa", "json"}, default ``"bibtex"``
+            Same semantics as :meth:`CausalResult.cite`. ``"bibtex"`` /
+            ``"apa"`` return ``str``; ``"json"`` returns a structured ``dict``.
+
+        Returns
+        -------
+        str | dict
+
+        Notes
+        -----
+        Zero-hallucination (CLAUDE.md §10): BibTeX comes from the single source
+        of truth ``CausalResult._CITATIONS`` (mirroring :file:`paper.bib`); APA /
+        JSON forms are *derived* from that string, never generated. Resolution is
+        **exact** on ``model_info['citation_key']`` → ``model_type`` → ``method``
+        (normalised), so a textbook estimator with no canonical paper (OLS /
+        logit / probit / poisson) honestly returns a placeholder rather than a
+        fuzzy — and possibly wrong — match. Estimators that do have a canonical
+        reference (e.g. tobit, heckman) should set ``model_info['citation_key']``
+        or carry a matching ``model_type``.
+        """
+        if format not in ("bibtex", "apa", "json"):
+            raise ValueError(
+                f"format must be 'bibtex', 'apa' or 'json'; got {format!r}")
+
+        raw_key = (
+            self.model_info.get("citation_key")
+            or self.model_info.get("model_type")
+            or self.model_info.get("method")
+            or ""
+        )
+        key = str(raw_key).strip().lower().replace(" ", "_")
+        # CausalResult is defined later in this module but is in module globals
+        # by the time any instance method runs; _CITATIONS is the shared table.
+        citations = CausalResult._CITATIONS
+        bibtex = citations.get(key) if key else None
+
+        if bibtex is None:
+            label = (
+                self.model_info.get("model_type")
+                or self.model_info.get("method")
+                or "this model"
+            )
+            placeholder = f"% No citation registered for method: {label}"
+            if format == "json":
+                return {"type": None, "key": None, "authors": [],
+                        "fields": {}, "raw": placeholder,
+                        "note": "no citation registered"}
+            return placeholder
+
+        from ..smart.citations import render_citation
+        return render_citation(bibtex, fmt=format)
+
     def for_agent(self) -> Dict[str, Any]:
         """Agent-ready payload — alias for ``to_dict(detail="agent")``.
 
