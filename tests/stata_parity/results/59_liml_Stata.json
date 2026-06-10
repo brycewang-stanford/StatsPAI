@@ -7,7 +7,7 @@
       "side": "Stata",
       "statistic": "beta_x",
       "estimate": 0.73628869435583144,
-      "se": 0.037721995250916303,
+      "se": 0.037759773923630398,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1500,
@@ -19,7 +19,7 @@
       "side": "Stata",
       "statistic": "beta_w",
       "estimate": 0.45548539624648537,
-      "se": 0.028246163303151901,
+      "se": 0.028274451906439201,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1500,
@@ -31,7 +31,7 @@
       "side": "Stata",
       "statistic": "beta_intercept",
       "estimate": 1.0147011978199829,
-      "se": 0.0256911797339331,
+      "se": 0.0257169095147772,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1500,
@@ -52,7 +52,7 @@
   ],
   "extra": {
     "n_instruments": "2",
-    "stata_command": "ivregress liml y w (x = z1 z2)"
+    "stata_command": "ivregress liml y w (x = z1 z2), small"
   },
   "provenance": {
     "stata_version": 18,
