@@ -1,0 +1,78 @@
+{
+  "module": "63_zip",
+  "side": "R",
+  "rows": [
+    {
+      "module": "63_zip",
+      "side": "R",
+      "statistic": "beta_count_intercept",
+      "estimate": 0.549406659097049,
+      "se": 0.0408559930828422,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": []
+    },
+    {
+      "module": "63_zip",
+      "side": "R",
+      "statistic": "beta_count_x1",
+      "estimate": 0.570831825819354,
+      "se": 0.0300437792025932,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": []
+    },
+    {
+      "module": "63_zip",
+      "side": "R",
+      "statistic": "beta_count_x2",
+      "estimate": -0.376783807943231,
+      "se": 0.0566119358802122,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": []
+    },
+    {
+      "module": "63_zip",
+      "side": "R",
+      "statistic": "beta_inflate_intercept",
+      "estimate": -0.602548005006626,
+      "se": 0.0920153349922281,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": []
+    },
+    {
+      "module": "63_zip",
+      "side": "R",
+      "statistic": "beta_inflate_z",
+      "estimate": 0.95325815186295,
+      "se": 0.096868194890792,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "package": ["pscl::zeroinfl"],
+    "count_dist": ["poisson"],
+    "inflate_link": ["logit"]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "pscl": "1.5.9",
+      "MASS": "7.3-65",
+      "compiler": "4.5.2",
+      "jsonlite": "2.0.0"
+    }
+  }
+}

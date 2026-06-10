@@ -1,0 +1,65 @@
+{
+  "module": "63_zip",
+  "side": "py",
+  "rows": [
+    {
+      "module": "63_zip",
+      "side": "py",
+      "statistic": "beta_count_intercept",
+      "estimate": 0.5494066548964622,
+      "se": 0.04085599676323234,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    },
+    {
+      "module": "63_zip",
+      "side": "py",
+      "statistic": "beta_count_x1",
+      "estimate": 0.57083181465333,
+      "se": 0.030043781827454926,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    },
+    {
+      "module": "63_zip",
+      "side": "py",
+      "statistic": "beta_count_x2",
+      "estimate": -0.3767838368705721,
+      "se": 0.05661186816730021,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    },
+    {
+      "module": "63_zip",
+      "side": "py",
+      "statistic": "beta_inflate_intercept",
+      "estimate": -0.6025480360371958,
+      "se": 0.09201514414684782,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    },
+    {
+      "module": "63_zip",
+      "side": "py",
+      "statistic": "beta_inflate_z",
+      "estimate": 0.9532581171131965,
+      "se": 0.09686761598735223,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "inflate_link": "logit",
+    "count_dist": "poisson"
+  }
+}
