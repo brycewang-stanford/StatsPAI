@@ -127,7 +127,9 @@ def main() -> None:
                 "doubly-robust ATE/ATT. On this clean-overlap DGP the "
                 "StatsPAI row uses clip=0.25, consistent with the known "
                 "e(X) support [0.30,0.70], and agrees with grf within "
-                "combined Monte Carlo error (worst rel gap below 0.3%). The "
+                "combined Monte Carlo error (worst rel gap below 0.3%). A "
+                "multi-seed clean-overlap pytest guard checks AIPW truth "
+                "recovery for both ATE and ATT. The "
                 "former NSW-DW stress case is now tracked in the Track B "
                 "robustness sweep."
             ),

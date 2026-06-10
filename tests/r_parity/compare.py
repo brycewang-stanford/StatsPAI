@@ -327,8 +327,8 @@ METHODOLOGICAL_DISCLOSURE_NOTES = {
         "report the doubly-robust AIPW ATE, so the row is like-for-like and "
         "graded against combined sampling error rather than a fixed relative "
         "band. On the clean-overlap DGP the two agree within ~0.05 combined "
-        "SE (worst rel gap below 0.3%), the AIPW recovery test certifies truth-recovery "
-        "within 4 SE, and the B=1000 Track B row confirms calibration -- the "
+        "SE (worst rel gap below 0.3%), the AIPW recovery tests certify truth-recovery "
+        "within 4 SE and across multiple clean-overlap seeds, and the B=1000 Track B row confirms calibration -- the "
         "two criteria formerly held open are now both satisfied."
     ),
 }
@@ -345,8 +345,9 @@ def _display_meta_value(module: str, key: str, value: Any) -> Any:
         return value.replace(
             "so they are like-for-like and must agree within combined Monte Carlo error",
             "so they agree within combined Monte Carlo error "
-            "(worst rel gap below 0.3%, ~0.05 combined SE on the clean DGP), and the "
-            "row is graded T3 (combined-MC-error pass)",
+            "(worst rel gap below 0.3%, ~0.05 combined SE on the clean DGP), "
+            "the multi-seed truth-recovery guard passes, and the row is graded T3 "
+            "(combined-MC-error pass)",
         )
     return value
 
