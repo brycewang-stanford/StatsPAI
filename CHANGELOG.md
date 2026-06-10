@@ -101,10 +101,11 @@ All notable changes to StatsPAI will be documented in this file.
   binned Gaussian estimator at the quantile, rather than a direct Gaussian
   kernel average with the same `bw.nrd0` bandwidth. The Stata/Mata bridge for
   `32_rif` implements the same binned interpolation, so Python, R, and Stata
-  agree at machine precision; Track A strictness moves to **49 machine-level /
+  agree at machine precision; Track A strictness moves to **50 machine-level /
   4 iterative / 1 moderate / 1 methodological** modules after the multinomial
   and ordered logit R references, the LMM REML reference, the AGHQ GLMM
-  reference, and the cross-sectional SFA default optimizer were pinned to
+  reference, the cross-sectional SFA default optimizer, and the `xtabond`
+  `plm::pgmm` reference were pinned to
   tight optimizer/reporting tolerances.
 
 - **⚠️ Correctness fix (pandas ≥ 3.0): `sp.horowitz_manski` bounds silently
@@ -709,13 +710,13 @@ All notable changes to StatsPAI will be documented in this file.
   from `average_treatment_effect` should re-run.
   - On a clean-overlap DGP (`e(X)∈[0.30,0.70]`, known ATE = 1) the AIPW
     ATE recovers the truth within 0.2 SE and agrees with `grf` at
-    `rel = 0.001` (`z = 0.019` combined SE); the ATT agrees at
-    `rel = 0.024` (`z = 0.40`). For the JSS source snapshot,
+    `rel = 0.0019` (`z = 0.037` combined SE); the ATT agrees at
+    `rel = 0.0028` (`z = 0.05`). For the JSS source snapshot,
     `13_causal_forest` is now a T3 combined-Monte-Carlo-error pass:
     the row is like-for-like AIPW versus `grf` and is graded against
     combined sampling error, not sold as deterministic machine-precision
 	    equality. The strictness-tier denominator is
-	    `43 / 10 / 1 / 1 on the 55 R-joined modules`: the forest row is now
+	    `50 / 4 / 1 / 1 on the 56 R-joined modules`: the forest row is now
     the only moderate-stochastic T3 row, and the remaining
     methodological/T4 bucket is the documented classical-SCM
     non-uniqueness/reference-disagreement gap.
@@ -829,7 +830,7 @@ All notable changes to StatsPAI will be documented in this file.
 - **Strictness-tier breakdown in the Track A parity tables
   (`tests/r_parity/compare.py`)** — each module is classified by its
   registered point-estimate tolerance into machine-level / iterative /
-	  moderate / methodological-T4 tiers (43 / 10 / 1 / 1 on the 55
+	  moderate / methodological-T4 tiers (50 / 4 / 1 / 1 on the 56
   R-joined modules), shown in the Markdown ledger and the LaTeX appendix
   caption so a machine-level point-estimate match is not flattened together with a deliberately loose
   stochastic or documented-convention tolerance.
