@@ -1,0 +1,76 @@
+{
+  "module": "61_betareg",
+  "side": "R",
+  "rows": [
+    {
+      "module": "61_betareg",
+      "side": "R",
+      "statistic": "beta_intercept",
+      "estimate": 0.481335110803457,
+      "se": 0.0390889998535053,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 900,
+      "extra": []
+    },
+    {
+      "module": "61_betareg",
+      "side": "R",
+      "statistic": "beta_x1",
+      "estimate": 0.582487076176497,
+      "se": 0.0206523607932677,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 900,
+      "extra": []
+    },
+    {
+      "module": "61_betareg",
+      "side": "R",
+      "statistic": "beta_x2",
+      "estimate": -0.763860861003472,
+      "se": 0.0666681855064847,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 900,
+      "extra": []
+    },
+    {
+      "module": "61_betareg",
+      "side": "R",
+      "statistic": "ln_phi",
+      "estimate": 2.48487792655525,
+      "se": 0.0454835221144221,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 900,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "package": ["betareg::betareg"],
+    "link": ["logit"],
+    "phi_link": ["log"]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "betareg": "3.2-4",
+      "zoo": "1.8-15",
+      "compiler": "4.5.2",
+      "modeltools": "0.2-24",
+      "sandwich": "3.1-1",
+      "nnet": "7.3-20",
+      "flexmix": "2.3-20",
+      "grid": "4.5.2",
+      "lmtest": "0.9-40",
+      "jsonlite": "2.0.0",
+      "Formula": "1.2-5",
+      "stats4": "4.5.2",
+      "lattice": "0.22-7"
+    }
+  }
+}

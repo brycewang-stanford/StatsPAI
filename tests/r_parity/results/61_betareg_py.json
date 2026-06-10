@@ -1,0 +1,54 @@
+{
+  "module": "61_betareg",
+  "side": "py",
+  "rows": [
+    {
+      "module": "61_betareg",
+      "side": "py",
+      "statistic": "beta_intercept",
+      "estimate": 0.48133510910529065,
+      "se": 0.03908765531905247,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 900,
+      "extra": {}
+    },
+    {
+      "module": "61_betareg",
+      "side": "py",
+      "statistic": "beta_x1",
+      "estimate": 0.5824870675560555,
+      "se": 0.020790176365428962,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 900,
+      "extra": {}
+    },
+    {
+      "module": "61_betareg",
+      "side": "py",
+      "statistic": "beta_x2",
+      "estimate": -0.7638608686875075,
+      "se": 0.06676116398882961,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 900,
+      "extra": {}
+    },
+    {
+      "module": "61_betareg",
+      "side": "py",
+      "statistic": "ln_phi",
+      "estimate": 2.4848779801127963,
+      "se": 0.045489952933498376,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 900,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "link": "logit",
+    "phi_link": "log"
+  }
+}
