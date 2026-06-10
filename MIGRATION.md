@@ -5,6 +5,42 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="evalue-hr-ci-parity"></a>
+
+## Unreleased — ⚠️ `sp.evalue` HR / CI E-value parity with R `EValue`
+
+**What changed.** Two numerical behaviours of `sp.evalue` (and
+`sp.evalue_from_result`) changed so that StatsPAI now reproduces the R
+`EValue` package exactly (#21):
+
+1. **Hazard ratios.** `measure='HR'` was always treated as a *rare-outcome*
+   ratio (`OR ≈ RR ≈ HR`). It now uses the exact common-outcome conversion
+   `(1 − 0.5^√HR)/(1 − 0.5^√(1/HR))` by default, matching `EValue::evalues.HR`.
+   HR E-values change for non-rare outcomes.
+2. **Confidence intervals that cross the null.** The CI E-value is now exactly
+   `1` whenever the interval already contains the null (or a user-supplied
+   `true` value), instead of a spurious value > 1 computed from the limit.
+
+**How to get the old numbers.** Pass `rare=True` for the rare-HR
+approximation. There is **no** flag to restore the un-clamped CI E-value — the
+old value was incorrect (it claimed "confounding needed" for a result already
+compatible with the null).
+
+**Parameter rename.** `rare_outcome` → `rare`. The old name still works (emits
+`DeprecationWarning`) and will be removed no earlier than the next minor.
+
+**Who is affected.** Anyone computing an E-value from a hazard ratio with a
+non-rare outcome, or reading the CI E-value of a non-significant result. RR-
+and OR-based point E-values are unchanged.
+
+**JOSS / JSS.** This is parity module `23_evalue` in the JSS cross-language
+table (`Paper-JSS/manuscript/tables/appendix_b_parity.tex`); the change
+*increases* agreement with R `EValue` and the row remains a machine-precision
+**PASS** (worst relative difference 5.8e-14 over 26 rows). No JOSS (#10604)
+numeric figure uses an HR or CI E-value.
+
+---
+
 <a id="blp-maxiter-fix"></a>
 
 ## Unreleased — ⚠️ `sp.blp` functionality fix (was non-functional)

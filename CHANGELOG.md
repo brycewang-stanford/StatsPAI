@@ -138,6 +138,32 @@ All notable changes to StatsPAI will be documented in this file.
   dag-touching test files still pass (none had pinned the broken behaviour).
   No JOSS/JSS table uses these graph routines. Found by the Tier D campaign.
 
+- **⚠️ Correctness fix: `sp.evalue` HR E-values and confidence-interval
+  E-values (now full R `EValue` parity).** Two behaviours that can move a
+  previously-reported number (#21):
+  - **`measure='HR'` was always treated as a rare-outcome ratio**
+    (`OR ≈ RR ≈ HR`). It now uses the exact common-outcome conversion
+    `(1 − 0.5^√HR)/(1 − 0.5^√(1/HR))` by default (`rare=False`), matching
+    `EValue::evalues.HR`. HR-based E-values therefore change for non-rare
+    outcomes; pass `rare=True` to recover the old rare approximation. (`OR`
+    already converted to RR by default, so OR results are unchanged; `RR` is
+    unaffected.)
+  - **A confidence-interval E-value is now clamped to exactly 1 when the
+    interval contains the null** (or a user-supplied `true` reference). The
+    E-value was previously computed from the interval limit regardless, so a
+    non-significant result could report a spurious E-value > 1; it now
+    correctly reports 1 (no unmeasured confounding is needed to explain a
+    result already compatible with the null).
+  The keyword `rare_outcome` is renamed `rare`; the old name still works as a
+  `DeprecationWarning` alias. Verified at machine precision against R `EValue`
+  across every measure (`tests/r_parity/23_evalue.py`, 26 rows, worst relative
+  difference 5.8e-14). **JOSS/JSS note:** this is the `23_evalue` row of the JSS
+  cross-language parity table
+  (`Paper-JSS/manuscript/tables/appendix_b_parity.tex`); the change *increases*
+  agreement with the gold-standard R package and the row stays a
+  machine-precision **PASS** (CI "Numerical reference parity" + "R closed-form
+  parity" jobs green). No JOSS (#10604) figure uses an HR or CI E-value.
+
 - **Agent-UX: `describe_function` advertised stale params / wrong defaults for
   29 hand-written specs (two invariant classes, 18 + 11).** An agent that reads
   the schema and calls `sp.<name>(**kwargs)` verbatim was led into `TypeError`s

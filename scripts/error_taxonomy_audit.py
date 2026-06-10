@@ -57,7 +57,12 @@ GENERIC_EXCEPTIONS = {
 # v1.17.0: the drdid traditional-method correctness fix added one idiomatic
 # arg-validation raise (`ValueError` on a `method` other than 'imp'/'trad'),
 # so the ceiling moves 1847 -> 1848 while taxonomy raises stayed >> the floor.
-GENERIC_RAISE_MAX = 1848
+# v1.17.0 (#21): the public-health validation modules (evalue rewrite,
+# survival/competing_risks, inference/meta_analysis, power/study_designs) added
+# 26 idiomatic arg-validation / defensive raises, so the ceiling moves
+# 1848 -> 1874 while taxonomy raises rose 62 -> 65 (still >> the 42 floor) —
+# the migration trend is intact.
+GENERIC_RAISE_MAX = 1874
 BROAD_EXCEPT_MAX = 588
 TAXONOMY_RAISE_MIN = 42
 
