@@ -96,6 +96,20 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **⚠️ Correctness fix (pandas ≥ 3.0): `sp.horowitz_manski` bounds silently
+  collapsed to `0.0`/`0.0` when a covariate stratum mapped to NaN.** The
+  internal `_create_strata` helper discretises continuous covariates with
+  `pd.qcut`, then cast the bin labels with `.astype(str)`. On a degenerate
+  covariate (e.g. a constant column, where `qcut(..., duplicates='drop')`
+  yields all-NaN) pandas < 3.0 stringified NaN to `"nan"` — accidentally
+  forming one valid stratum — but pandas ≥ 3.0 preserves it as `<NA>`, so every
+  per-stratum mask matched nothing and the bounds summed to zero with no error.
+  NaN strata are now bucketed into an explicit `-1` sentinel stratum, recovering
+  the correct closed-form bounds. The analytic guard
+  (`tests/test_tierD_bounds_analytic.py::TestHorowitzManskiAnalytic::test_single_stratum_matches_closed_form`)
+  pins the single-stratum case to the closed form on both pandas 2.x and 3.x.
+  Numerics are unchanged on pandas < 3.0.
+
 - **⚠️ Functionality fix: `sp.blp` was non-functional on every estimation
   path.** The GMM objective called `_gmm_objective(..., maxiter=1000)` but the
   parameter is named `maxiter_inner`, so every `sp.blp` call raised
@@ -344,9 +358,9 @@ All notable changes to StatsPAI will be documented in this file.
   the seed-42 fixture — `|Δ coefficient| = 1.1e-16` and `|Δ standard error| =
   1.4e-17`, i.e. one float64 unit in the last place. `doubleml` remains *not*
   a runtime dependency. The measured numbers, software versions, and the
-  divergence discussion are recorded in a new *Double Machine Learning Parity*
-  section of `docs/joss_validation_dossier.md`, with a one-command reproduce
-  path added to `docs/joss_reviewer_guide.md`. Verified by installing the
+  divergence discussion are recorded in the source-audit evidence trail
+  (`docs/jss_source_audit_dossier.md` plus the parity artifacts under
+  `tests/external_parity/`). Verified by installing the
   extra and running both `tests/external_parity/test_dml_python_parity.py` and
   `tests/reference_parity/test_dml_parity.py` (55 DML tests green).
 
@@ -639,8 +653,8 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Docs
 
-- Reviewer-facing validation docs (`docs/joss_reviewer_guide.md`,
-  `docs/joss_validation_dossier.md`, `README.md`) refreshed: the focused
+- Reviewer-facing validation docs (`docs/jss_source_audit_dossier.md`,
+  `Paper-JSS/README.md`, `README.md`) refreshed: the focused
   reviewer follow-up regression command is documented, the
   `tests/test_joss_reviewer_followups.py` compatibility path is restored for
   the public review thread (delegating to
@@ -683,16 +697,17 @@ All notable changes to StatsPAI will be documented in this file.
   longer the validation estimand. Users who reported a causal-forest ATE
   from `average_treatment_effect` should re-run.
   - On a clean-overlap DGP (`e(X)∈[0.30,0.70]`, known ATE = 1) the AIPW
-    ATE recovers the truth within 1.5 SE and agrees with `grf` at
-    `rel = 0.037` (`z = 0.69` combined SE). For the JSS source snapshot,
+    ATE recovers the truth within 0.2 SE and agrees with `grf` at
+    `rel = 0.001` (`z = 0.019` combined SE); the ATT agrees at
+    `rel = 0.024` (`z = 0.40`). For the JSS source snapshot,
     `13_causal_forest` is now a T3 combined-Monte-Carlo-error pass:
     the row is like-for-like AIPW versus `grf` and is graded against
     combined sampling error, not sold as deterministic machine-precision
-    equality. The strictness-tier denominator is
-    `12 / 27 / 10 / 2 on the 51 R-joined modules`: the forest row shares
-    the methodological/T4 bucket with the remaining documented classical-SCM
-    non-uniqueness gap, but it is the only row in that bucket graded as a
-    T3 combined-Monte-Carlo-error pass.
+	    equality. The strictness-tier denominator is
+	    `41 / 12 / 1 / 1 on the 55 R-joined modules`: the forest row is now
+    the only moderate-stochastic T3 row, and the remaining
+    methodological/T4 bucket is the documented classical-SCM
+    non-uniqueness/reference-disagreement gap.
   - Guards: `tests/reference_parity/test_causal_forest_aipw_recovery.py`
     (recovery against truth, no R needed) and the tightened
     `tests/reference_parity/test_grf_parity.py` (combined-SE parity vs a
@@ -703,8 +718,10 @@ All notable changes to StatsPAI will be documented in this file.
   module `tests/r_parity/52_scm_unique`: on a DGP whose synthetic-control
   weights are uniquely identified (treated unit exactly a convex
   combination of donors in the pre-period), `sp.synth(method="classic")`
-  recovers the exact weights and gap (pre-RMSE = 0) and agrees with
-  `Synth::synth` to 0.7 %. For the ambiguous Basque-data row, the parity
+	  recovers the exact weights and gap (pre-RMSE = 0) and agrees with
+	  `Synth::synth` at machine-level point precision after fixing the
+	  predictor-weight vector and tightening the inner `ipop` QP controls.
+	  For the ambiguous Basque-data row, the parity
   harness keeps the native default visible as a documented
   donor-weight-non-uniqueness/reference-disagreement gap. On the same ADH
   special-predictor specification, native StatsPAI tracks Stata `synth`
@@ -793,22 +810,22 @@ All notable changes to StatsPAI will be documented in this file.
   than only frozen.
 - **`sp.validation_report(collect_tests=True)`** — shells out to
   `pytest --collect-only` and returns the authoritative, parametrize-expanded
-  parity test counts (124 reference-parity, 50 external-parity, 12 coverage
+  parity test counts (124 reference-parity, 52 external-parity, 12 coverage
   Monte Carlo on the current source snapshot); a regression test pins those three to the
   JSS manuscript headline so a parity test added/removed without updating the
   paper fails CI. Default `validation_report()` path is unchanged (fast,
   metadata-only).
 - **Strictness-tier breakdown in the Track A parity tables
   (`tests/r_parity/compare.py`)** — each module is classified by its
-  registered point-estimate tolerance into machine / iterative / moderate /
-  methodological/T4 tiers (12 / 27 / 10 / 2 on the 51 R-joined modules), shown
-  in the Markdown ledger and the LaTeX appendix caption so a machine-precision
-  match is not flattened together with a deliberately loose
+  registered point-estimate tolerance into machine-level / iterative /
+	  moderate / methodological-T4 tiers (41 / 12 / 1 / 1 on the 55
+  R-joined modules), shown in the Markdown ledger and the LaTeX appendix
+  caption so a machine-level point-estimate match is not flattened together with a deliberately loose
   stochastic or documented-convention tolerance.
 - **Stata leg brought to the same rigor as R (`tests/stata_parity/`)** —
   `_common.do` now writes an inline `provenance` block (engine version,
   edition, OS) onto every `*_Stata.json`; `verify_reproduce_stata.py` re-runs
-  each `.do` on the committed CSV bytes and confirms all 44 Stata modules
+  each `.do` on the committed CSV bytes and confirms all 53 Stata modules
   reproduce **bit-for-bit** (worst rel 0) under Stata 18 MP, including the
   iterative-optimiser commands (`set seed 42` + deterministic solvers);
   `_capture_stata_env.do` + `_gen_stata_env.py` pin the engine and the
@@ -822,7 +839,7 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed — Track A R golden values regenerated under the locked environment
 
-- The current R parity ledger covers 51 rendered R-joined modules under
+- The current R parity ledger covers 55 rendered R-joined modules under
   R 4.5.2 with the `renv.lock` package set so each is self-describing.
   The material parity-status movement is the added `52_scm_unique`
   counterpart for classical SCM: an identified synthetic-control DGP now

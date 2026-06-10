@@ -420,9 +420,17 @@ def _create_strata(df: pd.DataFrame, covariates: List[str]) -> pd.Series:
     for c in covariates:
         col = df[c]
         if col.dtype.kind in ('f',) or col.nunique() > 10:
-            parts.append(pd.qcut(col, q=4, labels=False, duplicates='drop').astype(str))
+            binned = pd.qcut(col, q=4, labels=False, duplicates='drop')
+            # qcut yields NaN when the bin edges collapse (constant column)
+            # or the input is missing. Bucket those rows into an explicit
+            # sentinel stratum: under pandas>=3.0 astype(str) preserves NaN
+            # as missing instead of stringifying to "nan", so without this
+            # the masks in _hm_point match nothing and the bounds silently
+            # collapse to 0.0.
+            binned = pd.Series(binned, index=df.index)
+            parts.append(binned.fillna(-1.0).astype(np.int64).astype(str))
         else:
-            parts.append(col.astype(str))
+            parts.append(col.fillna(-1).astype(str))
     combined = parts[0]
     for p in parts[1:]:
         combined = combined + '_' + p
