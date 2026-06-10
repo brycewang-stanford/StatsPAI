@@ -63,6 +63,7 @@ Module & Method & Worst headline diff & Verdict \\
 \code{47\_ppmlhdfe\_3fe} & PPML + 3-way HDFE & rel $\le 1.2e-15$ {\footnotesize (Post Gauss-Seidel multi-FE fix; sp matches at 1e-15)} & \textbf{PASS} \\
 \code{48\_probit} & Binary probit & rel $\le 3.1e-07$ & \textbf{PASS} \\
 \code{49\_oprobit} & Ordered probit & rel $\le 3.4e-07$ & \textbf{PASS} \\
+\code{50\_xtabond} & Arellano-Bond GMM & rel $\le 9e-16$ {\footnotesize (R/Stata dynamic-panel fixture; block-diagonal instruments and one-step GMM weights match)} & \textbf{PASS} \\
 \code{51\_newey} & Newey-West HAC OLS & rel $\le 1.8e-15$ {\footnotesize (post HAC sandwich sqrt(n) scaling fix)} & \textbf{PASS} \\
 \code{52\_scm\_unique} & Classical SCM (unique solution) & rel $\le 7.8e-08$ {\footnotesize (identified convex SCM; sp and Stata synth recover exact weights+gap)} & \textbf{PASS} \\
 \code{53\_cr2} & Cluster-robust CR2 / CR3 SE & abs $\le 1.84e-08$ {\footnotesize (CR2 and analytic CR3 match clubSandwich)} & \textbf{PASS} \\

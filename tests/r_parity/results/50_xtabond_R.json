@@ -1,0 +1,69 @@
+{
+  "module": "50_xtabond",
+  "side": "R",
+  "rows": [
+    {
+      "module": "50_xtabond",
+      "side": "R",
+      "statistic": "beta_y_lag",
+      "estimate": 0.391178889738162,
+      "se": 0.0463227160847409,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": []
+    },
+    {
+      "module": "50_xtabond",
+      "side": "R",
+      "statistic": "beta_x",
+      "estimate": 0.216954823675803,
+      "se": 0.0436164499795683,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 800,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "method": ["Arellano-Bond difference GMM"],
+    "step": ["one-step"],
+    "vcov": ["robust"],
+    "package": ["plm::pgmm"],
+    "note": ["Materialized R reference; plm::pgmm, Stata xtabond, and StatsPAI agree on the one-step robust difference-GMM fixture at machine precision."]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "plm": "2.6-7",
+      "digest": "0.6.39",
+      "Formula": "1.2-5",
+      "numDeriv": "2016.8-1.1",
+      "collapse": "2.1.6",
+      "fixest": "0.14.0",
+      "lattice": "0.22-7",
+      "stringmagic": "1.2.0",
+      "zoo": "1.8-15",
+      "parallel": "4.5.2",
+      "generics": "0.1.4",
+      "Rdpack": "2.6.6",
+      "dreamerr": "1.5.0",
+      "sandwich": "3.1-1",
+      "grid": "4.5.2",
+      "compiler": "4.5.2",
+      "lmtest": "0.9-40",
+      "rbibutils": "2.4.1",
+      "tools": "4.5.2",
+      "nlme": "3.1-168",
+      "bdsmatrix": "1.3-7",
+      "Rcpp": "1.1.1-1.1",
+      "jsonlite": "2.0.0",
+      "MASS": "7.3-65",
+      "maxLik": "1.5-2.2",
+      "miscTools": "0.6-30"
+    }
+  }
+}

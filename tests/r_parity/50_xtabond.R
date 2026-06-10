@@ -1,10 +1,9 @@
 # StatsPAI Arellano-Bond GMM parity (R side) -- Module 50.
 #
 # Reads data/50_xtabond.csv and runs plm::pgmm with one-step
-# first-difference GMM. This is intentionally a secondary reference:
-# Stata's xtabond remains the byte-level migration fixture for Module 50
-# because plm uses a different finite-sample vcov stack. The point
-# estimates should nevertheless stay in the same specification family.
+# first-difference GMM. The fixture is materialized because plm::pgmm,
+# Stata's xtabond, and StatsPAI agree on this one-step robust difference-GMM
+# specification at machine precision on the same CSV bytes.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)
@@ -61,7 +60,8 @@ write_results(MODULE, rows,
                            vcov = "robust",
                            package = "plm::pgmm",
                            note = paste(
-                             "Secondary R reference; Stata xtabond remains",
-                             "the strict Module 50 reference because plm",
-                             "uses a different finite-sample vcov stack."
+                             "Materialized R reference; plm::pgmm, Stata",
+                             "xtabond, and StatsPAI agree on the one-step",
+                             "robust difference-GMM fixture at machine",
+                             "precision."
                            )))

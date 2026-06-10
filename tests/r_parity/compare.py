@@ -268,7 +268,7 @@ TOLERANCES: dict[str, dict[str, float]] = {
     "47_ppmlhdfe_3fe": {"rel_est": 1e-6, "rel_se": 5e-2},  # post Gauss-Seidel
     "48_probit": {"rel_est": 1e-6, "rel_se": 1e-2},
     "49_oprobit": {"rel_est": 1e-6, "rel_se": 1e-3},
-    "50_xtabond": {"rel_est": 1e-6, "rel_se": 1e-6},  # Py-Stata migration fixture
+    "50_xtabond": {"rel_est": 1e-6, "rel_se": 1e-6},  # R/Stata dynamic-panel fixture
     "51_newey": {"rel_est": 1e-6, "rel_se": 1e-2},  # post HAC fix
     # Unique-solution SCM: strict-parity counterpart to module 07.
     "52_scm_unique": {
@@ -969,7 +969,7 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic.startswith("beta_"),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "Py--Stata-only migration fixture; block-diagonal instruments and one-step GMM weights match",
+        "gap_note": "R/Stata dynamic-panel fixture; block-diagonal instruments and one-step GMM weights match",
     },
     "51_newey": {
         "name": "Newey-West HAC OLS",

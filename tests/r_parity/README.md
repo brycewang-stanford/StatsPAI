@@ -34,13 +34,12 @@ tests/r_parity/
 Historical verification worklog (not the current source-snapshot audit):
 [`PARITY_TEST_WORKLOG_2026-05-29.md`](PARITY_TEST_WORKLOG_2026-05-29.md).
 
-## Modules (55 materialized StatsPAI--R rows)
+## Modules (56 materialized StatsPAI--R rows)
 
-Module `50_xtabond` is the separate Py--Stata-only migration fixture and
-is not part of this R-joined table; the 55 materialized R rows are
-modules 01--49 and 51--56.
+Module `50_xtabond` is now materialized on the R side through
+`plm::pgmm`, so all modules 01--56 have committed StatsPAI--R rows.
 The native Python rows used by the loose/reference-bridge audit are
-modules 01--49, 51, and 52; modules 53--56 are additional R-only
+modules 01--52; modules 53--56 are additional R-only
 robust/cluster-SE parity rows.
 
 | # | Module | StatsPAI | R / reference side |
@@ -94,6 +93,7 @@ robust/cluster-SE parity rows.
 | 47 | PPML + 3-way HDFE | `sp.ppmlhdfe` | `fixest::fepois` |
 | 48 | Binary probit | `sp.probit` | `stats::glm(family=binomial("probit"))` |
 | 49 | Ordered probit | `sp.oprobit` | `MASS::polr(method="probit")` |
+| 50 | Arellano--Bond GMM | `sp.xtabond` | `plm::pgmm` |
 | 51 | Newey-West HAC OLS | `sp.regress(robust="hac")` | `sandwich::NeweyWest` |
 | 52 | Identified classical SCM DGP | `sp.synth(method="classic", backend="native")` | `Synth::synth` |
 | 53 | Cluster-robust CR2 SE (+ CR3 jackknife) | `sp.cr2_se` | `clubSandwich::vcovCR(type="CR2"/"CR3")` |
@@ -112,9 +112,7 @@ Rscript 11_psm.R      # reads same CSV + writes results/11_psm_R.json
 python3 compare.py    # refresh parity tables
 ```
 
-Run all materialized R modules. Module 50 has an R script, but Stata
-`xtabond` remains the strict checked-in fixture until the `plm::pgmm`
-artifact is generated and reviewed:
+Run all materialized R modules:
 
 ```bash
 cd tests/r_parity
@@ -122,7 +120,6 @@ for py in [0-9][0-9]_*.py; do
   n="${py%.py}"
   R="${n}.R"
   test -f "${R}" || continue
-  test "${n}" = "50_xtabond" && continue
   python3 "${py}" && Rscript "${R}"
 done
 python3 compare.py
