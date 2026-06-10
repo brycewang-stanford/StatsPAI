@@ -27,13 +27,13 @@ N = 4000
 K = 5
 
 
-def _clean_overlap_dgp(seed: int = SEED):
+def _clean_overlap_dgp(seed: int = SEED, n: int = N):
     rng = np.random.default_rng(seed)
-    X = rng.normal(size=(N, K))
+    X = rng.normal(size=(n, K))
     e = 0.5 + 0.2 * np.tanh(X[:, 0])        # propensity in [0.30, 0.70]
-    T = (rng.uniform(size=N) < e).astype(int)
+    T = (rng.uniform(size=n) < e).astype(int)
     tau = 1.0 + 0.5 * X[:, 1]               # heterogeneous CATE, E[tau] = 1
-    Y = X[:, 0] + 0.5 * X[:, 2] + tau * T + rng.normal(scale=1.0, size=N)
+    Y = X[:, 0] + 0.5 * X[:, 2] + tau * T + rng.normal(scale=1.0, size=n)
     return X, T, Y, float(tau.mean()), float(tau[T == 1].mean())
 
 
@@ -80,6 +80,31 @@ def test_clean_overlap_clip_stabilizes_att(fitted):
     cf, _, true_att = fitted
     r = cf.average_treatment_effect(target_sample="treated", clip=0.25)
     assert abs(r["estimate"] - true_att) < 0.01
+
+
+@pytest.mark.parametrize("seed", [7, 42, 2026])
+def test_clean_overlap_aipw_is_stable_across_seeds(seed):
+    """AIPW aggregation should not be a one-seed parity accident.
+
+    This guard is intentionally Python-only and smaller than the live
+    Track-A forest fixture, so it runs in the normal test suite.  The DGP
+    has known clean overlap; with overlap-consistent clipping, both ATE
+    and ATT should recover their known targets comfortably within the
+    reported AIPW standard errors across independent forest seeds.
+    """
+    X, T, Y, true_ate, true_att = _clean_overlap_dgp(seed=seed, n=2500)
+    cf = sp.causal_forest(
+        Y=Y, T=T, X=X, n_estimators=800, random_state=seed,
+        discrete_treatment=True,
+    )
+    for target_sample, truth in (("all", true_ate), ("treated", true_att)):
+        r = cf.average_treatment_effect(target_sample=target_sample, clip=0.25)
+        z = abs(r["estimate"] - truth) / r["se"]
+        assert z < 2.5, (
+            f"seed={seed} target={target_sample}: AIPW estimate "
+            f"{r['estimate']:.4f} (SE {r['se']:.4f}) is {z:.2f} SE from "
+            f"known truth {truth:.4f}"
+        )
 
 
 def test_aipw_ci_covers_truth(fitted):
