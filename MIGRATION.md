@@ -265,7 +265,7 @@ distinct estimators and now fail loudly.
 string, which silently ran the traditional branch). The **default**
 `method='imp'` (improved, locally efficient) already normalised correctly and
 is **unchanged** — its point estimates, standard errors, the
-`docs/joss_validation_dossier.md` / R-`DRDID` parity numbers (which pin
+source-audit / R-`DRDID` parity numbers (which pin
 `drdid_imp_panel`), and every other default-path result are **not** affected.
 
 **Action.** If you relied on `method='trad'` output, re-run; the corrected ATT

@@ -9,6 +9,7 @@ Use :func:`reproduce_jss_tables` for explicit regeneration.
 from __future__ import annotations
 
 import csv
+import importlib.util
 import json
 import os
 import re
@@ -21,7 +22,6 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Union
-
 
 _REPO_ENV = "STATSPAI_REPO_ROOT"
 
@@ -367,40 +367,114 @@ def parity_gap_report(
     rows: List[Dict[str, Any]] = []
     if root is not None:
         rows.extend(_documented_gap_rows(root))
+        stata_skip_reasons = _stata_skip_reasons(root)
 
         import statspai as sp
+
         for parity in _parity_module_rows(root, sp):
             if parity.get("has_stata_bridge"):
                 continue
             module_id = parity.get("module_id", "")
+            skip_reason = stata_skip_reasons.get(module_id)
             status = (
-                "no_canonical_stata_reference"
-                if module_id in {"08_dml", "13_causal_forest", "18_augsynth", "19_gsynth"}
+                _stata_gap_status(skip_reason)
+                if skip_reason
                 else "stata_harness_missing"
             )
-            rows.append({
-                "module_id": module_id,
-                "method": parity.get("method", ""),
-                "kind": status,
-                "gap": status,
-                "description": (
-                    "No authoritative Stata reference was selected."
-                    if status == "no_canonical_stata_reference"
-                    else "Feasible Stata sibling has not been built yet."
-                ),
-                "priority": "medium" if status == "stata_harness_missing" else "low",
-                "next_action": _gap_next_action(status),
-            })
+            reason_text = _format_stata_skip_reason(skip_reason)
+            rows.append(
+                {
+                    "module_id": module_id,
+                    "method": parity.get("method", ""),
+                    "kind": status,
+                    "gap": status,
+                    "description": (
+                        (
+                            "No authoritative Stata reference was selected: "
+                            f"{reason_text}."
+                        )
+                        if status == "no_canonical_stata_reference"
+                        else (
+                            (
+                                "Canonical Stata reference exists, but the bridge "
+                                "artifact is not materialized yet: "
+                                f"{reason_text}."
+                            )
+                            if status == "stata_bridge_not_materialized"
+                            else "Feasible Stata sibling has not been built yet."
+                        )
+                    ),
+                    "priority": (
+                        "medium" if status != "no_canonical_stata_reference" else "low"
+                    ),
+                    "next_action": _gap_next_action(status, skip_reason or ""),
+                }
+            )
 
     if fmt == "records":
         return rows
     import pandas as pd
+
     df = pd.DataFrame(rows)
     if fmt == "dataframe":
         return df
     if fmt == "markdown":
         return df.to_markdown(index=False)
     raise ValueError("fmt must be one of 'dataframe', 'records', or 'markdown'")
+
+
+def _stata_skip_reasons(root: Path) -> Dict[str, str]:
+    """Return ``compare.py::STATA_SKIP_REASON`` when the source tree has it."""
+    compare = root / "tests" / "r_parity" / "compare.py"
+    if not compare.exists():
+        return {}
+    spec = importlib.util.spec_from_file_location(
+        "statspai_validation_r_parity_compare",
+        compare,
+    )
+    if spec is None or spec.loader is None:
+        return {}
+    module = importlib.util.module_from_spec(spec)
+    try:
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+    except (
+        OSError,
+        ImportError,
+        AttributeError,
+        RuntimeError,
+        SyntaxError,
+        ValueError,
+        TypeError,
+    ):
+        return {}
+    reasons = getattr(module, "STATA_SKIP_REASON", {})
+    if not isinstance(reasons, dict):
+        return {}
+    return {str(key): str(value) for key, value in reasons.items()}
+
+
+def _stata_gap_status(skip_reason: str) -> str:
+    """Classify a Stata skip reason without collapsing all skips to no-reference."""
+    reason = skip_reason.lower()
+    if "bridge artifact not materialized" in reason or "licensed stata rerun" in reason:
+        return "stata_bridge_not_materialized"
+    return "no_canonical_stata_reference"
+
+
+def _format_stata_skip_reason(skip_reason: Optional[str]) -> str:
+    """Strip status prefixes from Stata skip reasons for readable reports."""
+    if not skip_reason:
+        return ""
+    reason = skip_reason.strip().rstrip(".")
+    prefixes = (
+        "bridge artifact not materialized:",
+        "no canonical Stata reference selected:",
+    )
+    for prefix in prefixes:
+        if reason.lower().startswith(prefix.lower()):
+            return reason[len(prefix):].strip()
+    return reason
 
 
 def _normalise_targets(targets: Union[str, Iterable[str]]) -> List[str]:
@@ -456,35 +530,51 @@ def _planned_reproduction_steps(
         for script in sorted((paper / "replication" / "scripts").glob("ex0*.py")):
             steps.append(script_step(script.stem, script))
     if "parity" in targets:
-        steps.append(script_step("r_parity_compare", root / "tests" / "r_parity" / "compare.py"))
-        steps.append(ReproductionStep(
-            name="copy_appendix_b_parity",
-            action="copy",
-            command=[
-                str(root / "tests" / "r_parity" / "results" / "parity_table_3way.tex"),
-                str(paper / "manuscript" / "tables" / "appendix_b_parity.tex"),
-            ],
-            cwd=str(root),
-        ))
+        steps.append(
+            script_step("r_parity_compare", root / "tests" / "r_parity" / "compare.py")
+        )
+        steps.append(
+            ReproductionStep(
+                name="copy_appendix_b_parity",
+                action="copy",
+                command=[
+                    str(
+                        root
+                        / "tests"
+                        / "r_parity"
+                        / "results"
+                        / "parity_table_3way.tex"
+                    ),
+                    str(paper / "manuscript" / "tables" / "appendix_b_parity.tex"),
+                ],
+                cwd=str(root),
+            )
+        )
     if "appendices" in targets:
         scripts = paper / "replication" / "scripts"
         steps.append(script_step("gen_appendix_A", scripts / "gen_appendix_A.py"))
         steps.append(script_step("gen_appendix_C", scripts / "gen_appendix_C.py"))
     if "inventory" in targets:
-        steps.append(script_step(
-            "generate_inventory",
-            paper / "replication" / "scripts" / "generate_inventory.py",
-        ))
+        steps.append(
+            script_step(
+                "generate_inventory",
+                paper / "replication" / "scripts" / "generate_inventory.py",
+            )
+        )
     if "figures" in targets:
-        steps.append(script_step(
-            "generate_figures",
-            paper / "replication" / "scripts" / "generate_figures.py",
-        ))
+        steps.append(
+            script_step(
+                "generate_figures",
+                paper / "replication" / "scripts" / "generate_figures.py",
+            )
+        )
     if "verify" in targets:
-        steps.append(script_step(
-            "verify_citations",
-            paper / "replication" / "scripts" / "verify_citations.py",
-        ))
+        steps.append(
+            script_step(
+                "verify_citations",
+                paper / "replication" / "scripts" / "verify_citations.py",
+            )
+        )
     return steps
 
 
@@ -539,8 +629,7 @@ def _jss_table_artifacts(root: Path) -> Dict[str, Any]:
     replication_tables = paper / "replication" / "tables"
     return {
         "manuscript_tables": [
-            _file_status(path, root)
-            for path in sorted(manuscript_tables.glob("*.tex"))
+            _file_status(path, root) for path in sorted(manuscript_tables.glob("*.tex"))
         ],
         "replication_tables": [
             _file_status(path, root)
@@ -585,10 +674,9 @@ def _coerce_repo_root(
 
 
 def _looks_like_repo_root(path: Path) -> bool:
-    return (
-        (path / "pyproject.toml").exists()
-        and (path / "src" / "statspai" / "__init__.py").exists()
-    )
+    return (path / "pyproject.toml").exists() and (
+        path / "src" / "statspai" / "__init__.py"
+    ).exists()
 
 
 def _registry_snapshot(sp: Any) -> Dict[str, Any]:
@@ -715,19 +803,21 @@ def _parity_module_rows(root: Path, sp: Any) -> List[Dict[str, Any]]:
         api_name = _extract_api_name(statspai_api)
         category, schema_registered = _api_category(sp, api_name)
         module_id = number_to_module.get(number, number)
-        rows.append({
-            "module_id": module_id,
-            "method": _strip_markdown(method),
-            "statspai_api": _strip_markdown(statspai_api),
-            "api_name": api_name,
-            "category": category,
-            "schema_registered": schema_registered,
-            "r_reference": _strip_markdown(reference),
-            "has_python_artifact": module_id in py_modules,
-            "has_r_artifact": module_id in r_modules,
-            "has_r_parity": module_id in matched,
-            "has_stata_bridge": module_id in stata_modules,
-        })
+        rows.append(
+            {
+                "module_id": module_id,
+                "method": _strip_markdown(method),
+                "statspai_api": _strip_markdown(statspai_api),
+                "api_name": api_name,
+                "category": category,
+                "schema_registered": schema_registered,
+                "r_reference": _strip_markdown(reference),
+                "has_python_artifact": module_id in py_modules,
+                "has_r_artifact": module_id in r_modules,
+                "has_r_parity": module_id in matched,
+                "has_stata_bridge": module_id in stata_modules,
+            }
+        )
     return rows
 
 
@@ -750,23 +840,76 @@ def _documented_gap_rows(root: Path) -> List[Dict[str, Any]]:
         description = line.split("**:", 1)[1].strip()
         if not _is_gap_note(key, description):
             continue
-        rows.append({
-            "module_id": module_id,
-            "method": method,
-            "kind": "documented_gap",
-            "gap": key,
-            "description": description,
-            "priority": _gap_priority(key, description),
-            "next_action": _gap_next_action(key, description),
-        })
+        rows.append(
+            {
+                "module_id": module_id,
+                "method": method,
+                "kind": "documented_gap",
+                "gap": key,
+                "description": description,
+                "priority": _gap_priority(key, description),
+                "next_action": _gap_next_action(key, description),
+            }
+        )
     return rows
 
 
 def _is_gap_note(key: str, description: str) -> bool:
     text = f"{key} {description}".lower()
+    if key in {
+        "dgp",
+        "true_gap",
+        "certification_note",
+        "method",
+        "backend",
+        "reference_backend",
+        "validation_tier",
+        "tier",
+        "methodological_disclosure",
+        "stata_status",
+        "stata_bridge_status",
+        "stata_cluster_reference",
+        "stata_precision_note",
+        "stata_reference_note",
+        "stata_algorithm",
+        "quantile_convention",
+        "reference_backend_note",
+    }:
+        return False
+    if key == "loglik_note" and "backend diagnostic" in text:
+        return False
+    if key == "note" and "combined monte carlo error" in text:
+        return False
+    gap_markers = (
+        "gap",
+        "warning",
+        "non-uniqueness",
+        "differs",
+        "differ",
+        "different",
+        "convention",
+        "overlap",
+    )
+    if key.endswith("_parity_note") and not any(
+        marker in text for marker in gap_markers
+    ):
+        return False
+    if (
+        key == "native_note"
+        and "parity" in text
+        and not any(marker in text for marker in gap_markers)
+    ):
+        return False
     markers = (
-        "gap", "warning", "non-uniqueness", "differs",
-        "overlap", "convention", "bandwidth",
+        "gap",
+        "warning",
+        "non-uniqueness",
+        "differs",
+        "differ",
+        "different",
+        "overlap",
+        "convention",
+        "bandwidth_selector",
     )
     return any(marker in text for marker in markers)
 
@@ -793,6 +936,12 @@ def _gap_next_action(key: str, description: str = "") -> str:
             "chosen convention in model_info."
         )
     if "scm" in text or "non-uniqueness" in text:
+        if "multi-start diagnostics" in text or "near-best" in text:
+            return (
+                "Keep the deterministic multi-start and donor-weight-class "
+                "diagnostics in the T4 row; promote only with a common "
+                "optimizer/reference specification."
+            )
         return (
             "Use deterministic multi-start solver diagnostics and report "
             "donor-weight equivalence classes."
@@ -806,6 +955,11 @@ def _gap_next_action(key: str, description: str = "") -> str:
         return (
             "Add the feasible .do sibling, write *_Stata.json, then rerun "
             "tests/r_parity/compare.py."
+        )
+    if "stata_bridge_not_materialized" in text:
+        return (
+            "Run the canonical Stata command under a licensed Stata runtime, "
+            "write *_Stata.json, then rerun tests/r_parity/compare.py."
         )
     if "no_canonical_stata_reference" in text:
         return "Keep documented as no canonical Stata reference unless the literature changes."
@@ -938,7 +1092,10 @@ def _artifact_snapshot(root: Optional[Path]) -> Dict[str, Any]:
             root / "tests" / "agent_bench" / "results" / "headline.md"
         ),
         "coverage_b1000": (
-            root / "tests" / "coverage_monte_carlo" / "results_b1000"
+            root
+            / "tests"
+            / "coverage_monte_carlo"
+            / "results_b1000"
             / "coverage_b1000.json"
         ),
     }
@@ -980,9 +1137,16 @@ def _pytest_collected_count(
     try:
         proc = subprocess.run(
             [
-                sys.executable, "-m", "pytest", str(target),
-                "--collect-only", "-q", "-p", "no:cacheprovider",
-                "-o", "addopts=",
+                sys.executable,
+                "-m",
+                "pytest",
+                str(target),
+                "--collect-only",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+                "-o",
+                "addopts=",
             ],
             cwd=str(root),
             check=False,
@@ -1014,16 +1178,17 @@ def _read_json(path: Path) -> Any:
 
 def _monte_carlo_summary(root: Path) -> Dict[str, Any]:
     path = (
-        root / "tests" / "coverage_monte_carlo" / "results_b1000"
+        root
+        / "tests"
+        / "coverage_monte_carlo"
+        / "results_b1000"
         / "coverage_b1000.json"
     )
     payload = _read_json(path)
     if not isinstance(payload, list):
         return {"runs": 0, "source": _rel(path, root)}
     rates = [
-        row.get("rate")
-        for row in payload
-        if isinstance(row.get("rate"), (int, float))
+        row.get("rate") for row in payload if isinstance(row.get("rate"), (int, float))
     ]
     return {
         "runs": len(payload),
@@ -1068,12 +1233,14 @@ def _file_status(path: Path, root: Path) -> Dict[str, Any]:
     info: Dict[str, Any] = {"path": _rel(path, root), "exists": exists}
     if exists:
         stat = path.stat()
-        info.update({
-            "bytes": stat.st_size,
-            "modified_at": datetime.fromtimestamp(
-                stat.st_mtime, timezone.utc
-            ).isoformat(timespec="seconds"),
-        })
+        info.update(
+            {
+                "bytes": stat.st_size,
+                "modified_at": datetime.fromtimestamp(
+                    stat.st_mtime, timezone.utc
+                ).isoformat(timespec="seconds"),
+            }
+        )
     return info
 
 

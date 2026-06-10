@@ -9135,6 +9135,10 @@
           "description": "Unit-level treatment indicator (0/1)",
           "type": "string"
         },
+        "id": {
+          "description": "Unit identifier for true two-period panel DR-DID",
+          "type": "string"
+        },
         "method": {
           "default": "imp",
           "description": "Estimation method: 'imp' (improved, locally efficient) or 'trad'",
@@ -9239,7 +9243,7 @@
     }
   },
   {
-    "description": "Borusyak-Jaravel-Spiess (2024) imputation DiD. Fits a TWFE model on untreated observations only, imputes counterfactual Y(0) for treated obs, and averages the imputation residuals. Efficient under no-anticipation + parallel trends; analytical SE via bjs_inference. Validation: certified evidence with scoped limitations. Known limitations: R parity is for the documented untreated-only TWFE and simple ATT convention; Stata did_imputation uses a different autosample/aggregation convention on mpdta.",
+    "description": "Borusyak-Jaravel-Spiess (2024) imputation DiD. Fits a TWFE model on untreated observations only, imputes counterfactual Y(0) for treated obs, and averages the imputation residuals. Efficient under no-anticipation + parallel trends; analytical SE via bjs_inference. Validation: certified evidence with scoped limitations. Known limitations: R/Stata parity is for the documented untreated-only TWFE and simple ATT aggregation convention only; event-study and SE rows are backend-specific diagnostics.",
     "name": "did_imputation",
     "parameters": {
       "properties": {
@@ -11880,6 +11884,16 @@
           "default": 0,
           "description": "Relative time period for which to compute robust CIs. 0 = on-impact effect, 1 = one period after, etc.",
           "type": "integer"
+        },
+        "honestdid_method": {
+          "description": "Solver method passed to the R ``HonestDiD`` backend. The default preserves HonestDiD defaults: ``'C-LF'`` for ``method='relative_magnitude'`` and ``'FLCI'`` for ``method='smoothness'``. Ignored by ``backend='native'``.",
+          "enum": [
+            "C-LF",
+            "Conditional",
+            "FLCI",
+            "C-F"
+          ],
+          "type": "string"
         },
         "m_grid": {
           "description": "Grid of M values (maximum violation magnitude) to evaluate.",
@@ -16214,6 +16228,10 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
+        "fold_indices": {
+          "description": "fold_indices parameter (Optional[Any]).",
+          "type": "string"
+        },
         "instrument": {
           "description": "instrument parameter (Union[str, List[str], NoneType]).",
           "items": {
@@ -16296,6 +16314,10 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
+        "fold_indices": {
+          "description": "fold_indices parameter (Optional[Any]).",
+          "type": "string"
+        },
         "instrument": {
           "description": "instrument parameter (Union[str, List[str], NoneType]).",
           "items": {
@@ -16371,6 +16393,10 @@
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "fold_indices": {
+          "description": "fold_indices parameter (Optional[Any]).",
           "type": "string"
         },
         "instrument": {
@@ -16450,6 +16476,10 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
+        "fold_indices": {
+          "description": "fold_indices parameter (Optional[Any]).",
+          "type": "string"
+        },
         "instrument": {
           "description": "instrument parameter (Union[str, List[str], NoneType]).",
           "items": {
@@ -16525,6 +16555,10 @@
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "fold_indices": {
+          "description": "fold_indices parameter (Optional[Any]).",
           "type": "string"
         },
         "instrument": {
@@ -21442,6 +21476,11 @@
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "inference": {
+          "default": "bootstrap",
+          "description": "inference parameter (str).",
           "type": "string"
         },
         "mediator": {
@@ -31630,6 +31669,17 @@
           "description": "Number of lags.",
           "type": "integer"
         },
+        "se_df": {
+          "default": "stata",
+          "description": "Residual-variance denominator for coefficient standard errors. ``'stata'``/``'ml'`` uses ``T`` and matches Stata ``var`` default conditional-MLE standard errors. ``'r'``/``'unbiased'`` uses ``T - k_params`` and matches the equation-by-equation ``lm()`` standard errors returned inside R ``vars::VAR()``.",
+          "enum": [
+            "stata",
+            "ml",
+            "r",
+            "unbiased"
+          ],
+          "type": "string"
+        },
         "trend": {
           "default": "c",
           "description": "trend parameter (str).",
@@ -31692,6 +31742,11 @@
         },
         "se": {
           "description": "se parameter.",
+          "type": "string"
+        },
+        "se_df": {
+          "default": "stata",
+          "description": "se_df parameter.",
           "type": "string"
         },
         "sigma_u": {
@@ -35181,7 +35236,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Optimiser controls and inference significance level.",
+          "description": "Optimiser controls and inference significance level. The defaults use a tight likelihood tolerance so REML variance components and ICC agree with R ``lme4`` / Stata ``mixed`` on parity fixtures.",
           "type": "number"
         },
         "cov_type": {
@@ -35201,8 +35256,8 @@
           "type": "array"
         },
         "maxiter": {
-          "default": 400,
-          "description": "Optimiser controls and inference significance level.",
+          "default": 1000,
+          "description": "Optimiser controls and inference significance level. The defaults use a tight likelihood tolerance so REML variance components and ICC agree with R ``lme4`` / Stata ``mixed`` on parity fixtures.",
           "type": "integer"
         },
         "method": {
@@ -35211,8 +35266,8 @@
           "type": "string"
         },
         "tol": {
-          "default": 1e-07,
-          "description": "Optimiser controls and inference significance level.",
+          "default": 1e-09,
+          "description": "Optimiser controls and inference significance level. The defaults use a tight likelihood tolerance so REML variance components and ICC agree with R ``lme4`` / Stata ``mixed`` on parity fixtures.",
           "type": "number"
         },
         "x_fixed": {
@@ -35408,7 +35463,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Optimisation controls / CI width.",
+          "description": "Optimisation controls / CI width. The default ``tol=1e-8`` keeps the Laplace fixed-effect solution aligned with lme4/Stata reference likelihood optima on the parity fixtures. For AGHQ (``nAGQ > 1``), the default optimiser budget is internally tightened to ``maxiter=5000`` and ``tol=1e-12``; explicit user-supplied controls are respected.",
           "type": "number"
         },
         "cov_type": {
@@ -35431,7 +35486,7 @@
         },
         "maxiter": {
           "default": 300,
-          "description": "Optimisation controls / CI width.",
+          "description": "Optimisation controls / CI width. The default ``tol=1e-8`` keeps the Laplace fixed-effect solution aligned with lme4/Stata reference likelihood optima on the parity fixtures. For AGHQ (``nAGQ > 1``), the default optimiser budget is internally tightened to ``maxiter=5000`` and ``tol=1e-12``; explicit user-supplied controls are respected.",
           "type": "integer"
         },
         "nAGQ": {
@@ -35444,8 +35499,8 @@
           "type": "string"
         },
         "tol": {
-          "default": 1e-06,
-          "description": "Optimisation controls / CI width.",
+          "default": 1e-08,
+          "description": "Optimisation controls / CI width. The default ``tol=1e-8`` keeps the Laplace fixed-effect solution aligned with lme4/Stata reference likelihood optima on the parity fixtures. For AGHQ (``nAGQ > 1``), the default optimiser budget is internally tightened to ``maxiter=5000`` and ``tol=1e-12``; explicit user-supplied controls are respected.",
           "type": "number"
         },
         "trials": {
@@ -36003,7 +36058,7 @@
           "type": "array"
         },
         "maxiter": {
-          "default": 500,
+          "default": 2000,
           "description": "maxiter parameter (int).",
           "type": "integer"
         },
@@ -36025,7 +36080,7 @@
           "type": "string"
         },
         "tol": {
-          "default": 1e-08,
+          "default": 1e-10,
           "description": "Numerical convergence tolerance.",
           "type": "number"
         },
@@ -39832,6 +39887,15 @@
           "description": "``\"y ~ x1 + x2\"`` style.",
           "type": "string"
         },
+        "quantile_convention": {
+          "default": "statspai",
+          "description": "Quantile RIF convention for ``statistic=\"quantile\"``.",
+          "enum": [
+            "statspai",
+            "dineq"
+          ],
+          "type": "string"
+        },
         "statistic": {
           "default": "quantile",
           "description": "statistic parameter (StatisticKind).",
@@ -39870,6 +39934,15 @@
         },
         "group": {
           "description": "Binary (0/1) group indicator column.",
+          "type": "string"
+        },
+        "quantile_convention": {
+          "default": "statspai",
+          "description": "Quantile RIF convention for ``statistic=\"quantile\"``. Use ``\"dineq\"`` for R ``dineq::rif`` parity.",
+          "enum": [
+            "statspai",
+            "dineq"
+          ],
           "type": "string"
         },
         "reference": {
@@ -41723,6 +41796,16 @@
           "default": 5,
           "description": "Bounds for the auto search.",
           "type": "integer"
+        },
+        "method": {
+          "default": "statespace",
+          "description": "Estimation convention. ``'statespace'`` keeps the default exact Kalman/SARIMAX likelihood. ``'css_ml'`` is retained as a compatibility alias for ``'innovations_mle'``. The innovations-MLE path uses statsmodels' stationary/invertible exact-MLE parameterization, matching ``stats::arima(method='ML')`` and tightly converged Stata ``arima`` coefficient conventions for pure ARMA models.",
+          "enum": [
+            "statespace",
+            "css_ml",
+            "innovations_mle"
+          ],
+          "type": "string"
         },
         "order": {
           "default": [

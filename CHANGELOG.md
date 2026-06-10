@@ -96,6 +96,17 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **RIF/UQR parity now mirrors `dineq::rif`'s exact density convention.**
+  The `quantile_convention="dineq"` path now ports R `stats::density`'s
+  binned Gaussian estimator at the quantile, rather than a direct Gaussian
+  kernel average with the same `bw.nrd0` bandwidth. The Stata/Mata bridge for
+  `32_rif` implements the same binned interpolation, so Python, R, and Stata
+  agree at machine precision; Track A strictness moves to **49 machine-level /
+  4 iterative / 1 moderate / 1 methodological** modules after the multinomial
+  and ordered logit R references, the LMM REML reference, the AGHQ GLMM
+  reference, and the cross-sectional SFA default optimizer were pinned to
+  tight optimizer/reporting tolerances.
+
 - **⚠️ Correctness fix (pandas ≥ 3.0): `sp.horowitz_manski` bounds silently
   collapsed to `0.0`/`0.0` when a covariate stratum mapped to NaN.** The
   internal `_create_strata` helper discretises continuous covariates with
@@ -704,7 +715,7 @@ All notable changes to StatsPAI will be documented in this file.
     the row is like-for-like AIPW versus `grf` and is graded against
     combined sampling error, not sold as deterministic machine-precision
 	    equality. The strictness-tier denominator is
-	    `41 / 12 / 1 / 1 on the 55 R-joined modules`: the forest row is now
+	    `43 / 10 / 1 / 1 on the 55 R-joined modules`: the forest row is now
     the only moderate-stochastic T3 row, and the remaining
     methodological/T4 bucket is the documented classical-SCM
     non-uniqueness/reference-disagreement gap.
@@ -818,7 +829,7 @@ All notable changes to StatsPAI will be documented in this file.
 - **Strictness-tier breakdown in the Track A parity tables
   (`tests/r_parity/compare.py`)** — each module is classified by its
   registered point-estimate tolerance into machine-level / iterative /
-	  moderate / methodological-T4 tiers (41 / 12 / 1 / 1 on the 55
+	  moderate / methodological-T4 tiers (43 / 10 / 1 / 1 on the 55
   R-joined modules), shown in the Markdown ledger and the LaTeX appendix
   caption so a machine-level point-estimate match is not flattened together with a deliberately loose
   stochastic or documented-convention tolerance.

@@ -62,8 +62,13 @@ GENERIC_EXCEPTIONS = {
 # 26 idiomatic arg-validation / defensive raises, so the ceiling moves
 # 1848 -> 1874 while taxonomy raises rose 62 -> 65 (still >> the 42 floor) —
 # the migration trend is intact.
-GENERIC_RAISE_MAX = 1874
-BROAD_EXCEPT_MAX = 588
+# v1.17.x parity hardening adds generic argument/shape/convention guards across
+# RIF dineq matching, DML explicit folds, fixest SSC, SCM shape checks, ARIMA
+# method selection, and adjacent parity-harness validation. Domain failures in
+# the same batch were migrated to StatsPAI taxonomy exceptions, raising taxonomy
+# sites to 76. Keep this as a ratchet baseline for the hardened parity surface.
+GENERIC_RAISE_MAX = 1901
+BROAD_EXCEPT_MAX = 589
 TAXONOMY_RAISE_MIN = 42
 
 

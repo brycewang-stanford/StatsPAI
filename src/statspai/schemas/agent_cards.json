@@ -1505,6 +1505,7 @@
       "R parity module 07_scm",
       "R parity module 52_scm_unique",
       "Stata parity module 07_scm",
+      "Stata parity module 52_scm_unique",
       "SCM certification is variant-level; exact ADH parity is obtained with the canonical special_predictors recipe or backend='synth'; SDID, augmented SCM, and generalized SCM have native parity rows with optional R bridge backends; remaining native-default differences stay documented."
     ],
     "validation_status": "certified"
@@ -1624,7 +1625,8 @@
     "typical_n_min": 500,
     "validation_notes": [
       "Track A parity seed",
-      "R parity module 08_dml"
+      "R parity module 08_dml",
+      "Stata parity module 08_dml"
     ],
     "validation_status": "certified"
   },
@@ -16954,6 +16956,10 @@
             "description": "Unit-level treatment indicator (0/1)",
             "type": "string"
           },
+          "id": {
+            "description": "Unit identifier for true two-period panel DR-DID",
+            "type": "string"
+          },
           "method": {
             "default": "imp",
             "description": "Estimation method: 'imp' (improved, locally efficient) or 'trad'",
@@ -16993,6 +16999,7 @@
     "typical_n_min": 100,
     "validation_notes": [
       "R parity module 38_drdid",
+      "Stata parity module 38_drdid",
       "API/unit contract evidence: tests/test_estimator_provenance_round3.py"
     ],
     "validation_status": "certified"
@@ -17161,7 +17168,7 @@
       "For staggered / heterogeneous effects: use CS or SA -- TWFE can produce negative weights (Goodman-Bacon)"
     ],
     "category": "causal",
-    "description": "Borusyak-Jaravel-Spiess (2024) imputation DiD. Fits a TWFE model on untreated observations only, imputes counterfactual Y(0) for treated obs, and averages the imputation residuals. Efficient under no-anticipation + parallel trends; analytical SE via bjs_inference. Validation: certified evidence with scoped limitations. Known limitations: R parity is for the documented untreated-only TWFE and simple ATT convention; Stata did_imputation uses a different autosample/aggregation convention on mpdta.",
+    "description": "Borusyak-Jaravel-Spiess (2024) imputation DiD. Fits a TWFE model on untreated observations only, imputes counterfactual Y(0) for treated obs, and averages the imputation residuals. Efficient under no-anticipation + parallel trends; analytical SE via bjs_inference. Validation: certified evidence with scoped limitations. Known limitations: R/Stata parity is for the documented untreated-only TWFE and simple ATT aggregation convention only; event-study and SE rows are backend-specific diagnostics.",
     "example": "sp.did_imputation(df, y=\"y\", group=\"i\", time=\"t\", first_treat=\"g_first\")",
     "failure_modes": [
       {
@@ -17197,7 +17204,7 @@
     ],
     "inherits_from": "did",
     "limitations": [
-      "R parity is for the documented untreated-only TWFE and simple ATT convention; Stata did_imputation uses a different autosample/aggregation convention on mpdta."
+      "R/Stata parity is for the documented untreated-only TWFE and simple ATT aggregation convention only; event-study and SE rows are backend-specific diagnostics."
     ],
     "name": "did_imputation",
     "pre_conditions": [
@@ -17211,7 +17218,7 @@
     ],
     "reference": "Borusyak, Jaravel & Spiess (2024) RES [@borusyak2024revisiting]; Borusyak & Jaravel (2022) [@borusyak2022quasi]",
     "signature": {
-      "description": "Borusyak-Jaravel-Spiess (2024) imputation DiD. Fits a TWFE model on untreated observations only, imputes counterfactual Y(0) for treated obs, and averages the imputation residuals. Efficient under no-anticipation + parallel trends; analytical SE via bjs_inference. Validation: certified evidence with scoped limitations. Known limitations: R parity is for the documented untreated-only TWFE and simple ATT convention; Stata did_imputation uses a different autosample/aggregation convention on mpdta.",
+      "description": "Borusyak-Jaravel-Spiess (2024) imputation DiD. Fits a TWFE model on untreated observations only, imputes counterfactual Y(0) for treated obs, and averages the imputation residuals. Efficient under no-anticipation + parallel trends; analytical SE via bjs_inference. Validation: certified evidence with scoped limitations. Known limitations: R/Stata parity is for the documented untreated-only TWFE and simple ATT aggregation convention only; event-study and SE rows are backend-specific diagnostics.",
       "name": "did_imputation",
       "parameters": {
         "properties": {
@@ -17275,7 +17282,7 @@
       "Track A parity seed",
       "R parity module 16_bjs",
       "Stata parity module 16_bjs",
-      "BJS certification is convention-specific; parity_gap_report() records the Stata autosample/aggregation gap."
+      "BJS certification is convention-specific; the parity harness keeps R's 0-for-never input and Stata's missing-Ei input explicit."
     ],
     "validation_status": "certified"
   },
@@ -21041,6 +21048,16 @@
             "description": "Relative time period for which to compute robust CIs. 0 = on-impact effect, 1 = one period after, etc.",
             "type": "integer"
           },
+          "honestdid_method": {
+            "description": "Solver method passed to the R ``HonestDiD`` backend. The default preserves HonestDiD defaults: ``'C-LF'`` for ``method='relative_magnitude'`` and ``'FLCI'`` for ``method='smoothness'``. Ignored by ``backend='native'``.",
+            "enum": [
+              "C-LF",
+              "Conditional",
+              "FLCI",
+              "C-F"
+            ],
+            "type": "string"
+          },
           "m_grid": {
             "description": "Grid of M values (maximum violation magnitude) to evaluate.",
             "type": "number"
@@ -24236,6 +24253,10 @@
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "string"
           },
+          "fold_indices": {
+            "description": "fold_indices parameter (Optional[Any]).",
+            "type": "string"
+          },
           "instrument": {
             "description": "instrument parameter (Union[str, List[str], NoneType]).",
             "items": {
@@ -24353,6 +24374,10 @@
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "string"
           },
+          "fold_indices": {
+            "description": "fold_indices parameter (Optional[Any]).",
+            "type": "string"
+          },
           "instrument": {
             "description": "instrument parameter (Union[str, List[str], NoneType]).",
             "items": {
@@ -24463,6 +24488,10 @@
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "fold_indices": {
+            "description": "fold_indices parameter (Optional[Any]).",
             "type": "string"
           },
           "instrument": {
@@ -24577,6 +24606,10 @@
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "string"
           },
+          "fold_indices": {
+            "description": "fold_indices parameter (Optional[Any]).",
+            "type": "string"
+          },
           "instrument": {
             "description": "instrument parameter (Union[str, List[str], NoneType]).",
             "items": {
@@ -24687,6 +24720,10 @@
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "fold_indices": {
+            "description": "fold_indices parameter (Optional[Any]).",
             "type": "string"
           },
           "instrument": {
@@ -30124,6 +30161,17 @@
             "description": "Number of lags.",
             "type": "integer"
           },
+          "se_df": {
+            "default": "stata",
+            "description": "Residual-variance denominator for coefficient standard errors. ``'stata'``/``'ml'`` uses ``T`` and matches Stata ``var`` default conditional-MLE standard errors. ``'r'``/``'unbiased'`` uses ``T - k_params`` and matches the equation-by-equation ``lm()`` standard errors returned inside R ``vars::VAR()``.",
+            "enum": [
+              "stata",
+              "ml",
+              "r",
+              "unbiased"
+            ],
+            "type": "string"
+          },
           "trend": {
             "default": "c",
             "description": "trend parameter (str).",
@@ -31022,7 +31070,7 @@
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "Optimiser controls and inference significance level.",
+            "description": "Optimiser controls and inference significance level. The defaults use a tight likelihood tolerance so REML variance components and ICC agree with R ``lme4`` / Stata ``mixed`` on parity fixtures.",
             "type": "number"
           },
           "cov_type": {
@@ -31042,8 +31090,8 @@
             "type": "array"
           },
           "maxiter": {
-            "default": 400,
-            "description": "Optimiser controls and inference significance level.",
+            "default": 1000,
+            "description": "Optimiser controls and inference significance level. The defaults use a tight likelihood tolerance so REML variance components and ICC agree with R ``lme4`` / Stata ``mixed`` on parity fixtures.",
             "type": "integer"
           },
           "method": {
@@ -31052,8 +31100,8 @@
             "type": "string"
           },
           "tol": {
-            "default": 1e-07,
-            "description": "Optimiser controls and inference significance level.",
+            "default": 1e-09,
+            "description": "Optimiser controls and inference significance level. The defaults use a tight likelihood tolerance so REML variance components and ICC agree with R ``lme4`` / Stata ``mixed`` on parity fixtures.",
             "type": "number"
           },
           "x_fixed": {
@@ -31283,7 +31331,7 @@
             "type": "array"
           },
           "maxiter": {
-            "default": 500,
+            "default": 2000,
             "description": "maxiter parameter (int).",
             "type": "integer"
           },
@@ -31305,7 +31353,7 @@
             "type": "string"
           },
           "tol": {
-            "default": 1e-08,
+            "default": 1e-10,
             "description": "Numerical convergence tolerance.",
             "type": "number"
           },
@@ -32331,7 +32379,8 @@
     "validation_notes": [
       "R parity module 30_oaxaca",
       "R parity module 31_dfl",
-      "Stata parity module 30_oaxaca"
+      "Stata parity module 30_oaxaca",
+      "Stata parity module 31_dfl"
     ],
     "validation_status": "certified"
   },
@@ -32468,7 +32517,8 @@
     "typical_n_min": 500,
     "validation_notes": [
       "Track A parity seed",
-      "R parity module 31_dfl"
+      "R parity module 31_dfl",
+      "Stata parity module 31_dfl"
     ],
     "validation_status": "certified"
   },
@@ -32525,6 +32575,15 @@
             "description": "Binary (0/1) group indicator column.",
             "type": "string"
           },
+          "quantile_convention": {
+            "default": "statspai",
+            "description": "Quantile RIF convention for ``statistic=\"quantile\"``. Use ``\"dineq\"`` for R ``dineq::rif`` parity.",
+            "enum": [
+              "statspai",
+              "dineq"
+            ],
+            "type": "string"
+          },
           "reference": {
             "default": 0,
             "description": "Which group's coefficients to use as the reference (0 or 1).",
@@ -32553,7 +32612,8 @@
     "typical_n_min": 100,
     "validation_notes": [
       "Track A parity seed",
-      "R parity module 32_rif"
+      "R parity module 32_rif",
+      "Stata parity module 32_rif"
     ],
     "validation_status": "certified"
   },

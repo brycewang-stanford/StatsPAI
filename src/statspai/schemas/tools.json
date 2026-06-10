@@ -338,6 +338,16 @@
           "description": "Bounds for the auto search.",
           "type": "integer"
         },
+        "method": {
+          "default": "statespace",
+          "description": "Estimation convention. ``'statespace'`` keeps the default exact Kalman/SARIMAX likelihood. ``'css_ml'`` is retained as a compatibility alias for ``'innovations_mle'``. The innovations-MLE path uses statsmodels' stationary/invertible exact-MLE parameterization, matching ``stats::arima(method='ML')`` and tightly converged Stata ``arima`` coefficient conventions for pure ARMA models.",
+          "enum": [
+            "statespace",
+            "css_ml",
+            "innovations_mle"
+          ],
+          "type": "string"
+        },
         "order": {
           "default": [
             1,
@@ -4843,7 +4853,7 @@
     "name": "did_estimate"
   },
   {
-    "description": "Borusyak-Jaravel-Spiess (2024) imputation DiD. Fits a TWFE model on untreated observations only, imputes counterfactual Y(0) for treated obs, and averages the imputation residuals. Efficient under no-anticipation + parallel trends; analytical SE via bjs_inference. Validation: certified evidence with scoped limitations. Known limitations: R parity is for the documented untreated-only TWFE and simple ATT convention; Stata did_imputation uses a different autosample/aggregation convention on mpdta. Assumptions: Parallel trends in absolute levels; No anticipation (no pre-treatment reaction); SUTVA. Pre-conditions: panel with unit x time x outcome; first_treat encodes cohort (first treated period or 0); >= 1 never-treated unit OR >= 1 late-treated cohort. Failure modes: All units treated (no untreated observations to fit) -> Impossible to impute Y(0); use sp.did_multiplegt if on/off switching; Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna; Staggered treatment timing with TWFE method -> TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation. Alternatives: sp.c...",
+    "description": "Borusyak-Jaravel-Spiess (2024) imputation DiD. Fits a TWFE model on untreated observations only, imputes counterfactual Y(0) for treated obs, and averages the imputation residuals. Efficient under no-anticipation + parallel trends; analytical SE via bjs_inference. Validation: certified evidence with scoped limitations. Known limitations: R/Stata parity is for the documented untreated-only TWFE and simple ATT aggregation convention only; event-study and SE rows are backend-specific diagnostics. Assumptions: Parallel trends in absolute levels; No anticipation (no pre-treatment reaction); SUTVA. Pre-conditions: panel with unit x time x outcome; first_treat encodes cohort (first treated period or 0); >= 1 never-treated unit OR >= 1 late-treated cohort. Failure modes: All units treated (no untreated observations to fit) -> Impossible to impute Y(0); use sp.did_multiplegt if on/off switching; Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna; Staggered treatment timing with TWFE method -> TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation. Alternatives: sp.ca...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -6140,6 +6150,10 @@
         },
         "group": {
           "description": "Unit-level treatment indicator (0/1)",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unit identifier for true two-period panel DR-DID",
           "type": "string"
         },
         "method": {
@@ -11525,7 +11539,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Optimisation controls / CI width.",
+          "description": "Optimisation controls / CI width. The default ``tol=1e-8`` keeps the Laplace fixed-effect solution aligned with lme4/Stata reference likelihood optima on the parity fixtures. For AGHQ (``nAGQ > 1``), the default optimiser budget is internally tightened to ``maxiter=5000`` and ``tol=1e-12``; explicit user-supplied controls are respected.",
           "type": "number"
         },
         "cov_type": {
@@ -11544,7 +11558,7 @@
         },
         "maxiter": {
           "default": 300,
-          "description": "Optimisation controls / CI width.",
+          "description": "Optimisation controls / CI width. The default ``tol=1e-8`` keeps the Laplace fixed-effect solution aligned with lme4/Stata reference likelihood optima on the parity fixtures. For AGHQ (``nAGQ > 1``), the default optimiser budget is internally tightened to ``maxiter=5000`` and ``tol=1e-12``; explicit user-supplied controls are respected.",
           "type": "integer"
         },
         "nAGQ": {
@@ -11557,8 +11571,8 @@
           "type": "string"
         },
         "tol": {
-          "default": 1e-06,
-          "description": "Optimisation controls / CI width.",
+          "default": 1e-08,
+          "description": "Optimisation controls / CI width. The default ``tol=1e-8`` keeps the Laplace fixed-effect solution aligned with lme4/Stata reference likelihood optima on the parity fixtures. For AGHQ (``nAGQ > 1``), the default optimiser budget is internally tightened to ``maxiter=5000`` and ``tol=1e-12``; explicit user-supplied controls are respected.",
           "type": "number"
         },
         "trials": {
@@ -11949,7 +11963,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Optimiser controls and inference significance level.",
+          "description": "Optimiser controls and inference significance level. The defaults use a tight likelihood tolerance so REML variance components and ICC agree with R ``lme4`` / Stata ``mixed`` on parity fixtures.",
           "type": "number"
         },
         "cov_type": {
@@ -11965,8 +11979,8 @@
           "type": "array"
         },
         "maxiter": {
-          "default": 400,
-          "description": "Optimiser controls and inference significance level.",
+          "default": 1000,
+          "description": "Optimiser controls and inference significance level. The defaults use a tight likelihood tolerance so REML variance components and ICC agree with R ``lme4`` / Stata ``mixed`` on parity fixtures.",
           "type": "integer"
         },
         "method": {
@@ -11975,8 +11989,8 @@
           "type": "string"
         },
         "tol": {
-          "default": 1e-07,
-          "description": "Optimiser controls and inference significance level.",
+          "default": 1e-09,
+          "description": "Optimiser controls and inference significance level. The defaults use a tight likelihood tolerance so REML variance components and ICC agree with R ``lme4`` / Stata ``mixed`` on parity fixtures.",
           "type": "number"
         },
         "x_fixed": {
@@ -17925,6 +17939,15 @@
           "description": "Binary (0/1) group indicator column.",
           "type": "string"
         },
+        "quantile_convention": {
+          "default": "statspai",
+          "description": "Quantile RIF convention for ``statistic=\"quantile\"``. Use ``\"dineq\"`` for R ``dineq::rif`` parity.",
+          "enum": [
+            "statspai",
+            "dineq"
+          ],
+          "type": "string"
+        },
         "reference": {
           "default": 0,
           "description": "Which group's coefficients to use as the reference (0 or 1).",
@@ -17955,6 +17978,15 @@
       "properties": {
         "formula": {
           "description": "``\"y ~ x1 + x2\"`` style.",
+          "type": "string"
+        },
+        "quantile_convention": {
+          "default": "statspai",
+          "description": "Quantile RIF convention for ``statistic=\"quantile\"``.",
+          "enum": [
+            "statspai",
+            "dineq"
+          ],
           "type": "string"
         },
         "statistic": {
@@ -21491,6 +21523,17 @@
           "default": 1,
           "description": "Number of lags.",
           "type": "integer"
+        },
+        "se_df": {
+          "default": "stata",
+          "description": "Residual-variance denominator for coefficient standard errors. ``'stata'``/``'ml'`` uses ``T`` and matches Stata ``var`` default conditional-MLE standard errors. ``'r'``/``'unbiased'`` uses ``T - k_params`` and matches the equation-by-equation ``lm()`` standard errors returned inside R ``vars::VAR()``.",
+          "enum": [
+            "stata",
+            "ml",
+            "r",
+            "unbiased"
+          ],
+          "type": "string"
         },
         "trend": {
           "default": "c",

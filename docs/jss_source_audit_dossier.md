@@ -15,14 +15,14 @@ the exact audit artifacts under `Paper-JSS/replication/results/`.
 - Package archive: <https://doi.org/10.5281/zenodo.19933900>
 - PyPI: <https://pypi.org/project/StatsPAI/>
 - License: MIT, with a plain-text `LICENSE` file in the repository.
-- Package metadata version: `1.16.0`, released on 2026-05-29.
+- JSS source-snapshot package metadata version: `1.17.0`; the final-publication release gate remains pending until a clean tagged release snapshot is cut.
 - JSS source-snapshot audit date: 2026-05-31.
 - Public GitHub repository creation date: 2025-07-26.
 
 ## Software Scope
 
 StatsPAI exposes a unified Python interface for causal inference and applied
-econometrics. The live registry reports 1,020 registered public functions
+econometrics. The live registry reports 1,031 registered public functions
 across 81 submodules:
 
 ```bash
@@ -36,9 +36,9 @@ does not mean every registered helper is numerically validated.
 
 ## Validation Boundary
 
-Current JSS source-snapshot audit counts: 52 `certified`, 25 `validated`, 940
+Current JSS source-snapshot audit counts: 52 `certified`, 28 `validated`, 948
 `api_stable`, and 3 `experimental` registry symbols. The certified/validated
-surface is therefore 77 symbols, while 751 stable auto-registered symbols
+surface is therefore 80 symbols, while 761 stable auto-registered symbols
 remain API-stable but not parity-backed.
 
 The `validated` tier requires known-truth, reference-parity, external-parity,
@@ -49,9 +49,9 @@ reference parity harness.
 
 The source-snapshot evidence audit checks that all certified/validated symbols
 have registry-attached evidence notes and that those notes resolve to source
-files included in the JSS package. The current archive includes 133
+files included in the JSS package. The current archive includes 136
 registry-evidence source files.
-The current source snapshot also tracks 135 registry-evidence source files
+The current source snapshot also tracks 136 registry-evidence source files
 in the live validation-note inventory.
 
 ## Reproducible Audit Artifacts
