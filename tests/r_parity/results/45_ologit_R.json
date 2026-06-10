@@ -6,8 +6,8 @@
       "module": "45_ologit",
       "side": "R",
       "statistic": "beta_x",
-      "estimate": 0.703921206332797,
-      "se": 0.0677818049328656,
+      "estimate": 0.70392217841668,
+      "se": 0.0677818258272449,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1000,
@@ -17,8 +17,8 @@
       "module": "45_ologit",
       "side": "R",
       "statistic": "beta_cut1",
-      "estimate": -0.54223293898333,
-      "se": 0.0682408160256492,
+      "estimate": -0.542233407496837,
+      "se": 0.0682408241241993,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1000,
@@ -28,8 +28,8 @@
       "module": "45_ologit",
       "side": "R",
       "statistic": "beta_cut2",
-      "estimate": 0.433399984179017,
-      "se": 0.0675743761163543,
+      "estimate": 0.433399016974461,
+      "se": 0.0675743807453511,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1000,
@@ -38,7 +38,9 @@
   ],
   "extra": {
     "package": ["MASS::polr"],
-    "method": ["logistic"]
+    "method": ["logistic"],
+    "optim_reltol": [1e-14],
+    "optim_maxit": [10000]
   },
   "provenance": {
     "r_version": "R version 4.5.2 (2025-10-31)",

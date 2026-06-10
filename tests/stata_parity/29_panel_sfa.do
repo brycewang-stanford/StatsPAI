@@ -5,7 +5,8 @@
 *   R:         frontier::sfa(..., timeEffect=FALSE, truncNorm=FALSE)
 *   Stata:     xtfrontier ..., ti
 *
-* Tolerance: rel < 1e-2.
+* Tolerance: rel < 1e-3 on headline slopes; intercept and sigma rows
+* are retained as Stata scale diagnostics.
 
 version 18
 clear all

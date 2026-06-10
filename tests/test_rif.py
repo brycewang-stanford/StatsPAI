@@ -41,6 +41,34 @@ def test_rif_values_quantile_shape():
     assert rif.shape == (5,)
 
 
+def test_rif_values_dineq_quantile_convention_matches_r_reference():
+    y = np.array([1.0, 2.0, 3.0, 5.0, 8.0])
+    expected = np.array(
+        [
+            -0.55152957669540958,
+            -0.55152957669540958,
+            6.55152957669541,
+            6.55152957669541,
+            6.55152957669541,
+        ]
+    )
+
+    rif = rif_values(
+        y, "quantile", tau=0.5, quantile_convention="dineq"
+    )
+    np.testing.assert_allclose(rif, expected)
+
+
+def test_rif_rejects_unknown_quantile_convention():
+    with pytest.raises(ValueError, match="quantile_convention"):
+        rif_values(
+            np.array([1.0, 2.0, 3.0]),
+            "quantile",
+            tau=0.5,
+            quantile_convention="unknown",
+        )
+
+
 def test_exported():
     import statspai as sp
     assert callable(sp.rifreg)

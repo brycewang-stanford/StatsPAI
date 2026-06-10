@@ -1,8 +1,9 @@
 # StatsPAI GLMM AGHQ parity (R side) -- Module 27.
 #
 # Reads data/27_glmm_aghq.csv and runs lme4::glmer with nAGQ = 8.
-# Tolerance: rel < 1e-3 (AGHQ converges to the exact integral so
-# both implementations should agree on the solution).
+# Tolerance: rel < 1e-6 on fixed-effect point estimates after tight
+# optimiser controls; rel < 5e-2 on SE because fixed-effect covariance
+# conventions differ across implementations.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)
@@ -22,9 +23,15 @@ MODULE <- "27_glmm_aghq"
 df <- read_csv_strict(MODULE)
 df$gid <- as.factor(df$gid)
 
+aghq_control <- lme4::glmerControl(
+  optimizer = "bobyqa",
+  optCtrl = list(maxfun = 200000, rhobeg = 2e-3, rhoend = 1e-12)
+)
+
 fit <- lme4::glmer(y ~ x1 + (1 | gid), data = df,
                     family = binomial(link = "logit"),
-                    nAGQ = 8L)
+                    nAGQ = 8L,
+                    control = aghq_control)
 
 co  <- fixef(fit)
 ses <- sqrt(diag(vcov(fit)))
@@ -45,4 +52,8 @@ rows <- list(
 write_results(MODULE, rows,
               extra = list(family = "binomial(logit)",
                            nAGQ = 8L,
-                           n_groups = length(unique(df$gid))))
+                           n_groups = length(unique(df$gid)),
+                           optimizer = "bobyqa",
+                           optimizer_maxfun = 200000L,
+                           optimizer_rhobeg = 2e-3,
+                           optimizer_rhoend = 1e-12))

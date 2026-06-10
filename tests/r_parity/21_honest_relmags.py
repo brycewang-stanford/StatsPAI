@@ -7,9 +7,11 @@ companion 21_honest_relmags.R uses
 HonestDiD::createSensitivityResults_relativeMagnitudes.
 
 Tolerance: abs < 1e-6 on each CI bound when backend='honestdid' is
-available. The default StatsPAI analytic path remains dependency-light;
-this parity row explicitly exercises the optional HonestDiD-compatible
-reference backend.
+available. The fixture uses HonestDiD's Conditional method because R
+HonestDiD and Stata honestdid share an exact finite-grid bridge for that
+reference method. The default StatsPAI analytic path remains
+dependency-light; this parity row explicitly exercises the optional
+HonestDiD-compatible reference backend.
 """
 from __future__ import annotations
 
@@ -41,7 +43,8 @@ def main() -> None:
     rows: list[ParityRecord] = []
     table = sp.honest_did(res, e=0, m_grid=MBAR_GRID,
                           method="relative_magnitude",
-                          backend="honestdid")
+                          backend="honestdid",
+                          honestdid_method="Conditional")
     for _, row in table.iterrows():
         m = float(row["M"])
         rows.append(
@@ -63,13 +66,15 @@ def main() -> None:
         MODULE, "py", rows,
         extra={
             "method": "relative_magnitude",
+            "honestdid_method": "Conditional",
             "backend": "HonestDiD",
             "Mbar_grid": MBAR_GRID, "alpha": 0.05,
             "reference_backend_note": (
                 "sp.honest_did(..., backend='honestdid') delegates the "
-                "relative-magnitudes CI to the R HonestDiD reference "
-                "implementation, giving exact compatibility with "
-                "HonestDiD::createSensitivityResults_relativeMagnitudes. "
+                "relative-magnitudes CI to the R HonestDiD Conditional "
+                "reference implementation, giving exact compatibility with "
+                "HonestDiD::createSensitivityResults_relativeMagnitudes(..., "
+                "method='Conditional'). "
                 "The default backend='native' path is retained as a "
                 "dependency-light analytic sensitivity bound and is not "
                 "the claim exercised by this parity row."

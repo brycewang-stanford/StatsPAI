@@ -1,12 +1,12 @@
 """StatsPAI RD CCT bias-corrected parity (Python side) -- Module 06.
 
-Runs sp.rdrobust on the Lee 2008 senate replica with the package
-defaults (kernel = triangular, p = 1, q = 2, bwselect = mserd) and
-emits both the conventional and the robust bias-corrected estimates.
-The companion R script runs rdrobust::rdrobust with identical
-defaults.
+Runs sp.rdrobust(..., bwselect="cct") on the Lee 2008 senate replica
+so the Track A row exercises the same Calonico-Cattaneo-Titiunik
+``rdrobust`` bandwidth selector used by R and Stata.  The legacy
+StatsPAI internal ``mserd`` selector is still recorded as a diagnostic
+row, but the parity headline is the canonical CCT path.
 
-Tolerance: rel < 1e-3 (iterative bandwidth selection).
+Tolerance: rel < 1e-6 against R/Stata CCT defaults.
 """
 from __future__ import annotations
 
@@ -22,8 +22,9 @@ def main() -> None:
     df = sp.datasets.lee_2008_senate()
     dump_csv(df, MODULE)
 
-    # Default mserd bandwidth selector.
-    fit = sp.rdrobust(df, y="voteshare_next", x="margin", c=0.0)
+    # Canonical R/Stata rdrobust bandwidth selector via the official
+    # rdrobust Python port.
+    fit = sp.rdrobust(df, y="voteshare_next", x="margin", c=0.0, bwselect="cct")
 
     rows: list[ParityRecord] = []
     for label in ("conventional", "robust"):
@@ -52,11 +53,31 @@ def main() -> None:
         )
     )
 
-    # Forced-bandwidth replicate at h = b = 0.042287 so the
-    # bandwidth-selector convention difference is isolated from the
-    # local-polynomial estimator math itself. R-side mirrors this
-    # with rdrobust(..., h = 0.042287, b = 0.042287).
-    H_FORCED = 0.042287
+    # Legacy internal-selector diagnostic.  This keeps the old default
+    # visible without mixing it with the R/Stata default-h parity rows.
+    legacy = sp.rdrobust(df, y="voteshare_next", x="margin", c=0.0)
+    rows.append(
+        ParityRecord(
+            module=MODULE, side="py",
+            statistic="legacy_internal_mserd_bandwidth_h",
+            estimate=float(legacy.model_info["bandwidth_h"]), n=int(len(df)),
+        )
+    )
+    rows.append(
+        ParityRecord(
+            module=MODULE, side="py",
+            statistic="legacy_internal_mserd_robust_est",
+            estimate=float(legacy.model_info["robust"]["estimate"]),
+            se=float(legacy.model_info["robust"]["se"]),
+            ci_lo=float(legacy.model_info["robust"]["ci"][0]),
+            ci_hi=float(legacy.model_info["robust"]["ci"][1]),
+            n=int(len(df)),
+        )
+    )
+
+    # Forced-bandwidth replicate at the legacy h = b = 0.042287 so the
+    # local-polynomial estimator math remains separately pinned.
+    H_FORCED = float(legacy.model_info["bandwidth_h"])
     fit_forced = sp.rdrobust(df, y="voteshare_next", x="margin", c=0.0,
                               h=H_FORCED, b=H_FORCED)
     for label in ("conventional", "robust"):
@@ -80,23 +101,14 @@ def main() -> None:
             "p": fit.model_info["polynomial_p"],
             "q": fit.model_info["polynomial_q"],
             "bwselect": fit.model_info["bwselect"],
-            "bandwidth_selector_gap": (
-                "On this Lee-2008 replica, sp.rdrobust's MSE-RD "
-                "bandwidth selector returns h=0.042 while "
-                "rdrobust::rdrobust returns h=0.176 -- a ~4x "
-                "difference that propagates into the headline "
-                "estimate (sp default ~0.062; R default ~0.076). "
-                "When BOTH implementations are forced to the same "
-                "bandwidth h=0.042287 the bias-corrected point "
-                "estimate matches at rel ~ 1e-6 and the conventional "
-                "SE at ~6%. The discrepancy is in the regularisation "
-                "term of the optimal-bandwidth formula and is "
-                "documented in tests/reference_parity/test_rd_parity.py "
-                "as a known gap; reviewers should treat the bandwidth "
-                "selector as a calibrated package-default choice that "
-                "differs across implementations, not as evidence of a "
-                "numerical bug in the underlying local-polynomial "
-                "estimator."
+            "bandwidth_parity_note": (
+                "Track A uses sp.rdrobust(..., bwselect='cct'), which "
+                "delegates to the official rdrobust Python port and "
+                "matches R/Stata rdrobust default mserd bandwidths on "
+                "the Lee-2008 fixture. The legacy StatsPAI internal "
+                "mserd selector is retained as legacy_internal_mserd_* "
+                "diagnostic rows and should not be used as the "
+                "cross-language default-h parity claim."
             ),
         },
     )

@@ -5,7 +5,9 @@
 *   R:         mediation::mediate (Imai-Keele-Tingley quasi-Bayesian MC)
 *   Stata:     paramed (Emsley & Liu; closed-form natural effects)
 *
-* Tolerance: rel < 1e-2 on ACME/ADE/total.
+* Tolerance: rel < 1e-6 on ACME/ADE/total point estimates; SE rows
+* are diagnostics because mediation packages use different simulation /
+* delta-method conventions.
 *
 * Cross-package mapping:
 *   paramed `nie` = natural indirect effect ~ R's ACME (= a * b in

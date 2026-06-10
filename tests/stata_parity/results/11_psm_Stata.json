@@ -7,9 +7,21 @@
       "side": "Stata",
       "statistic": "att_psm",
       "estimate": 2277.6907208768521,
-      "se": 621.79324512017217,
-      "ci_lo": 1058.9983546110291,
-      "ci_hi": 3496.3830871426749,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    }
+,
+    {
+      "module": "11_psm",
+      "side": "Stata",
+      "statistic": "se_teffects_ai",
+      "estimate": 621.79324512017217,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
       "n": 2675,
       "extra": {}
     }
@@ -29,7 +41,7 @@
     {
       "module": "11_psm",
       "side": "Stata",
-      "statistic": "n_control",
+      "statistic": "n_control_full",
       "estimate": 2490,
       "se": null,
       "ci_lo": null,
@@ -43,6 +55,7 @@
     "method": "nearest",
     "replace": "TRUE",
     "ratio": "1",
+    "se_reference": "att_psm compares point estimates only; se_teffects_ai is Stata teffects psmatch Abadie-Imbens robust inference.",
     "stata_command": "teffects psmatch (re78) (treat ..., logit), atet nneighbor(1)"
   },
   "provenance": {

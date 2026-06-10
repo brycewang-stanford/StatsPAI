@@ -17,8 +17,200 @@
     {
       "module": "07_scm",
       "side": "Stata",
-      "statistic": "pre_rmse",
+      "statistic": "pre_treatment_rmse",
       "estimate": 0.079210063975482498,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Andalucia",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Aragon",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Asturias",
+      "estimate": 0.014999999999999999,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Baleares",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Canarias",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Cantabria",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Castilla y Leon",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Castilla-La Mancha",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Cataluna",
+      "estimate": 0.42999999999999999,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Extremadura",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Galicia",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Madrid",
+      "estimate": 0.55500000000000005,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Murcia",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Navarra",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Rioja",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    }
+,
+    {
+      "module": "07_scm",
+      "side": "Stata",
+      "statistic": "weight_Valencia",
+      "estimate": 0,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -28,7 +220,8 @@
   ],
   "extra": {
     "predictors": "gdppc(1955)..gdppc(1969) outcomes-only",
-    "stata_command": "synth gdppc gdppc(1955..1969), trunit(.) trperiod(1970) nested"
+    "stata_command": "synth gdppc gdppc(1955..1969), trunit(.) trperiod(1970) nested",
+    "weight_note": "Stata synth donor weights are emitted for the same donor names as the Python/R artifacts; Basque weights are non-unique under this specification."
   },
   "provenance": {
     "stata_version": 18,

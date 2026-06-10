@@ -8,11 +8,8 @@ Runs the **native Python** synthetic-DID estimator
 Tier: T2 native reference parity.  The native Python implementation now
 mirrors synthdid's collapsed-form Frank-Wolfe weight solver and zeta
 scaling, so the ATT matches the R reference on identical CSV bytes.  The
-standard-error comparison still uses a small tolerance because StatsPAI
-keeps a deterministic all-control placebo SE while ``synthdid_se`` uses
-random placebo replications.  StatsPAI also ships an optional
-``backend='synthdid'`` R bridge for users who want to delegate directly
-to the R package; it is not used as the parity comparator.
+headline ``att_sdid`` row is point-only; backend-native placebo SEs are
+reported as explicitly named diagnostic rows.
 """
 from __future__ import annotations
 
@@ -43,11 +40,19 @@ def main() -> None:
         ParityRecord(
             module=MODULE, side="py", statistic="att_sdid",
             estimate=float(fit.estimate),
-            se=float(fit.se),
-            ci_lo=float(fit.ci[0]) if fit.ci is not None else None,
-            ci_hi=float(fit.ci[1]) if fit.ci is not None else None,
+            se=None,
+            ci_lo=None,
+            ci_hi=None,
             n=int(len(df)),
-        )
+        ),
+        ParityRecord(
+            module=MODULE, side="py", statistic="se_native_placebo",
+            estimate=float(fit.se),
+            se=None,
+            ci_lo=None,
+            ci_hi=None,
+            n=int(len(df)),
+        ),
     ]
 
     write_results(
@@ -63,15 +68,17 @@ def main() -> None:
             "validation_tier": fit.model_info.get("validation_tier"),
             "reference_backend": fit.model_info.get("reference_backend"),
             "tier": "T2",
-            "native_note": (
-                "Headline row is the NATIVE Python SDID (backend='native'). "
-                "The native solver mirrors synthdid's collapsed-form "
-                "Frank-Wolfe weights and zeta scaling, so the ATT is a T2 "
-                "same-byte reference-parity row. The SE uses StatsPAI's "
-                "deterministic all-control placebo convention, while "
-                "synthdid_se uses random placebo replications; the optional "
-                "backend='synthdid' R bridge is a convenience feature, not "
-                "the parity comparator."
+            "native_parity_note": (
+                "Headline row is the NATIVE Python SDID ATT "
+                "(backend='native'). The native solver mirrors synthdid's "
+                "collapsed-form Frank-Wolfe weights and zeta scaling, so the "
+                "ATT is a T2 same-byte reference-parity row. Backend-native "
+                "placebo SEs are reported as separately named diagnostic rows."
+            ),
+            "se_reference": (
+                "Python records StatsPAI deterministic all-control placebo "
+                "SEs, R records synthdid_se placebo SEs, and Stata records "
+                "sdid placebo SEs."
             ),
         },
     )

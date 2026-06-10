@@ -44,6 +44,28 @@ def test_hausman_test_method(panel_df):
     assert out["statistic"] >= 0
 
 
+def test_hausman_test_uses_same_re_estimator_as_panel_re():
+    rng = np.random.default_rng(42)
+    n_id, n_t = 100, 8
+    unit = np.repeat(np.arange(n_id), n_t)
+    year = np.tile(np.arange(n_t), n_id)
+    n = n_id * n_t
+    x1 = rng.normal(size=n)
+    x2 = rng.normal(size=n)
+    unit_fe = rng.normal(0, 1, n_id)
+    y = 1.0 + 0.5 * x1 - 0.3 * x2 + unit_fe[unit] + rng.normal(0, 0.5, n)
+    df = pd.DataFrame({"y": y, "x1": x1, "x2": x2, "id": unit, "year": year})
+
+    fe = sp.panel(df, "y ~ x1 + x2", entity="id", time="year", method="fe")
+    re = sp.panel(df, "y ~ x1 + x2", entity="id", time="year", method="re")
+    out = fe.hausman_test()
+
+    assert float(out["beta_re"]["x1"]) == pytest.approx(float(re.params["x1"]))
+    assert float(out["beta_re"]["x2"]) == pytest.approx(float(re.params["x2"]))
+    assert out["statistic"] == pytest.approx(1.37691630362867, abs=1e-12)
+    assert out["pvalue"] == pytest.approx(0.502350019722, abs=1e-12)
+
+
 def test_bp_lm_test_method(panel_df):
     r = sp.panel(panel_df, "y ~ x1 + x2", entity="id", time="year", method="fe")
     out = r.bp_lm_test()

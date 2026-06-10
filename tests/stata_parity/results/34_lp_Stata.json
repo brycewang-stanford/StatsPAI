@@ -5,7 +5,7 @@
     {
       "module": "34_lp",
       "side": "Stata",
-      "statistic": "irf_h0",
+      "statistic": "irf_direct_ols_h0",
       "estimate": 0.13168247869200089,
       "se": 0.051932635714802,
       "ci_lo": null,
@@ -17,7 +17,7 @@
     {
       "module": "34_lp",
       "side": "Stata",
-      "statistic": "irf_h1",
+      "statistic": "irf_direct_ols_h1",
       "estimate": 0.53422039764255802,
       "se": 0.051678192937332897,
       "ci_lo": null,
@@ -29,7 +29,7 @@
     {
       "module": "34_lp",
       "side": "Stata",
-      "statistic": "irf_h2",
+      "statistic": "irf_direct_ols_h2",
       "estimate": 0.32675482104880682,
       "se": 0.062793770622476194,
       "ci_lo": null,
@@ -41,7 +41,7 @@
     {
       "module": "34_lp",
       "side": "Stata",
-      "statistic": "irf_h3",
+      "statistic": "irf_direct_ols_h3",
       "estimate": 0.14922060925531411,
       "se": 0.066298102017169902,
       "ci_lo": null,
@@ -53,7 +53,7 @@
     {
       "module": "34_lp",
       "side": "Stata",
-      "statistic": "irf_h4",
+      "statistic": "irf_direct_ols_h4",
       "estimate": -0.0145871020684762,
       "se": 0.066917539589884195,
       "ci_lo": null,
@@ -65,7 +65,7 @@
     {
       "module": "34_lp",
       "side": "Stata",
-      "statistic": "irf_h5",
+      "statistic": "irf_direct_ols_h5",
       "estimate": -0.017336583133390399,
       "se": 0.066686405623029896,
       "ci_lo": null,
@@ -81,7 +81,8 @@
     "lpirf_h4": -0.1181835040895184,
     "lpirf_h5": -0.085929101047439393,
     "method": "regress y_{t+h} on x_t + y_lag",
-    "identification_note": "sp matches Stata regress at machine precision. Stata lpirf uses Cholesky-orthogonalised shocks and differs from sp at all horizons (see lpirf_h* in extras)."
+    "stata_command": "for h=0/5: regress y_h# x y_lag; lpirf y x, step(5) lags(1)",
+    "stata_direct_ols_reference": "Rows named irf_direct_ols_h* record regress y_{t+h} x y_lag point estimates; Stata lpirf Cholesky coefficients are stored in extras as lpirf_h*."
   },
   "provenance": {
     "stata_version": 18,

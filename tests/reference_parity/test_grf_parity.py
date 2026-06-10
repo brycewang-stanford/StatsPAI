@@ -13,11 +13,11 @@ arbitrary fixed relative band.
 
 This replaces the previous test, which compared the *plug-in* mean of
 the CATE predictions (``cf.ate()``) against grf's AIPW estimate with a
-25% tolerance.  The plug-in average is biased (forest regularisation
-shrinks the CATE predictions), so that comparison both used the wrong
-estimator and needed a band too wide to be called validation.  The
-plug-in path is still exercised below as a documented sanity check, not
-as the parity claim.
+25% tolerance.  The plug-in average is a regularised CATE-summary
+convenience path, not grf's doubly-robust AIPW estimand, so that
+comparison both used the wrong estimator and needed a band too wide to
+be called validation.  The plug-in path is still exercised below as a
+documented sanity check, not as the parity claim.
 
 References
 ----------
@@ -108,21 +108,21 @@ def test_grf_aipw_recovers_grf_ci(fitted_cf, r_reference):
     )
 
 
-def test_grf_plugin_is_documented_biased(fitted_cf, r_reference):
-    """Documents (does not validate) the plug-in CATE average bias.
+def test_grf_plugin_is_documented_convenience_estimand(fitted_cf, r_reference):
+    """Documents (does not validate) the plug-in CATE average path.
 
-    ``cf.ate()`` is the mean of the CATE predictions, which is biased by
-    forest regularisation; it is retained as a convenience but is NOT the
-    parity estimand. This test asserts the documented direction of the
-    bias so a regression that silently changes ``ate()`` semantics is
-    caught, without treating the plug-in mean as validated.
+    ``cf.ate()`` is the mean of the CATE predictions; it is retained as
+    a convenience but is NOT the parity estimand. This test asserts that
+    it remains a distinct, finite CATE-summary path so a regression that
+    silently aliases it to the AIPW estimand is caught, without treating
+    the plug-in mean as validated.
     """
     plug_in = float(fitted_cf.ate())
     aipw = float(fitted_cf.average_treatment_effect(target_sample="all")["estimate"])
-    # On this DGP the plug-in mean overshoots the doubly-robust estimate.
-    assert plug_in > aipw, (
-        f"plug-in mean ({plug_in:.4f}) is expected to exceed the AIPW "
-        f"estimate ({aipw:.4f}) on this DGP; semantics may have changed."
+    assert math.isfinite(plug_in)
+    assert 0.01 < abs(plug_in - aipw) < 0.25, (
+        f"plug-in mean ({plug_in:.4f}) should remain a distinct CATE-summary "
+        f"path from the AIPW estimate ({aipw:.4f}); semantics may have changed."
     )
 
 

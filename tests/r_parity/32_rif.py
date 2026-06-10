@@ -4,8 +4,9 @@ Generates a deterministic wage-gap dataset and runs sp.decomposition
 .rif_decomposition at the median (tau=0.5). The companion 32_rif.R
 uses dineq::rifr.
 
-Tolerance: rel < 1e-2 on the total_diff and on each detailed
-contribution.
+Tolerance: rel < 1e-6 on the total_diff and on each detailed
+contribution after matching dineq's RIF quantile and R stats::density
+binned-kernel convention.
 """
 from __future__ import annotations
 
@@ -42,6 +43,7 @@ def main() -> None:
         "log_wage ~ educ + exper",
         data=df, group="female",
         statistic="quantile", tau=0.5,
+        quantile_convention="dineq",
     )
 
     rows: list[ParityRecord] = [
@@ -59,8 +61,19 @@ def main() -> None:
             MODULE, "py", f"explained_{v}",
             estimate=float(row["explained"]), n=int(len(df))))
 
-    write_results(MODULE, "py", rows,
-                  extra={"statistic": "quantile", "tau": 0.5})
+    write_results(
+        MODULE, "py", rows,
+        extra={
+            "statistic": "quantile",
+            "tau": 0.5,
+            "quantile_convention": "dineq",
+            "reference_backend_note": (
+                "Track-A parity uses quantile_convention='dineq', which "
+                "mirrors R dineq::rif (Hmisc type-7 quantile, R "
+                "stats::density binned Gaussian density, and I(y < q))."
+            ),
+        },
+    )
 
 
 if __name__ == "__main__":

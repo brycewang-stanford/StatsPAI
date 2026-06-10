@@ -42,6 +42,6 @@
     "n_donors": 16,
     "tier": "T2",
     "reference_backend": "gsynth",
-    "native_note": "Headline row is the NATIVE Python generalized SCM (backend='native'). It ports gsynth/fect's two-way FE factor convention on the full never-treated control panel and matches gsynth::gsynth on the Basque fixture within machine tolerance. The optional backend='gsynth' R bridge is a migration convenience, not the parity comparator."
+    "native_parity_note": "Headline row is the NATIVE Python generalized SCM (backend='native'). It ports gsynth/fect's two-way FE factor specification on the full never-treated control panel and matches gsynth::gsynth on the Basque fixture within machine tolerance. The optional backend='gsynth' R bridge is a migration convenience, not the parity comparator."
   }
 }

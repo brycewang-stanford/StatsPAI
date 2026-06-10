@@ -6,7 +6,7 @@
       "module": "32_rif",
       "side": "py",
       "statistic": "total_diff",
-      "estimate": -0.2015934644959505,
+      "estimate": -0.20115866875291744,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -17,7 +17,7 @@
       "module": "32_rif",
       "side": "py",
       "statistic": "explained",
-      "estimate": 0.011114217408218347,
+      "estimate": 0.010959156977337244,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -28,7 +28,7 @@
       "module": "32_rif",
       "side": "py",
       "statistic": "unexplained",
-      "estimate": -0.21270768190416886,
+      "estimate": -0.21211782573025467,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -50,7 +50,7 @@
       "module": "32_rif",
       "side": "py",
       "statistic": "explained_educ",
-      "estimate": 0.02806479830966326,
+      "estimate": 0.027673251198548507,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -61,7 +61,7 @@
       "module": "32_rif",
       "side": "py",
       "statistic": "explained_exper",
-      "estimate": -0.01695058090144491,
+      "estimate": -0.016714094221211263,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -71,6 +71,8 @@
   ],
   "extra": {
     "statistic": "quantile",
-    "tau": 0.5
+    "tau": 0.5,
+    "quantile_convention": "dineq",
+    "reference_backend_note": "Track-A parity uses quantile_convention='dineq', which mirrors R dineq::rif (Hmisc type-7 quantile, R stats::density binned Gaussian density, and I(y < q))."
   }
 }

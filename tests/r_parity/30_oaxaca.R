@@ -1,7 +1,7 @@
 # StatsPAI Blinder-Oaxaca parity (R side) -- Module 30.
 #
 # Reads data/30_oaxaca.csv and runs oaxaca::oaxaca with the
-# threefold decomposition. Tolerance: rel < 1e-3 on the gap and
+# threefold decomposition. Tolerance: rel < 1e-3 on the mean contrast and
 # explained/unexplained components.
 
 .args <- commandArgs(trailingOnly = FALSE)
@@ -47,16 +47,20 @@ reg_a <- fit$reg$reg.A$coefficients
 reg_b <- fit$reg$reg.B$coefficients
 
 # threefold$overall column names use 'coef(endowments)' etc.
-explained <- unname(three["coef(endowments)"])
+endowments <- unname(three["coef(endowments)"])
 unexplained <- unname(three["coef(coefficients)"])
 interaction <- unname(three["coef(interaction)"])
-explained_se <- unname(three["se(endowments)"])
+endowments_se <- unname(three["se(endowments)"])
 unexplained_se <- unname(three["se(coefficients)"])
 
 rows <- list(
   parity_row(MODULE, "gap", estimate = gap, n = nrow(df)),
-  parity_row(MODULE, "explained",
-             estimate = explained, se = explained_se, n = nrow(df)),
+  parity_row(MODULE, "explained_twofold",
+             estimate = endowments + interaction, n = nrow(df)),
+  parity_row(MODULE, "explained_threefold_endowments",
+             estimate = endowments, se = endowments_se, n = nrow(df)),
+  parity_row(MODULE, "interaction_threefold",
+             estimate = interaction, n = nrow(df)),
   parity_row(MODULE, "unexplained",
              estimate = unexplained, se = unexplained_se, n = nrow(df)),
   parity_row(MODULE, "mean_y_a", estimate = y_a, n = nrow(df)),
@@ -83,11 +87,15 @@ if (!is.null(detail)) {
     contribution <- detail[v, "coef(endowments)"]
     se <- detail[v, "se(endowments)"]
     rows[[length(rows) + 1L]] <- parity_row(
-      MODULE, paste0("explained_", v),
+      MODULE, paste0("explained_threefold_endowments_", v),
       estimate = contribution, se = se, n = nrow(df))
   }
 }
 
 write_results(MODULE, rows,
               extra = list(method = "threefold",
-                           reference = "fit$reg$reg.A"))
+                           reference = "fit$reg$reg.A",
+                           decomposition_reference = paste(
+                             "explained_twofold is endowments + interaction;",
+                             "explained_threefold_endowments is the native",
+                             "oaxaca::oaxaca threefold endowments component.")))

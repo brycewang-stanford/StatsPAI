@@ -41,6 +41,13 @@ def main() -> None:
         identification="lpirfs_cholesky",
         endog_order=["y", "x"],
     )
+    direct_fit = sp.local_projections(
+        data=df, outcome="y", shock="x",
+        controls=["y_lag"],
+        horizons=H_MAX,
+        auto_lag=False,
+        identification="direct",
+    )
 
     rows: list[ParityRecord] = []
     for h, irf in enumerate(fit.irf):
@@ -50,6 +57,12 @@ def main() -> None:
             estimate=float(irf),
             se=float(fit.se[h]),
             n=int(fit.n_obs_per_horizon[h])))
+    for h, irf in enumerate(direct_fit.irf):
+        rows.append(ParityRecord(
+            module=MODULE, side="py",
+            statistic=f"irf_direct_ols_h{h}",
+            estimate=float(irf),
+            n=int(direct_fit.n_obs_per_horizon[h])))
 
     write_results(
         MODULE, "py", rows,
@@ -57,15 +70,16 @@ def main() -> None:
             "horizons": H_MAX,
             "identification": "lpirfs_cholesky",
             "endog_order": ["y", "x"],
-            "identification_note": (
+            "r_identification_reference": (
                 "sp.local_projections(..., identification='lpirfs_cholesky') "
-                "implements the lpirfs::lp_lin lags_endog_lin=1, "
-                "shock_type=1 convention: a reduced VAR(1), a unit "
-                "Cholesky shock using the supplied endogenous-variable "
-                "order, and horizon-by-horizon Newey-West OLS. This "
-                "closes the former direct-shock identification gap with R; "
-                "the frozen Stata fixture remains a separate direct-OLS "
-                "shock comparison."
+                "follows lpirfs::lp_lin lags_endog_lin=1, shock_type=1: "
+                "a reduced VAR(1), a unit Cholesky shock using the supplied "
+                "endogenous-variable order, and horizon-by-horizon "
+                "Newey-West OLS."
+            ),
+            "stata_direct_ols_reference": (
+                "Python also records irf_direct_ols_h* point diagnostics "
+                "for the Stata regress y_{t+h} x y_lag fixture."
             ),
         },
     )

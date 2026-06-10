@@ -12,7 +12,6 @@ from pathlib import Path
 
 import pytest
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # ``Paper-JSS/`` is a git-ignored, local-only submission working directory, so
@@ -29,18 +28,12 @@ SOURCE_MANIFEST = (
 RELEASE_AUDIT = (
     REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "release_boundary_audit.py"
 )
-CLAIM_LINT = (
-    REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "validate_claims.py"
-)
+CLAIM_LINT = REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "validate_claims.py"
 GAP_LEDGER = (
     REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "methodological_gap_ledger.py"
 )
 VALIDATION_EVIDENCE_AUDIT = (
-    REPO_ROOT
-    / "Paper-JSS"
-    / "replication"
-    / "scripts"
-    / "validation_evidence_audit.py"
+    REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "validation_evidence_audit.py"
 )
 VERIFY_PACKAGE = (
     REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "verify_submission_package.py"
@@ -48,9 +41,7 @@ VERIFY_PACKAGE = (
 PACKAGE_SCRIPT = (
     REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "jss_submission_package.py"
 )
-FULL_AUDIT = (
-    REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "jss_full_audit.py"
-)
+FULL_AUDIT = REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "jss_full_audit.py"
 REGISTRY_STATS = REPO_ROOT / "scripts" / "registry_stats.py"
 RESULTS = REPO_ROOT / "Paper-JSS" / "replication" / "results"
 SUBMISSION_ARCHIVE = REPO_ROOT / "Paper-JSS" / "build" / "statspai-jss-submission.zip"
@@ -138,9 +129,7 @@ COVERAGE_ROBUSTNESS_B1000 = (
     / "results_b1000"
     / "coverage_robustness_b1000.json"
 )
-TRACK_C_LOGLOG_FIGURE = (
-    REPO_ROOT / "tests" / "perf" / "figures" / "track_c_loglog.pdf"
-)
+TRACK_C_LOGLOG_FIGURE = REPO_ROOT / "tests" / "perf" / "figures" / "track_c_loglog.pdf"
 MAIN_PDF = REPO_ROOT / "Paper-JSS" / "manuscript" / "main.pdf"
 FIXED_PDF_DATE = b"D:20260531000000Z"
 FIXED_ZIP_DATETIME = (2026, 5, 31, 0, 0, 0)
@@ -151,27 +140,43 @@ GENERATED_PDF_FIGURES = (
 AUDIT_SCRIPTS_WITH_FIXED_CLOCK = (
     FULL_AUDIT,
     REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "agent_interface_audit.py",
-    REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "jss_formal_compliance_audit.py",
+    REPO_ROOT
+    / "Paper-JSS"
+    / "replication"
+    / "scripts"
+    / "jss_formal_compliance_audit.py",
     REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "jss_submission_package.py",
-    REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "manuscript_artifact_audit.py",
-    REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "methodological_gap_ledger.py",
+    REPO_ROOT
+    / "Paper-JSS"
+    / "replication"
+    / "scripts"
+    / "manuscript_artifact_audit.py",
+    REPO_ROOT
+    / "Paper-JSS"
+    / "replication"
+    / "scripts"
+    / "methodological_gap_ledger.py",
     REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "release_boundary_audit.py",
-    REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "reproduction_environment_audit.py",
+    REPO_ROOT
+    / "Paper-JSS"
+    / "replication"
+    / "scripts"
+    / "reproduction_environment_audit.py",
     REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "source_snapshot_manifest.py",
     REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "stata_bridge_audit.py",
     REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "validate_claims.py",
-    REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "validation_evidence_audit.py",
+    REPO_ROOT
+    / "Paper-JSS"
+    / "replication"
+    / "scripts"
+    / "validation_evidence_audit.py",
 )
 PARITY_SECTION = REPO_ROOT / "Paper-JSS" / "manuscript" / "sections" / "05-parity.tex"
 PARITY_COMPACT_SECTION = (
     REPO_ROOT / "Paper-JSS" / "manuscript" / "sections" / "05-parity-compact.tex"
 )
 COMPUTATIONAL_DETAILS_SECTION = (
-    REPO_ROOT
-    / "Paper-JSS"
-    / "manuscript"
-    / "sections"
-    / "08-computational-details.tex"
+    REPO_ROOT / "Paper-JSS" / "manuscript" / "sections" / "08-computational-details.tex"
 )
 ROOT_README = REPO_ROOT / "README.md"
 ROOT_README_CN = REPO_ROOT / "README_CN.md"
@@ -236,9 +241,7 @@ def _require_paper_jss() -> None:
     CI checkouts instead of raising ``FileNotFoundError``.
     """
     if not (REPO_ROOT / "Paper-JSS").exists():
-        pytest.skip(
-            "Paper-JSS/ submission working dir is git-ignored / local-only"
-        )
+        pytest.skip("Paper-JSS/ submission working dir is git-ignored / local-only")
 
 
 def _claim_lint_module():
@@ -297,14 +300,16 @@ def test_active_joss_review_artifacts_are_protected_from_jss_docs() -> None:
     for path in LEGACY_JOURNAL_REVIEW_PATHS:
         if path.name.startswith("test_joss_"):
             if path in ACTIVE_REVIEW_COMPAT_TEST_PATHS:
-                assert path.exists(), f"active review compatibility test is missing: {path}"
+                assert (
+                    path.exists()
+                ), f"active review compatibility test is missing: {path}"
                 text = path.read_text(encoding="utf-8")
                 assert "test_external_reviewer_followups.py" in text
                 assert "reviewers copying that command" in text
             else:
-                assert not path.exists(), (
-                    f"retired JOSS follow-up test should stay retired: {path}"
-                )
+                assert (
+                    not path.exists()
+                ), f"retired JOSS follow-up test should stay retired: {path}"
         else:
             assert path.exists(), f"active JOSS review artifact must remain: {path}"
     assert (REPO_ROOT / "docs" / "jss_source_audit_dossier.md").exists()
@@ -378,7 +383,8 @@ def test_source_snapshot_manifest_watches_root_release_paths() -> None:
 
     status_paths = _git_status_paths()
     expected = {
-        _source_snapshot_display_path(path) for path in status_paths
+        _source_snapshot_display_path(path)
+        for path in status_paths
         if path not in ACTIVE_EXTERNAL_REVIEW_PATHS
         if any(
             path == prefix.rstrip("/") or path.startswith(prefix)
@@ -398,9 +404,9 @@ def test_source_snapshot_manifest_watches_root_release_paths() -> None:
 
 def test_strict_release_exit_code_matches_manifest_readiness() -> None:
     _run(SOURCE_MANIFEST)
-    readiness = json.loads(
-        (RESULTS / "source_snapshot_manifest.json").read_text()
-    )["release_readiness"]["ready_for_final_publication"]
+    readiness = json.loads((RESULTS / "source_snapshot_manifest.json").read_text())[
+        "release_readiness"
+    ]["ready_for_final_publication"]
 
     strict = _run(SOURCE_MANIFEST, "--strict-release")
     assert (strict.returncode == 0) is readiness
@@ -446,17 +452,17 @@ def test_validation_claim_lint_covers_release_notes() -> None:
     assert "README.md" in payload["protected_joss_files"]
     assert "docs/joss_reviewer_guide.md" in payload["protected_joss_files"]
     assert "docs/joss_validation_dossier.md" in payload["protected_joss_files"]
-    assert "StatsPAI_full_data_analysis_skill/SKILL.md" in payload[
-        "protected_joss_files"
-    ]
+    assert (
+        "StatsPAI_full_data_analysis_skill/SKILL.md" in payload["protected_joss_files"]
+    )
     assert "docs/agent_cards_spec.md" in payload["checked_files"]
     assert "docs/guides/agent_native_workflow.md" in payload["checked_files"]
     assert stale_forest_t4 in claim_lint.FORBIDDEN_SNIPPETS
     assert "validated-or-better`.  Each may only go up" in claim_lint.FORBIDDEN_SNIPPETS
     assert "most complete " "across ecosystems" in claim_lint.FORBIDDEN_SNIPPETS
     assert (
-        "Python's first " "feature-complete implementation"
-        in claim_lint.FORBIDDEN_SNIPPETS
+        "Python's first "
+        "feature-complete implementation" in claim_lint.FORBIDDEN_SNIPPETS
     )
     assert "first power-" "analysis tool" in claim_lint.FORBIDDEN_SNIPPETS
     assert "gold " "standard" in claim_lint.FORBIDDEN_SNIPPETS
@@ -468,8 +474,8 @@ def test_validation_claim_lint_covers_release_notes() -> None:
     assert "Stata has almost " "none" in claim_lint.FORBIDDEN_SNIPPETS
     assert "R has them " "scattered" in claim_lint.FORBIDDEN_SNIPPETS
     assert (
-        "Every result object exposes " "the same interface"
-        in claim_lint.FORBIDDEN_SNIPPETS
+        "Every result object exposes "
+        "the same interface" in claim_lint.FORBIDDEN_SNIPPETS
     )
     assert "shared result-" "object contract" in claim_lint.FORBIDDEN_SNIPPETS
     assert "same result-" "object contract" in claim_lint.FORBIDDEN_SNIPPETS
@@ -480,12 +486,10 @@ def test_validation_claim_lint_covers_release_notes() -> None:
     assert "36 R-" "parity modules" in claim_lint.FORBIDDEN_SNIPPETS
     assert "21 Stata-" "parity modules" in claim_lint.FORBIDDEN_SNIPPETS
     assert (
-        "50 receive a pass-type verdict, " "1 is a T4"
-        in claim_lint.FORBIDDEN_SNIPPETS
+        "50 receive a pass-type verdict, " "1 is a T4" in claim_lint.FORBIDDEN_SNIPPETS
     )
     assert (
-        "StatsPAI: An Agent-" "Native Python Toolkit"
-        in claim_lint.FORBIDDEN_SNIPPETS
+        "StatsPAI: An Agent-" "Native Python Toolkit" in claim_lint.FORBIDDEN_SNIPPETS
     )
     assert "short reviewer " "guide" in claim_lint.FORBIDDEN_SNIPPETS
     assert "JSS validation " "dossier" in claim_lint.FORBIDDEN_SNIPPETS
@@ -506,8 +510,8 @@ def test_validation_claim_lint_covers_release_notes() -> None:
     assert "docs/agent_cards_spec.md" in payload["required_snippet_files"]
     assert "docs/guides/agent_native_workflow.md" in payload["required_snippet_files"]
     assert payload["claim_counts"]["certified"] == 52
-    assert payload["claim_counts"]["validated"] == 25
-    assert payload["claim_counts"]["api_stable"] == 940
+    assert payload["claim_counts"]["validated"] == 28
+    assert payload["claim_counts"]["api_stable"] == 948
     assert payload["claim_counts"]["experimental"] == 3
 
 
@@ -521,9 +525,9 @@ def test_validation_evidence_audit_separates_grade_from_supplemental_notes() -> 
     summary = payload["summary"]
 
     assert payload["status"] == "PASS"
-    assert summary["certified_validated_symbols"] == 77
+    assert summary["certified_validated_symbols"] == 80
     assert summary["certified_symbols"] == 52
-    assert summary["validated_symbols"] == 25
+    assert summary["validated_symbols"] == 28
     assert summary["certified_without_certified_grade_evidence"] == 0
     assert summary["validated_without_validated_grade_evidence"] == 0
     assert summary["supplemental_only_symbols"] == 0
@@ -656,7 +660,8 @@ def test_submission_archive_members_use_fixed_zip_timestamp() -> None:
         pytest.skip("submission archive has not been built")
     with zipfile.ZipFile(SUBMISSION_ARCHIVE) as zf:
         bad = [
-            item.filename for item in zf.infolist()
+            item.filename
+            for item in zf.infolist()
             if item.date_time != FIXED_ZIP_DATETIME
         ]
     assert not bad
@@ -696,32 +701,30 @@ def test_methodological_gap_ledger_pins_t4_metadata() -> None:
         "07_scm": {
             "validation_tier": "identification_dependent_native",
             "reference_backend": "Synth",
+            "solver_best_start": "regression",
+            "solver_near_best_start_count": "4",
+            "solver_near_best_weight_class_count": "2",
+            "solver_near_best_weight_l1_max": "0.00513",
+            "weight_solution_nonunique": "True",
         },
     }
     for module, required in expected.items():
-        checks = {
-            check["field"]: check
-            for check in rows[module]["metadata_checks"]
-        }
+        checks = {check["field"]: check for check in rows[module]["metadata_checks"]}
         for field, value in required.items():
             assert checks[field]["observed"] == value
             assert checks[field]["ok"] is True
     assert payload["summary"]["metadata_guard_failures"] == 0
-    assert payload["summary"]["methodological_gap_count"] == 2
-    assert payload["summary"]["classified_gap_count"] == 2
+    assert payload["summary"]["methodological_gap_count"] == 1
+    assert payload["summary"]["classified_gap_count"] == 1
     assert payload["summary"]["category_counts"] == {
         "classical_scm_reference_disagreement": 1,
-        "stochastic_forest_aipw_pass": 1,
     }
     assert payload["summary"]["non_circular_guard_count"] == 1
     assert payload["summary"]["non_circular_guard_failures"] == 0
     assert payload["summary"]["reference_disagreement_guard_count"] == 1
     assert payload["summary"]["reference_disagreement_guard_failures"] == 0
 
-    guards = {
-        module: rows[module]["non_circular_guard"]
-        for module in ("07_scm",)
-    }
+    guards = {module: rows[module]["non_circular_guard"] for module in ("07_scm",)}
     assert guards["07_scm"]["path"] == "tests/r_parity/52_scm_unique.py"
     assert guards["07_scm"]["snippet"] == "unique convex-hull SCM"
     assert guards["07_scm"]["ok"] is True
@@ -736,6 +739,7 @@ def test_methodological_gap_ledger_pins_t4_metadata() -> None:
     assert "Reference disagreement guard" in md
     assert "py-Stata rel" in md
     assert "R-Stata rel" in md
+    assert "multi-start diagnostics" in md
     assert "native tracks Stata synth" in md
     assert "uniquely identified convex-hull DGP" in md
     assert "18_augsynth" not in md
@@ -770,7 +774,7 @@ def test_r_parity_readme_does_not_hide_native_t4_rows() -> None:
         assert row in readme
     for stale_bridge_claim in (
         "Latest full verification record",
-        '| 50 | Arellano-Bond GMM | `sp.xtabond`',
+        "| 50 | Arellano-Bond GMM | `sp.xtabond`",
         '| 07 | Classical SCM | `sp.synth(method="classic", backend="synth")`',
         '| 09 | RD density (CJM) | `sp.rddensity(backend="r")`',
         '| 12 | Synthetic DID | `sp.sdid(backend="synthdid")`',
@@ -967,8 +971,7 @@ def test_submission_package_verifier_pins_page_and_claim_guards() -> None:
         "**249," "457**",
         "86," "397",
         "266k LOC " "(core) + 93k LOC (tests)",
-        "266k " "\\u884c\\u6838\\u5fc3\\u4ee3\\u7801 + 93k "
-        "\\u884c\\u6d4b\\u8bd5",
+        "266k " "\\u884c\\u6838\\u5fc3\\u4ee3\\u7801 + 93k " "\\u884c\\u6d4b\\u8bd5",
         "7," "096",
         "7{,}" "096",
         "2," "360 (33.3%)",

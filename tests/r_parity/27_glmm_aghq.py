@@ -2,8 +2,9 @@
 Module 27.
 
 Same DGP as Module 26 but with nAGQ=8 (8-point AGHQ instead of
-Laplace approximation). Tolerance: rel < 1e-3 (AGHQ converges to
-the exact integral and should agree across implementations).
+Laplace approximation). Tolerance: rel < 1e-6 on fixed-effect point
+estimates after tight optimiser controls; rel < 5e-2 on SE because
+the fixed-effect covariance conventions differ across implementations.
 """
 from __future__ import annotations
 
@@ -35,7 +36,15 @@ def main() -> None:
     df = make_data()
     dump_csv(df, MODULE)
 
-    fit = sp.melogit(data=df, y="y", x_fixed=["x1"], group="gid", nAGQ=8)
+    fit = sp.melogit(
+        data=df,
+        y="y",
+        x_fixed=["x1"],
+        group="gid",
+        nAGQ=8,
+        maxiter=5000,
+        tol=1e-12,
+    )
 
     rows: list[ParityRecord] = [
         ParityRecord(MODULE, "py", "beta_intercept",
@@ -55,7 +64,15 @@ def main() -> None:
                   extra={"family": "binomial",
                          "link": "logit",
                          "nAGQ": 8,
-                         "n_groups": int(fit.n_groups)})
+                         "n_groups": int(fit.n_groups),
+                         "optimizer_tol": 1e-12,
+                         "optimizer_maxiter": 5000,
+                         "optimizer_note": (
+                             "sp.melogit uses the AGHQ reference optimiser "
+                             "budget (maxiter=5000, tol=1e-12) so the "
+                             "likelihood optimum tracks tight lme4/Stata "
+                             "fixed effects."
+                         )})
 
 
 if __name__ == "__main__":

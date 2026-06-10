@@ -67,6 +67,72 @@
       "ci_hi": null,
       "n": 194,
       "extra": {}
+    },
+    {
+      "module": "34_lp",
+      "side": "py",
+      "statistic": "irf_direct_ols_h0",
+      "estimate": 0.13168247869200098,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 199,
+      "extra": {}
+    },
+    {
+      "module": "34_lp",
+      "side": "py",
+      "statistic": "irf_direct_ols_h1",
+      "estimate": 0.5342203976425581,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "34_lp",
+      "side": "py",
+      "statistic": "irf_direct_ols_h2",
+      "estimate": 0.3267548210488066,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 197,
+      "extra": {}
+    },
+    {
+      "module": "34_lp",
+      "side": "py",
+      "statistic": "irf_direct_ols_h3",
+      "estimate": 0.14922060925531405,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 196,
+      "extra": {}
+    },
+    {
+      "module": "34_lp",
+      "side": "py",
+      "statistic": "irf_direct_ols_h4",
+      "estimate": -0.014587102068476162,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 195,
+      "extra": {}
+    },
+    {
+      "module": "34_lp",
+      "side": "py",
+      "statistic": "irf_direct_ols_h5",
+      "estimate": -0.017336583133390475,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 194,
+      "extra": {}
     }
   ],
   "extra": {
@@ -76,6 +142,7 @@
       "y",
       "x"
     ],
-    "identification_note": "sp.local_projections(..., identification='lpirfs_cholesky') implements the lpirfs::lp_lin lags_endog_lin=1, shock_type=1 convention: a reduced VAR(1), a unit Cholesky shock using the supplied endogenous-variable order, and horizon-by-horizon Newey-West OLS. This closes the former direct-shock identification gap with R; the frozen Stata fixture remains a separate direct-OLS shock comparison."
+    "r_identification_reference": "sp.local_projections(..., identification='lpirfs_cholesky') follows lpirfs::lp_lin lags_endog_lin=1, shock_type=1: a reduced VAR(1), a unit Cholesky shock using the supplied endogenous-variable order, and horizon-by-horizon Newey-West OLS.",
+    "stata_direct_ols_reference": "Python also records irf_direct_ols_h* point diagnostics for the Stata regress y_{t+h} x y_lag fixture."
   }
 }

@@ -3,10 +3,9 @@ Module 28.
 
 Generates a deterministic Cobb-Douglas frontier DGP with half-normal
 inefficiency. The companion 28_frontier.R uses sfaR::sfacross with
-the same distribution. Tolerance: rel < 1e-2 on the production
-frontier coefficients (frontier optimisation has multiple local
-optima, but on a clean DGP both implementations should converge to
-the same solution).
+the same distribution. Tolerance: rel < 1e-6 on production-frontier
+point estimates after the tightened frontier optimizer; sigma SE rows
+remain on a separate convention guard.
 """
 from __future__ import annotations
 
@@ -59,15 +58,26 @@ def main() -> None:
         ParityRecord(MODULE, "py", "lambda",
                      estimate=float(fit.model_info["lambda"]),
                      n=int(len(df))),
-        ParityRecord(MODULE, "py", "mean_efficiency",
+        ParityRecord(MODULE, "py", "mean_efficiency_jlms",
                      estimate=float(fit.model_info["mean_efficiency_jlms"]),
+                     n=int(len(df))),
+        ParityRecord(MODULE, "py", "mean_efficiency_bc",
+                     estimate=float(fit.model_info["mean_efficiency_bc"]),
                      n=int(len(df))),
     ]
 
     write_results(MODULE, "py", rows,
                   extra={"distribution": "half-normal",
                          "cost": False,
-                         "method": fit.model_info["method"]})
+                         "method": fit.model_info["method"],
+                         "efficiency_note": (
+                             "R sfaR::efficiencies(fit)[,'teJLMS'] and "
+                             "StatsPAI mean_efficiency_jlms are JLMS "
+                             "exp(-E[u|eps]); Stata frontier predict, te "
+                             "reports the Battese-Coelli conditional "
+                             "E[exp(-u)|eps] scale, exposed as "
+                             "mean_efficiency_bc."
+                         )})
 
 
 if __name__ == "__main__":

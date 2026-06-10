@@ -4,13 +4,12 @@
 *   StatsPAI:  sp.local_projections(outcome="y", shock="x",
 *                                   controls=["y_lag"], horizons=5)
 *   R:         lpirfs::lp_lin (Cholesky-orthogonalised, identification gap)
-*   Stata:     equation-by-equation regress (replicates sp's recipe);
+*   Stata:     equation-by-equation regress (direct-OLS diagnostic);
 *              also captures Stata's `lpirf` IRF for the canonical
 *              Stata reference under Cholesky identification.
 *
-* Tolerance: abs_est < 0.50 (identification convention gap is
-*   documented in compare.py; sp <-> regress-by-horizon should match
-*   sp at machine precision since it is the same OLS).
+* Tolerance: direct-OLS point diagnostics match sp's direct path at
+*   machine precision. The R/Python headline rows use lpirfs Cholesky.
 
 version 18
 clear all
@@ -40,7 +39,7 @@ forvalues h = 0/5 {
     local b  = _b[x]
     local se = _se[x]
     local n_h = e(N)
-    stata_parity_row, stat(irf_h`h') est(`b') std(`se') nob(`n_h')
+    stata_parity_row, stat(irf_direct_ols_h`h') est(`b') std(`se') nob(`n_h')
 }
 
 * Also fit Stata's canonical lpirf for completeness and record
@@ -60,7 +59,8 @@ if _rc == 0 {
 }
 
 stata_parity_extra, key(method) val("regress y_{t+h} on x_t + y_lag")
-stata_parity_extra, key(identification_note) ///
-    val("sp matches Stata regress at machine precision. Stata lpirf uses Cholesky-orthogonalised shocks and differs from sp at all horizons (see lpirf_h* in extras).")
+stata_parity_extra, key(stata_command) val("for h=0/5: regress y_h# x y_lag; lpirf y x, step(5) lags(1)")
+stata_parity_extra, key(stata_direct_ols_reference) ///
+    val("Rows named irf_direct_ols_h* record regress y_{t+h} x y_lag point estimates; Stata lpirf Cholesky coefficients are stored in extras as lpirf_h*.")
 
 stata_parity_close, module(34_lp)

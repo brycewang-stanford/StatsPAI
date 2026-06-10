@@ -12,6 +12,7 @@ from statspai.inference.multiway_cluster import (
     cluster_robust_se,
     cr3_jackknife_vcov,
 )
+from statspai.inference.twoway_cluster import _cluster_robust_variance, _ensure_psd
 from statspai.inference.wild_subcluster import (
     subcluster_wild_bootstrap,
     wild_cluster_ci_inv,
@@ -51,6 +52,49 @@ def test_multiway_cluster_vcov_two_way_matches_existing_twoway_cluster():
     tw = sp.twoway_cluster(fit, df, "firm", "year")
     se_new = np.sqrt(np.diag(V_new))
     np.testing.assert_allclose(se_new, tw.std_errors.values, rtol=1e-9)
+
+
+def test_twoway_cluster_intersection_labels_do_not_string_collide():
+    rng = np.random.default_rng(123)
+    pairs = [
+        ("a", "b_c"),
+        ("a_b", "c"),
+        ("a", "c"),
+        ("a_b", "b_c"),
+        ("d", "e"),
+    ]
+    g1 = np.array([p[0] for p in pairs] * 60, dtype=object)
+    g2 = np.array([p[1] for p in pairs] * 60, dtype=object)
+    n = len(g1)
+    x = rng.standard_normal(n)
+    effects = {
+        pair: value
+        for pair, value in zip(pairs, rng.normal(size=len(pairs)), strict=True)
+    }
+    y = 1.0 + 0.4 * x + np.array([effects[(a, b)] for a, b in zip(g1, g2)])
+    y = y + rng.normal(scale=0.2, size=n)
+
+    df = pd.DataFrame({"y": y, "x": x, "g1": g1, "g2": g2})
+    fit = sp.regress("y ~ x", data=df)
+    tw = sp.twoway_cluster(fit, df, "g1", "g2")
+
+    X = np.asarray(fit.data_info["X"])
+    resid = np.asarray(fit.data_info["residuals"])
+    expected = multiway_cluster_vcov(X, resid, [g1, g2])
+    np.testing.assert_allclose(
+        tw.data_info["vcov"],
+        expected,
+        rtol=1e-12,
+        atol=1e-14,
+    )
+
+    old_intersection = np.array([f"{a}_{b}" for a, b in zip(g1, g2)])
+    old_vcov = _ensure_psd(
+        _cluster_robust_variance(X, resid, g1)
+        + _cluster_robust_variance(X, resid, g2)
+        - _cluster_robust_variance(X, resid, old_intersection)
+    )
+    assert np.max(np.abs(np.diag(old_vcov) - np.diag(expected))) > 1e-8
 
 
 def test_multiway_cluster_three_way_runs():

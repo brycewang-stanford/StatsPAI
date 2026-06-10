@@ -1,9 +1,10 @@
 # StatsPAI DFL reweighting parity (R side) -- Module 31.
 #
 # Reads data/31_dfl.csv and runs ddecompose::dfl_decompose.
-# Tolerance: rel < 1e-2 on the gap, composition, and structure
-# (propensity-score logit + reweighting; both packages share the
-# DiNardo-Fortin-Lemieux 1996 algorithm).
+# Tolerance: rel < 1e-3 on the gap, composition, and structure.
+# ddecompose reference_0=TRUE reweights group 0; the Python side uses
+# StatsPAI reference=1 because StatsPAI reference indexes the target
+# covariate distribution.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)

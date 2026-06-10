@@ -2,7 +2,9 @@
 #
 # Reads data/11_psm.csv (NSW-DW replica) and runs MatchIt::matchit
 # with logistic propensity score, 1:1 nearest-neighbour matching with
-# replacement (matching the StatsPAI default). Tolerance: rel < 1e-2.
+# replacement (matching the StatsPAI default). Tolerance: rel < 1e-6
+# on the ATT; SE rows are diagnostics because matching packages use
+# different variance conventions.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)
@@ -51,13 +53,25 @@ fit <- lm(re78 ~ treat, data = md, weights = md$weights)
 se_basic <- summary(fit)$coefficients["treat", "Std. Error"]
 
 rows <- list(
-  parity_row(MODULE, "att_psm",   estimate = att,  se = se_basic, n = nrow(df)),
+  parity_row(MODULE, "att_psm",   estimate = att, n = nrow(df)),
+  parity_row(MODULE, "se_matchit_lm", estimate = se_basic, n = nrow(df)),
   parity_row(MODULE, "n_treated", estimate = sum(md$treat == 1L), n = nrow(df)),
-  parity_row(MODULE, "n_control", estimate = sum(md$treat == 0L), n = nrow(df))
+  parity_row(MODULE, "n_control_full", estimate = sum(df$treat == 0L), n = nrow(df)),
+  parity_row(MODULE, "n_control_matched",
+             estimate = sum(md$treat == 0L), n = nrow(df))
 )
 
 write_results(MODULE, rows,
               extra = list(distance = "glm-logit",
                            method = "nearest",
                            replace = TRUE,
-                           ratio = 1L))
+                           ratio = 1L,
+                           count_note = paste(
+                             "n_control_full is the full untreated sample;",
+                             "n_control_matched is the MatchIt matched-data",
+                             "support count after matching with replacement."),
+                           se_reference = paste(
+                             "att_psm compares point estimates only;",
+                             "se_matchit_lm is a weighted-regression",
+                             "diagnostic because MatchIt does not define a",
+                             "canonical analytical matching SE.")))

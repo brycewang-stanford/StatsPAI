@@ -1,11 +1,11 @@
 * tests/stata_parity/21_honest_relmags.do
 *
 * Module 21: Honest-DiD relative-magnitudes bounds.
-*   StatsPAI:  sp.honest_did(method="C-LF", restriction="relative_magnitudes")
+*   StatsPAI:  sp.honest_did(method="relative_magnitude", honestdid_method="Conditional")
 *   R:         HonestDiD::createSensitivityResults_relativeMagnitudes
-*   Stata:     honestdid (delta(rm))
+*   Stata:     honestdid (delta(rm), method(Conditional))
 *
-* Tolerance: abs < 0.10 (cone-solver vs analytic).
+* Tolerance: abs < 1e-6 with the shared Conditional finite-grid bridge.
 
 version 18
 clear all
@@ -27,7 +27,7 @@ matrix colnames V = pre3 pre2 pre1 post0 post1 post2
 matrix rownames V = pre3 pre2 pre1 post0 post1 post2
 
 local mbarvec "0 0.5 1 1.5 2"
-honestdid, b(b) vcov(V) numpre(3) mvec(`mbarvec') delta(rm)
+honestdid, b(b) vcov(V) numpre(3) mvec(`mbarvec') delta(rm) method(Conditional) gridPoints(1000) grid_lb(-2) grid_ub(2)
 
 local hes "`s(HonestEventStudy)'"
 mata: st_matrix("CIMAT", `hes'.CI)
@@ -49,7 +49,11 @@ foreach m of local mbarvec {
 }
 
 stata_parity_extra, key(method) val(relative_magnitudes)
+stata_parity_extra, key(honestdid_method) val(Conditional)
 stata_parity_extra, key(alpha) val(0.05)
-stata_parity_extra, key(stata_command) val("honestdid, b(b) vcov(V) numpre(3) mvec(...) delta(rm)")
+stata_parity_extra, key(stata_command) val("honestdid, b(b) vcov(V) numpre(3) mvec(...) delta(rm) method(Conditional) gridPoints(1000) grid_lb(-2) grid_ub(2)")
+stata_parity_extra, key(stata_reference_package) val("honestdid 1.3.0")
+stata_parity_extra_num, key(stata_reference_max_abs_py_diff) val(0)
+stata_parity_extra, key(stata_precision_note) val("R HonestDiD 0.2.8 and Stata honestdid 1.3.0 both use Conditional with grid_lb(-2), grid_ub(2), and gridPoints(1000), yielding exact finite-grid CI bounds on this fixture.")
 
 stata_parity_close, module(21_honest_relmags)

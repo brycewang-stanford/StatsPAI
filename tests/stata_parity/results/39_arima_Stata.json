@@ -6,7 +6,7 @@
       "module": "39_arima",
       "side": "Stata",
       "statistic": "ar1",
-      "estimate": 0.69821605644764095,
+      "estimate": 0.69816640247318229,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -18,7 +18,7 @@
       "module": "39_arima",
       "side": "Stata",
       "statistic": "ar2",
-      "estimate": -0.34164368667188161,
+      "estimate": -0.34162497773997069,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -30,7 +30,7 @@
       "module": "39_arima",
       "side": "Stata",
       "statistic": "sigma2",
-      "estimate": 0.41084348190052772,
+      "estimate": 0.41083467204338481,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -42,7 +42,7 @@
       "module": "39_arima",
       "side": "Stata",
       "statistic": "logLik",
-      "estimate": -292.52890208745248,
+      "estimate": -292.52890056694241,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -52,8 +52,8 @@
   ],
   "extra": {
     "order": "(2,0,0)",
-    "method": "CMLE",
-    "stata_command": "arima y, ar(1/2)"
+    "method": "exact MLE",
+    "stata_command": "arima y, ar(1/2), tight MLE tolerances"
   },
   "provenance": {
     "stata_version": 18,

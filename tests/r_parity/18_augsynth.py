@@ -62,10 +62,10 @@ def main() -> None:
             "n_donors": int(fit.model_info.get("n_donors", 0)),
             "tier": "T2",
             "reference_backend": "augsynth",
-            "native_note": (
+            "native_parity_note": (
                 "Headline row is the NATIVE Python augmented SCM "
                 "(backend='native'). It ports augsynth's centered pre-outcome "
-                "SCM plus ridge-augmented weight convention and matches "
+                "SCM plus ridge-augmented weight formula and matches "
                 "augsynth::augsynth on the Basque fixture within iterative "
                 "solver tolerance. The optional backend='augsynth' R bridge "
                 "is a migration convenience, not the parity comparator."

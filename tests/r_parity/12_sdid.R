@@ -1,9 +1,9 @@
 # StatsPAI Synthetic DID parity (R side) -- Module 12.
 #
 # Reads data/12_sdid.csv (the StatsPAI California-Prop99 replica) and
-# runs synthdid::synthdid_estimate. Tolerance: rel < 1e-3 on the
-# post-treatment ATT (placebo SE typically tracks the StatsPAI
-# bootstrap SE within Monte Carlo error).
+# runs synthdid::synthdid_estimate. The headline ATT row is point-only;
+# synthdid's native placebo SE is emitted as an explicitly named
+# diagnostic row.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)
@@ -44,9 +44,15 @@ rows <- list(
     module    = MODULE,
     statistic = "att_sdid",
     estimate  = as.numeric(tau_hat),
-    se        = se,
-    ci_lo     = as.numeric(tau_hat) - qnorm(0.975) * se,
-    ci_hi     = as.numeric(tau_hat) + qnorm(0.975) * se,
+    se        = NA,
+    ci_lo     = NA,
+    ci_hi     = NA,
+    n         = nrow(df)
+  ),
+  parity_row(
+    module    = MODULE,
+    statistic = "se_synthdid_placebo",
+    estimate  = se,
     n         = nrow(df)
   )
 )
@@ -55,4 +61,8 @@ write_results(MODULE, rows,
               extra = list(method = "synthdid_estimate",
                            N0 = panel$N0,
                            T0 = panel$T0,
-                           se_method = "placebo"))
+                           se_method = "placebo",
+                           se_reference = paste(
+                             "R records synthdid_se placebo SEs as a",
+                             "diagnostic row; att_sdid is point-only."
+                           )))

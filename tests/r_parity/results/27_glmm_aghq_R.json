@@ -6,8 +6,8 @@
       "module": "27_glmm_aghq",
       "side": "R",
       "statistic": "beta_intercept",
-      "estimate": -0.541533060107948,
-      "se": 0.118611612112776,
+      "estimate": -0.541539967795883,
+      "se": 0.118612085762721,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1500,
@@ -17,8 +17,8 @@
       "module": "27_glmm_aghq",
       "side": "R",
       "statistic": "beta_x1",
-      "estimate": 0.60616666411674,
-      "se": 0.0636048839712187,
+      "estimate": 0.606166387003124,
+      "se": 0.0636048941530797,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1500,
@@ -28,7 +28,7 @@
       "module": "27_glmm_aghq",
       "side": "R",
       "statistic": "logLik",
-      "estimate": -909.733435056148,
+      "estimate": -909.733435053993,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -39,7 +39,11 @@
   "extra": {
     "family": ["binomial(logit)"],
     "nAGQ": [8],
-    "n_groups": [60]
+    "n_groups": [60],
+    "optimizer": ["bobyqa"],
+    "optimizer_maxfun": [200000],
+    "optimizer_rhobeg": [0.002],
+    "optimizer_rhoend": [1e-12]
   },
   "provenance": {
     "r_version": "R version 4.5.2 (2025-10-31)",

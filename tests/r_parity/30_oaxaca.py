@@ -5,8 +5,8 @@ Generates a deterministic two-group wage gap dataset and runs
 sp.decompose('oaxaca'). The companion 30_oaxaca.R uses
 oaxaca::oaxaca with the threefold (Neumark-style) decomposition.
 
-Tolerance: rel < 1e-3 on the gap, explained, and unexplained
-components.
+Tolerance: rel < 1e-3 on the mean contrast, explained, and
+unexplained components.
 """
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ def main() -> None:
     rows: list[ParityRecord] = [
         ParityRecord(MODULE, "py", "gap",
                      estimate=float(overall["gap"]), n=int(len(df))),
-        ParityRecord(MODULE, "py", "explained",
+        ParityRecord(MODULE, "py", "explained_twofold",
                      estimate=float(overall["explained"]),
                      se=float(overall["explained_se"]),
                      n=int(len(df))),
@@ -82,7 +82,7 @@ def main() -> None:
     for _, row in res.detailed.iterrows():
         v = row["variable"]
         rows.append(ParityRecord(
-            MODULE, "py", f"explained_{v}",
+            MODULE, "py", f"explained_twofold_{v}",
             estimate=float(row["contribution"]),
             se=float(row["se"]), n=int(len(df))))
 
@@ -90,20 +90,18 @@ def main() -> None:
         MODULE, "py", rows,
         extra={
             "reference": "group_a (male)",
-            "decomposition_note": (
-                "The total wage gap, the group-conditional means, "
+            "decomposition_reference": (
+                "The total group mean contrast, the group-conditional means, "
                 "all four group-specific coefficients (beta_a_educ, "
                 "beta_b_educ, beta_a_exper, beta_b_exper), and the "
                 "unexplained component all match oaxaca::oaxaca at "
-                "rel < 1e-14. The 'explained' overall component and "
-                "the per-variable contributions differ by ~6-9% "
-                "because sp.decompose('oaxaca') uses the TWOFOLD "
-                "Blinder-Oaxaca decomposition (gap = explained + "
-                "unexplained), while oaxaca::oaxaca's threefold "
-                "decomposition splits explained = endowments + "
-                "interaction. Adding R's coef(endowments) and "
-                "coef(interaction) recovers sp's explained to "
-                "machine precision: 0.04107 + (-0.00249) = 0.03858."
+                "rel < 1e-14. The fixture names StatsPAI's overall "
+                "explained component as explained_twofold because "
+                "sp.decompose('oaxaca') uses the TWOFOLD "
+                "Blinder-Oaxaca decomposition (mean contrast = explained + "
+                "unexplained), while oaxaca::oaxaca and Stata oaxaca "
+                "report threefold endowments and interaction separately. "
+                "R/Stata explained_twofold is endowments + interaction."
             ),
         },
     )

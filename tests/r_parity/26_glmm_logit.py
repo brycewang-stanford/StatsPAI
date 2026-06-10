@@ -2,8 +2,10 @@
 
 Random-intercept logistic GLMM on a deterministic n=1500, 60-group
 panel. The companion 26_glmm_logit.R uses lme4::glmer with family =
-binomial. Tolerance: rel < 1e-2 on the fixed effects (Laplace
-approximation default; AGHQ in Module 27).
+binomial. Tolerance: rel < 2e-4 on fixed-effect point estimates and
+rel < 5e-2 on SE because Laplace fixed-effect covariance conventions
+and R/Stata likelihood implementations differ slightly; AGHQ is covered
+in Module 27.
 """
 from __future__ import annotations
 
@@ -54,7 +56,13 @@ def main() -> None:
                   extra={"family": "binomial",
                          "link": "logit",
                          "n_groups": int(fit.n_groups),
-                         "nAGQ": 1})
+                         "nAGQ": 1,
+                         "optimizer_tol": 1e-8,
+                         "optimizer_note": (
+                             "sp.melogit uses the tightened default "
+                             "tol=1e-8 so the Laplace likelihood optimum "
+                             "tracks lme4/Stata fixed effects."
+                         )})
 
 
 if __name__ == "__main__":

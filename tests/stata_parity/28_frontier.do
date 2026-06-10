@@ -7,7 +7,7 @@
 *              `frontier` for parsimony; default is half-normal,
 *              production frontier (cost option for cost frontier).
 *
-* Tolerance: rel < 1e-2 on betas; rel < 5e-2 on sigma_u/sigma_v.
+* Tolerance: rel < 1e-6 on betas; rel < 1e-4 on sigma_u/sigma_v.
 
 version 18
 clear all
@@ -50,7 +50,7 @@ stata_parity_row, stat(beta_lnl)       est(`b_lnl') std(`se_lnl') nob(`n')
 stata_parity_row, stat(sigma_u)        est(`sigma_u') nob(`n')
 stata_parity_row, stat(sigma_v)        est(`sigma_v') nob(`n')
 stata_parity_row, stat(lambda)         est(`lambda')  nob(`n')
-stata_parity_row, stat(mean_efficiency) est(`mean_eff') nob(`n')
+stata_parity_row, stat(mean_efficiency_bc) est(`mean_eff') nob(`n')
 
 stata_parity_extra, key(distribution) val(half-normal)
 stata_parity_extra, key(S) val(1)

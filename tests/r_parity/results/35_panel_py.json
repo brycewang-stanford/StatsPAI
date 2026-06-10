@@ -50,7 +50,7 @@
       "module": "35_panel",
       "side": "py",
       "statistic": "hausman_chi2",
-      "estimate": 1.6156652110799288,
+      "estimate": 1.3769163036287346,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -61,7 +61,7 @@
       "module": "35_panel",
       "side": "py",
       "statistic": "hausman_pvalue",
-      "estimate": 0.44582329476882177,
+      "estimate": 0.5023500197219835,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -72,6 +72,6 @@
   "extra": {
     "N": 100,
     "T": 8,
-    "hausman_note": "FE and RE coefficients match plm::plm at rel < 1e-15. The Hausman chi-squared statistic differs because sp uses the standard (b_FE - b_RE)' [V(FE) - V(RE)]^-1 (b_FE - b_RE) construction while plm::phtest uses a more conservative variance-of-difference estimator that absorbs the regression-coefficient correlation. Both are documented in Hausman (1978); both pass their internal validation suites. Reviewers should treat the test-statistic gap as a Hausman-variance convention rather than a numerical bug."
+    "hausman_parity_note": "FE and RE coefficients match plm::plm at rel < 1e-15. The Hausman chi-squared statistic uses the same linearmodels/plm unadjusted FE-RE covariance as plm::phtest."
   }
 }

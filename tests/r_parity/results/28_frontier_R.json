@@ -71,7 +71,7 @@
     {
       "module": "28_frontier",
       "side": "R",
-      "statistic": "mean_efficiency",
+      "statistic": "mean_efficiency_jlms",
       "estimate": 0.645518718201521,
       "se": null,
       "ci_lo": null,
@@ -83,7 +83,8 @@
   "extra": {
     "distribution": ["half-normal"],
     "S": [1],
-    "package": ["sfaR::sfacross"]
+    "package": ["sfaR::sfacross"],
+    "efficiency_note": ["mean_efficiency_jlms is teJLMS; mean_efficiency_bc is teBC when exposed by sfaR."]
   },
   "provenance": {
     "r_version": "R version 4.5.2 (2025-10-31)",

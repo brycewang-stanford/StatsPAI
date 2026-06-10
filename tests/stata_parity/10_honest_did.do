@@ -9,7 +9,8 @@
 *   pre  rel-time {-3,-2,-1} : att = (0.01, -0.02, 0.0), SE = 0.05
 *   post rel-time { 0, 1, 2} : att = (0.5,   0.4,   0.3), SE = 0.10
 *
-* Tolerance: abs < 0.05 on CI bounds.
+* Tolerance: abs < 5e-4 on CI bounds; the Stata port is kept inside
+* this package-port envelope against R HonestDiD.
 
 version 18
 clear all

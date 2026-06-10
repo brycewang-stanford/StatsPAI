@@ -70,6 +70,35 @@ def test_relative_magnitude_honestdid_backend_matches_reference_fixture():
     assert np.isclose(got.loc[2.0, "ci_upper"], 0.842842842842843)
 
 
+def test_relative_magnitude_honestdid_backend_allows_conditional_method():
+    _skip_unless_honestdid_available()
+    table = honest_did(
+        _parity_result(),
+        e=0,
+        m_grid=[0.0, 2.0],
+        method="relative_magnitude",
+        backend="honestdid",
+        honestdid_method="Conditional",
+    )
+    got = table.set_index("M")
+    assert np.isclose(got.loc[0.0, "ci_lower"], 0.3063063063063063)
+    assert np.isclose(got.loc[0.0, "ci_upper"], 0.6946946946946948)
+    assert np.isclose(got.loc[2.0, "ci_lower"], 0.1581581581581579)
+    assert np.isclose(got.loc[2.0, "ci_upper"], 0.8428428428428427)
+
+
+def test_relative_magnitude_honestdid_backend_rejects_incompatible_method():
+    with pytest.raises(ValueError, match="honestdid_method"):
+        honest_did(
+            _parity_result(),
+            e=0,
+            m_grid=[0.0],
+            method="relative_magnitude",
+            backend="honestdid",
+            honestdid_method="FLCI",
+        )
+
+
 def test_honest_did_rejects_unknown_backend():
     with pytest.raises(ValueError, match="backend"):
         honest_did(_parity_result(), backend="unknown")

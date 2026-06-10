@@ -67,10 +67,10 @@ def main() -> None:
             "n_donors": int(fit.model_info.get("n_donors", 0)),
             "tier": "T2",
             "reference_backend": "gsynth",
-            "native_note": (
+            "native_parity_note": (
                 "Headline row is the NATIVE Python generalized SCM "
                 "(backend='native'). It ports gsynth/fect's two-way FE "
-                "factor convention on the full never-treated control panel "
+                "factor specification on the full never-treated control panel "
                 "and matches gsynth::gsynth on the Basque fixture within "
                 "machine tolerance. The optional backend='gsynth' R bridge "
                 "is a migration convenience, not the parity comparator."

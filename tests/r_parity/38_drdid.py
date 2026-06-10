@@ -1,11 +1,10 @@
 """StatsPAI doubly-robust DiD parity (Python side) -- Module 38.
 
-Generates a 2x2 DR-DID DGP with one covariate and runs sp.drdid
-(improved DR estimator, Sant'Anna & Zhao 2020). The companion R
-script uses DRDID::drdid_imp_panel.
+Generates a 2x2 DR-DID panel DGP with one covariate and runs sp.drdid
+(improved panel DR estimator, Sant'Anna & Zhao 2020). The companion R
+script uses DRDID::drdid_imp_panel and Stata uses drdid, drimp.
 
-Tolerance: rel < 1e-3 on ATT (closed-form once IF is fixed); rel <
-5e-2 on the bootstrap/IF SE.
+Tolerance: rel < 1e-6 on ATT/CI and SE.
 """
 from __future__ import annotations
 
@@ -48,7 +47,7 @@ def main() -> None:
         data=df, y="y", group="treated", time="post",
         covariates=["x"],
         method="imp",
-        n_boot=200,
+        id="id",
         random_state=PARITY_SEED,
     )
 
@@ -71,7 +70,13 @@ def main() -> None:
         extra={
             "method": "DR-DID (improved, Sant'Anna-Zhao 2020)",
             "covariates": ["x"],
-            "n_boot": 200,
+            "id": "id",
+            "se_method": "influence_function",
+            "reference_method_note": (
+                "sp.drdid(..., id='id', method='imp') uses the panel "
+                "Sant'Anna-Zhao improved estimator with calibrated propensity "
+                "scores, matching DRDID::drdid_imp_panel and Stata drdid, drimp."
+            ),
         },
     )
 

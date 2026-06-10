@@ -107,6 +107,24 @@ def test_rdrobust_cct_delegation():
     assert abs(res.estimate - 3.0) < 0.7
 
 
+def test_rdrobust_cct_lee_bandwidth_preserves_reference_precision():
+    import importlib.util
+    if importlib.util.find_spec("rdrobust") is None:
+        pytest.skip("official rdrobust package not installed")
+
+    df = sp.datasets.lee_2008_senate()
+    res = sp.rdrobust(df, y="voteshare_next", x="margin", c=0, bwselect="cct")
+
+    assert res.model_info["bandwidth_h"] == pytest.approx(
+        0.17578426639940303, abs=1e-12
+    )
+    assert res.model_info["bandwidth_b"] == pytest.approx(
+        0.2755756160782371, abs=1e-12
+    )
+    assert abs(res.model_info["bandwidth_h"] - round(res.model_info["bandwidth_h"], 6)) > 1e-8
+    assert abs(res.model_info["bandwidth_b"] - round(res.model_info["bandwidth_b"], 6)) > 1e-8
+
+
 def test_rdrobust_cct_fuzzy_and_covs():
     import importlib.util
     if importlib.util.find_spec("rdrobust") is None:

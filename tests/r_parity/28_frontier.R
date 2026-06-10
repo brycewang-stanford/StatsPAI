@@ -1,7 +1,8 @@
 # StatsPAI cross-section frontier parity (R side) -- Module 28.
 #
 # Reads data/28_frontier.csv and runs sfaR::sfacross with half-
-# normal inefficiency. Tolerance: rel < 1e-2.
+# normal inefficiency. Tolerance: rel < 1e-6 on production-frontier
+# point estimates; sigma SE rows remain on a separate convention guard.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)
@@ -45,7 +46,8 @@ lambda  <- sigma_u / sigma_v
 
 # Mean technical efficiency (Battese-Coelli).
 eff <- sfaR::efficiencies(fit)
-mean_eff <- mean(eff[, "teJLMS"])  # Jondrow-Lovell-Materov-Schmidt
+mean_eff_jlms <- mean(eff[, "teJLMS"])  # Jondrow-Lovell-Materov-Schmidt
+mean_eff_bc <- if ("teBC" %in% colnames(eff)) mean(eff[, "teBC"]) else NA_real_
 
 rows <- list(
   parity_row(MODULE, "beta_intercept",
@@ -60,10 +62,18 @@ rows <- list(
   parity_row(MODULE, "sigma_u", estimate = sigma_u, n = nrow(df)),
   parity_row(MODULE, "sigma_v", estimate = sigma_v, n = nrow(df)),
   parity_row(MODULE, "lambda", estimate = lambda, n = nrow(df)),
-  parity_row(MODULE, "mean_efficiency",
-             estimate = mean_eff, n = nrow(df))
+  parity_row(MODULE, "mean_efficiency_jlms",
+             estimate = mean_eff_jlms, n = nrow(df))
 )
+if (is.finite(mean_eff_bc)) {
+  rows[[length(rows) + 1L]] <- parity_row(
+    MODULE, "mean_efficiency_bc",
+    estimate = mean_eff_bc, n = nrow(df))
+}
 
 write_results(MODULE, rows,
               extra = list(distribution = "half-normal",
-                           S = 1, package = "sfaR::sfacross"))
+                           S = 1, package = "sfaR::sfacross",
+                           efficiency_note = paste(
+                             "mean_efficiency_jlms is teJLMS;",
+                             "mean_efficiency_bc is teBC when exposed by sfaR.")))

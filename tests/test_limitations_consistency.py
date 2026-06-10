@@ -75,7 +75,8 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         "validated against grf on clean-overlap designs only",
     ],
     "did_imputation": [
-        "different autosample/aggregation convention",
+        "untreated-only TWFE",
+        "simple ATT convention only",
     ],
     "etwfe": [
         "aggregation-convention sensitive",

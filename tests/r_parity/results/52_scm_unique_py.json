@@ -6,7 +6,7 @@
       "module": "52_scm_unique",
       "side": "py",
       "statistic": "avg_post_gap",
-      "estimate": 2.0000001546812007,
+      "estimate": 2.000000154681201,
       "se": 2.159192001160468,
       "ci_lo": null,
       "ci_hi": null,
@@ -28,7 +28,7 @@
       "module": "52_scm_unique",
       "side": "py",
       "statistic": "weight_donor0",
-      "estimate": 0.4999999393328411,
+      "estimate": 0.4999999393328413,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -39,7 +39,7 @@
       "module": "52_scm_unique",
       "side": "py",
       "statistic": "weight_donor1",
-      "estimate": 0.30000016682453634,
+      "estimate": 0.30000016682453623,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -50,7 +50,7 @@
       "module": "52_scm_unique",
       "side": "py",
       "statistic": "weight_donor2",
-      "estimate": 0.19999989384262254,
+      "estimate": 0.19999989384262246,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -91,6 +91,6 @@
       0.0
     ],
     "dgp": "unique convex-hull SCM: treated_pre = 0.5*donor0 + 0.3*donor1 + 0.2*donor2 exactly; donors 3,4 are distractors; post-period adds tau=2.",
-    "note": "Unique-solution counterpart to module 07. sp recovers the exact weights and gap (pre-RMSE ~ 0); Synth::synth agrees on the gap to ~0.7%, its V-optimiser leaving a small non-zero pre-RMSE. Certifies the classical SCM solver on an identified problem."
+    "certification_note": "Unique-solution counterpart to module 07. sp recovers the exact weights and gap (pre-RMSE ~ 0); Synth::synth agrees on the gap at machine-level point precision when run with fixed predictor weights and tightened ipop settings, while leaving sub-nanoscopic non-zero weights on the distractor donors. Certifies the classical SCM solver on an identified problem."
   }
 }

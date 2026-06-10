@@ -2,7 +2,8 @@
 #
 # Reads data/29_panel_sfa.csv and runs frontier::sfa with the
 # time-invariant Pitt-Lee 1981 specification.
-# Tolerance: rel < 1e-2.
+# Tolerance: rel < 1e-3 on the headline production-frontier slopes;
+# intercept and sigma rows are retained as Stata scale diagnostics.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)

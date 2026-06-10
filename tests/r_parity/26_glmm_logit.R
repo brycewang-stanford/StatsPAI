@@ -2,7 +2,9 @@
 #
 # Reads data/26_glmm_logit.csv and runs lme4::glmer with family =
 # binomial(link = "logit"), Laplace approximation (nAGQ = 1).
-# Tolerance: rel < 1e-2.
+# Tolerance: rel < 2e-4 on fixed-effect point estimates and rel < 5e-2
+# on SE because Laplace fixed-effect covariance conventions and
+# R/Stata likelihood implementations differ slightly.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)

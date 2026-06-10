@@ -259,6 +259,61 @@ def test_feols_df_resid_accounting():
     assert fit.df_resid == expected
 
 
+def test_feols_fixest_ssc_uses_full_fe_rank_for_iid():
+    df = _ols_panel(seed=22, n_units=30, n_periods=10)
+    fit_default = sp.fast.feols("y ~ x1 + x2 | fe1 + fe2", df, vcov="iid")
+    fit_fixest = sp.fast.feols(
+        "y ~ x1 + x2 | fe1 + fe2", df, vcov="iid", ssc="fixest"
+    )
+
+    expected_default_df = fit_default.n_kept - fit_default.coef_vec.size - sum(
+        c - 1 for c in fit_default.fe_cardinality
+    )
+    expected_fixest_df = fit_fixest.n_kept - fit_fixest.coef_vec.size - (
+        sum(fit_fixest.fe_cardinality) - 1
+    )
+
+    assert fit_default.df_resid == expected_default_df
+    assert fit_fixest.df_resid == expected_fixest_df
+    np.testing.assert_allclose(fit_default.coef_vec, fit_fixest.coef_vec)
+    ratio = float(fit_fixest.se()["x1"] / fit_default.se()["x1"])
+    assert ratio == pytest.approx(
+        np.sqrt(expected_default_df / expected_fixest_df),
+        rel=1e-12,
+    )
+
+
+def test_feols_fixest_ssc_excludes_cluster_nested_fe_from_cr1():
+    df = _ols_panel(seed=23, n_units=30, n_periods=10)
+    fit_default = sp.fast.feols(
+        "y ~ x1 + x2 | fe1 + fe2", df, vcov="cr1", cluster="fe1"
+    )
+    fit_fixest = sp.fast.feols(
+        "y ~ x1 + x2 | fe1 + fe2", df, vcov="cr1", cluster="fe1",
+        ssc="fixest",
+    )
+
+    n = fit_default.n_kept
+    p = fit_default.coef_vec.size
+    g = df.loc[: n - 1, "fe1"].nunique()
+    default_fe_dof = sum(c - 1 for c in fit_default.fe_cardinality)
+    # fe1 is nested in cluster=fe1, so only the non-nested time FE enters
+    # fixest/reghdfe's CR1 small-sample denominator.
+    fixest_cluster_fe_dof = fit_fixest.fe_cardinality[1]
+    default_factor = (g / (g - 1)) * ((n - 1) / (n - p - default_fe_dof))
+    fixest_factor = (g / (g - 1)) * ((n - 1) / (n - p - fixest_cluster_fe_dof))
+
+    np.testing.assert_allclose(fit_default.coef_vec, fit_fixest.coef_vec)
+    ratio = float(fit_fixest.se()["x1"] / fit_default.se()["x1"])
+    assert ratio == pytest.approx(np.sqrt(fixest_factor / default_factor), rel=1e-12)
+
+
+def test_feols_unknown_ssc_rejected():
+    df = _ols_panel(seed=24)
+    with pytest.raises(ValueError, match="ssc"):
+        sp.fast.feols("y ~ x1 | fe1", df, ssc="bogus")
+
+
 # ---------------------------------------------------------------------------
 # Cross-engine: R fixest parity
 # ---------------------------------------------------------------------------

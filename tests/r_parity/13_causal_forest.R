@@ -7,7 +7,7 @@
 # with sp.causal_forest.average_treatment_effect.
 #
 # See 13_causal_forest.py for why the clean-overlap DGP replaces the
-# former NSW-DW sample. Registered tolerance: rel_est < 0.10 on ATE.
+# former NSW-DW sample. Registered tolerance: rel_est < 0.005 on ATE/ATT.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)

@@ -7,9 +7,20 @@
       "side": "py",
       "statistic": "att_psm",
       "estimate": 2277.6907208768525,
-      "se": 436.4908554668726,
-      "ci_lo": 1422.1843645807041,
-      "ci_hi": 3133.197077173001,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2675,
+      "extra": {}
+    },
+    {
+      "module": "11_psm",
+      "side": "py",
+      "statistic": "se_pair_effect",
+      "estimate": 436.4908554668726,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
       "n": 2675,
       "extra": {}
     },
@@ -27,7 +38,7 @@
     {
       "module": "11_psm",
       "side": "py",
-      "statistic": "n_control",
+      "statistic": "n_control_full",
       "estimate": 2490.0,
       "se": null,
       "ci_lo": null,
@@ -40,6 +51,8 @@
     "distance": "propensity",
     "method": "nearest",
     "replace": true,
-    "bias_correction": false
+    "bias_correction": false,
+    "count_note": "n_control_full is the full untreated sample; MatchIt's matched-data control count is a post-matching support diagnostic and is not the same estimand when matching with replacement.",
+    "se_reference": "The att_psm row compares point estimates only. StatsPAI reports se_pair_effect from the matched-pair effect dispersion, MatchIt does not define a canonical analytical SE and the R fixture records se_matchit_lm, while Stata teffects reports se_teffects_ai."
   }
 }

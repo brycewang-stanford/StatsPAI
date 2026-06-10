@@ -6,8 +6,8 @@
       "module": "39_arima",
       "side": "py",
       "statistic": "ar1",
-      "estimate": 0.7018913469353353,
-      "se": 0.04784543441281086,
+      "estimate": 0.6981663992968818,
+      "se": 0.04800290999836435,
       "ci_lo": null,
       "ci_hi": null,
       "n": 300,
@@ -17,8 +17,8 @@
       "module": "39_arima",
       "side": "py",
       "statistic": "ar2",
-      "estimate": -0.34289324080723854,
-      "se": 0.05372735783018966,
+      "estimate": -0.341624974572771,
+      "se": 0.05464040233146101,
       "ci_lo": null,
       "ci_hi": null,
       "n": 300,
@@ -28,8 +28,8 @@
       "module": "39_arima",
       "side": "py",
       "statistic": "sigma2",
-      "estimate": 0.4143918597001537,
-      "se": 0.03353450058875001,
+      "estimate": 0.4108346586574642,
+      "se": 0.03301152712795142,
       "ci_lo": null,
       "ci_hi": null,
       "n": 300,
@@ -39,7 +39,7 @@
       "module": "39_arima",
       "side": "py",
       "statistic": "logLik",
-      "estimate": -291.58314136058783,
+      "estimate": -292.5289005669423,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -49,6 +49,8 @@
   ],
   "extra": {
     "order": "(2,0,0)",
-    "engine": "statsmodels"
+    "engine": "statsmodels",
+    "method": "innovations_mle",
+    "reference_method_note": "sp.arima(..., method='innovations_mle') uses statsmodels' stationary/invertible innovations-MLE path to align with stats::arima(method='ML') and tightly converged Stata arima. The default sp.arima() method remains exact state-space MLE."
   }
 }

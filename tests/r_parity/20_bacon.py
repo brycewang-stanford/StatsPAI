@@ -67,22 +67,17 @@ def main() -> None:
         MODULE, "py", rows,
         extra={
             "n_comparisons": int(res["n_comparisons"]),
+            "already_treated_control_weight_share": (
+                float(res["already_treated_control_weight_share"])
+            ),
             "decomposition_note": (
-                "The overall TWFE coefficient (beta_twfe) matches "
-                "bacondecomp::bacon at rel < 1e-15, and all three "
-                "treated-vs-never-treated 2x2 components match at "
-                "rel < 1e-13. The earlier-vs-later and later-vs-"
-                "earlier 2x2 sub-decompositions differ across "
-                "implementations because the two packages use "
-                "different conventions for which periods count as "
-                "'pre' within a cohort-pair comparison (sp uses the "
-                "Goodman-Bacon 2021 Definition 1 vs bacondecomp's "
-                "implementation choice). Both decompositions sum to "
-                "the same TWFE coefficient; they disagree only on "
-                "the per-2x2 partition. Reviewers should treat the "
-                "TWFE+vs-never agreement as the primary parity "
-                "result and the per-pair gap as a documented "
-                "decomposition convention difference."
+                "StatsPAI follows R/Stata bacondecomp dyad windows "
+                "and weighting for the uncontrolled Goodman-Bacon "
+                "decomposition. The overall TWFE coefficient, "
+                "weighted sum, negative-weight mass, and pairwise "
+                "2x2 estimates match the R reference to numerical "
+                "precision; Stata's ado exports only the aggregate "
+                "rows in the committed golden artifact."
             ),
         },
     )

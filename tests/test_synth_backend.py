@@ -25,6 +25,44 @@ def test_native_synth_exposes_identification_boundary():
     assert result.model_info["validation_tier"] == "identification_dependent_native"
     assert result.model_info["reference_backend"] == "Synth"
     assert "T4 non-uniqueness disclosures" in result.model_info["validation_note"]
+    diag = result.model_info["solver_start_diagnostics"]
+    assert list(diag["start"]) == ["equal"]
+    assert result.model_info["solver_best_start"] == "equal"
+    assert result.model_info["solver_near_best_start_count"] == 1
+    assert result.model_info["solver_near_best_weight_class_count"] == 1
+    assert result.model_info["weight_solution_nonunique"] is False
+
+
+def test_nested_scm_exposes_multistart_weight_class_diagnostics():
+    result = sp.synth(
+        sp.datasets.basque_terrorism(),
+        outcome="gdppc",
+        unit="region",
+        time="year",
+        treated_unit="Basque Country",
+        treatment_time=1970,
+        method="classic",
+        backend="native",
+        special_predictors=[("gdppc", yr, "mean") for yr in range(1955, 1970)],
+        v_method="nested",
+        n_random_starts=0,
+        placebo=False,
+    )
+    diag = result.model_info["solver_start_diagnostics"]
+    weights = result.model_info["solver_start_weights"]
+    v_weights = result.model_info["solver_start_v_weights"]
+
+    assert list(diag["start"]) == ["equal", "regression"]
+    assert result.model_info["solver_best_start"] == "regression"
+    assert result.model_info["solver_near_best_start_count"] == 2
+    assert result.model_info["solver_near_best_weight_class_count"] == 2
+    assert result.model_info["solver_near_best_weight_l1_max"] > 0.004
+    assert result.model_info["weight_solution_nonunique"] is True
+    assert set(weights["start"]) == {"equal", "regression"}
+    assert set(v_weights["start"]) == {"equal", "regression"}
+    assert {"Asturias", "Cataluna", "Madrid"} <= set(
+        weights.loc[weights["weight"] > 0.01, "unit"]
+    )
 
 
 def _skip_unless_synth_available():
@@ -69,9 +107,10 @@ def test_synth_backend_matches_reference_fixture():
     assert np.isclose(weights.loc["Cataluna"], 0.451608208273253)
     assert result.model_info["backend"] == "synth"
     assert result.model_info["validation_tier"] == "reference_backend_bridge"
-    assert "not counted as native Python parity evidence" in result.model_info[
-        "validation_note"
-    ]
+    assert (
+        "not counted as native Python parity evidence"
+        in result.model_info["validation_note"]
+    )
 
 
 def test_synth_rejects_unknown_backend():

@@ -78,7 +78,7 @@ def main() -> None:
             "formula": FORMULA,
             "vcov": "two-way cluster (Cameron-Gelbach-Miller 2011)",
             "cluster_vars": "g1 + g2",
-            "convention": (
+            "r_reference": (
                 "per-dimension Liang-Zeger G/(G-1)*(n-1)/(n-k) on "
                 "V1+V2-V12; matches sandwich::vcovCL(type='HC1', "
                 "cadjust=TRUE)"

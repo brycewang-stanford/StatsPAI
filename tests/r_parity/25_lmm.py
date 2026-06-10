@@ -2,9 +2,9 @@
 
 Random-intercept LMM on a deterministic n=1000, 50-group panel.
 The companion 25_lmm.R uses lme4::lmer with REML. Tolerance:
-rel < 1e-3 on the fixed effects and variance components (REML
-optimisers can land on slightly different local optima but on a
-balanced panel like this they should agree to sub-percent).
+rel < 1e-6 on fixed effects, fixed-effect SEs, REML log-likelihood,
+and ICC after the StatsPAI REML reporting convention and optimizer
+budget are aligned to lme4/Stata.
 """
 from __future__ import annotations
 

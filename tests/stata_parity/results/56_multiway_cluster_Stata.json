@@ -1,0 +1,69 @@
+{
+  "module": "56_multiway_cluster",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "56_multiway_cluster",
+      "side": "Stata",
+      "statistic": "beta_(Intercept)",
+      "estimate": 1.1965653761605921,
+      "se": 0.28065839457372721,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 4000,
+      "extra": {}
+    }
+,
+    {
+      "module": "56_multiway_cluster",
+      "side": "Stata",
+      "statistic": "beta_x",
+      "estimate": 0.52464580056388432,
+      "se": 0.039913552540056602,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 4000,
+      "extra": {}
+    }
+,
+    {
+      "module": "56_multiway_cluster",
+      "side": "Stata",
+      "statistic": "reghdfe_beta_(Intercept)",
+      "estimate": 1.1965653761605921,
+      "se": 0.28123773702037419,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 4000,
+      "extra": {}
+    }
+,
+    {
+      "module": "56_multiway_cluster",
+      "side": "Stata",
+      "statistic": "reghdfe_beta_x",
+      "estimate": 0.52464580056388432,
+      "se": 0.039450714652888998,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 4000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "audited Stata/Mata three-way cluster bridge",
+    "stata_command": "reghdfe y x, noabsorb vce(cluster g1 g2 g3) for diagnostic SEs; headline SEs from Mata CGM bridge",
+    "stata_bridge_status": "audited Stata/Mata algorithm bridge",
+    "stata_algorithm": "Cameron-Gelbach-Miller inclusion-exclusion over all nonempty cluster intersections with per-component Liang-Zeger CR1 correction matching sandwich::vcovCL HC1/cadjust",
+    "stata_cluster_reference": "reghdfe 6.12.3 multiway cluster retained as a diagnostic convention row",
+    "stata_reghdfe_max_rel_py_se_diff": 0.0115960083157997
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

@@ -7,9 +7,20 @@
       "side": "py",
       "statistic": "att_sdid",
       "estimate": -15.94838884672096,
-      "se": 2.6040746521236526,
-      "ci_lo": -21.05228137793699,
-      "ci_hi": -10.84449631550493,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1209,
+      "extra": {}
+    },
+    {
+      "module": "12_sdid",
+      "side": "py",
+      "statistic": "se_native_placebo",
+      "estimate": 2.6040746521236526,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
       "n": 1209,
       "extra": {}
     }
@@ -25,6 +36,7 @@
     "validation_tier": "T2_native_reference_parity",
     "reference_backend": "synthdid",
     "tier": "T2",
-    "native_note": "Headline row is the NATIVE Python SDID (backend='native'). The native solver mirrors synthdid's collapsed-form Frank-Wolfe weights and zeta scaling, so the ATT is a T2 same-byte reference-parity row. The SE uses StatsPAI's deterministic all-control placebo convention, while synthdid_se uses random placebo replications; the optional backend='synthdid' R bridge is a convenience feature, not the parity comparator."
+    "native_parity_note": "Headline row is the NATIVE Python SDID ATT (backend='native'). The native solver mirrors synthdid's collapsed-form Frank-Wolfe weights and zeta scaling, so the ATT is a T2 same-byte reference-parity row. Backend-native placebo SEs are reported as separately named diagnostic rows.",
+    "se_reference": "Python records StatsPAI deterministic all-control placebo SEs, R records synthdid_se placebo SEs, and Stata records sdid placebo SEs."
   }
 }

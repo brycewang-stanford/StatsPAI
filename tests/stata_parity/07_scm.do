@@ -36,6 +36,7 @@ synth gdppc gdppc(1955) gdppc(1956) gdppc(1957) gdppc(1958) gdppc(1959) ///
 *   e(Y_synthetic) -- T x 1 (rows ordered as time)
 matrix Yt = e(Y_treated)
 matrix Ys = e(Y_synthetic)
+matrix W = e(W_weights)
 
 * Compute gap and post-1970 mean. The matrix rows are time-ordered
 * but synth labels them with the year. Iterate, summing for years
@@ -66,9 +67,19 @@ count
 local n = r(N)
 
 stata_parity_row, stat(avg_post_gap) est(`avg_post_gap') nob(`n')
-stata_parity_row, stat(pre_rmse)     est(`pre_rmse')     nob(`n')
+stata_parity_row, stat(pre_treatment_rmse) est(`pre_rmse') nob(`n')
+
+local unit_label : value label unit_num
+local n_weights = rowsof(W)
+forvalues i = 1/`n_weights' {
+    local donor_id = W[`i', 1]
+    local donor_weight = W[`i', 2]
+    local donor_name : label `unit_label' `donor_id'
+    stata_parity_row, statname("weight_`donor_name'") estimate(`donor_weight') nobs(`n')
+}
 
 stata_parity_extra, key(predictors) val("gdppc(1955)..gdppc(1969) outcomes-only")
 stata_parity_extra, key(stata_command) val("synth gdppc gdppc(1955..1969), trunit(.) trperiod(1970) nested")
+stata_parity_extra, key(weight_note) val("Stata synth donor weights are emitted for the same donor names as the Python/R artifacts; Basque weights are non-unique under this specification.")
 
 stata_parity_close, module(07_scm)

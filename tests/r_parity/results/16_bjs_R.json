@@ -7,9 +7,20 @@
       "side": "R",
       "statistic": "att_bjs",
       "estimate": -0.0351082782986021,
-      "se": 0.00689875744466075,
-      "ci_lo": -0.0486295944282147,
-      "ci_hi": -0.0215869621689894,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": []
+    },
+    {
+      "module": "16_bjs",
+      "side": "R",
+      "statistic": "se_didimputation",
+      "estimate": 0.00689875744466075,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
       "n": 2500,
       "extra": []
     }

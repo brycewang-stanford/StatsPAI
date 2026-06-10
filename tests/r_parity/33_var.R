@@ -23,7 +23,10 @@ y_mat <- as.matrix(df[, c("y1", "y2")])
 
 fit <- vars::VAR(y_mat, p = 2L, type = "const")
 
-# vars::VAR returns one lm-style fit per equation in fit$varresult.
+# vars::VAR returns one lm-style fit per equation in fit$varresult, so
+# vcov(m) uses lm()'s residual denominator T-k. StatsPAI's parity default
+# follows Stata var's conditional-MLE denominator T; sp.var(..., se_df="r")
+# reproduces these lm() SEs when users need the R convention.
 rows <- list()
 for (eq in c("y1", "y2")) {
   m <- fit$varresult[[eq]]

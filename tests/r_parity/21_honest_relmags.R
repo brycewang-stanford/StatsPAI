@@ -2,7 +2,7 @@
 #
 # Mirrors the hand-crafted event study used by 21_honest_relmags.py
 # and runs HonestDiD::createSensitivityResults_relativeMagnitudes.
-# Tolerance: abs < 0.10 on each CI bound.
+# Tolerance: abs < 1e-6 on each CI bound.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)
@@ -31,6 +31,7 @@ sens <- suppressWarnings(
     numPrePeriods  = 3,
     numPostPeriods = 3,
     Mbarvec = MBAR_GRID,
+    method  = "Conditional",
     alpha   = 0.05
   )
 )
@@ -51,4 +52,6 @@ for (i in seq_along(MBAR_GRID)) {
 }
 
 write_results(MODULE, rows,
-              extra = list(method = "relative_magnitudes", alpha = 0.05))
+              extra = list(method = "relative_magnitudes",
+                           honestdid_method = "Conditional",
+                           alpha = 0.05))

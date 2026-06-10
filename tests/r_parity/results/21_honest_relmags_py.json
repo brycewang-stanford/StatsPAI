@@ -6,7 +6,7 @@
       "module": "21_honest_relmags",
       "side": "py",
       "statistic": "ci_lower_Mbar_0",
-      "estimate": 0.3103103103103102,
+      "estimate": 0.3063063063063063,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -17,7 +17,7 @@
       "module": "21_honest_relmags",
       "side": "py",
       "statistic": "ci_upper_Mbar_0",
-      "estimate": 0.6906906906906904,
+      "estimate": 0.6946946946946948,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -28,7 +28,7 @@
       "module": "21_honest_relmags",
       "side": "py",
       "statistic": "ci_lower_Mbar_0.5",
-      "estimate": 0.2902902902902902,
+      "estimate": 0.2862862862862863,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -61,7 +61,7 @@
       "module": "21_honest_relmags",
       "side": "py",
       "statistic": "ci_upper_Mbar_1",
-      "estimate": 0.7387387387387387,
+      "estimate": 0.7427427427427427,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -94,7 +94,7 @@
       "module": "21_honest_relmags",
       "side": "py",
       "statistic": "ci_lower_Mbar_2",
-      "estimate": 0.154154154154154,
+      "estimate": 0.15815815815815792,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -115,6 +115,7 @@
   ],
   "extra": {
     "method": "relative_magnitude",
+    "honestdid_method": "Conditional",
     "backend": "HonestDiD",
     "Mbar_grid": [
       0.0,
@@ -124,6 +125,6 @@
       2.0
     ],
     "alpha": 0.05,
-    "reference_backend_note": "sp.honest_did(..., backend='honestdid') delegates the relative-magnitudes CI to the R HonestDiD reference implementation, giving exact compatibility with HonestDiD::createSensitivityResults_relativeMagnitudes. The default backend='native' path is retained as a dependency-light analytic sensitivity bound and is not the claim exercised by this parity row."
+    "reference_backend_note": "sp.honest_did(..., backend='honestdid') delegates the relative-magnitudes CI to the R HonestDiD Conditional reference implementation, giving exact compatibility with HonestDiD::createSensitivityResults_relativeMagnitudes(..., method='Conditional'). The default backend='native' path is retained as a dependency-light analytic sensitivity bound and is not the claim exercised by this parity row."
   }
 }

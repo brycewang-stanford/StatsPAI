@@ -1,0 +1,93 @@
+{
+  "module": "31_dfl",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "31_dfl",
+      "side": "Stata",
+      "statistic": "gap",
+      "estimate": 0.20922546753328269,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1600,
+      "extra": {}
+    }
+,
+    {
+      "module": "31_dfl",
+      "side": "Stata",
+      "statistic": "composition",
+      "estimate": 0.0098673196907114995,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1600,
+      "extra": {}
+    }
+,
+    {
+      "module": "31_dfl",
+      "side": "Stata",
+      "statistic": "structure",
+      "estimate": 0.19935814784257119,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1600,
+      "extra": {}
+    }
+,
+    {
+      "module": "31_dfl",
+      "side": "Stata",
+      "statistic": "stat_a",
+      "estimate": 3.2346025978291251,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1600,
+      "extra": {}
+    }
+,
+    {
+      "module": "31_dfl",
+      "side": "Stata",
+      "statistic": "stat_b",
+      "estimate": 3.0253771302958419,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1600,
+      "extra": {}
+    }
+,
+    {
+      "module": "31_dfl",
+      "side": "Stata",
+      "statistic": "stat_cf",
+      "estimate": 3.224735278138414,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1600,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "DFL mean reweighting",
+    "stata_bridge_status": "audited Stata/Mata algorithm bridge",
+    "stata_algorithm": "Newton-Raphson logit P(group==0|educ,exper); reference=1 reweights group 0 to group 1 covariates",
+    "stata_reference_note": "Portable algorithm bridge because no canonical packaged Stata DFL port is selected for the baseline.",
+    "reference": 1,
+    "statistic": "mean"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

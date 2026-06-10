@@ -4,9 +4,8 @@ Generates a deterministic balanced panel with unit-level fixed
 effects and runs sp.panel under both FE and RE specifications, plus
 the Hausman test. The companion 35_panel.R uses plm::plm + plm::phtest.
 
-Tolerance: rel < 1e-3 on the FE coefficients (closed-form
-within transform); RE and Hausman tolerances are looser because
-the small-sample variance estimator differs between conventions.
+Tolerance: rel < 1e-3 on the FE/RE coefficients and the plm-style
+Hausman statistic.
 """
 from __future__ import annotations
 
@@ -74,17 +73,11 @@ def main() -> None:
         MODULE, "py", rows,
         extra={
             "N": 100, "T": 8,
-            "hausman_note": (
+            "hausman_parity_note": (
                 "FE and RE coefficients match plm::plm at rel < 1e-15. "
-                "The Hausman chi-squared statistic differs because "
-                "sp uses the standard (b_FE - b_RE)' [V(FE) - V(RE)]^-1 "
-                "(b_FE - b_RE) construction while plm::phtest uses a "
-                "more conservative variance-of-difference estimator "
-                "that absorbs the regression-coefficient correlation. "
-                "Both are documented in Hausman (1978); both pass "
-                "their internal validation suites. Reviewers should "
-                "treat the test-statistic gap as a Hausman-variance "
-                "convention rather than a numerical bug."
+                "The Hausman chi-squared statistic uses the same "
+                "linearmodels/plm unadjusted FE-RE covariance as "
+                "plm::phtest."
             ),
         },
     )

@@ -6,8 +6,8 @@
       "module": "38_drdid",
       "side": "py",
       "statistic": "att",
-      "estimate": 2.042405833556982,
-      "se": 0.11535905080655845,
+      "estimate": 2.0434321459354448,
+      "se": 0.10775779984983157,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1600,
@@ -17,7 +17,7 @@
       "module": "38_drdid",
       "side": "py",
       "statistic": "ci_lower",
-      "estimate": 1.8163062486854014,
+      "estimate": 1.8322307391764991,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -28,7 +28,7 @@
       "module": "38_drdid",
       "side": "py",
       "statistic": "ci_upper",
-      "estimate": 2.268505418428563,
+      "estimate": 2.2546335526943904,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -41,6 +41,8 @@
     "covariates": [
       "x"
     ],
-    "n_boot": 200
+    "id": "id",
+    "se_method": "influence_function",
+    "reference_method_note": "sp.drdid(..., id='id', method='imp') uses the panel Sant'Anna-Zhao improved estimator with calibrated propensity scores, matching DRDID::drdid_imp_panel and Stata drdid, drimp."
   }
 }

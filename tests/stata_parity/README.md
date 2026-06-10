@@ -33,7 +33,7 @@ bytes the R side reads), runs the canonical Stata reference, and
 writes one row per parity statistic to
 `results/NN_<name>_Stata.json` via the helpers in `_common.do`.
 
-## Modules covered (45 of 51)
+## Materialized Stata golden modules (53 of 56 Python modules)
 
 | # | Method                       | StatsPAI                       | Stata reference                                              |
 | --- | --- | --- | --- |
@@ -44,6 +44,7 @@ writes one row per parity statistic to
 | 05 | Sun-Abraham event study       | `sp.sun_abraham`               | `eventstudyinteract`                                         |
 | 06 | RD CCT bias-corrected         | `sp.rdrobust`                  | `rdrobust`                                                   |
 | 07 | Classical SCM                 | `sp.synth(method="classic")`   | `synth ..., trunit(...) trperiod(...) nested`                |
+| 08 | DML PLR                       | `sp.dml`                       | audited Stata/Mata linear-nuisance DML2 bridge               |
 | 09 | RD density (CJM)              | `sp.rddensity`                 | `rddensity`                                                  |
 | 10 | Honest DiD bounds (FLCI)      | `sp.honest_did`                | `honestdid, b(...) vcov(...) numpre(...) mvec(...) delta(sd)`|
 | 11 | PSM 1:1 NN                    | `sp.psm`                       | `teffects psmatch, atet nneighbor(1)`                        |
@@ -53,7 +54,7 @@ writes one row per parity statistic to
 | 16 | BJS imputation                | `sp.bjs_pretrend_joint`        | `did_imputation, autosample`                                 |
 | 17 | Wooldridge ETWFE              | `sp.wooldridge_did`            | `jwdid + estat simple`                                       |
 | 20 | Goodman-Bacon decomposition   | `sp.bacon_decomposition`       | `bacondecomp, ddetail`                                       |
-| 21 | Honest-DiD relative-mags      | `sp.honest_did(restriction="relative_magnitudes")` | `honestdid, ... delta(rm)` |
+| 21 | Honest-DiD relative-mags      | `sp.honest_did(restriction="relative_magnitudes")` | `honestdid, ... delta(rm) method(Conditional) gridPoints(1000) grid_lb(-2) grid_ub(2)` |
 | 22 | sensemakr robustness          | `sp.sensemakr`                 | `sensemakr depvar regs, treat(...) benchmark(...) kd(1) ky(1)` |
 | 23 | E-value                       | `sp.evalue`                    | `evalue rr`                                                 |
 | 24 | Cox proportional hazards      | `sp.survival.cox`              | `stcox`                                                     |
@@ -63,11 +64,14 @@ writes one row per parity statistic to
 | 28 | Stochastic frontier (cross-sec) | `sp.frontier`                | `frontier, distribution(hnormal)`                            |
 | 29 | Panel SFA Pitt-Lee            | `sp.xtfrontier`                | `xtfrontier, ti`                                             |
 | 30 | Blinder-Oaxaca decomposition  | `sp.oaxaca_blinder`            | `oaxaca`                                                     |
+| 31 | DFL reweighting               | `sp.decompose("dfl")`          | audited Stata/Mata DFL reweighting bridge                    |
+| 32 | RIF / UQR decomposition       | `sp.rif_decomposition`         | audited Stata/Mata RIF-Oaxaca bridge                         |
 | 33 | VAR                           | `sp.var`                       | `var`                                                        |
 | 34 | Local projections             | `sp.local_projections`         | horizon-by-horizon `regress`; `lpirf` recorded in extras     |
 | 35 | Panel FE/RE/Hausman           | `sp.panel`                     | `xtreg, fe/re` + `hausman`                                   |
 | 36 | Causal mediation              | `sp.mediation`                 | `paramed`                                                    |
 | 37 | PPML + HDFE                   | `sp.ppmlhdfe`                  | `ppmlhdfe`                                                   |
+| 38 | DR-DID (Sant'Anna-Zhao)       | `sp.drdid(method="imp")`       | `drdid y x, ivar(id) time(post) treatment(treated) drimp`    |
 | 39 | ARIMA(2,0,0)                  | `sp.arima`                     | `arima`                                                      |
 | 40 | Quantile reg (median)         | `sp.qreg`                      | `qreg`                                                       |
 | 41 | Tobit (left-censored)         | `sp.tobit`                     | `tobit, ll(0)`                                               |
@@ -81,25 +85,43 @@ writes one row per parity statistic to
 | 49 | Ordered probit                | `sp.oprobit`                   | `oprobit`                                                    |
 | 50 | Arellano-Bond GMM             | `sp.xtabond`                   | `xtabond`                                                    |
 | 51 | Newey-West HAC OLS            | `sp.regress(robust="hac")`     | `newey`                                                      |
+| 52 | Classical SCM unique solution | `sp.synth(method="classic")`   | `synth y y(0..19), trunit(6) trperiod(20)`                   |
+| 53 | CR2 / CR3 cluster SE          | `sp.cr2_se` / `sp.fast.crve`   | audited Stata/Mata cluster-hat bridge                        |
+| 54 | Two-way cluster SE            | `sp.twoway_cluster`            | audited Stata/Mata CGM bridge; `reghdfe` diagnostic row       |
 | 55 | OLS + HC2 / HC3 SE            | `sp.regress(robust="hc2"/"hc3")` | `regress, vce(hc2)` / `regress, vce(hc3)`                  |
+| 56 | Three-way cluster SE          | `sp.multiway_cluster_vcov`     | audited Stata/Mata CGM bridge; `reghdfe` diagnostic row       |
 
-### Modules **without** a Stata sibling
+### Modules **without** a materialized Stata JSON
 
-These have no authoritative Stata port we can compare against
-without fabricating one — `compare.py::STATA_SKIP_REASON` records
-the reason and the 3-way table prints it explicitly:
+These have no portable materialized Stata JSON yet. `compare.py::STATA_SKIP_REASON`
+records the exact reason and the 3-way table prints it explicitly:
 
-- **08 DML PLR** — Stata has `ddml`, but we do not treat it as a
-  canonical reference for the published DoubleML R algorithm.
-- **13 causal forest** — no Stata port of `grf`.
-- **18 augsynth** — no Stata port of the augmented SCM.
-- **19 gsynth** — no Stata port of the generalised SCM.
-- **31 DFL reweighting** — no canonical Stata port selected.
-- **32 RIF / UQR** — `rifhdreg` requires a GitHub install and is not
-  part of the portable Stata parity baseline.
-- **38 DR-DID** — Stata `drdid` is Ferman's different DR formula, not
-  the Sant'Anna-Zhao estimator used by the R reference.
+- **13 causal forest** — Stata 19's official `cate` is the candidate
+  causal-forest/AIPW reference, but the verified runtime here is Stata 18 and
+  `which cate` fails.
+- **18 augsynth** — local `allsynth` is a candidate bias-corrected SCM
+  reference, but its ridge de-biaser rejects the Basque outcome-only fixture
+  with 16 controls and 15 pre-period predictors because it requires at least
+  `K + 2` control units. A feasible California probe also follows a distinct
+  `allsynth` bias-correction convention rather than the R `augsynth` estimand,
+  so no like-for-like bridge is materialized.
+- **19 gsynth** — Xu's `fect_stata` is the candidate generalized-SCM route
+  and can be installed in a temporary Stata 18 ado path, but a two-way IFE
+  probe selects `r=1` and reports ATT `0.679854` under `fect`'s convention,
+  while the R/Python `gsynth` headline is `-0.324171`. An option grid over
+  `force(two-way/unit/time/none)` does not recover the R `gsynth` convention,
+  so no like-for-like Stata bridge is materialized.
 
+`08_dml`, `31_dfl`, `32_rif`, `53_cr2`, `54_twoway_cluster`, and
+`56_multiway_cluster` are deliberately labelled audited Stata/Mata algorithm
+bridges rather than packaged-command references: `08_dml` implements the
+deterministic linear-nuisance DML2 PLR score rather than treating `ddml` as
+canonical for the published DoubleML R algorithm, `31_dfl` implements the DFL
+logit reweighting algebra directly, `32_rif` avoids a nonbaseline `rifhdreg`
+install, `53_cr2` implements clubSandwich-style CR2/CR3 because Stata's
+built-in clustered covariance is CR1, and `54`/`56` implement the
+CGM/sandwich multiway-cluster convention directly while keeping `reghdfe`
+SEs as diagnostic convention rows.
 ## Running
 
 End-to-end run for a single module (assumes the matching
@@ -147,8 +169,8 @@ hash-level fixture contract moves with the audited evidence.
 
 ## Stata environment
 
-- **Edition tested**: Stata 18 BE (Basic Edition; matrix max = 800).
-  None of the 45 modules trip the BE matrix limit.
+- **Edition tested**: Stata 18 MP on the current parity machine.
+  None of the 53 materialized modules trip the matrix limit.
 - **`set type double`** is forced in `_common.do` so
   `import delimited` reads the CSV bytes at full IEEE-754 precision;
   without it, Stata's float default would cost 4-5 orders of

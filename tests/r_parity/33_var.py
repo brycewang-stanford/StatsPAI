@@ -33,7 +33,7 @@ def main() -> None:
     df = make_data()
     dump_csv(df, MODULE)
 
-    fit = sp.var(data=df, variables=["y1", "y2"], lags=LAGS)
+    fit = sp.var(data=df, variables=["y1", "y2"], lags=LAGS, se_df="stata")
 
     rows: list[ParityRecord] = []
     for eq in ["y1", "y2"]:
@@ -51,7 +51,18 @@ def main() -> None:
         estimate=float(fit.log_likelihood), n=int(fit.n_obs)))
 
     write_results(MODULE, "py", rows,
-                  extra={"lags": LAGS, "n_obs": int(fit.n_obs)})
+                  extra={
+                      "lags": LAGS,
+                      "n_obs": int(fit.n_obs),
+                      "se_df": "stata",
+                      "se_note": (
+                          "Default coefficient SEs use Stata var's "
+                          "conditional-MLE denominator T. Use "
+                          "sp.var(..., se_df='r') to reproduce the "
+                          "equation-by-equation lm() denominator T-k used "
+                          "inside R vars::VAR()."
+                      ),
+                  })
 
 
 if __name__ == "__main__":

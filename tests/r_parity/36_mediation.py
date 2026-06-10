@@ -52,7 +52,17 @@ def main() -> None:
     ]
 
     write_results(MODULE, "py", rows,
-                  extra={"n_boot": int(mi["n_boot_requested"])})
+                  extra={
+                      "inference": mi["inference"],
+                      "n_boot": int(mi["n_boot_requested"]),
+                      "se_note": (
+                          "Default sp.mediation inference uses bootstrap "
+                          "SEs to track R mediation::mediate(boot=TRUE); "
+                          "sp.mediation(..., inference='delta') uses the "
+                          "closed-form Sobel/delta SE and matches Stata "
+                          "paramed for the linear no-interaction model."
+                      ),
+                  })
 
 
 if __name__ == "__main__":

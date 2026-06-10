@@ -53,7 +53,7 @@
     {
       "module": "35_panel",
       "side": "Stata",
-      "statistic": "hausman_chi2",
+      "statistic": "hausman_chi2_stata_sigmamore",
       "estimate": 1.5682359528158289,
       "se": null,
       "ci_lo": null,
@@ -65,7 +65,7 @@
     {
       "module": "35_panel",
       "side": "Stata",
-      "statistic": "hausman_pvalue",
+      "statistic": "hausman_pvalue_stata_sigmamore",
       "estimate": 0.45652218759832691,
       "se": null,
       "ci_lo": null,

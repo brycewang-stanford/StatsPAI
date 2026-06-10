@@ -17,7 +17,7 @@
       "module": "31_dfl",
       "side": "py",
       "statistic": "composition",
-      "estimate": 0.013002746225069473,
+      "estimate": 0.009867319690713305,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -28,7 +28,7 @@
       "module": "31_dfl",
       "side": "py",
       "statistic": "structure",
-      "estimate": 0.19622272130821372,
+      "estimate": 0.1993581478425699,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -61,7 +61,7 @@
       "module": "31_dfl",
       "side": "py",
       "statistic": "stat_cf",
-      "estimate": 3.038379876520912,
+      "estimate": 3.224735278138412,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -70,8 +70,8 @@
     }
   ],
   "extra": {
-    "reference": 0,
+    "reference": 1,
     "stat": "mean",
-    "decomposition_note": "Total gap matches ddecompose::dfl_decompose at rel < 1e-14. The composition/structure allocation differs (~32% / 1.6% rel) because the two packages use different reweighting-decomposition conventions: sp's composition = E[Y|X|F=0] - E[Y|X|F=0]_reweighted, while ddecompose's matches the original DFL 1996 definition. Same convention-family as Module 30 Oaxaca twofold-vs-threefold."
+    "ddecompose_reference_mapping": "StatsPAI reference=1 matches ddecompose reference_0=TRUE because StatsPAI reference indexes the target covariate distribution."
   }
 }

@@ -4,7 +4,9 @@
 # runs HonestDiD::createSensitivityResults under "FLCI" (the
 # finite-sample length-optimised CI under the smoothness restriction
 # Delta^SD), which is the closest match to sp.honest_did's smoothness
-# restriction. Tolerance: abs < 0.05 on the CI bounds.
+# restriction. Tolerance: abs < 5e-4 on CI bounds; Python-R is
+# machine-equal through the R backend, while the Stata port is kept
+# inside this package-port envelope.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)

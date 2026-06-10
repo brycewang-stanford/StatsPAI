@@ -51,11 +51,10 @@ def test_crve_cr1_matches_manual_formula():
     assert np.allclose(V, V_ref, atol=1e-12)
 
 
-def test_crve_cr3_smaller_than_cr1():
-    """CR3 has a strictly smaller correction factor (G-1)/G < 1 than CR1's
-    (G/(G-1)) * (n-1)/(n-k); on the same residuals, CR3 ≤ CR1 element-wise
-    for the meat × bread^2 part — but the c factors differ. We simply
-    check both compute and CR1 reports a sensible (positive) variance."""
+def test_crve_cr3_runs_and_positive():
+    """Analytic CR3 uses the clubSandwich-style (I-H_g)^-1 adjustment.
+    We simply check both CR1 and CR3 compute and report positive variances
+    on the same residuals."""
     df = _ols_panel(seed=2)
     X = df[["x1", "x2"]].to_numpy()
     y = df["y"].to_numpy()
@@ -132,8 +131,8 @@ def test_crve_extra_df_negative_rejected():
 
 
 def test_crve_extra_df_ignored_for_cr3():
-    """CR3's small-sample factor (G-1)/G is independent of k, so
-    ``extra_df`` must not change the result for ``type="cr3"``."""
+    """CR3 has no CR1-style residual-DOF scalar, so ``extra_df`` must not
+    change the result for ``type="cr3"``."""
     df = _ols_panel(seed=14)
     X = df[["x1", "x2"]].to_numpy()
     y = df["y"].to_numpy()
@@ -143,6 +142,29 @@ def test_crve_extra_df_ignored_for_cr3():
     V_a = sp.fast.crve(X, resid, g, type="cr3")
     V_b = sp.fast.crve(X, resid, g, type="cr3", extra_df=10)
     assert np.array_equal(V_a, V_b)
+
+
+def test_crve_cr3_matches_clubsandwich_frozen_reference():
+    df = sp.datasets.mpdta()
+    X = np.column_stack([
+        np.ones(len(df)),
+        df["treat"].to_numpy(float),
+        df["year"].to_numpy(float),
+    ])
+    y = df["lemp"].to_numpy(float)
+    beta = np.linalg.solve(X.T @ X, X.T @ y)
+    resid = y - X @ beta
+    V = sp.fast.crve(X, resid, df["countyreal"].to_numpy(), type="cr3")
+
+    np.testing.assert_allclose(
+        np.sqrt(np.diag(V)),
+        np.array([
+            5.08137168727772,
+            0.0122594989183214,
+            0.00253657872562322,
+        ]),
+        rtol=1e-7,
+    )
 
 
 # ---------------------------------------------------------------------------

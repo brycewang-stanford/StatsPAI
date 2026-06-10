@@ -74,3 +74,35 @@ class TestGrangerCausalityAnalytic:
         f_hand = self._hand_f(df, cause="x", effect="y", p=2)
         assert g["F_stat"] == pytest.approx(f_hand, rel=0.02)
         assert g["F_stat"] > 50  # the placeholder-variance bug gave ~0.36
+
+
+class TestVARStandardErrorConventions:
+
+    @staticmethod
+    def _var_dgp(seed=7, T=240):
+        rng = np.random.default_rng(seed)
+        y1 = np.zeros(T)
+        y2 = np.zeros(T)
+        for t in range(1, T):
+            y1[t] = 0.45 * y1[t - 1] + 0.20 * y2[t - 1] + rng.normal(scale=0.5)
+            y2[t] = -0.25 * y1[t - 1] + 0.55 * y2[t - 1] + rng.normal(scale=0.5)
+        return pd.DataFrame({"y1": y1, "y2": y2})
+
+    def test_var_exposes_stata_and_r_lm_se_denominators(self):
+        df = self._var_dgp()
+        v_stata = sp.var(df, variables=["y1", "y2"], lags=2, se_df="stata")
+        v_r = sp.var(df, variables=["y1", "y2"], lags=2, se_df="r")
+
+        n_params = 2 * 2 + 1  # two variables, two lags, constant
+        expected_ratio = np.sqrt(v_stata.n_obs / (v_stata.n_obs - n_params))
+        assert v_stata.se_df == "stata"
+        assert v_r.se_df == "r"
+
+        for eq in ("y1", "y2"):
+            ratio = v_r.coefs[eq]["se"] / v_stata.coefs[eq]["se"]
+            assert ratio.to_numpy() == pytest.approx(expected_ratio, rel=1e-12)
+
+    def test_var_rejects_unknown_se_df_convention(self):
+        df = self._var_dgp()
+        with pytest.raises(ValueError, match="se_df"):
+            sp.var(df, variables=["y1", "y2"], lags=2, se_df="mystery")

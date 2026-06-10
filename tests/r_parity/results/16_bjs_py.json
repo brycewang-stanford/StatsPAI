@@ -7,9 +7,20 @@
       "side": "py",
       "statistic": "att_bjs",
       "estimate": -0.03510827660804013,
-      "se": 0.005666274075306875,
-      "ci_lo": -0.046213969722174605,
-      "ci_hi": -0.02400258349390566,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "16_bjs",
+      "side": "py",
+      "statistic": "se_cluster_if",
+      "estimate": 0.005666274075306875,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
       "n": 2500,
       "extra": {}
     }
@@ -18,6 +29,8 @@
     "method": "did_imputation",
     "n_treated_obs": 875,
     "n_control_obs": 1625,
-    "parity_note": "sp.did_imputation fits the untreated-only TWFE first stage on the unbalanced untreated panel and matches didimputation::did_imputation's simple ATT on the mpdta replica. SE conventions may differ slightly because StatsPAI uses its in-package cluster IF approximation."
+    "parity_note": "sp.did_imputation fits the untreated-only TWFE first stage on the unbalanced untreated panel and matches didimputation::did_imputation's simple ATT on the mpdta replica.",
+    "stata_never_treated_coding": "Stata did_imputation expects missing Ei for never-treated units; the Stata parity script recodes first_treat==0 before estimation.",
+    "se_reference": "SE rows are side-specific: StatsPAI reports se_cluster_if, R reports se_didimputation, and Stata reports se_stata_did_imputation."
   }
 }

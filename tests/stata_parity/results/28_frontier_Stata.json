@@ -77,7 +77,7 @@
     {
       "module": "28_frontier",
       "side": "Stata",
-      "statistic": "mean_efficiency",
+      "statistic": "mean_efficiency_bc",
       "estimate": 0.65784838355226716,
       "se": null,
       "ci_lo": null,

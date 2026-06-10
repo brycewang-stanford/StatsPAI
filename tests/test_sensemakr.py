@@ -51,6 +51,34 @@ class TestSensemakr:
                            controls=['experience'],
                            benchmark=['experience'])
         assert isinstance(result['benchmark_table'], pd.DataFrame)
+        assert {
+            'partial_r2_Y',
+            'partial_r2_D',
+            'r2dz_x',
+            'r2yz_dx',
+        } <= set(result['benchmark_table'].columns)
+        assert float(result['benchmark_table']['partial_r2_D'].iloc[0]) < 1.0
+
+    def test_nsw_benchmark_matches_sensemakr_bound_scale(self):
+        import statspai as sp
+
+        controls = [
+            'age', 'education', 'black', 'hispanic', 'married', 're74', 're75',
+        ]
+        result = sensemakr(
+            sp.datasets.nsw_dw(),
+            y='re78',
+            treat='treat',
+            controls=controls,
+            benchmark=['re74'],
+        )
+        row = result['benchmark_table'].iloc[0]
+        assert result['rv_q'] == pytest.approx(0.0734560183377059, rel=2e-7)
+        assert result['rv_qa'] == pytest.approx(0.0376011085066081, rel=2e-7)
+        assert row['partial_r2_Y'] == pytest.approx(0.2115, abs=5e-5)
+        assert row['partial_r2_D'] == pytest.approx(0.0853, abs=5e-5)
+        assert row['r2dz_x'] == pytest.approx(0.0932477385665762, rel=1e-12)
+        assert row['r2yz_dx'] == pytest.approx(0.323357131394048, rel=1e-12)
 
     def test_with_multiple_controls(self, confounded_data):
         # Include ability as a control (should increase R² and reduce RV)

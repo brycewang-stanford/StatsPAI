@@ -6,17 +6,30 @@
       "module": "16_bjs",
       "side": "Stata",
       "statistic": "att_bjs",
-      "estimate": -0.042001989178341602,
-      "se": 0.0086947375539292993,
-      "ci_lo": -0.059043361639070903,
-      "ci_hi": -0.024960616717612301,
-      "n": 1500,
+      "estimate": -0.035108264258199802,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "16_bjs",
+      "side": "Stata",
+      "statistic": "se_stata_did_imputation",
+      "estimate": 0.0068987572814019002,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
       "extra": {}
     }
   ],
   "extra": {
     "method": "did_imputation",
-    "stata_command": "did_imputation lemp countyreal year first_treat"
+    "never_treated_coding": "replace first_treat = . if first_treat == 0",
+    "stata_command": "replace first_treat = . if first_treat == 0; did_imputation lemp countyreal year first_treat, autosample"
   },
   "provenance": {
     "stata_version": 18,

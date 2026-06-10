@@ -42,9 +42,9 @@ partial_r2_yd <- sens$r2yd.x
 rv_q       <- sens$rv_q
 rv_q_alpha <- sens$rv_qa
 
-# Benchmark partial R^2 with re74. sensemakr returns partial R^2
-# of Y vs re74 (residualised) and D vs re74 (residualised).
-# These are part of `bench` for q=1, alpha=0.05.
+# Benchmark bound-scale R^2 values with re74. In sensemakr notation,
+# r2dz.x is confounder-vs-treatment strength and r2yz.dx is
+# confounder-vs-outcome strength after conditioning on treatment.
 partial_r2_Y <- bench$r2dz.x[1]
 partial_r2_D <- bench$r2yz.dx[1]
 

@@ -8,6 +8,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
+import statspai as sp
 from statspai.did import sun_abraham, bacon_decomposition, did
 from statspai.core.results import CausalResult
 
@@ -83,6 +84,39 @@ class TestSunAbraham:
         assert es['relative_time'].min() >= -3
         assert es['relative_time'].max() <= 3
 
+    def test_fixest_att_aggregation_matches_treated_cell_weighting(self):
+        df = sp.datasets.mpdta()
+        result = sun_abraham(
+            df, y='lemp', g='first_treat', t='year', i='countyreal',
+            aggregation='fixest_att',
+        )
+
+        assert result.model_info['summary_aggregation'] == 'fixest_att'
+        assert result.estimate == pytest.approx(-0.03297651380944135, abs=1e-12)
+        assert result.model_info['att_fixest_att'] == pytest.approx(result.estimate)
+        assert result.model_info['att_event_time'] == pytest.approx(
+            -0.033782519054575945,
+            abs=1e-12,
+        )
+
+    def test_did_dispatcher_passes_sunab_aggregation(self):
+        df = sp.datasets.mpdta()
+        result = sp.did(
+            df, y='lemp', treat='first_treat', time='year',
+            id='countyreal', method='sun_abraham',
+            aggregation='fixest_att',
+        )
+
+        assert result.model_info['summary_aggregation'] == 'fixest_att'
+        assert result.estimate == pytest.approx(-0.03297651380944135, abs=1e-12)
+
+    def test_bad_aggregation_raises(self, staggered_panel):
+        with pytest.raises(ValueError, match='aggregation'):
+            sun_abraham(
+                staggered_panel, y='y', g='g', t='time', i='unit',
+                aggregation='bad',
+            )
+
     def test_via_did_dispatcher(self, staggered_panel):
         """did(method='sun_abraham') should dispatch correctly."""
         result = did(staggered_panel, y='y', treat='g', time='time', id='unit',
@@ -128,6 +162,25 @@ class TestBaconDecomposition:
             staggered_panel, y='y', treat='treated', time='time', id='unit')
         total_w = result['decomposition']['weight'].sum()
         assert abs(total_w - 1.0) < 0.01
+
+    def test_bacondecomp_reference_identity_and_pair_rows(self):
+        """Uncontrolled path follows R/Stata bacondecomp dyad conventions."""
+        df = sp.datasets.mpdta()
+        result = bacon_decomposition(
+            df, y='lemp', treat='treat', time='year', id='countyreal')
+
+        assert result['weighted_sum'] == pytest.approx(result['beta_twfe'], abs=1e-13)
+        assert result['weighted_sum'] == pytest.approx(-0.0375050765908744, abs=1e-13)
+        assert result['negative_weight_share'] == pytest.approx(0.0, abs=1e-15)
+        assert result['already_treated_control_weight_share'] > 0.0
+
+        pairs = {
+            (int(row['treated']), row['control']): row['estimate']
+            for _, row in result['decomposition'].iterrows()
+        }
+        assert pairs[(2006, 2004.0)] == pytest.approx(-0.035748230665, abs=1e-12)
+        assert pairs[(2004, 2006.0)] == pytest.approx(-0.0326750794690403, abs=1e-12)
+        assert pairs[(2004, 'Never')] == pytest.approx(-0.041908787447213, abs=1e-12)
 
     def test_comparison_types(self, staggered_panel):
         """Should identify different comparison types."""

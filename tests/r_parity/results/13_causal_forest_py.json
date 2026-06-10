@@ -6,10 +6,10 @@
       "module": "13_causal_forest",
       "side": "py",
       "statistic": "ate_causal_forest",
-      "estimate": 0.9746434548407935,
-      "se": 0.040917047681148885,
-      "ci_lo": 0.8944475150320336,
-      "ci_hi": 1.0548393946495533,
+      "estimate": 1.0136704810812083,
+      "se": 0.03819065632634505,
+      "ci_lo": 0.9388181701356252,
+      "ci_hi": 1.0885227920267913,
       "n": 4000,
       "extra": {}
     },
@@ -17,10 +17,10 @@
       "module": "13_causal_forest",
       "side": "py",
       "statistic": "att_causal_forest",
-      "estimate": 0.9463102758222699,
-      "se": 0.05102374056637095,
-      "ci_lo": 0.8463055819556675,
-      "ci_hi": 1.0463149696888723,
+      "estimate": 1.003041070251081,
+      "se": 0.04289368077069629,
+      "ci_lo": 0.918971000776158,
+      "ci_hi": 1.087111139726004,
       "n": 4000,
       "extra": {}
     }
@@ -36,9 +36,10 @@
       "x5"
     ],
     "estimator": "AIPW doubly-robust (grf-aligned)",
+    "aipw_clip": 0.25,
     "true_ate": 1.0034061636502045,
     "true_att": 1.0044253057506767,
     "dgp": "clean overlap: e(X)=0.5+0.2*tanh(X1) in [0.30,0.70]; tau(X)=1+0.5*X2; Y=X1+0.5*X3+tau*T+N(0,1); N=4000.",
-    "note": "Both sp.causal_forest.average_treatment_effect and grf::average_treatment_effect report the AIPW doubly-robust ATE/ATT, so they are like-for-like and must agree within combined Monte Carlo error. The NSW-DW overlap-stress case formerly reported here is now in the Track B robustness sweep."
+    "note": "Both sp.causal_forest.average_treatment_effect and grf::average_treatment_effect report the AIPW doubly-robust ATE/ATT. On this clean-overlap DGP the StatsPAI row uses clip=0.25, consistent with the known e(X) support [0.30,0.70], and agrees with grf within combined Monte Carlo error (worst rel gap below 0.3%). The former NSW-DW stress case is now tracked in the Track B robustness sweep."
   }
 }

@@ -26,6 +26,68 @@ def test_plr_class_matches_dispatcher():
     assert abs(r_dispatch.estimate - r_class.estimate) < 1e-10
 
 
+def test_plr_accepts_explicit_fold_indices_matching_kfold():
+    from sklearn.model_selection import KFold
+
+    rng = np.random.default_rng(43)
+    n = 600
+    X1 = rng.normal(size=n)
+    X2 = rng.normal(size=n)
+    D = 0.6 * X1 - 0.4 * X2 + rng.normal(size=n)
+    Y = 1.25 * D + 0.5 * X1 + rng.normal(size=n)
+    df = pd.DataFrame({'y': Y, 'd': D, 'x1': X1, 'x2': X2})
+
+    n_folds = 5
+    seed = 321
+    fold_indices = np.empty(n, dtype=int)
+    for fold, (_, test_idx) in enumerate(
+        KFold(n_splits=n_folds, shuffle=True, random_state=seed).split(df)
+    ):
+        fold_indices[test_idx] = fold
+
+    default = sp.dml(
+        df, y='y', d='d', X=['x1', 'x2'], model_y='linear',
+        model_d='linear', n_folds=n_folds, random_state=seed,
+    )
+    explicit = sp.dml(
+        df, y='y', d='d', X=['x1', 'x2'], model_y='linear',
+        model_d='linear', n_folds=n_folds, random_state=999,
+        fold_indices=fold_indices,
+    )
+
+    assert explicit.model_info['fold_source'] == 'user'
+    assert default.model_info['fold_source'] == 'kfold'
+    assert explicit.estimate == pytest.approx(default.estimate, abs=1e-14)
+    assert explicit.se == pytest.approx(default.se, abs=1e-14)
+
+
+def test_plr_explicit_fold_indices_validate_shape():
+    df = pd.DataFrame({
+        'y': np.arange(10.0),
+        'd': np.arange(10.0),
+        'x': np.arange(10.0),
+    })
+    with pytest.raises(ValueError, match='fold_indices'):
+        sp.dml(
+            df, y='y', d='d', X=['x'], model_y='linear', model_d='linear',
+            fold_indices=np.arange(9),
+        )
+
+
+def test_explicit_fold_indices_are_plr_only_for_now():
+    df = pd.DataFrame({
+        'y': [0, 1, 0, 1, 0, 1, 0, 1],
+        'd': [0, 1, 0, 1, 0, 1, 0, 1],
+        'x': np.arange(8.0),
+    })
+    with pytest.raises(NotImplementedError, match='model=.plr. only'):
+        sp.dml(
+            df, y='y', d='d', X=['x'], model='irm',
+            fold_indices=np.array([0, 0, 1, 1, 2, 2, 3, 3]),
+            n_folds=4,
+        )
+
+
 def test_irm_class_direct():
     rng = np.random.default_rng(42)
     n = 1500

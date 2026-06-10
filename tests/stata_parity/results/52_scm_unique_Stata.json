@@ -1,0 +1,102 @@
+{
+  "module": "52_scm_unique",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "52_scm_unique",
+      "side": "Stata",
+      "statistic": "avg_post_gap",
+      "estimate": 2,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 180,
+      "extra": {}
+    }
+,
+    {
+      "module": "52_scm_unique",
+      "side": "Stata",
+      "statistic": "pre_treatment_rmse",
+      "estimate": 6.2803698347299997e-16,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 180,
+      "extra": {}
+    }
+,
+    {
+      "module": "52_scm_unique",
+      "side": "Stata",
+      "statistic": "weight_donor0",
+      "estimate": 0.5,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 180,
+      "extra": {}
+    }
+,
+    {
+      "module": "52_scm_unique",
+      "side": "Stata",
+      "statistic": "weight_donor1",
+      "estimate": 0.29999999999999999,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 180,
+      "extra": {}
+    }
+,
+    {
+      "module": "52_scm_unique",
+      "side": "Stata",
+      "statistic": "weight_donor2",
+      "estimate": 0.20000000000000001,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 180,
+      "extra": {}
+    }
+,
+    {
+      "module": "52_scm_unique",
+      "side": "Stata",
+      "statistic": "weight_donor3",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 180,
+      "extra": {}
+    }
+,
+    {
+      "module": "52_scm_unique",
+      "side": "Stata",
+      "statistic": "weight_donor4",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 180,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "classic (per-period predictors)",
+    "stata_command": "synth y y(0..19), trunit(6) trperiod(20)",
+    "identification_note": "unique convex-hull SCM DGP; treated_pre = 0.5*donor0 + 0.3*donor1 + 0.2*donor2"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

@@ -3,7 +3,7 @@
 # Reads data/32_rif.csv and runs the RIF approach manually using
 # dineq::rif (compute the recentered influence function for the
 # median) followed by an OLS-style decomposition.
-# Tolerance: rel < 1e-2 on the total gap.
+# Tolerance: rel < 1e-6 on the total gap and detailed contributions.
 #
 # Note: dineq's `rifr` returns the RIF regression coefficients only
 # (no built-in decomposition wrapper). We compute the OLS-style

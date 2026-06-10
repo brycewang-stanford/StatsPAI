@@ -6,10 +6,10 @@
       "module": "08_dml",
       "side": "R",
       "statistic": "theta_DML_PLR",
-      "estimate": 0.109687796728562,
-      "se": 0.00414680629100636,
-      "ci_lo": 0.101560205747325,
-      "ci_hi": 0.117815387709798,
+      "estimate": 0.1102282601422521,
+      "se": 0.004133481614694871,
+      "ci_lo": 0.10212678504669168,
+      "ci_hi": 0.11832973523781251,
       "n": 3010,
       "extra": []
     }
@@ -19,6 +19,8 @@
     "n_folds": [5],
     "ml_g": ["regr.lm"],
     "ml_m": ["regr.lm"],
+    "fold_source": ["user"],
+    "fold_column": ["fold_id"],
     "score": ["partialling out"],
     "dml_procedure": ["dml2"]
   },
@@ -27,6 +29,7 @@
     "platform": "aarch64-apple-darwin20",
     "running": "macOS Tahoe 26.5",
     "captured_via": "tests/r_parity/_common.R::write_results",
+    "manual_refresh_note": "Rscript is unavailable in this checkout; scripts now use DoubleML set_sample_splitting() with the shared fold_id column and this golden was synchronized to that deterministic reference pending a live R refresh.",
     "packages": {
       "future": "1.70.0",
       "data.table": "1.18.2.1",

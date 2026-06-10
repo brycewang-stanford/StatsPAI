@@ -16,9 +16,31 @@
     {
       "module": "30_oaxaca",
       "side": "R",
-      "statistic": "explained",
+      "statistic": "explained_twofold",
+      "estimate": 0.038581819402426,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "R",
+      "statistic": "explained_threefold_endowments",
       "estimate": 0.0410715220577502,
       "se": 0.0143272387406562,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": []
+    },
+    {
+      "module": "30_oaxaca",
+      "side": "R",
+      "statistic": "interaction_threefold",
+      "estimate": -0.0024897026553242,
+      "se": null,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1000,
@@ -104,7 +126,7 @@
     {
       "module": "30_oaxaca",
       "side": "R",
-      "statistic": "explained_educ",
+      "statistic": "explained_threefold_endowments_educ",
       "estimate": 0.00666861256195063,
       "se": 0.0122760980791994,
       "ci_lo": null,
@@ -115,7 +137,7 @@
     {
       "module": "30_oaxaca",
       "side": "R",
-      "statistic": "explained_exper",
+      "statistic": "explained_threefold_endowments_exper",
       "estimate": 0.0344029094957995,
       "se": 0.00762998174999217,
       "ci_lo": null,
@@ -126,7 +148,8 @@
   ],
   "extra": {
     "method": ["threefold"],
-    "reference": ["fit$reg$reg.A"]
+    "reference": ["fit$reg$reg.A"],
+    "decomposition_reference": ["explained_twofold is endowments + interaction; explained_threefold_endowments is the native oaxaca::oaxaca threefold endowments component."]
   },
   "provenance": {
     "r_version": "R version 4.5.2 (2025-10-31)",

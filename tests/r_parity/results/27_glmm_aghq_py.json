@@ -6,8 +6,8 @@
       "module": "27_glmm_aghq",
       "side": "py",
       "statistic": "beta_intercept",
-      "estimate": -0.5433040783019544,
-      "se": 0.11793982794104133,
+      "estimate": -0.5415399513559281,
+      "se": 0.11794115494866267,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1500,
@@ -17,8 +17,8 @@
       "module": "27_glmm_aghq",
       "side": "py",
       "statistic": "beta_x1",
-      "estimate": 0.606151275402585,
-      "se": 0.062415377747825955,
+      "estimate": 0.6061665320213555,
+      "se": 0.06241341938410983,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1500,
@@ -28,7 +28,7 @@
       "module": "27_glmm_aghq",
       "side": "py",
       "statistic": "logLik",
-      "estimate": -909.7335467965156,
+      "estimate": -909.7334350509108,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -40,6 +40,9 @@
     "family": "binomial",
     "link": "logit",
     "nAGQ": 8,
-    "n_groups": 60
+    "n_groups": 60,
+    "optimizer_tol": 1e-12,
+    "optimizer_maxiter": 5000,
+    "optimizer_note": "sp.melogit uses the AGHQ reference optimiser budget (maxiter=5000, tol=1e-12) so the likelihood optimum tracks tight lme4/Stata fixed effects."
   }
 }

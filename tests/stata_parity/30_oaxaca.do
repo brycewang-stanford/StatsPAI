@@ -30,6 +30,7 @@ local gap         = B[1, "overall:difference"]
 local explained   = B[1, "overall:endowments"]
 local unexplained = B[1, "overall:coefficients"]
 local interaction = B[1, "overall:interaction"]
+local explained_twofold = `explained' + `interaction'
 local mean_y_1    = B[1, "overall:group_1"]
 local mean_y_2    = B[1, "overall:group_2"]
 
@@ -38,7 +39,9 @@ local se_explained   = sqrt(V["overall:endowments",   "overall:endowments"])
 local se_unexplained = sqrt(V["overall:coefficients", "overall:coefficients"])
 
 stata_parity_row, stat(gap)         est(`gap') nob(`n')
-stata_parity_row, stat(explained)   est(`explained')   std(`se_explained')   nob(`n')
+stata_parity_row, stat(explained_twofold) est(`explained_twofold') nob(`n')
+stata_parity_row, stat(explained_threefold_endowments) est(`explained') std(`se_explained') nob(`n')
+stata_parity_row, stat(interaction_threefold) est(`interaction') nob(`n')
 stata_parity_row, stat(unexplained) est(`unexplained') std(`se_unexplained') nob(`n')
 * oaxaca::oaxaca labels group A as group 1 (female==0 in our DGP), group B as group 2 (female==1).
 stata_parity_row, stat(mean_y_a) est(`mean_y_1') nob(`n')

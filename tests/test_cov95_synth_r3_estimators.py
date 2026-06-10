@@ -15,14 +15,12 @@ distributions, correct exceptions); no estimator numbers are fabricated.
 """
 from __future__ import annotations
 
-import shutil
-
 import numpy as np
 import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai.synth.gsynth import gsynth
+from statspai.synth.gsynth import _find_rscript, gsynth
 from statspai.synth.penscm import penalized_synth
 from statspai.synth.sparse import sparse_synth
 from statspai.synth.kernel import kernel_synth, kernel_ridge_synth
@@ -103,7 +101,9 @@ def test_gsynth_insufficient_post_periods_raises():
 
 def test_gsynth_r_backend_availability():
     # The R backend needs Rscript + R packages 'gsynth'/'jsonlite'.
-    if shutil.which("Rscript") is None:
+    try:
+        _find_rscript()
+    except RuntimeError:
         with pytest.raises((RuntimeError, Exception)):
             gsynth(_panel(0), outcome="y", unit="unit", time="time",
                    treated_unit="treated", treatment_time=T_TREAT,

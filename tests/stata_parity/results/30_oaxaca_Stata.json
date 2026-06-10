@@ -17,9 +17,33 @@
     {
       "module": "30_oaxaca",
       "side": "Stata",
-      "statistic": "explained",
+      "statistic": "explained_twofold",
+      "estimate": 0.038581819402427,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "30_oaxaca",
+      "side": "Stata",
+      "statistic": "explained_threefold_endowments",
       "estimate": 0.041071522057750401,
       "se": 0.015364083567325999,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "30_oaxaca",
+      "side": "Stata",
+      "statistic": "interaction_threefold",
+      "estimate": -0.0024897026553234,
+      "se": null,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1000,

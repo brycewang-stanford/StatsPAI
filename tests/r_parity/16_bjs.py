@@ -29,11 +29,16 @@ def main() -> None:
         ParityRecord(
             module=MODULE, side="py", statistic="att_bjs",
             estimate=float(fit.estimate),
-            se=float(fit.se),
-            ci_lo=float(fit.ci[0]) if fit.ci is not None else None,
-            ci_hi=float(fit.ci[1]) if fit.ci is not None else None,
+            se=None,
+            ci_lo=None,
+            ci_hi=None,
             n=int(len(df)),
-        )
+        ),
+        ParityRecord(
+            module=MODULE, side="py", statistic="se_cluster_if",
+            estimate=float(fit.se),
+            n=int(len(df)),
+        ),
     ]
 
     write_results(
@@ -46,9 +51,17 @@ def main() -> None:
                 "sp.did_imputation fits the untreated-only TWFE "
                 "first stage on the unbalanced untreated panel and "
                 "matches didimputation::did_imputation's simple ATT "
-                "on the mpdta replica. SE conventions may differ "
-                "slightly because StatsPAI uses its in-package "
-                "cluster IF approximation."
+                "on the mpdta replica."
+            ),
+            "stata_never_treated_coding": (
+                "Stata did_imputation expects missing Ei for never-treated "
+                "units; the Stata parity script recodes first_treat==0 "
+                "before estimation."
+            ),
+            "se_reference": (
+                "SE rows are side-specific: StatsPAI reports "
+                "se_cluster_if, R reports se_didimputation, and Stata "
+                "reports se_stata_did_imputation."
             ),
         },
     )

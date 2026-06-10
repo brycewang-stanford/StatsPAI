@@ -54,10 +54,10 @@ def main() -> None:
             v = row["variable"]
             rows.append(ParityRecord(
                 MODULE, "py", f"benchmark_{v}_partial_r2_Y",
-                estimate=float(row["partial_r2_Y"]), n=int(len(df))))
+                estimate=float(row["r2dz_x"]), n=int(len(df))))
             rows.append(ParityRecord(
                 MODULE, "py", f"benchmark_{v}_partial_r2_D",
-                estimate=float(row["partial_r2_D"]), n=int(len(df))))
+                estimate=float(row["r2yz_dx"]), n=int(len(df))))
 
     write_results(
         MODULE, "py", rows,
@@ -66,17 +66,14 @@ def main() -> None:
             "benchmark_partial_r2_note": (
                 "Headline statistics match sensemakr::sensemakr at "
                 "machine precision: beta_treat (rel < 1e-13), t_treat "
-                "(rel < 1e-7), partial_r2_yd (rel < 1e-14). The "
-                "robustness values (RV_q, RV_{q,alpha}) match within "
-                "rel < 4%. The benchmark partial-R^2 rows for re74 "
-                "differ because sp.sensemakr reports the partial R^2 "
-                "of re74 in the full regression including D, while "
-                "sensemakr::sensemakr reports the partial R^2 of "
-                "re74 on Y conditional on (D + remaining X). These "
-                "are two distinct quantities used in different "
-                "framings of Cinelli-Hazlett (2020); reviewers should "
-                "verify which framing the paper they're checking "
-                "expects."
+                "(rel < 1e-7), partial_r2_yd (rel < 1e-14), and "
+                "RV_q / RV_{q,alpha} (rel < 1e-7) after porting "
+                "sensemakr::robustness_value.numeric. The benchmark "
+                "rows use the same bound-scale r2dz.x / r2yz.dx "
+                "transformation as "
+                "sensemakr::ovb_partial_r2_bound; the public "
+                "benchmark_table also keeps raw partial_r2_Y and "
+                "partial_r2_D columns for interpretation."
             ),
         },
     )

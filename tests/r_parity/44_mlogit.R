@@ -11,7 +11,13 @@ MODULE <- "44_mlogit"
 df <- read_csv_strict(MODULE)
 df$y <- factor(df$y)
 
-fit <- nnet::multinom(y ~ x1 + x2, data = df, trace = FALSE, maxit = 200)
+fit <- nnet::multinom(
+  y ~ x1 + x2,
+  data = df,
+  trace = FALSE,
+  maxit = 1000,
+  reltol = 1e-12
+)
 
 co <- summary(fit)$coefficients     # rows: classes 1, 2; cols: intercept, x1, x2
 se <- summary(fit)$standard.errors
@@ -28,4 +34,7 @@ for (cls in c("1", "2")) {
   }
 }
 
-write_results(MODULE, rows, extra = list(base_class = 0, package = "nnet::multinom"))
+write_results(MODULE, rows, extra = list(base_class = 0,
+                                          package = "nnet::multinom",
+                                          optim_reltol = 1e-12,
+                                          optim_maxit = 1000))

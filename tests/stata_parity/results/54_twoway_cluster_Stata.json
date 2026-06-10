@@ -1,0 +1,69 @@
+{
+  "module": "54_twoway_cluster",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "54_twoway_cluster",
+      "side": "Stata",
+      "statistic": "beta_(Intercept)",
+      "estimate": 0.89289544329152837,
+      "se": 0.19116613751071601,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 4000,
+      "extra": {}
+    }
+,
+    {
+      "module": "54_twoway_cluster",
+      "side": "Stata",
+      "statistic": "beta_x",
+      "estimate": 0.52122712780269598,
+      "se": 0.030991203232486299,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 4000,
+      "extra": {}
+    }
+,
+    {
+      "module": "54_twoway_cluster",
+      "side": "Stata",
+      "statistic": "reghdfe_beta_(Intercept)",
+      "estimate": 0.89289544329152837,
+      "se": 0.19128935146334489,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 4000,
+      "extra": {}
+    }
+,
+    {
+      "module": "54_twoway_cluster",
+      "side": "Stata",
+      "statistic": "reghdfe_beta_x",
+      "estimate": 0.52122712780269598,
+      "se": 0.0307813298719096,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 4000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "method": "audited Stata/Mata two-way cluster bridge",
+    "stata_command": "reghdfe y x, noabsorb vce(cluster g1 g2) for diagnostic SEs; headline SEs from Mata CGM bridge",
+    "stata_bridge_status": "audited Stata/Mata algorithm bridge",
+    "stata_algorithm": "Cameron-Gelbach-Miller V1+V2-V12 with per-component Liang-Zeger CR1 correction matching sandwich::vcovCL HC1/cadjust",
+    "stata_cluster_reference": "reghdfe 6.12.3 multiway cluster retained as a diagnostic convention row",
+    "stata_reghdfe_max_rel_py_se_diff": 0.0067720300822880003
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

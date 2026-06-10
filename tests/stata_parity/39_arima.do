@@ -1,11 +1,11 @@
 * tests/stata_parity/39_arima.do
 *
 * Module 39: ARIMA(2,0,0).
-*   StatsPAI:  sp.arima (statsmodels Kalman MLE)
-*   R:         forecast::Arima (CSS-ML)
-*   Stata:     arima ..., ar(1/2)
+*   StatsPAI:  sp.arima (statsmodels innovations MLE)
+*   R:         stats::arima (ML)
+*   Stata:     arima ..., ar(1/2), tight MLE tolerances
 *
-* Tolerance: rel < 1e-3 on AR coefficients.
+* Tolerance: rel < 1e-6 on AR coefficients and log-likelihood.
 
 version 18
 clear all
@@ -21,7 +21,8 @@ tsset t
 
 local n = _N
 
-arima y, ar(1/2) nolog
+arima y, ar(1/2) nolog iterate(1000) tolerance(1e-14) ///
+    ltolerance(1e-14) nrtolerance(1e-14)
 
 local ar1 = _b[ARMA:L.ar]
 local ar2 = _b[ARMA:L2.ar]
@@ -36,7 +37,7 @@ stata_parity_row, stat(sigma2) est(`sigma2') nob(`n')
 stata_parity_row, stat(logLik) est(`ll') nob(`n')
 
 stata_parity_extra, key(order) val("(2,0,0)")
-stata_parity_extra, key(method) val("CMLE")
-stata_parity_extra, key(stata_command) val("arima y, ar(1/2)")
+stata_parity_extra, key(method) val("exact MLE")
+stata_parity_extra, key(stata_command) val("arima y, ar(1/2), tight MLE tolerances")
 
 stata_parity_close, module(39_arima)

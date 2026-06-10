@@ -205,6 +205,39 @@ def test_drdid_improved_recovers_effect(twobytwo):
     assert r.model_info["method"] == "improved"
 
 
+def test_drdid_panel_id_uses_influence_function_se():
+    rng = np.random.default_rng(123)
+    n = 350
+    x = rng.normal(size=n)
+    ps = 1.0 / (1.0 + np.exp(-(0.2 + 0.4 * x)))
+    treated = rng.binomial(1, ps)
+    rows = []
+    for i in range(n):
+        y0 = 1.0 + 0.5 * x[i] + 0.2 * treated[i] + rng.normal()
+        y1 = y0 + 1.3 + 2.0 * treated[i] + rng.normal(scale=0.8)
+        rows.append({"id": i, "post": 0, "treated": treated[i], "x": x[i], "y": y0})
+        rows.append({"id": i, "post": 1, "treated": treated[i], "x": x[i], "y": y1})
+    df = pd.DataFrame(rows)
+
+    r = sp.drdid(
+        df,
+        y="y",
+        group="treated",
+        time="post",
+        covariates=["x"],
+        method="imp",
+        id="id",
+    )
+
+    assert abs(r.estimate - 2.0) < 0.35
+    assert np.isfinite(r.se) and r.se > 0
+    assert r.model_info["panel"] is True
+    assert r.model_info["id"] == "id"
+    assert r.model_info["se_method"] == "influence_function"
+    assert r.model_info["n_units"] == n
+    assert "SE (influence function)" in set(r.detail["statistic"])
+
+
 def test_drdid_traditional_recovers_effect(twobytwo):
     r = sp.drdid(twobytwo, y="y", group="treated", time="post",
                  covariates=["x"], method="trad", n_boot=80, seed=2)

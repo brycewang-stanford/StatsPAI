@@ -6,7 +6,7 @@
 *   Stata:     rdrobust (same algorithm, both R/Stata distributions
 *              are written by Calonico-Cattaneo-Titiunik authors).
 *
-* Tolerance: rel < 1e-3 at default-h, < 1e-13 at forced common h.
+* Tolerance: rel < 1e-6 at default-h, < 1e-13 at forced common h.
 
 version 18
 clear all

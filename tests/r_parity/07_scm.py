@@ -15,12 +15,12 @@ separately certified on the uniquely identified SCM DGP in module
 52_scm_unique; users who need exact R numbers can call the optional
 ``backend='synth'`` bridge.
 """
+
 from __future__ import annotations
 
 import statspai as sp
 
 from _common import ParityRecord, dump_csv, write_results
-
 
 MODULE = "07_scm"
 
@@ -53,13 +53,17 @@ def main() -> None:
 
     rows: list[ParityRecord] = [
         ParityRecord(
-            module=MODULE, side="py", statistic="avg_post_gap",
+            module=MODULE,
+            side="py",
+            statistic="avg_post_gap",
             estimate=float(fit.estimate),
             se=float(fit.se),
             n=int(len(df)),
         ),
         ParityRecord(
-            module=MODULE, side="py", statistic="pre_treatment_rmse",
+            module=MODULE,
+            side="py",
+            statistic="pre_treatment_rmse",
             estimate=float(fit.model_info["pre_treatment_rmse"]),
             n=int(len(df)),
         ),
@@ -77,7 +81,8 @@ def main() -> None:
     for unit in donor_pool:
         rows.append(
             ParityRecord(
-                module=MODULE, side="py",
+                module=MODULE,
+                side="py",
                 statistic=f"weight_{unit}",
                 estimate=float(weight_map.get(unit, 0.0)),
                 n=int(len(df)),
@@ -85,7 +90,9 @@ def main() -> None:
         )
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "method": "classic",
             "backend": fit.model_info.get("backend", "native"),
@@ -96,15 +103,29 @@ def main() -> None:
             "n_donors": int(fit.model_info["n_donors"]),
             "placebo": False,
             "tier": "T4",
+            "solver_best_start": fit.model_info.get("solver_best_start"),
+            "solver_near_best_start_count": int(
+                fit.model_info.get("solver_near_best_start_count", 0)
+            ),
+            "solver_near_best_weight_class_count": int(
+                fit.model_info.get("solver_near_best_weight_class_count", 0)
+            ),
+            "solver_near_best_weight_l1_max": float(
+                fit.model_info.get("solver_near_best_weight_l1_max", 0.0)
+            ),
+            "weight_solution_nonunique": bool(
+                fit.model_info.get("weight_solution_nonunique", False)
+            ),
             "native_note": (
                 "Headline row uses backend='native'. The Basque donor-weight "
                 "solution is not unique under the ADH special-predictor "
-                "nested-V specification: native tracks Stata synth on the "
-                "same CSV, while R Synth and Stata synth choose measurably "
-                "different local optima. Native correctness is separately "
-                "certified on a uniquely identified DGP in module "
-                "52_scm_unique; backend='synth' is available when exact R "
-                "Synth numbers are required."
+                "nested-V specification: deterministic multi-start diagnostics "
+                "find multiple near-best donor-weight classes, native tracks "
+                "Stata synth on the same CSV, and R Synth and Stata synth "
+                "choose measurably different local optima. Native correctness "
+                "is separately certified on a uniquely identified DGP in "
+                "module 52_scm_unique; backend='synth' is available when exact "
+                "R Synth numbers are required."
             ),
         },
     )

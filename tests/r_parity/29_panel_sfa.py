@@ -4,7 +4,8 @@ Generates a deterministic time-invariant-inefficiency panel and
 runs sp.xtfrontier(model='ti'). The companion 29_panel_sfa.R uses
 sfaR::sfacross with id_var (Pitt-Lee 1981 time-invariant model).
 
-Tolerance: rel < 1e-2 on the production frontier coefficients.
+Tolerance: rel < 1e-3 on the headline production-frontier slopes; the
+intercept and sigma rows are retained as Stata scale diagnostics.
 """
 from __future__ import annotations
 
@@ -68,6 +69,12 @@ def main() -> None:
     write_results(MODULE, "py", rows,
                   extra={"distribution": "half-normal",
                          "panel_model": "Pitt-Lee 1981 (ti)",
+                         "stata_scale_reference": (
+                             "Headline parity uses beta_lnk and beta_lnl. "
+                             "Stata xtfrontier reports the intercept and "
+                             "sigma_u on its xtfrontier scale, so those "
+                             "rows are retained as diagnostics."
+                         ),
                          "n_units": int(df["unit"].nunique()),
                          "T": int(df["year"].nunique())})
 

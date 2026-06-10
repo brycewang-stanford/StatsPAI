@@ -40,7 +40,11 @@ dp <- dataprep(
   time.predictors.prior = 0:19, time.optimize.ssr = 0:19,
   time.plot = 0:29, unit.names.variable = "region"
 )
-out <- synth(dp, verbose = FALSE, optimxmethod = "BFGS")
+out <- synth(dp, verbose = FALSE,
+             custom.v = rep(1, length(sp_list)),
+             Sigf.ipop = 20,
+             Margin.ipop = 1e-12,
+             Bound.ipop = 10)
 
 w <- as.numeric(out$solution.w)
 synth_path <- dp$Y0plot %*% out$solution.w
@@ -62,4 +66,16 @@ for (k in seq_along(ctrl)) {
 
 write_results(MODULE, rows,
               extra = list(method = "classic (per-period predictors)",
-                           true_gap = 2.0))
+                           true_gap = 2.0,
+                           custom.v = "uniform fixed predictor weights",
+                           Sigf.ipop = 20,
+                           Margin.ipop = 1e-12,
+                           Bound.ipop = 10,
+                           optimizer_note = paste(
+                             "Fixed custom.v removes the unnecessary",
+                             "outer V-optimization on this exact",
+                             "convex-hull fixture; tightened ipop",
+                             "controls make the headline gap a",
+                             "machine-level point-estimate match.",
+                             "Tiny non-zero distractor weights remain",
+                             "diagnostic rows.")))

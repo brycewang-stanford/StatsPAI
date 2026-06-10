@@ -44,7 +44,9 @@ def main() -> None:
     df = make_panel()
     dump_csv(df, MODULE)
 
-    fit = sp.fast.feols(FORMULA, data=df, vcov="cr1", cluster="firm")
+    fit = sp.fast.feols(
+        FORMULA, data=df, vcov="cr1", cluster="firm", ssc="fixest"
+    )
     coef = fit.coef()
     ses = fit.se()
 
@@ -68,17 +70,14 @@ def main() -> None:
             "formula": FORMULA,
             "vcov": "cr1",
             "cluster_var": "firm",
+            "ssc": "fixest",
             "n_firms": int(df["firm"].nunique()),
             "n_years": int(df["year"].nunique()),
-            "cluster_ssc_note": (
-                "Coefficients match at rel < 1e-15. The CR1 cluster "
-                "SE differs by 1.27% because sp.fast.feols applies "
-                "the simple G/(G-1) cluster small-sample correction "
-                "while fixest::feols applies the multi-factor "
-                "ssc(cluster.adj = TRUE, fixef.K = \"nested\", "
-                "cluster.df = \"min\") convention by default. This "
-                "is the same family of df-convention differences as "
-                "the iid SE gap reported in Module 03."
+            "parity_note": (
+                "sp.fast.feols uses ssc='fixest' so one-way CR1 "
+                "cluster standard errors exclude firm fixed effects "
+                "nested in cluster=firm and match fixest::feols / "
+                "reghdfe on this fixture."
             ),
         },
     )

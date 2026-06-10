@@ -5,7 +5,8 @@
 *   R:         lme4::lmer (REML)
 *   Stata:     mixed (REML)
 *
-* Tolerance: rel < 1e-3 on fixed effects and ICC.
+* Tolerance: rel < 1e-6 on fixed effects, fixed-effect SEs, REML
+* log-likelihood, and ICC.
 
 version 18
 clear all

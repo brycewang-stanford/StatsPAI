@@ -24,6 +24,7 @@ COVARIATES = ["exper", "expersq", "black", "south", "smsa"]
 
 def main() -> None:
     df = sp.datasets.card_1995()
+    df["fold_id"] = np.arange(len(df)) % 5
     dump_csv(df, MODULE)
 
     # NOTE: pass numpy seed so sklearn's KFold split is deterministic;
@@ -34,6 +35,8 @@ def main() -> None:
         model="plr",
         model_y=LinearRegression(),
         model_d=LinearRegression(),
+        n_folds=5,
+        fold_indices=df["fold_id"].to_numpy(),
     )
 
     rows: list[ParityRecord] = [
@@ -55,18 +58,12 @@ def main() -> None:
             "ml_g": "LinearRegression",
             "ml_m": "LinearRegression",
             "seed": PARITY_SEED,
-            "fold_split_note": (
-                "DML PLR with linear-regression nuisance learners is "
-                "equivalent to OLS on the partialled-out residuals, so "
-                "both implementations should converge to OLS beta(educ) "
-                "= 0.10999 (Module 01) up to fold-split Monte Carlo "
-                "noise. sklearn.KFold(shuffle=True, seed=42) and mlr3 "
-                "ResamplingCV(folds=5, set.seed(42)) produce different "
-                "partitions, so the residual gap (~2e-4 absolute, "
-                "~2.4e-3 relative) is fold-split RNG drift, not a "
-                "score-function or orthogonalisation bug. Forcing the "
-                "same fold indices on both sides closes the gap to "
-                "machine precision."
+            "fold_source": str(fit.model_info["fold_source"]),
+            "fold_column": "fold_id",
+            "fold_parity_note": (
+                "Python and R read the same fold_id column and use "
+                "explicit sample-splitting APIs before fitting the "
+                "linear-nuisance PLR score."
             ),
         },
     )

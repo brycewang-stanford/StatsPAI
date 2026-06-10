@@ -1,8 +1,9 @@
 """StatsPAI Sun-Abraham event-study parity (Python side) -- Module 05.
 
-Runs sp.sun_abraham on the mpdta replica and emits the simple
-weighted average ATT and the dynamic event-study coefficients at
-relative times -3, -2, 0, 1, 2 (post-period anchor reference). The
+Runs sp.sun_abraham(..., aggregation="fixest_att") on the mpdta
+replica and emits the R/Stata-compatible weighted average ATT plus
+the dynamic event-study coefficients at relative times -3, -2, 0, 1,
+2 (post-period anchor reference). The
 companion R script runs fixest::feols(... | sunab(g, t)) on the
 same CSV.
 
@@ -23,7 +24,10 @@ def main() -> None:
     df = sp.datasets.mpdta()
     dump_csv(df, MODULE)
 
-    fit = sp.sun_abraham(df, y="lemp", g="first_treat", t="year", i="countyreal")
+    fit = sp.sun_abraham(
+        df, y="lemp", g="first_treat", t="year", i="countyreal",
+        aggregation="fixest_att",
+    )
 
     rows: list[ParityRecord] = [
         ParityRecord(
@@ -35,6 +39,14 @@ def main() -> None:
             n=int(len(df)),
         )
     ]
+    rows.append(
+        ParityRecord(
+            module=MODULE, side="py", statistic="event_time_avg_ATT",
+            estimate=float(fit.model_info["att_event_time"]),
+            se=float(fit.model_info["se_event_time"]),
+            n=int(len(df)),
+        )
+    )
 
     # Per-relative-time event-study coefficients.
     es = fit.model_info.get("event_study")
@@ -58,15 +70,14 @@ def main() -> None:
         extra={
             "control_group": "nevertreated",
             "method": fit.method,
-            "aggregation_note": (
-                "sp.sun_abraham reports the unweighted mean of the "
-                "post-treatment per-relative-time ATTs as its summary "
-                "estimate. fixest::feols with agg='att' uses a "
-                "cohort-share-weighted average that recovers the "
-                "Callaway-Sant'Anna simple ATT (-0.03298). On this "
-                "DGP the two summaries differ by ~2.4% (sp: -0.0338; "
-                "fixest: -0.0330). Per-relative-time event-study "
-                "coefficients agree at rel < 1e-11."
+            "aggregation": fit.model_info["summary_aggregation"],
+            "aggregation_parity_note": (
+                "The weighted_avg_ATT row uses "
+                "sp.sun_abraham(..., aggregation='fixest_att'), which "
+                "weights post-treatment cohort-time cells by treated "
+                "cohort size and matches fixest::summary(..., agg='att') "
+                "on the mpdta fixture. The historical equal-weighted "
+                "post-event-time summary is retained as event_time_avg_ATT."
             ),
         },
     )

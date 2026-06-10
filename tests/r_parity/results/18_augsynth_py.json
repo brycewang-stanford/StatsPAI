@@ -6,8 +6,8 @@
       "module": "18_augsynth",
       "side": "py",
       "statistic": "att_augmented",
-      "estimate": -0.36277067939657837,
-      "se": 0.37535923619410766,
+      "estimate": -0.36277067939657515,
+      "se": 0.3753592361941501,
       "ci_lo": null,
       "ci_hi": null,
       "n": 731,
@@ -17,7 +17,7 @@
       "module": "18_augsynth",
       "side": "py",
       "statistic": "pre_rmspe",
-      "estimate": 0.013961503463274363,
+      "estimate": 0.013961503463274445,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -31,6 +31,6 @@
     "n_donors": 16,
     "tier": "T2",
     "reference_backend": "augsynth",
-    "native_note": "Headline row is the NATIVE Python augmented SCM (backend='native'). It ports augsynth's centered pre-outcome SCM plus ridge-augmented weight convention and matches augsynth::augsynth on the Basque fixture within iterative solver tolerance. The optional backend='augsynth' R bridge is a migration convenience, not the parity comparator."
+    "native_parity_note": "Headline row is the NATIVE Python augmented SCM (backend='native'). It ports augsynth's centered pre-outcome SCM plus ridge-augmented weight formula and matches augsynth::augsynth on the Basque fixture within iterative solver tolerance. The optional backend='augsynth' R bridge is a migration convenience, not the parity comparator."
   }
 }

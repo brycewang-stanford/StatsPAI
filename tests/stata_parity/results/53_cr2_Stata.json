@@ -1,0 +1,93 @@
+{
+  "module": "53_cr2",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "53_cr2",
+      "side": "Stata",
+      "statistic": "cr2_(Intercept)",
+      "estimate": -18.448958266526461,
+      "se": 5.069825018425675,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "53_cr2",
+      "side": "Stata",
+      "statistic": "cr3_(Intercept)",
+      "estimate": -18.448958266526461,
+      "se": 5.0813717047545124,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "53_cr2",
+      "side": "Stata",
+      "statistic": "cr2_treat",
+      "estimate": -0.055949441411939901,
+      "se": 0.0122313401818299,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "53_cr2",
+      "side": "Stata",
+      "statistic": "cr3_treat",
+      "estimate": -0.055949441411939901,
+      "se": 0.012259498917000001,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "53_cr2",
+      "side": "Stata",
+      "statistic": "cr2_year",
+      "estimate": 0.013299868753165399,
+      "se": 0.0025308142172576001,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "53_cr2",
+      "side": "Stata",
+      "statistic": "cr3_year",
+      "estimate": 0.013299868753165399,
+      "se": 0.0025365787351745001,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "formula": "lemp ~ treat + year",
+    "vcov": "CR2 (Bell-McCaffrey) + CR3 (clubSandwich analytic)",
+    "cluster_var": "countyreal",
+    "stata_bridge_status": "audited Stata/Mata algorithm bridge",
+    "stata_reference_note": "Portable bridge because Stata built-in vce(cluster) is CR1; computes clubSandwich-style CR2/CR3 from cluster hat blocks.",
+    "stata_algorithm": "CR2 uses (I-H_gg)^-1/2 adjusted scores; CR3 uses (I-H_gg)^-1 adjusted scores"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

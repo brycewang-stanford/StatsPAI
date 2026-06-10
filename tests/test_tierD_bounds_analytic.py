@@ -154,6 +154,20 @@ class TestHorowitzManskiAnalytic:
         assert res.lower == pytest.approx(lb, abs=1e-9)
         assert res.upper == pytest.approx(ub, abs=1e-9)
 
+    def test_constant_continuous_covariate_gets_explicit_stratum_sentinel(self):
+        # A constant float covariate makes pd.qcut return all-NaN bins. The
+        # stratum labels must still be ordinary comparable strings; otherwise
+        # pandas versions that preserve missing values through astype(str) make
+        # the stratum mask match no rows and silently collapse the bounds.
+        from statspai.bounds.partial_id import _create_strata
+
+        df = self._two_stratum_data()
+        df["const_float"] = 1.0
+        strata = _create_strata(df, ["const_float"])
+        assert strata.isna().sum() == 0
+        assert strata.nunique() == 1
+        assert set(strata.unique()) == {"-1"}
+
     def test_bounds_contain_true_ate(self):
         # Worst-case bounds must always bracket the true ATE of the DGP.
         rng = np.random.default_rng(3)

@@ -6,7 +6,7 @@
       "module": "54_twoway_cluster",
       "side": "py",
       "statistic": "beta_(Intercept)",
-      "estimate": 0.892895443291528,
+      "estimate": 0.8928954432915287,
       "se": 0.19116613751071598,
       "ci_lo": null,
       "ci_hi": null,
@@ -17,8 +17,8 @@
       "module": "54_twoway_cluster",
       "side": "py",
       "statistic": "beta_x",
-      "estimate": 0.5212271278026938,
-      "se": 0.03099120323248632,
+      "estimate": 0.5212271278026946,
+      "se": 0.030991203232486324,
       "ci_lo": null,
       "ci_hi": null,
       "n": 4000,
@@ -29,6 +29,6 @@
     "formula": "y ~ x",
     "vcov": "two-way cluster (Cameron-Gelbach-Miller 2011)",
     "cluster_vars": "g1 + g2",
-    "convention": "per-dimension Liang-Zeger G/(G-1)*(n-1)/(n-k) on V1+V2-V12; matches sandwich::vcovCL(type='HC1', cadjust=TRUE)"
+    "r_reference": "per-dimension Liang-Zeger G/(G-1)*(n-1)/(n-k) on V1+V2-V12; matches sandwich::vcovCL(type='HC1', cadjust=TRUE)"
   }
 }

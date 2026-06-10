@@ -3,11 +3,9 @@
 # Reads data/53_cr2.csv and runs lm + clubSandwich::vcovCR with
 # cluster = countyreal, types CR2 and CR3.
 #
-# CR2 (Bell-McCaffrey (I - H_gg)^{-1/2}) is the strict headline: it must
-# match sp.cr2_se to machine precision. clubSandwich type="CR3" is the
-# analytic (I - H_gg)^{-1} approximation to the cluster jackknife that sp
-# implements exactly via leave-one-cluster-out refits, so the CR3 rows
-# carry a documented ~1e-3 convention gap (see 53_cr2.py docstring).
+# CR2 (Bell-McCaffrey (I - H_gg)^{-1/2}) and analytic CR3
+# ((I - H_gg)^{-1}) are both strict headline rows and should match
+# StatsPAI to machine precision.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)

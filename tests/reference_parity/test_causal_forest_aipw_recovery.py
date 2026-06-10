@@ -68,6 +68,20 @@ def test_aipw_att_recovers_truth(fitted):
     )
 
 
+def test_clean_overlap_clip_stabilizes_att(fitted):
+    """Explicit overlap clipping stabilizes ATT on the clean-overlap DGP.
+
+    The clean-overlap DGP has true propensities in [0.30, 0.70].  A
+    flexible treatment nuisance forest can still report near-certain
+    treatment probabilities in finite samples.  The public
+    ``average_treatment_effect(..., clip=...)`` knob should let users
+    encode that overlap knowledge without changing CATE training.
+    """
+    cf, _, true_att = fitted
+    r = cf.average_treatment_effect(target_sample="treated", clip=0.25)
+    assert abs(r["estimate"] - true_att) < 0.01
+
+
 def test_aipw_ci_covers_truth(fitted):
     cf, true_ate, _ = fitted
     r = cf.average_treatment_effect(target_sample="all")

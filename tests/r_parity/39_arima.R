@@ -1,7 +1,7 @@
 # StatsPAI ARIMA parity (R side) -- Module 39.
 #
-# Reads data/39_arima.csv and fits ARIMA(2,0,0) via forecast::Arima.
-# Tolerance: rel < 1e-3 on AR coefficients.
+# Reads data/39_arima.csv and fits ARIMA(2,0,0) via stats::arima.
+# Tolerance: rel < 1e-6 on AR coefficients and log-likelihood.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)
@@ -12,19 +12,15 @@
 }
 source(file.path(.script_dir, "_common.R"))
 
-suppressPackageStartupMessages({
-  library(forecast)
-})
-
 MODULE <- "39_arima"
 
 df <- read_csv_strict(MODULE)
 
-fit <- forecast::Arima(
+fit <- stats::arima(
   df$y,
   order = c(2, 0, 0),
   include.mean = TRUE,
-  method = "CSS-ML"
+  method = "ML"
 )
 
 co <- coef(fit)
@@ -43,5 +39,5 @@ rows <- list(
 
 write_results(MODULE, rows,
               extra = list(order = "(2,0,0)",
-                           method = "CSS-ML",
-                           package = "forecast::Arima"))
+                           method = "ML",
+                           package = "stats::arima"))

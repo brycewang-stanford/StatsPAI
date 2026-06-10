@@ -126,6 +126,8 @@
   ],
   "extra": {
     "lags": 2,
-    "n_obs": 198
+    "n_obs": 198,
+    "se_df": "stata",
+    "se_note": "Default coefficient SEs use Stata var's conditional-MLE denominator T. Use sp.var(..., se_df='r') to reproduce the equation-by-equation lm() denominator T-k used inside R vars::VAR()."
   }
 }

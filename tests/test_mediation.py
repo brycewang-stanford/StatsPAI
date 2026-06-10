@@ -139,6 +139,49 @@ class TestMediationOutput:
             mediate(mediation_data, y='nonexistent', treat='treat',
                     mediator='mediator')
 
+    def test_delta_inference_matches_sobel_paramed_formula(self):
+        rng = np.random.default_rng(202405)
+        n = 800
+        treat = rng.binomial(1, 0.5, n).astype(float)
+        mediator = 0.3 * treat + rng.normal(0, 0.5, n)
+        y = 0.5 * treat + 0.4 * mediator + rng.normal(0, 0.4, n)
+        df = pd.DataFrame({'y': y, 'treat': treat, 'mediator': mediator})
+
+        result = mediate(
+            df, y='y', treat='treat', mediator='mediator',
+            inference='delta', n_boot=0,
+        )
+
+        z_med = np.column_stack([np.ones(n), treat])
+        z_out = np.column_stack([np.ones(n), treat, mediator])
+
+        def ols_cov(x, target):
+            beta = np.linalg.lstsq(x, target, rcond=None)[0]
+            resid = target - x @ beta
+            sigma2 = resid @ resid / (len(target) - x.shape[1])
+            return beta, sigma2 * np.linalg.pinv(x.T @ x)
+
+        a, cov_a = ols_cov(z_med, mediator)
+        b, cov_b = ols_cov(z_out, y)
+        expected_acme_se = np.sqrt(
+            b[2] ** 2 * cov_a[1, 1] + a[1] ** 2 * cov_b[2, 2]
+        )
+        expected_ade_se = np.sqrt(cov_b[1, 1])
+        expected_total_se = np.sqrt(
+            expected_acme_se ** 2 + cov_b[1, 1] + 2 * a[1] * cov_b[1, 2]
+        )
+
+        assert result.model_info['inference'] == 'delta'
+        assert result.model_info['pvalue_method'] == 'wald'
+        assert result.model_info['se_acme'] == pytest.approx(expected_acme_se)
+        assert result.model_info['se_ade'] == pytest.approx(expected_ade_se)
+        assert result.model_info['se_total'] == pytest.approx(expected_total_se)
+
+    def test_bad_inference_method(self, mediation_data):
+        with pytest.raises(ValueError, match="inference"):
+            mediate(mediation_data, y='y', treat='treat',
+                    mediator='mediator', inference='garbage')
+
 
 if __name__ == "__main__":
     pytest.main([__file__, '-v'])

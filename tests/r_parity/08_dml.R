@@ -4,10 +4,9 @@
 # DoubleML::DoubleMLPLR with mlr3::regr.lm nuisance learners. Five
 # folds, single repetition. Tolerance: rel < 1e-3.
 #
-# Note: cross-fitting fold splits are seeded so that R sklearn-style
-# KFold and mlr3 ResamplingCV(folds=5) DO NOT produce bit-equal
-# splits. The gap on theta_DML_PLR therefore reflects fold-noise
-# alone (the score function is identical on both sides).
+# The CSV carries a deterministic fold_id column written by the Python
+# side.  Both implementations consume those exact folds through their
+# explicit sample-splitting APIs.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)
@@ -51,6 +50,11 @@ dml_obj <- DoubleML::DoubleMLPLR$new(
   score   = "partialling out",
   dml_procedure = "dml2"
 )
+fold_levels <- sort(unique(dt$fold_id))
+test_ids <- lapply(fold_levels, function(k) which(dt$fold_id == k))
+train_ids <- lapply(fold_levels, function(k) which(dt$fold_id != k))
+smpls <- list(list(train_ids = train_ids, test_ids = test_ids))
+dml_obj$set_sample_splitting(smpls)
 dml_obj$fit()
 
 theta <- as.numeric(dml_obj$coef["educ"])
@@ -74,5 +78,7 @@ write_results(MODULE, rows,
                            n_folds = 5L,
                            ml_g = "regr.lm",
                            ml_m = "regr.lm",
+                           fold_source = "user",
+                           fold_column = "fold_id",
                            score = "partialling out",
                            dml_procedure = "dml2"))

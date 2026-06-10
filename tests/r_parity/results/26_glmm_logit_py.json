@@ -6,8 +6,8 @@
       "module": "26_glmm_logit",
       "side": "py",
       "statistic": "beta_intercept",
-      "estimate": -0.5428345555507884,
-      "se": 0.11738891902778954,
+      "estimate": -0.5412570000009189,
+      "se": 0.11739066657829758,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1500,
@@ -17,8 +17,8 @@
       "module": "26_glmm_logit",
       "side": "py",
       "statistic": "beta_x1",
-      "estimate": 0.6062814674658987,
-      "se": 0.06240182260658235,
+      "estimate": 0.6062960029098227,
+      "se": 0.06240008760292931,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1500,
@@ -28,7 +28,7 @@
       "module": "26_glmm_logit",
       "side": "py",
       "statistic": "logLik",
-      "estimate": -910.0606568055272,
+      "estimate": -910.0605665865336,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -40,6 +40,8 @@
     "family": "binomial",
     "link": "logit",
     "n_groups": 60,
-    "nAGQ": 1
+    "nAGQ": 1,
+    "optimizer_tol": 1e-08,
+    "optimizer_note": "sp.melogit uses the tightened default tol=1e-8 so the Laplace likelihood optimum tracks lme4/Stata fixed effects."
   }
 }

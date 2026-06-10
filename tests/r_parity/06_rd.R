@@ -2,7 +2,7 @@
 #
 # Reads data/06_rd.csv (the StatsPAI Lee 2008 senate replica) and
 # runs rdrobust::rdrobust with package defaults (kernel = triangular,
-# p = 1, q = p + 1 = 2, bwselect = mserd). Tolerance: rel < 1e-3.
+# p = 1, q = p + 1 = 2, bwselect = mserd). Tolerance: rel < 1e-6.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)

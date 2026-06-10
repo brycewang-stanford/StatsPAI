@@ -153,6 +153,15 @@ class TestRandomIntercept:
         # AIC < BIC since N > exp(2).
         assert r.aic < r.bic
 
+    def test_reml_loglik_reports_fitted_criterion(self):
+        pytest.importorskip("statsmodels")
+        import statsmodels.formula.api as smf
+
+        df = _random_intercept_panel()
+        r = sp.mixed(df, "y", ["x"], "g", method="reml")
+        ref = smf.mixedlm("y ~ x", df, groups=df["g"]).fit(reml=True)
+        np.testing.assert_allclose(r.log_likelihood, ref.llf, atol=1e-6)
+
 
 # ---------------------------------------------------------------------------
 # LMM — random slope with unstructured G

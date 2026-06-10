@@ -43,9 +43,15 @@ rows <- list(
     module    = MODULE,
     statistic = "att_bjs",
     estimate  = agg$estimate[1],
-    se        = agg$std.error[1],
-    ci_lo     = agg$estimate[1] - qnorm(0.975) * agg$std.error[1],
-    ci_hi     = agg$estimate[1] + qnorm(0.975) * agg$std.error[1],
+    se        = NULL,
+    ci_lo     = NULL,
+    ci_hi     = NULL,
+    n         = nrow(df)
+  ),
+  parity_row(
+    module    = MODULE,
+    statistic = "se_didimputation",
+    estimate  = agg$std.error[1],
     n         = nrow(df)
   )
 )

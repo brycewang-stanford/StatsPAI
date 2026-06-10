@@ -4,6 +4,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.tree import DecisionTreeRegressor
 
 from statspai.forest.causal_forest import CausalForest
 
@@ -65,3 +66,16 @@ def test_ate_finite(fitted_cf):
 def test_att_runs(fitted_cf):
     att = fitted_cf.att()
     assert np.isfinite(att)
+
+
+def test_leaf_effect_uses_ols_slope_not_mixed_ddof_covariance():
+    cf = CausalForest(discrete_treatment=True)
+    tree = DecisionTreeRegressor(max_depth=1, random_state=0)
+    X = np.zeros((4, 1))
+    tree.fit(X, np.zeros(4))
+
+    t_resid = np.array([-0.5, 0.5, -0.5, 0.5])
+    y_resid = 2.0 * t_resid
+    cf._replace_leaf_values_with_causal_effects(tree, X, t_resid, y_resid)
+
+    np.testing.assert_allclose(tree.predict(X), np.full(4, 2.0), atol=1e-12)

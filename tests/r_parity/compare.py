@@ -9,7 +9,7 @@
 
 Tolerance budget (pre-registered, NEXT-STEPS / JSS plan §5.2):
 
-  * closed-form estimators (OLS, 2SLS, HDFE):  rel_diff < 1e-6
+  * machine-level point-estimate references:   rel_diff < 1e-6
   * iterative / cross-fit (DiD, RD, SCM, DML): rel_diff < 1e-3
   * bootstrap / placebo CI half-widths:        abs_diff < 0.05 * SE
   * Honest-DiD CI bounds:                      abs_diff < 0.05
@@ -25,6 +25,7 @@ Verdict assignment is per-module, not per-row, because some rows
 expected NOT to pass at the strict tolerance and are recorded with
 an explicit rationale in the module's `extra` block.
 """
+
 from __future__ import annotations
 
 import json
@@ -33,28 +34,40 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 RESULTS_DIR = HERE / "results"
 PAPER_TABLES_DIR = ROOT / "Paper-JSS" / "manuscript" / "tables"
 # The sister Stata-side harness lives at tests/stata_parity/. Stata
-# results are emitted for modules with a canonical Stata reference;
-# modules without an authoritative Stata implementation are flagged
-# with explicit reasons in the 3-way table.
+# results are emitted for modules with a canonical Stata reference or a
+# deliberately labelled audited Stata/Mata bridge; modules without an
+# authoritative or portable bridge implementation are flagged with explicit
+# reasons in the 3-way table.
 STATA_RESULTS_DIR = HERE.parent / "stata_parity" / "results"
 STATA_SKIP_REASON: dict[str, str] = {
-    "08_dml":           "no canonical ref",
-    "13_causal_forest": "no canonical ref",
-    "18_augsynth":      "no canonical ref",
-    "19_gsynth":        "no canonical ref",
-    "31_dfl":           "no canonical Stata port",
-    "32_rif":           "rifhdreg requires GitHub install",
-    "38_drdid":         "Stata DRDID = Ferman (different DR formula)",
-    "52_scm_unique":    "no canonical Stata SCM port",
-    "53_cr2":           "Stata native vce(cluster)=CR1; CR2/CR3 need community summclust",
-    "54_twoway_cluster": "Stata native vce(cluster) is one-way; two-way needs community vcemway / reghdfe",
-    "56_multiway_cluster": "Stata native vce(cluster) is one-way; multiway needs community vcemway / reghdfe",
+    "13_causal_forest": (
+        "bridge artifact not materialized: Stata 19's official cate command "
+        "is the candidate causal-forest/AIPW reference, but the verified local "
+        "runtime is Stata 18 and `which cate` fails."
+    ),
+    "18_augsynth": (
+        "bridge artifact not materialized: local Stata allsynth v1.32 is a "
+        "candidate bias-corrected SCM reference, but its ridge de-biaser "
+        "rejects the Basque outcome-only fixture with 16 controls and 15 "
+        "pre-period predictors because it requires at least K + 2 control "
+        "units; a feasible California probe also follows a distinct "
+        "allsynth bias-correction convention rather than the R augsynth "
+        "estimand. No portable like-for-like Stata artifact is materialized yet."
+    ),
+    "19_gsynth": (
+        "bridge artifact not materialized: Xu's fect_stata is the candidate "
+        "generalized-SCM route and can be installed in a temporary Stata 18 "
+        "ado path, but the two-way IFE probe selects r=1 and reports ATT "
+        "0.679854 under fect's convention, while the R/Python gsynth headline "
+        "is -0.324171; an option grid over force(two-way/unit/time/none) "
+        "does not recover the R gsynth convention. No like-for-like Stata "
+        "bridge is materialized yet."
+    ),
 }
 
 TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
@@ -65,7 +78,7 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
         "label": r"\(\hat\beta_{x1}\)",
         "data": r"2-way HDFE, \(N{=}10^4\)",
         "tol": r"\(10^{-6}\)",
-        "verdict": "pass; SE df note",
+        "verdict": "pass; fixest ssc",
     },
     {
         "module": "01_ols",
@@ -91,18 +104,17 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
         "estimator": r"\code{sp.callaway\_santanna}",
         "label": "simple ATT",
         "data": r"\texttt{mpdta}",
-        "tol": r"\(10^{-3}\)",
+        "tol": r"\(10^{-6}\)",
         "verdict": "pass",
     },
     {
         "module": "06_rd",
-        "statistic_prefix": "forced_",
-        "statistic_suffix": "robust_est",
+        "statistic": "default_robust_est",
         "estimator": r"\code{sp.rdrobust}",
-        "label": r"robust RD, fixed \(h\)",
+        "label": r"robust RD, default CCT \(h\)",
         "data": "RDsenate",
-        "tol": r"\(10^{-3}\)",
-        "verdict": r"common-\(h\) pass",
+        "tol": r"\(10^{-6}\)",
+        "verdict": r"R/Stata default-\(h\) pass",
     },
     {
         "module": "08_dml",
@@ -110,8 +122,8 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
         "estimator": r"\code{sp.dml}",
         "label": r"\(\hat\theta_{\mathrm{DML}}\)",
         "data": "Card 1995",
-        "tol": r"\(10^{-2}\)",
-        "verdict": "R pass; no Stata ref.",
+        "tol": r"\(10^{-10}\)",
+        "verdict": "R/Stata bridge pass",
     },
     {
         "module": "13_causal_forest",
@@ -119,7 +131,7 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
         "estimator": r"\code{sp.causal\_forest}",
         "label": "AIPW ATE",
         "data": "clean-overlap DGP",
-        "tol": "0.10",
+        "tol": "0.005",
         "verdict": "T3 combined-MC-error pass",
     },
     {
@@ -128,7 +140,7 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
         "estimator": r"\code{sp.psm}",
         "label": "ATT",
         "data": "NSW--DW",
-        "tol": r"\(10^{-2}\)",
+        "tol": r"\(10^{-6}\)",
         "verdict": "pass; SE convention",
     },
     {
@@ -137,7 +149,7 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
         "estimator": r"\code{sp.synth} (unique)",
         "label": "avg post gap",
         "data": "identified SCM DGP",
-        "tol": "0.02",
+        "tol": r"\(10^{-6}\)",
         "verdict": "convex-SCM solver pass",
     },
     {
@@ -155,7 +167,7 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
         "estimator": r"\code{sp.frontier}",
         "label": "intercept",
         "data": "frontier DGP",
-        "tol": r"\(10^{-3}\)",
+        "tol": r"\(10^{-6}\)",
         "verdict": "pass",
     },
     {
@@ -164,7 +176,7 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
         "estimator": r"\code{sp.decompose}",
         "label": "Oaxaca gap",
         "data": "Oaxaca DGP",
-        "tol": r"\(10^{-3}\)",
+        "tol": r"\(10^{-6}\)",
         "verdict": "pass",
     },
 ]
@@ -173,91 +185,100 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
 # Stata headline deliberately records a known implementation convention gap.
 # Keeping this explicit prevents the 3-way PASS column from silently masking
 # Stata-side drift.
-STATA_HEADLINE_GAP_EXCEPTIONS: dict[str, str] = {
-    "16_bjs": (
-        "Stata did_imputation uses a different autosample/aggregation "
-        "convention on the mpdta replica than R didimputation and StatsPAI."
-    ),
-    "29_panel_sfa": (
-        "Stata xtfrontier uses a different Pitt-Lee intercept/inefficiency "
-        "parameterisation than frontier::sfa and StatsPAI."
-    ),
-    "34_lp": (
-        "The R row now uses lpirfs' Cholesky/unit-shock convention; the "
-        "frozen Stata row is the separate direct-OLS shock fixture."
-    ),
-    "21_honest_relmags": (
-        "StatsPAI matches the R HonestDiD relative-magnitudes reference at "
-        "machine precision; Stata honestdid uses a different sensitivity-grid "
-        "and optimisation convention, so its CI bounds differ at the ~1e-3 "
-        "level on this fixture (the StatsPAI<->R row remains an exact pass)."
-    ),
-}
+STATA_HEADLINE_GAP_EXCEPTIONS: dict[str, str] = {}
 
 
 # Pre-registered tolerance per module.
 TOLERANCES: dict[str, dict[str, float]] = {
-    "01_ols":       {"rel_est": 1e-6, "rel_se": 1e-6},
-    "02_iv":        {"rel_est": 1e-6, "rel_se": 1e-6},
-    "03_hdfe":      {"rel_est": 1e-6, "rel_se": 1e-2},  # 1-df conv. gap
-    "04_csdid":     {"rel_est": 1e-3, "rel_se": 1e-2},   # R/Stata analytic SE
-    "05_sunab":     {"rel_est": 1e-3, "rel_se": 0.25},
-    "06_rd":        {"rel_est": 1.0,  "rel_se": 1.0,    # default-h gap
-                     "_forced_rel_est": 1e-3},
-    "07_scm":       {"rel_est": 1.0,  "rel_se": 1.0},   # native classical SCM: T4 R/Stata reference-disagreement disclosure
-    "08_dml":       {"rel_est": 1e-2, "rel_se": 1e-2},  # fold-split noise
-    "09_rddensity": {"rel_est": 1e-6, "rel_se": 1e-6},  # native CJM/rddensity default parity
-    "10_honest_did":{"abs_est": 0.05, "abs_se": 0.05},
-    "11_psm":         {"rel_est": 1e-2, "rel_se": 5.0},
-    "12_sdid":        {"rel_est": 1e-6, "rel_se": 5e-2},  # native FW/zeta parity; placebo-SE RNG convention
-    "13_causal_forest":{"rel_est": 0.10, "rel_se": 0.50},  # clean-overlap AIPW vs grf (~3x observed MC gap)
-    "14_ols_cluster": {"rel_est": 1e-3, "rel_se": 1e-3},
-    "15_hdfe_cluster":{"rel_est": 1e-6, "rel_se": 5e-2},  # ssc convention
-    "16_bjs":         {"rel_est": 1e-6, "rel_se": 0.25},  # SE convention
-    "17_etwfe":       {"rel_est": 1e-6, "rel_se": 1e-3},   # emfx + cluster SE parity
-    "18_augsynth":    {"rel_est": 1e-4, "rel_se": 1.0},   # native centered Ridge+SCM parity
-    "19_gsynth":      {"rel_est": 1e-6, "rel_se": 1.0},   # native gsynth/fect factor convention parity
-    "20_bacon":       {"rel_est": 1e-3, "rel_se": 1.0},   # TWFE-only headline
-    "21_honest_relmags":{"abs_est": 1e-6, "abs_se": 1e-6},
-    "22_sensemakr":   {"rel_est": 5e-2, "rel_se": 5e-2},
-    "23_evalue":      {"rel_est": 1e-6, "rel_se": 1e-6},
-    "24_coxph":       {"rel_est": 1e-3, "rel_se": 1e-3},
-    "25_lmm":         {"rel_est": 1e-3, "rel_se": 1e-3},
-    "26_glmm_logit":  {"rel_est": 5e-3, "rel_se": 5e-2},
-    "27_glmm_aghq":   {"rel_est": 5e-3, "rel_se": 5e-2},
-    "28_frontier":    {"rel_est": 1e-3, "rel_se": 1e-3},
-    "29_panel_sfa":   {"rel_est": 1e-3, "rel_se": 1e-3},
-    "30_oaxaca":      {"rel_est": 1e-3, "rel_se": 1.0},   # gap-only headline
-    "31_dfl":         {"rel_est": 1e-3, "rel_se": 1.0},   # gap-only headline
-    "32_rif":         {"rel_est": 5e-2, "rel_se": 5e-2},
-    "33_var":         {"rel_est": 1e-3, "rel_se": 1e-3},
-    "34_lp":          {"rel_est": 1e-6, "rel_se": 1e-6},  # lpirfs Cholesky/unit shock
-    "35_panel":       {"rel_est": 1e-3, "rel_se": 1e-3},  # FE/RE only headline
-    "36_mediation":   {"rel_est": 1e-2, "rel_se": 1e-2},
+    "01_ols": {"rel_est": 1e-6, "rel_se": 1e-6},
+    "02_iv": {"rel_est": 1e-6, "rel_se": 1e-6},
+    "03_hdfe": {"rel_est": 1e-6, "rel_se": 1e-2},  # 1-df conv. gap
+    "04_csdid": {"rel_est": 1e-6, "rel_se": 1e-2},  # R/Stata analytic SE
+    "05_sunab": {"rel_est": 1e-6, "rel_se": 0.25},
+    "06_rd": {
+        "rel_est": 1e-6,
+        "rel_se": 0.10,
+    },  # default CCT h; forced legacy SE convention rows
+    "07_scm": {
+        "rel_est": 1.0,
+        "rel_se": 1.0,
+    },  # native classical SCM: T4 R/Stata reference-disagreement disclosure
+    "08_dml": {
+        "rel_est": 1e-10,
+        "rel_se": 1e-10,
+    },  # explicit folds; audited linear PLR bridge
+    "09_rddensity": {
+        "rel_est": 1e-6,
+        "rel_se": 1e-6,
+    },  # native CJM/rddensity default parity
+    "10_honest_did": {
+        "abs_est": 5e-4,
+        "abs_se": 5e-4,
+    },  # R backend exact; Stata package port <3.3e-4
+    "11_psm": {"rel_est": 1e-6, "rel_se": 5.0},  # point-only ATT parity; SE diagnostics separated
+    "12_sdid": {
+        "rel_est": 1e-6,
+        "rel_se": 5e-2,
+    },  # point-only native FW/zeta ATT parity
+    "13_causal_forest": {
+        "rel_est": 0.005,
+        "rel_se": 0.50,
+    },  # clean-overlap AIPW vs grf (post-nuisance-regularisation MC gap)
+    "14_ols_cluster": {"rel_est": 1e-6, "rel_se": 1e-3},
+    "15_hdfe_cluster": {"rel_est": 1e-6, "rel_se": 5e-2},  # ssc convention
+    "16_bjs": {
+        "rel_est": 1e-6,
+        "rel_se": 0.25,
+    },  # point row; side-specific SE diagnostics
+    "17_etwfe": {"rel_est": 1e-6, "rel_se": 1e-3},  # emfx + cluster SE parity
+    "18_augsynth": {"rel_est": 2e-5, "rel_se": 1.0},  # native centered Ridge+SCM parity
+    "19_gsynth": {
+        "rel_est": 1e-6,
+        "rel_se": 1.0,
+    },  # native gsynth/fect factor convention parity
+    "20_bacon": {"rel_est": 1e-6, "rel_se": 1.0},  # TWFE-only headline
+    "21_honest_relmags": {"abs_est": 1e-6, "abs_se": 1e-6},
+    "22_sensemakr": {"rel_est": 1e-6, "rel_se": 1e-6},
+    "23_evalue": {"rel_est": 1e-6, "rel_se": 1e-6},
+    "24_coxph": {"rel_est": 1e-6, "rel_se": 1e-3},
+    "25_lmm": {"rel_est": 1e-6, "rel_se": 1e-6},  # REML criterion + tight optimiser parity
+    "26_glmm_logit": {"rel_est": 2e-4, "rel_se": 5e-2},  # tightened GLMM optimiser tol
+    "27_glmm_aghq": {"rel_est": 1e-6, "rel_se": 5e-2},  # AGHQ tight optimiser, SE convention gap
+    "28_frontier": {"rel_est": 1e-6, "rel_se": 1e-4},
+    "29_panel_sfa": {"rel_est": 1e-3, "rel_se": 1e-3},
+    "30_oaxaca": {"rel_est": 1e-6, "rel_se": 1.0},  # gap-only headline
+    "31_dfl": {"rel_est": 1e-6, "rel_se": 1.0},  # ddecompose reference_0 mapping
+    "32_rif": {"rel_est": 1e-6, "rel_se": 1e-6},  # dineq/Hmisc + stats::density convention
+    "33_var": {"rel_est": 1e-6, "rel_se": 1e-3},
+    "34_lp": {"rel_est": 1e-6, "rel_se": 1e-6},  # lpirfs Cholesky/unit shock
+    "35_panel": {"rel_est": 1e-6, "rel_se": 1e-3},  # FE/RE + plm-style Hausman
+    "36_mediation": {"rel_est": 1e-6, "rel_se": 0.10},  # point exact; bootstrap/delta SE convention
     # Modules added in the 2026-05-28 parity expansion session.
-    "37_ppmlhdfe":    {"rel_est": 1e-3, "rel_se": 1e-2},  # post FE-score fix
-    "38_drdid":       {"rel_est": 1e-3, "rel_se": 1e-1},  # bootstrap vs IF SE
-    "39_arima":       {"rel_est": 1e-2, "rel_se": 1e-2},  # method gap (Kalman vs CSS-ML)
-    "40_qreg":        {"rel_est": 1e-3, "rel_se": 1e-1},  # Powell SE method choice
-    "41_tobit":       {"rel_est": 1e-3, "rel_se": 1e-3},  # observed-info Hessian
-    "42_nbreg":       {"rel_est": 1e-3, "rel_se": 1e-2},
-    "43_heckman":     {"rel_est": 1e-3, "rel_se": 1e-3},
-    "44_mlogit":      {"rel_est": 1e-3, "rel_se": 1e-3},  # observed-info Hessian
-    "45_ologit":      {"rel_est": 1e-3, "rel_se": 1e-3},  # observed-info Hessian
-    "46_clogit":      {"rel_est": 1e-3, "rel_se": 1e-3},
+    "37_ppmlhdfe": {"rel_est": 1e-6, "rel_se": 1e-2},  # post FE-score fix
+    "38_drdid": {"rel_est": 1e-6, "rel_se": 1e-6},  # panel DRDID calibrated PS
+    "39_arima": {"rel_est": 1e-6, "rel_se": 1e-2},  # innovations-MLE exact convention
+    "40_qreg": {"rel_est": 1e-6, "rel_se": 1e-1},  # Powell SE method choice
+    "41_tobit": {"rel_est": 1e-6, "rel_se": 1e-3},  # observed-info Hessian
+    "42_nbreg": {"rel_est": 1e-6, "rel_se": 1e-2},
+    "43_heckman": {"rel_est": 1e-6, "rel_se": 1e-3},
+    "44_mlogit": {"rel_est": 1e-6, "rel_se": 1e-4},  # multinom tight optimiser + observed-info Hessian
+    "45_ologit": {"rel_est": 1e-6, "rel_se": 1e-5},  # polr tight optimiser + observed-info Hessian
+    "46_clogit": {"rel_est": 1e-6, "rel_se": 1e-3},
     # Modules added in the second 2026-05-28 fix-and-extend pass.
-    "47_ppmlhdfe_3fe":{"rel_est": 1e-3, "rel_se": 5e-2},  # post Gauss-Seidel
-    "48_probit":      {"rel_est": 1e-3, "rel_se": 1e-2},
-    "49_oprobit":     {"rel_est": 1e-3, "rel_se": 1e-3},
-    "50_xtabond":     {"rel_est": 1e-6, "rel_se": 1e-6},  # Py-Stata migration fixture
-    "51_newey":       {"rel_est": 1e-3, "rel_se": 1e-2},  # post HAC fix
+    "47_ppmlhdfe_3fe": {"rel_est": 1e-6, "rel_se": 5e-2},  # post Gauss-Seidel
+    "48_probit": {"rel_est": 1e-6, "rel_se": 1e-2},
+    "49_oprobit": {"rel_est": 1e-6, "rel_se": 1e-3},
+    "50_xtabond": {"rel_est": 1e-6, "rel_se": 1e-6},  # Py-Stata migration fixture
+    "51_newey": {"rel_est": 1e-6, "rel_se": 1e-2},  # post HAC fix
     # Unique-solution SCM: strict-parity counterpart to module 07.
-    "52_scm_unique":  {"rel_est": 0.02, "rel_se": 1.0},   # identified convex SCM; sp exact, Synth ~0.7%
-    # CR2 / CR3 cluster-robust SE: CR2 (Bell-McCaffrey) headline is
-    # machine-precision; exact CR3 jackknife vs clubSandwich analytic
-    # CR3 differs ~1e-3 (documented in HEADLINE gap_note, kept out of
-    # the strict CR2 headline filter).
-    "53_cr2":         {"rel_est": 1e-6, "rel_se": 1e-6},
+    "52_scm_unique": {
+        "rel_est": 1e-6,
+        "rel_se": 1.0,
+    },  # identified convex SCM; sp/Stata exact, Synth fixed-V QP at machine level
+    # CR2 / CR3 cluster-robust SE: both headline rows use the
+    # clubSandwich-compatible analytic corrections. Exact delete-one-cluster
+    # jackknife remains a separate API.
+    "53_cr2": {"rel_est": 1e-6, "rel_se": 1e-6},
     # Two-way cluster-robust SE (Cameron-Gelbach-Miller). sp uses the
     # per-dimension Liang-Zeger correction = sandwich::vcovCL defaults
     # (HC1, cadjust), so the headline two-way SE is a machine-precision
@@ -267,7 +288,7 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # HC2/HC3 (MacKinnon-White) heteroskedasticity-robust SE. sp.regress
     # robust="hc2"/"hc3" matches sandwich::vcovHC(type="HC2"/"HC3") to
     # machine precision (module 01 covers HC1).
-    "55_hc2_hc3":       {"rel_est": 1e-6, "rel_se": 1e-6},
+    "55_hc2_hc3": {"rel_est": 1e-6, "rel_se": 1e-6},
     # Three-way cluster-robust SE (Cameron-Gelbach-Miller). sp.multiway_cluster_vcov
     # matches sandwich::vcovCL(~g1+g2+g3, HC1, cadjust) to machine precision after
     # the v1.16.1 intersection-key fix.
@@ -276,7 +297,7 @@ TOLERANCES: dict[str, dict[str, float]] = {
 
 
 # Strictness tiers. A single PASS/GAP verdict column flattens a
-# machine-precision closed-form match and a methodological T3/T4
+# machine-level point-estimate match and a methodological T3/T4
 # tolerance into the same word, which a JSS
 # reviewer is right to find dilutive. We therefore classify each module by
 # the *registered* point-estimate tolerance (the forced strict tolerance
@@ -286,14 +307,14 @@ TOLERANCES: dict[str, dict[str, float]] = {
 # regularisation is ported and 06_rd tightens).
 TIER_ORDER = ["machine", "iterative", "moderate", "methodological"]
 TIER_LABEL = {
-    "machine": "machine-precision ($\\le 10^{-6}$, closed form)",
+    "machine": "machine-level point estimate ($\\le 10^{-6}$)",
     "iterative": "iterative/cross-fit ($\\le 10^{-3}$)",
     "moderate": "moderate ($\\le 5\\times10^{-2}$)",
     "methodological": "methodological/T4 disclosure (T3/T4, not deterministic T2)",
     "unclassified": "unclassified",
 }
 TIER_LABEL_MD = {
-    "machine": "machine-precision (≤1e-6, closed form)",
+    "machine": "machine-level point estimate (≤1e-6)",
     "iterative": "iterative/cross-fit (≤1e-3)",
     "moderate": "moderate (≤5e-2)",
     "methodological": "methodological/T4 disclosure (T3/T4, not deterministic T2)",
@@ -305,8 +326,8 @@ METHODOLOGICAL_DISCLOSURE_NOTES = {
         "T3 combined-Monte-Carlo-error pass: sp.causal_forest and grf both "
         "report the doubly-robust AIPW ATE, so the row is like-for-like and "
         "graded against combined sampling error rather than a fixed relative "
-        "band. On the clean-overlap DGP the two agree within ~0.7 combined "
-        "SE (rel 3.7%), the AIPW recovery test certifies truth-recovery "
+        "band. On the clean-overlap DGP the two agree within ~0.05 combined "
+        "SE (worst rel gap below 0.3%), the AIPW recovery test certifies truth-recovery "
         "within 4 SE, and the B=1000 Track B row confirms calibration -- the "
         "two criteria formerly held open are now both satisfied."
     ),
@@ -324,7 +345,7 @@ def _display_meta_value(module: str, key: str, value: Any) -> Any:
         return value.replace(
             "so they are like-for-like and must agree within combined Monte Carlo error",
             "so they agree within combined Monte Carlo error "
-            "(rel 3.7%, ~0.7 combined SE on the clean-overlap DGP), and the "
+            "(worst rel gap below 0.3%, ~0.05 combined SE on the clean DGP), and the "
             "row is graded T3 (combined-MC-error pass)",
         )
     return value
@@ -333,15 +354,12 @@ def _display_meta_value(module: str, key: str, value: Any) -> Any:
 def tolerance_tier(module: str) -> str:
     """Classify a module's headline strictness from its registered tolerance.
 
-    Uses the forced strict tolerance (``_forced_rel_est``) when present, else
-    the point-estimate ``rel_est``/``abs_est``. Returns one of
+    Uses the point-estimate ``rel_est``/``abs_est``. Returns one of
     ``machine`` / ``iterative`` / ``moderate`` / ``methodological`` /
     ``unclassified``.
     """
     tol = TOLERANCES.get(module, {})
-    key = tol.get("_forced_rel_est")
-    if key is None:
-        key = tol.get("rel_est", tol.get("abs_est"))
+    key = tol.get("rel_est", tol.get("abs_est"))
     if key is None:
         return "unclassified"
     if key <= 1e-6:
@@ -414,11 +432,11 @@ def _load_stata(module: str) -> dict[str, dict] | None:
 
 def collect(module: str) -> list[RowDiff]:
     py_path = RESULTS_DIR / f"{module}_py.json"
-    R_path  = RESULTS_DIR / f"{module}_R.json"
+    R_path = RESULTS_DIR / f"{module}_R.json"
     if not py_path.exists() or not R_path.exists():
         return []
     py = json.loads(py_path.read_text(encoding="utf-8"))
-    R  = json.loads(R_path.read_text(encoding="utf-8"))
+    R = json.loads(R_path.read_text(encoding="utf-8"))
     R_by = {r["statistic"]: r for r in R["rows"]}
     Stata_by = _load_stata(module) or {}
     out: list[RowDiff] = []
@@ -430,19 +448,29 @@ def collect(module: str) -> list[RowDiff]:
         abs_s, rel_s = _diff(pr.get("se"), rr.get("se"))
         sr = Stata_by.get(pr["statistic"])
         Stata_est = sr.get("estimate") if sr else None
-        Stata_se  = sr.get("se") if sr else None
+        Stata_se = sr.get("se") if sr else None
         abs_est_st, rel_est_st = _diff(pr["estimate"], Stata_est)
-        abs_se_st,  rel_se_st  = _diff(pr.get("se"),   Stata_se)
-        out.append(RowDiff(
-            module=module, statistic=pr["statistic"],
-            py_est=pr["estimate"], R_est=rr["estimate"],
-            abs_est=abs_e, rel_est=rel_e,
-            py_se=pr.get("se"), R_se=rr.get("se"),
-            abs_se=abs_s, rel_se=rel_s,
-            Stata_est=Stata_est, Stata_se=Stata_se,
-            abs_est_st=abs_est_st, rel_est_st=rel_est_st,
-            abs_se_st=abs_se_st,   rel_se_st=rel_se_st,
-        ))
+        abs_se_st, rel_se_st = _diff(pr.get("se"), Stata_se)
+        out.append(
+            RowDiff(
+                module=module,
+                statistic=pr["statistic"],
+                py_est=pr["estimate"],
+                R_est=rr["estimate"],
+                abs_est=abs_e,
+                rel_est=rel_e,
+                py_se=pr.get("se"),
+                R_se=rr.get("se"),
+                abs_se=abs_s,
+                rel_se=rel_s,
+                Stata_est=Stata_est,
+                Stata_se=Stata_se,
+                abs_est_st=abs_est_st,
+                rel_est_st=rel_est_st,
+                abs_se_st=abs_se_st,
+                rel_se_st=rel_se_st,
+            )
+        )
     return out
 
 
@@ -473,7 +501,7 @@ def _snapshot_rel(x: float | None) -> str:
         return "0"
     if x < 1e-4:
         exp = int(math.floor(math.log10(abs(x))))
-        mant = x / (10 ** exp)
+        mant = x / (10**exp)
         mant_s = f"{mant:.2g}"
         return rf"\({mant_s}\times10^{{{exp}}}\)"
     return f"{x:.3g}"
@@ -487,7 +515,8 @@ def _select_snapshot_diff(spec: dict[str, Any]) -> RowDiff:
         prefix = spec.get("statistic_prefix", "")
         suffix = spec.get("statistic_suffix", "")
         selected = [
-            d for d in diffs
+            d
+            for d in diffs
             if d.statistic.startswith(prefix) and d.statistic.endswith(suffix)
         ]
     if not selected:
@@ -500,10 +529,7 @@ def render_track_a_snapshot_tex() -> str:
     rows: list[str] = []
     for spec in TRACK_A_SNAPSHOT_ROWS:
         d = _select_snapshot_diff(spec)
-        max_rel = max(
-            value for value in (d.rel_est, d.rel_est_st)
-            if value is not None
-        )
+        max_rel = max(value for value in (d.rel_est, d.rel_est_st) if value is not None)
         rows.append(
             f"{spec['estimator']} & {spec['label']} & {spec['data']} & "
             f"{_snapshot_number(d.py_est)} & {_snapshot_number(d.R_est)} & "
@@ -534,8 +560,8 @@ def render_md(modules: list[str]) -> str:
         "`results/<module>_{py,R}.json` artefacts. Tolerance budget per "
         "module is pre-registered in `compare.py::TOLERANCES`. Documented "
         "convention gaps, common-specification passes, and small-sample "
-        "SE conventions (HDFE 1-df, RD default-bandwidth selector, "
-        "SCM non-uniqueness, DML fold-split noise) are flagged "
+        "SE conventions (HDFE 1-df, legacy RD bandwidth diagnostics, "
+        "SCM non-uniqueness) are flagged "
         "in the per-module `extra` block of the JSON.",
         "",
     ]
@@ -559,7 +585,9 @@ def render_md(modules: list[str]) -> str:
                 else:
                     lines.append(f"- **{k}**: `{v}`")
         lines.append("")
-        lines.append("| stat | py est | R est | abs Δ | rel Δ | py SE | R SE | abs Δ SE | rel Δ SE |")
+        lines.append(
+            "| stat | py est | R est | abs Δ | rel Δ | py SE | R SE | abs Δ SE | rel Δ SE |"
+        )
         lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
         for d in diffs:
             lines.append(
@@ -598,7 +626,7 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic.startswith("beta_"),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "SE differs by 1-df convention",
+        "gap_note": "fixest/reghdfe small-sample correction",
     },
     "04_csdid": {
         "name": "CS-DiD simple ATT",
@@ -609,17 +637,23 @@ HEADLINE: dict[str, dict[str, Any]] = {
     },
     "05_sunab": {
         "name": "Sun--Abraham event study",
-        "headline_filter": lambda d: d.statistic.startswith("att_rel_"),
+        "headline_filter": lambda d: (
+            d.statistic == "weighted_avg_ATT" or d.statistic.startswith("att_rel_")
+        ),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "aggregation rule differs",
+        "gap_note": "fixest agg='att' summary parity",
     },
     "06_rd": {
         "name": "RD CCT bias-corrected",
-        "headline_filter": lambda d: d.statistic.startswith("forced_"),
+        "headline_filter": lambda d: d.statistic
+        in (
+            "default_conventional_est",
+            "default_robust_est",
+        ),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "at forced common $h$; default-$h$ selector differs",
+        "gap_note": "R/Stata default-$h$ via CCT delegation",
     },
     "07_scm": {
         "name": "Classical SCM",
@@ -633,7 +667,7 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic == "theta_DML_PLR",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "fold-split RNG differs",
+        "gap_note": "shared explicit fold_id",
     },
     "09_rddensity": {
         "name": "RD density (CJM)",
@@ -647,7 +681,7 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic.startswith("ci_"),
         "metric": "abs_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "FLCI vs analytic-bound solver",
+        "gap_note": "FLCI via HonestDiD backend; Stata port within 0.0005",
     },
     "11_psm": {
         "name": "PSM 1:1 NN",
@@ -661,14 +695,14 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic == "att_sdid",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "native Frank-Wolfe/zeta parity; placebo-SE RNG convention",
+        "gap_note": "native Frank-Wolfe/zeta ATT parity; backend-native placebo SE diagnostics",
     },
     "13_causal_forest": {
         "name": "Causal forest (AIPW)",
         "headline_filter": lambda d: d.statistic == "ate_causal_forest",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "T3 combined-MC-error pass; like-for-like AIPW vs grf within $\\sim 0.7$ combined SE on clean-overlap DGP",
+        "gap_note": "T3 combined-MC-error pass; like-for-like AIPW vs grf within $\\sim 0.05$ combined SE on clean-overlap DGP",
     },
     "14_ols_cluster": {
         "name": "OLS + cluster-robust SE",
@@ -682,21 +716,21 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic.startswith("beta_"),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "SE 1.27\\% (ssc convention)",
+        "gap_note": "fixest/reghdfe nested-FE cluster correction",
     },
     "16_bjs": {
         "name": "BJS imputation",
         "headline_filter": lambda d: d.statistic == "att_bjs",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "point estimate matches; SE convention differs",
+        "gap_note": "R/Stata simple-ATT point parity; SE rows side-specific",
     },
     "20_bacon": {
         "name": "Goodman--Bacon decomposition",
         "headline_filter": lambda d: d.statistic == "beta_twfe",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "TWFE matches; per-2x2 convention differs",
+        "gap_note": "R/Stata bacondecomp dyad parity",
     },
     "21_honest_relmags": {
         "name": "Honest-DiD relative-mags",
@@ -710,7 +744,7 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic in ("beta_treat", "rv_q"),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "benchmark $r^2$ conditioning differs",
+        "gap_note": "sensemakr RV and benchmark bound-scale parity",
     },
     "25_lmm": {
         "name": "Linear mixed model",
@@ -784,17 +818,22 @@ HEADLINE: dict[str, dict[str, Any]] = {
     },
     "29_panel_sfa": {
         "name": "Panel SFA (Pitt--Lee)",
-        "headline_filter": lambda d: d.statistic.startswith("beta_"),
+        "headline_filter": lambda d: d.statistic in {"beta_lnk", "beta_lnl"},
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "",
+        "gap_note": "slope parity; intercept/sigma rows are scale diagnostics",
     },
     "31_dfl": {
         "name": "DFL reweighting",
-        "headline_filter": lambda d: d.statistic == "gap",
+        "headline_filter": lambda d: d.statistic
+        in {
+            "gap",
+            "composition",
+            "structure",
+        },
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "comp/struct split convention",
+        "gap_note": "",
     },
     "32_rif": {
         "name": "RIF / UQR (median)",
@@ -812,7 +851,7 @@ HEADLINE: dict[str, dict[str, Any]] = {
     },
     "34_lp": {
         "name": "Local projections",
-        "headline_filter": lambda d: d.statistic.startswith("irf_"),
+        "headline_filter": lambda d: d.statistic.startswith("irf_h"),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": "lpirfs Cholesky/unit-shock path",
@@ -820,15 +859,15 @@ HEADLINE: dict[str, dict[str, Any]] = {
     "35_panel": {
         "name": "Panel FE/RE + Hausman",
         "headline_filter": lambda d: d.statistic.startswith(
-            ("fe_beta_", "re_beta_")),
+            ("fe_beta_", "re_beta_", "hausman_chi2", "hausman_pvalue")
+        ),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "FE/RE coefs match; Hausman variance differs",
+        "gap_note": "FE/RE and plm-style Hausman parity; Stata sigmamore diagnostic row",
     },
     "36_mediation": {
         "name": "Causal mediation (IKT)",
-        "headline_filter": lambda d: d.statistic in (
-            "acme", "ade", "total_effect"),
+        "headline_filter": lambda d: d.statistic in ("acme", "ade", "total_effect"),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": "",
@@ -846,14 +885,14 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic == "att",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "R-only (Stata drdid is Ferman's different DR formula)",
+        "gap_note": "panel DR-DID calibrated propensity parity with R/Stata",
     },
     "39_arima": {
         "name": "ARIMA(2,0,0)",
         "headline_filter": lambda d: d.statistic.startswith("ar"),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "sp uses Kalman exact MLE; R/Stata use CSS-ML (0.5\\% method gap)",
+        "gap_note": "stats::arima ML / tightly converged Stata arima",
     },
     "40_qreg": {
         "name": "Quantile reg (median)",
@@ -944,18 +983,14 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic == "avg_post_gap",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "identified convex SCM; sp recovers exact weights+gap",
+        "gap_note": "identified convex SCM; sp and Stata synth recover exact weights+gap",
     },
     "53_cr2": {
         "name": "Cluster-robust CR2 / CR3 SE",
-        # Headline is the CR2 (Bell--McCaffrey) SE only: it must match
-        # clubSandwich::vcovCR(type="CR2") to machine precision. The CR3
-        # rows are deliberately excluded -- sp's exact cluster jackknife
-        # vs clubSandwich's analytic CR3 is a documented ~1e-3 gap.
-        "headline_filter": lambda d: d.statistic.startswith("cr2_"),
+        "headline_filter": lambda d: d.statistic.startswith(("cr2_", "cr3_")),
         "metric": "rel_se",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "CR2 machine-precision; exact CR3 jackknife vs analytic CR3 differs $\\sim10^{-3}$",
+        "gap_note": "CR2 and analytic CR3 match clubSandwich",
     },
     "54_twoway_cluster": {
         "name": "Two-way cluster-robust SE",
@@ -994,11 +1029,16 @@ def render_tex(modules: list[str]) -> str:
         diffs = collect(m)
         if not diffs:
             continue
-        cfg = HEADLINE.get(m, {
-            "name": m, "headline_filter": lambda d: True,
-            "metric": "rel_est", "verdict": "\\textit{review}",
-            "gap_note": "",
-        })
+        cfg = HEADLINE.get(
+            m,
+            {
+                "name": m,
+                "headline_filter": lambda d: True,
+                "metric": "rel_est",
+                "verdict": "\\textit{review}",
+                "gap_note": "",
+            },
+        )
         filtered = [d for d in diffs if cfg["headline_filter"](d)]
         if not filtered:
             filtered = diffs
@@ -1060,17 +1100,24 @@ def render_tex_3way(modules: list[str]) -> str:
         diffs = collect(m)
         if not diffs:
             continue
-        cfg = HEADLINE.get(m, {
-            "name": m, "headline_filter": lambda d: True,
-            "metric": "rel_est", "verdict": "\\textit{review}",
-            "gap_note": "",
-        })
+        cfg = HEADLINE.get(
+            m,
+            {
+                "name": m,
+                "headline_filter": lambda d: True,
+                "metric": "rel_est",
+                "verdict": "\\textit{review}",
+                "gap_note": "",
+            },
+        )
         filtered = [d for d in diffs if cfg["headline_filter"](d)]
         if not filtered:
             filtered = diffs
         metric = cfg["metric"]
         # vs-R column.
-        vals_r = [getattr(d, metric) for d in filtered if getattr(d, metric) is not None]
+        vals_r = [
+            getattr(d, metric) for d in filtered if getattr(d, metric) is not None
+        ]
         if not vals_r:
             continue
         worst_r = max(vals_r)
@@ -1080,8 +1127,9 @@ def render_tex_3way(modules: list[str]) -> str:
             primary_r = f"abs $\\le {worst_r:.3g}$"
         # vs-Stata column.
         st_metric = "rel_est_st" if metric == "rel_est" else "abs_est_st"
-        st_vals = [getattr(d, st_metric) for d in filtered
-                    if getattr(d, st_metric) is not None]
+        st_vals = [
+            getattr(d, st_metric) for d in filtered if getattr(d, st_metric) is not None
+        ]
         if st_vals:
             worst_s = max(st_vals)
             if metric == "rel_est":
@@ -1111,13 +1159,14 @@ def render_tex_3way(modules: list[str]) -> str:
         "\\setlength{\\tabcolsep}{2pt}\n"
         "\\begin{longtable}{@{}p{0.055\\linewidth}p{0.205\\linewidth}p{0.30\\linewidth}p{0.30\\linewidth}p{0.10\\linewidth}@{}}\n"
         "\\caption{Track A parity headline at \\statspai{} 1.16.0 against the canonical "
-        "\\proglang{R} reference \\emph{and} (where one exists) the canonical \\proglang{Stata} "
-        "reference, on the calibrated replicas. The ID column is the two-digit module prefix; "
+        "\\proglang{R} reference \\emph{and} (where one exists) a canonical or audited "
+        "\\proglang{Stata} bridge reference, on the calibrated replicas. The ID column is the two-digit module prefix; "
         "the two diff columns report the worst residual "
         "gap across each module's headline rows (point estimates only; per-row SE diffs and "
         "documented gap rows are reported in \\code{tests/r\\_parity/results/parity\\_table\\_3way.md}). "
-        "``no canonical ref'' marks modules whose \\proglang{Stata} ecosystem has no "
-        "authoritative port we can compare to without fabricating one. Verdicts use PASS "
+        "Italic text in the \\proglang{Stata} column records the explicit "
+        "non-materialized bridge or no-canonical-reference reason when no "
+        "portable \\proglang{Stata} artifact is available. Verdicts use PASS "
         "and GAP; common-specification passes, small-sample SE conventions, and "
         "convention gaps are explained in the parenthetical notes and per-module "
         "\\code{extra} block in "
@@ -1156,10 +1205,10 @@ def render_md_3way(modules: list[str]) -> str:
         "in the per-module `extra` block of each JSON.",
         "",
         "**Strictness-tier breakdown** (by registered point-estimate "
-        "tolerance, so machine-precision matches are not flattened together "
+        "tolerance, so machine-level point-estimate matches are not flattened together "
         "with methodological T3/T4 tolerances): "
-        + _tier_breakdown_sentence(
-            [m for m in modules if collect(m)], md=True) + ".",
+        + _tier_breakdown_sentence([m for m in modules if collect(m)], md=True)
+        + ".",
         "",
     ]
     for m in modules:
@@ -1171,11 +1220,14 @@ def render_md_3way(modules: list[str]) -> str:
         st_meta_path = STATA_RESULTS_DIR / f"{m}_Stata.json"
         st_meta = (
             json.loads(st_meta_path.read_text(encoding="utf-8")).get("extra", {})
-            if st_meta_path.exists() else {}
+            if st_meta_path.exists()
+            else {}
         )
         lines.append(f"## Module {m}")
-        lines.append(f"- **strictness_tier**: `{tolerance_tier(m)}` "
-                     f"({TIER_LABEL_MD[tolerance_tier(m)]})")
+        lines.append(
+            f"- **strictness_tier**: `{tolerance_tier(m)}` "
+            f"({TIER_LABEL_MD[tolerance_tier(m)]})"
+        )
         if m in METHODOLOGICAL_DISCLOSURE_NOTES:
             lines.append(
                 f"- **methodological_disclosure**: "
@@ -1195,16 +1247,12 @@ def render_md_3way(modules: list[str]) -> str:
         elif m in STATA_SKIP_REASON:
             lines.append(f"- **stata_status**: {STATA_SKIP_REASON[m]}")
         if m in STATA_HEADLINE_GAP_EXCEPTIONS:
-            lines.append(
-                f"- **stata_gap_note**: {STATA_HEADLINE_GAP_EXCEPTIONS[m]}"
-            )
+            lines.append(f"- **stata_gap_note**: {STATA_HEADLINE_GAP_EXCEPTIONS[m]}")
         lines.append("")
         lines.append(
             "| stat | py est | R est | Stata est | rel py-R | rel py-Stata | py SE | R SE | Stata SE | rel SE py-R | rel SE py-Stata |"
         )
-        lines.append(
-            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
-        )
+        lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
         for d in diffs:
             lines.append(
                 f"| `{d.statistic}` "
@@ -1218,17 +1266,16 @@ def render_md_3way(modules: list[str]) -> str:
 
 
 def main() -> None:
-    modules = sorted(
-        p.stem.replace("_py", "")
-        for p in RESULTS_DIR.glob("*_py.json")
-    )
+    modules = sorted(p.stem.replace("_py", "") for p in RESULTS_DIR.glob("*_py.json"))
     rendered_modules = [m for m in modules if collect(m)]
     md = render_md(modules)
     tex = render_tex(modules)
     (RESULTS_DIR / "parity_table.md").write_text(md, encoding="utf-8")
     (RESULTS_DIR / "parity_table.tex").write_text(tex, encoding="utf-8")
     print("OK -- wrote parity_table.md and parity_table.tex")
-    print("     strictness tiers: " + _tier_breakdown_sentence(rendered_modules, md=True))
+    print(
+        "     strictness tiers: " + _tier_breakdown_sentence(rendered_modules, md=True)
+    )
     PAPER_TABLES_DIR.mkdir(parents=True, exist_ok=True)
     snapshot_tex = render_track_a_snapshot_tex()
     (PAPER_TABLES_DIR / "track_a_cross_language_snapshot.tex").write_text(
@@ -1237,7 +1284,7 @@ def main() -> None:
     print("OK -- wrote Paper-JSS/manuscript/tables/track_a_cross_language_snapshot.tex")
 
     # 3-way Stata extension. Always emitted; Stata-empty modules show
-    # the explicit "no canonical ref" reason rather than a blank.
+    # the explicit skip/materialization reason rather than a blank.
     if _has_any_stata(modules) or STATA_SKIP_REASON:
         md3 = render_md_3way(modules)
         tex3 = render_tex_3way(modules)
@@ -1246,11 +1293,14 @@ def main() -> None:
         print("OK -- wrote parity_table_3way.md and parity_table_3way.tex")
         n_stata = sum(1 for m in rendered_modules if _load_stata(m) is not None)
         n_py_stata_only = sum(
-            1 for m in modules if _load_stata(m) is not None and m not in rendered_modules
+            1
+            for m in modules
+            if _load_stata(m) is not None and m not in rendered_modules
         )
         suffix = (
             f"; {n_py_stata_only} Py-Stata-only module omitted from R-joined table"
-            if n_py_stata_only else ""
+            if n_py_stata_only
+            else ""
         )
         print(
             f"     ({n_stata} of {len(rendered_modules)} rendered modules "

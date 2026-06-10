@@ -1,7 +1,8 @@
 # StatsPAI LMM parity (R side) -- Module 25.
 #
 # Reads data/25_lmm.csv and runs lme4::lmer with REML.
-# Tolerance: rel < 1e-3 on the fixed effects and ICC.
+# Tolerance: rel < 1e-6 on fixed effects, fixed-effect SEs, REML
+# log-likelihood, and ICC.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)

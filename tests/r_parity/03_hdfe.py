@@ -44,7 +44,7 @@ def main() -> None:
     df = make_panel()
     dump_csv(df, MODULE)
 
-    fit = sp.fast.feols(FORMULA, data=df, vcov="iid")
+    fit = sp.fast.feols(FORMULA, data=df, vcov="iid", ssc="fixest")
 
     # FeolsResult exposes .coef() and .se() as methods returning a
     # pandas Series indexed by the non-absorbed regressor names.
@@ -74,17 +74,11 @@ def main() -> None:
             "n_years": int(df["year"].nunique()),
             "df_resid": int(fit.df_resid),
             "rss": float(fit.rss),
-            "df_convention": (
-                "sp.fast.feols uses df_resid = N - sum(FE_levels). "
-                "fixest::feols uses df_resid = N - sum(FE_levels) - 1, "
-                "subtracting one extra for the cross-FE collinearity. "
-                "The point estimates are identical to ~1e-15; the IID "
-                "SE ratio fixest/sp.fast is exactly "
-                "sqrt(sp_df / fixest_df) = sqrt(9730 / 9729) = "
-                "1.0000514, so the rel SE diff is 5.14e-5. Reviewers "
-                "should treat this as a small-sample-correction "
-                "convention difference, not as a numerical bug; "
-                "fixest's SE = sp.fast's SE * sqrt(9730/9729)."
+            "ssc": "fixest",
+            "parity_note": (
+                "sp.fast.feols uses ssc='fixest' so the residual FE "
+                "rank and IID standard errors match fixest::feols and "
+                "reghdfe on this two-way HDFE fixture."
             ),
         },
     )

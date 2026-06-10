@@ -77,6 +77,7 @@ def test_jss_formal_compliance_audit_maps_official_requirements() -> None:
     assert install_probe["ok"] is True
     assert install_probe["version"] == expected_version
     assert install_probe["function_count"] >= 1000
+    expected_function_count = install_probe["function_count"]
     assert {"statspai", "statspai-mcp"} <= set(install_probe["scripts"])
     assert any(name.endswith(".dist-info") for name in install_probe["dist_infos"])
     assert "Development Status :: 4 - Beta" in _pyproject_text
@@ -167,7 +168,7 @@ def test_jss_formal_compliance_audit_maps_official_requirements() -> None:
         "development classifier is Beta rather than Alpha",
         "pip --no-deps --target install/import probe ok=True",
         f"version={expected_version}",
-        "functions=1020",
+        f"functions={expected_function_count}",
         "statspai-mcp",
     ):
         assert snippet in source_scope["evidence"]

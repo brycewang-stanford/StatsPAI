@@ -11,7 +11,13 @@ MODULE <- "45_ologit"
 df <- read_csv_strict(MODULE)
 df$y <- factor(df$y, ordered = TRUE)
 
-fit <- MASS::polr(y ~ x, data = df, method = "logistic", Hess = TRUE)
+fit <- MASS::polr(
+  y ~ x,
+  data = df,
+  method = "logistic",
+  Hess = TRUE,
+  control = list(maxit = 10000, reltol = 1e-14)
+)
 sm <- summary(fit)
 co <- sm$coefficients
 
@@ -31,4 +37,6 @@ rows <- list(
 )
 
 write_results(MODULE, rows, extra = list(package = "MASS::polr",
-                                          method = "logistic"))
+                                          method = "logistic",
+                                          optim_reltol = 1e-14,
+                                          optim_maxit = 10000))

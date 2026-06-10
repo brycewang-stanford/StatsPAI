@@ -5,7 +5,7 @@
 *   R:         lme4::glmer(..., nAGQ=8)
 *   Stata:     melogit, intpoints(8)
 *
-* Tolerance: rel < 5e-3 on betas; rel < 5e-2 on SE.
+* Tolerance: rel < 1e-6 on betas; rel < 5e-2 on SE.
 
 version 18
 clear all

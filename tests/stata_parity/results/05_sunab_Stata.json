@@ -6,10 +6,10 @@
       "module": "05_sunab",
       "side": "Stata",
       "statistic": "weighted_avg_ATT",
-      "estimate": -0.033782519054831199,
-      "se": 0.0059386015450693004,
-      "ci_lo": -0.045421964201700901,
-      "ci_hi": -0.0221430739079615,
+      "estimate": -0.032976513809654114,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
       "n": 2500,
       "extra": {}
     }

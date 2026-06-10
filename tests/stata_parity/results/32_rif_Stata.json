@@ -1,0 +1,93 @@
+{
+  "module": "32_rif",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "32_rif",
+      "side": "Stata",
+      "statistic": "total_diff",
+      "estimate": -0.20115866875291741,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "32_rif",
+      "side": "Stata",
+      "statistic": "explained",
+      "estimate": 0.0109591569773372,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "32_rif",
+      "side": "Stata",
+      "statistic": "unexplained",
+      "estimate": -0.21211782573025459,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "32_rif",
+      "side": "Stata",
+      "statistic": "explained_Intercept",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "32_rif",
+      "side": "Stata",
+      "statistic": "explained_educ",
+      "estimate": 0.027673251198548399,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "32_rif",
+      "side": "Stata",
+      "statistic": "explained_exper",
+      "estimate": -0.016714094221211302,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "statistic": "quantile",
+    "tau": 0.5,
+    "quantile_convention": "dineq",
+    "stata_bridge_status": "audited Stata/Mata algorithm bridge",
+    "stata_reference_note": "Portable bridge because rifhdreg is not part of the baseline Stata environment; implements the dineq-compatible RIF kernel and Oaxaca split used by StatsPAI/R parity.",
+    "stata_algorithm": "Hmisc type-7 quantile + R stats::density binned Gaussian density + groupwise RIF-OLS decomposition"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

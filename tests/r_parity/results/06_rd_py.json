@@ -6,10 +6,10 @@
       "module": "06_rd",
       "side": "py",
       "statistic": "default_conventional_est",
-      "estimate": 0.07307771082691777,
-      "se": 0.016943829012937787,
-      "ci_lo": 0.03986841620135486,
-      "ci_hi": 0.10628700545248068,
+      "estimate": 0.07754710574040685,
+      "se": 0.00753993810016899,
+      "ci_lo": 0.06276909861841427,
+      "ci_hi": 0.09232511286239943,
       "n": 6558,
       "extra": {}
     },
@@ -17,10 +17,10 @@
       "module": "06_rd",
       "side": "py",
       "statistic": "default_robust_est",
-      "estimate": 0.0615986444941492,
-      "se": 0.024371709311679386,
-      "ci_lo": 0.013830972001578137,
-      "ci_hi": 0.10936631698672027,
+      "estimate": 0.07633893820852533,
+      "se": 0.008982632094619547,
+      "ci_lo": 0.05873330281669743,
+      "ci_hi": 0.09394457360035323,
       "n": 6558,
       "extra": {}
     },
@@ -28,7 +28,7 @@
       "module": "06_rd",
       "side": "py",
       "statistic": "default_bandwidth_h",
-      "estimate": 0.042287,
+      "estimate": 0.17578426639940303,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -39,6 +39,17 @@
       "module": "06_rd",
       "side": "py",
       "statistic": "default_bandwidth_b",
+      "estimate": 0.2755756160782371,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6558,
+      "extra": {}
+    },
+    {
+      "module": "06_rd",
+      "side": "py",
+      "statistic": "legacy_internal_mserd_bandwidth_h",
       "estimate": 0.042287,
       "se": null,
       "ci_lo": null,
@@ -49,11 +60,22 @@
     {
       "module": "06_rd",
       "side": "py",
+      "statistic": "legacy_internal_mserd_robust_est",
+      "estimate": 0.06159864449414476,
+      "se": 0.0243717093116791,
+      "ci_lo": 0.013830972001574252,
+      "ci_hi": 0.10936631698671527,
+      "n": 6558,
+      "extra": {}
+    },
+    {
+      "module": "06_rd",
+      "side": "py",
       "statistic": "forced_h0.042287_conventional_est",
-      "estimate": 0.07307768719953905,
-      "se": 0.016943749945928087,
-      "ci_lo": 0.03986854754246751,
-      "ci_hi": 0.10628682685661059,
+      "estimate": 0.073077687199543,
+      "se": 0.01694374994592815,
+      "ci_lo": 0.039868547542471336,
+      "ci_hi": 0.10628682685661466,
       "n": 6558,
       "extra": {}
     },
@@ -61,10 +83,10 @@
       "module": "06_rd",
       "side": "py",
       "statistic": "forced_h0.042287_robust_est",
-      "estimate": 0.06159909495589838,
-      "se": 0.02437159627760155,
-      "ci_lo": 0.013831644006048895,
-      "ci_hi": 0.10936654590574788,
+      "estimate": 0.061599094955907374,
+      "se": 0.024371596277601906,
+      "ci_lo": 0.013831644006057194,
+      "ci_hi": 0.10936654590575756,
       "n": 6558,
       "extra": {}
     }
@@ -73,7 +95,7 @@
     "kernel": "triangular",
     "p": 1,
     "q": 2,
-    "bwselect": "mserd",
-    "bandwidth_selector_gap": "On this Lee-2008 replica, sp.rdrobust's MSE-RD bandwidth selector returns h=0.042 while rdrobust::rdrobust returns h=0.176 -- a ~4x difference that propagates into the headline estimate (sp default ~0.062; R default ~0.076). When BOTH implementations are forced to the same bandwidth h=0.042287 the bias-corrected point estimate matches at rel ~ 1e-6 and the conventional SE at ~6%. The discrepancy is in the regularisation term of the optimal-bandwidth formula and is documented in tests/reference_parity/test_rd_parity.py as a known gap; reviewers should treat the bandwidth selector as a calibrated package-default choice that differs across implementations, not as evidence of a numerical bug in the underlying local-polynomial estimator."
+    "bwselect": "cct",
+    "bandwidth_parity_note": "Track A uses sp.rdrobust(..., bwselect='cct'), which delegates to the official rdrobust Python port and matches R/Stata rdrobust default mserd bandwidths on the Lee-2008 fixture. The legacy StatsPAI internal mserd selector is retained as legacy_internal_mserd_* diagnostic rows and should not be used as the cross-language default-h parity claim."
   }
 }

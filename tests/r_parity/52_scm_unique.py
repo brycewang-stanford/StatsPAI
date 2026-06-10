@@ -17,10 +17,11 @@ an implementation bug.  The companion 52_scm_unique.R runs
 ``Synth::synth`` on the same CSV bytes with each pre-period as its own
 predictor.
 
-Registered tolerance (``compare.py``): rel_est < 0.02 on the average
-post-treatment gap (sp recovers the exact value; Synth's L-BFGS-B
-V-optimiser stops at a slightly non-zero pre-RMSE, leaving a ~0.7%
-residual).
+Registered tolerance (``compare.py``): rel_est < 1e-6 on the average
+post-treatment gap.  Python and Stata recover the exact convex weights;
+the R Synth reference fixes the predictor-weight vector and tightens the
+inner ``ipop`` QP so the reference gap is also at machine-level point
+precision.
 """
 from __future__ import annotations
 
@@ -87,12 +88,14 @@ def main() -> None:
                 "0.3*donor1 + 0.2*donor2 exactly; donors 3,4 are "
                 "distractors; post-period adds tau=2."
             ),
-            "note": (
+            "certification_note": (
                 "Unique-solution counterpart to module 07. sp recovers "
                 "the exact weights and gap (pre-RMSE ~ 0); Synth::synth "
-                "agrees on the gap to ~0.7%, its V-optimiser leaving a "
-                "small non-zero pre-RMSE. Certifies the classical SCM "
-                "solver on an identified problem."
+                "agrees on the gap at machine-level point precision when "
+                "run with fixed predictor weights and tightened ipop "
+                "settings, while leaving sub-nanoscopic non-zero weights "
+                "on the distractor donors. "
+                "Certifies the classical SCM solver on an identified problem."
             ),
         },
     )

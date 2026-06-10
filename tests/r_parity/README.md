@@ -39,6 +39,9 @@ Historical verification worklog (not the current source-snapshot audit):
 Module `50_xtabond` is the separate Py--Stata-only migration fixture and
 is not part of this R-joined table; the 55 materialized R rows are
 modules 01--49 and 51--56.
+The native Python rows used by the loose/reference-bridge audit are
+modules 01--49, 51, and 52; modules 53--56 are additional R-only
+robust/cluster-SE parity rows.
 
 | # | Module | StatsPAI | R / reference side |
 | --- | --- | --- | --- |
@@ -80,7 +83,7 @@ modules 01--49 and 51--56.
 | 36 | Causal mediation | `sp.mediation` | `mediation::mediate` |
 | 37 | PPML + HDFE | `sp.ppmlhdfe` | `fixest::fepois` |
 | 38 | DR-DID (Sant'Anna-Zhao) | `sp.drdid` | `DRDID::drdid_imp_panel` |
-| 39 | ARIMA(2,0,0) | `sp.arima` | `forecast::Arima` |
+| 39 | ARIMA(2,0,0) | `sp.arima` | `stats::arima` |
 | 40 | Quantile regression | `sp.qreg` | `quantreg::rq` |
 | 41 | Tobit | `sp.tobit` | `censReg::censReg` |
 | 42 | Negative binomial | `sp.nbreg` | `MASS::glm.nb` |
