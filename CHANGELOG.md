@@ -114,6 +114,25 @@ All notable changes to StatsPAI will be documented in this file.
   `tests/test_cusum_bde_correctness.py`. Refs verified via `paper.bib`
   `brown1975techniques` + Crossref DOI 10.1111/j.2517-6161.1975.tb01532.x.
 
+- **Citation hardening (§10 zero-hallucination): corrected three fabricated
+  author attributions on real arXiv IDs in docstrings/`paper.bib`.** An audit
+  of all 80 unique arXiv IDs in `src/` docstrings against the arXiv API
+  surfaced real IDs carrying wrong author names:
+  - `sp.dist_iv` header said *"Distributional IV (Sharma-Xue 2025,
+    arXiv 2502.07641)"* and *"KAN-Powered D-IV-LATE (Kennedy 2025,
+    arXiv 2506.12765)"*; the verified authors are **Holovchak, Saengkyongam,
+    Meinshausen & Shen (2025)** and **Shaw (2025)** respectively.
+  - `sp.did_bcf` header + `.cite()` bibtex + the `paper.bib`
+    `wuthrich2025forests` entry attributed arXiv 2505.09706 to *"Wüthrich &
+    Zhu"*; the verified authors are **Souto & Louzada Neto (2025)**. The bib
+    key is renamed `wuthrich2025forests` → `souto2025forests` (uncited in any
+    rendered PDF, so no JOSS/JSS impact).
+  - `sp.llm_dag_propose` docstrings cited *"Kiciman-Sharma 2025,
+    arXiv 2402.11068"*; arXiv 2402.11068 is Wan et al. (2024). Corrected to
+    the intended foundational reference **Kıcıman, Ness & Sharma (2023),
+    arXiv 2305.00050**. All authors verified via the canonical arXiv abstract
+    pages. No estimator numerics, signatures, or schemas changed.
+
 - **⚠️ Correctness fix (pandas ≥ 3.0): `sp.horowitz_manski` bounds silently
   collapsed to `0.0`/`0.0` when a covariate stratum mapped to NaN.** The
   internal `_create_strata` helper discretises continuous covariates with

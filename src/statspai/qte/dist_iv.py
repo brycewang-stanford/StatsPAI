@@ -1,6 +1,6 @@
 """
-Distributional IV (Sharma-Xue 2025, arXiv 2502.07641) and
-KAN-Powered D-IV-LATE (Kennedy 2025, arXiv 2506.12765).
+Distributional IV (Holovchak, Saengkyongam, Meinshausen & Shen 2025,
+arXiv 2502.07641) and KAN-Powered D-IV-LATE (Shaw 2025, arXiv 2506.12765).
 
 Standard IV estimates the LATE on the *mean*. Distributional IV
 estimates the LATE on the *entire distribution* of Y, returning the

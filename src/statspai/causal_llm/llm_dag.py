@@ -1,5 +1,5 @@
 """
-LLM-assisted DAG proposal (Kiciman-Sharma 2025, arXiv 2402.11068).
+LLM-assisted DAG proposal (Kıcıman, Ness & Sharma 2023, arXiv 2305.00050).
 
 Given a list of variable names + a domain description, propose
 candidate causal edges. Default backend is a deterministic heuristic

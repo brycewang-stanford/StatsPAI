@@ -5,7 +5,8 @@ Three integration points where large language models help causal
 analysis without replacing the formal estimator:
 
 * :func:`llm_dag_propose` — propose candidate DAGs from variable
-  names + domain description (Kiciman-Sharma 2025, arXiv 2402.11068).
+  names + domain description (Kıcıman, Ness & Sharma 2023,
+  arXiv 2305.00050).
 * :func:`llm_unobserved_confounders` — generate plausible unobserved
   confounder candidates for E-value sensitivity analysis
   (arXiv 2603.14273).
