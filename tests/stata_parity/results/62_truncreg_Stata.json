@@ -1,0 +1,65 @@
+{
+  "module": "62_truncreg",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "62_truncreg",
+      "side": "Stata",
+      "statistic": "beta_intercept",
+      "estimate": 0.94914584044534356,
+      "se": 0.12035080188072,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 966,
+      "extra": {}
+    }
+,
+    {
+      "module": "62_truncreg",
+      "side": "Stata",
+      "statistic": "beta_x1",
+      "estimate": 0.78083232435707284,
+      "se": 0.065511594435047393,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 966,
+      "extra": {}
+    }
+,
+    {
+      "module": "62_truncreg",
+      "side": "Stata",
+      "statistic": "beta_x2",
+      "estimate": -0.35365182007612839,
+      "se": 0.17986067443685019,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 966,
+      "extra": {}
+    }
+,
+    {
+      "module": "62_truncreg",
+      "side": "Stata",
+      "statistic": "sigma",
+      "estimate": 1.2005468888095061,
+      "se": 0.049196237687088397,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 966,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "truncation": "left at 0",
+    "stata_command": "truncreg y x1 x2, ll(0)"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

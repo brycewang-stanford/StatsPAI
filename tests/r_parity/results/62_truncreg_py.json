@@ -1,0 +1,54 @@
+{
+  "module": "62_truncreg",
+  "side": "py",
+  "rows": [
+    {
+      "module": "62_truncreg",
+      "side": "py",
+      "statistic": "beta_intercept",
+      "estimate": 0.9491459305825017,
+      "se": 0.12034946163864768,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 966,
+      "extra": {}
+    },
+    {
+      "module": "62_truncreg",
+      "side": "py",
+      "statistic": "beta_x1",
+      "estimate": 0.7808322557985564,
+      "se": 0.06551135704621733,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 966,
+      "extra": {}
+    },
+    {
+      "module": "62_truncreg",
+      "side": "py",
+      "statistic": "beta_x2",
+      "estimate": -0.3536517919326936,
+      "se": 0.17986054593066128,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 966,
+      "extra": {}
+    },
+    {
+      "module": "62_truncreg",
+      "side": "py",
+      "statistic": "sigma",
+      "estimate": 1.2005468335441016,
+      "se": 0.04919587067332898,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 966,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "truncation": "left at 0",
+    "sigma_note": "sp.truncreg estimates ln_sigma; sigma row is exp(ln_sigma) with the delta-method SE."
+  }
+}

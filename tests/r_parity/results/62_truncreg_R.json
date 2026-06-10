@@ -1,0 +1,73 @@
+{
+  "module": "62_truncreg",
+  "side": "R",
+  "rows": [
+    {
+      "module": "62_truncreg",
+      "side": "R",
+      "statistic": "beta_intercept",
+      "estimate": 0.949121750731528,
+      "se": 0.120353674750899,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 966,
+      "extra": []
+    },
+    {
+      "module": "62_truncreg",
+      "side": "R",
+      "statistic": "beta_x1",
+      "estimate": 0.780835665255938,
+      "se": 0.0655124305075939,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 966,
+      "extra": []
+    },
+    {
+      "module": "62_truncreg",
+      "side": "R",
+      "statistic": "beta_x2",
+      "estimate": -0.353646121689548,
+      "se": 0.1798619203048,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 966,
+      "extra": []
+    },
+    {
+      "module": "62_truncreg",
+      "side": "R",
+      "statistic": "sigma",
+      "estimate": 1.20055025287102,
+      "se": 0.0491973206399814,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 966,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "package": ["truncreg::truncreg"],
+    "truncation": ["left at 0"]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "truncreg": "0.2-5",
+      "maxLik": "1.5-2.2",
+      "miscTools": "0.6-30",
+      "zoo": "1.8-15",
+      "compiler": "4.5.2",
+      "generics": "0.1.4",
+      "sandwich": "3.1-1",
+      "grid": "4.5.2",
+      "jsonlite": "2.0.0",
+      "digest": "0.6.39",
+      "lattice": "0.22-7"
+    }
+  }
+}
