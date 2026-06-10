@@ -1433,7 +1433,7 @@
     }
   },
   {
-    "description": "Arellano-Bond / Blundell-Bond GMM for dynamic panels (standalone).",
+    "description": "Arellano-Bond / Blundell-Bond GMM for dynamic panels (standalone). Validation: certified parity evidence.",
     "name": "xtabond",
     "parameters": {
       "properties": {

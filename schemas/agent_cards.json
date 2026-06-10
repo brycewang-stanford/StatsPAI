@@ -2590,7 +2590,7 @@
       "Internal instruments are valid and not too numerous."
     ],
     "category": "panel",
-    "description": "Arellano-Bond / Blundell-Bond GMM for dynamic panels (standalone).",
+    "description": "Arellano-Bond / Blundell-Bond GMM for dynamic panels (standalone). Validation: certified parity evidence.",
     "example": "sp.xtabond(df, y=\"output\", x=[\"capital\", \"labor\"], id=\"firm\", time=\"year\")",
     "failure_modes": [
       {
@@ -2609,7 +2609,7 @@
     ],
     "reference": "Arellano & Bond (1991); Blundell & Bond (1998)",
     "signature": {
-      "description": "Arellano-Bond / Blundell-Bond GMM for dynamic panels (standalone).",
+      "description": "Arellano-Bond / Blundell-Bond GMM for dynamic panels (standalone). Validation: certified parity evidence.",
       "name": "xtabond",
       "parameters": {
         "properties": {
@@ -2668,9 +2668,11 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "R parity module 50_xtabond",
+      "Stata parity module 50_xtabond",
       "API/unit contract evidence: tests/test_gmm.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alternatives": [

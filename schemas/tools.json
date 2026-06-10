@@ -22023,7 +22023,7 @@
     "name": "xlearner"
   },
   {
-    "description": "Arellano-Bond / Blundell-Bond GMM for dynamic panels (standalone). Assumptions: No second-order serial correlation in differenced errors; Internal instruments are valid and not too numerous. Pre-conditions: Panel data include unit, time, outcome, and lagged dependent variable structure; Number of time periods is moderate relative to units. Failure modes: Instrument proliferation or AR(2) test rejects -> Collapse instruments, reduce lag depth, or compare with fixed-effects estimates. Alternatives: sp.panel, sp.feols. Typical minimum N: 100.",
+    "description": "Arellano-Bond / Blundell-Bond GMM for dynamic panels (standalone). Validation: certified parity evidence. Assumptions: No second-order serial correlation in differenced errors; Internal instruments are valid and not too numerous. Pre-conditions: Panel data include unit, time, outcome, and lagged dependent variable structure; Number of time periods is moderate relative to units. Failure modes: Instrument proliferation or AR(2) test rejects -> Collapse instruments, reduce lag depth, or compare with fixed-effects estimates. Alternatives: sp.panel, sp.feols. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "id": {
