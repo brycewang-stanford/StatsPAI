@@ -96,6 +96,24 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **⚠️ Correctness fix: `sp.cusum_test` (CUSUM parameter-stability test)
+  used a flat critical value and rejected a stable series ~30% of the time
+  at the nominal 5% level.** The recursive-residual CUSUM of Brown, Durbin &
+  Evans (1975) is a Brownian *motion* whose 1−α region is the *expanding*
+  pair of lines through `(k, ±a·√(n−k))` and `(n, ±3a·√(n−k))` with
+  `a = 0.948` at 5%. The implementation instead compared `max|CUSUM|` to the
+  flat constant `1.358` — the Kolmogorov–Smirnov sup-Brownian-*bridge* value
+  (the code comment even said "Brownian bridge") — so under H0 the empirical
+  rejection rate was ≈0.33 at n = 200/400/1000 and did not shrink with n.
+  `cusum_test` now compares the path pointwise to the BDE boundary
+  `a·(1 + 2(t−k)/(n−k))`; measured H0 size returns to ≈0.05 (0.022/0.045/0.052
+  at n = 200/400/1000) and a genuine intercept/coefficient break is still
+  detected. The return dict gains `boundary` (the expanding cut-off array,
+  also exposed as `critical_value`) and `level_constant` (`a`); `reject` is
+  now `any(|CUSUM| > boundary)`. New guard
+  `tests/test_cusum_bde_correctness.py`. Refs verified via `paper.bib`
+  `brown1975techniques` + Crossref DOI 10.1111/j.2517-6161.1975.tb01532.x.
+
 - **⚠️ Correctness fix (pandas ≥ 3.0): `sp.horowitz_manski` bounds silently
   collapsed to `0.0`/`0.0` when a covariate stratum mapped to NaN.** The
   internal `_create_strata` helper discretises continuous covariates with

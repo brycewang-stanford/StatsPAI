@@ -5,6 +5,44 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="cusum-bde-boundary-fix"></a>
+
+## Unreleased — ⚠️ `sp.cusum_test` uses the correct expanding CUSUM boundary
+
+**What changed.** The CUSUM parameter-stability test
+(`statspai.timeseries.structural_break.cusum_test`) compared `max|CUSUM|`
+against a flat constant (`1.358` at 5%). That constant is the
+Kolmogorov–Smirnov sup-statistic for a Brownian *bridge*; the
+recursive-residual CUSUM of Brown, Durbin & Evans (1975) is a Brownian
+*motion* tested against the *expanding* boundary
+`±a·(1 + 2(t−k)/(n−k))` (`a = 0.948/1.143/0.850` at α = 0.05/0.01/0.10).
+Under H0 the old test rejected a perfectly stable series ≈33% of the time
+at the nominal 5% level (at n = 200/400/1000, not shrinking with n); the
+fixed test returns to ≈5% (0.022/0.045/0.052) and still detects genuine
+intercept/coefficient breaks.
+
+**Return-value changes.** `cusum_test` still returns `cusum`, `max_cusum`,
+`reject`, and `n_obs`, but:
+
+- `critical_value` is now the **expanding boundary array** aligned with
+  `cusum` (previously a scalar `1.358`). The same array is also exposed under
+  the new key `boundary`.
+- New key `level_constant` holds the BDE multiplier `a`.
+- `reject` is now `any(|cusum| > boundary)` rather than
+  `max|cusum| > 1.358`.
+
+**Who is affected.** Anyone calling `sp.cusum_test` for a stability decision
+(the old result was severely anti-conservative), or reading `critical_value`
+as a scalar. There is no flag to restore the old flat cut-off — it was
+incorrect.
+
+**JOSS / JSS.** No JOSS (#10604) or JSS headline figure uses `cusum_test`;
+this is an additive correctness fix to a time-series diagnostic. Refs
+verified via `paper.bib` `brown1975techniques` + Crossref DOI
+10.1111/j.2517-6161.1975.tb01532.x.
+
+---
+
 <a id="evalue-hr-ci-parity"></a>
 
 ## Unreleased — ⚠️ `sp.evalue` HR / CI E-value parity with R `EValue`

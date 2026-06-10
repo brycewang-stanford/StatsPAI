@@ -384,7 +384,24 @@ def cusum_test(
     Returns
     -------
     dict
-        Keys: 'cusum', 'critical_value', 'reject', 'n_obs'.
+        Keys: ``'cusum'`` (normalised CUSUM path), ``'max_cusum'``,
+        ``'boundary'`` / ``'critical_value'`` (the expanding 1 - alpha
+        Brown-Durbin-Evans boundary, an array aligned with ``'cusum'``),
+        ``'reject'`` (True if the path crosses the boundary anywhere),
+        ``'level_constant'`` (the BDE multiplier ``a``), and ``'n_obs'``.
+
+    Notes
+    -----
+    Uses the recursive-residual CUSUM of Brown, Durbin and Evans (1975)
+    with the correct *expanding* boundary lines. Prior to the correctness
+    fix recorded in the changelog this routine compared ``max|CUSUM|`` to a
+    flat constant (the Kolmogorov-Smirnov sup-Brownian-bridge value), which
+    rejected a stable series roughly 30% of the time at the nominal 5%
+    level.
+
+    References
+    ----------
+    Brown, Durbin & Evans (1975), ``brown1975techniques`` in ``paper.bib``.
     """
     y_data = data[y].values.astype(float)
     n = len(y_data)
@@ -410,19 +427,38 @@ def cusum_test(
     rec_resid = np.array(rec_resid)
     sigma = np.std(rec_resid, ddof=1)
 
-    # CUSUM statistic
-    cusum = np.cumsum(rec_resid) / (sigma * np.sqrt(n - k))
+    # CUSUM path. Brown, Durbin & Evans (1975) plot the cumulative
+    # standardised recursive residuals
+    #   W_t = (1 / sigma_hat) * sum_{r=k+1}^{t} w_r .
+    # We report it in the normalised scale W_t / sqrt(n - k) so that the
+    # significance boundary takes the compact form a * (1 + 2 (t-k)/(n-k))
+    # below.
+    nk = n - k
+    cusum = np.cumsum(rec_resid) / (sigma * np.sqrt(nk))
     max_cusum = np.max(np.abs(cusum))
 
-    # Critical values (Brownian bridge)
-    # Approximate: critical value ≈ 1.358 for 5%
-    crit_vals = {0.01: 1.628, 0.05: 1.358, 0.10: 1.224}
-    cv = crit_vals.get(alpha, 1.358)
+    # Significance boundary. Under H0 the standardised CUSUM behaves like a
+    # Brownian *motion* (not a bridge): it is unconstrained at the right end,
+    # so the 1 - alpha bound is the EXPANDING pair of lines passing through
+    # (k, +-a*sqrt(nk)) and (n, +-3a*sqrt(nk)) (BDE 1975, Sec. 2.3). In the
+    # normalised scale used for ``cusum`` that boundary is
+    #     c_t = a * (1 + 2 (t - k) / (n - k)),   t = k+1, ..., n,
+    # with a = 0.850 / 0.948 / 1.143 at alpha = 0.10 / 0.05 / 0.01. The old
+    # flat cut-off 1.358 was the Kolmogorov-Smirnov sup-Brownian-*bridge*
+    # value and rejected a stable series ~30% of the time at the 5% level
+    # (see CHANGELOG correctness fix).
+    a_vals = {0.01: 1.143, 0.05: 0.948, 0.10: 0.850}
+    a = a_vals.get(alpha, 0.948)
+    j = np.arange(1, nk + 1)
+    boundary = a * (1.0 + 2.0 * j / nk)
+    reject = bool(np.any(np.abs(cusum) > boundary))
 
     return {
         'cusum': cusum,
         'max_cusum': max_cusum,
-        'critical_value': cv,
-        'reject': max_cusum > cv,
+        'boundary': boundary,
+        'critical_value': boundary,
+        'reject': reject,
+        'level_constant': a,
         'n_obs': n,
     }
