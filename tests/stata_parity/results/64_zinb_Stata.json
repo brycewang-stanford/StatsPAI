@@ -1,0 +1,91 @@
+{
+  "module": "64_zinb",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "64_zinb",
+      "side": "Stata",
+      "statistic": "beta_count_intercept",
+      "estimate": 0.68548503318251097,
+      "se": 0.060494174172519503,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    }
+,
+    {
+      "module": "64_zinb",
+      "side": "Stata",
+      "statistic": "beta_count_x1",
+      "estimate": 0.55848641090992046,
+      "se": 0.038058657540988999,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    }
+,
+    {
+      "module": "64_zinb",
+      "side": "Stata",
+      "statistic": "beta_count_x2",
+      "estimate": -0.28444568206609561,
+      "se": 0.073453160147056898,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    }
+,
+    {
+      "module": "64_zinb",
+      "side": "Stata",
+      "statistic": "beta_inflate_intercept",
+      "estimate": -0.93917888378906733,
+      "se": 0.1865223689070096,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    }
+,
+    {
+      "module": "64_zinb",
+      "side": "Stata",
+      "statistic": "beta_inflate_z",
+      "estimate": 1.02909541902764,
+      "se": 0.14392600421003501,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    }
+,
+    {
+      "module": "64_zinb",
+      "side": "Stata",
+      "statistic": "alpha",
+      "estimate": 0.60733942540352759,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "count_dist": "negbin",
+    "inflate_link": "logit",
+    "alpha_note": "alpha = 1/theta (Stata lnalpha scale)",
+    "stata_command": "zinb y x1 x2, inflate(z)"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

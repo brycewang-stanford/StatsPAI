@@ -1,0 +1,90 @@
+{
+  "module": "64_zinb",
+  "side": "R",
+  "rows": [
+    {
+      "module": "64_zinb",
+      "side": "R",
+      "statistic": "beta_count_intercept",
+      "estimate": 0.685484315282699,
+      "se": 0.0604942892331062,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": []
+    },
+    {
+      "module": "64_zinb",
+      "side": "R",
+      "statistic": "beta_count_x1",
+      "estimate": 0.558486502162025,
+      "se": 0.0380586695755995,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": []
+    },
+    {
+      "module": "64_zinb",
+      "side": "R",
+      "statistic": "beta_count_x2",
+      "estimate": -0.284446164788634,
+      "se": 0.0734531805732032,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": []
+    },
+    {
+      "module": "64_zinb",
+      "side": "R",
+      "statistic": "beta_inflate_intercept",
+      "estimate": -0.939183665459102,
+      "se": 0.186523810728119,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": []
+    },
+    {
+      "module": "64_zinb",
+      "side": "R",
+      "statistic": "beta_inflate_z",
+      "estimate": 1.02909911423091,
+      "se": 0.143926919484172,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": []
+    },
+    {
+      "module": "64_zinb",
+      "side": "R",
+      "statistic": "alpha",
+      "estimate": 0.607340878469904,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "package": ["pscl::zeroinfl"],
+    "count_dist": ["negbin"],
+    "inflate_link": ["logit"],
+    "alpha_note": ["alpha = 1/theta (Stata lnalpha scale)"]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "pscl": "1.5.9",
+      "MASS": "7.3-65",
+      "compiler": "4.5.2",
+      "jsonlite": "2.0.0"
+    }
+  }
+}

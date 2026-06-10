@@ -1,0 +1,77 @@
+{
+  "module": "64_zinb",
+  "side": "py",
+  "rows": [
+    {
+      "module": "64_zinb",
+      "side": "py",
+      "statistic": "beta_count_intercept",
+      "estimate": 0.6854842310036033,
+      "se": 0.0604938676583427,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    },
+    {
+      "module": "64_zinb",
+      "side": "py",
+      "statistic": "beta_count_x1",
+      "estimate": 0.5584865464139661,
+      "se": 0.038058602889209064,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    },
+    {
+      "module": "64_zinb",
+      "side": "py",
+      "statistic": "beta_count_x2",
+      "estimate": -0.2844458657168764,
+      "se": 0.07345293601108924,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    },
+    {
+      "module": "64_zinb",
+      "side": "py",
+      "statistic": "beta_inflate_intercept",
+      "estimate": -0.9391836210015303,
+      "se": 0.18651599006157354,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    },
+    {
+      "module": "64_zinb",
+      "side": "py",
+      "statistic": "beta_inflate_z",
+      "estimate": 1.0290987960142512,
+      "se": 0.14392207096386492,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    },
+    {
+      "module": "64_zinb",
+      "side": "py",
+      "statistic": "alpha",
+      "estimate": 0.6073409503957665,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "inflate_link": "logit",
+    "count_dist": "negbin",
+    "alpha_note": "alpha = 1/theta (Stata lnalpha scale)"
+  }
+}
