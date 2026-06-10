@@ -206,6 +206,8 @@ from .diagnostics.battery import diagnose_result as diagnose_result
 from .diagnostics.estat import estat as estat
 from .diagnostics.evalue import evalue as evalue
 from .diagnostics.evalue import evalue_from_result as evalue_from_result
+from .diagnostics.evalue import evalue_rd as evalue_rd
+from .diagnostics.evalue import bias_factor as bias_factor
 from .diagnostics.hausman import hausman_test as hausman_test
 from .diagnostics.late_test import KitagawaResult as KitagawaResult
 from .diagnostics.late_test import kitagawa_test as kitagawa_test
@@ -378,6 +380,8 @@ from .inference.conley import conley as conley
 from .inference.front_door import front_door as front_door
 from .inference.g_computation import g_computation as g_computation
 from .inference.ipw import ipw as ipw
+from .inference.meta_analysis import MetaAnalysisResult as MetaAnalysisResult
+from .inference.meta_analysis import meta_analysis as meta_analysis
 from .inference.jackknife import cr2_se as cr2_se
 from .inference.jackknife import jackknife_se as jackknife_se
 from .inference.jackknife import wild_cluster_boot as wild_cluster_boot
@@ -642,6 +646,9 @@ from .power.power import power_iv as power_iv
 from .power.power import power_ols as power_ols
 from .power.power import power_rct as power_rct
 from .power.power import power_rd as power_rd
+from .power.study_designs import power_case_control as power_case_control
+from .power.study_designs import power_logrank as power_logrank
+from .power.study_designs import power_two_proportions as power_two_proportions
 from .principal_strat.principal_strat import PrincipalStratResult as PrincipalStratResult
 from .principal_strat.principal_strat import principal_strat as principal_strat
 from .principal_strat.principal_strat import survivor_average_causal_effect as survivor_average_causal_effect
@@ -864,6 +871,10 @@ from .survey.estimators import svyglm as svyglm
 from .survey.estimators import svymean as svymean
 from .survey.estimators import svytotal as svytotal
 from .survival.aft import aft as aft
+from .survival.competing_risks import CumIncResult as CumIncResult
+from .survival.competing_risks import FineGrayResult as FineGrayResult
+from .survival.competing_risks import cuminc as cuminc
+from .survival.competing_risks import finegray as finegray
 from .survival.frailty import cox_frailty as cox_frailty
 from .survival.models import CoxResult as CoxResult
 from .survival.models import KMResult as KMResult

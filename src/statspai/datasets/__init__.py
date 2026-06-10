@@ -46,6 +46,11 @@ Synthetic control
     ``california_prop99()``     — ADH tobacco (re-exported from synth)
     ``basque_terrorism()``      — Abadie-Gardeazabal (re-exported)
     ``german_reunification()``  — ADH 2015 (re-exported)
+
+Public health / epidemiology (REAL data)
+    ``nhefs()``                 — Hernán-Robins *What If* NHEFS (g-methods
+                                  canon: quit-smoking → weight / mortality)
+    ``load_nhefs()``            — alias of ``nhefs()``
 """
 from __future__ import annotations
 
@@ -59,6 +64,8 @@ from ._canonical import (
     nsw_dw,
     lee_2008_senate,
     angrist_krueger_1991,
+    nhefs,
+    load_nhefs,
 )
 
 # Re-export synth-shipped datasets (unchanged DGPs; this is the
@@ -190,6 +197,10 @@ def list_datasets() -> pd.DataFrame:
          "Abadie-Diamond-Hainmueller (2015)",
          "West Germany GDPpc gap ≈ -1,500 (post-1990)",
          "GDPpc gap ≈ -1,500 on this replica (calibrated)"),
+        ('nhefs', 'g-methods (real)', 1629,
+         "Hernán & Robins (2020), Causal Inference: What If",
+         "Quit-smoking IP-weighted ATT ≈ 3.4 kg, 95% CI (2.4, 4.5) (Ch12)",
+         "REAL data: StatsPAI reproduces 3.4-3.5 kg across Ch12-14 g-methods"),
     ]
     return pd.DataFrame(registry,
                         columns=['name', 'design', 'n_obs', 'paper',
@@ -203,5 +214,6 @@ __all__ = [
     'lee_2008_senate',
     'angrist_krueger_1991',
     'california_prop99', 'basque_terrorism', 'german_reunification',
+    'nhefs', 'load_nhefs',
     'list_datasets',
 ]

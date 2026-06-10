@@ -2033,7 +2033,7 @@
     }
   },
   {
-    "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming.",
+    "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ipw",
     "parameters": {
       "properties": {
@@ -2362,7 +2362,7 @@
     }
   },
   {
-    "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust.",
+    "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "g_computation",
     "parameters": {
       "properties": {
@@ -22096,35 +22096,51 @@
     }
   },
   {
-    "description": "Compute E-value for sensitivity to unmeasured confounding. Validation: certified parity evidence.",
+    "description": "Compute the E-value for sensitivity to unmeasured confounding. Validation: certified parity evidence.",
     "name": "evalue",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for CI if se is provided but ci is not.",
+          "description": "Significance level used to build a CI from ``se`` when ``ci`` is not supplied (ratio measures).",
           "type": "number"
         },
         "ci": {
-          "description": "Confidence interval (lower, upper). If not provided, computed from estimate +/- z * se.",
+          "description": "Confidence interval on the ``measure`` scale. Takes precedence over ``se`` for ratio measures.",
+          "type": "number"
+        },
+        "delta": {
+          "default": 1.0,
+          "description": "Contrast size for ``OLS`` (E-value for a ``delta``-unit change in the exposure).",
           "type": "number"
         },
         "estimate": {
-          "description": "Point estimate of the treatment effect. - For measure='RR': risk ratio (must be > 0). - For measure='OR': odds ratio (must be > 0). - For measure='HR': hazard ratio (must be > 0). - For measure='diff': risk difference (between -1 and 1). - For measure='SMD': standardised mean difference. - For measure='RD': same as 'diff'.",
+          "description": "Point estimate on the scale given by ``measure``: - ``'RR'`` risk ratio, ``'OR'`` odds ratio, ``'HR'`` hazard ratio (all must be > 0); - ``'MD'`` / ``'SMD'`` standardised mean difference; - ``'OLS'`` raw linear-regression coefficient (supply ``sd``); - ``'DIFF'`` / ``'RD'`` risk difference (approximate scalar path;",
           "type": "number"
         },
         "measure": {
           "default": "RR",
-          "description": "Type of effect measure: 'RR', 'OR', 'HR', 'diff', 'RD', 'SMD'.",
+          "description": "One of ``'RR'``, ``'OR'``, ``'HR'``, ``'MD'``, ``'SMD'``, ``'OLS'``, ``'DIFF'``, ``'RD'``.",
           "type": "string"
         },
-        "rare_outcome": {
-          "default": false,
-          "description": "If True and measure='OR', uses the rare disease approximation (OR approx RR). Otherwise converts OR to RR.",
+        "rare": {
+          "description": "For ``OR`` / ``HR`` only: whether the rare-outcome approximation applies. ``rare=True`` treats OR/HR ~ RR; ``rare=False`` (the default) uses the exact common-outcome conversion to the RR scale (``sqrt(OR)`` for OR; the Ding-VanderWeele formula for HR).",
           "type": "boolean"
         },
+        "rare_outcome": {
+          "description": "Deprecated alias for ``rare`` (kept for backwards compatibility).",
+          "type": "boolean"
+        },
+        "sd": {
+          "description": "Outcome standard deviation, required for ``measure='OLS'`` to standardise the coefficient.",
+          "type": "number"
+        },
         "se": {
-          "description": "Standard error of the estimate (used to compute CI if ci is not provided).",
+          "description": "Standard error of ``estimate``. Required for ``MD`` / ``OLS`` to obtain a confidence-interval E-value; for ratio measures it is used (with ``alpha``) to build a CI when ``ci`` is not given.",
+          "type": "number"
+        },
+        "true": {
+          "description": "Reference value the confounding would have to move the estimate to. Defaults to the null: 1 for ratio measures, 0 for difference measures. A non-null ``true`` gives a \"non-null\" E-value.",
           "type": "number"
         }
       },
@@ -22135,27 +22151,101 @@
     }
   },
   {
-    "description": "Compute E-value from a StatsPAI CausalResult object.",
+    "description": "Compute an E-value from a StatsPAI CausalResult object.",
     "name": "evalue_from_result",
     "parameters": {
       "properties": {
         "measure": {
           "default": "SMD",
-          "description": "How to interpret the estimate. For most causal estimators producing ATE/ATT on continuous outcomes, 'SMD' is appropriate.",
+          "description": "How to interpret ``result.estimate`` (for ATE/ATT on continuous outcomes ``'SMD'`` is appropriate; pass ``'RR'`` / ``'OR'`` / ``'HR'`` for ratio estimates). Passed through to :func:`evalue`.",
           "type": "string"
         },
+        "rare": {
+          "description": "rare parameter (Optional[bool]).",
+          "type": "boolean"
+        },
         "rare_outcome": {
-          "default": false,
-          "description": "rare_outcome parameter (bool).",
+          "description": "rare_outcome parameter (Optional[bool]).",
           "type": "boolean"
         },
         "result": {
-          "description": "Result from any StatsPAI causal estimator.",
+          "description": "Result from any StatsPAI causal estimator exposing a scalar ``estimate`` (and ideally ``se`` / ``ci``).",
           "type": "string"
+        },
+        "true": {
+          "description": "true parameter (Optional[float]).",
+          "type": "number"
         }
       },
       "required": [
         "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Exact E-value for a risk difference from a 2x2 table.",
+    "name": "evalue_rd",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for the confidence-limit E-value.",
+          "type": "number"
+        },
+        "grid": {
+          "default": 0.0001,
+          "description": "Step size of the bias-factor grid search for the CI E-value.",
+          "type": "number"
+        },
+        "n00": {
+          "description": "Unexposed cases and unexposed non-cases.",
+          "type": "number"
+        },
+        "n01": {
+          "description": "Unexposed cases and unexposed non-cases.",
+          "type": "number"
+        },
+        "n10": {
+          "description": "Exposed cases and exposed non-cases.",
+          "type": "number"
+        },
+        "n11": {
+          "description": "Exposed cases and exposed non-cases.",
+          "type": "number"
+        },
+        "true": {
+          "default": 0.0,
+          "description": "Reference risk difference (must be <= the observed RD).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "n11",
+        "n10",
+        "n01",
+        "n00"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Confounding bias factor ``B`` (Ding & VanderWeele 2016).",
+    "name": "bias_factor",
+    "parameters": {
+      "properties": {
+        "rr_eu": {
+          "description": "rr_eu parameter (float).",
+          "type": "number"
+        },
+        "rr_ud": {
+          "description": "rr_ud parameter (float).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "rr_eu",
+        "rr_ud"
       ],
       "type": "object"
     }
@@ -22834,6 +22924,173 @@
         "data",
         "cluster",
         "variable"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Summary-data meta-analysis with fixed- and random-effects pooling.",
+    "name": "meta_analysis",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence/prediction intervals.",
+          "type": "number"
+        },
+        "effects": {
+          "description": "Per-study effect sizes (e.g. log odds ratios, mean differences).",
+          "type": "number"
+        },
+        "labels": {
+          "description": "Study labels for the forest plot.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "method": {
+          "default": "DL",
+          "description": "Which model the headline ``estimate`` reports: DerSimonian-Laird random effects (default) or fixed-effect inverse-variance. Both are always computed and available on the result.",
+          "enum": [
+            "DL",
+            "fixed"
+          ],
+          "type": "string"
+        },
+        "se": {
+          "description": "Per-study standard errors (must be positive).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "effects",
+        "se"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Result of a summary-data meta-analysis.",
+    "name": "MetaAnalysisResult",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "ci": {
+          "description": "ci parameter (tuple).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "effects": {
+          "description": "effects parameter (np.ndarray).",
+          "type": "string"
+        },
+        "estimate": {
+          "description": "estimate parameter (float).",
+          "type": "number"
+        },
+        "fixed_estimate": {
+          "description": "fixed_estimate parameter (float).",
+          "type": "number"
+        },
+        "fixed_se": {
+          "description": "fixed_se parameter (float).",
+          "type": "number"
+        },
+        "h2": {
+          "description": "h2 parameter (float).",
+          "type": "number"
+        },
+        "i2": {
+          "description": "i2 parameter (float).",
+          "type": "number"
+        },
+        "labels": {
+          "description": "labels parameter (List[str]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "method": {
+          "description": "Estimator or algorithm variant to use.",
+          "type": "string"
+        },
+        "p_value": {
+          "description": "p_value parameter (float).",
+          "type": "number"
+        },
+        "prediction_interval": {
+          "description": "prediction_interval parameter (Optional[tuple]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "q": {
+          "description": "Quantile level.",
+          "type": "number"
+        },
+        "q_df": {
+          "description": "q_df parameter (int).",
+          "type": "integer"
+        },
+        "q_pvalue": {
+          "description": "q_pvalue parameter (float).",
+          "type": "number"
+        },
+        "random_estimate": {
+          "description": "random_estimate parameter (float).",
+          "type": "number"
+        },
+        "random_se": {
+          "description": "random_se parameter (float).",
+          "type": "number"
+        },
+        "se": {
+          "description": "se parameter (float).",
+          "type": "number"
+        },
+        "se_studies": {
+          "description": "se_studies parameter (np.ndarray).",
+          "type": "string"
+        },
+        "tau2": {
+          "description": "tau2 parameter (float).",
+          "type": "number"
+        },
+        "weights": {
+          "description": "Observation weights.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "estimate",
+        "se",
+        "ci",
+        "p_value",
+        "method",
+        "fixed_estimate",
+        "fixed_se",
+        "random_estimate",
+        "random_se",
+        "tau2",
+        "q",
+        "q_df",
+        "q_pvalue",
+        "i2",
+        "h2",
+        "prediction_interval",
+        "weights",
+        "effects",
+        "se_studies",
+        "labels"
       ],
       "type": "object"
     }
@@ -27236,7 +27493,7 @@
     }
   },
   {
-    "description": "G-estimation for a multi-stage dynamic treatment regime.",
+    "description": "G-estimation for a multi-stage dynamic treatment regime. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "g_estimation",
     "parameters": {
       "properties": {
@@ -28156,6 +28413,147 @@
       "required": [
         "design"
       ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Power (or sample size) to detect a difference between two proportions.",
+    "name": "power_two_proportions",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number"
+        },
+        "alternative": {
+          "default": "two-sided",
+          "description": "Test sidedness.",
+          "enum": [
+            "two-sided",
+            "one-sided"
+          ],
+          "type": "string"
+        },
+        "n": {
+          "description": "Total sample size (both groups). Pass ``None`` together with ``power_target`` to solve for the smallest ``n`` achieving that power.",
+          "type": "string"
+        },
+        "p1": {
+          "default": 0.5,
+          "description": "Outcome probabilities in group 1 (reference) and group 2.",
+          "type": "number"
+        },
+        "p2": {
+          "default": 0.5,
+          "description": "Outcome probabilities in group 1 (reference) and group 2.",
+          "type": "number"
+        },
+        "power_target": {
+          "description": "Desired power; when supplied with ``n=None`` the function returns the required total sample size.",
+          "type": "number"
+        },
+        "ratio": {
+          "default": 1.0,
+          "description": "Allocation ratio ``n2 / n1`` (1.0 = equal allocation).",
+          "type": "number"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Power (or sample size) for a two-arm log-rank / survival comparison.",
+    "name": "power_logrank",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number"
+        },
+        "alternative": {
+          "default": "two-sided",
+          "description": "alternative parameter (str).",
+          "enum": [
+            "two-sided",
+            "one-sided"
+          ],
+          "type": "string"
+        },
+        "hazard_ratio": {
+          "default": 0.5,
+          "description": "Hazard ratio between the two arms (must be > 0, != 1).",
+          "type": "number"
+        },
+        "n": {
+          "description": "Total sample size. ``None`` + ``power_target`` solves for ``n``.",
+          "type": "string"
+        },
+        "power_target": {
+          "description": "Desired power; solve for ``n`` when supplied with ``n=None``.",
+          "type": "number"
+        },
+        "prob_event": {
+          "default": 1.0,
+          "description": "Probability that a randomly chosen subject is observed to have the event during follow-up (the overall event rate). ``D = n*prob_event``.",
+          "type": "number"
+        },
+        "ratio": {
+          "default": 1.0,
+          "description": "Allocation ratio ``n2 / n1``.",
+          "type": "number"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Power (or number of cases) for an unmatched case-control study.",
+    "name": "power_case_control",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number"
+        },
+        "alternative": {
+          "default": "two-sided",
+          "description": "alternative parameter (str).",
+          "enum": [
+            "two-sided",
+            "one-sided"
+          ],
+          "type": "string"
+        },
+        "exposure_prevalence": {
+          "default": 0.3,
+          "description": "Exposure prevalence among controls (the source-population exposure probability), in (0, 1).",
+          "type": "number"
+        },
+        "n_cases": {
+          "description": "Number of cases. ``None`` + ``power_target`` solves for the number of cases.",
+          "type": "string"
+        },
+        "odds_ratio": {
+          "default": 2.0,
+          "description": "Exposure odds ratio to detect (must be > 0, != 1).",
+          "type": "number"
+        },
+        "power_target": {
+          "description": "Desired power; solve for the number of cases when ``n_cases=None``.",
+          "type": "number"
+        },
+        "ratio": {
+          "default": 1.0,
+          "description": "Number of controls per case.",
+          "type": "number"
+        }
+      },
+      "required": [],
       "type": "object"
     }
   },
@@ -30829,6 +31227,179 @@
         "duration",
         "event",
         "group"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Cumulative incidence functions for competing risks (Aalen-Johansen).",
+    "name": "cuminc",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for the confidence bands.",
+          "type": "number"
+        },
+        "data": {
+          "description": "Input data.",
+          "type": "string"
+        },
+        "duration": {
+          "description": "Column name for the follow-up time.",
+          "type": "string"
+        },
+        "event": {
+          "description": "Column name for the event indicator. ``0`` = censored; ``1, 2, ...`` = competing causes.",
+          "type": "string"
+        },
+        "group": {
+          "description": "Column name for a grouping variable. When supplied, CIFs are estimated per group and Gray's K-sample test is reported per cause.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "duration",
+        "event"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Fine & Gray (1999) proportional subdistribution hazards model.",
+    "name": "finegray",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals.",
+          "type": "number"
+        },
+        "cause": {
+          "default": 1,
+          "description": "Cause of interest (default ``1``).",
+          "type": "integer"
+        },
+        "data": {
+          "description": "Input data.",
+          "type": "string"
+        },
+        "duration": {
+          "description": "Follow-up-time column.",
+          "type": "string"
+        },
+        "event": {
+          "description": "Event indicator: ``0`` = censored, ``1, 2, ...`` = causes.",
+          "type": "string"
+        },
+        "max_iter": {
+          "default": 50,
+          "description": "Newton-Raphson controls.",
+          "type": "integer"
+        },
+        "tol": {
+          "default": 1e-07,
+          "description": "Newton-Raphson controls.",
+          "type": "number"
+        },
+        "x": {
+          "description": "Covariate column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data",
+        "duration",
+        "event",
+        "x"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Cumulative incidence functions for competing risks.",
+    "name": "CumIncResult",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "causes": {
+          "description": "causes parameter (List[int]).",
+          "type": "integer"
+        },
+        "cif_table": {
+          "description": "cif_table parameter (pd.DataFrame).",
+          "type": "string"
+        },
+        "gray_test": {
+          "description": "gray_test parameter (Optional[Dict[int, Dict[str, float]]]).",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cif_table",
+        "causes"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Fine-Gray proportional subdistribution hazards model result.",
+    "name": "FineGrayResult",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "bse": {
+          "description": "bse parameter (np.ndarray).",
+          "type": "string"
+        },
+        "cause": {
+          "description": "cause parameter (int).",
+          "type": "integer"
+        },
+        "covariates": {
+          "description": "Covariate matrix, DataFrame, or column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "loglik": {
+          "description": "loglik parameter (float).",
+          "type": "number"
+        },
+        "n_events": {
+          "description": "Number of events.",
+          "type": "integer"
+        },
+        "n_obs": {
+          "description": "Number of obs.",
+          "type": "integer"
+        },
+        "params": {
+          "description": "params parameter (np.ndarray).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "params",
+        "bse",
+        "covariates",
+        "cause",
+        "n_obs",
+        "n_events",
+        "loglik"
       ],
       "type": "object"
     }

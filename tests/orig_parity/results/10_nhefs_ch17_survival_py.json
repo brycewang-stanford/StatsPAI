@@ -1,0 +1,104 @@
+{
+  "module": "10_nhefs_ch17_survival",
+  "side": "py",
+  "rows": [
+    {
+      "module": "10_nhefs_ch17_survival",
+      "side": "py",
+      "statistic": "hr_unweighted",
+      "estimate": 1.3945834115640032,
+      "se": null,
+      "n": 1629,
+      "published": 1.39,
+      "citation": "Hern\u00e1n-Robins, What If \u00a717 (unadjusted qsmk hazard ratio)",
+      "extra": {
+        "n_death": 318,
+        "scale": "hazard ratio"
+      }
+    },
+    {
+      "module": "10_nhefs_ch17_survival",
+      "side": "py",
+      "statistic": "hr_ipweighted",
+      "estimate": 1.000810109208632,
+      "se": 0.134296859468445,
+      "n": 1629,
+      "published": 1.0,
+      "citation": "Hern\u00e1n-Robins, What If \u00a717.4 (IP-weighted hazard ratio; pooled-logistic, package-consistent)",
+      "extra": {
+        "log_hr": 0.0008097812472778916,
+        "ci": [
+          0.7691977205896182,
+          1.302163082239004
+        ],
+        "se_is_on": "log-HR scale",
+        "n_death": 318,
+        "published_hint": 1.05,
+        "note": "gold (R weighted Cox) HR=1.001 CI (0.77,1.30); book effect is essentially null"
+      }
+    },
+    {
+      "module": "10_nhefs_ch17_survival",
+      "side": "py",
+      "statistic": "surv120_noquit",
+      "estimate": 0.8046516460470439,
+      "se": null,
+      "n": 1629,
+      "published": 0.805,
+      "citation": "Hern\u00e1n-Robins, What If Program 17.4 (IP-weighted S(120), A=0)",
+      "extra": {
+        "scale": "survival probability"
+      }
+    },
+    {
+      "module": "10_nhefs_ch17_survival",
+      "side": "py",
+      "statistic": "surv120_quit",
+      "estimate": 0.8066672505175878,
+      "se": null,
+      "n": 1629,
+      "published": 0.807,
+      "citation": "Hern\u00e1n-Robins, What If Program 17.4 (IP-weighted S(120), A=1)",
+      "extra": {
+        "scale": "survival probability"
+      }
+    },
+    {
+      "module": "10_nhefs_ch17_survival",
+      "side": "py",
+      "statistic": "surv120_diff",
+      "estimate": 0.0020156044705439413,
+      "se": null,
+      "n": 1629,
+      "published": 0.002,
+      "citation": "Hern\u00e1n-Robins, What If Program 17.4 (IP-weighted 120-month survival difference, quit - no-quit)",
+      "extra": {
+        "scale": "survival difference",
+        "s_noquit": 0.8046516460470439,
+        "s_quit": 0.8066672505175878
+      }
+    }
+  ],
+  "extra": {
+    "data_source": "sp.datasets.nhefs() full sample (NHEFS / What If)",
+    "n_obs": 1629,
+    "n_death": 318,
+    "survtime_rule": "ifelse(death==0,120,(yrdth-83)*12+modth)",
+    "statspai_surface": "sp.ipw propensity (cross-checked) + package-consistent IP-weighted pooled-logistic hazard (book Program 17.4)",
+    "sw_mean": 0.9990652267604926,
+    "sw_min": 0.3312358188473095,
+    "sw_max": 4.205431821260504,
+    "ipw_pscore_min": 0.044523340537180225,
+    "ipw_pscore_max": 0.7950683281395409,
+    "ltmle_survival_note": "sp.ltmle_survival targets dynamic-regime RMST/risk-difference, not a point-treatment HR; sp.ipcw yields censoring weights -- neither cleanly gives this estimand",
+    "hr_ipw_ci": [
+      0.7691977205896182,
+      1.302163082239004
+    ],
+    "published_hr_hint": 1.05,
+    "published_hr_ci_hint": [
+      0.78,
+      1.43
+    ]
+  }
+}

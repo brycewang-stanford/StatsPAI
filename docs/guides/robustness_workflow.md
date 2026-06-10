@@ -76,7 +76,7 @@ sp.love_plot(r)
 sp.ps_balance(r)
 
 # E-value: how strong must unobserved U be to explain away effect?
-sp.evalue(r)
+sp.evalue_from_result(r)
 
 # Oster delta bounds
 sp.oster_bounds(r, delta=1.0)
@@ -121,11 +121,25 @@ to have with *both* treatment and outcome (on the risk-ratio scale) to
 fully explain away the observed effect.
 
 ```python
+# From a fitted causal result (interpreted as a standardised mean diff):
 r = sp.dml(df, y='y', treat='d', covariates=[...])
-ev = sp.evalue(r)
-print(ev.evalue)          # e.g., 2.3 -> U needs RR > 2.3 with both
-print(ev.evalue_ci)       # E-value for lower bound of CI
+ev = sp.evalue_from_result(r)
+print(ev["evalue_estimate"])   # e.g. 2.3 -> U needs RR > 2.3 with both
+print(ev["evalue_ci"])         # E-value for the CI limit nearest the null
+
+# Or directly from a reported effect on any supported scale:
+sp.evalue(estimate=1.8, ci=(1.2, 2.7), measure="OR")   # rare=False by default
+sp.evalue(estimate=1.5, ci=(1.1, 2.0), measure="HR", rare=False)
+sp.evalue(estimate=0.5, se=0.1, sd=2.0, measure="OLS")
+sp.evalue(estimate=2.5, ci=(1.8, 3.2), measure="RR", true=1.5)  # non-null E-value
+sp.evalue_rd(200, 150, 100, 250)   # exact risk-difference E-value from a 2x2 table
 ```
+
+`sp.evalue` returns a dict (`evalue_estimate`, `evalue_ci`, `rr_estimate`,
+`interpretation`, ...) and reproduces the R `EValue` package to machine
+precision across RR/OR/HR (rare and common outcomes), MD/SMD, OLS, and the
+2x2-table risk difference. If the confidence interval already contains the
+null (or the specified `true` value), its E-value is exactly 1.
 
 **Rule of thumb**: E > 2 is "reasonably robust"; E > 3 is strong; E < 1.5
 is fragile (any of the measured covariates already has that level of

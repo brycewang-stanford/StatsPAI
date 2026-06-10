@@ -1,0 +1,104 @@
+{
+  "module": "09_nhefs_ch15_outcome",
+  "side": "py",
+  "rows": [
+    {
+      "module": "09_nhefs_ch15_outcome",
+      "side": "py",
+      "statistic": "om_qsmk_main_coef",
+      "estimate": 2.559594092574803,
+      "se": 0.8091486133672138,
+      "n": 1566,
+      "published": 2.56,
+      "citation": "Hern\u00e1n-Robins, What If Program 15.1 (qsmk main coef)",
+      "extra": {
+        "note": "conditional effect at smokeintensity=0; NOT marginal"
+      }
+    },
+    {
+      "module": "09_nhefs_ch15_outcome",
+      "side": "py",
+      "statistic": "om_qsmk_x_smkint",
+      "estimate": 0.046662839486499075,
+      "se": 0.03514477415823393,
+      "n": 1566,
+      "published": 0.0467,
+      "citation": "Hern\u00e1n-Robins, What If Program 15.1 (qsmk:smokeintensity)",
+      "extra": {}
+    },
+    {
+      "module": "09_nhefs_ch15_outcome",
+      "side": "py",
+      "statistic": "om_effect_smkint5",
+      "estimate": 2.7929082900072983,
+      "se": null,
+      "n": 1566,
+      "published": 2.79,
+      "citation": "Hern\u00e1n-Robins, What If Program 15.1 (effect at smokeintensity=5)",
+      "extra": {}
+    },
+    {
+      "module": "09_nhefs_ch15_outcome",
+      "side": "py",
+      "statistic": "om_effect_smkint40",
+      "estimate": 4.426107672034766,
+      "se": null,
+      "n": 1566,
+      "published": 4.43,
+      "citation": "Hern\u00e1n-Robins, What If Program 15.1 (effect at smokeintensity=40)",
+      "extra": {}
+    },
+    {
+      "module": "09_nhefs_ch15_outcome",
+      "side": "py",
+      "statistic": "ps_in_outcome_ate",
+      "estimate": 3.454262537787482,
+      "se": 0.45954206498106664,
+      "n": 1566,
+      "published": 3.5,
+      "citation": "Hern\u00e1n-Robins, What If Program 15.3 (PS as covariate)",
+      "extra": {}
+    },
+    {
+      "module": "09_nhefs_ch15_outcome",
+      "side": "py",
+      "statistic": "ps_decile_ate",
+      "estimate": 3.3580062000124853,
+      "se": 0.45827571078688817,
+      "n": 1566,
+      "published": 3.5,
+      "citation": "Hern\u00e1n-Robins, What If Program 15.4 (PS-decile stratification)",
+      "extra": {}
+    },
+    {
+      "module": "09_nhefs_ch15_outcome",
+      "side": "py",
+      "statistic": "gcomp_std_ate",
+      "estimate": 3.4626218292255944,
+      "se": 0.4575173087140193,
+      "n": 1566,
+      "published": 3.5,
+      "citation": "Hern\u00e1n-Robins, What If Ch.15 (standardized marginal ATE, cross-ref)",
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "data_source": "sp.datasets.nhefs (NHEFS / What If)",
+    "n_obs": 1566,
+    "ps_min": 0.05100076394667323,
+    "ps_max": 0.7768887018776459,
+    "ps_mean": 0.25734355044699886,
+    "ci_ps_in_outcome": [
+      2.5528786316053838,
+      4.35564644396958
+    ],
+    "ci_ps_decile": [
+      2.4591026420476254,
+      4.256909757977345
+    ],
+    "ci_gcomp": [
+      2.5692276506403866,
+      4.432893454242218
+    ]
+  }
+}

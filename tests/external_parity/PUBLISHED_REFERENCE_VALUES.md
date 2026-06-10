@@ -122,6 +122,50 @@ Political Science* 59(2), 495-510.
 
 ---
 
+## Hernán & Robins, *Causal Inference: What If* — NHEFS (REAL data)
+
+Unlike every anchor above, `sp.datasets.nhefs()` ships the **real,
+public-domain** NHEFS extract that Hernán & Robins use throughout Part II
+of the textbook (NHANES I follow-up; re-packaged from the MIT-licensed
+`causaldata`). Because the data are genuine, StatsPAI is held to the
+book's **actual published figures**, not merely their neighbourhood, and
+each statistic carries a same-bytes R gold reference (paired scripts
+`tests/orig_parity/06–11_nhefs_*.{py,R}`). Effect of quitting smoking
+(`qsmk`) on 10-year weight change (`wt82_71`, kg) and mortality (`death`).
+
+| Ch | Statistic | Book value | StatsPAI | R gold | Source |
+| --- | --- | ---: | ---: | ---: | --- |
+| 12 | Crude weight-change diff (confounded) | 2.54 | 2.54 | 2.54 | §12.2 |
+| 12 | IP-weighted ATE (MSM) | 3.4 (CI 2.4–4.5) | 3.47 | 3.44 | Program 12.4 |
+| 13 | Standardization / parametric g-formula | 3.5 | 3.46 | 3.46 | Program 13.3 |
+| 14 | G-estimation of SNMM (ψ) | 3.4 | 3.46 | 3.46 | Program 14.2 |
+| 15 | Outcome-reg `qsmk` main coef | 2.56 | 2.56 | 2.56 | Program 15.1 |
+| 15 | Outcome-reg `qsmk × smokeintensity` | 0.0467 | 0.0467 | 0.0467 | Program 15.1 |
+| 15 | Effect at smokeintensity = 5 | 2.79 | 2.79 | 2.79 | Program 15.1 |
+| 15 | Effect at smokeintensity = 40 | 4.43 | 4.43 | 4.43 | Program 15.1 |
+| 15 | Propensity-score-adjusted ATE | ≈ 3.5 | 3.45 | 3.45 | Program 15.3 |
+| 17 | Conditional (unweighted) hazard ratio | ≈ 1.4 | 1.39 | 1.39 | §17 |
+| 17 | IP-weighted hazard ratio | ≈ 1.0 | 1.00 | 1.00 | Program 17.4 |
+| 17 | IP-weighted 120-mo survival difference | ≈ 0 | 0.002 | 0.002 | Program 17.4 |
+| — | E-value, crude qsmk→death RR (=1.33) | 1.98 | 1.98 | 1.98 | VanderWeele-Ding (2017) |
+
+Citation: Hernán, M.A. & Robins, J.M. (2020). *Causal Inference: What If*.
+Boca Raton: Chapman & Hall/CRC.
+
+Headline: across the textbook's g-methods, **StatsPAI reproduces the book
+to the printed precision** (the Chapter 15 regression coefficients match
+to four decimals), and **StatsPAI agrees with an independent base-R /
+`survival` / `EValue` reference on the same CSV bytes** — usually to 3–4
+decimals. The Chapter 15 closed-form regressions are an exact match; the
+IP-weighted, g-formula, g-estimation, and survival quantities embed minor
+documented convention choices (Hájek vs stabilized weights; additive
+encoding) that keep them within ~2% of the book and the R gold. This is
+the first epidemiology-stack (vs econometrics-stack) parity certification
+in the repository. Pinned regression tests live in
+`tests/external_parity/test_whatif_nhefs.py`.
+
+---
+
 ## How to add a new parity anchor
 
 1. Add a DGP to `src/statspai/datasets/_canonical.py` that calibrates

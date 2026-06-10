@@ -1291,6 +1291,14 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         'example': 'sp.evalue_from_result(result)',
         'tags': ['diagnostics', 'sensitivity'],
     },
+    'evalue_rd': {
+        'example': 'sp.evalue_rd(200, 150, 100, 250)',
+        'tags': ['diagnostics', 'sensitivity', 'epi'],
+    },
+    'bias_factor': {
+        'example': 'sp.bias_factor(rr_eu=2.0, rr_ud=2.0)',
+        'tags': ['diagnostics', 'sensitivity'],
+    },
     'evalue_rr': {
         'tags': ['causal', 'sensitivity'],
     },

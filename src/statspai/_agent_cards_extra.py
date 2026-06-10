@@ -1146,17 +1146,25 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
             "risk ratios that could explain away an observed "
             "association.",
             "The estimate is expressed (or convertible) to a "
-            "risk-ratio scale; OR/HR are mapped to RR, with the "
-            "rare-outcome approximation only valid when the "
-            "outcome is uncommon.",
+            "risk-ratio scale; OR and HR map to RR via the "
+            "rare-outcome approximation (rare=True) or the "
+            "Ding-VanderWeele common-outcome conversion "
+            "(rare=False, default); MD/SMD/OLS use exp(0.91*d).",
             "The E-value bounds joint confounding but assumes no "
             "other bias (selection, measurement, model "
             "misspecification).",
-            "The CI E-value uses the confidence limit nearest the " "null.",
+            "The CI E-value uses the confidence limit nearest the "
+            "null (or a user-specified non-null `true` value); if "
+            "the interval already contains that value its E-value "
+            "is 1. Reproduces the R EValue package to machine "
+            "precision.",
         ],
         "pre_conditions": [
-            "A point estimate on a supported scale " "(RR/OR/HR/diff/RD/SMD)",
-            "Either an SE or an explicit CI to obtain the CI " "E-value",
+            "A point estimate on a supported scale "
+            "(RR/OR/HR/MD/SMD/OLS); for an exact risk-difference "
+            "E-value call sp.evalue_rd with the 2x2 cell counts",
+            "Either an SE or an explicit CI to obtain the CI "
+            "E-value (OLS also needs the outcome sd)",
         ],
         "failure_modes": [
             {

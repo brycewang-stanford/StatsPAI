@@ -1,0 +1,73 @@
+{
+  "module": "11_nhefs_evalue",
+  "side": "py",
+  "rows": [
+    {
+      "module": "11_nhefs_evalue",
+      "side": "py",
+      "statistic": "evalue_crude_rr_point",
+      "estimate": 1.981425327215544,
+      "se": null,
+      "n": 1629,
+      "published": 1.981425327215544,
+      "citation": "VanderWeele-Ding 2017 E = RR + sqrt(RR(RR-1)) (crude mortality RR)",
+      "extra": {
+        "rr": 1.3250908618899273,
+        "rr_ci": [
+          1.0762275007250635,
+          1.631500580575435
+        ],
+        "evalue_ci": 1.3626504966451765,
+        "risk1": 0.2383177570093458,
+        "risk0": 0.17985012489592006
+      }
+    },
+    {
+      "module": "11_nhefs_evalue",
+      "side": "py",
+      "statistic": "evalue_ipw_rr_point",
+      "estimate": 1.1087870498223762,
+      "se": null,
+      "n": 1629,
+      "published": 1.0,
+      "citation": "VanderWeele-Ding 2017 E-value, IP-weighted mortality RR (~null after adjustment)",
+      "extra": {
+        "rr": 0.9903737284446699,
+        "rr_ci": [
+          0.7919947471824496,
+          1.2194126783996204
+        ],
+        "evalue_ci": 1.7366694829388316,
+        "risk1": 0.19342730724770252,
+        "risk0": 0.1953073892130297
+      }
+    },
+    {
+      "module": "11_nhefs_evalue",
+      "side": "py",
+      "statistic": "evalue_smd_point",
+      "estimate": 2.351361550411833,
+      "se": null,
+      "n": 1566,
+      "published": 2.351361550411833,
+      "citation": "VanderWeele-Ding SMD approx exp(0.91*d) on Ch12 weight effect",
+      "extra": {
+        "effect_kg": 3.471669354996915,
+        "sd_outcome": 7.879912854359539,
+        "d": 0.4405720493566403,
+        "rr_approx": 1.4931986514263629,
+        "rr_approx_manual": 1.4931986514263629,
+        "evalue_ci": 2.00679567053752,
+        "evalue_manual_point": 2.351361550411833
+      }
+    }
+  ],
+  "extra": {
+    "data_source": "sp.datasets.nhefs (NHEFS / What If)",
+    "n_full": 1629,
+    "n_complete": 1566,
+    "vd_smd_coef": 0.91,
+    "closed_form": "E = RR + sqrt(RR*(RR-1))",
+    "smd_native_eq_manual": true
+  }
+}

@@ -215,6 +215,11 @@ MORNING_REPORT_2026-04-29.md
 .cov_decomp/*
 !.cov_decomp/DECOMP_CAMPAIGN.md
 
+# NHEFS / What If parity dumps: regenerable byte-for-byte from the bundled
+# sp.datasets.nhefs() by running the Python side of each paired script, so we
+# do not commit ~3.4 MB of duplicated copies of the already-bundled CSV.
+tests/orig_parity/data/*_nhefs_*.csv
+
 # Tier-D/Tier-B validation campaign working dir (regenerable artifacts ignored; tracker + worklist kept)
 .tierd_campaign/*
 !.tierd_campaign/CAMPAIGN.md
