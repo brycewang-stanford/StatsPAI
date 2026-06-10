@@ -6,6 +6,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **R reference-parity for parametric survival — `sp.survreg` (AFT) now
+  carries frozen parity against R `survival::survreg` across all four
+  distributions (11 new tests,
+  `tests/reference_parity/test_survreg_aft_parity.py`).** On a Weibull-AFT
+  fixture (`survreg_aft_data.csv`): weibull / exponential / lognormal /
+  loglogistic coefficients match R to 1e-3 relative (observed ~1e-5), the
+  scale-estimating dists' standard errors and `log(sigma)` (= R
+  `log(scale)`) to 1e-3, and the exponential coefficient SE is documented as
+  a ~1-2% convention gap (R inverts the coefficient-block information with
+  scale fixed at 1; sp inverts the full information) guarded at 3e-2.
+  Reference verified via Crossref (Therneau & Grambsch 2000, DOI
+  10.1007/978-1-4757-3294-8).
+
 - **R reference-parity for non-parametric survival — `sp.kaplan_meier` and
   `sp.logrank_test` now carry frozen parity against R `survival` (4 new
   tests, `tests/reference_parity/test_survival_km_parity.py`).** Closes the
