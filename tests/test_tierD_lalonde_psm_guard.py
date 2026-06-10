@@ -38,9 +38,24 @@ def test_adjusted_ols_matches_matchit(lalonde):
     assert float(adj.params["treat"]) == pytest.approx(1548.24, abs=1.0)
 
 
+# The index-anchored tie-break makes the matched set deterministic given the
+# floating-point distance matrix: GitHub CI lands on bitwise-identical
+# 1967.9396843243246 across ubuntu (OpenBLAS), windows, and macos-15 runners,
+# all Python 3.9-3.13. A residual ULP-level *near*-tie sensitivity remains in
+# the BLAS-computed propensity distances themselves (distinct covariate rows
+# whose distances differ by ~1e-13 can swap order across BLAS builds): local
+# Accelerate on macOS 26 lands on 1963.4266356756752 with both numpy 2.3/scipy
+# 1.16 and numpy 2.4/scipy 1.17, ruling out a library-version cause. Pin BOTH
+# observed fixed points exactly (±0.1): any algorithm change in sp.match moves
+# the value off both anchors and fails loudly, while a third BLAS environment
+# producing a new value also fails — surfacing it for triage instead of being
+# absorbed by a wide band. Tracked in .tierd_campaign/CAMPAIGN.md.
+PSM_ATT_ANCHORS = (1967.94, 1963.43)
+
+
 def test_psm_att_is_deterministic_and_pinned(lalonde):
-    # Deterministic across runs; pinned to the current value so any tie-break /
-    # algorithm change in sp.match is caught (the guard that was missing before).
+    # Deterministic across runs; pinned to the known fixed points so any
+    # tie-break / algorithm change in sp.match is caught.
     vals = [
         float(
             sp.match(
@@ -50,7 +65,9 @@ def test_psm_att_is_deterministic_and_pinned(lalonde):
         for _ in range(3)
     ]
     assert len(set(round(v, 6) for v in vals)) == 1  # deterministic within a run
-    assert vals[0] == pytest.approx(1963.43, abs=0.1)
+    assert any(
+        vals[0] == pytest.approx(anchor, abs=0.1) for anchor in PSM_ATT_ANCHORS
+    ), f"PSM ATT {vals[0]:.4f} is off both pinned anchors {PSM_ATT_ANCHORS}"
 
 
 def test_psm_recovers_experimental_benchmark(lalonde):

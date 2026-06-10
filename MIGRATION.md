@@ -56,12 +56,18 @@ units have the same best distance, lower-index treated units are assigned first.
 **Who is affected.** Only users whose matching data contain exact
 equal-distance ties. Continuous covariates without exact ties are unchanged.
 For tied designs, results are now deterministic across row order and backend as
-long as the DataFrame index preserves unit identity.
+long as the DataFrame index preserves unit identity. One caveat: distances that
+are merely *near*-equal (differing at the ~1e-13 ULP level because the BLAS
+build computes propensity scores slightly differently) are still resolved by
+strict comparison, so a residual backend sensitivity of that magnitude remains
+— on LaLonde it amounts to ~$4.5 (vs. ~$150 before the fix), and all GitHub CI
+platforms (ubuntu/windows/macos) now agree bitwise.
 
 **Action required.** None for code. If you previously recorded a nearest-match
 estimate on tied discrete covariates, re-run it once and treat the new value as
-the stable pin. The bundled LaLonde 1:1 NN PSM guard is now pinned at `1963.43`
-instead of allowing the old cross-backend tie band.
+the stable pin. The bundled LaLonde 1:1 NN PSM guard now pins the two observed
+fixed points exactly (`1967.94` on GitHub CI, `1963.43` under Accelerate on
+macOS 26) instead of allowing the old ~$300 cross-backend tie band.
 
 ---
 

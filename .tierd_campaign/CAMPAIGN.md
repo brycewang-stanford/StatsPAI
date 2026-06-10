@@ -469,3 +469,24 @@ noisy/forest-dependent — anchored on β₁ + null structure instead.
   the LaLonde guard from the old cross-backend PSM band to the pinned
   `1963.43` ATT. CHANGELOG/MIGRATION document that only exact-tie designs can
   move.
+
+### 2026-06-10 — tie-break fix: CI verdict + maintainer sign-off
+- Maintainer signed off on the deferred `sp.match` tie-break batch (af28802).
+- **CI evidence (run 27255448391):** all 14 test jobs — ubuntu (OpenBLAS),
+  windows, macos-15 × Python 3.9–3.13 — produced a *bitwise-identical* LaLonde
+  PSM ATT of `1967.9396843243246`. The exact-tie anchoring works: identical
+  matched sets across BLAS builds, vs. the pre-fix $150 spread.
+- **Residual (documented, not hidden):** local Accelerate (macOS 26) lands at
+  `1963.4266356756752` with BOTH numpy 2.3/scipy 1.16 and numpy 2.4/scipy 1.17
+  (isolated-venv check) — so it is ULP-level *near*-tie sensitivity in the
+  BLAS-computed propensity distances (distinct rows, distances differing
+  ~1e-13), not a library-version artifact and not the tie-break itself.
+- Guard re-pinned from the single local value to **two exact anchors ±0.1**
+  (`1967.94` CI consensus, `1963.43` Accelerate/macOS-26); a third environment
+  producing a new fixed point fails loudly for triage. CHANGELOG/MIGRATION
+  corrected accordingly. Stale `lalonde()` dataset attr 2012.5 → 1963.4
+  (843ac07; the long-pending documentation correction, now approved).
+- **Optional future batch (small):** epsilon-class tie merging (group distances
+  whose successive sorted gaps are < rtol≈1e-9 before index tie-break) would
+  remove the residual ~$4.5 cross-BLAS spread entirely. §12-grade numeric
+  change → needs its own sign-off; not urgent, the two-anchor guard holds.

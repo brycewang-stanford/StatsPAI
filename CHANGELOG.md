@@ -193,8 +193,12 @@ All notable changes to StatsPAI will be documented in this file.
   units first, with lower-index target units used as the without-replacement
   fallback. A shuffled-row regression test guards the policy, and
   `tests/test_tierD_lalonde_psm_guard.py` is tightened from the old
-  cross-backend band to the pinned LaLonde PSM ATT (`1963.43`). Existing results
-  change only when previous data contained exact equal-distance ties. See
+  cross-backend band (width ~$300) to two exact anchors (±0.1): GitHub CI is
+  now bitwise-identical across ubuntu/windows/macos (`1967.94`), while
+  Accelerate on macOS 26 lands at `1963.43` — a residual ULP-level *near*-tie
+  sensitivity in the BLAS-computed distances, not in the tie-break itself.
+  Existing results change only when previous data contained exact
+  equal-distance ties. See
   [MIGRATION.md](MIGRATION.md#matching-nearest-tie-break).
 
 ### Known issues
