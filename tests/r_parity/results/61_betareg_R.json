@@ -50,7 +50,8 @@
   "extra": {
     "package": ["betareg::betareg"],
     "link": ["logit"],
-    "phi_link": ["log"]
+    "phi_link": ["log"],
+    "se_convention": ["expected (Fisher) information"]
   },
   "provenance": {
     "r_version": "R version 4.5.2 (2025-10-31)",

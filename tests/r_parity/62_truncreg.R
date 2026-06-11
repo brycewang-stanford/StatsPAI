@@ -13,8 +13,11 @@ suppressPackageStartupMessages({ library(truncreg) })
 MODULE <- "62_truncreg"
 df <- read_csv_strict(MODULE)
 
+# method='NR' (maxLik Newton-Raphson) converges past the default BFGS
+# stopping point to the same likelihood optimum found by sp.truncreg
+# and Stata truncreg (logLik gain ~5e-8 over the BFGS default).
 fit <- truncreg(y ~ x1 + x2, data = df, point = 0, direction = "left",
-                iterlim = 500, reltol = 1e-14)
+                method = "NR", iterlim = 500)
 co <- coef(fit); se <- sqrt(diag(vcov(fit)))
 
 rows <- list(

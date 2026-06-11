@@ -27,7 +27,13 @@ REFERENCE_PKGS <- c(
   "etwfe", "fixest", "frontier", "grf", "gsynth", "HonestDiD", "lme4",
   "lpirfs", "MatchIt", "mediation", "oaxaca", "plm", "quantreg",
   "rddensity", "rdrobust", "sandwich", "survival", "Synth", "synthdid",
-  "vars", "jsonlite"
+  "vars", "jsonlite",
+  # Modules 23-53: sensitivity, SFA, decomposition, limited-dependent
+  # and robust-SE references.
+  "EValue", "sfaR", "ddecompose", "dineq", "censReg", "MASS",
+  "sampleSelection", "nnet", "clubSandwich", "DRDID", "sensemakr",
+  # Modules 57-64: GLM / IV / system / limited-dependent extensions.
+  "ivmodel", "systemfit", "betareg", "truncreg", "pscl"
 )
 
 ip <- installed.packages()

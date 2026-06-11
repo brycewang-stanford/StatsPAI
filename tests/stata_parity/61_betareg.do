@@ -17,7 +17,9 @@ stata_parity_open, module(61_betareg)
 import delimited "${STATA_PARITY_DATA}/61_betareg.csv", clear case(preserve)
 local n = _N
 
-betareg y x1 x2
+* nrtolerance tightens the scaled-gradient stop rule (default 1e-5) so
+* the ML optimum matches the tightly converged sp/R references.
+betareg y x1 x2, nrtolerance(1e-13)
 
 local b0 = _b[y:_cons]
 local se0 = _se[y:_cons]
@@ -35,6 +37,6 @@ stata_parity_row, stat(ln_phi)         est(`lnphi') std(`selnphi') nob(`n')
 
 stata_parity_extra, key(link) val(logit)
 stata_parity_extra, key(phi_link) val(log)
-stata_parity_extra, key(stata_command) val("betareg y x1 x2")
+stata_parity_extra, key(stata_command) val("betareg y x1 x2, nrtolerance(1e-13)")
 
 stata_parity_close, module(61_betareg)

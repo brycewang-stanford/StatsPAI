@@ -69,28 +69,44 @@ an intentional fixture change with
 | `AER` | 1.2.16 | 02 (2SLS `ivreg`) |
 | `augsynth` | 0.2.0 | 18 (augmented SCM) |
 | `bacondecomp` | 0.1.1 | 20 (Goodman–Bacon) |
+| `betareg` | 3.2.4 | 61 (beta regression) |
+| `censReg` | 0.5.38 | 41 (tobit) |
+| `clubSandwich` | 0.6.2 | 53 (CR2/CR3 cluster SE) |
+| `ddecompose` | 1.0.0 | 31 (DFL reweighting) |
 | `did` | 2.3.0 | 04 (Callaway–Sant'Anna) |
 | `didimputation` | 0.5.1 | 16 (BJS imputation) |
+| `dineq` | 0.1.0 | 32 (RIF / UQR) |
 | `DoubleML` | 1.0.2 | 08 (DML PLR) |
+| `DRDID` | 1.2.3 | 38 (DR-DID) |
 | `etwfe` | 0.6.2 | 17 (Wooldridge ETWFE) |
+| `EValue` | 4.1.4 | 23 (E-value) |
 | `fixest` | 0.14.0 | 03/15 (HDFE, cluster), 05 (`sunab`) |
 | `frontier` | 1.1.8 | 28 (stochastic frontier) |
 | `grf` | 2.6.1 | 13 (causal forest) |
 | `gsynth` | 1.4.0 | 19 (generalized SCM) |
 | `HonestDiD` | 0.2.8 | 10/21 (honest DiD) |
+| `ivmodel` | 1.9.1 | 59 (LIML k-class) |
 | `lme4` | 2.0.1 | 25 (linear mixed model), 26/27 (GLMM) |
 | `lpirfs` | 0.2.5 | 34 (local projections) |
+| `MASS` | 7.3.65 | 42 (`glm.nb`), 45/49 (`polr`) |
 | `MatchIt` | 4.7.2 | 11 (1:1 NN PSM) |
 | `mediation` | 4.5.1 | 36 (causal mediation) |
+| `nnet` | 7.3.20 | 44 (multinomial logit) |
 | `oaxaca` | 0.1.5 | 30 (Blinder–Oaxaca) |
 | `plm` | 2.6.7 | 35 (panel FE/RE), 50 (`pgmm` secondary ref) |
+| `pscl` | 1.5.9 | 63/64 (`zeroinfl` ZIP/ZINB) |
 | `quantreg` | 6.1 | 40 (quantile regression) |
 | `rddensity` | 2.6 | 09 (CJM density) |
 | `rdrobust` | 3.0.0 | 06 (RD bias-corrected) |
-| `sandwich` | 3.1.1 | 01/14 (HC1, cluster vcov) |
+| `sampleSelection` | 1.2.14 | 43 (Heckman) |
+| `sandwich` | 3.1.1 | 01/14 (HC1, cluster vcov), 51 (Newey–West), 54/55/56 (HC2/HC3, multiway) |
+| `sensemakr` | 0.1.6 | 22 (sensemakr) |
+| `sfaR` | 1.0.1 | 28 (SFA cross-section) |
 | `survival` | 3.8.3 | 24 (Cox PH) |
 | `Synth` | 1.1.10 | 07 (classical SCM) |
 | `synthdid` | 0.0.9 | 12 (synthetic DiD) |
+| `systemfit` | 1.1.30 | 60 (SUR FGLS) |
+| `truncreg` | 0.2.5 | 62 (truncated regression) |
 | `vars` | 1.6.1 | 33 (VAR) |
 | `jsonlite` | 2.0.0 | (harness I/O — full-precision result serialisation) |
 

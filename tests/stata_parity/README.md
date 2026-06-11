@@ -33,7 +33,7 @@ bytes the R side reads), runs the canonical Stata reference, and
 writes one row per parity statistic to
 `results/NN_<name>_Stata.json` via the helpers in `_common.do`.
 
-## Materialized Stata golden modules (53 of 56 Python modules)
+## Materialized Stata golden modules (61 of 64 Python modules)
 
 | # | Method                       | StatsPAI                       | Stata reference                                              |
 | --- | --- | --- | --- |
@@ -90,6 +90,14 @@ writes one row per parity statistic to
 | 54 | Two-way cluster SE            | `sp.twoway_cluster`            | audited Stata/Mata CGM bridge; `reghdfe` diagnostic row       |
 | 55 | OLS + HC2 / HC3 SE            | `sp.regress(robust="hc2"/"hc3")` | `regress, vce(hc2)` / `regress, vce(hc3)`                  |
 | 56 | Three-way cluster SE          | `sp.multiway_cluster_vcov`     | audited Stata/Mata CGM bridge; `reghdfe` diagnostic row       |
+| 57 | Binary logit                  | `sp.logit`                     | `logit`                                                      |
+| 58 | Poisson ML (no FE)            | `sp.poisson`                   | `poisson`                                                    |
+| 59 | LIML k-class IV               | `sp.liml`                      | `ivregress liml, small`                                      |
+| 60 | SUR one-step FGLS             | `sp.sureg`                     | `sureg`                                                      |
+| 61 | Beta regression               | `sp.betareg`                   | `betareg, nrtolerance(1e-13)`                                |
+| 62 | Truncated regression          | `sp.truncreg`                  | `truncreg, ll(0)`                                            |
+| 63 | Zero-inflated Poisson         | `sp.zip_model`                 | `zip, inflate(...)`                                          |
+| 64 | Zero-inflated NB              | `sp.zinb`                      | `zinb, inflate(...) nrtolerance(1e-13)`                      |
 
 ### Modules **without** a materialized Stata JSON
 

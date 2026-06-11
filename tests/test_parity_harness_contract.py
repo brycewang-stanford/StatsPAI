@@ -93,9 +93,9 @@ def test_parity_artifact_inventory_has_explicit_contracts():
     r_modules = _module_stems(R_RESULTS, "_R")
     stata_modules = _module_stems(STATA_RESULTS, "_Stata")
 
-    assert len(py_modules) >= 56
-    assert len(py_modules & r_modules) >= 56
-    assert len(stata_modules) >= 53
+    assert len(py_modules) >= 64
+    assert len(py_modules & r_modules) >= 64
+    assert len(stata_modules) >= 61
     assert py_modules == set(compare.TOLERANCES)
     assert py_modules == set(compare.HEADLINE)
     # Every Track A module now carries an R reference (50_xtabond gained its
@@ -130,8 +130,8 @@ def test_strictness_tier_breakdown_matches_current_artifacts():
     ]
 
     assert compare.tier_breakdown(rendered_modules) == {
-        "machine": 50,
-        "iterative": 4,
+        "machine": 57,
+        "iterative": 5,
         "moderate": 1,
         "methodological": 1,
     }
@@ -956,10 +956,9 @@ def test_generated_parity_tables_are_in_sync_with_comparator():
 
 
 def test_parity_readmes_match_current_artifact_inventory():
-    # The StatsPAI<->R table only lists R-joined modules.  A py artifact with
-    # no ``{module}_R.json`` reference (the Py-Stata-only ``50_xtabond``
-    # migration fixture, documented in prose and the 3-way rollup) is
-    # intentionally omitted from the R table, so it must not be required here.
+    # The StatsPAI<->R table lists the current R-joined module inventory.
+    # The historical 50_xtabond R-side gap is now closed through plm::pgmm,
+    # so the readme inventory should cover every committed Python module row.
     py_numbers = {
         module.split("_", 1)[0]
         for module in _module_stems(R_RESULTS, "_py")

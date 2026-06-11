@@ -4,7 +4,7 @@
 \small
 \setlength{\tabcolsep}{2pt}
 \begin{longtable}{@{}p{0.055\linewidth}p{0.205\linewidth}p{0.30\linewidth}p{0.30\linewidth}p{0.10\linewidth}@{}}
-\caption{Track A parity headline at \statspai{} 1.16.0 against the canonical \proglang{R} reference \emph{and} (where one exists) a canonical or audited \proglang{Stata} bridge reference, on the calibrated replicas. The ID column is the two-digit module prefix; the two diff columns report the worst residual gap across each module's headline rows (point estimates only; per-row SE diffs and documented gap rows are reported in \code{tests/r\_parity/results/parity\_table\_3way.md}). Italic text in the \proglang{Stata} column records the explicit non-materialized bridge or no-canonical-reference reason when no portable \proglang{Stata} artifact is available. Verdicts use PASS and GAP; common-specification passes, small-sample SE conventions, and convention gaps are explained in the parenthetical notes and per-module \code{extra} block in \code{tests/r\_parity/results/} and \code{tests/stata\_parity/results/}. Strictness-tier breakdown by registered point-estimate tolerance: 50 machine-level point estimate ($\le 10^{-6}$); 4 iterative/cross-fit ($\le 10^{-3}$); 1 moderate ($\le 5\times10^{-2}$); 1 methodological/T4 disclosure (T3/T4, not deterministic T2).}
+\caption{Track A parity headline at \statspai{} 1.16.0 against the canonical \proglang{R} reference \emph{and} (where one exists) a canonical or audited \proglang{Stata} bridge reference, on the calibrated replicas. The ID column is the two-digit module prefix; the two diff columns report the worst residual gap across each module's headline rows (point estimates only; per-row SE diffs and documented gap rows are reported in \code{tests/r\_parity/results/parity\_table\_3way.md}). Italic text in the \proglang{Stata} column records the explicit non-materialized bridge or no-canonical-reference reason when no portable \proglang{Stata} artifact is available. Verdicts use PASS and GAP; common-specification passes, small-sample SE conventions, and convention gaps are explained in the parenthetical notes and per-module \code{extra} block in \code{tests/r\_parity/results/} and \code{tests/stata\_parity/results/}. Strictness-tier breakdown by registered point-estimate tolerance: 57 machine-level point estimate ($\le 10^{-6}$); 5 iterative/cross-fit ($\le 10^{-3}$); 1 moderate ($\le 5\times10^{-2}$); 1 methodological/T4 disclosure (T3/T4, not deterministic T2).}
 \label{tab:track-a-parity}\\
 \toprule
 ID & Method & Worst diff vs \proglang{R} & Worst diff vs \proglang{Stata} & Verdict \\
@@ -73,5 +73,13 @@ ID & Method & Worst diff vs \proglang{R} & Worst diff vs \proglang{Stata} & Verd
 \code{54} & Two-way cluster-robust SE & abs $\le 7.84e-16$ {\footnotesize (matches sandwich::vcovCL(HC1,cadjust); fixest min-G df convention differs $\sim10^{-3}$)} & abs $\le 1.33e-15$ & \textbf{PASS} \\
 \code{55} & HC2 / HC3 robust SE & abs $\le 2.49e-09$ & abs $\le 2.16e-08$ & \textbf{PASS} \\
 \code{56} & Three-way cluster-robust SE & abs $\le 2.09e-15$ & abs $\le 7.77e-16$ & \textbf{PASS} \\
+\code{57} & Binary logit ML & rel $\le 2.7e-11$ & rel $\le 2.7e-11$ & \textbf{PASS} \\
+\code{58} & Poisson ML & rel $\le 9.2e-15$ & rel $\le 8.7e-12$ & \textbf{PASS} \\
+\code{59} & LIML k-class IV & rel $\le 1.7e-15$ {\footnotesize (ivregress runs with `small` (RSS/(n-k)))} & rel $\le 3e-16$ & \textbf{PASS} \\
+\code{60} & SUR one-step FGLS & rel $\le 1.5e-14$ {\footnotesize (Sigma divisor n (sureg default / noDfCor))} & rel $\le 1.5e-15$ & \textbf{PASS} \\
+\code{61} & Beta regression ML & rel $\le 2.2e-08$ {\footnotesize (betareg SEs are expected-information (documented))} & rel $\le 3.1e-08$ & \textbf{PASS} \\
+\code{62} & Truncated regression ML & rel $\le 3.3e-08$ & rel $\le 9.5e-08$ & \textbf{PASS} \\
+\code{63} & Zero-inflated Poisson & rel $\le 7.7e-08$ & rel $\le 1.1e-07$ & \textbf{PASS} \\
+\code{64} & Zero-inflated NB & rel $\le 1.1e-06$ {\footnotesize (flat ZINB likelihood near optimum (1e-5 budget))} & rel $\le 2.1e-07$ & \textbf{PASS} \\
 \end{longtable}
 \endgroup

@@ -34,13 +34,15 @@ tests/r_parity/
 Historical verification worklog (not the current source-snapshot audit):
 [`PARITY_TEST_WORKLOG_2026-05-29.md`](PARITY_TEST_WORKLOG_2026-05-29.md).
 
-## Modules (56 materialized StatsPAI--R rows)
+## Modules (64 materialized StatsPAI--R rows)
 
 Module `50_xtabond` is now materialized on the R side through
-`plm::pgmm`, so all modules 01--56 have committed StatsPAI--R rows.
+`plm::pgmm`, so all modules 01--64 have committed StatsPAI--R rows.
 The native Python rows used by the loose/reference-bridge audit are
 modules 01--52; modules 53--56 are additional R-only
-robust/cluster-SE parity rows.
+robust/cluster-SE parity rows, and modules 57--64 extend the GLM /
+IV / system / limited-dependent-variable coverage (logit, Poisson,
+LIML, SUR, beta regression, truncated regression, ZIP, ZINB).
 
 | # | Module | StatsPAI | R / reference side |
 | --- | --- | --- | --- |
@@ -100,6 +102,14 @@ robust/cluster-SE parity rows.
 | 54 | Two-way cluster-robust SE | `sp.twoway_cluster` | `sandwich::vcovCL(cluster=~g1+g2)` |
 | 55 | HC2 / HC3 robust SE | `sp.regress` | `sandwich::vcovHC(type="HC2"/"HC3")` |
 | 56 | Three-way cluster-robust SE | `sp.multiway_cluster_vcov` | `sandwich::vcovCL(cluster=~g1+g2+g3)` |
+| 57 | Binary logit | `sp.logit` | `stats::glm(family=binomial("logit"))` |
+| 58 | Poisson ML (no FE) | `sp.poisson` | `stats::glm(family=poisson())` |
+| 59 | LIML k-class IV | `sp.liml` | `ivmodel::LIML` |
+| 60 | SUR one-step FGLS | `sp.sureg` | `systemfit::systemfit(method="SUR", noDfCor)` |
+| 61 | Beta regression | `sp.betareg` | `betareg::betareg(link.phi="log")` |
+| 62 | Truncated regression | `sp.truncreg` | `truncreg::truncreg(method="NR")` |
+| 63 | Zero-inflated Poisson | `sp.zip_model` | `pscl::zeroinfl(dist="poisson")` |
+| 64 | Zero-inflated NB | `sp.zinb` | `pscl::zeroinfl(dist="negbin")` |
 
 ## Running
 

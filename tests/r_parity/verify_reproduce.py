@@ -94,12 +94,16 @@ def _reldiff(a: Optional[float], b: Optional[float]) -> Optional[float]:
 
 
 def discover_modules() -> list[str]:
+    # A module is verifiable when its NN_*.R script has a committed
+    # golden _R.json. A data/<module>.csv fixture is NOT required:
+    # 10_honest_did / 21_honest_relmags / 23_evalue embed their fixtures
+    # (event-study beta/sigma vectors, scalar effect sizes) directly in
+    # the script, and their reproducibility matters just as much as the
+    # CSV-driven modules'.
     mods = []
     for r_script in sorted(HERE.glob("[0-9][0-9]_*.R")):
         name = r_script.stem
-        if (DATA_DIR / f"{name}.csv").exists() and (
-            RESULTS_DIR / f"{name}_R.json"
-        ).exists():
+        if (RESULTS_DIR / f"{name}_R.json").exists():
             mods.append(name)
     return mods
 

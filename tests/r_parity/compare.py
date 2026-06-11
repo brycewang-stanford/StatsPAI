@@ -188,20 +188,44 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
 STATA_HEADLINE_GAP_EXCEPTIONS: dict[str, str] = {}
 
 
-# Pre-registered tolerance per module.
+# Pre-registered tolerance per module. Every entry with rel_est or
+# rel_se >= 5e-2 carries a graded justification (A mechanistic /
+# B empirical / C unjustified) in docs/dev/r_parity_tolerances.md,
+# together with the observed worst gap recomputed from the committed
+# golden JSONs. Audit rules:
+#   * NEVER loosen a value without re-registering it in that document.
+#   * "sentinel" rel_se entries mark point-only modules whose SE rows
+#     are deliberately side-specific (distinct statistic names, or
+#     se=None) and therefore never join: the budget is vacuous today
+#     and is pinned at the 1e-6 machine floor so that any future
+#     joined SE row fails loudly and must be consciously re-budgeted.
 TOLERANCES: dict[str, dict[str, float]] = {
     "01_ols": {"rel_est": 1e-6, "rel_se": 1e-6},
     "02_iv": {"rel_est": 1e-6, "rel_se": 1e-6},
-    "03_hdfe": {"rel_est": 1e-6, "rel_se": 1e-2},  # 1-df conv. gap
-    "04_csdid": {"rel_est": 1e-6, "rel_se": 1e-2},  # R/Stata analytic SE
+    # Tightened 2026-06-10 from 1e-2 ("1-df conv. gap" was stale): with
+    # ssc='fixest' the IID SEs match fixest/reghdfe at machine level
+    # (observed worst rel_se 8.4e-15 incl. Stata side).
+    "03_hdfe": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # B: analytic IF SE incl. control-regression uncertainty; observed
+    # 0.32% vs both did::aggte and csdid (3.1x margin).
+    "04_csdid": {"rel_est": 1e-6, "rel_se": 1e-2},
+    # B: event-time IW SEs track Stata eventstudyinteract (<=0.9%);
+    # fixest agg='att' clustered delta-method aggregation differs by up
+    # to 17.1% on the sparse mpdta cohorts (1.5x margin; fixest-side
+    # mechanism not yet pinned term-by-term) -- see doc.
     "05_sunab": {"rel_est": 1e-6, "rel_se": 0.25},
     "06_rd": {
         "rel_est": 1e-6,
         "rel_se": 0.10,
-    },  # default CCT h; forced legacy SE convention rows
+    },  # A: default-h rows machine-level via official CCT port; budget is
+    # bound by the deliberately retained legacy-internal SE diagnostic
+    # rows at the forced common h (observed 6.7%, 1.5x margin).
     "07_scm": {
-        "rel_est": 1.0,
-        "rel_se": 1.0,
+        "rel_est": 1.0,  # A/T4: Basque weight non-uniqueness; R Synth and
+        # Stata synth land on different local optima (donor weights rel
+        # gap up to 1.78 vs R); native tracks Stata; exact-recovery
+        # counterpart is module 52.
+        "rel_se": 1e-6,  # sentinel: all rows are point-only (se=None)
     },  # native classical SCM: T4 R/Stata reference-disagreement disclosure
     "08_dml": {
         "rel_est": 1e-10,
@@ -215,48 +239,89 @@ TOLERANCES: dict[str, dict[str, float]] = {
         "abs_est": 5e-4,
         "abs_se": 5e-4,
     },  # R backend exact; Stata package port <3.3e-4
-    "11_psm": {"rel_est": 1e-6, "rel_se": 5.0},  # point-only ATT parity; SE diagnostics separated
+    # A + sentinel (tightened 2026-06-10 from 5.0): att_psm carries
+    # se=None on all three sides by design -- SE estimators differ by
+    # construction (sp matched-pair effect dispersion vs MatchIt
+    # post-matching weighted-lm diagnostic vs teffects Abadie-Imbens)
+    # and live under side-specific statistic names that never join.
+    "11_psm": {"rel_est": 1e-6, "rel_se": 1e-6},
     "12_sdid": {
         "rel_est": 1e-6,
-        "rel_se": 5e-2,
+        "rel_se": 1e-6,  # sentinel (was 5e-2): att_sdid is point-only;
+        # placebo SEs are backend-native diagnostics under distinct names.
     },  # point-only native FW/zeta ATT parity
     "13_causal_forest": {
-        "rel_est": 0.005,
-        "rel_se": 0.50,
+        "rel_est": 0.005,  # B/T3: observed 0.28% (1.8x margin), graded
+        # against combined Monte Carlo error of two independent forests.
+        "rel_se": 0.50,  # B: AIPW SEs depend on implementation-specific
+        # forest RNG; observed worst 14.6% (3.4x margin, <5x: not yet
+        # tightenable under the audit rule) -- see doc.
     },  # clean-overlap AIPW vs grf (post-nuisance-regularisation MC gap)
     "14_ols_cluster": {"rel_est": 1e-6, "rel_se": 1e-3},
-    "15_hdfe_cluster": {"rel_est": 1e-6, "rel_se": 5e-2},  # ssc convention
+    # Tightened 2026-06-10 from 5e-2 ("ssc convention" was stale): with
+    # ssc='fixest' the CR1 nested-FE cluster SEs match fixest/reghdfe
+    # (observed worst rel_se 1.25e-11 incl. Stata side).
+    "15_hdfe_cluster": {"rel_est": 1e-6, "rel_se": 1e-6},
     "16_bjs": {
         "rel_est": 1e-6,
-        "rel_se": 0.25,
+        "rel_se": 1e-6,  # sentinel (was 0.25): SE rows are side-specific
+        # (se_cluster_if / se_didimputation / se_stata_did_imputation).
     },  # point row; side-specific SE diagnostics
-    "17_etwfe": {"rel_est": 1e-6, "rel_se": 1e-3},  # emfx + cluster SE parity
-    "18_augsynth": {"rel_est": 2e-5, "rel_se": 1.0},  # native centered Ridge+SCM parity
+    "17_etwfe": {"rel_est": 1e-6, "rel_se": 1e-3},  # emfx + cluster SE
+    # parity; B: observed worst 6.0e-4 on the Stata side (1.7x margin).
+    # B on est (iterative Ridge+SCM solver, observed 7.9e-6, 2.5x margin);
+    # rel_se sentinel (was 1.0): the R augsynth fixture emits no joinable SE.
+    "18_augsynth": {"rel_est": 2e-5, "rel_se": 1e-6},
     "19_gsynth": {
         "rel_est": 1e-6,
-        "rel_se": 1.0,
+        "rel_se": 1e-6,  # sentinel (was 1.0): no SE row joins.
     },  # native gsynth/fect factor convention parity
-    "20_bacon": {"rel_est": 1e-6, "rel_se": 1.0},  # TWFE-only headline
+    # rel_se sentinel (was 1.0): the Goodman-Bacon decomposition emits
+    # no SEs on any side.
+    "20_bacon": {"rel_est": 1e-6, "rel_se": 1e-6},  # TWFE-only headline
     "21_honest_relmags": {"abs_est": 1e-6, "abs_se": 1e-6},
     "22_sensemakr": {"rel_est": 1e-6, "rel_se": 1e-6},
     "23_evalue": {"rel_est": 1e-6, "rel_se": 1e-6},
     "24_coxph": {"rel_est": 1e-6, "rel_se": 1e-3},
     "25_lmm": {"rel_est": 1e-6, "rel_se": 1e-6},  # REML criterion + tight optimiser parity
+    # B: SE information-matrix convention at the (tight) Laplace/AGHQ
+    # optimum differs across implementations; observed worst 1.9% incl.
+    # Stata (2.7x margin). Value frozen by the contract test.
     "26_glmm_logit": {"rel_est": 2e-4, "rel_se": 5e-2},  # tightened GLMM optimiser tol
     "27_glmm_aghq": {"rel_est": 1e-6, "rel_se": 5e-2},  # AGHQ tight optimiser, SE convention gap
     "28_frontier": {"rel_est": 1e-6, "rel_se": 1e-4},
+    # C (known weak spot, see doc): non-headline SE rows exceed this
+    # budget (slope SE up to 0.98% vs frontier::sfa; intercept/sigma are
+    # documented Stata-scale diagnostics). Headline = slope rel_est.
     "29_panel_sfa": {"rel_est": 1e-3, "rel_se": 1e-3},
-    "30_oaxaca": {"rel_est": 1e-6, "rel_se": 1.0},  # gap-only headline
-    "31_dfl": {"rel_est": 1e-6, "rel_se": 1.0},  # ddecompose reference_0 mapping
+    # A (tightened 2026-06-10 from 1.0): sp reports closed-form
+    # delta-method SEs while oaxaca::oaxaca reports seeded R=100
+    # bootstrap SEs; observed 1.25% (R) / 1.22% (Stata), 4x margin.
+    "30_oaxaca": {"rel_est": 1e-6, "rel_se": 0.05},  # gap-only headline
+    # rel_se sentinel (was 1.0): point-only decomposition rows.
+    "31_dfl": {"rel_est": 1e-6, "rel_se": 1e-6},  # ddecompose reference_0 mapping
     "32_rif": {"rel_est": 1e-6, "rel_se": 1e-6},  # dineq/Hmisc + stats::density convention
+    # A on the Stata side (machine match, conditional-MLE divisor T);
+    # NOTE: every R-side SE row differs by exactly sqrt(T/(T-k))-1 =
+    # 1.29% because vars::VAR uses the per-equation lm() divisor T-k --
+    # over this budget, disclosed as a weak spot in the doc.
     "33_var": {"rel_est": 1e-6, "rel_se": 1e-3},
     "34_lp": {"rel_est": 1e-6, "rel_se": 1e-6},  # lpirfs Cholesky/unit shock
     "35_panel": {"rel_est": 1e-6, "rel_se": 1e-3},  # FE/RE + plm-style Hausman
+    # A: sp bootstrap B=1000 vs mediate's quasi-Bayesian MC (sims=200,
+    # ~5% MC noise by itself); observed 7.0% (1.4x margin). Frozen by
+    # the contract test.
     "36_mediation": {"rel_est": 1e-6, "rel_se": 0.10},  # point exact; bootstrap/delta SE convention
     # Modules added in the 2026-05-28 parity expansion session.
     "37_ppmlhdfe": {"rel_est": 1e-6, "rel_se": 1e-2},  # post FE-score fix
     "38_drdid": {"rel_est": 1e-6, "rel_se": 1e-6},  # panel DRDID calibrated PS
-    "39_arima": {"rel_est": 1e-6, "rel_se": 1e-2},  # innovations-MLE exact convention
+    # rel_se sentinel (was 1e-2): no SE row joins on this fixture.
+    "39_arima": {"rel_est": 1e-6, "rel_se": 1e-6},  # innovations-MLE exact convention
+    # A: sp uses the Powell (1991) iid kernel sandwich
+    # (regression/quantile.py) while quantreg reports se='nid'
+    # (Hendricks-Koenker difference-quotient sandwich, chosen to match
+    # Stata qreg); different sparsity estimators by construction.
+    # Observed 7.3% (R) / 3.0% (Stata), 1.4x margin.
     "40_qreg": {"rel_est": 1e-6, "rel_se": 1e-1},  # Powell SE method choice
     "41_tobit": {"rel_est": 1e-6, "rel_se": 1e-3},  # observed-info Hessian
     "42_nbreg": {"rel_est": 1e-6, "rel_se": 1e-2},
@@ -265,6 +330,8 @@ TOLERANCES: dict[str, dict[str, float]] = {
     "45_ologit": {"rel_est": 1e-6, "rel_se": 1e-5},  # polr tight optimiser + observed-info Hessian
     "46_clogit": {"rel_est": 1e-6, "rel_se": 1e-3},
     # Modules added in the second 2026-05-28 fix-and-extend pass.
+    # B: HC1 sandwich after the Gauss-Seidel multi-FE fix; observed
+    # 1.8% (R) / 0.10% (Stata), 2.7x margin.
     "47_ppmlhdfe_3fe": {"rel_est": 1e-6, "rel_se": 5e-2},  # post Gauss-Seidel
     "48_probit": {"rel_est": 1e-6, "rel_se": 1e-2},
     "49_oprobit": {"rel_est": 1e-6, "rel_se": 1e-3},
@@ -273,7 +340,7 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # Unique-solution SCM: strict-parity counterpart to module 07.
     "52_scm_unique": {
         "rel_est": 1e-6,
-        "rel_se": 1.0,
+        "rel_se": 1e-6,  # sentinel (was 1.0): all rows point-only (se=None).
     },  # identified convex SCM; sp/Stata exact, Synth fixed-V QP at machine level
     # CR2 / CR3 cluster-robust SE: both headline rows use the
     # clubSandwich-compatible analytic corrections. Exact delete-one-cluster
@@ -293,6 +360,38 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # matches sandwich::vcovCL(~g1+g2+g3, HC1, cadjust) to machine precision after
     # the v1.16.1 intersection-key fix.
     "56_multiway_cluster": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Plain binary logit ML (sister of 48_probit). glm IRLS is run at
+    # epsilon=1e-12 so all three sides sit on the same optimum; observed
+    # diffs are ~1e-11 est / ~1e-9 SE.
+    "57_logit": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Plain Poisson ML (no FE; the HDFE robust Poisson is 37/47).
+    "58_poisson": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # LIML k-class. sp.liml matches ivmodel::LIML at machine precision;
+    # Stata ivregress liml runs with `small` so all three sides share the
+    # RSS/(n-k) error-variance divisor.
+    "59_liml": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Two-equation SUR, one-step FGLS with Sigma divisor n (Stata sureg
+    # default; systemfit methodResidCov='noDfCor', maxiter=1).
+    "60_sureg": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Beta regression (logit mean link, log-link precision). Point
+    # estimates are machine-level across all three sides; the SE budget
+    # is 1e-2 because betareg reports expected-(Fisher-)information SEs
+    # while sp/Stata report observed-information SEs (documented
+    # convention gap <=0.7% on this fixture; py<->Stata SEs agree at
+    # ~1e-6).
+    "61_betareg": {"rel_est": 1e-6, "rel_se": 1e-2},
+    # Left-truncated normal regression. truncreg runs maxLik method='NR'
+    # to converge past the BFGS default stopping point; sigma rows are
+    # compared on the natural scale (sp delta-maps exp(ln_sigma)).
+    "62_truncreg": {"rel_est": 1e-6, "rel_se": 1e-4},
+    # Zero-inflated Poisson (logit inflation). zeroinfl runs at
+    # reltol=1e-14; worst observed gap ~1e-7 est / ~6e-6 SE.
+    "63_zip": {"rel_est": 1e-6, "rel_se": 1e-4},
+    # Zero-inflated negative binomial. The ZINB likelihood is flat near
+    # the optimum (R EM vs BFGS refinements move coefficients ~3e-7 at
+    # identical logLik to 1e-10), so the point budget is 1e-5 instead of
+    # machine; worst observed gap is ~1.1e-6 est / ~4e-5 SE.
+    "64_zinb": {"rel_est": 1e-5, "rel_se": 1e-3},
 }
 
 
@@ -1020,6 +1119,64 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_se",
         "verdict": "\\textbf{PASS}",
         "gap_note": "",
+    },
+    "57_logit": {
+        "name": "Binary logit ML",
+        "headline_filter": lambda d: d.statistic.startswith("beta_"),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "",
+    },
+    "58_poisson": {
+        "name": "Poisson ML",
+        "headline_filter": lambda d: d.statistic.startswith("beta_"),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "",
+    },
+    "59_liml": {
+        "name": "LIML k-class IV",
+        # ivmodel::LIML pins the endogenous coefficient; the exogenous
+        # coefficients are py<->Stata rows (ivregress liml, small).
+        "headline_filter": lambda d: d.statistic.startswith("beta_"),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "ivregress runs with `small` (RSS/(n-k))",
+    },
+    "60_sureg": {
+        "name": "SUR one-step FGLS",
+        "headline_filter": lambda d: d.statistic.startswith("beta_"),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "Sigma divisor n (sureg default / noDfCor)",
+    },
+    "61_betareg": {
+        "name": "Beta regression ML",
+        "headline_filter": lambda d: d.statistic.startswith("beta_") or d.statistic == "ln_phi",
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "betareg SEs are expected-information (documented)",
+    },
+    "62_truncreg": {
+        "name": "Truncated regression ML",
+        "headline_filter": lambda d: d.statistic.startswith("beta_") or d.statistic == "sigma",
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "",
+    },
+    "63_zip": {
+        "name": "Zero-inflated Poisson",
+        "headline_filter": lambda d: d.statistic.startswith("beta_"),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "",
+    },
+    "64_zinb": {
+        "name": "Zero-inflated NB",
+        "headline_filter": lambda d: d.statistic.startswith("beta_"),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "flat ZINB likelihood near optimum (1e-5 budget)",
     },
 }
 

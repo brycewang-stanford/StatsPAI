@@ -27,6 +27,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "askpass": {
+      "Package": "askpass",
+      "Version": "1.2.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "augsynth": {
       "Package": "augsynth",
       "Version": "0.2.0",
@@ -64,6 +70,12 @@
     "bdsmatrix": {
       "Package": "bdsmatrix",
       "Version": "1.3.7",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "betareg": {
+      "Package": "betareg",
+      "Version": "3.2.4",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -132,6 +144,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "censReg": {
+      "Package": "censReg",
+      "Version": "0.5.38",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "checkmate": {
       "Package": "checkmate",
       "Version": "2.3.4",
@@ -164,6 +182,12 @@
     "clock": {
       "Package": "clock",
       "Version": "0.7.4",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "clubSandwich": {
+      "Package": "clubSandwich",
+      "Version": "0.6.2",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -218,6 +242,18 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "cubature": {
+      "Package": "cubature",
+      "Version": "2.1.4.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "curl": {
+      "Package": "curl",
+      "Version": "7.1.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "CVXR": {
       "Package": "CVXR",
       "Version": "1.8.2",
@@ -227,6 +263,17 @@
     "data.table": {
       "Package": "data.table",
       "Version": "1.18.2.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "datasets": {
+      "Package": "datasets",
+      "Version": "4.5.2",
+      "Source": "R"
+    },
+    "ddecompose": {
+      "Package": "ddecompose",
+      "Version": "1.0.0",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -263,6 +310,12 @@
     "digest": {
       "Package": "digest",
       "Version": "0.6.39",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "dineq": {
+      "Package": "dineq",
+      "Version": "0.1.0",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -338,9 +391,21 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "EValue": {
+      "Package": "EValue",
+      "Version": "4.1.4",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "farver": {
       "Package": "farver",
       "Version": "2.1.2",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "fastGHQuad": {
+      "Package": "fastGHQuad",
+      "Version": "1.0.1",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -365,6 +430,12 @@
     "fixest": {
       "Package": "fixest",
       "Version": "0.14.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "flexmix": {
+      "Package": "flexmix",
+      "Version": "2.3.20",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -460,6 +531,12 @@
     "ggstats": {
       "Package": "ggstats",
       "Version": "0.13.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "glmmML": {
+      "Package": "glmmML",
+      "Version": "1.1.7",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -562,6 +639,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "hpa": {
+      "Package": "hpa",
+      "Version": "1.3.4",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "htmlTable": {
       "Package": "htmlTable",
       "Version": "2.5.0",
@@ -577,6 +660,12 @@
     "htmlwidgets": {
       "Package": "htmlwidgets",
       "Version": "1.6.4",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "httr": {
+      "Package": "httr",
+      "Version": "1.4.8",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -601,6 +690,12 @@
     "iterators": {
       "Package": "iterators",
       "Version": "1.0.14",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "ivmodel": {
+      "Package": "ivmodel",
+      "Version": "1.9.1",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -734,6 +829,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "marqLevAlg": {
+      "Package": "marqLevAlg",
+      "Version": "2.0.8",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "MASS": {
       "Package": "MASS",
       "Version": "7.3.65",
@@ -742,6 +843,12 @@
     "MatchIt": {
       "Package": "MatchIt",
       "Version": "4.7.2",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "mathjaxr": {
+      "Package": "mathjaxr",
+      "Version": "2.0.0",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -777,6 +884,24 @@
     "memoise": {
       "Package": "memoise",
       "Version": "2.0.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "metadat": {
+      "Package": "metadat",
+      "Version": "1.6.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "metafor": {
+      "Package": "metafor",
+      "Version": "5.0.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "MetaUtility": {
+      "Package": "MetaUtility",
+      "Version": "2.1.2",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -862,6 +987,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "mnorm": {
+      "Package": "mnorm",
+      "Version": "1.2.3",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "ModelMetrics": {
       "Package": "ModelMetrics",
       "Version": "1.2.2.2",
@@ -871,6 +1002,12 @@
     "modelr": {
       "Package": "modelr",
       "Version": "0.1.11",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "modeltools": {
+      "Package": "modeltools",
+      "Version": "0.2.24",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -923,6 +1060,12 @@
     "oaxaca": {
       "Package": "oaxaca",
       "Version": "0.1.5",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "openssl": {
+      "Package": "openssl",
+      "Version": "2.4.0",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1057,6 +1200,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "pscl": {
+      "Package": "pscl",
+      "Version": "1.5.9",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "purrr": {
       "Package": "purrr",
       "Version": "1.2.1",
@@ -1078,6 +1227,18 @@
     "R6": {
       "Package": "R6",
       "Version": "2.6.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "randtoolbox": {
+      "Package": "randtoolbox",
+      "Version": "2.0.5",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "ranger": {
+      "Package": "ranger",
+      "Version": "0.18.0",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1114,6 +1275,12 @@
     "RcppEigen": {
       "Package": "RcppEigen",
       "Version": "0.3.4.0.2",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "RcppParallel": {
+      "Package": "RcppParallel",
+      "Version": "5.1.11.2",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1177,6 +1344,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "rifreg": {
+      "Package": "rifreg",
+      "Version": "1.1.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "rlang": {
       "Package": "rlang",
       "Version": "1.1.7",
@@ -1195,6 +1368,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "rngWELL": {
+      "Package": "rngWELL",
+      "Version": "0.10.10",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "rpart": {
       "Package": "rpart",
       "Version": "4.1.24",
@@ -1209,6 +1388,12 @@
     "S7": {
       "Package": "S7",
       "Version": "0.2.2",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "sampleSelection": {
+      "Package": "sampleSelection",
+      "Version": "1.2.14",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1233,6 +1418,18 @@
     "scs": {
       "Package": "scs",
       "Version": "3.2.7",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "sensemakr": {
+      "Package": "sensemakr",
+      "Version": "0.1.6",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "sfaR": {
+      "Package": "sfaR",
+      "Version": "1.0.1",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1332,6 +1529,24 @@
       "RemoteRef": "HEAD",
       "RemoteSha": "70c1ce3eac58e28c30b67435ca377bb48baa9b8a"
     },
+    "sys": {
+      "Package": "sys",
+      "Version": "3.4.3",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "systemfit": {
+      "Package": "systemfit",
+      "Version": "1.1.30",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "texreg": {
+      "Package": "texreg",
+      "Version": "1.39.5",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "tibble": {
       "Package": "tibble",
       "Version": "3.3.1",
@@ -1385,15 +1600,33 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "truncreg": {
+      "Package": "truncreg",
+      "Version": "0.2.5",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "trust": {
       "Package": "trust",
       "Version": "0.1.9",
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "trustOptim": {
+      "Package": "trustOptim",
+      "Version": "0.8.7.4",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "tzdb": {
       "Package": "tzdb",
       "Version": "0.5.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "ucminf": {
+      "Package": "ucminf",
+      "Version": "1.2.3",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1429,6 +1662,12 @@
     "vctrs": {
       "Package": "vctrs",
       "Version": "0.7.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "VGAM": {
+      "Package": "VGAM",
+      "Version": "1.1.14",
       "Source": "Repository",
       "Repository": "CRAN"
     },

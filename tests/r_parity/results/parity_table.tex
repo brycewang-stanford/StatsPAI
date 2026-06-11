@@ -70,4 +70,12 @@ Module & Method & Worst headline diff & Verdict \\
 \code{54\_twoway\_cluster} & Two-way cluster-robust SE & abs $\le 7.84e-16$ {\footnotesize (matches sandwich::vcovCL(HC1,cadjust); fixest min-G df convention differs $\sim10^{-3}$)} & \textbf{PASS} \\
 \code{55\_hc2\_hc3} & HC2 / HC3 robust SE & abs $\le 2.49e-09$ & \textbf{PASS} \\
 \code{56\_multiway\_cluster} & Three-way cluster-robust SE & abs $\le 2.09e-15$ & \textbf{PASS} \\
+\code{57\_logit} & Binary logit ML & rel $\le 2.7e-11$ & \textbf{PASS} \\
+\code{58\_poisson} & Poisson ML & rel $\le 9.2e-15$ & \textbf{PASS} \\
+\code{59\_liml} & LIML k-class IV & rel $\le 1.7e-15$ {\footnotesize (ivregress runs with `small` (RSS/(n-k)))} & \textbf{PASS} \\
+\code{60\_sureg} & SUR one-step FGLS & rel $\le 1.5e-14$ {\footnotesize (Sigma divisor n (sureg default / noDfCor))} & \textbf{PASS} \\
+\code{61\_betareg} & Beta regression ML & rel $\le 2.2e-08$ {\footnotesize (betareg SEs are expected-information (documented))} & \textbf{PASS} \\
+\code{62\_truncreg} & Truncated regression ML & rel $\le 3.3e-08$ & \textbf{PASS} \\
+\code{63\_zip} & Zero-inflated Poisson & rel $\le 7.7e-08$ & \textbf{PASS} \\
+\code{64\_zinb} & Zero-inflated NB & rel $\le 1.1e-06$ {\footnotesize (flat ZINB likelihood near optimum (1e-5 budget))} & \textbf{PASS} \\
 \end{longtable}

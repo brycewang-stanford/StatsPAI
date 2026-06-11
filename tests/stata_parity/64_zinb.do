@@ -18,7 +18,9 @@ stata_parity_open, module(64_zinb)
 import delimited "${STATA_PARITY_DATA}/64_zinb.csv", clear case(preserve)
 local n = _N
 
-zinb y x1 x2, inflate(z)
+* nrtolerance tightens the scaled-gradient stop rule (default 1e-5) so
+* the ML optimum matches the tightly converged sp/R references.
+zinb y x1 x2, inflate(z) nrtolerance(1e-13)
 
 local bc0 = _b[y:_cons]
 local sc0 = _se[y:_cons]
@@ -42,6 +44,6 @@ stata_parity_row, stat(alpha)                  est(`alpha') nob(`n')
 stata_parity_extra, key(count_dist) val(negbin)
 stata_parity_extra, key(inflate_link) val(logit)
 stata_parity_extra, key(alpha_note) val("alpha = 1/theta (Stata lnalpha scale)")
-stata_parity_extra, key(stata_command) val("zinb y x1 x2, inflate(z)")
+stata_parity_extra, key(stata_command) val("zinb y x1 x2, inflate(z) nrtolerance(1e-13)")
 
 stata_parity_close, module(64_zinb)

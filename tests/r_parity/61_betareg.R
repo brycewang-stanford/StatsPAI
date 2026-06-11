@@ -14,12 +14,13 @@ suppressPackageStartupMessages({ library(betareg) })
 MODULE <- "61_betareg"
 df <- read_csv_strict(MODULE)
 
-# hessian=TRUE reports observed-information SEs (the sp.betareg /
-# Stata betareg oim convention) instead of betareg's default expected
-# (Fisher) information; fsmaxit=0 keeps the BFGS optimum the Hessian is
-# evaluated at.
+# SE convention: betareg reports expected-(Fisher-)information SEs
+# (Ferrari & Cribari-Neto 2004 convention); sp.betareg and Stata
+# betareg (vce(oim)) report observed-information SEs. Point estimates
+# are like-for-like at machine level; the SE columns carry a documented
+# <=0.7% convention gap on this fixture (numDeriv observed-info SEs at
+# the betareg optimum reproduce the sp/Stata SEs).
 fit <- betareg(y ~ x1 + x2, data = df, link = "logit", link.phi = "log",
-               hessian = TRUE,
                control = betareg.control(reltol = 1e-14, maxit = 5000))
 co <- coef(fit); se <- sqrt(diag(vcov(fit)))
 
@@ -31,4 +32,5 @@ rows <- list(
 )
 write_results(MODULE, rows,
               extra = list(package = "betareg::betareg",
-                           link = "logit", phi_link = "log"))
+                           link = "logit", phi_link = "log",
+                           se_convention = "expected (Fisher) information"))
