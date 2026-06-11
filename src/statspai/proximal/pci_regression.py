@@ -47,12 +47,15 @@ Cui, Y., Pu, H., Shi, X., Miao, W. & Tchetgen Tchetgen, E. (2024).
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Optional, Sequence, Dict, Any
 
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+from ..exceptions import ConvergenceWarning
 # sklearn is imported lazily inside the functions that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
 # file when the user never touches proximal_regression.
@@ -118,6 +121,14 @@ def proximal_regression(
     Returns
     -------
     ProximalRegResult
+
+    Notes
+    -----
+    If the treatment-bridge logistic regression fails, the propensity is
+    set to the constant marginal :math:`P(D=1)` — which neutralises the
+    doubly-robust correction term — and a
+    :class:`~statspai.exceptions.ConvergenceWarning` is emitted with
+    ``detail['propensity_fallback']`` set to True.
     """
     X_cols = list(covariates or [])
     df = data[[y, treat, z_proxy, w_proxy] + X_cols].dropna().reset_index(drop=True)
@@ -150,13 +161,23 @@ def proximal_regression(
 
     # --- Treatment bridge q(Z, X): logistic propensity P(D=1 | Z, X) ---
     prop_design = np.column_stack([np.ones(n), Zp, Xc])
+    propensity_fallback = False
     try:
         from sklearn.linear_model import LogisticRegression
         lr = LogisticRegression(C=1e6, solver="lbfgs", max_iter=500)
         lr.fit(prop_design, D.astype(int))
         pi_hat = lr.predict_proba(prop_design)[:, 1]
-    except Exception:
+    except Exception as exc:
         pi_hat = np.full(n, float(D.mean()))
+        propensity_fallback = True
+        warnings.warn(
+            "proximal_regression: treatment-bridge logistic regression "
+            f"failed ({type(exc).__name__}: {exc}); propensity set to the "
+            "constant marginal P(D=1) — the doubly-robust correction term "
+            "is degraded.",
+            ConvergenceWarning,
+            stacklevel=2,
+        )
     pi_hat = np.clip(pi_hat, *propensity_bounds)
 
     # Doubly-robust combination (Tchetgen 2024 eq. similar to AIPW):
@@ -189,6 +210,7 @@ def proximal_regression(
         n_obs=n,
         detail={
             "pi_range": (float(pi_hat.min()), float(pi_hat.max())),
+            "propensity_fallback": propensity_fallback,
         },
     )
 

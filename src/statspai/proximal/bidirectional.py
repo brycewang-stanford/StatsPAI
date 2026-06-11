@@ -10,6 +10,7 @@ robust to misspecification in either direction.
 
 from __future__ import annotations
 
+import warnings
 from typing import List, Optional
 
 import numpy as np
@@ -18,6 +19,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ..exceptions import ConvergenceWarning
 
 
 def bidirectional_pci(
@@ -46,6 +48,15 @@ def bidirectional_pci(
     -------
     CausalResult
         ATE estimate from the bidirectional moment condition.
+
+    Notes
+    -----
+    If the treatment-bridge (Z-based logistic IPW) step fails on the
+    point-estimate sample, the estimator degrades to the outcome bridge
+    only (``tau_treatment`` is set to ``tau_outcome``); a
+    :class:`~statspai.exceptions.ConvergenceWarning` is emitted and
+    ``model_info['treatment_bridge_fallback']`` is set to True together
+    with the error type.
     """
     cov = list(covariates or [])
     df = data[[y, treat] + list(proxy_z) + list(proxy_w) + cov] \
@@ -57,7 +68,11 @@ def bidirectional_pci(
     X = df[cov].to_numpy(float) if cov else np.zeros((len(df), 0))
     n = len(df)
 
-    def _bidir(Yi, Di, Zi, Wi, Xi):
+    # Filled by _bidir on the point-estimate call only (record=True);
+    # the bootstrap replicates reuse the closure without signalling.
+    fallback_info = {'treatment_bridge_fallback': False}
+
+    def _bidir(Yi, Di, Zi, Wi, Xi, record=False):
         from sklearn.linear_model import LinearRegression
         # Outcome bridge: linear h(W, D, X) via 2SLS
         const = np.ones((len(Yi), 1))
@@ -83,13 +98,23 @@ def bidirectional_pci(
             tau_treatment = float(
                 np.mean(Di * Yi / ps_z) - np.mean((1 - Di) * Yi / (1 - ps_z))
             )
-        except Exception:
+        except Exception as exc:
             tau_treatment = tau_outcome
+            if record:
+                warnings.warn(
+                    "bidirectional_pci: treatment-bridge (Z-based logistic "
+                    f"IPW) step failed ({type(exc).__name__}: {exc}); the "
+                    "estimate degraded to the outcome bridge only.",
+                    ConvergenceWarning,
+                    stacklevel=3,
+                )
+                fallback_info['treatment_bridge_fallback'] = True
+                fallback_info['treatment_bridge_error'] = type(exc).__name__
 
         # Combine: arithmetic mean (equally trust both bridges)
         return 0.5 * tau_outcome + 0.5 * tau_treatment
 
-    tau = _bidir(Y, D, Z, W, X)
+    tau = _bidir(Y, D, Z, W, X, record=True)
 
     rng = np.random.default_rng(seed)
     boot = np.full(n_boot, np.nan)
@@ -118,6 +143,7 @@ def bidirectional_pci(
         model_info={
             'estimator': 'bidirectional_pci',
             'reference': 'Min, Zhang & Luo (2025), arXiv 2507.13965',
+            **fallback_info,
         },
         _citation_key='bidirectional_pci',
     )

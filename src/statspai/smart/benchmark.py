@@ -21,6 +21,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from ..workflow._degradation import record_degradation
 from .verify import _run_method
 
 __all__ = ["verify_benchmark"]
@@ -119,6 +120,12 @@ def verify_benchmark(
         One row per (scenario, rep, recommendation) combination, with
         columns: scenario, rep, method, score, stability, placebo,
         subsample, point_estimate, true_effect, bias, elapsed_s.
+
+    Notes
+    -----
+    When the full-data point estimate for a recommended method cannot
+    be computed, ``point_estimate`` and ``bias`` are NaN for that row
+    and a ``WorkflowDegradedWarning`` is emitted.
     """
     import statspai as sp
 
@@ -177,7 +184,16 @@ def verify_benchmark(
                 # Point estimate: run once on full data for bias check
                 try:
                     point = _run_method(r, df)
-                except Exception:
+                except Exception as e:
+                    # §3.7: warn rather than silently NaN the bias column
+                    # (the row's 'error' field only carries verify's error).
+                    record_degradation(
+                        None,
+                        section="verify_benchmark: point estimate for bias",
+                        exc=e,
+                        detail=f"scenario={name} rep={rep} "
+                               f"method={r['method']}",
+                    )
                     point = np.nan
                 bias = (point - spec["true_effect"]
                         if isinstance(point, float) and np.isfinite(point)

@@ -16,6 +16,7 @@ m(D, Z, X) compensates, yielding a doubly-robust ATE.
 
 from __future__ import annotations
 
+import warnings
 from typing import List, Optional
 
 import numpy as np
@@ -24,6 +25,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ..exceptions import ConvergenceWarning
 
 
 def fortified_pci(
@@ -60,6 +62,15 @@ def fortified_pci(
         ATE estimate that is doubly robust to bridge / outcome
         misspecification.
 
+    Notes
+    -----
+    If the outcome-regression augmentation fails on the point-estimate
+    sample, the fortified estimator degrades to the plain bridge 2SLS
+    estimate (``tau_outcome`` is set to ``tau_bridge``); a
+    :class:`~statspai.exceptions.ConvergenceWarning` is emitted and
+    ``model_info['outcome_augmentation_fallback']`` is set to True
+    together with the error type.
+
     References
     ----------
     Yu, Shi & Tchetgen Tchetgen (2025). Fortified Proximal Causal Inference
@@ -75,7 +86,11 @@ def fortified_pci(
     X = df[cov].to_numpy(float) if cov else np.zeros((len(df), 0))
     n = len(df)
 
-    def _fortified_estimate(Yi, Di, Zi, Wi, Xi):
+    # Filled by _fortified_estimate on the point-estimate call only
+    # (record=True); the bootstrap replicates reuse the closure silently.
+    fallback_info = {'outcome_augmentation_fallback': False}
+
+    def _fortified_estimate(Yi, Di, Zi, Wi, Xi, record=False):
         # Bridge estimate via 2SLS
         const = np.ones((len(Yi), 1))
         X_exog = np.hstack([const, Di.reshape(-1, 1), Xi])
@@ -101,14 +116,24 @@ def fortified_pci(
             mu1 = m.predict(X_d1)
             mu0 = m.predict(X_d0)
             tau_outcome = float(np.mean(mu1 - mu0))
-        except Exception:
+        except Exception as exc:
             tau_outcome = tau_bridge
+            if record:
+                warnings.warn(
+                    "fortified_pci: outcome-regression augmentation failed "
+                    f"({type(exc).__name__}: {exc}); the fortified estimate "
+                    "degraded to the bridge-only (plain 2SLS) estimate.",
+                    ConvergenceWarning,
+                    stacklevel=3,
+                )
+                fallback_info['outcome_augmentation_fallback'] = True
+                fallback_info['outcome_augmentation_error'] = type(exc).__name__
 
         # Fortification: simple inverse-variance combination
         tau = 0.5 * tau_bridge + 0.5 * tau_outcome
         return tau
 
-    tau = _fortified_estimate(Y, D, Z, W, X)
+    tau = _fortified_estimate(Y, D, Z, W, X, record=True)
 
     # Bootstrap SE
     rng = np.random.default_rng(seed)
@@ -138,6 +163,7 @@ def fortified_pci(
         model_info={
             'estimator': 'fortified_pci',
             'reference': 'Yu, Shi & Tchetgen Tchetgen (2025), arXiv 2506.13152',
+            **fallback_info,
         },
         _citation_key='fortified_pci',
     )

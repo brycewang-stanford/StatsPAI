@@ -19,12 +19,15 @@ Returns ranked candidates so the user can pick the strongest pair.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+from ..exceptions import ConvergenceWarning
 
 
 @dataclass
@@ -75,6 +78,15 @@ def select_pci_proxies(
     Returns
     -------
     ProxyScoreResult
+
+    Notes
+    -----
+    If the partial-correlation / residualisation step fails for a
+    candidate, its score falls back to the *marginal* correlation
+    (with ``p_indep=1.0`` on the Z-side, so the conditional-independence
+    test is uninformative for that candidate) and a
+    :class:`~statspai.exceptions.ConvergenceWarning` names the candidate
+    and side. Scores for unaffected candidates are unchanged.
     """
     cov = list(covariates or [])
     df = data[[y, treat] + list(candidates) + cov].dropna()
@@ -105,9 +117,19 @@ def select_pci_proxies(
                 p_indep = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
             else:
                 p_indep = 1.0
-        except Exception:
+        except Exception as exc:
             partial_zy = rho_y
             p_indep = 1.0
+            warnings.warn(
+                f"select_pci_proxies: partial-correlation / Fisher-z test "
+                f"failed for candidate '{c}' (Z-side) "
+                f"({type(exc).__name__}: {exc}); falling back to the "
+                f"marginal correlation with p_indep=1.0 — the "
+                f"conditional-independence test is uninformative for this "
+                f"candidate.",
+                ConvergenceWarning,
+                stacklevel=2,
+            )
 
         # Score for Z: strong correlation with D, weak partial corr with Y
         score_z = abs(rho_d) - abs(partial_zy)
@@ -125,8 +147,16 @@ def select_pci_proxies(
             ).predict(np.column_stack([df[c2].to_numpy(float) for c2 in cov])
                        if cov else np.zeros((len(df), 1)))
             partial_wd = float(np.corrcoef(r_v_w, r_d)[0, 1]) if r_v_w.std() > 0 else 0.0
-        except Exception:
+        except Exception as exc:
             partial_wd = rho_d
+            warnings.warn(
+                f"select_pci_proxies: residualisation failed for candidate "
+                f"'{c}' (W-side) ({type(exc).__name__}: {exc}); falling "
+                f"back to the marginal correlation with treatment, which "
+                f"deflates score_w for this candidate.",
+                ConvergenceWarning,
+                stacklevel=2,
+            )
         score_w = abs(rho_y) - abs(partial_wd)
 
         z_rows.append({'name': c, 'score_z': score_z, 'p_indep': p_indep})

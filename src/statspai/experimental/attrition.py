@@ -11,10 +11,13 @@ Lee, D.S. (2009).
 on Treatment Effects." *RES*, 76(3), 1071-1102. [@lee2009training]
 """
 
+import warnings
 from typing import Optional, List, Dict, Any
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+from ..exceptions import StatsPAIWarning
 
 
 class AttritionResult:
@@ -79,6 +82,12 @@ def attrition_test(
     -------
     AttritionResult
 
+    Notes
+    -----
+    If the attrition-predictor regression for a covariate fails (e.g.
+    constant or degenerate values), its row in ``covariate_tests`` is
+    reported as NaN and a ``StatsPAIWarning`` names the covariate.
+
     Examples
     --------
     >>> import statspai as sp
@@ -115,7 +124,14 @@ def attrition_test(
                 t = beta[1] / se
                 p = 2 * (1 - stats.t.cdf(abs(t), len(a_v) - 2))
                 rows.append({'variable': var, 'coef': beta[1], 'se': se, 'p_value': p})
-            except Exception:
+            except Exception as e:
+                warnings.warn(
+                    f"attrition_test: attrition-predictor regression for "
+                    f"covariate {var!r} failed ({type(e).__name__}: {e}); "
+                    f"row reported as NaN",
+                    StatsPAIWarning,
+                    stacklevel=2,
+                )
                 rows.append({'variable': var, 'coef': np.nan, 'se': np.nan, 'p_value': np.nan})
         cov_tests = pd.DataFrame(rows)
 

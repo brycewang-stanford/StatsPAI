@@ -607,6 +607,9 @@ class CausalWorkflow:
         For RD:  Sharp RDD (rdrobust) at MSE-optimal + CERD ±50% bandwidths.
 
         Rows with a failed estimator carry NaN and an error string.
+        If a result object fits but its effect cannot be extracted, the
+        row carries NaN and a ``WorkflowDegradedWarning`` is emitted
+        (recorded in ``self.degradations``).
         """
         if self.result is None:
             self.estimate()
@@ -664,8 +667,16 @@ class CausalWorkflow:
                     else:
                         ci = None
                     return est, se, ci
-                except Exception:
-                    pass
+                except Exception as exc:
+                    # §3.7: don't silently NaN the row — warn + record so
+                    # the user can see why an estimator's effect is missing.
+                    from ._degradation import record_degradation
+                    record_degradation(
+                        self,
+                        section="compare_estimators: effect extraction",
+                        exc=exc,
+                        detail=f"result_class={type(r).__name__}",
+                    )
             return (np.nan, np.nan, None)
 
         def _safe_call(label, fn):

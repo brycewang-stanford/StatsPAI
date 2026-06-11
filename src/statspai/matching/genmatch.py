@@ -70,10 +70,22 @@ def _standardised_diff(x_t: np.ndarray, x_c: np.ndarray) -> float:
     return float((x_t.mean() - x_c.mean()) / pooled)
 
 
-def _ks_p(x_t: np.ndarray, x_c: np.ndarray) -> float:
+def _ks_p(
+    x_t: np.ndarray, x_c: np.ndarray, failures: Optional[list] = None
+) -> float:
     try:
         return float(stats.ks_2samp(x_t, x_c).pvalue)
-    except Exception:
+    except Exception as exc:
+        from ..exceptions import StatsPAIWarning, warn as _sp_warn
+
+        _sp_warn(
+            StatsPAIWarning,
+            "genmatch: KS balance test failed (degenerate sample; "
+            f"{type(exc).__name__}); reporting p=1.0 for this covariate.",
+            stacklevel=2,
+        )
+        if failures is not None:
+            failures.append(type(exc).__name__)
         return 1.0
 
 
@@ -97,7 +109,8 @@ def _match_with_weights(
 
 
 def _balance_stats(
-    X_t: np.ndarray, X_c: np.ndarray, matches: np.ndarray, names: Sequence[str]
+    X_t: np.ndarray, X_c: np.ndarray, matches: np.ndarray, names: Sequence[str],
+    failures: Optional[list] = None,
 ) -> pd.DataFrame:
     rows = []
     for j, name in enumerate(names):
@@ -105,8 +118,8 @@ def _balance_stats(
         matched_c = X_c[matches.flatten(), j]
         matched_t = np.repeat(X_t[:, j], matches.shape[1])
         smd_post = _standardised_diff(matched_t, matched_c)
-        ks_pre = _ks_p(X_t[:, j], X_c[:, j])
-        ks_post = _ks_p(X_t[:, j], matched_c)
+        ks_pre = _ks_p(X_t[:, j], X_c[:, j], failures=failures)
+        ks_post = _ks_p(X_t[:, j], matched_c, failures=failures)
         rows.append({
             "variable": name,
             "smd_pre": smd_pre,
@@ -162,6 +175,12 @@ def genmatch(
     Returns
     -------
     GenMatchResult
+
+    Notes
+    -----
+    Degenerate Kolmogorov-Smirnov balance tests fall back to p=1.0 with
+    a ``StatsPAIWarning``; failures in the final balance table are
+    counted in ``result.detail['ks_test_failures']``.
     """
     cov = list(covariates)
     df = data[[y, treat] + cov].dropna().reset_index(drop=True)
@@ -200,7 +219,8 @@ def genmatch(
 
     best = population[np.argmax(fitness)]
     matches = _match_with_weights(X_t, X_c, best, k_nn=k)
-    balance = _balance_stats(X_t, X_c, matches, cov)
+    ks_failures: list = []
+    balance = _balance_stats(X_t, X_c, matches, cov, failures=ks_failures)
 
     # ATT estimation
     Y_t = Y[idx_t]
@@ -224,7 +244,10 @@ def genmatch(
         matches=matches,
         n_treated=len(idx_t),
         n_obs=len(df),
-        detail={"fitness": float(fitness.max())},
+        detail={
+            "fitness": float(fitness.max()),
+            "ks_test_failures": len(ks_failures),
+        },
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov

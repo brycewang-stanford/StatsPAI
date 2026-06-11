@@ -54,6 +54,7 @@ for Longitudinal Data." *Journal of Statistical Software*, 81(1). [@lendle2017lt
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union, Any
 
@@ -61,6 +62,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from scipy.special import expit, logit
+
+from ..exceptions import ConvergenceWarning
 
 # sklearn is imported lazily inside the helpers that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
@@ -242,6 +245,14 @@ def ltmle(
     :math:`\\hat\\epsilon \\approx \\sum H \\cdot (\\mathrm{logit}(Y) -
     \\mathrm{logit}(\\hat Q)) / \\sum H^2`, which is accurate near
     :math:`\\epsilon=0` but biased for moderate :math:`\\epsilon`.
+
+    **Targeting-step failures.** If the binary-outcome fluctuation step
+    fails at a time point, :math:`\\epsilon` is set to 0 for that step
+    (no targeting update — the estimate degrades toward untargeted
+    g-computation at that time point); a ``ConvergenceWarning`` is
+    emitted and the failed step indices are recorded per regime in
+    ``detail['targeting_failures']``. Per-step epsilons (time order
+    k=0..K-1) are exposed in ``detail['epsilons']``.
     """
     treatments = list(treatments)
     covariates_time = [list(c) for c in covariates_time]
@@ -350,8 +361,9 @@ def ltmle(
         return mat
 
     # Helper: target Q at each step given regime
-    def _run_regime(regime: Regime) -> Tuple[float, np.ndarray]:
-        """Returns ψ and individual influence-function contributions."""
+    def _run_regime(regime: Regime) -> Tuple[float, np.ndarray, List[float], List[int]]:
+        """Returns ψ, influence-function contributions, per-step
+        epsilons (time order k=0..K-1) and failed targeting steps."""
         # Cumulative regime-following indicator and cumulative weights
         cum_follow = np.ones(n, dtype=bool)
         cum_weight = np.ones(n)
@@ -361,6 +373,7 @@ def ltmle(
         Q = df[y].to_numpy(dtype=float).copy()
         # Targeted outcome storage, updated from K-1 down to 0
         eps_list: List[float] = []
+        targeting_failures: List[int] = []
 
         for k in reversed(range(K)):
             # History at time k
@@ -452,9 +465,19 @@ def ltmle(
                     else:
                         eps = 0.0
                     Q_star_regime = expit(_safe_logit(Q_hat_regime) + eps * new_cum_weight)
-                except Exception:
+                except Exception as exc:
                     eps = 0.0
                     Q_star_regime = Q_hat_regime
+                    targeting_failures.append(k)
+                    warnings.warn(
+                        f"ltmle: targeting step k={k} failed "
+                        f"({type(exc).__name__}: {exc}); epsilon set to 0 "
+                        "(no targeting update at this time point — the "
+                        "estimate degrades toward untargeted "
+                        "g-computation).",
+                        ConvergenceWarning,
+                        stacklevel=3,
+                    )
             else:
                 resid = Q - Q_hat_raw
                 mask = H > 0
@@ -477,10 +500,11 @@ def ltmle(
         # Influence function: D = H_1*(Y - Q_1^*) + (Q_1^* - psi)
         # For a simplified SE we use the empirical variance of Q.
         ic = Q - psi
-        return psi, ic
+        # eps_list was appended k=K-1..0; reverse into time order.
+        return psi, ic, eps_list[::-1], sorted(targeting_failures)
 
-    psi1, ic1 = _run_regime(regime_treated)
-    psi0, ic0 = _run_regime(regime_control)
+    psi1, ic1, eps1, fail1 = _run_regime(regime_treated)
+    psi0, ic0, eps0, fail0 = _run_regime(regime_control)
     ate = psi1 - psi0
     diff_ic = ic1 - ic0
     se = float(np.std(diff_ic, ddof=1) / np.sqrt(n))
@@ -507,6 +531,10 @@ def ltmle(
             "propensity_summary": [(float(p.min()), float(p.max())) for p in propensities],
             "regime_treated_callable": callable(regime_treated),
             "regime_control_callable": callable(regime_control),
+            # Per-step targeting epsilons (time order k=0..K-1) and the
+            # steps where the binary fluctuation failed (eps forced to 0).
+            "epsilons": {"treated": eps1, "control": eps0},
+            "targeting_failures": {"treated": fail1, "control": fail0},
         },
     )
     try:

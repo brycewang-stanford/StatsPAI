@@ -513,7 +513,20 @@ def _check_dag_bad_controls(
     # Also check that covariates form a valid adjustment set
     try:
         adj_sets = dag.adjustment_sets(treatment, outcome)
-    except Exception:
+    except Exception as exc:
+        # DAG failure → can't verify the adjustment criterion. Surface
+        # as an info-level finding so the user sees "check skipped"
+        # rather than wrongly concluding the covariate set passed.
+        record_degradation(
+            None,
+            section="check_identification: DAG adjustment sets",
+            exc=exc,
+        )
+        findings.append(DiagnosticFinding(
+            severity='info',
+            category='bad_controls',
+            message=f'DAG adjustment-set check skipped ({exc}).',
+        ))
         adj_sets = []
     if adj_sets:
         valid = any(set(a).issubset(requested) for a in adj_sets)
@@ -757,6 +770,13 @@ def check_identification(
     -------
     IdentificationReport
         With ``.summary()``, ``.verdict``, ``.findings``, ``.by_category()``.
+
+    Notes
+    -----
+    When a supplied ``dag`` object errors during a sub-check (bad-control
+    analysis or adjustment-set verification), that sub-check degrades to
+    an info-level finding plus a ``WorkflowDegradedWarning`` rather than
+    failing the whole report; the verdict is unaffected.
 
     Examples
     --------

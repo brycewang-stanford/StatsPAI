@@ -81,6 +81,10 @@ def ebalance(
     Unlike PSM, this guarantees exact balance on specified moments
     without iteration or caliper tuning.
 
+    If the dual optimizer raises, uniform control weights are used as a
+    fallback; a ``ConvergenceWarning`` is emitted and
+    ``model_info['weights_fallback']`` is set to True.
+
     See Hainmueller (2012, *Political Analysis*).
     """
     df = data[[y, treat] + covariates].dropna()
@@ -114,7 +118,7 @@ def ebalance(
     targets, C_matrix = _build_constraints(X_t, X_c, covariates, moments)
 
     # Solve for entropy-balanced weights
-    weights = _solve_ebalance(C_matrix, targets, n_c)
+    weights, weights_fallback = _solve_ebalance(C_matrix, targets, n_c)
 
     # Verify balance constraints are satisfied
     achieved = C_matrix.T @ weights
@@ -154,6 +158,7 @@ def ebalance(
         'eff_sample_size': float(1 / np.sum(weights ** 2)),
         'balance': balance,
         'weights': weights,
+        'weights_fallback': weights_fallback,
     }
 
     return CausalResult(
@@ -201,7 +206,11 @@ def _build_constraints(X_t, X_c, covariates, moments):
 
 
 def _solve_ebalance(C, targets, n_c, max_iter=200):
-    """Solve entropy balancing via Lagrange dual (Newton's method)."""
+    """Solve entropy balancing via Lagrange dual (Newton's method).
+
+    Returns ``(weights, fallback)`` where ``fallback=True`` means the
+    dual optimizer raised and uniform control weights were returned.
+    """
     m = len(targets)
 
     # Dual: maximize L(λ) = -log(Σ exp(C λ)) + λ' targets
@@ -226,8 +235,21 @@ def _solve_ebalance(C, targets, n_c, max_iter=200):
             options={'maxiter': max_iter, 'ftol': 1e-12},
         )
         lam = result.x
-    except Exception:
-        return np.ones(n_c) / n_c
+    except Exception as exc:
+        from ..exceptions import ConvergenceWarning, warn as _sp_warn
+
+        _sp_warn(
+            ConvergenceWarning,
+            "ebalance: entropy balancing dual optimizer (L-BFGS-B) failed "
+            f"({type(exc).__name__}: {exc}); falling back to uniform "
+            "control weights.",
+            recovery_hint=(
+                "Reduce the number of covariates or moments, or rescale "
+                "covariates to avoid extreme constraint values."
+            ),
+            stacklevel=4,
+        )
+        return np.ones(n_c) / n_c, True
 
     # Recover weights
     Cl = C @ lam
@@ -235,7 +257,7 @@ def _solve_ebalance(C, targets, n_c, max_iter=200):
     w = np.exp(Cl)
     w = w / np.sum(w)
 
-    return w
+    return w, False
 
 
 def _balance_check(X_t, X_c, weights, covariates):

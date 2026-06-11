@@ -31,11 +31,14 @@ for counterfactual learning." *NeurIPS*.
 
 from __future__ import annotations
 
-from typing import Optional, Sequence, Dict, Any, Callable, Union
+import warnings
+from typing import Optional, Sequence, Dict, Any, Callable, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+from ..exceptions import ConvergenceWarning
 
 # sklearn is imported lazily inside the functions that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
@@ -81,15 +84,24 @@ def _target_prob(pi_target, X: np.ndarray, A: np.ndarray) -> np.ndarray:
     raise ValueError("pi_target must be (n,), (n,K), or callable")
 
 
-def _fit_propensity(X: np.ndarray, A: np.ndarray) -> np.ndarray:
+def _fit_propensity(X: np.ndarray, A: np.ndarray) -> Tuple[np.ndarray, bool]:
+    """Fit behaviour-policy propensities; returns (probs, fallback_flag)."""
     from sklearn.linear_model import LogisticRegression
     try:
         lr = LogisticRegression(solver="lbfgs", max_iter=500)
         lr.fit(X, A)
         probs = lr.predict_proba(X)
-        return probs[np.arange(len(A)), A]
-    except Exception:
-        return np.full(len(A), 1.0 / len(np.unique(A)))
+        return probs[np.arange(len(A)), A], False
+    except Exception as exc:
+        warnings.warn(
+            "off-policy evaluation: behavior-policy logistic regression "
+            f"failed ({type(exc).__name__}: {exc}); falling back to "
+            "uniform propensities 1/K. Importance weights are degraded — "
+            "supply pi_behavior explicitly if known.",
+            ConvergenceWarning,
+            stacklevel=3,
+        )
+        return np.full(len(A), 1.0 / len(np.unique(A))), True
 
 
 def _fit_q(X: np.ndarray, A: np.ndarray, R: np.ndarray, n_actions: int) -> np.ndarray:
@@ -144,10 +156,21 @@ def ips(
     pi_target, pi_behavior: Optional[np.ndarray] = None,
     clip: float = 50.0, alpha: float = 0.05,
 ) -> OPEResult:
-    """Inverse propensity score OPE."""
+    """Inverse propensity score OPE.
+
+    Notes
+    -----
+    If ``pi_behavior`` is None and the internal behavior-policy logistic
+    regression fails, propensities fall back to uniform ``1/K``; a
+    ``ConvergenceWarning`` is emitted and
+    ``diagnostics['propensity_fallback']`` is set to True.
+    """
     X = np.asarray(X); A = np.asarray(A); R = np.asarray(R)
     pi_t = _target_prob(pi_target, X, A)
-    pi_b = pi_behavior if pi_behavior is not None else _fit_propensity(X, A.astype(int))
+    if pi_behavior is not None:
+        pi_b, pi_b_fallback = pi_behavior, False
+    else:
+        pi_b, pi_b_fallback = _fit_propensity(X, A.astype(int))
     pi_b = np.clip(pi_b, 1 / clip, 1.0)
     ratio = np.clip(pi_t / pi_b, 0, clip)
     V_per = ratio * R
@@ -158,7 +181,8 @@ def ips(
                  n_obs=len(A),
                  ess=float(ratio.sum() ** 2 / max(np.sum(ratio ** 2), 1e-12)),
                  weight_max=float(np.max(ratio)),
-                 weight_mean=float(np.mean(ratio)))
+                 weight_mean=float(np.mean(ratio)),
+                 propensity_fallback=pi_b_fallback)
 
 
 def snips(
@@ -166,10 +190,21 @@ def snips(
     pi_target, pi_behavior: Optional[np.ndarray] = None,
     clip: float = 50.0, alpha: float = 0.05,
 ) -> OPEResult:
-    """Self-normalised IPS (bias-reduction for large IS weights)."""
+    """Self-normalised IPS (bias-reduction for large IS weights).
+
+    Notes
+    -----
+    If ``pi_behavior`` is None and the internal behavior-policy logistic
+    regression fails, propensities fall back to uniform ``1/K``; a
+    ``ConvergenceWarning`` is emitted and
+    ``diagnostics['propensity_fallback']`` is set to True.
+    """
     X = np.asarray(X); A = np.asarray(A); R = np.asarray(R)
     pi_t = _target_prob(pi_target, X, A)
-    pi_b = pi_behavior if pi_behavior is not None else _fit_propensity(X, A.astype(int))
+    if pi_behavior is not None:
+        pi_b, pi_b_fallback = pi_behavior, False
+    else:
+        pi_b, pi_b_fallback = _fit_propensity(X, A.astype(int))
     pi_b = np.clip(pi_b, 1 / clip, 1.0)
     ratio = np.clip(pi_t / pi_b, 0, clip)
     denom = max(float(ratio.sum()), 1e-6)
@@ -186,7 +221,8 @@ def snips(
                  n_obs=n,
                  ess=float(ratio.sum() ** 2 / max(np.sum(ratio ** 2), 1e-12)),
                  weight_max=float(np.max(ratio)),
-                 weight_mean=float(np.mean(ratio)))
+                 weight_mean=float(np.mean(ratio)),
+                 propensity_fallback=pi_b_fallback)
 
 
 def doubly_robust(
@@ -195,12 +231,23 @@ def doubly_robust(
     n_actions: Optional[int] = None, clip: float = 50.0,
     alpha: float = 0.05,
 ) -> OPEResult:
-    """Doubly-robust OPE (Dudik et al. 2011)."""
+    """Doubly-robust OPE (Dudik et al. 2011).
+
+    Notes
+    -----
+    If ``pi_behavior`` is None and the internal behavior-policy logistic
+    regression fails, propensities fall back to uniform ``1/K``; a
+    ``ConvergenceWarning`` is emitted and
+    ``diagnostics['propensity_fallback']`` is set to True.
+    """
     X = np.asarray(X); A = np.asarray(A); R = np.asarray(R)
     if n_actions is None:
         n_actions = int(A.max()) + 1
     pi_t_a = _target_prob(pi_target, X, A)
-    pi_b = pi_behavior if pi_behavior is not None else _fit_propensity(X, A.astype(int))
+    if pi_behavior is not None:
+        pi_b, pi_b_fallback = pi_behavior, False
+    else:
+        pi_b, pi_b_fallback = _fit_propensity(X, A.astype(int))
     pi_b = np.clip(pi_b, 1 / clip, 1.0)
 
     Q = _fit_q(X, A, R, n_actions)
@@ -225,7 +272,8 @@ def doubly_robust(
                  n_obs=len(A),
                  ess=float(ratio.sum() ** 2 / max(np.sum(ratio ** 2), 1e-12)),
                  weight_max=float(np.max(ratio)),
-                 n_actions=int(n_actions))
+                 n_actions=int(n_actions),
+                 propensity_fallback=pi_b_fallback)
 
 
 __all__ = ["direct_method", "ips", "snips", "doubly_robust", "OPEResult"]

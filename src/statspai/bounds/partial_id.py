@@ -30,6 +30,7 @@ Masten, M. A. & Poirier, A. (2021).
 Econometrica, 89(3), 1449-1469. [@masten2021salvaging]
 """
 
+import warnings
 from typing import Optional, List, Dict, Any, Tuple, Union
 import numpy as np
 import pandas as pd
@@ -239,13 +240,18 @@ class BoundsResult:
 
 def _bootstrap_bounds(
     compute_fn, data: pd.DataFrame, n_boot: int, alpha: float,
-    random_state: int, **kwargs,
-) -> Tuple[float, float, float, float, Tuple, Tuple]:
+    random_state: int, label: str = 'bounds bootstrap', **kwargs,
+) -> Tuple[float, float, Tuple, Tuple, int]:
     """Generic bootstrap for a function that returns (lower, upper).
+
+    Failed replicates (exception or NaN bounds) are dropped from the
+    SE/CI computation; a ``RuntimeWarning`` reports the failed fraction
+    (same convention as ``core._bootstrap.bootstrap_se``) and the count
+    is returned so callers can record it in ``model_info``.
 
     Returns
     -------
-    se_lower, se_upper, ci_lower_tuple, ci_upper_tuple
+    se_lower, se_upper, ci_lower_tuple, ci_upper_tuple, n_failed
     """
     rng = np.random.RandomState(random_state)
     n = len(data)
@@ -260,6 +266,16 @@ def _bootstrap_bounds(
         except Exception:
             boot_lb[b], boot_ub[b] = np.nan, np.nan
 
+    n_failed = int(np.sum(np.isnan(boot_lb) | np.isnan(boot_ub)))
+    if n_failed > 0:
+        warnings.warn(
+            f"{label}: {n_failed}/{n_boot} bootstrap replicates failed; "
+            f"SE/CI computed over {n_boot - n_failed} successful "
+            f"replicates.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
     boot_lb = boot_lb[~np.isnan(boot_lb)]
     boot_ub = boot_ub[~np.isnan(boot_ub)]
 
@@ -273,7 +289,7 @@ def _bootstrap_bounds(
     ci_lb = (lb_point - z * se_lb, lb_point + z * se_lb)
     ci_ub = (ub_point - z * se_ub, ub_point + z * se_ub)
 
-    return se_lb, se_ub, ci_lb, ci_ub
+    return se_lb, se_ub, ci_lb, ci_ub, n_failed
 
 
 # ======================================================================
@@ -321,6 +337,12 @@ def horowitz_manski(
     -------
     BoundsResult
 
+    Notes
+    -----
+    Bootstrap replicates that fail are dropped from the SE/CI
+    computation; a ``RuntimeWarning`` reports the failed fraction and
+    ``model_info['n_boot_failed']`` records the count.
+
     Examples
     --------
     >>> import statspai as sp
@@ -352,8 +374,8 @@ def horowitz_manski(
         sc = _create_strata(df_b, covariates)
         return _hm_point(df_b, y, treatment, sc, y_lower, y_upper)
 
-    se_lb, se_ub, ci_lb, ci_ub = _bootstrap_bounds(
-        _compute, df, n_boot, alpha, random_state,
+    se_lb, se_ub, ci_lb, ci_ub, n_failed = _bootstrap_bounds(
+        _compute, df, n_boot, alpha, random_state, label='horowitz_manski',
     )
 
     return BoundsResult(
@@ -371,6 +393,7 @@ def horowitz_manski(
             'y_upper': y_upper,
             'n_strata': int(strata_col.nunique()),
             'covariates': covariates,
+            'n_boot_failed': n_failed,
         },
     )
 
@@ -483,6 +506,12 @@ def iv_bounds(
     -------
     BoundsResult
 
+    Notes
+    -----
+    Bootstrap replicates that fail are dropped from the SE/CI
+    computation; a ``RuntimeWarning`` reports the failed fraction and
+    ``model_info['n_boot_failed']`` records the count.
+
     Examples
     --------
     >>> import statspai as sp
@@ -537,8 +566,8 @@ def iv_bounds(
             Zb = Zb - Xb_aug @ beta_z + np.mean(Zb)
         return _iv_bounds_point(Yb, Db, Zb, assumption)
 
-    se_lb, se_ub, ci_lb, ci_ub = _bootstrap_bounds(
-        _compute, df, n_boot, alpha, random_state,
+    se_lb, se_ub, ci_lb, ci_ub, n_failed = _bootstrap_bounds(
+        _compute, df, n_boot, alpha, random_state, label='iv_bounds',
     )
 
     # Wald estimate for reference
@@ -563,6 +592,7 @@ def iv_bounds(
             'cov_zd': float(cov_zd),
             'first_stage_f': float(cov_zd ** 2 / (np.var(Z) * np.var(D) / len(Z)))
             if np.var(D) > 0 else 0.0,
+            'n_boot_failed': n_failed,
         },
     )
 
@@ -660,6 +690,12 @@ def oster_delta(
         lower/upper give the identified set for beta at delta=1 (equal
         selection) and the given r_max.
 
+    Notes
+    -----
+    Bootstrap replicates that fail are dropped from the SE/CI
+    computation; a ``RuntimeWarning`` reports the failed fraction and
+    ``model_info['n_boot_failed']`` records the count.
+
     Examples
     --------
     >>> import statspai as sp
@@ -744,8 +780,8 @@ def oster_delta(
         resid = Yv - Xv @ bv
         return 1 - np.var(resid) / np.var(Yv) if np.var(Yv) > 0 else 0.0
 
-    se_lb, se_ub, ci_lb, ci_ub = _bootstrap_bounds(
-        _compute, df, n_boot, alpha, random_state,
+    se_lb, se_ub, ci_lb, ci_ub, n_failed = _bootstrap_bounds(
+        _compute, df, n_boot, alpha, random_state, label='oster_delta',
     )
 
     return BoundsResult(
@@ -768,6 +804,7 @@ def oster_delta(
             'delta_star': float(delta_star) if np.isfinite(delta_star) else None,
             'delta_grid': deltas.tolist(),
             'beta_grid': betas_grid.tolist(),
+            'n_boot_failed': n_failed,
         },
     )
 
@@ -842,6 +879,13 @@ def selection_bounds(
     -------
     BoundsResult
 
+    Notes
+    -----
+    Bootstrap replicates that fail (or yield NaN bounds, e.g. a stratum
+    losing all treated or selected units in a resample) are dropped from
+    the SE/CI computation; a ``RuntimeWarning`` reports the failed
+    fraction and ``model_info['n_boot_failed']`` records the count.
+
     Examples
     --------
     >>> import statspai as sp
@@ -877,8 +921,8 @@ def selection_bounds(
         else:
             return _conditional_lee_bounds(df_b, y, treatment, selection, covariates)
 
-    se_lb, se_ub, ci_lb, ci_ub = _bootstrap_bounds(
-        _compute, df, n_boot, alpha, random_state,
+    se_lb, se_ub, ci_lb, ci_ub, n_failed = _bootstrap_bounds(
+        _compute, df, n_boot, alpha, random_state, label='selection_bounds',
     )
 
     return BoundsResult(
@@ -897,6 +941,7 @@ def selection_bounds(
             'selection_rate_control': float(p0),
             'trimming_fraction': float(abs(p1 - p0) / max(p1, p0)) if max(p1, p0) > 0 else 0.0,
             'covariates': covariates or [],
+            'n_boot_failed': n_failed,
         },
     )
 

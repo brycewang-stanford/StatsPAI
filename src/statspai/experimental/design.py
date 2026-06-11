@@ -13,10 +13,13 @@ Bruhn, M. & McKenzie, D. (2009).
 Development Field Experiments." *AEJ: Applied*, 1(4), 200-232. [@bruhn2009pursuit]
 """
 
+import warnings
 from typing import Optional, List, Dict, Any, Union
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+from ..exceptions import StatsPAIWarning
 
 
 class RandomizationResult:
@@ -286,6 +289,12 @@ def balance_check(
     -------
     BalanceResult
 
+    Notes
+    -----
+    If the omnibus F-test cannot be computed (e.g. non-numeric or perfectly
+    collinear covariates), ``omnibus_f`` and ``omnibus_p`` are reported as
+    NaN and a ``StatsPAIWarning`` is emitted.
+
     Examples
     --------
     >>> import statspai as sp
@@ -341,7 +350,13 @@ def balance_check(
         n_total = len(y_treat)
         f_stat = ((tss - rss) / k) / (rss / (n_total - k - 1))
         f_p = 1 - stats.f.cdf(f_stat, k, n_total - k - 1)
-    except Exception:
+    except Exception as e:
+        warnings.warn(
+            f"balance_check: omnibus F-test could not be computed "
+            f"({type(e).__name__}: {e}); omnibus_f/omnibus_p reported as NaN",
+            StatsPAIWarning,
+            stacklevel=2,
+        )
         f_stat, f_p = np.nan, np.nan
 
     return BalanceResult(
