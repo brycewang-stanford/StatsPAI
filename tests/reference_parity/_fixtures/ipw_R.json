@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "R_version": "R version 4.5.2 (2025-10-31)",
+    "formula": "t ~ x1 + x2 (binomial logit, base stats::glm)",
+    "weighting": "Hajek (normalize=TRUE default of sp.ipw)",
+    "n": 800,
+    "n_treated": 331
+  },
+  "glm_coef": {
+    "intercept": -0.14283223704432454,
+    "x1": 0.633851426125147,
+    "x2": -0.44845291612646315
+  },
+  "ps_min": 0.078689477531212804,
+  "ps_max": 0.84693005255000875,
+  "hajek_ate": 2.0331349334150168,
+  "hajek_att": 2.024765033278257
+}
+
