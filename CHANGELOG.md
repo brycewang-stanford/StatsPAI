@@ -883,8 +883,8 @@ All notable changes to StatsPAI will be documented in this file.
   (`tests/r_parity/compare.py`)** — each module is classified by its
   registered point-estimate tolerance into machine-level / iterative /
 	  moderate / methodological-T4 tiers (50 / 4 / 1 / 1 on the 56
-  R-joined modules at this checkpoint; 57 / 5 / 1 / 1 on 64 in the
-  current source snapshot), shown in the Markdown ledger and the LaTeX appendix
+  R-joined modules at this checkpoint; 57 / 5 / 1 / 1 on the 64 R-joined modules
+  in the current source snapshot), shown in the Markdown ledger and the LaTeX appendix
   caption so a machine-level point-estimate match is not flattened together with a deliberately loose
   stochastic or documented-convention tolerance.
 - **Stata leg brought to the same rigor as R (`tests/stata_parity/`)** —
