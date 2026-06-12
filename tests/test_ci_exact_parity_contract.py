@@ -30,7 +30,7 @@ def test_optional_dependency_names_match_pyproject_extras_and_skips():
     assert "parity = [" in pyproject
     assert '"doubleml>=0.7"' in pyproject
     assert "rd-cct = [" in pyproject
-    assert '"rdrobust>=1.3"' in pyproject
+    assert '"rdrobust>=2.0"' in pyproject
 
     assert 'pytest.importorskip("doubleml")' in dml_test
     assert "all four DoubleML model classes" in dml_test
