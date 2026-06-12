@@ -120,8 +120,11 @@ parity = [
 rd-cct = [
     # Official Calonico-Cattaneo-Titiunik (2014) rdrobust port; opt-in
     # via ``sp.rdrobust(..., bwselect='cct')`` to get bit-equal R parity
-    # for bandwidth selection + inference.
-    "rdrobust>=1.3",
+    # for bandwidth selection + inference. >=2.0 is required: the 2.0.0
+    # port syncs the mserd bandwidth pipeline with R rdrobust 3.0.0, which
+    # the Track A 06_rd golden artifacts and the cov95 RD pins are
+    # generated against (1.3.0 differs at ~6e-6 on the Lee-2008 h).
+    "rdrobust>=2.0",
 ]
 docs = [
     # MkDocs Material site + mkdocstrings auto-API (scripts/gen_api_ref.py).
