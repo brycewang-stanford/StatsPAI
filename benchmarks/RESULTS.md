@@ -1,52 +1,31 @@
 # StatsPAI Benchmark Results
 
-- **StatsPAI**: 0.9.5
-- **Python**: 3.13.2
-- **Platform**: macOS-26.3.1-arm64-arm-64bit-Mach-O
+- **StatsPAI**: 1.17.0
+- **Python**: 3.13.5
+- **Platform**: macOS-26.5-arm64-arm-64bit-Mach-O
 - **Mode**: quick
-- **Timestamp (UTC)**: 2026-04-20T21:17:21.918646+00:00
+- **Timestamp (UTC)**: 2026-06-12T07:41:49.650815+00:00
 
 ## OLS regression (5 covariates, HC1 SE)
 
 | n | sp.regress | statsmodels | vs statsmodels |
 |---:|---:|---:|:---:|
-| 1,000 | 2.4 ms | 0.2 ms | 13.4x slower |
-| 10,000 | 2.9 ms | 1.0 ms | 3.0x slower |
+| 1,000 | 3.2 ms | 0.2 ms | 18.7x slower |
+| 10,000 | 4.5 ms | 1.0 ms | 4.7x slower |
 
 ## HDFE (two-way FE: unit × time)
 
 | units × T | n | sp.absorb_ols | linearmodels | vs lm |
 |---|---:|---:|---:|:---:|
-| 500 × 10 | 5,000 | 0.5 ms | 13 ms | 24.7x faster |
-| 2,000 × 10 | 20,000 | 1.4 ms | 22 ms | 16.2x faster |
-
-## HDFE scaled (10k / 100k, two-way FE) — 2026-04-20
-
-Results from `python benchmarks/bench_hdfe_scaled.py --quick`.
-`sp.absorb_ols` is the Numba-JIT'd alternating-projections HDFE
-kernel; `sp.feols` delegates to pyfixest when installed.
-
-| n_obs | sp.absorb_ols | linearmodels PanelOLS | speedup vs lm |
-|---:|---:|---:|:---:|
-| 10,000 | 0.8 ms | 17 ms | **21x faster** |
-| 100,000 | 6.4 ms | 75 ms | **11.7x faster** |
-
-For 1M-row runs, omit `--quick`; linearmodels becomes uncompetitive
-at that scale because it materialises the dummy-variable matrix.
-`sp.feols` (pyfixest backend) is the recommended path when you
-need the full `reghdfe`/`fixest` feature surface — R-style formulas,
-multi-way clustered SEs, singleton-group removal.
-
-**Takeaway**: on two-way-FE panels, `sp.absorb_ols` matches the
-"fast-HDFE" regime of Stata `reghdfe` and R `fixest`, delivering
-10-20× speedups over the dummy-variable baseline in `linearmodels`.
+| 500 × 10 | 5,000 | 0.4 ms | 14 ms | 31.3x faster |
+| 2,000 × 10 | 20,000 | 1.4 ms | 24 ms | 16.9x faster |
 
 ## Staggered DID (4 cohorts, 8 periods)
 
 | units | obs | CS 2021 | Wooldridge |
 |---:|---:|---:|---:|
-| 200 | 1,600 | 8 ms | 16 ms |
-| 1,000 | 8,000 | 8 ms | 77 ms |
+| 200 | 1,600 | 9 ms | 20 ms |
+| 1,000 | 8,000 | 9 ms | 61 ms |
 
 ---
 

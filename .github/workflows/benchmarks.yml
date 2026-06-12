@@ -1,0 +1,65 @@
+name: benchmark-regression
+
+# Performance regression watch. Runs the canonical quick benchmarks for
+# the latest released wheel and for the current source tree back-to-back
+# on the SAME runner, then ratchets: any sp_* timing more than 1.5x
+# slower than the released wheel fails the run. Scheduled + manual only —
+# this never blocks PRs; a red scheduled run is the signal to
+# investigate before the next release.
+
+on:
+  schedule:
+    - cron: "23 5 1,15 * *" # 1st and 15th, 05:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      STATSPAI_SKIP_RUST: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Benchmark released wheel (baseline)
+        run: |
+          python -m venv /tmp/venv-release
+          /tmp/venv-release/bin/pip install --quiet statspai
+          # The benchmark driver lives in the repo; run it against the
+          # installed wheel by keeping CWD outside the source tree so
+          # `import statspai` resolves to site-packages.
+          cp -r benchmarks /tmp/bench-release
+          cd /tmp/bench-release
+          /tmp/venv-release/bin/python run_all.py --quick
+          cp results.json /tmp/results_release.json
+          /tmp/venv-release/bin/python -c "import statspai; print('baseline statspai', statspai.__version__)"
+
+      - name: Benchmark current source
+        run: |
+          python -m venv /tmp/venv-source
+          /tmp/venv-source/bin/pip install --quiet -e .
+          /tmp/venv-source/bin/python benchmarks/run_all.py --quick
+
+      - name: Ratchet
+        run: |
+          python scripts/benchmark_ratchet.py --check \
+            --baseline /tmp/results_release.json \
+            --current benchmarks/results.json \
+            --threshold 1.5
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            /tmp/results_release.json
+            benchmarks/results.json
+          retention-days: 90
