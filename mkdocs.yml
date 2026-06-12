@@ -97,6 +97,7 @@ nav:
   - JOSS validation dossier: joss_validation_dossier.md
   - "Design rationale & FAQ": joss_reviewer_qa.md
   - JSS source-audit dossier: jss_source_audit_dossier.md
+  - "R/Stata parity tolerance registry": dev/r_parity_tolerances.md
   - Guides:
       - "Public health & epidemiology — overview & design→method map": guides/public_health.md
       - "Reproducing Hernán-Robins *What If* on real NHEFS (g-methods parity certification)": guides/whatif_nhefs.md
@@ -110,16 +111,22 @@ nav:
       - "Staggered DiD (Callaway–Sant'Anna)": guides/callaway_santanna.md
       - "Report card: cs_report()": guides/cs_report.md
       - "Repeated cross-sections": guides/repeated_cross_sections.md
+      - "Mixtape Ch. 9 DiD — full replication": guides/mixtape_ch09_did.md
       - "Sensitivity analysis (Rambachan–Roth)": guides/honest_did.md
       - "Choosing a DID estimator": guides/choosing_did_estimator.md
       - "Choosing an RD estimator": guides/choosing_rd_estimator.md
       - "Choosing an IV estimator": guides/choosing_iv_estimator.md
       - "Choosing a matching estimator": guides/choosing_matching_estimator.md
       - "Choosing an ML causal estimator (DML / TMLE / metalearner / causal_forest)": guides/choosing_ml_causal_estimator.md
+      - "Panel data — FE / RE / Hausman / HDFE / dynamic GMM": guides/panel_data.md
+      - "Migrating from R to StatsPAI": guides/migration-from-r.md
       - "sp.dml and the DoubleML reference implementation": guides/sp_dml_vs_doubleml.md
       - "Robustness workflow": guides/robustness_workflow.md
+      - "Sensitivity analysis — which tool for which design": guides/sensitivity_analysis.md
+      - "Mediation & causal pathways (ACME/ADE, front-door, Gelbach)": guides/mediation.md
       - "v1.2 frontier estimators (Gardner / Model-Averaging DML / Kernel IV / HAL-TMLE / Synth Survival)": guides/v1_2_frontier.md
       - "Bridging theorems — when two methods target the same estimand (2025-2026)": guides/bridging_theorems.md
+      - "Synthetic control — 20 methods, one package": guides/synth.md
       - "v1.3 frontier: Synthetic controls for experimental design (Abadie-Zhao 2025/2026)": guides/synth_experimental.md
       - "v1.3 frontier: Harvesting DID + event-study designs (Borusyak et al. 2025)": guides/harvest_did.md
       - "v1.3 frontier: Assimilative causal inference (Nature Comms 2026)": guides/assimilative_ci.md
@@ -137,6 +144,7 @@ nav:
       - "v1.7.2 export trinity: replication_pack + Provenance + Quarto + great_tables + CSL": guides/replication_workflow.md
       - "v1.7.2 LLM-DAG setup: providers, env vars, configure_llm(), sp.paper(llm='auto')": guides/llm_dag_setup.md
       - "v1.9.0 Agent-native API surface: detect_design / preflight / audit / brief / cite / examples / session / MCP prompts": guides/agent_api.md
+      - "Driving StatsPAI as an agent — end-to-end workflow": guides/agent_native_workflow.md
       - "v1.13 Stability tiers — parity-grade vs. frontier-grade (stable / experimental / deprecated + limitations)": guides/stability.md
       - "v1.14 GPU acceleration — neural causal (PyTorch) + JAX feols + vmap'd bootstrap": guides/gpu_acceleration.md
       - "v1.15 Decomposition family — 19 estimators incl. Yu-Elwert (2025) + unified Excel/Word/cite exports": guides/decomposition_family.md

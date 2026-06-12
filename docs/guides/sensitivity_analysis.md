@@ -531,9 +531,12 @@ regression result exposes a `.sensitivity()` method (alias
 `sp.unified_sensitivity`) that runs whatever applies — E-value and a
 breakdown-bias calculation always, plus an Oster component when you
 supply the needed inputs (`r2_treated`, `r2_controlled`,
-`beta_uncontrolled`) and a Rosenbaum component for matched results —
-and collects them in one dashboard. Anything it could not run is
-recorded in `dash.notes` rather than silently dropped:
+`beta_uncontrolled`), a Rosenbaum component when the result exposes
+`matched_pairs` outcome arrays, and a sensemakr component when you
+pass the raw estimation data (`data=`, `y=`, `treat=`, `controls=`,
+since result objects do not carry the data) — and collects them in
+one dashboard. Anything it could not run is recorded in `dash.notes`
+rather than silently dropped:
 
 ```python
 import numpy as np
@@ -629,12 +632,12 @@ For the sensitivity panel of a paper:
 
 All citations resolve to verified entries in `paper.bib`:
 sensemakr [@cinelli2020making]; Oster bounds [@oster2019unobservable];
-E-value [@vanderweele2017sensitivity] [@ding2016sensitivity];
+E-value [@vanderweele2017sensitivity; @ding2016sensitivity];
 Rosenbaum bounds [@rosenbaum2002observational];
 honest DiD [@rambachan2023more]; pre-test power [@roth2022pretest];
-weak-IV-robust inference [@anderson1949estimation]
-[@kleibergen2002pivotal] [@moreira2003conditional] [@olea2013robust]
-[@lee2022valid] [@staiger1997instrumental] [@stock2005testing];
+weak-IV-robust inference [@anderson1949estimation;
+@kleibergen2002pivotal; @moreira2003conditional; @olea2013robust;
+@lee2022valid; @staiger1997instrumental; @stock2005testing];
 DML sensitivity [@chernozhukov2022long];
 Manski bounds [@manski1990nonparametric]; Lee bounds [@lee2009training];
 Horowitz-Manski bounds [@horowitz2000nonparametric].
