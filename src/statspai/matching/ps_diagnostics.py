@@ -257,6 +257,36 @@ def trimming(
     -------
     DataFrame
         Trimmed data (rows with PS in the overlap region).
+
+    Examples
+    --------
+    Strong selection on covariates creates limited overlap:
+
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 300
+    >>> x1 = rng.normal(size=n)
+    >>> x2 = rng.normal(size=n)
+    >>> p = 1.0 / (1.0 + np.exp(-(2.0 * x1 - 2.0 * x2)))
+    >>> d = rng.binomial(1, p)
+    >>> df = pd.DataFrame({'d': d, 'x1': x1, 'x2': x2})
+
+    Crump et al. (2009) optimal rule drops poor-overlap rows:
+
+    >>> trimmed = sp.trimming(df, treatment='d',
+    ...                       covariates=['x1', 'x2'])
+    >>> (len(df), len(trimmed))
+    (300, 206)
+
+    Fixed [0.1, 0.9] trimming keeps a narrower sample:
+
+    >>> trimmed_s = sp.trimming(df, treatment='d',
+    ...                         covariates=['x1', 'x2'],
+    ...                         method='sturmer')
+    >>> len(trimmed_s)
+    180
     """
     if ps is None:
         ps = propensity_score(data, treatment, covariates, method=ps_method)
@@ -489,6 +519,31 @@ def ps_balance(
     -------
     PSBalanceResult
         Object with ``.table``, ``.ps``, ``.summary()``, ``.love_plot()``.
+
+    Examples
+    --------
+    Simulated data with confounded treatment assignment:
+
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 300
+    >>> x1 = rng.normal(size=n)
+    >>> x2 = rng.normal(size=n)
+    >>> p = 1.0 / (1.0 + np.exp(-(0.5 * x1 - 0.5 * x2 - 0.5)))
+    >>> d = rng.binomial(1, p)
+    >>> df = pd.DataFrame({'d': d, 'x1': x1, 'x2': x2})
+
+    Without ``weights``, ATE inverse-propensity weights are computed
+    from the estimated propensity scores:
+
+    >>> bal = sp.ps_balance(df, treatment='d', covariates=['x1', 'x2'])
+    >>> bal.table['smd_raw'].round(2).tolist()
+    [0.68, -0.45]
+    >>> bal.table['smd_weighted'].round(2).tolist()
+    [0.02, -0.06]
+    >>> fig, ax = bal.love_plot()  # doctest: +SKIP
     """
     D = data[treatment].values.astype(float)
     ps = propensity_score(data, treatment, covariates, method=method)
@@ -755,6 +810,30 @@ def overlap_plot(
     -------
     (fig, ax) : tuple
         Matplotlib figure and axes.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 300
+    >>> x1 = rng.normal(size=n)
+    >>> x2 = rng.normal(size=n)
+    >>> p = 1.0 / (1.0 + np.exp(-(0.5 * x1 - 0.5 * x2 - 0.5)))
+    >>> d = rng.binomial(1, p)
+    >>> df = pd.DataFrame({'d': d, 'x1': x1, 'x2': x2})
+    >>> fig, ax = sp.overlap_plot(df, treatment='d',
+    ...                           covariates=['x1', 'x2'])
+    >>> fig.savefig('overlap.png')  # doctest: +SKIP
+
+    Reuse pre-estimated propensity scores and set a custom title:
+
+    >>> ps = sp.propensity_score(df, treatment='d',
+    ...                          covariates=['x1', 'x2'])
+    >>> fig, ax = sp.overlap_plot(df, treatment='d',
+    ...                           covariates=['x1', 'x2'], ps=ps,
+    ...                           title='PS overlap')
     """
     plt = _require_matplotlib()
 

@@ -67,6 +67,25 @@ def continuous_iv_late(
     Returns
     -------
     ContinuousLATEResult
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 500
+    >>> z = rng.normal(size=n)
+    >>> v = rng.normal(size=n)
+    >>> d = (0.9 * z + v > 0).astype(float)
+    >>> y = 1.2 * d + 0.5 * v + rng.normal(size=n)
+    >>> df = pd.DataFrame({'y': y, 'd': d, 'z': z})
+    >>> res = sp.continuous_iv_late(df, y='y', treat='d',
+    ...                             instrument='z')
+    >>> round(res.estimate, 2)
+    1.81
+    >>> round(res.complier_share, 2)  # maximal complier class
+    0.35
     """
     df = data[[y, treat, instrument]].dropna().reset_index(drop=True)
     Y = df[y].to_numpy(float)

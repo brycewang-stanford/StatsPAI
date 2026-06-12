@@ -74,6 +74,32 @@ def overlap_weighted_did(
     ----------
     Li, Morgan & Zaslavsky (JASA 2018).
     "Overlap-weighted difference-in-differences" (Economics Letters 2025).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 150
+    >>> x = rng.normal(0, 1, n)
+    >>> treat = rng.binomial(1, 1 / (1 + np.exp(-x)))
+    >>> base = 1.0 + 0.5 * x + rng.normal(0, 1, n)
+    >>> post = base + 0.4 + 1.5 * treat + rng.normal(0, 1, n)
+    >>> df = pd.DataFrame({
+    ...     "y": np.concatenate([base, post]),
+    ...     "treat": np.tile(treat, 2),
+    ...     "time": np.repeat([0, 1], n),
+    ...     "x": np.tile(x, 2),
+    ... })
+    >>> res = sp.overlap_weighted_did(
+    ...     df, y="y", treat="treat", time="time",
+    ...     covariates=["x"],
+    ... )
+    >>> round(res.estimate, 2)  # true effect = 1.5
+    1.8
+    >>> res.estimand
+    'ATT (overlap)'
     """
     cols = {y, treat, time}
     if covariates:

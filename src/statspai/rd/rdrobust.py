@@ -1304,6 +1304,15 @@ def rdplotdensity(
     Cattaneo, M.D., Jansson, M. and Ma, X. (2020). "Simple Local
     Polynomial Density Estimators." *JASA* 115(531), 1449-1455.
     [@cattaneo2020simple]
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> df = pd.DataFrame({"x": rng.uniform(-1, 1, 500)})
+    >>> fig, ax = sp.rdplotdensity(df, x="x", c=0)
     """
     try:
         import matplotlib.pyplot as plt

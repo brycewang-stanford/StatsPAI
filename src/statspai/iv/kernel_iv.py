@@ -80,6 +80,26 @@ def kernel_iv(
     Returns
     -------
     KernelIVResult
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 300
+    >>> z = rng.normal(size=n)
+    >>> u = rng.normal(size=n)
+    >>> d = 0.8 * z + 0.5 * u + rng.normal(size=n)
+    >>> y = np.sin(d) + u + 0.3 * rng.normal(size=n)
+    >>> df = pd.DataFrame({'y': y, 'd': d, 'z': z})
+    >>> res = sp.kernel_iv(df, y='y', treat='d', instrument='z',
+    ...                    n_boot=50)
+    >>> res.n_obs
+    300
+    >>> res.h_hat.shape  # structural function on a 30-point grid
+    (30,)
+    >>> text = res.summary()  # h(d) with uniform 95% band
     """
     df = data[[y, treat, instrument]].dropna().reset_index(drop=True)
     Y = df[y].to_numpy(float)

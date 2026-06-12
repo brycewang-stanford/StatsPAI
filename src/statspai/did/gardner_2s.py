@@ -166,6 +166,31 @@ def gardner_did(
     ----------
     Gardner, J. (2022). Two-stage differences in differences. Working paper.
     [@gardner2022stage]
+
+    Examples
+    --------
+    Staggered panel with a never-treated group (``first_treat = 0``).
+    ``sp.did_2stage`` is an alias of this function.
+
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n_units, n_periods = 40, 8
+    >>> unit = np.repeat(np.arange(n_units), n_periods)
+    >>> time = np.tile(np.arange(1, n_periods + 1), n_units)
+    >>> first = np.where(unit < 20, 5, 0)  # 0 = never treated
+    >>> d = ((first > 0) & (time >= first)).astype(float)
+    >>> y = (0.5 * unit + 0.3 * time + 2.0 * d
+    ...      + rng.normal(0, 0.5, unit.size))
+    >>> df = pd.DataFrame(
+    ...     {"y": y, "unit": unit, "time": time, "g": first}
+    ... )
+    >>> res = sp.gardner_did(
+    ...     df, y="y", group="unit", time="time", first_treat="g"
+    ... )
+    >>> round(res.estimate, 2)  # true ATT = 2.0
+    2.03
     """
     if controls is None:
         controls = []

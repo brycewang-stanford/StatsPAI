@@ -1006,6 +1006,27 @@ def iv_compare(
     DataFrame
         columns ``method``, ``estimate``, ``SE``, ``CI lower``, ``CI upper``,
         ``first_stage_F``, ``effective_F``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 500
+    >>> x = rng.normal(size=n)
+    >>> z1 = rng.normal(size=n)
+    >>> z2 = rng.normal(size=n)
+    >>> u = rng.normal(size=n)
+    >>> d = 0.6 * z1 + 0.4 * z2 + 0.3 * x + u + rng.normal(size=n)
+    >>> y = 1.5 * d + 0.5 * x + u + rng.normal(size=n)
+    >>> df = pd.DataFrame(
+    ...     {'y': y, 'd': d, 'z1': z1, 'z2': z2, 'x': x})
+    >>> tab = sp.iv_compare('y ~ (d ~ z1 + z2) + x', data=df)
+    >>> list(tab['method'])
+    ['2sls', 'liml', 'fuller', 'jive']
+    >>> [round(b, 2) for b in tab['estimate']]  # true beta 1.5
+    [1.41, 1.41, 1.42, 1.33]
     """
     from . import _dispatch  # late import to avoid circulars
     from scipy import stats

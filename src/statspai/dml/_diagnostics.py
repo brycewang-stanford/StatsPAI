@@ -196,6 +196,30 @@ def dml_diagnostics(result, clip: float = 0.02) -> DMLDiagnostics:
     Returns
     -------
     DMLDiagnostics
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 400
+    >>> x1 = rng.normal(size=n)
+    >>> x2 = rng.normal(size=n)
+    >>> d = 0.5 * x1 + rng.normal(size=n)
+    >>> y = 1.0 * d + x1 + 0.5 * x2 + rng.normal(size=n)
+    >>> df = pd.DataFrame({'y': y, 'd': d, 'x1': x1, 'x2': x2})
+    >>> fit = sp.dml(df, y='y', treat='d', covariates=['x1', 'x2'],
+    ...              model='plr', ml_g='linear', ml_m='linear',
+    ...              n_folds=2)
+    >>> diag = sp.dml_diagnostics(fit)
+    >>> diag.n_obs
+    400
+    >>> diag.method
+    'PLR'
+    >>> round(diag.orth_pvalue, 2)  # E[psi] = 0 not rejected
+    1.0
+    >>> text = diag.summary()  # overlap / score / balance report
     """
     info = result.model_info or {}
     method = info.get("dml_model", "DML")

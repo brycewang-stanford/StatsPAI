@@ -181,6 +181,35 @@ def genmatch(
     Degenerate Kolmogorov-Smirnov balance tests fall back to p=1.0 with
     a ``StatsPAIWarning``; failures in the final balance table are
     counted in ``result.detail['ks_test_failures']``.
+
+    Examples
+    --------
+    Simulated observational data with two confounders (true ATT = 2):
+
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 300
+    >>> x1 = rng.normal(size=n)
+    >>> x2 = rng.normal(size=n)
+    >>> p = 1.0 / (1.0 + np.exp(-(0.5 * x1 - 0.5 * x2 - 0.5)))
+    >>> d = rng.binomial(1, p)
+    >>> y = 1.0 + 2.0 * d + x1 + x2 + rng.normal(size=n)
+    >>> df = pd.DataFrame({'y': y, 'd': d, 'x1': x1, 'x2': x2})
+
+    Small genetic-search settings keep the example fast; prefer the
+    defaults (``population_size=40``, ``generations=20``) in practice:
+
+    >>> res = sp.genmatch(df, y='y', treat='d',
+    ...                   covariates=['x1', 'x2'],
+    ...                   population_size=10, generations=5)
+    >>> res.n_treated
+    111
+    >>> round(res.att, 2)
+    1.72
+    >>> res.balance.columns.tolist()
+    ['variable', 'smd_pre', 'smd_post', 'ks_p_pre', 'ks_p_post']
     """
     cov = list(covariates)
     df = data[[y, treat] + cov].dropna().reset_index(drop=True)

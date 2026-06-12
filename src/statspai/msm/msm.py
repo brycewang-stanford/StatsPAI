@@ -375,6 +375,32 @@ def stabilized_weights(
     -------
     np.ndarray
         Stabilized weight for each row.
+
+    Examples
+    --------
+    Long-format panel where the time-varying confounder ``l`` responds
+    to past treatment and predicts the current treatment:
+
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> rows = []
+    >>> for i in range(100):
+    ...     a_prev = 0.0
+    ...     for t in range(4):
+    ...         l = rng.normal() + 0.4 * a_prev
+    ...         pr = 1.0 / (1.0 + np.exp(-(0.4 * l - 0.3)))
+    ...         a = float(rng.binomial(1, pr))
+    ...         rows.append((i, t, a, l))
+    ...         a_prev = a
+    >>> panel = pd.DataFrame(rows, columns=['id', 't', 'a', 'l'])
+    >>> sw = sp.stabilized_weights(panel, treat='a', id='id',
+    ...                            time='t', time_varying=['l'])
+    >>> sw.shape
+    (400,)
+    >>> round(float(sw.mean()), 2)
+    1.0
     """
     baseline = list(baseline or [])
     df = data.sort_values([id, time]).reset_index(drop=True)

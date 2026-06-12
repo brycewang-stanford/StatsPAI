@@ -707,6 +707,24 @@ def rdsensitivity(
     pd.DataFrame
         Columns: window, estimate, se, pvalue, ci_lower, ci_upper,
         significant.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> x = rng.uniform(-1, 1, 500)
+    >>> y = 0.5 * (x >= 0) + 0.8 * x + rng.normal(0, 0.3, 500)
+    >>> df = pd.DataFrame({"x": x, "y": y})
+    >>> sens = sp.rdsensitivity(
+    ...     df, y="y", x="x", wlist=[0.25, 0.5, 0.75],
+    ...     n_perms=200, seed=42,
+    ... )
+    >>> sens["estimate"].round(3).tolist()
+    [0.66, 0.834, 1.078]
+    >>> bool(sens["significant"].all())
+    True
     """
     xv = data[x].values.astype(float)
 

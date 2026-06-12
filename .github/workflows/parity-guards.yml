@@ -78,6 +78,18 @@ jobs:
       - name: API surface consistency
         run: |
           pytest tests/test_api_surface_consistency.py -q --no-header
+      - name: examples_coverage --check (docstring Examples ratchet)
+        # Ratchet, not target: the budget is the current number of
+        # registered symbols whose docstring lacks an ``Examples``
+        # section (661 at the 2026-06-12 baseline; 370/1031 covered;
+        # 633 after batch 1). The .examples_campaign batches lower this
+        # number batch by batch — each batch commit also lowers the
+        # budget here. The budget must never be raised: a new public
+        # function that ships without a docstring Examples section
+        # fails this gate (CLAUDE.md §4 requires Parameters/Returns/
+        # Examples/References on all public docstrings).
+        run: |
+          python scripts/examples_coverage.py --check --max-missing 633
 
   citation-audit:
     name: Citation audit (§10 zero-hallucination)

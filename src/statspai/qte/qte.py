@@ -241,6 +241,25 @@ def qdid(
     Returns
     -------
     QTEResult
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 400
+    >>> g = rng.integers(0, 2, n)
+    >>> t = rng.integers(0, 2, n)
+    >>> y = (1.0 + 0.5 * g + 0.3 * t + 2.0 * g * t
+    ...      + rng.normal(0, 1, n))
+    >>> df = pd.DataFrame({"y": y, "g": g, "t": t})
+    >>> res = sp.qdid(df, y="y", group="g", time="t",
+    ...               quantiles=[0.25, 0.5, 0.75], n_boot=50)
+    >>> round(res.ate, 2)  # true effect = 2.0
+    2.14
+    >>> np.round(res.effects, 2)  # QTE at each quantile
+    array([1.96, 1.94, 2.26])
     """
     if quantiles is None:
         quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]

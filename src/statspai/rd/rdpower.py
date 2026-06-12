@@ -115,6 +115,19 @@ def rdpower(
         Significance level.
     target_power : float, optional
         If set, compute MDE for this target power instead.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> res = sp.rdpower(tau=0.15, n_left=500, n_right=500)
+    >>> round(res.power, 3)
+    0.809
+    >>> round(res.mde, 3)
+    0.148
+    >>> res90 = sp.rdpower(tau=0.15, n_left=500, n_right=500,
+    ...                    target_power=0.90)
+    >>> round(res90.mde, 3)
+    0.172
     """
     se = _rd_se(n_left, n_right, var_left, var_right, h_left, h_right)
     z_alpha = sp_stats.norm.ppf(1 - alpha / 2)
@@ -155,6 +168,15 @@ def rdsampsi(
     ----------
     ratio : float, default 1.0
         ``n_right / n_left``. Default 1.0 assumes equal allocation.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> res = sp.rdsampsi(tau=0.15, target_power=0.80)
+    >>> res.n_total
+    978
+    >>> (res.n_left, res.n_right)
+    (489, 489)
     """
     z_alpha = sp_stats.norm.ppf(1 - alpha / 2)
     z_pow = sp_stats.norm.ppf(target_power)

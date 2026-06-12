@@ -65,6 +65,20 @@ def rdd(
     Parameters match the blog post signature ``sp.rdd(df, y, running, cutoff)``
     and are forwarded to :func:`statspai.rd.rdrobust` using its
     ``(x=<running>, c=<cutoff>)`` convention.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 500
+    >>> x = rng.uniform(-1, 1, size=n)
+    >>> y = 0.5 * x + 0.8 * (x >= 0) + rng.normal(scale=0.3, size=n)
+    >>> df = pd.DataFrame({'y': y, 'x': x})
+    >>> res = sp.rdd(df, y='y', running='x', cutoff=0.0)
+    >>> round(res.estimate, 2)  # robust RD estimate (true jump 0.8)
+    0.81
     """
     from .rd.rdrobust import rdrobust
 
@@ -371,6 +385,24 @@ def anderson_rubin_ci(*args, **kwargs):
 
     The AR test remains exact under any level of weak identification, so
     the corresponding confidence set is the canonical weak-IV-robust CI.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 500
+    >>> z = rng.normal(size=n)
+    >>> u = rng.normal(size=n)
+    >>> d = 0.8 * z + u + rng.normal(size=n)
+    >>> y = 1.5 * d + u + rng.normal(size=n)
+    >>> df = pd.DataFrame({'y': y, 'd': d, 'z': z})
+    >>> ci = sp.anderson_rubin_ci('y', 'd', ['z'], data=df)
+    >>> round(ci.lower, 2), round(ci.upper, 2)
+    (1.26, 1.57)
+    >>> len(ci.as_intervals())  # connected: a single interval
+    1
     """
     from .iv.weak_iv_ci import anderson_rubin_ci as _impl
 

@@ -177,6 +177,23 @@ def rdbalance(
     -------
     pd.DataFrame
         Columns: covariate, estimate, se, z, pvalue, significant.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> x = rng.uniform(-1, 1, 500)
+    >>> y = 0.5 * (x >= 0) + 0.8 * x + rng.normal(0, 0.3, 500)
+    >>> w1 = 0.3 * x + rng.normal(0, 0.5, 500)
+    >>> w2 = rng.normal(0, 1, 500)
+    >>> df = pd.DataFrame({"x": x, "y": y, "w1": w1, "w2": w2})
+    >>> bal = sp.rdbalance(df, x="x", covs=["w1", "w2"])
+    >>> bal["covariate"].tolist()
+    ['w1', 'w2']
+    >>> bool(bal["significant"].any())
+    False
     """
     from .rdrobust import rdrobust
 
@@ -264,6 +281,22 @@ def rdplacebo(
     pd.DataFrame
         Columns: cutoff, estimate, se, ci_lower, ci_upper, pvalue,
         is_true_cutoff.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> x = rng.uniform(-1, 1, 500)
+    >>> y = 0.5 * (x >= 0) + 0.8 * x + rng.normal(0, 0.3, 500)
+    >>> df = pd.DataFrame({"x": x, "y": y})
+    >>> pl = sp.rdplacebo(df, y="y", x="x", n_placebo=4)
+    >>> true_row = pl[pl["is_true_cutoff"]]
+    >>> round(float(true_row["estimate"].iloc[0]), 2)
+    0.51
+    >>> int((pl[~pl["is_true_cutoff"]]["pvalue"] < 0.05).sum())
+    0
     """
     from .rdrobust import rdrobust
 
@@ -440,6 +473,23 @@ def rdsummary(
         'placebos': pd.DataFrame (if full=True)
         'bandwidth_comparison': pd.DataFrame (if full=True)
         'figure': matplotlib Figure (if plot=True)
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> x = rng.uniform(-1, 1, 500)
+    >>> y = 0.5 * (x >= 0) + 0.8 * x + rng.normal(0, 0.3, 500)
+    >>> w1 = 0.3 * x + rng.normal(0, 0.5, 500)
+    >>> df = pd.DataFrame({"x": x, "y": y, "w1": w1})
+    >>> res = sp.rdsummary(df, y="y", x="x", covs=["w1"],
+    ...                    verbose=False)
+    >>> sorted(res.keys())
+    ['balance', 'bw_sensitivity', 'density_test', 'estimate']
+    >>> round(float(res["estimate"].estimate), 2)
+    0.51
     """
     from .rdrobust import rdrobust
     from ..diagnostics.rddensity import rddensity

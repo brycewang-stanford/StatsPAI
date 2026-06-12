@@ -116,6 +116,25 @@ def cic(
     Returns
     -------
     CausalResult
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 200
+    >>> g = rng.integers(0, 2, n)
+    >>> t = rng.integers(0, 2, n)
+    >>> y = (1.0 + 0.5 * g + 0.3 * t + 1.5 * g * t
+    ...      + rng.normal(0, 1, n))
+    >>> df = pd.DataFrame({"y": y, "g": g, "t": t})
+    >>> res = sp.cic(df, y="y", group="g", time="t",
+    ...              quantiles=[0.25, 0.5, 0.75], n_boot=50)
+    >>> round(res.estimate, 2)  # ATT, true effect = 1.5
+    1.47
+    >>> res.model_info["qte"].shape  # one row per quantile
+    (3, 6)
     """
     df = data[[y, group, time]].dropna().copy()
     g = df[group].astype(int).values

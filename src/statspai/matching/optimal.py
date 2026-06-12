@@ -82,6 +82,30 @@ def optimal_match(
     ----------
     caliper : float, optional
         Drop any pair with distance greater than ``caliper``.
+
+    Examples
+    --------
+    Simulated observational data with two confounders (true ATT = 2):
+
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 300
+    >>> x1 = rng.normal(size=n)
+    >>> x2 = rng.normal(size=n)
+    >>> p = 1.0 / (1.0 + np.exp(-(0.5 * x1 - 0.5 * x2 - 0.5)))
+    >>> d = rng.binomial(1, p)
+    >>> y = 1.0 + 2.0 * d + x1 + x2 + rng.normal(size=n)
+    >>> df = pd.DataFrame({'y': y, 'd': d, 'x1': x1, 'x2': x2})
+    >>> res = sp.optimal_match(df, treatment='d', outcome='y',
+    ...                        covariates=['x1', 'x2'])
+    >>> res.n_matched
+    111
+    >>> round(res.ate, 2)
+    1.88
+    >>> res.pairs.columns.tolist()
+    ['treated_idx', 'control_idx', 'distance']
     """
     df = data.dropna(subset=[treatment, outcome] + covariates).reset_index(drop=True)
     t = df[treatment].to_numpy().astype(int)
@@ -203,6 +227,31 @@ def cardinality_match(
     weights to 0/1 via a threshold — sufficient in almost all applied
     work. Matched pair sample is the matched controls each paired
     sequentially with the nearest treated in covariate space.
+
+    Examples
+    --------
+    Simulated observational data with two confounders (true ATT = 2):
+
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 300
+    >>> x1 = rng.normal(size=n)
+    >>> x2 = rng.normal(size=n)
+    >>> p = 1.0 / (1.0 + np.exp(-(0.5 * x1 - 0.5 * x2 - 0.5)))
+    >>> d = rng.binomial(1, p)
+    >>> y = 1.0 + 2.0 * d + x1 + x2 + rng.normal(size=n)
+    >>> df = pd.DataFrame({'y': y, 'd': d, 'x1': x1, 'x2': x2})
+    >>> res = sp.cardinality_match(df, treatment='d', outcome='y',
+    ...                            covariates=['x1', 'x2'],
+    ...                            smd_tolerance=0.1)
+    >>> res.n_matched_pairs
+    107
+    >>> round(res.ate, 2)
+    1.86
+    >>> res.balance['|SMD|'].round(3).tolist()
+    [0.111, 0.082]
     """
     df = data.dropna(subset=[treatment, outcome] + covariates).reset_index(drop=True)
     t = df[treatment].to_numpy().astype(int)
