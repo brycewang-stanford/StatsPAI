@@ -317,7 +317,7 @@ TOLERANCES: dict[str, dict[str, float]] = {
     "38_drdid": {"rel_est": 1e-6, "rel_se": 1e-6},  # panel DRDID calibrated PS
     # rel_se sentinel (was 1e-2): no SE row joins on this fixture.
     "39_arima": {"rel_est": 1e-6, "rel_se": 1e-6},  # innovations-MLE exact convention
-    # A: sp uses the Powell (1991) iid kernel sandwich
+    # A: sp uses a Powell-type iid kernel sandwich
     # (regression/quantile.py) while quantreg reports se='nid'
     # (Hendricks-Koenker difference-quotient sandwich, chosen to match
     # Stata qreg); different sparsity estimators by construction.

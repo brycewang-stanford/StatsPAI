@@ -1,5 +1,5 @@
 {
-  "aggregate_sha256": "eb152e59d9c14a3c761f47b930a69150a4c9bfb9f4f26c57885094e4340c8651",
+  "aggregate_sha256": "9ff5b8bee38e464913c2e832e8c08fcd7cf00d117cca3636ee94ad3307224eb3",
   "counts": {
     "files": 463,
     "input_csvs": 61,
@@ -688,9 +688,9 @@
       "sha256": "10196d9ddd4378cfa3d76cc160f6aa3c323fd5866e5d9ef83b89da6847afc585"
     },
     {
-      "bytes": 60272,
+      "bytes": 60268,
       "path": "tests/r_parity/compare.py",
-      "sha256": "009dbbdffa0b29f28d15794b36f60f08c67a215099d528aea399957c28d0715b"
+      "sha256": "2723006f8a36cc068eda6be304a88f761190fea09f4664eb58f55e0adfba5120"
     },
     {
       "bytes": 104713,
@@ -1668,9 +1668,9 @@
       "sha256": "e7e2048f4f5404b6bb061305012da4e428ebebe30761b4a7618dc638a0eb55e6"
     },
     {
-      "bytes": 12275,
+      "bytes": 12310,
       "path": "tests/r_parity/verify_reproduce.py",
-      "sha256": "46ffffde869993698ffe113dd1ed01bd2b97474d336c97000eb8c78dd5c7ca72"
+      "sha256": "d558e1db37f1623ae52bce007442b369b9219fcc5c6bb6e0a62ca3db9ef6f482"
     },
     {
       "bytes": 140,

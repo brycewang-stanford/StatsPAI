@@ -28,7 +28,7 @@ the regime explicitly:
    convention, closed form or tightly converged optimizer. The
    residual is floating-point noise (typically `1e-15` to `1e-9`;
    cross-BLAS reassociation in sandwich "meat" sums can reach `~1e-8`,
-   see `verify_reproduce.py::REPRO_TOL_OVERRIDE`). 50 of 64 modules
+   see `verify_reproduce.py::REPRO_TOL_OVERRIDE`). 57 of 64 modules
    register here on the point estimate.
 2. **Convention gap (`1e-4` to `5e-2`).** Both implementations are
    correct, but they compute a *documented* different quantity:
@@ -71,6 +71,14 @@ Tighten when the observed gap (recomputed from the committed JSONs,
 worst across the R *and* Stata sides) is more than 5× smaller than the
 budget, to ≈3× the observed gap rounded to a clean number, floored at
 the harness-wide `1e-6` machine tier.
+
+*Scope of the 2026-06 audit round:* the 5× rule was applied to the
+legacy loose tier (budgets ≥ `1e-2`) only. Mid-tier budgets whose
+margin also exceeds 5× — `42_nbreg` (7.3×), `43_heckman` (11.6×),
+`28_frontier` (7.9×), `44_mlogit` (8.5×), `45_ologit` (5.1×), and the
+machine-adjacent `14_ols_cluster` / `24_coxph` / `35_panel` /
+`41_tobit` / `46_clogit` / `49_oprobit` — are queued for the next
+round rather than silently exempted.
 
 ## Reproducing the audit
 
@@ -228,9 +236,10 @@ print(f"observed SE ratio = {ratio.flat[0]:.6f} "
 print(f"sqrt(T / (T - k)) = {np.sqrt(T / (T - k)):.6f}")
 ```
 
-Output: `observed SE ratio = 1.012871 …` — exactly the 1.287% gap
-recorded for every `33_var` SE row in `parity_table.md` (the committed
-fixture has `T=198`, `k=5`, `sqrt(198/193) − 1 = 1.287%`).
+Output: `observed SE ratio = 1.012871 …` — the ratio−1 form (1.287%)
+of the max-normalised 0.0127 gap recorded for every `33_var` SE row in
+`parity_table.md` (the committed fixture has `T=198`, `k=5`,
+`sqrt(198/193) − 1 = 1.287%`; the table normalises by the larger side).
 
 ## Known weak spots
 

@@ -63,8 +63,8 @@ REPRO_TOL_OVERRIDE: dict[str, float] = {
     # fixed seed; the residual ~2e-8 reproduction gap is floating-point
     # non-associativity in the BFGS gradient path under Apple Accelerate
     # BLAS, not algorithm drift. The SCM weights are themselves non-unique
-    # (compare.py parity tol = 0.20), so 1e-6 is still 5 orders tighter
-    # than the parity contract.
+    # (compare.py rel_est parity tol = 1.0, a documented T4 disclosure),
+    # so 1e-6 is still 6 orders tighter than the parity contract.
     "07_scm": 1e-6,
     # Cluster- / heteroskedasticity-robust SE family. The point estimates
     # for these modules reproduce to ~6e-14 (machine precision), but the
