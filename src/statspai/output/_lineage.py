@@ -88,6 +88,17 @@ def compute_data_hash(data: Any, length: int = 12) -> Optional[str]:
 
     Anything else returns ``None`` rather than raising — provenance
     must never break the calling estimator.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> df = pd.DataFrame({"y": [1.0, 2.0, 3.0], "x": [0.1, 0.2, 0.3]})
+    >>> h = sp.compute_data_hash(df)
+    >>> len(h)
+    12
+    >>> bool(sp.compute_data_hash(df) == h)  # deterministic
+    True
     """
     if data is None:
         return None
@@ -221,6 +232,18 @@ class Provenance:
         ``"3.11.5"``-style.
     timestamp : str
         ISO-8601 wall-clock of when the call returned.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> prov = sp.Provenance(function="sp.did.callaway_santanna",
+    ...                      params={"method": "dr"})
+    >>> prov.function
+    'sp.did.callaway_santanna'
+    >>> sorted(prov.to_dict())  # JSON-able view
+    ['data_hash', 'data_shape', 'function', 'params', 'python_version', 'run_id', 'statspai_version', 'timestamp']
+    >>> prov.short().startswith("sp.did.callaway_santanna")
+    True
     """
 
     function: str
@@ -291,6 +314,20 @@ def attach_provenance(
     -----
     Failures are swallowed. Provenance must never break the caller —
     if attribute assignment isn't possible, we no-op and move on.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> from types import SimpleNamespace
+    >>> df = pd.DataFrame({"y": [1.0, 2.0, 3.0], "x": [0.1, 0.2, 0.3]})
+    >>> res = SimpleNamespace(estimate=1.23)
+    >>> _ = sp.attach_provenance(res, function="sp.did.callaway_santanna",
+    ...                          params={"method": "dr"}, data=df)
+    >>> res._provenance.function
+    'sp.did.callaway_santanna'
+    >>> res._provenance.data_shape
+    [3, 2]
     """
     if not enabled or result is None:
         return result
@@ -333,6 +370,20 @@ def get_provenance(result: Any) -> Optional[Provenance]:
     Walks one level of common containers (``dict``, ``list``,
     ``tuple``) — useful when an estimator returns a tuple
     ``(result, diagnostics)``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> from types import SimpleNamespace
+    >>> res = SimpleNamespace(estimate=1.23)
+    >>> _ = sp.attach_provenance(res, function="sp.iv.ivreg")
+    >>> prov = sp.get_provenance(res)
+    >>> isinstance(prov, sp.Provenance)
+    True
+    >>> prov.function
+    'sp.iv.ivreg'
+    >>> sp.get_provenance(SimpleNamespace()) is None  # no record attached
+    True
     """
     if result is None:
         return None
@@ -352,7 +403,19 @@ def get_provenance(result: Any) -> Optional[Provenance]:
 
 
 def format_provenance(prov: Provenance, *, indent: int = 2) -> str:
-    """Pretty multi-line rendering of a :class:`Provenance` record."""
+    """Pretty multi-line rendering of a :class:`Provenance` record.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> prov = sp.Provenance(function="sp.rd.rdrobust",
+    ...                      params={"kernel": "triangular"})
+    >>> text = sp.format_provenance(prov)
+    >>> text.splitlines()[0]
+    'Provenance'
+    >>> "sp.rd.rdrobust" in text
+    True
+    """
     pad = " " * indent
     lines = [
         "Provenance",
@@ -382,6 +445,19 @@ def lineage_summary(*results: Any) -> Dict[str, Any]:
     pass every fitted result the paper depends on and get back a
     ``{run_id: provenance_dict}`` map plus a deduped list of input
     data hashes.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> from types import SimpleNamespace
+    >>> r1, r2 = SimpleNamespace(), SimpleNamespace()
+    >>> _ = sp.attach_provenance(r1, function="sp.did.callaway_santanna")
+    >>> _ = sp.attach_provenance(r2, function="sp.iv.ivreg")
+    >>> report = sp.lineage_summary(r1, r2)
+    >>> report["n_runs"]
+    2
+    >>> sorted(report)
+    ['data_inputs', 'n_runs', 'python_version', 'runs', 'statspai_version']
     """
     runs: Dict[str, Dict[str, Any]] = {}
     data_hashes: Dict[str, list] = {}

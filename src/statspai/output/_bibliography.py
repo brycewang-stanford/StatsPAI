@@ -180,6 +180,13 @@ def csl_url(name: str) -> str:
     ------
     ValueError
         Unknown short name. Use :func:`list_csl_styles` to enumerate.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> url = sp.csl_url("aer")
+    >>> url.endswith("american-economic-association.csl")
+    True
     """
     key = (name or "").strip().lower()
     if key not in CSL_REGISTRY:
@@ -196,6 +203,12 @@ def csl_filename(name: str) -> str:
     Useful when emitting a ``csl: ...`` line into a Quarto YAML header
     where the user has already downloaded the style file alongside
     ``paper.qmd``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> sp.csl_filename("qje")
+    'the-quarterly-journal-of-economics.csl'
     """
     key = (name or "").strip().lower()
     if key in CSL_REGISTRY:
@@ -210,7 +223,15 @@ def csl_filename(name: str) -> str:
 
 
 def list_csl_styles() -> List[Tuple[str, str]]:
-    """List ``(short_name, full_label)`` pairs for every registered style."""
+    """List ``(short_name, full_label)`` pairs for every registered style.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> styles = sp.list_csl_styles()
+    >>> ("aer", "American Economic Review") in styles
+    True
+    """
     return [(k, v["label"]) for k, v in CSL_REGISTRY.items()]
 
 
@@ -271,6 +292,15 @@ def make_bib_key(citation: str) -> str:
     Format: ``firstauthor + year + first-title-word``, e.g.
     ``"callaway2021difference"``. Falls back to a hash-derived key when
     we can't parse author+year.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> sp.make_bib_key(
+    ...     "Abadie A (2003). Semiparametric instrumental variable "
+    ...     "estimation. Journal of Econometrics."
+    ... )
+    'abadie2003semiparametric'
     """
     if not citation:
         return "anon"
@@ -302,6 +332,20 @@ def parse_citation_to_bib(
     For full-fidelity bibliographies, write your ``paper.bib`` by
     hand or via Zotero — this is a "quick-start" parser, deliberately
     conservative.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> entry = sp.parse_citation_to_bib(
+    ...     "Abadie A (2003). Semiparametric instrumental variable "
+    ...     "estimation. Journal of Econometrics."
+    ... )
+    >>> entry["type"]
+    'article'
+    >>> entry["key"]
+    'abadie2003semiparametric'
+    >>> sorted(entry["fields"])
+    ['author', 'journal', 'title', 'year']
     """
     if not citation or not citation.strip():
         return {"key": key or "anon", "type": "misc",
@@ -361,6 +405,16 @@ def citations_to_bib_entries(
     Deduplicates by key — the *first* occurrence wins (matches the
     ``replication_pack`` semantics where inner estimators register
     citations before outer wrappers).
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> entries = sp.citations_to_bib_entries([
+    ...     "Abadie A (2003). Semiparametric IV estimation. Journal of Econometrics.",
+    ...     "Abadie A (2003). Semiparametric IV estimation. Journal of Econometrics.",
+    ... ])
+    >>> len(entries)  # deduplicated by computed key
+    1
     """
     seen: Dict[str, Dict[str, Any]] = {}
     for c in citations:
@@ -406,6 +460,19 @@ def write_bib(
     -----
     Deduplicates by computed bib key. Pre-built entry dicts are taken
     as-is; only string citations go through the regex parser.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import tempfile, os
+    >>> with tempfile.TemporaryDirectory() as d:
+    ...     out = sp.write_bib(
+    ...         ["Abadie A (2003). Semiparametric IV estimation. "
+    ...          "Journal of Econometrics."],
+    ...         os.path.join(d, "paper.bib"),
+    ...     )
+    ...     "@article" in out.read_text(encoding="utf-8")
+    True
     """
     out = Path(path).expanduser().resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
