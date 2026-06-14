@@ -328,6 +328,14 @@ def bias_factor(rr_eu: float, rr_ud: float) -> float:
 
     The E-value is the value ``e`` such that ``bias_factor(e, e)`` equals
     the observed risk ratio.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> round(sp.bias_factor(2.0, 2.0), 4)
+    1.3333
+    >>> round(sp.bias_factor(3.0, 3.0), 4)
+    1.8
     """
     if rr_eu < 1 or rr_ud < 1:
         raise ValueError("Confounding associations must be >= 1.")

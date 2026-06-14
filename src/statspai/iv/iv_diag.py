@@ -732,15 +732,22 @@ def iv_diag(
     Examples
     --------
     >>> import statspai as sp
-    >>> r = sp.iv.iv_diag(df, y='wage', endog='educ',
-    ...                   instruments=['nearc4', 'nearc2'],
-    ...                   exog=['exper', 'south'],
-    ...                   n_boot=500, ltz_gamma_sd=0.05,
+    >>> df = sp.dgp_iv(n=300, n_instruments=2, first_stage=0.6, seed=0)
+    >>> r = sp.iv.iv_diag(df, y='y', endog='treatment',
+    ...                   instruments=['instrument_1', 'instrument_2'],
+    ...                   exog=['x1', 'x2'],
+    ...                   n_boot=200, ltz_gamma_sd=0.05,
     ...                   random_state=42)
-    >>> print(r.summary())
-    >>> r.to_frame()                 # tidy table
-    >>> r.plot('diagnostic')         # 2x2 diagnostic panel
-    >>> r.to_latex(caption='IV diagnostic bundle')
+    >>> isinstance(r, sp.IVDiagResult)
+    True
+    >>> bool(r.effective_F > 0)              # Olea-Pflueger robust F
+    True
+    >>> r.to_frame().shape[0] > 0            # tidy diagnostic table
+    True
+    >>> _ = r.summary()                      # human-readable report
+    >>> _ = r.to_latex(caption='IV diagnostic bundle')
+    >>> fig = r.plot('diagnostic')           # 2x2 diagnostic panel
+    >>> fig.savefig('iv_diag.png')           # doctest: +SKIP
 
     Notes
     -----

@@ -716,6 +716,21 @@ class IVRegression(BaseModel):
         MSE under normal errors.
     y, X_exog, X_endog, Z, var_names : array-like, optional
         Alternative to formula interface.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(2)
+    >>> z = rng.normal(size=300)
+    >>> u = rng.normal(size=300)
+    >>> x = 0.8 * z + u + rng.normal(size=300)
+    >>> y = 1.0 + 2.0 * x + u + rng.normal(size=300)
+    >>> df = pd.DataFrame({"y": y, "x": x, "z": z})
+    >>> model = sp.IVRegression("y ~ (x ~ z)", data=df, method="2sls")
+    >>> res = model.fit()
+    >>> bool(1.5 < float(res.params["x"]) < 2.5)
+    True
     """
 
     def __init__(

@@ -64,6 +64,22 @@ class KitagawaResult:
     -------
     summary()
         Print a formatted summary.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(4)
+    >>> z = rng.integers(0, 2, 400)
+    >>> d = ((0.3 + 0.5 * z + rng.normal(0, 0.2, 400)) > 0.5).astype(int)
+    >>> y = 1.0 + 0.8 * d + rng.normal(size=400)
+    >>> df = pd.DataFrame({"outcome": y, "treated": d, "assigned": z})
+    >>> res = sp.kitagawa_test(data=df, y="outcome", treatment="treated",
+    ...                        instrument="assigned", n_boot=200, seed=42)
+    >>> type(res).__name__
+    'KitagawaResult'
+    >>> bool(0.0 <= res.p_value <= 1.0)
+    True
     """
 
     statistic: float
@@ -249,16 +265,28 @@ def kitagawa_test(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> z = rng.integers(0, 2, size=800)  # binary instrument
+    >>> d = ((0.2 + 0.5 * z + rng.normal(scale=0.3, size=800)) > 0.5)
+    >>> d = d.astype(int)  # first stage: z shifts take-up
+    >>> y = 1.0 + 0.8 * d + rng.normal(size=800)
+    >>> df = pd.DataFrame(
+    ...     {"outcome": y, "treated": d, "assigned": z})
     >>> result = sp.kitagawa_test(
     ...     data=df,
     ...     y="outcome",
     ...     treatment="treated",
     ...     instrument="assigned",
-    ...     n_boot=1000,
+    ...     n_boot=200,
     ...     seed=42,
     ... )
-    >>> result.summary()
+    >>> type(result).__name__
+    'KitagawaResult'
+    >>> bool(0.0 <= result.p_value <= 1.0)
+    True
     """
     df = data.dropna(subset=[y, treatment, instrument])
     y_arr = df[y].values.astype(float)

@@ -85,10 +85,22 @@ def bartik(
 
     Examples
     --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n, K = 80, 4
     >>> # shares: DataFrame (regions x industries), shocks: Series (industries)
-    >>> result = bartik(df, y='wage_growth', endog='emp_growth',
-    ...                shares=share_matrix, shocks=national_growth)
-    >>> print(result.summary())
+    >>> shares = pd.DataFrame(
+    ...     rng.dirichlet(np.ones(K), size=n),
+    ...     columns=[f"ind{k}" for k in range(K)],
+    ... )
+    >>> shocks = pd.Series(rng.normal(0.05, 0.02, K), index=shares.columns)
+    >>> emp = shares.values @ shocks.values + rng.normal(0, 0.01, n)
+    >>> wage = 1.0 + 2.0 * emp + rng.normal(0, 0.02, n)
+    >>> df = pd.DataFrame({"wage_growth": wage, "emp_growth": emp})
+    >>> result = sp.bartik(df, y='wage_growth', endog='emp_growth',
+    ...                    shares=shares, shocks=shocks, leave_one_out=False)
+    >>> _ = result.summary()
     """
     estimator = BartikIV(
         data=data, y=y, endog=endog, shares=shares, shocks=shocks,
@@ -123,6 +135,33 @@ def bartik(
 class BartikIV:
     """
     Bartik Shift-Share IV estimator.
+
+    Constructs the shift-share instrument ``B_i = sum_k s_ik * g_k`` from
+    a region-by-industry share matrix and an industry shock vector, then
+    runs 2SLS. The convenience wrapper :func:`bartik` builds this object
+    and calls :meth:`fit`; use the class directly when you want to hold
+    onto the estimator instance.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> from statspai.bartik.shift_share import BartikIV
+    >>> rng = np.random.default_rng(0)
+    >>> n, K = 60, 4
+    >>> shares = pd.DataFrame(
+    ...     rng.dirichlet(np.ones(K), size=n),
+    ...     columns=[f"ind{k}" for k in range(K)],
+    ... )
+    >>> shocks = pd.Series(rng.normal(0.05, 0.02, K), index=shares.columns)
+    >>> emp = shares.values @ shocks.values + rng.normal(0, 0.01, n)
+    >>> wage = 1.5 * emp + rng.normal(0, 0.02, n)
+    >>> df = pd.DataFrame({"wage_growth": wage, "emp_growth": emp})
+    >>> est = BartikIV(df, y="wage_growth", endog="emp_growth",
+    ...                shares=shares, shocks=shocks, leave_one_out=False)
+    >>> res = est.fit()
+    >>> round(float(res.params["emp_growth"]), 1)  # ~1.5
+    1.5
     """
 
     def __init__(

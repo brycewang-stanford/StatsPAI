@@ -211,7 +211,50 @@ def match(
 # ======================================================================
 
 class MatchEstimator:
-    """Unified matching estimator supporting multiple distance × method combinations."""
+    """Unified matching estimator supporting multiple distance × method combinations.
+
+    This is the object-oriented backend behind :func:`match`. Most users
+    should call :func:`sp.match`; construct ``MatchEstimator`` directly only
+    when you want to hold the configured estimator and call ``.fit()``
+    yourself. ``.fit()`` returns a ``CausalResult``.
+
+    Parameters
+    ----------
+    data : pandas.DataFrame
+        Input data.
+    y : str
+        Outcome column.
+    treat : str
+        Binary (0/1) treatment column.
+    covariates : list of str
+        Variables to match on.
+    distance : str, optional
+        ``'propensity'``, ``'mahalanobis'``, ``'euclidean'`` or ``'exact'``.
+    method : str, default 'nearest'
+        ``'nearest'``, ``'stratify'`` or ``'cem'`` (legacy ``'psm'`` /
+        ``'mahalanobis'`` are also accepted).
+    estimand : str, default 'ATT'
+        ``'ATT'`` or ``'ATE'``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 200
+    >>> age = rng.normal(40, 8, n)
+    >>> edu = rng.normal(12, 2, n)
+    >>> ps = 1 / (1 + np.exp(-(0.05 * (age - 40) + 0.1 * (edu - 12))))
+    >>> training = rng.binomial(1, ps)
+    >>> wage = 20 + 0.3 * age + 0.5 * edu + 4.0 * training + rng.normal(0, 3, n)
+    >>> df = pd.DataFrame({"wage": wage, "training": training,
+    ...                    "age": age, "edu": edu})
+    >>> est = sp.MatchEstimator(df, y="wage", treat="training",
+    ...                         covariates=["age", "edu"], distance="propensity")
+    >>> result = est.fit()
+    >>> type(result).__name__
+    'CausalResult'
+    """
 
     def __init__(
         self,
@@ -991,6 +1034,26 @@ def balanceplot(
     Returns
     -------
     (fig, ax)
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 200
+    >>> age = rng.normal(40, 8, n)
+    >>> edu = rng.normal(12, 2, n)
+    >>> ps = 1 / (1 + np.exp(-(0.05 * (age - 40) + 0.1 * (edu - 12))))
+    >>> training = rng.binomial(1, ps)
+    >>> wage = 20 + 0.3 * age + 0.5 * edu + 4.0 * training + rng.normal(0, 3, n)
+    >>> df = pd.DataFrame({"wage": wage, "training": training,
+    ...                    "age": age, "edu": edu})
+    >>> result = sp.match(df, y="wage", treat="training",
+    ...                   covariates=["age", "edu"])
+    >>> fig, ax = sp.balanceplot(result)
+    >>> fig.savefig("balance.png")  # doctest: +SKIP
+    >>> type(ax).__name__
+    'Axes'
     """
     try:
         import matplotlib.pyplot as plt

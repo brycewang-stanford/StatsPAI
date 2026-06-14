@@ -45,13 +45,36 @@ class PanelResults(EconometricResults):
     Panel regression results with built-in diagnostics.
 
     Extends EconometricResults with panel-specific tests that can be
-    called directly on the result object:
+    called directly on the result object (see ``Examples`` for a runnable
+    setup)::
 
-    >>> result = sp.panel(df, "y ~ x1 + x2", entity='id', time='t')
-    >>> result.hausman_test()        # FE vs RE
-    >>> result.bp_lm_test()          # Pooled vs RE (Breusch-Pagan LM)
-    >>> result.f_test_effects()      # Joint significance of entity FE
-    >>> result.compare('re')         # Compare with RE side by side
+        result = sp.panel(df, "y ~ x1 + x2", entity='id', time='t')
+        result.hausman_test()        # FE vs RE
+        result.bp_lm_test()          # Pooled vs RE (Breusch-Pagan LM)
+        result.f_test_effects()      # Joint significance of entity FE
+        result.compare('re')         # Compare with RE side by side
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for i in range(40):
+    ...     alpha = rng.normal()
+    ...     for t in range(5):
+    ...         x1, x2 = rng.normal(), rng.normal()
+    ...         y = 1.0 + 0.5 * x1 - 0.3 * x2 + alpha + rng.normal(0, 0.5)
+    ...         rows.append({"id": i, "year": t, "y": y, "x1": x1, "x2": x2})
+    >>> df = pd.DataFrame(rows)
+    >>> r = sp.panel(df, "y ~ x1 + x2", entity="id", time="year", method="fe")
+    >>> isinstance(r, sp.PanelResults)
+    True
+    >>> sorted(r.params.index)
+    ['x1', 'x2']
+    >>> h = r.hausman_test()                       # FE vs RE specification test
+    >>> set(["statistic", "df", "pvalue"]).issubset(h)
+    True
     """
 
     def __init__(
@@ -247,7 +270,33 @@ class PanelResults(EconometricResults):
 
 
 class PanelCompareResults:
-    """Side-by-side comparison of two panel models."""
+    """Side-by-side comparison of two panel models.
+
+    Produced by :meth:`PanelResults.compare`. Holds the two fitted models
+    and renders a shared coefficient/SE table plus per-model diagnostics
+    via :meth:`summary`, or a side-by-side coefficient plot via
+    :meth:`plot`.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for i in range(40):
+    ...     alpha = rng.normal()
+    ...     for t in range(5):
+    ...         x1, x2 = rng.normal(), rng.normal()
+    ...         y = 1.0 + 0.5 * x1 - 0.3 * x2 + alpha + rng.normal(0, 0.5)
+    ...         rows.append({"id": i, "year": t, "y": y, "x1": x1, "x2": x2})
+    >>> df = pd.DataFrame(rows)
+    >>> r = sp.panel(df, "y ~ x1 + x2", entity="id", time="year", method="fe")
+    >>> cmp = r.compare("re")                      # FE vs RE side by side
+    >>> isinstance(cmp, sp.PanelCompareResults)
+    True
+    >>> bool("Panel Comparison" in cmp.summary())
+    True
+    """
 
     def __init__(self, model_a: PanelResults, model_b: PanelResults):
         self.model_a = model_a
@@ -363,9 +412,22 @@ def balance_panel(
     Examples
     --------
     >>> import statspai as sp
-    >>> balanced = sp.balance_panel(df, entity='id', time='year')
-    >>> balanced.groupby('id')['year'].count().nunique()  # all same count
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for i in range(5):
+    ...     for t in range(4):
+    ...         if i == 3 and t == 2:
+    ...             continue  # drop one obs -> unbalanced
+    ...         rows.append({"id": i, "year": t, "y": rng.normal()})
+    >>> df = pd.DataFrame(rows)
+    >>> df.groupby("id")["year"].count().tolist()
+    [4, 4, 4, 3, 4]
+    >>> balanced = sp.balance_panel(df, entity="id", time="year")
+    >>> int(balanced.groupby("id")["year"].count().nunique())  # all same count
     1
+    >>> balanced["id"].nunique()  # the short unit is dropped
+    4
     """
     all_periods = data[time].nunique()
     counts = data.groupby(entity)[time].transform('nunique')
@@ -952,11 +1014,26 @@ def panel_compare(
 
     Examples
     --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for i in range(40):
+    ...     alpha = rng.normal()
+    ...     for t in range(5):
+    ...         edu, exp = rng.normal(), rng.normal()
+    ...         wage = 1.0 + 0.5 * edu - 0.3 * exp + alpha + rng.normal(0, 0.5)
+    ...         rows.append({"id": i, "year": t, "wage": wage,
+    ...                      "edu": edu, "exp": exp})
+    >>> df = pd.DataFrame(rows)
     >>> comparison = sp.panel_compare(
-    ...     df, "wage ~ edu + exp", entity='id', time='year',
-    ...     methods=['pooled', 'fe', 're', 'twoway', 'mundlak']
+    ...     df, "wage ~ edu + exp", entity="id", time="year",
+    ...     methods=["pooled", "fe", "re"],
     ... )
-    >>> print(comparison)
+    >>> isinstance(comparison, pd.DataFrame)
+    True
+    >>> bool("edu" in comparison.index)  # one row per coefficient
+    True
     """
     if methods is None:
         methods = ['pooled', 'fe', 're', 'twoway', 'mundlak']
@@ -1046,7 +1123,31 @@ def panel_compare(
 # ======================================================================
 
 class PanelRegression:
-    """Deprecated: use ``panel()`` directly. Kept for backward compatibility."""
+    """Deprecated: use ``panel()`` directly. Kept for backward compatibility.
+
+    Construct with the same keyword arguments as :func:`panel`, then call
+    :meth:`fit`; the result is an ordinary :class:`PanelResults`. New code
+    should call ``sp.panel(...)`` instead.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for i in range(40):
+    ...     alpha = rng.normal()
+    ...     for t in range(5):
+    ...         x1, x2 = rng.normal(), rng.normal()
+    ...         y = 1.0 + 0.5 * x1 - 0.3 * x2 + alpha + rng.normal(0, 0.5)
+    ...         rows.append({"id": i, "year": t, "y": y, "x1": x1, "x2": x2})
+    >>> df = pd.DataFrame(rows)
+    >>> model = sp.PanelRegression(data=df, formula="y ~ x1 + x2",
+    ...                            entity="id", time="year", method="fe")
+    >>> res = model.fit()
+    >>> isinstance(res, sp.PanelResults)
+    True
+    """
 
     def __init__(self, **kwargs):
         self._kwargs = kwargs

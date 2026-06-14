@@ -25,7 +25,35 @@ from scipy import stats
 
 
 class PanelUnitRootResult:
-    """Results from panel unit root test."""
+    """Results from panel unit root test.
+
+    Returned by :func:`panel_unitroot`. Holds the pooled test statistic and
+    ``p``-value, the panel dimensions (``n_units``, ``n_periods``), the lag
+    order, and the per-unit ADF statistics.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> N, T = 20, 30
+    >>> rows = []
+    >>> for i in range(N):
+    ...     y = np.zeros(T)
+    ...     for t in range(1, T):  # stationary AR(1), phi = 0.5
+    ...         y[t] = 0.5 * y[t - 1] + rng.normal()
+    ...     rows.extend({"id": i, "time": t, "y": y[t]} for t in range(T))
+    >>> df = pd.DataFrame(rows)
+    >>> result = sp.panel_unitroot(df, variable="y", id="id", time="time",
+    ...                            test="ips")
+    >>> type(result).__name__
+    'PanelUnitRootResult'
+    >>> result.n_units
+    20
+    >>> bool(0.0 <= result.p_value <= 1.0)
+    True
+    """
 
     def __init__(self, test_type, statistic, p_value, n_units, n_periods,
                  individual_stats, lags):
@@ -134,8 +162,23 @@ def panel_unitroot(
     Examples
     --------
     >>> import statspai as sp
-    >>> result = sp.panel_unitroot(df, variable='gdp', id='country', time='year')
-    >>> print(result.summary())
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> N, T = 20, 30
+    >>> rows = []
+    >>> for unit in range(N):
+    ...     y = np.zeros(T)
+    ...     for t in range(1, T):  # stationary AR(1), phi = 0.5
+    ...         y[t] = 0.5 * y[t - 1] + rng.normal()
+    ...     rows.extend({"id": unit, "time": t, "y": y[t]} for t in range(T))
+    >>> df = pd.DataFrame(rows)
+    >>> result = sp.panel_unitroot(df, variable="y", id="id", time="time",
+    ...                            test="ips")
+    >>> result.n_units
+    20
+    >>> bool(0.0 <= result.p_value <= 1.0)
+    True
     """
     units = data[id].unique()
     N = len(units)

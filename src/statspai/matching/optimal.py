@@ -25,6 +25,49 @@ from scipy.spatial.distance import cdist
 
 @dataclass
 class OptimalMatchResult:
+    """Result of :func:`optimal_match` (optimal 1:1 Hungarian matching).
+
+    Attributes
+    ----------
+    pairs : pandas.DataFrame
+        One row per matched pair with columns
+        ``treated_idx``, ``control_idx``, ``distance``.
+    distances : numpy.ndarray
+        Matching distance for each matched pair.
+    ate : float
+        Matched-pair average treatment effect on the treated (ATT).
+    se : float
+        Analytic standard error of ``ate`` over the matched pairs.
+    n_treated, n_matched : int
+        Number of treated units and number of retained matched pairs.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 300
+    >>> x1 = rng.normal(size=n)
+    >>> x2 = rng.normal(size=n)
+    >>> p = 1.0 / (1.0 + np.exp(-(0.5 * x1 - 0.5 * x2 - 0.5)))
+    >>> d = rng.binomial(1, p)
+    >>> y = 1.0 + 2.0 * d + x1 + x2 + rng.normal(size=n)
+    >>> df = pd.DataFrame({'y': y, 'd': d, 'x1': x1, 'x2': x2})
+    >>> res = sp.optimal_match(df, treatment='d', outcome='y',
+    ...                        covariates=['x1', 'x2'])
+    >>> isinstance(res, sp.OptimalMatchResult)
+    True
+    >>> res.n_matched
+    111
+    >>> round(res.ate, 2)
+    1.88
+    >>> res.pairs.columns.tolist()
+    ['treated_idx', 'control_idx', 'distance']
+    >>> bool(len(res.distances) == res.n_matched)
+    True
+    """
+
     pairs: pd.DataFrame              # (n_matched, 2) treated_idx + control_idx
     distances: np.ndarray            # (n_matched,) matching distances
     ate: float                       # average treatment effect (ATT)
@@ -183,6 +226,49 @@ def optimal_match(
 
 @dataclass
 class CardinalityMatchResult:
+    """Result of :func:`cardinality_match` (Zubizarreta cardinality matching).
+
+    Attributes
+    ----------
+    treated_matched, control_matched : numpy.ndarray
+        Row indices (into the cleaned data) of the matched treated and
+        control units making up each pair.
+    ate : float
+        Matched-pair average treatment effect on the treated (ATT).
+    se : float
+        Analytic standard error of ``ate`` over the matched pairs.
+    n_matched_pairs : int
+        Number of matched pairs retained.
+    balance : pandas.DataFrame
+        Post-match balance table with columns ``covariate``, ``SMD``,
+        ``|SMD|`` (standardised mean differences).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 300
+    >>> x1 = rng.normal(size=n)
+    >>> x2 = rng.normal(size=n)
+    >>> p = 1.0 / (1.0 + np.exp(-(0.5 * x1 - 0.5 * x2 - 0.5)))
+    >>> d = rng.binomial(1, p)
+    >>> y = 1.0 + 2.0 * d + x1 + x2 + rng.normal(size=n)
+    >>> df = pd.DataFrame({'y': y, 'd': d, 'x1': x1, 'x2': x2})
+    >>> res = sp.cardinality_match(df, treatment='d', outcome='y',
+    ...                            covariates=['x1', 'x2'],
+    ...                            smd_tolerance=0.1)
+    >>> isinstance(res, sp.CardinalityMatchResult)
+    True
+    >>> res.n_matched_pairs
+    107
+    >>> round(res.ate, 2)
+    1.86
+    >>> res.balance['|SMD|'].round(3).tolist()
+    [0.111, 0.082]
+    """
+
     treated_matched: np.ndarray       # indices of matched treated
     control_matched: np.ndarray       # indices of matched controls
     ate: float

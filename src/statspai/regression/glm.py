@@ -416,7 +416,28 @@ class GLMEstimator(BaseEstimator):
     Generalized Linear Model estimator using IRLS
 
     Implements Iteratively Reweighted Least Squares for maximum likelihood
-    estimation of GLM parameters.
+    estimation of GLM parameters.  This is the low-level engine that
+    operates on numpy arrays and ``Family`` / ``LinkFunction`` instances;
+    most users should call :func:`statspai.glm` or
+    :class:`statspai.GLMRegression`, which accept formulas / column names.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> from statspai.regression.glm import GLMEstimator, Binomial, LogitLink
+    >>> rng = np.random.default_rng(0)
+    >>> n = 300
+    >>> X = np.column_stack([np.ones(n), rng.normal(size=n),
+    ...                      rng.normal(size=n)])
+    >>> eta = X @ np.array([-0.5, 1.2, -0.8])
+    >>> y = rng.binomial(1, 1 / (1 + np.exp(-eta)))
+    >>> est = GLMEstimator()
+    >>> res = est.estimate(y, X, family=Binomial(), link=LogitLink())
+    >>> np.asarray(res["params"]).shape
+    (3,)
+    >>> bool(res["converged"])
+    True
     """
 
     def estimate(
@@ -749,6 +770,25 @@ class GLMRegression(BaseModel):
         Distribution family.
     link : str or None
         Link function (``None`` selects canonical link).
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 300
+    >>> x1 = rng.normal(size=n)
+    >>> x2 = rng.normal(size=n)
+    >>> eta = -0.5 + 1.2 * x1 - 0.8 * x2
+    >>> y = rng.binomial(1, 1 / (1 + np.exp(-eta)))
+    >>> df = pd.DataFrame({"y": y, "x1": x1, "x2": x2})
+    >>> model = sp.GLMRegression(formula="y ~ x1 + x2", data=df,
+    ...                          family="binomial")
+    >>> results = model.fit()
+    >>> len(results.params)   # intercept + x1 + x2
+    3
+    >>> print(results.summary())  # doctest: +SKIP
     """
 
     def __init__(
@@ -1067,24 +1107,46 @@ def glm(
 
     Examples
     --------
+    Build a small frame with a binary, a count, and a positive outcome:
+
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> x1 = rng.normal(0, 1, n)
+    >>> x2 = rng.normal(0, 1, n)
+    >>> admit = (rng.uniform(size=n)
+    ...          < 1 / (1 + np.exp(-(0.5 * x1 + 0.3 * x2)))).astype(int)
+    >>> counts = rng.poisson(np.exp(0.2 + 0.3 * x1 + 0.1 * x2))
+    >>> cost = rng.gamma(2.0, np.exp(0.5 + 0.2 * x1))
+    >>> df = pd.DataFrame({'admit': admit, 'counts': counts,
+    ...                    'cost': cost, 'x1': x1, 'x2': x2})
+
     Logistic regression:
 
-    >>> results = glm("admit ~ gre + gpa + rank", data=df, family="binomial")
-    >>> print(results.summary())
+    >>> res = sp.glm("admit ~ x1 + x2", data=df, family="binomial")
+    >>> sorted(res.params.index)
+    ['Intercept', 'x1', 'x2']
 
-    Poisson with exposure and robust SE:
+    Poisson with robust (HC1) standard errors:
 
-    >>> results = glm("counts ~ x1 + x2", data=df, family="poisson",
-    ...               exposure="pop", robust="hc1")
+    >>> res = sp.glm("counts ~ x1 + x2", data=df, family="poisson",
+    ...              robust="hc1")
+    >>> bool(np.isfinite(res.params['x1']))
+    True
 
     Negative binomial:
 
-    >>> results = glm("y ~ x1 + x2", data=df, family="negative_binomial")
+    >>> res = sp.glm("counts ~ x1 + x2", data=df,
+    ...              family="negative_binomial")
+    >>> bool(np.isfinite(res.params['x1']))
+    True
 
-    Gamma with log link and clustered SE:
+    Gamma with a log link:
 
-    >>> results = glm("cost ~ age + severity", data=df,
-    ...               family="gamma", link="log", cluster="hospital_id")
+    >>> res = sp.glm("cost ~ x1 + x2", data=df, family="gamma", link="log")
+    >>> bool(np.isfinite(res.params['x1']))
+    True
     """
     # Handle y/x style specification
     if formula is None and y is not None and x is not None and data is not None:

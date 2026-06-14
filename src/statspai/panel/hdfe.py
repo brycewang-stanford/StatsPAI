@@ -257,6 +257,25 @@ class Absorber:
         Number of singleton observations removed.
     n_fe : list of int
         Number of groups per FE dimension (post-prune).
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 300
+    >>> fe_data = pd.DataFrame({
+    ...     "firm": rng.integers(0, 20, n),
+    ...     "year": rng.integers(0, 5, n),
+    ... })
+    >>> y = (fe_data["firm"] * 0.5 + fe_data["year"] * 0.3
+    ...      + rng.normal(0, 1, n))
+    >>> absorber = sp.Absorber(fe_data)
+    >>> y_within = absorber.demean(y.to_numpy())  # keep_mask applied
+    >>> absorber.n_fe
+    [20, 5]
+    >>> bool(abs(y_within.mean()) < 1e-6)
+    True
     """
 
     __slots__ = (

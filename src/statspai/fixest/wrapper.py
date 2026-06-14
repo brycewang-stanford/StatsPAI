@@ -92,23 +92,30 @@ def feols(
     --------
     Two-way fixed effects with clustered SEs:
 
-    >>> from statspai.fixest import feols
-    >>> result = feols("wage ~ experience + tenure | firm + year",
-    ...               data=df, vcov={"CRV1": "firm"})
-    >>> print(result.summary())
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> firm = rng.integers(0, 8, n)
+    >>> year = rng.integers(0, 5, n)
+    >>> x1 = rng.normal(size=n)
+    >>> y = 1.0 + 0.5 * x1 + 0.1 * firm + 0.2 * year + rng.normal(0, 0.5, n)
+    >>> df = pd.DataFrame({"y": y, "x1": x1, "firm": firm, "year": year})
+    >>> res = sp.feols("y ~ x1 | firm + year", data=df, vcov={"CRV1": "firm"})
+    >>> "x1" in res.params.index
+    True
 
-    Multiple estimation:
+    Multiple estimation (``csw0`` returns a list, one fit per FE set):
 
-    >>> results = feols("Y ~ X1 | csw0(firm, year)", data=df)
-    >>> for r in results:
-    ...     print(r.summary())
+    >>> results = sp.feols("y ~ x1 | csw0(firm, year)", data=df)  # doctest: +SKIP
+    >>> summaries = [r.summary() for r in results]  # doctest: +SKIP
 
-    Use with outreg2:
+    Use with outreg2 to build a regression table:
 
-    >>> from statspai import outreg2
-    >>> r1 = feols("Y ~ X1", data=df)
-    >>> r2 = feols("Y ~ X1 | firm", data=df)
-    >>> outreg2(r1, r2, filename="table.xlsx")
+    >>> r1 = sp.feols("y ~ x1", data=df)  # doctest: +SKIP
+    >>> r2 = sp.feols("y ~ x1 | firm", data=df)  # doctest: +SKIP
+    >>> sp.outreg2(r1, r2, filename="table.xlsx")  # doctest: +SKIP
     """
     pf = _check_pyfixest()
 
@@ -182,6 +189,23 @@ def fepois(
     Returns
     -------
     EconometricResults or list of EconometricResults
+
+    Examples
+    --------
+    Poisson regression (PPML-style) with firm fixed effects:
+
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> firm = rng.integers(0, 8, n)
+    >>> x1 = rng.normal(size=n)
+    >>> mu = np.exp(0.3 + 0.5 * x1 + 0.1 * firm)
+    >>> df = pd.DataFrame({"y": rng.poisson(mu), "x1": x1, "firm": firm})
+    >>> res = sp.fepois("y ~ x1 | firm", data=df)
+    >>> "x1" in res.params.index
+    True
     """
     pf = _check_pyfixest()
 
@@ -239,6 +263,24 @@ def feglm(
     Returns
     -------
     EconometricResults or list of EconometricResults
+
+    Examples
+    --------
+    Logit GLM with firm fixed effects:
+
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> firm = rng.integers(0, 8, n)
+    >>> x1 = rng.normal(size=n)
+    >>> p = 1.0 / (1.0 + np.exp(-(0.2 + 0.8 * x1)))
+    >>> y = (rng.random(n) < p).astype(int)
+    >>> df = pd.DataFrame({"y": y, "x1": x1, "firm": firm})
+    >>> res = sp.feglm("y ~ x1 | firm", data=df, family="logit")
+    >>> "x1" in res.params.index
+    True
     """
     pf = _check_pyfixest()
 

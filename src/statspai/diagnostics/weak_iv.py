@@ -148,9 +148,22 @@ def effective_f_test(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
-    >>> res = sp.effective_f_test(df, endog='educ', instruments=['qob'])
-    >>> print(f"F_eff = {res['F_eff']:.2f} ({res['strength']})")
+    >>> rng = np.random.default_rng(0)
+    >>> n = 300
+    >>> z1 = rng.normal(size=n)
+    >>> z2 = rng.normal(size=n)
+    >>> u = rng.normal(size=n)
+    >>> educ = 0.7 * z1 + 0.5 * z2 + 0.5 * u + rng.normal(size=n)
+    >>> df = pd.DataFrame({
+    ...     "wage": 1.0 + 0.4 * educ + u + rng.normal(size=n),
+    ...     "educ": educ, "z1": z1, "z2": z2,
+    ... })
+    >>> res = sp.effective_f_test(df, endog='educ', instruments=['z1', 'z2'])
+    >>> bool(res['F_eff'] > res['stock_yogo_10pct'])  # strong instruments
+    True
     """
     # effective F does not need y; reuse prep helper with endog as both slots
     # but then extract D only (avoid duplicate-column pitfall by using a
@@ -384,9 +397,23 @@ def anderson_rubin_test(
 
     Examples
     --------
-    >>> result = sp.anderson_rubin_test(df, y='wage', endog='education',
-    ...                                 instruments=['parent_edu', 'distance'])
-    >>> print(result['interpretation'])
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 300
+    >>> z1 = rng.normal(size=n)
+    >>> z2 = rng.normal(size=n)
+    >>> u = rng.normal(size=n)
+    >>> educ = 0.7 * z1 + 0.5 * z2 + 0.5 * u + rng.normal(size=n)
+    >>> df = pd.DataFrame({
+    ...     "wage": 1.0 + 0.4 * educ + u + rng.normal(size=n),
+    ...     "educ": educ, "z1": z1, "z2": z2,
+    ... })
+    >>> result = sp.anderson_rubin_test(df, y='wage', endog='educ',
+    ...                                 instruments=['z1', 'z2'])
+    >>> bool(0.0 <= result['ar_pvalue'] <= 1.0)
+    True
 
     Notes
     -----
@@ -513,7 +540,38 @@ def _kstat_and_pvalue_at(k_cs, h0: float) -> Tuple[float, float]:
 
 
 class WeakRobustResult:
-    """Container holding the unified weak-IV-robust panel."""
+    """Container holding the unified weak-IV-robust panel.
+
+    Returned by :func:`sp.weakrobust`. Supports dict-style lookup
+    (``panel["effective_F"]``), ``.get()``, ``.to_dict()``,
+    ``.to_frame()`` (Stata-style single table) and ``.summary()``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 300
+    >>> z1 = rng.normal(size=n)
+    >>> z2 = rng.normal(size=n)
+    >>> u = rng.normal(size=n)
+    >>> educ = 0.7 * z1 + 0.5 * z2 + 0.5 * u + rng.normal(size=n)
+    >>> df = pd.DataFrame({
+    ...     "wage": 1.0 + 0.4 * educ + u + rng.normal(size=n),
+    ...     "educ": educ, "z1": z1, "z2": z2,
+    ... })
+    >>> panel = sp.weakrobust(df, y="wage", endog="educ",
+    ...                       instruments=["z1", "z2"],
+    ...                       clr_simulations=2000, grid_size=101,
+    ...                       random_state=0)
+    >>> type(panel).__name__
+    'WeakRobustResult'
+    >>> panel.endog
+    'educ'
+    >>> "effective_F" in panel.to_dict()
+    True
+    """
 
     def __init__(
         self,
@@ -697,11 +755,25 @@ def weakrobust(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 300
+    >>> z1 = rng.normal(size=n)
+    >>> z2 = rng.normal(size=n)
+    >>> u = rng.normal(size=n)
+    >>> educ = 0.7 * z1 + 0.5 * z2 + 0.5 * u + rng.normal(size=n)
+    >>> df = pd.DataFrame({
+    ...     "wage": 1.0 + 0.4 * educ + u + rng.normal(size=n),
+    ...     "educ": educ, "z1": z1, "z2": z2,
+    ... })
     >>> panel = sp.weakrobust(df, y='wage', endog='educ',
-    ...                       instruments=['nearc2','nearc4'],
-    ...                       exog=['age','exper'])
-    >>> print(panel.summary())
-    >>> panel.to_frame()
+    ...                       instruments=['z1', 'z2'],
+    ...                       clr_simulations=2000, grid_size=101,
+    ...                       random_state=0)
+    >>> bool("effective_F" in panel.to_dict())
+    True
 
     References
     ----------

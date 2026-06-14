@@ -282,6 +282,25 @@ def panel_logit(
     Returns
     -------
     EconometricResults
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for i in range(60):
+    ...     a = rng.normal()  # unit effect
+    ...     for t in range(5):
+    ...         xit = rng.normal()
+    ...         p = 1.0 / (1.0 + np.exp(-(0.8 * xit + a)))
+    ...         rows.append({"id": i, "time": t,
+    ...                      "y": int(rng.uniform() < p), "x": xit})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.panel_logit(df, y="y", x=["x"], id="id", time="time", method="fe")
+    >>> bool("x" in res.params.index)
+    True
     """
     method = method.lower()
     if method not in ('fe', 're', 'cre'):
@@ -358,6 +377,27 @@ def panel_probit(
     Returns
     -------
     EconometricResults
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from scipy.stats import norm
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for i in range(50):
+    ...     a = rng.normal()  # unit effect
+    ...     for t in range(4):
+    ...         xit = rng.normal()
+    ...         p = norm.cdf(0.7 * xit + a)
+    ...         rows.append({"id": i, "time": t,
+    ...                      "y": int(rng.uniform() < p), "x": xit})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.panel_probit(df, y="y", x=["x"], id="id", time="time",
+    ...                       method="re", n_quadrature=8)
+    >>> bool("x" in res.params.index)
+    True
     """
     method = method.lower()
     if method not in ('re', 'cre'):

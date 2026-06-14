@@ -626,25 +626,32 @@ def balance_diagnostics(
 
     Examples
     --------
+    With no ``weights``, ATE inverse-propensity weights are computed from
+    the estimated propensity scores:
+
     >>> import statspai as sp
     >>> df = sp.cps_wage()
-    >>> # No weights given: ATE inverse-propensity weights are computed
-    >>> bal = sp.balance_diagnostics(df, treatment='union',
-    ...                              covariates=['education', 'experience',
-    ...                                          'tenure'])
-    >>> bal.table[['smd_raw', 'smd_weighted', 'balanced']]
-    >>> bal.summary_stats['n_imbalanced_weighted']
+    >>> bal = sp.balance_diagnostics(
+    ...     df, treatment='union',
+    ...     covariates=['education', 'experience', 'tenure'])
+    >>> bal.summary_stats['n_obs']
+    3000
+    >>> bool(bal.summary_stats['n_imbalanced_weighted']
+    ...      <= bal.summary_stats['n_imbalanced_raw'])
+    True
 
-    >>> # Typical post-estimation flow: audit your own weights
+    Typical post-estimation flow — audit your own weights and scores:
+
     >>> import numpy as np
-    >>> ps = sp.propensity_score(df, 'union',
-    ...                          ['education', 'experience', 'tenure'])
+    >>> ps = sp.propensity_score(
+    ...     df, 'union', ['education', 'experience', 'tenure'])
     >>> w = np.where(df['union'] == 1, 1 / ps, 1 / (1 - ps))
-    >>> bal = sp.balance_diagnostics(df, treatment='union',
-    ...                              covariates=['education', 'experience',
-    ...                                          'tenure'],
-    ...                              weights=w, ps=ps)
-    >>> bal.summary()
+    >>> bal = sp.balance_diagnostics(
+    ...     df, treatment='union',
+    ...     covariates=['education', 'experience', 'tenure'],
+    ...     weights=w, ps=ps)
+    >>> bool(bal.summary_stats['effective_sample_size'] > 0)
+    True
     """
     cols = [treatment] + list(covariates)
     df = data[cols].dropna().copy()

@@ -28,7 +28,42 @@ from ..core.results import EconometricResults
 
 
 class SURResult:
-    """Results from SUR estimation."""
+    """Results from SUR estimation.
+
+    Returned by :func:`sp.sureg`. Holds per-equation coefficients and
+    standard errors, the cross-equation covariance matrix ``sigma`` and
+    the Breusch-Pagan test of a diagonal ``sigma``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 200
+    >>> e1 = rng.normal(size=n)
+    >>> df = pd.DataFrame({
+    ...     "price": rng.normal(size=n),
+    ...     "income": rng.normal(size=n),
+    ...     "cost": rng.normal(size=n),
+    ... })
+    >>> df["quantity"] = 1.0 - 0.5 * df["price"] + 0.3 * df["income"] + e1
+    >>> df["qsupply"] = (0.5 + 0.4 * df["price"] + 0.2 * df["cost"]
+    ...                  + 0.6 * e1 + rng.normal(size=n))
+    >>> res = sp.sureg(
+    ...     equations={
+    ...         "demand": ("quantity", ["price", "income"]),
+    ...         "supply": ("qsupply", ["price", "cost"]),
+    ...     },
+    ...     data=df,
+    ... )
+    >>> type(res).__name__
+    'SURResult'
+    >>> res.n_equations
+    2
+    >>> sorted(res.equations)
+    ['demand', 'supply']
+    """
 
     def __init__(self, equations, sigma, params_all, se_all, n_obs,
                  n_equations, method, breusch_pagan):
@@ -107,14 +142,29 @@ def sureg(
     Examples
     --------
     >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 200
+    >>> e1 = rng.normal(size=n)
+    >>> df = pd.DataFrame({
+    ...     "price": rng.normal(size=n),
+    ...     "income": rng.normal(size=n),
+    ...     "cost": rng.normal(size=n),
+    ... })
+    >>> df["quantity"] = 1.0 - 0.5 * df["price"] + 0.3 * df["income"] + e1
+    >>> df["qsupply"] = (0.5 + 0.4 * df["price"] + 0.2 * df["cost"]
+    ...                  + 0.6 * e1 + rng.normal(size=n))
     >>> result = sp.sureg(
     ...     equations={
     ...         'demand': ('quantity', ['price', 'income']),
-    ...         'supply': ('quantity', ['price', 'cost']),
+    ...         'supply': ('qsupply', ['price', 'cost']),
     ...     },
     ...     data=df,
     ... )
-    >>> print(result.summary())
+    >>> result.n_equations
+    2
+    >>> sorted(result.equations)
+    ['demand', 'supply']
     """
     eq_names = list(equations.keys())
     M = len(eq_names)
@@ -296,13 +346,30 @@ def three_sls(
     Examples
     --------
     >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 200
+    >>> e1 = rng.normal(size=n)
+    >>> df = pd.DataFrame({
+    ...     "income": rng.normal(size=n),
+    ...     "cost": rng.normal(size=n),
+    ...     "weather": rng.normal(size=n),
+    ... })
+    >>> df["price"] = 0.5 * df["income"] - 0.3 * df["cost"] + e1
+    >>> df["quantity"] = 1.0 - 0.5 * df["price"] + 0.3 * df["income"] + e1
+    >>> df["qsupply"] = (0.5 + 0.4 * df["price"] + 0.2 * df["cost"]
+    ...                  + rng.normal(size=n))
     >>> result = sp.three_sls(
     ...     equations={
-    ...         'demand': ('q', ['p', 'income'], []),
-    ...         'supply': ('q', ['p', 'cost'], []),
+    ...         'demand': ('quantity', ['income'], ['price']),
+    ...         'supply': ('qsupply', ['cost'], ['price']),
     ...     },
     ...     data=df, instruments=['income', 'cost', 'weather'],
     ... )
+    >>> result.method
+    '3SLS'
+    >>> result.n_equations
+    2
     """
     eq_names = list(equations.keys())
     M = len(eq_names)

@@ -74,6 +74,20 @@ class FEOLSResult:
     formula : str
     absorber : Absorber
         Reusable absorber (includes ``keep_mask`` to subset rows).
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> from statspai.panel.feols import feols
+    >>> df = sp.mincer_wage_panel()
+    >>> res = feols("log_wage ~ education + experience | period",
+    ...             data=df, cluster="period")
+    >>> type(res).__name__
+    'FEOLSResult'
+    >>> res.se_type
+    'cluster'
+    >>> bool(res.params["education"] > 0)
+    True
     """
 
     params: pd.Series
@@ -231,10 +245,28 @@ def feols(
 
     Examples
     --------
+    Two-way fixed effects (firm and year) with cluster-robust SE. This
+    function is exported at top level as :func:`statspai.hdfe_ols`.
+
     >>> import statspai as sp
-    >>> res = sp.feols("lwage ~ educ + exper | firm + year", data=df,
-    ...                cluster='firm')
-    >>> print(res.summary())
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> firm_fe = rng.normal(0, 1, 40)
+    >>> year_fe = rng.normal(0, 0.5, 6)
+    >>> rows = []
+    >>> for i in range(40):
+    ...     for t in range(6):
+    ...         educ = rng.normal(12, 2)
+    ...         exper = rng.normal(10, 3)
+    ...         lwage = (1.0 + 0.08 * educ + 0.02 * exper
+    ...                  + firm_fe[i] + year_fe[t] + rng.normal(0, 0.3))
+    ...         rows.append((i, t, lwage, educ, exper))
+    >>> df = pd.DataFrame(rows, columns=['firm', 'year', 'lwage',
+    ...                                  'educ', 'exper'])
+    >>> res = sp.hdfe_ols("lwage ~ educ + exper | firm + year", data=df,
+    ...                   cluster='firm')
+    >>> sorted(res.coef.index.tolist())
+    ['educ', 'exper']
     """
     lhs, x_vars, fe_vars = _parse_formula(formula)
 

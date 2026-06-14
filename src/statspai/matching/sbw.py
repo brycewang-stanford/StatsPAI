@@ -57,7 +57,22 @@ class SBWResult(CausalResult):
     """Stable balancing weights with a diagnostic panel.
 
     Thin subclass of :class:`CausalResult` that attaches the weight
-    vector, effective sample size, and covariate balance table.
+    vector, effective sample size, and covariate balance table. Returned
+    by :func:`sbw`.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> df = sp.cps_wage().iloc[:400].copy()
+    >>> res = sp.sbw(df, treat="union",
+    ...              covariates=["education", "experience", "tenure"],
+    ...              y="log_wage", delta=0.05)
+    >>> isinstance(res, sp.SBWResult)
+    True
+    >>> res.estimand
+    'ATT'
+    >>> list(res.balance.columns)
+    ['mean_treated', 'mean_control', 'SMD_before', 'SMD_after']
     """
 
     def __init__(
@@ -147,10 +162,16 @@ def sbw(
 
     Examples
     --------
-    >>> res = sp.sbw(df, treat='D', covariates=['age', 'educ', 'race'],
-    ...              y='wage', delta=0.02)
-    >>> print(res.summary())
-    >>> res.balance                        # per-covariate SMD before/after
+    >>> import statspai as sp
+    >>> df = sp.cps_wage().iloc[:400].copy()
+    >>> res = sp.sbw(df, treat="union",
+    ...              covariates=["education", "experience", "tenure"],
+    ...              y="log_wage", delta=0.05)
+    >>> res.estimand
+    'ATT'
+    >>> summary_text = res.summary()
+    >>> res.balance.shape[0]               # one row per covariate
+    3
     """
     if estimand not in ("att", "ate", "atc"):
         raise ValueError("estimand must be one of 'att', 'atc', 'ate'")

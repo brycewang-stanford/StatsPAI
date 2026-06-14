@@ -748,10 +748,20 @@ def poisson(
     Examples
     --------
     >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 200
+    >>> math = rng.normal(50, 10, n)
+    >>> prog = rng.integers(0, 3, n).astype(float)
+    >>> num_awards = rng.poisson(np.exp(-3.0 + 0.06 * math + 0.2 * prog))
+    >>> df = pd.DataFrame({'num_awards': num_awards, 'math': math, 'prog': prog})
     >>> res = sp.poisson("num_awards ~ math + prog", data=df)
-    >>> print(res.summary())
+    >>> list(res.params.index)
+    ['_cons', 'math', 'prog']
     >>> res_irr = sp.poisson("num_awards ~ math + prog", data=df,
-    ...                       robust="robust", irr=True)
+    ...                      robust="robust", irr=True)
+    >>> bool(res_irr.params['math'] > 0)
+    True
     """
     y_arr, X, var_names, dep_var, _, data = _parse_formula_or_xy(
         formula, data, y, x
@@ -947,8 +957,16 @@ def nbreg(
     Examples
     --------
     >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 200
+    >>> math = rng.normal(50, 10, n)
+    >>> prog = rng.integers(0, 3, n).astype(float)
+    >>> days_absent = rng.negative_binomial(2, 0.3, n)
+    >>> df = pd.DataFrame({'days_absent': days_absent, 'math': math, 'prog': prog})
     >>> res = sp.nbreg("days_absent ~ math + prog", data=df, irr=True)
-    >>> print(res.summary())
+    >>> 'math' in res.params.index
+    True
     """
     y_arr, X, var_names, dep_var, formula_fe, data = _parse_formula_or_xy(
         formula, data, y, x
@@ -1186,6 +1204,27 @@ def xtnbreg(
     EconometricResults or MEGLMResult
         ``model="fe"`` / ``"pooled"`` return :class:`EconometricResults`;
         ``model="re"`` returns the multilevel :class:`MEGLMResult`.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for uid in range(15):
+    ...     fe = rng.normal(0, 0.3)  # entity effect
+    ...     for t in range(8):
+    ...         x = rng.normal()
+    ...         mu = np.exp(0.4 + 0.5 * x + fe)
+    ...         rate = rng.gamma(shape=2.0, scale=mu / 2.0)  # NB-2 mixture
+    ...         count = rng.poisson(rate)
+    ...         rows.append(dict(unit=uid, year=t, count=count, x=x))
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.xtnbreg("count ~ x", data=df, entity="unit", model="fe")
+    >>> type(res).__name__
+    'EconometricResults'
+    >>> "x" in res.params.index
+    True
     """
     if data is None:
         raise ValueError("xtnbreg requires `data=`")
@@ -1391,15 +1430,33 @@ def ppmlhdfe(
     Examples
     --------
     >>> import statspai as sp
-    >>> # Basic gravity model
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for o in range(6):
+    ...     for d in range(6):
+    ...         if o == d:
+    ...             continue
+    ...         for year in (2000, 2001):
+    ...             dist = rng.uniform(1.0, 5.0)
+    ...             contig = float(rng.integers(0, 2))
+    ...             mu = np.exp(2.0 - 0.6 * np.log(dist) + 0.3 * contig
+    ...                         + 0.1 * o - 0.1 * d)
+    ...             rows.append(dict(trade=rng.poisson(mu), dist=dist,
+    ...                              contig=contig, origin=o, dest=d, year=year,
+    ...                              pair_id=f"{min(o, d)}_{max(o, d)}"))
+    >>> df = pd.DataFrame(rows)
+    >>> # Basic gravity model with formula fixed effects
     >>> res = sp.ppmlhdfe("trade ~ dist + contig | origin + dest + year",
-    ...                    data=df, cluster="pair_id")
-    >>> print(res.summary())
-    >>>
+    ...                   data=df, cluster="pair_id")
+    >>> list(res.params.index)
+    ['dist', 'contig']
     >>> # With absorb parameter instead of formula FE
-    >>> res = sp.ppmlhdfe("trade ~ dist + contig", data=df,
+    >>> res2 = sp.ppmlhdfe("trade ~ dist + contig", data=df,
     ...                    absorb="origin + dest + year",
     ...                    cluster="pair_id")
+    >>> 'dist' in res2.params.index
+    True
     """
     y_arr, X, var_names, dep_var, formula_fe, data = _parse_formula_or_xy(
         formula, data, y, x, add_constant=True

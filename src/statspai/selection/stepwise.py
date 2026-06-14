@@ -647,7 +647,7 @@ def lasso_select(
     ...                       method="bic", verbose=False)
     >>> res.method
     'lasso_bic'
-    >>> res.lasso_path["lambda_best"] > 0
+    >>> bool(res.lasso_path["lambda_best"] > 0)
     True
     """
     df = data.dropna(subset=[y] + list(x)).reset_index(drop=True)
