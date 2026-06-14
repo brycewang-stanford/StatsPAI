@@ -275,9 +275,12 @@ def pcmci(
 
     Examples
     --------
-    >>> import statspai as sp
-    >>> res = sp.pcmci(df_ts, variables=['gdp', 'inflation', 'rates'],
-    ...                tau_max=4, pc_alpha=0.01)
+    >>> import statspai as sp, numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> df_ts = pd.DataFrame(rng.normal(size=(120, 3)),
+    ...                      columns=["gdp", "inflation", "rates"])
+    >>> res = sp.pcmci(df_ts, variables=["gdp", "inflation", "rates"],
+    ...                tau_max=2, pc_alpha=0.1)
     >>> res.discovered_links()        # DataFrame of all significant links
     """
     if variables is None:

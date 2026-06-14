@@ -93,10 +93,18 @@ def dose_response(
 
     Examples
     --------
-    >>> import statspai as sp
-    >>> result = sp.dose_response(df, y='outcome', treat='dosage',
-    ...                           covariates=['age', 'weight'])
-    >>> print(result.detail)  # dose-response curve
+    >>> import statspai as sp, numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> age = rng.normal(40, 10, n)
+    >>> weight = rng.normal(70, 12, n)
+    >>> dosage = 0.5 * age + rng.normal(0, 5, n)      # confounded dose
+    >>> outcome = 0.2 * dosage + 0.1 * weight + rng.normal(0, 1, n)
+    >>> df = pd.DataFrame({"outcome": outcome, "dosage": dosage,
+    ...                    "age": age, "weight": weight})
+    >>> result = sp.dose_response(df, y="outcome", treat="dosage",
+    ...                           covariates=["age", "weight"])
+    >>> result.detail            # dose-response curve
     """
     est = DoseResponse(
         data=data, y=y, treat=treat, covariates=covariates,

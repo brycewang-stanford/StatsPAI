@@ -1149,9 +1149,13 @@ def psplot(
 
     Examples
     --------
-    >>> fig, ax = sp.psplot(df, treat='D', covariates=['x1', 'x2'])
-    >>> fig, ax = sp.psplot(df, treat='D', covariates=['x1', 'x2'],
-    ...                      trim=0.1)
+    >>> import statspai as sp, numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> x1, x2 = rng.normal(size=n), rng.normal(size=n)
+    >>> D = rng.binomial(1, 1 / (1 + np.exp(-(x1 + 0.5 * x2))))
+    >>> df = pd.DataFrame({"D": D, "x1": x1, "x2": x2})
+    >>> fig, ax = sp.psplot(df, treat="D", covariates=["x1", "x2"])
     """
     try:
         import matplotlib.pyplot as plt

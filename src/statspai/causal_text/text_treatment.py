@@ -165,14 +165,15 @@ def text_treatment_effect(
 
     Examples
     --------
-    >>> import statspai as sp, pandas as pd
+    >>> import statspai as sp, numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
     >>> df = pd.DataFrame({
-    ...     'text': ['great product', 'terrible bug', 'okay tool', 'love it'],
-    ...     'treatment': [1, 0, 0, 1],
-    ...     'outcome': [4.5, 1.2, 2.8, 4.7],
+    ...     "text": ["great product love it"] * 15 + ["terrible buggy slow"] * 15,
+    ...     "treatment": [1] * 15 + [0] * 15,
+    ...     "outcome": list(rng.normal(4.0, 0.3, 15)) + list(rng.normal(2.0, 0.3, 15)),
     ... })
-    >>> r = sp.text_treatment_effect(df, text_col='text', outcome='outcome',
-    ...                              treatment='treatment', n_components=4)
+    >>> r = sp.text_treatment_effect(df, text_col="text", outcome="outcome",
+    ...                              treatment="treatment", n_components=2)
     >>> r.estimate
     """
     for col in (text_col, outcome, treatment):

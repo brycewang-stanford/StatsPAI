@@ -98,16 +98,17 @@ def tmle(
 
     Examples
     --------
-    >>> import statspai as sp
-    >>> result = sp.tmle(df, y='outcome', treat='treatment',
-    ...                  covariates=['x1', 'x2', 'x3'])
+    >>> import statspai as sp, numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> X = rng.normal(size=(n, 3))
+    >>> treatment = rng.binomial(1, 1 / (1 + np.exp(-X[:, 0])))
+    >>> outcome = 2.0 * treatment + X @ np.array([1.0, -0.5, 0.3]) + rng.normal(size=n)
+    >>> df = pd.DataFrame(X, columns=["x1", "x2", "x3"])
+    >>> df["outcome"], df["treatment"] = outcome, treatment
+    >>> result = sp.tmle(df, y="outcome", treat="treatment",
+    ...                  covariates=["x1", "x2", "x3"])
     >>> print(result.summary())
-
-    >>> # Custom learner library
-    >>> from sklearn.ensemble import RandomForestRegressor
-    >>> result = sp.tmle(df, y='outcome', treat='treatment',
-    ...                  covariates=['x1', 'x2'],
-    ...                  outcome_library=[RandomForestRegressor()])
     """
     est = TMLE(
         data=data, y=y, treat=treat, covariates=covariates,

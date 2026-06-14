@@ -697,11 +697,18 @@ def cs_report(
 
     Examples
     --------
-    >>> import statspai as sp
-    >>> rpt = sp.did.cs_report(
-    ...     df, y='y', g='g', t='t', i='id', random_state=42)
+    >>> import statspai as sp, numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for unit in range(80):
+    ...     g = 4 if unit < 40 else 0             # cohort; 0 = never treated
+    ...     for t in range(8):
+    ...         post = g > 0 and t >= g
+    ...         y = 0.3 * t + (2.0 if post else 0.0) + (unit % 5) + rng.normal()
+    ...         rows.append((unit, t, g, y))
+    >>> df = pd.DataFrame(rows, columns=["id", "t", "g", "y"])
+    >>> rpt = sp.cs_report(df, y="y", g="g", t="t", i="id", random_state=42)
     >>> rpt.dynamic           # event-study DataFrame w/ uniform bands
-    >>> rpt.breakdown         # R-R breakdown M* per post event time
     """
     if isinstance(data_or_result, CausalResult):
         cs = data_or_result

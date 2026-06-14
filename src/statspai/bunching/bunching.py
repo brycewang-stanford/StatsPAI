@@ -94,11 +94,12 @@ def bunching(
 
     Examples
     --------
-    >>> import statspai as sp
-    >>> result = sp.bunching(df, running_var='income',
-    ...                      threshold=50000, dt=0.10)
+    >>> import statspai as sp, numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> income = rng.exponential(50000, 2000)   # taxable income, kink at 50k
+    >>> df = pd.DataFrame({"income": income})
+    >>> result = sp.bunching(df, running_var="income", threshold=50000)
     >>> print(result.summary())
-    >>> print(f"Elasticity: {result.model_info['elasticity']:.4f}")
     """
     est = BunchingEstimator(
         data=data, running_var=running_var, threshold=threshold,

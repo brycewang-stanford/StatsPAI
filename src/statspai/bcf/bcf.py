@@ -81,12 +81,18 @@ def bcf(
 
     Examples
     --------
-    >>> import statspai as sp
-    >>> result = sp.bcf(df, y='outcome', treat='treatment',
-    ...                 covariates=['x1', 'x2', 'x3'])
+    >>> import statspai as sp, numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> X = rng.normal(size=(n, 3))
+    >>> treatment = rng.binomial(1, 0.5, n)
+    >>> outcome = 2.0 * treatment + X @ np.array([1.0, -0.5, 0.3]) + rng.normal(size=n)
+    >>> df = pd.DataFrame(X, columns=["x1", "x2", "x3"])
+    >>> df["outcome"], df["treatment"] = outcome, treatment
+    >>> result = sp.bcf(df, y="outcome", treat="treatment",
+    ...                 covariates=["x1", "x2", "x3"], n_bootstrap=10)
     >>> print(result.summary())
-    >>> cate = result.model_info['cate']  # individual effects
-    >>> cate_sd = result.model_info['cate_sd']  # posterior SD
+    >>> cate = result.model_info["cate"]        # individual effects
     """
     est = BayesianCausalForest(
         data=data, y=y, treat=treat, covariates=covariates,

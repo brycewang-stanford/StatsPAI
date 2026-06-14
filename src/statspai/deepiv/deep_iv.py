@@ -169,15 +169,20 @@ def deepiv(
 
     Examples
     --------
-    >>> result = sp.deepiv(
+    Requires the optional ``deepiv`` extra (PyTorch); the calls below are
+    illustrative and are skipped by the doctest runner.
+
+    >>> import statspai as sp                              # doctest: +SKIP
+    >>> result = sp.deepiv(                                # doctest: +SKIP
     ...     df, y='lwage', treat='educ',
     ...     instruments=['nearc4'],
     ...     covariates=['exper', 'expersq'],
     ... )
-    >>> print(result.summary())
+    >>> print(result.summary())                           # doctest: +SKIP
 
-    >>> # Custom architecture with unbiased gradient
-    >>> result = sp.deepiv(
+    Custom architecture with the unbiased paired-sample gradient:
+
+    >>> result = sp.deepiv(                                # doctest: +SKIP
     ...     df, y='sales', treat='price',
     ...     instruments=['cost_shifter'],
     ...     covariates=['demand_controls'],
