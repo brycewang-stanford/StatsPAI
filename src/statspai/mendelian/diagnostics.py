@@ -58,6 +58,30 @@ __all__ = [
 
 @dataclass
 class HeterogeneityResult:
+    """Container for Cochran's Q / Rücker's Q' heterogeneity diagnostics.
+
+    Returned by :func:`mr_heterogeneity`.  Holds the Q statistic, its
+    degrees of freedom and p-value, the ``I^2`` percentage, and the
+    fitting ``method`` (``"ivw"`` or ``"egger"``).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 12
+    >>> bx = rng.uniform(0.2, 0.5, n)
+    >>> by = 0.3 * bx + rng.normal(0, 0.02, n)
+    >>> sy = rng.uniform(0.02, 0.05, n)
+    >>> het = sp.mr_heterogeneity(bx, by, sy)
+    >>> isinstance(het, sp.HeterogeneityResult)
+    True
+    >>> het.method
+    'ivw'
+    >>> bool(het.Q >= 0.0)
+    True
+    """
+
     Q: float
     Q_df: int
     Q_p: float
@@ -90,6 +114,27 @@ def mr_heterogeneity(
     se_exposure : array-like, optional
         Required for Rücker's Q' (Egger); if omitted we default to
         first-order weights and raise for ``method='egger'``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 12
+    >>> beta_exposure = rng.uniform(0.2, 0.5, n)
+    >>> beta_outcome = 0.3 * beta_exposure + rng.normal(0, 0.02, n)
+    >>> se_outcome = rng.uniform(0.02, 0.05, n)
+    >>> het = sp.mr_heterogeneity(beta_exposure, beta_outcome, se_outcome)
+    >>> het.method
+    'ivw'
+    >>> het.Q_df  # n - 1 for IVW
+    11
+    >>> bool(0.0 <= het.I2 <= 100.0)
+    True
+
+    References
+    ----------
+    [@bowden2016assessing]
     """
     bx = np.asarray(beta_exposure, dtype=float)
     by = np.asarray(beta_outcome, dtype=float)
@@ -143,6 +188,28 @@ def mr_heterogeneity(
 
 @dataclass
 class PleiotropyResult:
+    """Container for the MR-Egger intercept (directional-pleiotropy) test.
+
+    Returned by :func:`mr_pleiotropy_egger`.  Holds the fitted Egger
+    ``intercept``, its standard error ``se``, and the two-sided
+    ``p_value`` for H0: intercept == 0.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 12
+    >>> bx = rng.uniform(0.2, 0.5, n)
+    >>> by = 0.3 * bx + rng.normal(0, 0.02, n)
+    >>> sy = rng.uniform(0.02, 0.05, n)
+    >>> pleio = sp.mr_pleiotropy_egger(bx, by, sy)
+    >>> isinstance(pleio, sp.PleiotropyResult)
+    True
+    >>> bool(0.0 <= pleio.p_value <= 1.0)
+    True
+    """
+
     intercept: float
     se: float
     p_value: float
@@ -166,6 +233,21 @@ def mr_pleiotropy_egger(
     """Test the MR-Egger intercept for directional (unbalanced) pleiotropy.
 
     H0: intercept == 0 (no directional pleiotropy).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 12
+    >>> beta_exposure = rng.uniform(0.2, 0.5, n)
+    >>> beta_outcome = 0.3 * beta_exposure + rng.normal(0, 0.02, n)
+    >>> se_outcome = rng.uniform(0.02, 0.05, n)
+    >>> pleio = sp.mr_pleiotropy_egger(beta_exposure, beta_outcome, se_outcome)
+    >>> bool(pleio.se >= 0.0)
+    True
+    >>> bool(0.0 <= pleio.p_value <= 1.0)
+    True
     """
     bx = np.asarray(beta_exposure, dtype=float)
     by = np.asarray(beta_outcome, dtype=float)
@@ -203,6 +285,28 @@ def mr_pleiotropy_egger(
 
 @dataclass
 class LeaveOneOutResult:
+    """Container for leave-one-out IVW estimates.
+
+    Returned by :func:`mr_leave_one_out`.  Wraps a :class:`pandas.DataFrame`
+    ``table`` with one row per dropped SNP and columns ``dropped_snp``,
+    ``estimate``, ``se``, ``ci_lower``, ``ci_upper`` and ``p_value``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 12
+    >>> bx = rng.uniform(0.2, 0.5, n)
+    >>> by = 0.3 * bx + rng.normal(0, 0.02, n)
+    >>> sy = rng.uniform(0.02, 0.05, n)
+    >>> loo = sp.mr_leave_one_out(bx, by, sy)
+    >>> isinstance(loo, sp.LeaveOneOutResult)
+    True
+    >>> len(loo.table)
+    12
+    """
+
     table: pd.DataFrame  # columns: dropped_snp, estimate, se, ci_lower, ci_upper, p
 
     def summary(self) -> str:
@@ -230,6 +334,21 @@ def mr_leave_one_out(
     """IVW estimate with each SNP dropped in turn.
 
     Identifies SNPs that drive the overall estimate disproportionately.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 12
+    >>> beta_exposure = rng.uniform(0.2, 0.5, n)
+    >>> beta_outcome = 0.3 * beta_exposure + rng.normal(0, 0.02, n)
+    >>> se_outcome = rng.uniform(0.02, 0.05, n)
+    >>> loo = sp.mr_leave_one_out(beta_exposure, beta_outcome, se_outcome)
+    >>> len(loo.table)  # one row per dropped SNP
+    12
+    >>> sorted(loo.table.columns)
+    ['ci_lower', 'ci_upper', 'dropped_snp', 'estimate', 'p_value', 'se']
     """
     bx = np.asarray(beta_exposure, dtype=float)
     by = np.asarray(beta_outcome, dtype=float)
@@ -266,6 +385,30 @@ def mr_leave_one_out(
 
 @dataclass
 class SteigerResult:
+    """Container for the Steiger directionality test.
+
+    Returned by :func:`mr_steiger`.  Reports whether the assumed causal
+    direction is supported (``correct_direction``), the one-sided
+    ``steiger_pvalue``, the variance explained on each trait
+    (``r2_exposure``, ``r2_outcome``), and the effective sample sizes.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 12
+    >>> bx = rng.uniform(0.2, 0.5, n)
+    >>> by = 0.3 * bx + rng.normal(0, 0.02, n)
+    >>> sx = rng.uniform(0.02, 0.05, n)
+    >>> sy = rng.uniform(0.02, 0.05, n)
+    >>> st = sp.mr_steiger(bx, sx, 50000, by, sy, 50000)
+    >>> isinstance(st, sp.SteigerResult)
+    True
+    >>> isinstance(st.correct_direction, bool)
+    True
+    """
+
     correct_direction: bool
     steiger_pvalue: float
     r2_exposure: float
@@ -323,6 +466,29 @@ def mr_steiger(
     Compares the R^2 of the SNPs on the exposure with their R^2 on the
     outcome.  If R^2_exposure > R^2_outcome the assumed causal
     direction (exposure -> outcome) is supported.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 12
+    >>> beta_exposure = rng.uniform(0.2, 0.5, n)
+    >>> beta_outcome = 0.3 * beta_exposure + rng.normal(0, 0.02, n)
+    >>> se_exposure = rng.uniform(0.02, 0.05, n)
+    >>> se_outcome = rng.uniform(0.02, 0.05, n)
+    >>> st = sp.mr_steiger(
+    ...     beta_exposure, se_exposure, 50000,
+    ...     beta_outcome, se_outcome, 50000,
+    ... )
+    >>> isinstance(st.correct_direction, bool)
+    True
+    >>> bool(st.r2_exposure >= 0.0 and st.r2_outcome >= 0.0)
+    True
+
+    References
+    ----------
+    [@hemani2017orienting]
     """
     bx = np.asarray(beta_exposure, dtype=float)
     sx = np.asarray(se_exposure, dtype=float)
@@ -371,6 +537,30 @@ def mr_steiger(
 
 @dataclass
 class MRPressoResult:
+    """Container for MR-PRESSO global test and outlier-corrected estimates.
+
+    Returned by :func:`mr_presso`.  Holds the raw IVW estimate, the
+    global-test RSS and p-value, the list of detected ``outliers``, and
+    (when outliers are present) the outlier-corrected estimate and
+    distortion-test p-value.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 12
+    >>> bx = rng.uniform(0.2, 0.5, n)
+    >>> by = 0.3 * bx + rng.normal(0, 0.02, n)
+    >>> sx = rng.uniform(0.02, 0.05, n)
+    >>> sy = rng.uniform(0.02, 0.05, n)
+    >>> res = sp.mr_presso(bx, by, sx, sy, n_boot=200, seed=0)
+    >>> isinstance(res, sp.MRPressoResult)
+    True
+    >>> bool(0.0 <= res.global_test_pvalue <= 1.0)
+    True
+    """
+
     raw_estimate: float
     raw_se: float
     raw_p: float
@@ -435,6 +625,29 @@ def mr_presso(
     The null distribution is obtained by simulating SNP-outcome
     effects with the same SEs and no pleiotropy.  SNPs with individual
     test p < ``sig_threshold`` are flagged as outliers and re-analyzed.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 12
+    >>> beta_exposure = rng.uniform(0.2, 0.5, n)
+    >>> beta_outcome = 0.3 * beta_exposure + rng.normal(0, 0.02, n)
+    >>> se_exposure = rng.uniform(0.02, 0.05, n)
+    >>> se_outcome = rng.uniform(0.02, 0.05, n)
+    >>> res = sp.mr_presso(
+    ...     beta_exposure, beta_outcome, se_exposure, se_outcome,
+    ...     n_boot=200, seed=0,
+    ... )
+    >>> bool(0.0 <= res.global_test_pvalue <= 1.0)
+    True
+    >>> isinstance(res.outliers, list)
+    True
+
+    References
+    ----------
+    [@verbanck2018detection]
     """
     rng = np.random.default_rng(seed)
     bx = np.asarray(beta_exposure, dtype=float)
@@ -527,6 +740,29 @@ def mr_presso(
 
 @dataclass
 class RadialResult:
+    """Container for radial-MR diagnostics.
+
+    Returned by :func:`mr_radial`.  Wraps a per-SNP ``table`` (columns
+    ``snp``, ``W``, ``beta_hat``, ``q_contribution``), the ``total_Q``
+    statistic with its ``Q_pvalue``, and the list of Bonferroni-flagged
+    ``outliers``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 12
+    >>> bx = rng.uniform(0.2, 0.5, n)
+    >>> by = 0.3 * bx + rng.normal(0, 0.02, n)
+    >>> sy = rng.uniform(0.02, 0.05, n)
+    >>> rad = sp.mr_radial(bx, by, sy)
+    >>> isinstance(rad, sp.RadialResult)
+    True
+    >>> len(rad.table)
+    12
+    """
+
     table: pd.DataFrame   # columns: snp, W, beta_hat, q_contribution
     total_Q: float
     Q_pvalue: float
@@ -553,6 +789,27 @@ def mr_radial(
     "radial" space.  SNPs whose individual chi-square contribution to
     the Cochran Q exceeds the Bonferroni threshold at alpha=0.05 are
     flagged as outliers.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 12
+    >>> beta_exposure = rng.uniform(0.2, 0.5, n)
+    >>> beta_outcome = 0.3 * beta_exposure + rng.normal(0, 0.02, n)
+    >>> se_outcome = rng.uniform(0.02, 0.05, n)
+    >>> rad = sp.mr_radial(beta_exposure, beta_outcome, se_outcome)
+    >>> len(rad.table)  # one row per SNP
+    12
+    >>> bool(0.0 <= rad.Q_pvalue <= 1.0)
+    True
+    >>> isinstance(rad.outliers, list)
+    True
+
+    References
+    ----------
+    [@bowden2018improving]
     """
     bx = np.asarray(beta_exposure, dtype=float)
     by = np.asarray(beta_outcome, dtype=float)

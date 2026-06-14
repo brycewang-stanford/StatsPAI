@@ -31,7 +31,37 @@ import warnings
 
 
 class MRResult:
-    """Results from Mendelian Randomization analysis."""
+    """Results from Mendelian Randomization analysis.
+
+    Returned by :func:`mendelian_randomization`. Holds the per-method
+    ``estimates`` table plus heterogeneity (Cochran's Q) and pleiotropy
+    (MR-Egger intercept) diagnostics; render with ``.summary()`` or
+    ``.plot()``.
+
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(1)
+    >>> n_snps = 15
+    >>> bx = rng.uniform(0.1, 0.5, n_snps)
+    >>> by = 0.3 * bx + rng.normal(0, 0.02, n_snps)
+    >>> snp_stats = pd.DataFrame({
+    ...     "beta_x": bx, "beta_y": by,
+    ...     "se_x": rng.uniform(0.01, 0.05, n_snps),
+    ...     "se_y": rng.uniform(0.01, 0.05, n_snps),
+    ... })
+    >>> res = sp.mendelian_randomization(
+    ...     data=snp_stats, beta_exposure="beta_x", beta_outcome="beta_y",
+    ...     se_exposure="se_x", se_outcome="se_y",
+    ...     exposure_name="BMI", outcome_name="T2D", seed=0)
+    >>> isinstance(res, sp.MRResult)
+    True
+    >>> res.n_snps
+    15
+    >>> list(res.estimates["method"])
+    ['IVW', 'MR-Egger', 'Weighted Median']
+    """
 
     def __init__(self, estimates, heterogeneity, pleiotropy,
                  n_snps, exposure, outcome):
@@ -88,6 +118,26 @@ def mr_ivw(
     Inverse-Variance Weighted (IVW) MR estimator.
 
     Fixed-effects meta-analysis of Wald ratios.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(1)
+    >>> n_snps = 15
+    >>> beta_exposure = rng.uniform(0.1, 0.5, n_snps)
+    >>> beta_outcome = 0.3 * beta_exposure + rng.normal(0, 0.02, n_snps)
+    >>> se_exposure = rng.uniform(0.01, 0.05, n_snps)
+    >>> se_outcome = rng.uniform(0.01, 0.05, n_snps)
+    >>> res = sp.mr_ivw(beta_exposure, beta_outcome, se_exposure, se_outcome)
+    >>> sorted(res.keys())
+    ['I2', 'Q', 'Q_df', 'Q_p', 'ci_lower', 'ci_upper', 'estimate', 'p_value', 'se']
+    >>> bool(0.0 < res["estimate"] < 0.6)
+    True
+
+    References
+    ----------
+    burgess2013mendelian
     """
     # Wald ratios
     ratio = beta_outcome / beta_exposure
@@ -134,6 +184,26 @@ def mr_egger(
     MR-Egger regression.
 
     Allows for directional pleiotropy via a non-zero intercept.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(1)
+    >>> n_snps = 15
+    >>> beta_exposure = rng.uniform(0.1, 0.5, n_snps)
+    >>> beta_outcome = 0.3 * beta_exposure + rng.normal(0, 0.02, n_snps)
+    >>> se_exposure = rng.uniform(0.01, 0.05, n_snps)
+    >>> se_outcome = rng.uniform(0.01, 0.05, n_snps)
+    >>> res = sp.mr_egger(beta_exposure, beta_outcome, se_exposure, se_outcome)
+    >>> sorted(res.keys())
+    ['ci_lower', 'ci_upper', 'estimate', 'intercept', 'intercept_p', 'intercept_se', 'p_value', 'se']
+    >>> bool("intercept" in res)
+    True
+
+    References
+    ----------
+    bowden2015mendelian
     """
     w = 1 / se_outcome**2
     n = len(beta_exposure)
@@ -196,6 +266,27 @@ def mr_median(
     Weighted median MR estimator.
 
     Consistent when at least 50% of the weight comes from valid instruments.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(1)
+    >>> n_snps = 15
+    >>> beta_exposure = rng.uniform(0.1, 0.5, n_snps)
+    >>> beta_outcome = 0.3 * beta_exposure + rng.normal(0, 0.02, n_snps)
+    >>> se_exposure = rng.uniform(0.01, 0.05, n_snps)
+    >>> se_outcome = rng.uniform(0.01, 0.05, n_snps)
+    >>> res = sp.mr_median(beta_exposure, beta_outcome, se_exposure,
+    ...                    se_outcome, n_boot=200, seed=0)
+    >>> sorted(res.keys())
+    ['ci_lower', 'ci_upper', 'estimate', 'p_value', 'se']
+    >>> bool(0.0 < res["estimate"] < 0.6)
+    True
+
+    References
+    ----------
+    bowden2016consistent
     """
     rng = np.random.default_rng(seed)
 

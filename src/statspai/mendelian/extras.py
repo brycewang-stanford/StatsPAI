@@ -50,6 +50,29 @@ __all__ = [
 
 @dataclass
 class ModeBasedResult:
+    """Result container returned by :func:`mr_mode`.
+
+    Holds the mode-based MR point estimate, bootstrap standard error,
+    confidence interval, p-value, the number of SNPs, and the Silverman
+    bandwidth used for the kernel density. Call :meth:`summary` for a
+    formatted text report.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> bx = rng.uniform(0.2, 0.5, 25)
+    >>> by = 0.3 * bx + rng.normal(0, 0.01, 25)
+    >>> sx = rng.uniform(0.02, 0.04, 25)
+    >>> sy = rng.uniform(0.02, 0.04, 25)
+    >>> res = sp.mr_mode(bx, by, sx, sy, n_boot=200, seed=0)
+    >>> isinstance(res, sp.ModeBasedResult)
+    True
+    >>> res.method
+    'weighted-mode'
+    """
+
     estimate: float
     se: float
     ci: tuple[float, float]
@@ -121,6 +144,25 @@ def mr_mode(
         uses unit weights (robust but less efficient).
     n_boot : int, default 1000
         Bootstrap replicates for SE.
+
+    References
+    ----------
+    hartwig2017robust
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> bx = rng.uniform(0.2, 0.5, 25)
+    >>> by = 0.3 * bx + rng.normal(0, 0.01, 25)
+    >>> sx = rng.uniform(0.02, 0.04, 25)
+    >>> sy = rng.uniform(0.02, 0.04, 25)
+    >>> res = sp.mr_mode(bx, by, sx, sy, n_boot=200, seed=0)
+    >>> res.n_snps
+    25
+    >>> bool(0.0 < res.estimate < 1.0)  # near the true 0.3
+    True
     """
     if method not in ("weighted", "simple"):
         raise ValueError("method must be 'weighted' or 'simple'")
@@ -195,6 +237,27 @@ def mr_mode(
 
 @dataclass
 class FStatisticResult:
+    """Result container returned by :func:`mr_f_statistic`.
+
+    Summarises instrument strength across SNPs: the mean / min / max
+    per-SNP F-statistic, mean explained variance ``r2_mean``, the full
+    ``per_snp_F`` array, and a ``weak_instrument_risk`` flag that is
+    ``True`` when any SNP's F falls below 10 (Staiger-Stock 1997).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> bx = rng.uniform(0.2, 0.5, 25)
+    >>> sx = rng.uniform(0.02, 0.04, 25)
+    >>> f = sp.mr_f_statistic(bx, sx)
+    >>> isinstance(f, sp.FStatisticResult)
+    True
+    >>> f.per_snp_F.shape
+    (25,)
+    """
+
     f_mean: float
     f_min: float
     f_max: float
@@ -234,6 +297,23 @@ def mr_f_statistic(
         GWAS sample size. If provided, R^2 is reported via
         R^2 = F / (F + n - 2); otherwise a small-sample approximation
         ``R^2 ≈ F / (F + n_snps - 2)`` is used.
+
+    References
+    ----------
+    staiger1997instrumental
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> bx = rng.uniform(0.2, 0.5, 25)
+    >>> sx = rng.uniform(0.02, 0.04, 25)  # strong instruments
+    >>> f = sp.mr_f_statistic(bx, sx)
+    >>> bool(f.f_mean > 10)  # Staiger-Stock rule of thumb
+    True
+    >>> f.weak_instrument_risk
+    False
     """
     bx = np.asarray(beta_exposure, dtype=float)
     sx = np.asarray(se_exposure, dtype=float)
@@ -270,6 +350,18 @@ def mr_funnel_plot(
 
     An asymmetric funnel around the IVW estimate suggests directional
     horizontal pleiotropy. Returns the matplotlib axis.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> bx = rng.uniform(0.2, 0.5, 25)
+    >>> by = 0.3 * bx + rng.normal(0, 0.01, 25)
+    >>> sy = rng.uniform(0.02, 0.04, 25)
+    >>> ax = sp.mr_funnel_plot(bx, by, sy)
+    >>> ax is not None
+    True
     """
     try:
         import matplotlib.pyplot as plt
@@ -310,7 +402,21 @@ def mr_scatter_plot(
     *,
     ax=None,
 ):
-    """Classic MR scatter plot with IVW and MR-Egger lines."""
+    """Classic MR scatter plot with IVW and MR-Egger lines.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> bx = rng.uniform(0.2, 0.5, 25)
+    >>> by = 0.3 * bx + rng.normal(0, 0.01, 25)
+    >>> sx = rng.uniform(0.02, 0.04, 25)
+    >>> sy = rng.uniform(0.02, 0.04, 25)
+    >>> ax = sp.mr_scatter_plot(bx, by, sx, sy)
+    >>> ax is not None
+    True
+    """
     try:
         import matplotlib.pyplot as plt
     except ImportError as exc:
