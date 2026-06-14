@@ -20,7 +20,33 @@ from ._core import _kernel_fn
 
 @dataclass
 class BayesRDHTEResult:
-    """Bayesian RDD with HTE posterior summaries."""
+    """Bayesian RDD with HTE posterior summaries.
+
+    Returned by :func:`rd_bayes_hte`. ``posterior_mean`` / ``posterior_sd`` /
+    ``posterior_ci`` summarise the average treatment effect at the cutoff,
+    while ``cate`` / ``cate_sd`` give the per-unit covariate-conditional
+    effect posteriors.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> run = rng.uniform(-1, 1, size=n)
+    >>> x = rng.normal(size=n)
+    >>> treat = (run >= 0).astype(float)
+    >>> y = (1.0 + 0.5 * run + (0.4 + 0.3 * x) * treat
+    ...      + rng.normal(scale=0.2, size=n))
+    >>> df = pd.DataFrame({'y': y, 'run': run, 'x': x})
+    >>> res = sp.rd_bayes_hte(df, y='y', running='run', covariates=['x'],
+    ...                       cutoff=0.0, n_draws=500, seed=0)
+    >>> res.cate.shape == (res.n_obs,)
+    True
+    >>> bool(res.posterior_sd >= 0)
+    True
+    """
     posterior_mean: float
     posterior_sd: float
     posterior_ci: tuple
@@ -72,6 +98,35 @@ def rd_bayes_hte(
     Returns
     -------
     BayesRDHTEResult
+
+    Examples
+    --------
+    Sharp RD with a covariate-modulated jump at the cutoff. Without PyMC
+    installed this falls back to the conjugate closed-form posterior:
+
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> run = rng.uniform(-1, 1, size=n)
+    >>> x = rng.normal(size=n)
+    >>> treat = (run >= 0).astype(float)
+    >>> y = (1.0 + 0.5 * run + (0.4 + 0.3 * x) * treat
+    ...      + rng.normal(scale=0.2, size=n))
+    >>> df = pd.DataFrame({'y': y, 'run': run, 'x': x})
+    >>> res = sp.rd_bayes_hte(df, y='y', running='run', covariates=['x'],
+    ...                       cutoff=0.0, n_draws=500, seed=0)
+    >>> res.n_obs
+    400
+    >>> len(res.cate)
+    400
+    >>> bool(np.isfinite(res.posterior_mean))
+    True
+    >>> lo, hi = res.posterior_ci
+    >>> bool(lo <= hi)
+    True
+    >>> print(res.summary())  # doctest: +SKIP
     """
     df = data[[y, running] + list(covariates)].dropna().reset_index(drop=True)
     R = df[running].to_numpy(float) - cutoff

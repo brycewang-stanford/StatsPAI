@@ -100,6 +100,21 @@ def rd_dashboard(
     Returns
     -------
     (fig, axes) where axes is a 2x2 numpy array.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 500
+    >>> x = rng.uniform(-1, 1, n)
+    >>> y = 0.8 * (x >= 0) + 0.5 * x + rng.normal(0, 0.3, n)
+    >>> df = pd.DataFrame({"x": x, "y": y})
+    >>> fig, axes = sp.rd_dashboard(df, y="y", x="x", c=0.0)
+    >>> axes.shape
+    (2, 2)
+    >>> fig.savefig("rd_dashboard.png")  # doctest: +SKIP
     """
     try:
         import matplotlib.pyplot as plt

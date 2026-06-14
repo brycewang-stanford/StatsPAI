@@ -24,7 +24,31 @@ from ._core import _kernel_fn, _local_poly_wls
 
 @dataclass
 class RDInterferenceResult:
-    """Direct + spillover RDD effects under network interference."""
+    """Direct + spillover RDD effects under network interference.
+
+    Returned by :func:`rd_interference`. Carries the boundary direct
+    effect and the neighbour-boundary spillover effect, each with a
+    local-linear standard error, plus the sample size and bandwidth.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(1)
+    >>> n = 600
+    >>> r = rng.uniform(-1, 1, size=n)
+    >>> rn = rng.uniform(-1, 1, size=n)
+    >>> y = (0.5 * (r >= 0) + 0.3 * (rn >= 0)
+    ...      + 0.2 * r + 0.1 * rn + rng.normal(scale=0.3, size=n))
+    >>> df = pd.DataFrame({"y": y, "run": r, "nbr_run": rn})
+    >>> res = sp.rd_interference(df, y="y", running="run",
+    ...                          neighbour_running="nbr_run")
+    >>> isinstance(res, sp.RDInterferenceResult)
+    True
+    >>> isinstance(res.summary(), str)
+    True
+    """
     direct_effect: float
     direct_se: float
     spillover_effect: float
@@ -78,6 +102,27 @@ def rd_interference(
     Returns
     -------
     RDInterferenceResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(1)
+    >>> n = 600
+    >>> r = rng.uniform(-1, 1, size=n)    # own running variable
+    >>> rn = rng.uniform(-1, 1, size=n)   # avg neighbour running variable
+    >>> y = (0.5 * (r >= 0) + 0.3 * (rn >= 0)
+    ...      + 0.2 * r + 0.1 * rn + rng.normal(scale=0.3, size=n))
+    >>> df = pd.DataFrame({"y": y, "run": r, "nbr_run": rn})
+    >>> res = sp.rd_interference(df, y="y", running="run",
+    ...                          neighbour_running="nbr_run")
+    >>> type(res).__name__
+    'RDInterferenceResult'
+    >>> res.n_obs
+    600
+    >>> bool(np.isfinite(res.direct_effect))
+    True
     """
     df = data[[y, running, neighbour_running]].dropna().reset_index(drop=True)
     R = df[running].to_numpy(float) - cutoff

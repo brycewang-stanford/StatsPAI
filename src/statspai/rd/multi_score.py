@@ -22,7 +22,42 @@ from ._core import _kernel_fn
 
 @dataclass
 class MultiScoreRDResult:
-    """Multi-score RDD effect on the boundary."""
+    """Multi-score RDD effect on the eligibility boundary.
+
+    Attributes
+    ----------
+    boundary_effect : float
+        Local average treatment effect on the boundary manifold.
+    se : float
+        Standard error of ``boundary_effect``.
+    n_obs : int
+        Number of observations used (after dropping missing rows).
+    boundary_share : float
+        Fraction of observations inside the kernel window.
+    bandwidth : float
+        Bandwidth applied to the (max-) distance to the boundary.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 2000
+    >>> m = rng.uniform(400, 800, n)
+    >>> v = rng.uniform(400, 800, n)
+    >>> treat = ((m >= 600) & (v >= 600)).astype(int)
+    >>> y = 10.0 + 0.01 * m + 0.01 * v + 5.0 * treat + rng.normal(0, 2, n)
+    >>> df = pd.DataFrame({"y": y, "math": m, "verbal": v})
+    >>> res = sp.rd_multi_score(
+    ...     df, y="y", running_vars=["math", "verbal"], cutoffs=[600.0, 600.0])
+    >>> isinstance(res, sp.MultiScoreRDResult)
+    True
+    >>> res.n_obs
+    2000
+    >>> bool(res.se >= 0.0)
+    True
+    """
+
     boundary_effect: float
     se: float
     n_obs: int
@@ -72,6 +107,27 @@ def rd_multi_score(
     Returns
     -------
     MultiScoreRDResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 2000
+    >>> sat_math = rng.uniform(400, 800, n)
+    >>> sat_verbal = rng.uniform(400, 800, n)
+    >>> treat = ((sat_math >= 600) & (sat_verbal >= 600)).astype(int)
+    >>> y = (10.0 + 0.01 * sat_math + 0.01 * sat_verbal
+    ...      + 5.0 * treat + rng.normal(0, 2, n))
+    >>> df = pd.DataFrame({"y": y, "math": sat_math, "verbal": sat_verbal})
+    >>> res = sp.rd_multi_score(
+    ...     df, y="y", running_vars=["math", "verbal"],
+    ...     cutoffs=[600.0, 600.0])
+    >>> res.n_obs
+    2000
+    >>> isinstance(res.boundary_effect, float)
+    True
+    >>> print(res.summary())  # doctest: +SKIP
     """
     if len(running_vars) != len(cutoffs):
         raise ValueError(

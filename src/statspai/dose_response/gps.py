@@ -129,6 +129,32 @@ class DoseResponse:
     n_bootstrap : int
     alpha : float
     random_state : int
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 150
+    >>> age = rng.normal(50, 10, n)
+    >>> weight = rng.normal(70, 12, n)
+    >>> dosage = 0.5 * age + 0.3 * weight + rng.normal(0, 5, n)
+    >>> outcome = 0.8 * dosage + 0.2 * age + rng.normal(0, 3, n)
+    >>> df = pd.DataFrame({"outcome": outcome, "dosage": dosage,
+    ...                    "age": age, "weight": weight})
+    >>> est = sp.DoseResponse(df, y="outcome", treat="dosage",
+    ...                       covariates=["age", "weight"],
+    ...                       n_dose_points=6, n_bootstrap=8, random_state=0)
+    >>> res = est.fit()
+    >>> isinstance(res, sp.CausalResult)
+    True
+    >>> list(res.detail.columns)
+    ['dose', 'response', 'se', 'ci_lower', 'ci_upper', 'marginal_effect']
+
+    References
+    ----------
+    [@hirano2004propensity], [@kennedy2017parametric]
     """
 
     def __init__(

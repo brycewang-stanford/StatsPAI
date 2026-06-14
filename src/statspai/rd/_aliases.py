@@ -55,6 +55,30 @@ def geographic_rd(*args, **kwargs):
     Geographic RD is the most common multi-score special case: the running
     score is a signed distance to a political boundary.  Cattaneo et al.
     (2024) dispatch it via ``rdms``; this alias makes the intent explicit.
+
+    See :func:`statspai.rd.rdmulti.rdms` for the full signature.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 2000
+    >>> x1 = rng.uniform(-1, 1, n)
+    >>> x2 = rng.uniform(-1, 1, n)
+    >>> treat = ((x1 >= 0) & (x2 >= 0)).astype(float)
+    >>> y = 0.8 * treat + 0.5 * x1 + 0.3 * x2 + rng.normal(0, 0.3, n)
+    >>> df = pd.DataFrame({"x1": x1, "x2": x2, "y": y})
+    >>> res = sp.geographic_rd(df, y="y", x1="x1", x2="x2", bandwidth=0.5)
+    >>> type(res).__name__
+    'CausalResult'
+    >>> bool(hasattr(res, "estimate"))
+    True
+
+    References
+    ----------
+    keele2015geographic
     """
     return rdms(*args, **kwargs)
 
@@ -64,6 +88,30 @@ def boundary_rd(*args, **kwargs):
 
     Cattaneo, Titiunik & Yu (2025) boundary discontinuity design for 2D
     running variables (lat/long, for example).
+
+    See :func:`statspai.rd.rd2d.rd2d` for the full signature.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 1500
+    >>> x1 = rng.uniform(-1, 1, n)
+    >>> x2 = rng.uniform(-1, 1, n)
+    >>> treat = (x1 >= 0).astype(int)
+    >>> y = 0.7 * treat + 0.4 * x1 + 0.2 * x2 + rng.normal(0, 0.3, n)
+    >>> df = pd.DataFrame({"x1": x1, "x2": x2, "treat": treat, "y": y})
+    >>> res = sp.boundary_rd(df, y="y", x1="x1", x2="x2", treatment="treat")
+    >>> type(res).__name__
+    'CausalResult'
+    >>> bool(hasattr(res, "estimate"))
+    True
+
+    References
+    ----------
+    cattaneo2025boundary
     """
     return rd2d(*args, **kwargs)
 

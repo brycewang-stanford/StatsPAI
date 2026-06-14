@@ -21,7 +21,34 @@ from ._core import _kernel_fn
 
 @dataclass
 class DistRDResult:
-    """RDD effect on each quantile."""
+    """RDD effect on each quantile.
+
+    Attributes
+    ----------
+    quantiles : np.ndarray
+        Quantiles of ``y`` at which the effect is evaluated.
+    qte : np.ndarray
+        RDD effect on the conditional CDF at each quantile.
+    se : np.ndarray
+        Standard error of each ``qte`` estimate.
+    bandwidth : float
+        Bandwidth used in the local-linear fit.
+    n_obs : int
+        Number of complete observations.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> x = rng.uniform(-1, 1, n)
+    >>> y = 1.0 + 0.5 * x + (x >= 0) * 0.8 + rng.normal(0, 1, n)
+    >>> data = pd.DataFrame({"y": y, "x": x})
+    >>> res = sp.rd_distribution(data, y="y", running="x")
+    >>> bool(res.qte.shape == res.quantiles.shape)
+    True
+    """
     quantiles: np.ndarray
     qte: np.ndarray
     se: np.ndarray
@@ -62,6 +89,23 @@ def rd_distribution(
     Returns
     -------
     DistRDResult
+        RDD effect (``qte``) and standard error (``se``) on the
+        conditional CDF of ``y`` at each requested quantile.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> x = rng.uniform(-1, 1, n)
+    >>> y = 1.0 + 0.5 * x + (x >= 0) * 0.8 + rng.normal(0, 1, n)
+    >>> data = pd.DataFrame({"y": y, "x": x})
+    >>> res = sp.rd_distribution(data, y="y", running="x", cutoff=0.0)
+    >>> res.n_obs
+    400
+    >>> bool(res.qte.shape == res.se.shape == res.quantiles.shape)
+    True
     """
     if quantiles is None:
         quantiles = np.array([0.1, 0.25, 0.5, 0.75, 0.9])

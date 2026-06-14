@@ -24,7 +24,34 @@ from ._core import _kernel_fn
 
 @dataclass
 class DDDResult:
-    """Distributional discontinuity design output."""
+    """Distributional discontinuity design output.
+
+    Attributes
+    ----------
+    quantiles : np.ndarray
+        Quantiles of ``y`` at which the effects are evaluated.
+    rdd_effect : np.ndarray
+        Level jump in the conditional CDF at the cutoff (RDD).
+    rkd_effect : np.ndarray
+        Slope jump in the conditional CDF at the cutoff (RKD).
+    bandwidth : float
+        Bandwidth used in the local-linear fit.
+    n_obs : int
+        Number of complete observations.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> x = rng.uniform(-1, 1, n)
+    >>> y = 1.0 + 0.5 * x + (x >= 0) * 0.8 + rng.normal(0, 1, n)
+    >>> data = pd.DataFrame({"y": y, "x": x})
+    >>> res = sp.rd_distributional_design(data, y="y", running="x")
+    >>> bool(res.rdd_effect.shape == res.quantiles.shape)
+    True
+    """
     quantiles: np.ndarray
     rdd_effect: np.ndarray
     rkd_effect: np.ndarray
@@ -63,6 +90,27 @@ def rd_distributional_design(
     quantiles : array-like, optional
     bandwidth : float, optional
     kernel : str
+
+    Returns
+    -------
+    DDDResult
+        Quantile-by-quantile level jump (``rdd_effect``) and slope jump
+        (``rkd_effect``) in the conditional CDF of ``y`` at the cutoff.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> x = rng.uniform(-1, 1, n)
+    >>> y = 1.0 + 0.5 * x + (x >= 0) * 0.8 + rng.normal(0, 1, n)
+    >>> data = pd.DataFrame({"y": y, "x": x})
+    >>> res = sp.rd_distributional_design(data, y="y", running="x", cutoff=0.0)
+    >>> res.n_obs
+    400
+    >>> len(res.rdd_effect)
+    5
     """
     if quantiles is None:
         quantiles = np.array([0.1, 0.25, 0.5, 0.75, 0.9])

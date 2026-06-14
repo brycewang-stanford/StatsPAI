@@ -24,7 +24,27 @@ from scipy import stats
 
 @dataclass
 class GeneralBunchingResult:
-    """Output of high-order bunching design."""
+    """Output of high-order bunching design.
+
+    Carries the naive (Saez first-order) elasticity, the high-order
+    bias-corrected elasticity, its bootstrap standard error and confidence
+    interval, the fitted polynomial order, and the sample size.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> base = rng.normal(0.0, 1.0, size=2000)
+    >>> bunchers = np.abs(rng.normal(0.0, 0.05, size=300))
+    >>> df = pd.DataFrame({"earnings": np.concatenate([base, bunchers])})
+    >>> res = sp.general_bunching(df, running="earnings", cutoff=0.0, n_boot=50)
+    >>> isinstance(res, sp.GeneralBunchingResult)
+    True
+    >>> res.n_obs
+    2300
+    """
+
     naive_elasticity: float
     bias_corrected_elasticity: float
     se: float
@@ -77,6 +97,24 @@ def general_bunching(
     Returns
     -------
     GeneralBunchingResult
+        Naive (Saez first-order) and high-order bias-corrected elasticities
+        with a bootstrap SE and confidence interval.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> base = rng.normal(0.0, 1.0, size=2000)
+    >>> bunchers = np.abs(rng.normal(0.0, 0.05, size=300))  # mass near the kink
+    >>> df = pd.DataFrame({"earnings": np.concatenate([base, bunchers])})
+    >>> res = sp.general_bunching(df, running="earnings", cutoff=0.0, n_boot=50)
+    >>> res.n_obs
+    2300
+    >>> res.polynomial_order
+    4
+    >>> bool(np.isfinite(res.bias_corrected_elasticity))
+    True
     """
     df = data[[running]].dropna().reset_index(drop=True)
     R = df[running].to_numpy(float)

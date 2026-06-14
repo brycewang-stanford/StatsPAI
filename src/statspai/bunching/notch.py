@@ -68,6 +68,29 @@ class NotchResult:
         Number of observations.
     causal_result : CausalResult
         Full CausalResult object for interoperability.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> from statspai.bunching.notch import NotchResult
+    >>> rng = np.random.default_rng(0)
+    >>> income = rng.normal(50000, 12000, 5000)
+    >>> # induce excess bunching just below the 50,000 notch
+    >>> shift = rng.uniform(0, 1, 5000) < 0.3
+    >>> income[shift & (income > 50000) & (income < 53000)] = 49800
+    >>> df = pd.DataFrame({'income': income})
+    >>> result = sp.notch(df, x='income', notch_point=50000,
+    ...                   notch_size=0.10, bin_width=500, n_boot=50)
+    >>> isinstance(result, NotchResult)
+    True
+    >>> isinstance(result.summary(), str)
+    True
+
+    References
+    ----------
+    [@kleven2013using]
     """
 
     def __init__(
@@ -370,11 +393,19 @@ def notch(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> income = rng.normal(50000, 12000, 5000)
+    >>> shift = rng.uniform(0, 1, 5000) < 0.3
+    >>> income[shift & (income > 50000) & (income < 53000)] = 49800
+    >>> df = pd.DataFrame({'income': income})
     >>> result = sp.notch(df, x='income', notch_point=50000,
-    ...                   notch_size=0.10, bin_width=500)
-    >>> result.summary()
-    >>> result.plot()
+    ...                   notch_size=0.10, bin_width=500, n_boot=50)
+    >>> isinstance(result.summary(), str)
+    True
+    >>> fig, ax = result.plot()  # doctest: +SKIP
 
     Notes
     -----

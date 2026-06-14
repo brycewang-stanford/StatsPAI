@@ -23,7 +23,30 @@ from scipy import stats
 # ══════════════════════════════════════════════════════════════════════
 
 class DTEResult:
-    """Container for distributional treatment effect estimates."""
+    """Container for distributional treatment effect estimates.
+
+    Returned by :func:`distributional_te`. Carries the DTE curve over a
+    grid, quantile treatment effects, treated/counterfactual CDFs, and a
+    Kolmogorov-Smirnov statistic for the null of no distributional effect.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 500
+    >>> d = rng.integers(0, 2, n)
+    >>> y = 1.0 + 1.5 * d + rng.normal(0, 1, n)
+    >>> df = pd.DataFrame({"y": y, "d": d})
+    >>> res = sp.distributional_te(
+    ...     df, y="y", treatment="d", method="ipw",
+    ...     quantiles=[0.25, 0.5, 0.75], n_boot=50, seed=42)
+    >>> isinstance(res, sp.DTEResult)
+    True
+    >>> res.qte_effects.round(2).tolist()  # QTE at each quantile
+    [1.63, 1.51, 1.57]
+    """
 
     def __init__(self, grid, dte, dte_se, qte_taus, qte_effects, qte_se,
                  cdf_treated, cdf_counterfactual, ks_stat, ks_pvalue,

@@ -133,6 +133,24 @@ class BunchingEstimator:
     n_bootstrap : int
     alpha : float
     random_state : int
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> base = rng.normal(50000, 8000, 4000)
+    >>> bunchers = rng.uniform(48000, 50000, 600)  # extra mass below the kink
+    >>> df = pd.DataFrame({"income": np.concatenate([base, bunchers])})
+    >>> est = sp.BunchingEstimator(
+    ...     data=df, running_var="income", threshold=50000,
+    ...     dt=0.10, n_bootstrap=50, random_state=0)
+    >>> res = est.fit()
+    >>> isinstance(res.estimate, float)  # excess mass B
+    True
+    >>> bool("elasticity" in res.model_info)
+    True
     """
 
     def __init__(

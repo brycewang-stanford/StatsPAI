@@ -21,7 +21,27 @@ from scipy import stats
 
 @dataclass
 class KinkUnifiedResult:
-    """Joint RDD + RKD + Bunching estimate at a common cutoff."""
+    """Joint RDD + RKD + Bunching estimate at a common cutoff.
+
+    Produced by :func:`kink_unified`. Holds the RDD level shift, the RKD
+    slope change, and the bunching elasticity (each with a standard
+    error) estimated on the same running variable.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> x = rng.uniform(-1.0, 1.0, 400)
+    >>> y = 0.5 * x + 0.8 * (x >= 0) + rng.normal(0, 0.3, 400)
+    >>> df = pd.DataFrame({"earnings": y, "income": x})
+    >>> res = sp.kink_unified(df, y="earnings", running="income")
+    >>> isinstance(res, sp.KinkUnifiedResult)
+    True
+    >>> res.n_obs
+    400
+    """
     rdd_effect: float
     rdd_se: float
     rkd_effect: float
@@ -73,6 +93,22 @@ def kink_unified(
     Returns
     -------
     KinkUnifiedResult
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> x = rng.uniform(-1.0, 1.0, n)
+    >>> y = 0.5 * x + 0.8 * (x >= 0) + rng.normal(0, 0.3, n)
+    >>> df = pd.DataFrame({"earnings": y, "income": x})
+    >>> res = sp.kink_unified(df, y="earnings", running="income", cutoff=0.0)
+    >>> res.n_obs
+    400
+    >>> bool(np.isfinite(res.rdd_effect) and np.isfinite(res.rkd_effect))
+    True
     """
     from ..rd._core import _kernel_fn
 

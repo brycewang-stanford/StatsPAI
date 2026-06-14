@@ -55,6 +55,29 @@ class QTEResult:
         Sample size.
     alpha : float
         Significance level.
+
+    Examples
+    --------
+    A :class:`QTEResult` is produced by estimators such as :func:`qte` and
+    :func:`qdid`; inspect the quantile grid, per-quantile effects and the
+    mean ATE:
+
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 300
+    >>> d = rng.integers(0, 2, n)
+    >>> y = 1.0 + 1.5 * d + rng.normal(0, 1, n)
+    >>> df = pd.DataFrame({"y": y, "d": d})
+    >>> res = sp.qte(df, y="y", treatment="d",
+    ...              quantiles=[0.25, 0.5, 0.75], n_boot=50, seed=0)
+    >>> isinstance(res, sp.QTEResult)
+    True
+    >>> res.quantiles.tolist()
+    [0.25, 0.5, 0.75]
+    >>> res.effects.shape
+    (3,)
     """
 
     def __init__(

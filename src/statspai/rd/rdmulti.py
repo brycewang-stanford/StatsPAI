@@ -37,7 +37,32 @@ from ._core import _kernel_fn
 
 
 class RDMultiResult:
-    """Results from multi-cutoff/multi-score RD."""
+    """Results from multi-cutoff/multi-score RD.
+
+    Returned by :func:`rdmc`. Holds per-cutoff estimates in
+    ``cutoff_results`` plus the pooled estimate / SE / CI, and exposes
+    :meth:`summary` and a forest :meth:`plot`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 900
+    >>> running_var = rng.uniform(0, 100, n)
+    >>> cutoffs = [30, 60]
+    >>> nearest = np.array([min(cutoffs, key=lambda c: abs(rv - c))
+    ...                     for rv in running_var])
+    >>> treated = (running_var >= nearest).astype(float)
+    >>> score = 1.0 + 0.02 * running_var + 2.0 * treated + rng.normal(0, 1, n)
+    >>> df = pd.DataFrame({"score": score, "running_var": running_var})
+    >>> result = sp.rdmc(df, y="score", x="running_var", cutoffs=[30, 60])
+    >>> isinstance(result, sp.RDMultiResult)
+    True
+    >>> result.n_cutoffs
+    2
+    """
 
     def __init__(self, cutoff_results, pooled_estimate, pooled_se,
                  pooled_ci, n_cutoffs, n_total, method):
@@ -177,10 +202,23 @@ def rdmc(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
-    >>> result = sp.rdmc(df, y='score', x='running_var', cutoffs=[50, 70, 90])
-    >>> print(result.summary())
-    >>> result.plot()
+    >>> rng = np.random.default_rng(0)
+    >>> n = 900
+    >>> running_var = rng.uniform(0, 100, n)
+    >>> cutoffs = [30, 60]
+    >>> nearest = np.array([min(cutoffs, key=lambda c: abs(rv - c))
+    ...                     for rv in running_var])
+    >>> treated = (running_var >= nearest).astype(float)
+    >>> score = 1.0 + 0.02 * running_var + 2.0 * treated + rng.normal(0, 1, n)
+    >>> df = pd.DataFrame({"score": score, "running_var": running_var})
+    >>> result = sp.rdmc(df, y="score", x="running_var", cutoffs=[30, 60])
+    >>> result.n_cutoffs
+    2
+    >>> summary_text = result.summary()
+    >>> ax = result.plot()  # doctest: +SKIP
     """
     y_data = data[y].values.astype(float)
     x_data = data[x].values.astype(float)
@@ -274,9 +312,21 @@ def rdms(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
-    >>> result = sp.rdms(df, y='outcome', x1='dist_lat', x2='dist_lon')
-    >>> print(result.summary())
+    >>> rng = np.random.default_rng(1)
+    >>> n = 800
+    >>> dist_lat = rng.uniform(-5, 5, n)
+    >>> dist_lon = rng.uniform(-5, 5, n)
+    >>> treated = (dist_lat >= 0).astype(float)
+    >>> outcome = (1.0 + 1.5 * treated + 0.1 * dist_lat
+    ...            + 0.1 * dist_lon + rng.normal(0, 1, n))
+    >>> df = pd.DataFrame({"outcome": outcome,
+    ...                    "dist_lat": dist_lat, "dist_lon": dist_lon})
+    >>> result = sp.rdms(df, y="outcome", x1="dist_lat", x2="dist_lon",
+    ...                  bandwidth=3.0)
+    >>> summary_text = result.summary()
     """
     y_data = data[y].values.astype(float)
     x1_data = data[x1].values.astype(float) - cutoff1

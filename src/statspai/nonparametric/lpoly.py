@@ -22,7 +22,24 @@ from ..core.results import EconometricResults
 
 
 class LPolyResult:
-    """Results from local polynomial regression."""
+    """Results from local polynomial regression.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(5)
+    >>> x = rng.uniform(0, 10, 300)
+    >>> y = np.sin(x) + rng.normal(0, 0.3, 300)
+    >>> df = pd.DataFrame({"y": y, "x": x})
+    >>> res = sp.lpoly(df, y="y", x="x", degree=1)
+    >>> type(res).__name__
+    'LPolyResult'
+    >>> res.degree
+    1
+    >>> bool(res.bandwidth > 0)
+    True
+    """
 
     def __init__(self, grid, fitted, se, ci_lower, ci_upper, bandwidth,
                  degree, kernel, n, data_x, data_y):
@@ -196,9 +213,13 @@ def lpoly(
     Examples
     --------
     >>> import statspai as sp
-    >>> result = sp.lpoly(df, y='wage', x='experience')
-    >>> result.plot()
-    >>> print(result.summary())
+    >>> df = sp.cps_wage()
+    >>> result = sp.lpoly(df, y='log_wage', x='experience')
+    >>> type(result).__name__
+    'LPolyResult'
+    >>> bool(result.bandwidth > 0)
+    True
+    >>> fig, ax = None, result.plot()  # doctest: +SKIP
     """
     if data is None:
         raise ValueError("data is required")

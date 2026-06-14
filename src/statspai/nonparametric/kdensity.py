@@ -20,7 +20,22 @@ from scipy import stats
 
 
 class KDensityResult:
-    """Results from kernel density estimation."""
+    """Results from kernel density estimation.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(3)
+    >>> df = pd.DataFrame({"income": rng.normal(10.0, 2.0, 500)})
+    >>> res = sp.kdensity(df, x="income", kernel="gaussian")
+    >>> type(res).__name__
+    'KDensityResult'
+    >>> bool(res.bandwidth > 0)
+    True
+    >>> bool((res.density >= 0).all())
+    True
+    """
 
     def __init__(self, grid, density, bandwidth, kernel, n, data):
         self.grid = grid
@@ -157,10 +172,20 @@ def kdensity(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> df = pd.DataFrame(
+    ...     {'income': rng.lognormal(mean=10, sigma=0.5, size=500)})
     >>> result = sp.kdensity(df, x='income')
-    >>> result.plot(hist=True)
-    >>> print(result.summary())
+    >>> type(result).__name__
+    'KDensityResult'
+    >>> bool(result.bandwidth > 0)
+    True
+    >>> isinstance(result.summary(), str)
+    True
+    >>> ax = result.plot(hist=True)  # doctest: +SKIP
     """
     if data is None:
         raise ValueError("data is required")
