@@ -187,7 +187,14 @@ def synth_survival(
 
     Examples
     --------
-    >>> import statspai as sp
+    >>> import statspai as sp, numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = [("treated_arm", m, float(np.exp(-0.04 * m)))
+    ...         for m in range(12)]
+    >>> for c in range(6):                       # six donor arms
+    ...     rows += [(f"control_{c}", m, float(np.exp(-(0.05 + 0.01 * c) * m)))
+    ...              for m in range(12)]
+    >>> df = pd.DataFrame(rows, columns=["trial_arm", "month", "km_est"])
     >>> r = sp.synth_survival(
     ...     df, unit="trial_arm", time="month",
     ...     survival="km_est", treated="treated_arm", treat_time=6,

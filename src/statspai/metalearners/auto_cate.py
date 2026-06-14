@@ -413,11 +413,18 @@ def auto_cate(
 
     Examples
     --------
-    >>> import statspai as sp
-    >>> result = sp.auto_cate(df, y='wage', treat='training',
-    ...                       covariates=['age', 'edu', 'exp'])
+    >>> import statspai as sp, numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> X = rng.normal(size=(n, 3))
+    >>> training = rng.binomial(1, 0.5, n)
+    >>> wage = 2.0 * training + X @ np.array([1.0, -0.5, 0.3]) + rng.normal(size=n)
+    >>> df = pd.DataFrame(X, columns=["age", "edu", "exp"])
+    >>> df["wage"], df["training"] = wage, training
+    >>> result = sp.auto_cate(df, y="wage", treat="training",
+    ...                       covariates=["age", "edu", "exp"],
+    ...                       learners=("s", "t"))
     >>> print(result.summary())
-    >>> result.best_result.tidy()
     """
     if score != 'r_loss':
         raise NotImplementedError(
