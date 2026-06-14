@@ -6,6 +6,20 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Docstring `Examples` coverage campaign — 35.9% → 92.3% of the public
+  surface, every example verified runnable.** Added verified `Examples`
+  blocks to the registered functions that lacked them (coverage 370/1031
+  → 952/1031) and repaired the package's long-standing *illustrative*
+  examples on headline functions (`sp.did(df, ...)` with a placeholder
+  `df`, bare `did(...)`, `sp.synth.california_prop99()` submodule-access
+  bugs) so they actually execute. A new `scripts/check_example_execution.py`
+  extracts every example's `>>>` source (dropping `# doctest: +SKIP`
+  lines reserved for heavy-optional / external-data blocks) and runs it:
+  the package now reports **939 examples run, 0 failing**. Two CI gates in
+  `parity-guards.yml` lock both dimensions — `examples_coverage --check`
+  (presence ratchet, budget tightened 561 → 79) and
+  `check_example_execution --max-failures 0` (runnability ratchet) — so a
+  new public function can no longer ship without a *running* example.
 - **Reference-parity anchors for the doubly-robust trio — `sp.tmle`,
   `sp.ipw`, `sp.g_computation` (27 anchors, 44 tests,
   `tests/reference_parity/test_{tmle,ipw,gformula}_parity.py`).** The three
