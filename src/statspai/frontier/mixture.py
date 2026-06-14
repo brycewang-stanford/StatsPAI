@@ -83,6 +83,24 @@ def zisf(
     Returns
     -------
     :class:`~statspai.frontier.FrontierResult`
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 150
+    >>> log_k = rng.normal(size=n)
+    >>> log_l = rng.normal(size=n)
+    >>> v = rng.normal(scale=0.2, size=n)
+    >>> eff = rng.uniform(size=n) < 0.5  # half the firms are fully efficient
+    >>> u = np.where(eff, 0.0, np.abs(rng.normal(scale=0.3, size=n)))
+    >>> log_y = 1.0 + 0.6 * log_k + 0.3 * log_l + v - u
+    >>> df = pd.DataFrame({"log_y": log_y, "log_k": log_k, "log_l": log_l})
+    >>> res = sp.zisf(df, y="log_y", x=["log_k", "log_l"])
+    >>> bool(0.0 <= res.model_info["mean_p_efficient"] <= 1.0)
+    True
     """
     if dist not in {"half-normal"}:
         raise ValueError("zisf currently supports dist='half-normal' only.")
@@ -311,6 +329,25 @@ def lcsf(
     -------
     FrontierResult with extended ``params`` block and per-obs posterior
     class probabilities in ``diagnostics['p_class1_posterior']``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 150
+    >>> log_k = rng.normal(size=n)
+    >>> log_l = rng.normal(size=n)
+    >>> v = rng.normal(scale=0.2, size=n)
+    >>> cls = rng.uniform(size=n) < 0.5  # two technology classes
+    >>> u = np.where(cls, np.abs(rng.normal(scale=0.15, size=n)),
+    ...                    np.abs(rng.normal(scale=0.6, size=n)))
+    >>> log_y = 1.0 + 0.6 * log_k + 0.3 * log_l + v - u
+    >>> df = pd.DataFrame({"log_y": log_y, "log_k": log_k, "log_l": log_l})
+    >>> res = sp.lcsf(df, y="log_y", x=["log_k", "log_l"])
+    >>> res.model_info["n_classes"]
+    2
     """
     if dist not in {"half-normal"}:
         raise ValueError("lcsf currently supports dist='half-normal' only.")

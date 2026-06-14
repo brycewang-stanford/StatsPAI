@@ -13,7 +13,26 @@ import pandas as pd
 
 
 def te_summary(result, method: Optional[str] = None) -> pd.DataFrame:
-    """Return a small descriptive DataFrame of TE scores (summary stats only)."""
+    """Return a small descriptive DataFrame of TE scores (summary stats only).
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 80
+    >>> log_k = rng.normal(0, 1, n)
+    >>> log_l = rng.normal(0, 1, n)
+    >>> u = rng.exponential(0.3, n)  # inefficiency
+    >>> log_y = 0.4 * log_k + 0.5 * log_l + rng.normal(0, 0.1, n) - u
+    >>> df = pd.DataFrame({"log_y": log_y, "log_k": log_k, "log_l": log_l})
+    >>> res = sp.frontier(df, y="log_y", x=["log_k", "log_l"])
+    >>> s = sp.te_summary(res)
+    >>> list(s.columns)[:3]
+    ['n', 'mean', 'std']
+    >>> s.index.tolist()
+    ['efficiency']
+    """
     te = result.efficiency(method=method)
     s = pd.DataFrame(
         {
@@ -45,6 +64,24 @@ def te_rank(
 
     If ``with_ci=True``, calls :meth:`FrontierResult.efficiency_ci` for
     parametric-bootstrap bounds.  For very large samples prefer a small B.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 80
+    >>> log_k = rng.normal(0, 1, n)
+    >>> log_l = rng.normal(0, 1, n)
+    >>> u = rng.exponential(0.3, n)  # inefficiency
+    >>> log_y = 0.4 * log_k + 0.5 * log_l + rng.normal(0, 0.1, n) - u
+    >>> df = pd.DataFrame({"log_y": log_y, "log_k": log_k, "log_l": log_l})
+    >>> res = sp.frontier(df, y="log_y", x=["log_k", "log_l"])
+    >>> ranked = sp.te_rank(res)
+    >>> list(ranked.columns)
+    ['efficiency', 'rank']
+    >>> int(ranked["rank"].min())
+    1
     """
     te = result.efficiency(method=method)
     df = te.to_frame(name="efficiency")

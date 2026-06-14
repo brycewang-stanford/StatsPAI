@@ -61,6 +61,31 @@ class SpatialDiDResult:
     (``direct_effect``, ``spillover_effect``, ``total_effect``) and a
     broom/modelsummary-compatible surface (``tidy()``, ``glance()``,
     ``params``, ``std_errors``).
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n_units, n_time = 12, 6
+    >>> W = np.zeros((n_units, n_units))  # ring spatial weights over units
+    >>> for i in range(n_units):
+    ...     W[i, (i + 1) % n_units] = 1
+    ...     W[i, (i - 1) % n_units] = 1
+    >>> rows = []
+    >>> for u in range(n_units):
+    ...     fe = rng.normal()
+    ...     for t in range(n_time):
+    ...         d = 1 if (u < 6 and t >= 3) else 0  # half treated from t>=3
+    ...         y = 1.0 + fe + 0.3 * t + 1.5 * d + rng.normal(scale=0.3)
+    ...         rows.append({"unit": u, "time": t, "treat": d, "y": y})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.spatial_did(df, y="y", treat="treat", unit="unit",
+    ...                     time="time", W=W)
+    >>> isinstance(res, sp.SpatialDiDResult)
+    True
+    >>> res.n_obs
+    72
     """
 
     direct_effect: float
@@ -976,6 +1001,35 @@ def spatial_did(
     SpatialDiDResult
         Direct, spillover, total effects with diagnostics, plotting, and
         export helpers.
+
+    References
+    ----------
+    delgado2015difference
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n_units, n_time = 12, 6
+    >>> W = np.zeros((n_units, n_units))  # ring spatial weights over units
+    >>> for i in range(n_units):
+    ...     W[i, (i + 1) % n_units] = 1
+    ...     W[i, (i - 1) % n_units] = 1
+    >>> rows = []
+    >>> for u in range(n_units):
+    ...     fe = rng.normal()
+    ...     for t in range(n_time):
+    ...         d = 1 if (u < 6 and t >= 3) else 0  # half treated from t>=3
+    ...         y = 1.0 + fe + 0.3 * t + 1.5 * d + rng.normal(scale=0.3)
+    ...         rows.append({"unit": u, "time": t, "treat": d, "y": y})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.spatial_did(df, y="y", treat="treat", unit="unit",
+    ...                     time="time", W=W)
+    >>> res.coefficients["variable"].tolist()
+    ['treat', 'W_treat']
+    >>> res.n_obs
+    72
     """
     cov = list(covariates or [])
     if coords is not None:

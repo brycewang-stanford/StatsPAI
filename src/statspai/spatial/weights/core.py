@@ -18,6 +18,20 @@ class W:
         Matching weight values. If ``None``, binary (1.0) weights are used.
     id_order : sequence, optional
         Explicit ordering of observation ids. Defaults to ``sorted(neighbors)``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> # A 4-node chain graph 0-1-2-3
+    >>> neighbors = {0: [1], 1: [0, 2], 2: [1, 3], 3: [2]}
+    >>> w = sp.W(neighbors)
+    >>> w.n
+    4
+    >>> w.islands
+    []
+    >>> w.transform = "R"          # row-standardize the weights
+    >>> float(w.full()[1].sum())   # each row now sums to 1
+    1.0
     """
 
     _VALID_TRANSFORMS = {"O", "B", "R", "V", "D"}

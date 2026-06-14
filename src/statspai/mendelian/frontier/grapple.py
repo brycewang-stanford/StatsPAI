@@ -41,6 +41,23 @@ class GrappleResult:
         Profile log-likelihood at the MLE.
     converged : bool
     n_snps : int
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(8)
+    >>> bx = rng.uniform(0.1, 0.5, 25)
+    >>> sx = rng.uniform(0.02, 0.05, 25)
+    >>> sy = rng.uniform(0.02, 0.05, 25)
+    >>> by = 0.3 * bx + rng.normal(0, sy)
+    >>> res = sp.grapple(bx, by, sx, sy)
+    >>> type(res).__name__
+    'GrappleResult'
+    >>> res.n_snps
+    25
+    >>> bool(np.isfinite(res.estimate))
+    True
     """
     estimate: float
     se: float
@@ -141,8 +158,18 @@ def grapple(
     Examples
     --------
     >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(0)
+    >>> p = 30                                   # number of instruments (SNPs)
+    >>> bx = rng.normal(0.3, 0.1, p)             # SNP-exposure associations
+    >>> sx = np.full(p, 0.05)                    # their standard errors
+    >>> by = 0.5 * bx + rng.normal(0, 0.02, p)   # true causal effect ~0.5
+    >>> sy = np.full(p, 0.05)
     >>> res = sp.grapple(bx, by, sx, sy)
-    >>> print(res.summary())
+    >>> round(res.estimate, 1)
+    0.5
+    >>> bool(res.converged)
+    True
     """
     bx, by, sx, sy = as_float_arrays(
         beta_exposure, beta_outcome, se_exposure, se_outcome

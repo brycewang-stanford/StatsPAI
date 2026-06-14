@@ -472,11 +472,25 @@ def olley_pakes(
     Examples
     --------
     >>> import statspai as sp
-    >>> res = sp.olley_pakes(df, output="y", free="l", state="k",
-    ...                       proxy="i", panel_id="id", time="year",
-    ...                       boot_reps=200, seed=0)
-    >>> res.coef           # {"l": 0.62, "k": 0.31}
-    >>> res.summary()
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for fid in range(30):
+    ...     k = rng.normal(2.0, 0.5)
+    ...     omega = rng.normal(0.0, 0.3)
+    ...     for yr in range(8):
+    ...         omega = 0.7 * omega + rng.normal(0.0, 0.2)
+    ...         k = 0.9 * k + 0.3 * rng.normal(1.0, 0.3)
+    ...         l = 0.6 * k + omega + rng.normal(1.0, 0.2)
+    ...         inv = 0.4 * k + omega + rng.normal(1.0, 0.2)  # investment > 0
+    ...         y = 0.6 * l + 0.3 * k + omega + rng.normal(0.0, 0.1)
+    ...         rows.append(dict(id=fid, year=yr, y=y, l=l, k=k, i=inv))
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.olley_pakes(df, output="y", free="l", state="k", proxy="i")
+    >>> sorted(res.coef.keys())
+    ['k', 'l']
+    >>> res.method
+    'op'
 
     References
     ----------
@@ -549,6 +563,29 @@ def levinsohn_petrin(
     -------
     ProductionResult
 
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for fid in range(30):
+    ...     k = rng.normal(2.0, 0.5)
+    ...     omega = rng.normal(0.0, 0.3)
+    ...     for yr in range(8):
+    ...         omega = 0.7 * omega + rng.normal(0.0, 0.2)
+    ...         k = 0.9 * k + 0.3 * rng.normal(1.0, 0.3)
+    ...         l = 0.6 * k + omega + rng.normal(1.0, 0.2)
+    ...         m = 0.5 * k + 0.5 * l + omega + rng.normal(0.5, 0.2)
+    ...         y = 0.6 * l + 0.3 * k + omega + rng.normal(0.0, 0.1)
+    ...         rows.append(dict(id=fid, year=yr, y=y, l=l, k=k, m=m))
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.levinsohn_petrin(df, output="y", free="l", state="k", proxy="m")
+    >>> sorted(res.coef.keys())
+    ['k', 'l']
+    >>> res.method
+    'lp'
+
     References
     ----------
     Levinsohn, J. & Petrin, A. (2003). Estimating production functions
@@ -618,6 +655,29 @@ def ackerberg_caves_frazer(
     -----
     Requires at least two consecutive time periods per firm so that
     lagged labor exists.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for fid in range(30):
+    ...     k = rng.normal(2.0, 0.5)
+    ...     omega = rng.normal(0.0, 0.3)
+    ...     for yr in range(8):
+    ...         omega = 0.7 * omega + rng.normal(0.0, 0.2)
+    ...         k = 0.9 * k + 0.3 * rng.normal(1.0, 0.3)
+    ...         l = 0.6 * k + omega + rng.normal(1.0, 0.2)
+    ...         m = 0.5 * k + 0.5 * l + omega + rng.normal(0.5, 0.2)
+    ...         y = 0.6 * l + 0.3 * k + omega + rng.normal(0.0, 0.1)
+    ...         rows.append(dict(id=fid, year=yr, y=y, l=l, k=k, m=m))
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.ackerberg_caves_frazer(df, output="y", free="l", state="k", proxy="m")
+    >>> sorted(res.coef.keys())
+    ['k', 'l']
+    >>> res.method
+    'acf'
 
     References
     ----------

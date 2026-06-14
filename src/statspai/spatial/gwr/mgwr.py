@@ -83,6 +83,21 @@ def mgwr(
           - Fit a univariate GWR of ``ε_j`` on ``x_j`` with AICc bandwidth.
           - Replace ``f_j``.
        b. Terminate when max |Δf_j| < tol.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 60
+    >>> coords = rng.uniform(0, 10, size=(n, 2))
+    >>> x = rng.normal(size=n)
+    >>> y = 1.0 + 0.5 * x + 0.1 * coords[:, 0] + rng.normal(0, 0.3, size=n)
+    >>> res = sp.mgwr(coords, y, x.reshape(-1, 1))
+    >>> res.params.shape  # (n, intercept + 1 covariate)
+    (60, 2)
+    >>> bool(np.isfinite(res.R2))
+    True
     """
     coords = np.asarray(coords, dtype=float)
     y = np.asarray(y, dtype=float).ravel()

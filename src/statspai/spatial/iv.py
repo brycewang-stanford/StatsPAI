@@ -45,6 +45,44 @@ from scipy import stats
 
 @dataclass
 class SpatialIVResult:
+    """Container for :func:`spatial_iv` Kelejian-Prucha S2SLS estimates.
+
+    Attributes
+    ----------
+    rho : float
+        Spatial autoregressive coefficient on ``WY`` (``nan`` when
+        ``include_WY=False``).
+    rho_se : float
+        Standard error of ``rho``.
+    coefficients : pandas.DataFrame
+        Full coefficient table with ``variable``, ``coef`` and ``se``.
+    n_obs : int
+        Number of observations after dropping missing rows.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 60
+    >>> W = np.zeros((n, n))  # ring network, row-normalised
+    >>> for i in range(n):
+    ...     W[i, (i + 1) % n] = 1
+    ...     W[i, (i - 1) % n] = 1
+    >>> W = W / W.sum(1, keepdims=True)
+    >>> x = rng.normal(size=n)
+    >>> z = rng.normal(size=n)  # excluded instrument
+    >>> d = 0.5 * x + 0.8 * z + rng.normal(size=n)  # endogenous regressor
+    >>> y = 1.0 + 1.5 * d + 0.3 * x + rng.normal(size=n)
+    >>> df = pd.DataFrame({"y": y, "d": d, "x": x, "z": z})
+    >>> res = sp.spatial_iv(df, y="y", endog=["d"], exog=["x"], W=W,
+    ...                     instruments=["z"])
+    >>> isinstance(res, sp.SpatialIVResult)
+    True
+    >>> res.n_obs
+    60
+    """
+
     rho: float          # spatial autoregressive coefficient
     rho_se: float
     coefficients: pd.DataFrame
@@ -105,6 +143,33 @@ def spatial_iv(
     Returns
     -------
     SpatialIVResult
+
+    References
+    ----------
+    kelejian1998generalized
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 60
+    >>> W = np.zeros((n, n))  # ring network, row-normalised
+    >>> for i in range(n):
+    ...     W[i, (i + 1) % n] = 1
+    ...     W[i, (i - 1) % n] = 1
+    >>> W = W / W.sum(1, keepdims=True)
+    >>> x = rng.normal(size=n)
+    >>> z = rng.normal(size=n)  # excluded instrument for the endogenous d
+    >>> d = 0.5 * x + 0.8 * z + rng.normal(size=n)
+    >>> y = 1.0 + 1.5 * d + 0.3 * x + rng.normal(size=n)
+    >>> df = pd.DataFrame({"y": y, "d": d, "x": x, "z": z})
+    >>> res = sp.spatial_iv(df, y="y", endog=["d"], exog=["x"], W=W,
+    ...                     instruments=["z"])
+    >>> res.coefficients["variable"].tolist()
+    ['d', 'rho (WY)', '(Intercept)', 'x']
+    >>> res.n_obs
+    60
     """
     df = data[[y] + list(endog) + list(exog) + list(instruments or [])].dropna().reset_index(drop=True)
     n = len(df)

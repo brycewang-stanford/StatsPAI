@@ -51,6 +51,24 @@ class FrontierResult(EconometricResults):
 
     Extends :class:`~statspai.core.results.EconometricResults` with
     efficiency-score access, LR tests, and bootstrap helpers.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(1)
+    >>> log_k = rng.normal(0, 1, 150)
+    >>> log_l = rng.normal(0, 1, 150)
+    >>> u = rng.exponential(0.3, 150)
+    >>> v = rng.normal(0, 0.2, 150)
+    >>> log_y = 1.0 + 0.4 * log_k + 0.5 * log_l + v - u
+    >>> df = pd.DataFrame({"log_y": log_y, "log_k": log_k, "log_l": log_l})
+    >>> res = sp.frontier(df, y="log_y", x=["log_k", "log_l"])
+    >>> type(res).__name__
+    'FrontierResult'
+    >>> eff = res.efficiency()
+    >>> bool((eff > 0).all() and (eff <= 1.0 + 1e-8).all())
+    True
     """
 
     # ---- Names of diagnostics whose values are per-observation arrays ----
@@ -732,11 +750,25 @@ def frontier(
     Examples
     --------
     >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 200
+    >>> log_k = rng.normal(0, 1, n)
+    >>> log_l = rng.normal(0, 1, n)
+    >>> v = rng.normal(0, 0.2, n)
+    >>> u = np.abs(rng.normal(0, 0.3, n))   # one-sided inefficiency
+    >>> df = pd.DataFrame({
+    ...     'log_y': 0.3 * log_k + 0.6 * log_l + v - u,
+    ...     'log_k': log_k,
+    ...     'log_l': log_l,
+    ... })
     >>> res = sp.frontier(df, y='log_y', x=['log_k', 'log_l'])
-    >>> res.efficiency().describe()
-    >>> res.lr_test_no_inefficiency()
-    >>> sp.frontier(df, y='log_y', x=['log_k', 'log_l'],
-    ...             dist='truncated-normal', emean=['firm_age'])
+    >>> te = res.efficiency()               # firm-level technical efficiency
+    >>> bool(0.0 < te.mean() <= 1.0)
+    True
+    >>> lr = res.lr_test_no_inefficiency()  # H0: no inefficiency (sigma_u = 0)
+    >>> sorted(lr)
+    ['df', 'pvalue', 'statistic']
     """
     dist = dist.lower().replace("_", "-")
     if dist not in {"half-normal", "exponential", "truncated-normal"}:

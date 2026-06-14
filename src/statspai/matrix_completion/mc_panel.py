@@ -84,10 +84,22 @@ def mc_panel(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
-    >>> result = sp.mc_panel(df, y='gdp', unit='country',
-    ...                      time='year', treat='treated')
-    >>> print(result.summary())
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for u in range(8):
+    ...     fe = rng.normal()
+    ...     for t in range(6):
+    ...         treated = int(u >= 6 and t >= 4)
+    ...         val = fe + 0.3 * t + rng.normal(0, 0.2) + (1.5 if treated else 0.0)
+    ...         rows.append((u, t, val, treated))
+    >>> panel = pd.DataFrame(rows, columns=['country', 'year', 'gdp', 'treated'])
+    >>> result = sp.mc_panel(panel, y='gdp', unit='country',
+    ...                      time='year', treat='treated', n_bootstrap=50)
+    >>> bool(result.estimate > 0)
+    True
     """
     est = MCPanel(
         data=data, y=y, unit=unit, time=time, treat=treat,
@@ -138,6 +150,31 @@ class MCPanel:
     n_bootstrap : int
     alpha : float
     random_state : int
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> from statspai.matrix_completion.mc_panel import MCPanel
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for u in range(8):
+    ...     fe = rng.normal()
+    ...     for t in range(6):
+    ...         treated = int(u >= 6 and t >= 4)
+    ...         y = fe + 0.3 * t + rng.normal(0, 0.2) + (1.5 if treated else 0.0)
+    ...         rows.append((u, t, y, treated))
+    >>> panel = pd.DataFrame(rows, columns=['unit', 'period', 'y', 'treated'])
+    >>> est = MCPanel(data=panel, y='y', unit='unit', time='period',
+    ...               treat='treated', n_bootstrap=50)
+    >>> res = est.fit()
+    >>> bool(res.estimate > 0)
+    True
+
+    References
+    ----------
+    [@athey2021matrix]
     """
 
     def __init__(

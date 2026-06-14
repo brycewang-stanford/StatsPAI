@@ -35,6 +35,31 @@ class ProductionResult(EconometricResults):
     * ``markup`` — placeholder; populated by :func:`statspai.markup`
 
     Use ``.summary()`` for a Stata-style table or ``.coef`` for the raw dict.
+
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for fid in range(30):
+    ...     k = rng.normal(2.0, 0.5)
+    ...     omega = rng.normal(0.0, 0.3)
+    ...     for yr in range(8):
+    ...         omega = 0.7 * omega + rng.normal(0.0, 0.2)
+    ...         k = 0.9 * k + 0.3 * rng.normal(1.0, 0.3)
+    ...         l = 0.6 * k + omega + rng.normal(1.0, 0.2)
+    ...         m = 0.5 * k + 0.5 * l + omega + rng.normal(0.5, 0.2)
+    ...         y = 0.6 * l + 0.3 * k + omega + rng.normal(0.0, 0.1)
+    ...         rows.append(dict(id=fid, year=yr, y=y, l=l, k=k, m=m))
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.levinsohn_petrin(df, output="y", free="l", state="k", proxy="m")
+    >>> type(res).__name__
+    'ProductionResult'
+    >>> sorted(res.coef.keys())
+    ['k', 'l']
+    >>> res.method
+    'lp'
     """
 
     def __init__(

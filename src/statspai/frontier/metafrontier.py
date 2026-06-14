@@ -48,7 +48,32 @@ from .sfa import FrontierResult, frontier as _frontier
 
 @dataclass
 class MetafrontierResult:
-    """Container for a metafrontier fit."""
+    """Container for a metafrontier fit.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(2008)
+    >>> rows = []
+    >>> for g in ("A", "B"):
+    ...     shift = 0.0 if g == "A" else 0.3      # group B has a higher frontier
+    ...     for _ in range(40):
+    ...         x1 = rng.normal(0, 1)
+    ...         u = abs(rng.normal(0, 0.3))
+    ...         v = rng.normal(0, 0.15)
+    ...         y = 1.0 + shift + 0.5 * x1 + v - u
+    ...         rows.append({"y": y, "x1": x1, "group": g})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.metafrontier(df, y="y", x=["x1"], group="group")
+    >>> isinstance(res, sp.MetafrontierResult)
+    True
+    >>> sorted(res.beta_groups)
+    ['A', 'B']
+    >>> bool((res.tgr >= 0).all() and (res.tgr <= 1).all())
+    True
+    """
     beta_meta: pd.Series
     beta_groups: Dict[Any, pd.Series]
     group_frontiers: Dict[Any, FrontierResult]
@@ -114,6 +139,28 @@ def metafrontier(
     Returns
     -------
     :class:`MetafrontierResult`
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(2008)
+    >>> rows = []
+    >>> for g in ("A", "B"):
+    ...     shift = 0.0 if g == "A" else 0.3      # group B has a higher frontier
+    ...     for _ in range(40):
+    ...         x1 = rng.normal(0, 1)
+    ...         u = abs(rng.normal(0, 0.3))
+    ...         v = rng.normal(0, 0.15)
+    ...         y = 1.0 + shift + 0.5 * x1 + v - u
+    ...         rows.append({"y": y, "x1": x1, "group": g})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.metafrontier(df, y="y", x=["x1"], group="group")
+    >>> sorted(res.beta_groups)
+    ['A', 'B']
+    >>> "Metafrontier" in res.summary()
+    True
     """
     if group not in data.columns:
         raise KeyError(f"{group!r} is not a column in data.")

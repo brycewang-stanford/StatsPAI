@@ -158,6 +158,22 @@ def gwr(
     fixed : bool, default False
     add_constant : bool, default True
         Prepend a column of ones to ``X``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 80
+    >>> coords = rng.uniform(0, 10, size=(n, 2))
+    >>> x = rng.normal(size=n)
+    >>> beta = 0.5 + 0.1 * coords[:, 1]  # slope varies across space
+    >>> y = 1.0 + beta * x + rng.normal(0, 0.3, n)
+    >>> res = sp.gwr(coords, y, x.reshape(-1, 1), bw=30, fixed=False)
+    >>> res.params.shape  # one local coefficient vector per observation
+    (80, 2)
+    >>> bool(0.0 <= res.R2 <= 1.0)
+    True
     """
     coords = np.asarray(coords, dtype=float)
     y = np.asarray(y, dtype=float).ravel()

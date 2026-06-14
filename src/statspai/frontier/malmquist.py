@@ -47,7 +47,29 @@ from .sfa import FrontierResult, frontier as _frontier
 
 @dataclass
 class MalmquistResult:
-    """Container for Malmquist productivity index decomposition."""
+    """Container for Malmquist productivity index decomposition.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(1702)
+    >>> rows = []
+    >>> for t in (1, 2):
+    ...     for i in range(30):
+    ...         x1 = rng.normal(0, 1)
+    ...         u = abs(rng.normal(0, 0.3))
+    ...         v = rng.normal(0, 0.15)
+    ...         y = (1.0 + 0.05 * t) + 0.5 * x1 + v - u
+    ...         rows.append({"id": i, "t": t, "y": y, "x1": x1})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.malmquist(df, y="y", x=["x1"], id="id", time="t")
+    >>> isinstance(res, sp.MalmquistResult)
+    True
+    >>> list(res.index_table.columns)
+    ['id', 't_from', 't_to', 'm_index', 'ec', 'tc']
+    """
 
     index_table: pd.DataFrame
     """Wide table: one row per (id, period pair) with columns
@@ -112,6 +134,27 @@ def malmquist(
     Returns
     -------
     :class:`MalmquistResult`
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(1702)
+    >>> rows = []
+    >>> for t in (1, 2):
+    ...     for i in range(30):
+    ...         x1 = rng.normal(0, 1)
+    ...         u = abs(rng.normal(0, 0.3))
+    ...         v = rng.normal(0, 0.15)
+    ...         y = (1.0 + 0.05 * t) + 0.5 * x1 + v - u
+    ...         rows.append({"id": i, "t": t, "y": y, "x1": x1})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.malmquist(df, y="y", x=["x1"], id="id", time="t")
+    >>> list(res.index_table.columns)
+    ['id', 't_from', 't_to', 'm_index', 'ec', 'tc']
+    >>> "Malmquist" in res.summary()
+    True
 
     Notes
     -----
@@ -317,14 +360,25 @@ def translog_design(
 
     Examples
     --------
-    >>> df_tl = translog_design(df, inputs=["log_k", "log_l"])
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 60
+    >>> df = pd.DataFrame({
+    ...     "log_k": rng.normal(2.0, 0.5, n),
+    ...     "log_l": rng.normal(1.5, 0.5, n),
+    ... })
+    >>> df["log_y"] = 0.3 * df["log_k"] + 0.6 * df["log_l"] + rng.normal(0, 0.2, n)
+    >>> df_tl = sp.translog_design(df, inputs=["log_k", "log_l"])
+    >>> sorted(df_tl.attrs["translog_added_terms"])
+    ['log_k_sq', 'log_k_x_log_l', 'log_l_sq']
     >>> # Option A — one-liner, pass the full translog regressor list:
     >>> terms = df_tl.attrs["translog_terms"]
-    >>> sp.frontier(df_tl, y="log_y", x=terms)
+    >>> res = sp.frontier(df_tl, y="log_y", x=terms)
     >>> # Option B — extend an existing x list without double-counting:
     >>> base = ["log_k", "log_l"]
-    >>> sp.frontier(df_tl, y="log_y",
-    ...             x=base + df_tl.attrs["translog_added_terms"])
+    >>> res2 = sp.frontier(df_tl, y="log_y",
+    ...                    x=base + df_tl.attrs["translog_added_terms"])
     """
     if not inputs:
         raise ValueError("inputs must be non-empty.")

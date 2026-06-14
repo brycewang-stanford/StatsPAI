@@ -15,7 +15,19 @@ except ImportError:
 
 
 def moran_plot(y, w: W, ax=None):
-    """Moran scatter: z vs spatial lag Wz. Slope of OLS line = Moran's I."""
+    """Moran scatter: z vs spatial lag Wz. Slope of OLS line = Moran's I.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(0)
+    >>> coords = rng.uniform(size=(60, 2))
+    >>> w = sp.knn_weights(coords, k=5)
+    >>> y = coords[:, 0] + rng.normal(scale=0.3, size=60)
+    >>> ax = sp.moran_plot(y, w)
+    >>> ax.figure.savefig("moran.png")  # doctest: +SKIP
+    """
     import matplotlib.pyplot as plt
     y = np.asarray(y, dtype=float).ravel()
     z = y - y.mean()
@@ -37,7 +49,26 @@ def moran_plot(y, w: W, ax=None):
 
 
 def lisa_cluster_map(y, w: W, gdf, ax=None, p_threshold: float = 0.05):
-    """Classify each observation HH/LL/HL/LH/Not significant and colour on a GDF."""
+    """Classify each observation HH/LL/HL/LH/Not significant and colour on a GDF.
+
+    Requires ``geopandas`` (install with ``pip install geopandas``); the
+    ``gdf`` must align row-for-row with ``y`` and ``w``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(0)
+    >>> coords = rng.uniform(size=(60, 2))
+    >>> w = sp.knn_weights(coords, k=5)
+    >>> y = coords[:, 0] + rng.normal(scale=0.3, size=60)
+    >>> import geopandas as gpd  # doctest: +SKIP
+    >>> from shapely.geometry import Point  # doctest: +SKIP
+    >>> pts = [Point(xy) for xy in coords]  # doctest: +SKIP
+    >>> gdf = gpd.GeoDataFrame(geometry=pts)  # doctest: +SKIP
+    >>> ax = sp.lisa_cluster_map(y, w, gdf)  # doctest: +SKIP
+    >>> ax.figure.savefig("lisa.png")  # doctest: +SKIP
+    """
     if _gpd is None:
         raise ImportError(
             "geopandas is required for lisa_cluster_map. "

@@ -44,6 +44,23 @@ class MRcMLResult:
     loglik : float
         Final log-likelihood at K_selected.
     n_snps : int
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(8)
+    >>> bx = rng.uniform(0.1, 0.5, 25)
+    >>> sx = rng.uniform(0.02, 0.05, 25)
+    >>> sy = rng.uniform(0.02, 0.05, 25)
+    >>> by = 0.3 * bx + rng.normal(0, sy)
+    >>> res = sp.mr_cml(bx, by, sx, sy)
+    >>> type(res).__name__
+    'MRcMLResult'
+    >>> res.n_snps
+    25
+    >>> bool(np.isfinite(res.estimate))
+    True
     """
     estimate: float
     se: float
@@ -212,8 +229,17 @@ def mr_cml(
     Examples
     --------
     >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(8)
+    >>> bx = rng.uniform(0.1, 0.5, 25)
+    >>> sx = rng.uniform(0.02, 0.05, 25)
+    >>> sy = rng.uniform(0.02, 0.05, 25)
+    >>> by = 0.3 * bx + rng.normal(0, sy)
     >>> res = sp.mr_cml(bx, by, sx, sy)
-    >>> print(res.summary())
+    >>> type(res).__name__
+    'MRcMLResult'
+    >>> bool(np.isfinite(res.estimate))
+    True
     """
     bx, by, sx, sy = as_float_arrays(
         beta_exposure, beta_outcome, se_exposure, se_outcome

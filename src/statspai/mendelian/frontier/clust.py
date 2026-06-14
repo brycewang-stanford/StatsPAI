@@ -47,6 +47,23 @@ class MRClustResult:
     wald_se : np.ndarray
         Per-SNP Wald-ratio first-order SE.
     n_snps : int
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(8)
+    >>> bx = rng.uniform(0.1, 0.5, 25)
+    >>> sx = rng.uniform(0.02, 0.05, 25)
+    >>> sy = rng.uniform(0.02, 0.05, 25)
+    >>> by = 0.3 * bx + rng.normal(0, sy)
+    >>> res = sp.mr_clust(bx, by, sx, sy)
+    >>> type(res).__name__
+    'MRClustResult'
+    >>> res.n_snps
+    25
+    >>> bool(len(res.assignments) == 25)
+    True
     """
     cluster_estimates: pd.DataFrame
     assignments: np.ndarray
@@ -210,8 +227,17 @@ def mr_clust(
     Examples
     --------
     >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(8)
+    >>> bx = rng.uniform(0.1, 0.5, 25)
+    >>> sx = rng.uniform(0.02, 0.05, 25)
+    >>> sy = rng.uniform(0.02, 0.05, 25)
+    >>> by = 0.3 * bx + rng.normal(0, sy)
     >>> res = sp.mr_clust(bx, by, sx, sy, K_range=(1, 4))
-    >>> print(res.summary())
+    >>> type(res).__name__
+    'MRClustResult'
+    >>> res.n_snps
+    25
     """
     bx, by, sx, sy = as_float_arrays(
         beta_exposure, beta_outcome, se_exposure, se_outcome

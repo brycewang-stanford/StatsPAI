@@ -136,6 +136,35 @@ def spatial_panel(
     model : {"sar", "sem", "sdm"}
     effects : {"fe", "twoways"}
         ``"fe"`` = entity FE only. ``"twoways"`` = entity + time demeaning.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> N, T = 8, 6
+    >>> W = np.zeros((N, N))  # ring contiguity weights
+    >>> for i in range(N):
+    ...     W[i, (i - 1) % N] = 1.0
+    ...     W[i, (i + 1) % N] = 1.0
+    >>> rows = []
+    >>> for i in range(N):
+    ...     fe = rng.normal()
+    ...     for t in range(T):
+    ...         x = rng.normal()
+    ...         y = fe + 0.5 * x + rng.normal(0, 0.3)
+    ...         rows.append({"id": i, "year": t, "y": y, "x": x})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.spatial_panel(
+    ...     df, "y ~ x", entity="id", time="year", W=W, model="sar",
+    ... )
+    >>> res.spatial_param
+    'rho'
+    >>> (res.N, res.T)
+    (8, 6)
+    >>> bool(np.isfinite(res.params["x"]))
+    True
     """
     if "~" not in formula:
         raise ValueError("formula must be of the form 'y ~ x1 + x2'")

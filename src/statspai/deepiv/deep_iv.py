@@ -246,6 +246,30 @@ class DeepIV:
         Significance level.
     random_state : int
     verbose : bool
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 150
+    >>> z = rng.normal(size=n)
+    >>> x = rng.normal(size=n)
+    >>> t = 0.8 * z + 0.5 * x + rng.normal(size=n)
+    >>> y = 1.5 * t + x + rng.normal(size=n)
+    >>> df = pd.DataFrame({"y": y, "t": t, "z": z, "x": x})
+    >>> est = sp.DeepIV(df, y="y", treat="t", instruments=["z"],
+    ...                 covariates=["x"], first_stage_epochs=5,
+    ...                 second_stage_epochs=5, hidden_layers=(16,),
+    ...                 batch_size=64, random_state=0)
+    >>> res = est.fit()  # requires PyTorch (pip install statspai[deepiv])
+    >>> isinstance(res, sp.CausalResult)
+    True
+
+    References
+    ----------
+    [@hartford2017deep]
     """
 
     def __init__(

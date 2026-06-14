@@ -407,6 +407,34 @@ class BLPResult:
         Value of the GMM objective at the optimum.
     converged : bool
         Whether the outer-loop optimization converged.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for m in range(10):  # 10 markets, 5 products each
+    ...     x1 = rng.normal(0, 1, 5)
+    ...     x2 = rng.normal(0, 1, 5)
+    ...     price = rng.uniform(1, 3, 5)
+    ...     delta = x1 + 0.5 * x2 - price + rng.normal(0, 0.2, 5)
+    ...     ex = np.exp(delta)
+    ...     share = ex / (1 + ex.sum())
+    ...     for j in range(5):
+    ...         rows.append({"market_id": m, "product_id": j,
+    ...                      "share": share[j], "price": price[j],
+    ...                      "x1": x1[j], "x2": x2[j]})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.blp(df, shares="share", prices="price",
+    ...              x_linear=["x1", "x2"], x_random=["x1"],
+    ...              n_draws=50, maxiter=50, seed=0)
+    >>> type(res).__name__
+    'BLPResult'
+    >>> (res.n_markets, res.n_products)
+    (10, 50)
+    >>> bool("x1" in res.linear_params.index)
+    True
     """
 
     def __init__(
@@ -747,18 +775,29 @@ def blp(
     Examples
     --------
     >>> import statspai as sp
-    >>> result = sp.structural.blp(
-    ...     data=cereal_data,
-    ...     shares='share',
-    ...     prices='price',
-    ...     x_linear=['sugar', 'mushy'],
-    ...     x_random=['sugar', 'price'],
-    ...     market_id='city_id',
-    ...     product_id='brand_id',
-    ...     n_draws=500,
-    ...     seed=42,
+    >>> import numpy as np, pandas as pd
+    >>> # Multinomial-logit DGP with endogenous price + two cost instruments.
+    >>> rng = np.random.default_rng(1)
+    >>> rows = []
+    >>> for mkt in range(20):
+    ...     x = rng.uniform(0, 2, 4)
+    ...     xi = rng.normal(0, 0.2, 4)        # demand shock -> price endogeneity
+    ...     cost = rng.uniform(0.5, 2, 4)
+    ...     z2 = rng.uniform(0, 1, 4)
+    ...     price = 0.8 * cost + 0.5 * z2 + 0.4 * xi + rng.uniform(0, 0.5, 4)
+    ...     delta = 1.0 * x - 1.5 * price + xi
+    ...     ev = np.exp(delta)
+    ...     shares = ev / (1 + ev.sum())      # logit shares with an outside good
+    ...     for j in range(4):
+    ...         rows.append({"market_id": mkt, "product_id": j,
+    ...                      "share": shares[j], "price": price[j],
+    ...                      "x1": x[j], "cost": cost[j], "z2": z2[j]})
+    >>> df = pd.DataFrame(rows)
+    >>> result = sp.blp(
+    ...     df, shares='share', prices='price', x_linear=['x1'],
+    ...     x_random=['x1'], instruments=['cost', 'z2'], n_draws=30, seed=0,
     ... )
-    >>> print(result.summary())
+    >>> _ = result.summary()
     >>> elas = result.elasticity_matrix(market_id=1)
     """
     # ---- Validate inputs --------------------------------------------------

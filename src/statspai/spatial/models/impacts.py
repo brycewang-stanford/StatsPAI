@@ -41,6 +41,27 @@ def impacts(result, n_sim: int = 1000, seed: Optional[int] = None) -> pd.DataFra
     DataFrame with one row per non-constant regressor and columns
     ``Direct``, ``SE_Direct``, ``Indirect``, ``SE_Indirect``, ``Total``,
     ``SE_Total``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(7)
+    >>> n = 120
+    >>> coords = rng.uniform(size=(n, 2))
+    >>> w = sp.knn_weights(coords, k=6)
+    >>> w.transform = "R"
+    >>> W = w.sparse.toarray()
+    >>> x = rng.standard_normal(n)
+    >>> y = np.linalg.solve(np.eye(n) - 0.5 * W,
+    ...                     1 + 2 * x + rng.standard_normal(n))
+    >>> res = sp.sar(w, pd.DataFrame({"y": y, "x": x}), "y ~ x")
+    >>> imp = sp.impacts(res, n_sim=200, seed=0)
+    >>> list(imp.columns)
+    ['Direct', 'SE_Direct', 'Indirect', 'SE_Indirect', 'Total', 'SE_Total']
+    >>> list(imp.index)
+    ['x']
     """
     model_type = result.model_info.get("model_type", "").split(" ")[0].upper()
     if model_type not in {"SAR", "SAC", "SDM"}:

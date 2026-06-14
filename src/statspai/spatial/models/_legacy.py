@@ -181,6 +181,31 @@ class SpatialModel:
 
     Uses concentrated ML: profile out β and σ², optimise over ρ (or λ)
     in one dimension using eigenvalues of W.
+
+    The engine behind :func:`sp.sar` / :func:`sp.sem` / :func:`sp.sdm`.
+    Construct it with a dense ``(n, n)`` weights matrix ``W``, the data
+    and a formula, then call :meth:`fit` to obtain an
+    ``EconometricResults`` carrying the spatial parameter (``rho`` for
+    SAR / SDM, ``lambda`` for SEM).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 50
+    >>> W = np.zeros((n, n))            # nearest-neighbour chain weights
+    >>> for i in range(n - 1):
+    ...     W[i, i + 1] = W[i + 1, i] = 1.0
+    >>> df = pd.DataFrame({"x": rng.normal(size=n)})
+    >>> df["y"] = 1.0 + 0.5 * df["x"] + rng.normal(size=n)
+    >>> model = sp.SpatialModel(W, df, "y ~ x", model_type="sar")
+    >>> res = model.fit()
+    >>> type(res).__name__
+    'EconometricResults'
+    >>> model.model_type
+    'sar'
     """
 
     def __init__(

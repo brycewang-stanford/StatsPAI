@@ -61,6 +61,23 @@ def sem_gmm(W, data: pd.DataFrame, formula: str,
     robust : {None, "het"}
         When ``"het"``, the final β covariance uses the heteroscedasticity-
         robust sandwich (Arraiz et al. 2010 / ``spreg.GM_Error_Het``).
+
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 40
+    >>> W = np.zeros((n, n))  # ring contiguity: each unit linked to neighbours
+    >>> for i in range(n):
+    ...     W[i, (i - 1) % n] = 1.0
+    ...     W[i, (i + 1) % n] = 1.0
+    >>> x = rng.normal(size=n)
+    >>> df = pd.DataFrame({"y": 1.0 + 0.8 * x + rng.normal(scale=0.5, size=n),
+    ...                    "x": x})
+    >>> res = sp.sem_gmm(W, data=df, formula="y ~ x")
+    >>> list(res.params.index)
+    ['const', 'x', 'lambda']
     """
     y, X, dep, indep = _parse_formula(formula, data)
     n = len(y)
@@ -145,6 +162,27 @@ def sar_gmm(W, data: pd.DataFrame, formula: str,
     Instruments: ``[X, W X, …, W^w_lags X]`` (dropping constant duplicates).
     ``w_lags=1`` (default) matches ``spreg.GM_Lag`` default.
     Endogenous regressor: ``W Y``.
+
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 40
+    >>> W = np.zeros((n, n))  # ring contiguity: each unit linked to neighbours
+    >>> for i in range(n):
+    ...     W[i, (i - 1) % n] = 1.0
+    ...     W[i, (i + 1) % n] = 1.0
+    >>> x = rng.normal(size=n)
+    >>> df = pd.DataFrame({"y": 1.0 + 0.8 * x + rng.normal(scale=0.5, size=n),
+    ...                    "x": x})
+    >>> res = sp.sar_gmm(W, data=df, formula="y ~ x")
+    >>> list(res.params.index)
+    ['const', 'x', 'rho']
+
+    References
+    ----------
+    kelejian1998generalized
     """
     y, X, dep, indep = _parse_formula(formula, data)
     n, k = X.shape
@@ -223,6 +261,27 @@ def sarar_gmm(W, data: pd.DataFrame, formula: str,
     """Combined GMM: Kelejian-Prucha SAR 2SLS then SEM GMM on residuals.
 
     Equivalent to ``spreg.GM_Combo`` (or ``GM_Combo_Het`` with ``robust='het'``).
+
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 40
+    >>> W = np.zeros((n, n))  # ring contiguity: each unit linked to neighbours
+    >>> for i in range(n):
+    ...     W[i, (i - 1) % n] = 1.0
+    ...     W[i, (i + 1) % n] = 1.0
+    >>> x = rng.normal(size=n)
+    >>> df = pd.DataFrame({"y": 1.0 + 0.8 * x + rng.normal(scale=0.5, size=n),
+    ...                    "x": x})
+    >>> res = sp.sarar_gmm(W, data=df, formula="y ~ x")
+    >>> list(res.params.index)
+    ['const', 'x', 'rho', 'lambda']
+
+    References
+    ----------
+    kelejian1998generalized
     """
     # Stage 1 — SAR GMM to recover (β̂, ρ̂) and residuals ε̂
     sar_res = sar_gmm(W, data, formula, row_normalize=row_normalize, robust=robust)

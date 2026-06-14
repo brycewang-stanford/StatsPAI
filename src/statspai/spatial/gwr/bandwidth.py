@@ -93,6 +93,23 @@ def gwr_bandwidth(
         (integer-valued; rounded at each candidate).
     bw_min, bw_max : float, optional
         Override the default search bounds.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 80
+    >>> coords = rng.uniform(0, 10, size=(n, 2))
+    >>> x = rng.normal(size=n)
+    >>> beta = 0.5 + 0.1 * coords[:, 1]  # spatially varying slope
+    >>> y = 1.0 + beta * x + rng.normal(0, 0.3, n)
+    >>> bw = sp.gwr_bandwidth(coords, y, x.reshape(-1, 1), criterion="AICc")
+    >>> bool(bw > 0)
+    True
+    >>> res = sp.gwr(coords, y, x.reshape(-1, 1), bw=bw, fixed=False)
+    >>> type(res).__name__
+    'GWRResult'
     """
     coords = np.asarray(coords, dtype=float)
     y = np.asarray(y, dtype=float).ravel()

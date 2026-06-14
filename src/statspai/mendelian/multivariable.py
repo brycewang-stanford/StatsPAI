@@ -181,6 +181,26 @@ def mr_multivariable(
     fitted by weighted least squares with weights ``1 / se_y²``. The α_j
     are the direct causal effects, holding other exposures fixed.
 
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n_snps = 30
+    >>> bx1 = rng.uniform(0.1, 0.5, n_snps)
+    >>> bx2 = rng.uniform(0.1, 0.5, n_snps)
+    >>> # True direct effects: X1 -> Y = 0.4, X2 -> Y = 0.0.
+    >>> by = 0.4 * bx1 + 0.0 * bx2 + rng.normal(0, 0.02, n_snps)
+    >>> snp = pd.DataFrame({
+    ...     "beta_x1": bx1, "beta_x2": bx2, "beta_y": by,
+    ...     "se_y": rng.uniform(0.01, 0.05, n_snps),
+    ... })
+    >>> res = sp.mr_multivariable(snp, outcome="beta_y", outcome_se="se_y")
+    >>> isinstance(res, sp.MVMRResult)
+    True
+    >>> res.exposures
+    ['beta_x1', 'beta_x2']
+
     References
     ----------
     Sanderson, E., Davey Smith, G., Windmeijer, F. & Bowden, J. (2019).
@@ -329,6 +349,27 @@ def mr_mediation(
     Delta-method SE for the indirect effect combines SEs from steps 1
     and 3.
 
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(1)
+    >>> n_snps = 30
+    >>> bx = rng.uniform(0.1, 0.5, n_snps)
+    >>> # exposure -> mediator (0.5), mediator -> outcome (0.6), direct (0.2).
+    >>> bm = 0.5 * bx + rng.normal(0, 0.02, n_snps)
+    >>> by = 0.2 * bx + 0.6 * bm + rng.normal(0, 0.02, n_snps)
+    >>> snp = pd.DataFrame({
+    ...     "beta_x": bx, "se_x": rng.uniform(0.01, 0.05, n_snps),
+    ...     "beta_m": bm, "se_m": rng.uniform(0.01, 0.05, n_snps),
+    ...     "beta_y": by, "se_y": rng.uniform(0.01, 0.05, n_snps),
+    ... })
+    >>> res = sp.mr_mediation(snp)
+    >>> isinstance(res, sp.MediationMRResult)
+    True
+    >>> bool(res.indirect_effect > 0)  # positive mediated path X -> M -> Y
+    True
+
     References
     ----------
     Burgess, S., Daniel, R. M., Butterworth, A. S. & Thompson, S. G. (2015).
@@ -422,6 +463,27 @@ def mr_bma(
     Model posterior ∝ exp(-BIC_M / 2) * prior(M).
 
     Runs quickly for k ≤ 12. For more exposures use ``max_model_size``.
+
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(2)
+    >>> n_snps = 40
+    >>> bx1 = rng.uniform(0.1, 0.5, n_snps)
+    >>> bx2 = rng.uniform(0.1, 0.5, n_snps)
+    >>> bx3 = rng.uniform(0.1, 0.5, n_snps)
+    >>> by = 0.4 * bx1 + rng.normal(0, 0.02, n_snps)  # only X1 is causal
+    >>> snp = pd.DataFrame({
+    ...     "beta_x1": bx1, "beta_x2": bx2, "beta_x3": bx3, "beta_y": by,
+    ...     "se_y": rng.uniform(0.01, 0.05, n_snps),
+    ... })
+    >>> res = sp.mr_bma(snp, outcome="beta_y", outcome_se="se_y")
+    >>> isinstance(res, sp.MRBMAResult)
+    True
+    >>> # X1 carries the most posterior inclusion mass.
+    >>> bool(res.marginal_inclusion["beta_x1"] > res.marginal_inclusion["beta_x2"])
+    True
 
     References
     ----------

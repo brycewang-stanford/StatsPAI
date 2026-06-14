@@ -121,6 +121,31 @@ def xtfrontier(
     -------
     :class:`~statspai.frontier.FrontierResult`
 
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(1)
+    >>> rows = []
+    >>> for fid in range(30):
+    ...     u_i = rng.exponential(0.3)  # time-invariant inefficiency
+    ...     for t in range(6):
+    ...         log_k = rng.normal(0, 1)
+    ...         log_l = rng.normal(0, 1)
+    ...         v = rng.normal(0, 0.2)
+    ...         log_y = 1.0 + 0.4 * log_k + 0.5 * log_l + v - u_i
+    ...         rows.append(dict(firm=fid, year=t, log_y=log_y,
+    ...                          log_k=log_k, log_l=log_l))
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.xtfrontier(
+    ...     df, y="log_y", x=["log_k", "log_l"],
+    ...     id="firm", time="year", model="ti")
+    >>> type(res).__name__
+    'FrontierResult'
+    >>> eff = res.efficiency()
+    >>> bool((eff > 0).all() and (eff <= 1.0 + 1e-8).all())
+    True
+
     Notes
     -----
     **σ_u and σ_v conventions, and Stata scale diagnostics.**

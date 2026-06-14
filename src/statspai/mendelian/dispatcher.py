@@ -108,7 +108,19 @@ _REGISTRY: Dict[str, Tuple[str, str]] = {
 
 
 def available_methods() -> list[str]:
-    """Return the full list of registered MR method names (incl. aliases)."""
+    """Return the full list of registered MR method names (incl. aliases).
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> methods = sp.mr_available_methods()
+    >>> isinstance(methods, list)
+    True
+    >>> "ivw" in methods and "mvmr" in methods
+    True
+    >>> methods == sorted(methods)  # returned sorted
+    True
+    """
     return sorted(_REGISTRY.keys())
 
 

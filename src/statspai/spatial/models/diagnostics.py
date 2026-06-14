@@ -34,6 +34,22 @@ def lm_tests(formula: str, data: pd.DataFrame, W,
     -------
     dict
         ``{name: (statistic, p_value)}`` for the five tests.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 80
+    >>> coords = rng.uniform(size=(n, 2))
+    >>> w = sp.knn_weights(coords, k=5)
+    >>> x1 = rng.normal(size=n)
+    >>> y = 1.0 + 0.5 * x1 + rng.normal(scale=0.5, size=n)
+    >>> df = pd.DataFrame({"y": y, "x1": x1})
+    >>> out = sp.lm_tests("y ~ x1", df, w)
+    >>> sorted(out.keys())
+    ['LM_err', 'LM_lag', 'Robust_LM_err', 'Robust_LM_lag', 'SARMA']
     """
     y, X, _dep, _indep = _parse_formula(formula, data)
     M = _coerce_W(W, n_expected=len(y), row_normalize=row_normalize)
@@ -88,7 +104,20 @@ def lm_tests(formula: str, data: pd.DataFrame, W,
 
 def moran_residuals(residuals: np.ndarray, W,
                     row_normalize: bool = True) -> Tuple[float, float]:
-    """Moran's I applied to regression residuals (quick LM-err companion)."""
+    """Moran's I applied to regression residuals (quick LM-err companion).
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(0)
+    >>> coords = rng.uniform(size=(80, 2))
+    >>> w = sp.knn_weights(coords, k=5)
+    >>> resid = rng.normal(size=80)
+    >>> I, p = sp.moran_residuals(resid, w)
+    >>> bool(np.isfinite(I) and np.isfinite(p))
+    True
+    """
     from ..esda.moran import moran
     M = _coerce_W(W, n_expected=len(residuals), row_normalize=row_normalize)
     from ..weights.core import W as _W
