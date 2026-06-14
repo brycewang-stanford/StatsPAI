@@ -19,7 +19,40 @@ from scipy import stats
 
 @dataclass
 class StaggeredClusterRCTResult:
-    """Staggered-rollout cluster RCT output."""
+    """Staggered-rollout cluster RCT output.
+
+    Attributes
+    ----------
+    overall_att : float
+        Mean post-treatment dynamic ATT across event times.
+    overall_se : float
+        Cluster-bootstrap standard error of ``overall_att``.
+    event_study : pandas.DataFrame
+        Per relative-time ATTs with ``se``, ``ci_low`` and ``ci_high``.
+    n_clusters : int
+        Number of clusters in the design.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for c in range(12):
+    ...     ft = 4 if c < 4 else (6 if c < 8 else 0)  # 0 = never-treated
+    ...     fe = rng.normal()
+    ...     for t in range(8):
+    ...         d = 1 if (ft > 0 and t >= ft) else 0
+    ...         y = 1.0 + fe + 0.2 * t + 1.5 * d + rng.normal(scale=0.3)
+    ...         rows.append({"cluster": c, "time": t, "first_treat": ft, "y": y})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.cluster_staggered_rollout(
+    ...     df, y="y", cluster="cluster", time="time", first_treat="first_treat")
+    >>> isinstance(res, sp.StaggeredClusterRCTResult)
+    True
+    >>> res.n_clusters
+    12
+    """
     overall_att: float
     overall_se: float
     event_study: pd.DataFrame
@@ -66,6 +99,27 @@ def cluster_staggered_rollout(
     Returns
     -------
     StaggeredClusterRCTResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for c in range(12):  # 4 cohorts at t=4, 4 at t=6, 4 never-treated
+    ...     ft = 4 if c < 4 else (6 if c < 8 else 0)
+    ...     fe = rng.normal()
+    ...     for t in range(8):
+    ...         d = 1 if (ft > 0 and t >= ft) else 0
+    ...         y = 1.0 + fe + 0.2 * t + 1.5 * d + rng.normal(scale=0.3)
+    ...         rows.append({"cluster": c, "time": t, "first_treat": ft, "y": y})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.cluster_staggered_rollout(
+    ...     df, y="y", cluster="cluster", time="time", first_treat="first_treat")
+    >>> res.event_study.columns.tolist()
+    ['rel_time', 'att', 'se', 'ci_low', 'ci_high']
+    >>> res.n_clusters
+    12
     """
     df = data[[y, cluster, time, first_treat]].dropna().reset_index(drop=True)
     cl = df.groupby([cluster, time]).agg({y: 'mean', first_treat: 'first'}) \

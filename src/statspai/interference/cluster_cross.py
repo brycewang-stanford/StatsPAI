@@ -20,7 +20,36 @@ from scipy import stats
 
 @dataclass
 class CrossClusterRCTResult:
-    """Output of cross-cluster RCT with interference correction."""
+    """Output of cross-cluster RCT with interference correction.
+
+    Produced by :func:`cluster_cross_interference`. Holds the estimated
+    ``direct_effect`` and ``spillover_effect`` (with standard errors), the
+    number of clusters, and a formatted ``.summary()``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for c in range(40):
+    ...     d = int(rng.integers(0, 2))
+    ...     nshare = float(rng.random())
+    ...     base = 1.0 * d + 0.8 * nshare
+    ...     for _ in range(int(rng.integers(5, 15))):
+    ...         rows.append({"cluster": c, "treat": d,
+    ...                      "nshare": nshare, "y": base + rng.normal()})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.cluster_cross_interference(df, y="y", cluster="cluster",
+    ...                                     treat="treat",
+    ...                                     neighbour_treat_share="nshare")
+    >>> type(res).__name__
+    'CrossClusterRCTResult'
+    >>> res.n_clusters
+    40
+    >>> isinstance(res.summary(), str)
+    True
+    """
     direct_effect: float
     direct_se: float
     spillover_effect: float
@@ -68,6 +97,30 @@ def cluster_cross_interference(
     Returns
     -------
     CrossClusterRCTResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for c in range(40):
+    ...     d = int(rng.integers(0, 2))
+    ...     nshare = float(rng.random())
+    ...     base = 1.0 * d + 0.8 * nshare
+    ...     for _ in range(int(rng.integers(5, 15))):
+    ...         rows.append({"cluster": c, "treat": d,
+    ...                      "nshare": nshare, "y": base + rng.normal()})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.cluster_cross_interference(df, y="y", cluster="cluster",
+    ...                                     treat="treat",
+    ...                                     neighbour_treat_share="nshare")
+    >>> res.n_clusters
+    40
+    >>> isinstance(res.direct_effect, float)
+    True
+    >>> isinstance(res.summary(), str)
+    True
     """
     df = data[[y, cluster, treat, neighbour_treat_share]].dropna() \
         .reset_index(drop=True)

@@ -22,7 +22,35 @@ from scipy import stats
 
 @dataclass
 class DNCGNNDiDResult:
-    """Output of DNC + GNN + DiD."""
+    """Output of DNC + GNN + DiD.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for uid in range(40):
+    ...     treat_time = 3 if uid < 20 else 0
+    ...     u = rng.normal()
+    ...     for t in range(1, 6):
+    ...         post = 1 if (treat_time > 0 and t >= treat_time) else 0
+    ...         rows.append({
+    ...             "id": uid, "time": t, "treat": treat_time,
+    ...             "y": u + 0.5 * t + 1.2 * post + rng.normal(0, 0.3),
+    ...             "nc_y": u + 0.4 * t + rng.normal(0, 0.3),
+    ...             "nc_d": u + rng.normal(0, 0.3),
+    ...         })
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.dnc_gnn_did(
+    ...     df, y="y", treat="treat", time="time", id="id",
+    ...     nc_outcome=["nc_y"], nc_exposure=["nc_d"], n_boot=50, seed=1)
+    >>> isinstance(res, sp.DNCGNNDiDResult)
+    True
+    >>> bool(res.se > 0 and res.ci[0] < res.estimate < res.ci[1])
+    True
+    """
     estimate: float
     se: float
     ci: tuple
@@ -87,6 +115,32 @@ def dnc_gnn_did(
     Returns
     -------
     DNCGNNDiDResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for uid in range(40):
+    ...     treat_time = 3 if uid < 20 else 0
+    ...     u = rng.normal()
+    ...     for t in range(1, 6):
+    ...         post = 1 if (treat_time > 0 and t >= treat_time) else 0
+    ...         rows.append({
+    ...             "id": uid, "time": t, "treat": treat_time,
+    ...             "y": u + 0.5 * t + 1.2 * post + rng.normal(0, 0.3),
+    ...             "nc_y": u + 0.4 * t + rng.normal(0, 0.3),
+    ...             "nc_d": u + rng.normal(0, 0.3),
+    ...         })
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.dnc_gnn_did(
+    ...     df, y="y", treat="treat", time="time", id="id",
+    ...     nc_outcome=["nc_y"], nc_exposure=["nc_d"], n_boot=50, seed=1)
+    >>> bool(res.se > 0)
+    True
+    >>> print(res.summary())  # doctest: +SKIP
     """
     df = data[[y, treat, time, id] + list(nc_outcome) + list(nc_exposure)] \
         .dropna().reset_index(drop=True)

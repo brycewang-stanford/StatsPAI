@@ -19,7 +19,32 @@ from scipy import stats
 
 @dataclass
 class MatchedPairResult:
-    """Output of matched-pair cluster RCT estimation."""
+    """Output of matched-pair cluster RCT estimation.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(7)
+    >>> rows = []
+    >>> for p in range(20):                       # 20 matched pairs
+    ...     base = rng.normal(0, 1)               # shared pair-level baseline
+    ...     for arm in (0, 1):                    # one control, one treated cluster
+    ...         cid = p * 2 + arm
+    ...         for _ in range(15):
+    ...             y = base + 0.5 * arm + rng.normal(0, 0.3)
+    ...             rows.append({"y": y, "cluster": cid, "treat": arm, "pair": p})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.cluster_matched_pair(df, y="y", cluster="cluster",
+    ...                               treat="treat", pair="pair")
+    >>> isinstance(res, sp.MatchedPairResult)
+    True
+    >>> res.n_pairs
+    20
+    >>> res.n_clusters
+    40
+    """
     estimate: float
     se: float
     ci: tuple
@@ -66,6 +91,28 @@ def cluster_matched_pair(
     Returns
     -------
     MatchedPairResult
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(7)
+    >>> rows = []
+    >>> for p in range(20):                       # 20 matched pairs
+    ...     base = rng.normal(0, 1)               # shared pair-level baseline
+    ...     for arm in (0, 1):                    # one control, one treated cluster
+    ...         cid = p * 2 + arm
+    ...         for _ in range(15):
+    ...             y = base + 0.5 * arm + rng.normal(0, 0.3)
+    ...             rows.append({"y": y, "cluster": cid, "treat": arm, "pair": p})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.cluster_matched_pair(df, y="y", cluster="cluster",
+    ...                               treat="treat", pair="pair")
+    >>> res.n_pairs
+    20
+    >>> "Matched-Pair" in res.summary()
+    True
     """
     df = data[[y, cluster, treat, pair]].dropna().reset_index(drop=True)
     # Cluster-level means

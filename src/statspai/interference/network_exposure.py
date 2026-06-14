@@ -57,6 +57,36 @@ from scipy import stats
 
 @dataclass
 class NetworkExposureResult:
+    """Container for :func:`network_exposure` Horvitz-Thompson estimates.
+
+    Attributes
+    ----------
+    estimates : pandas.DataFrame
+        One row per exposure level with HT mean, SE and CI.
+    contrasts : pandas.DataFrame
+        Pairwise contrasts (direct / spillover / composite) for the AS4 map.
+    exposure_levels : list of str
+        The exposure categories realised in the data.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(0)
+    >>> n = 60
+    >>> A = np.zeros((n, n), dtype=int)
+    >>> for i in range(n):
+    ...     A[i, (i + 1) % n] = 1
+    ...     A[i, (i - 1) % n] = 1
+    >>> Z = (rng.random(n) < 0.5).astype(int)
+    >>> Y = 1.0 + 2.0 * Z + 0.5 * (A @ Z) + rng.normal(size=n)
+    >>> res = sp.network_exposure(Y, Z, A, p_treat=0.5, n_sim=500, seed=0)
+    >>> isinstance(res, sp.NetworkExposureResult)
+    True
+    >>> res.exposure_levels
+    ['c00', 'c01', 'c10', 'c11']
+    """
+
     estimates: pd.DataFrame  # one row per exposure level
     contrasts: pd.DataFrame  # pairwise contrasts (e.g. direct, spillover)
     exposure_levels: List[str]
@@ -237,6 +267,29 @@ def network_exposure(
         Per-exposure HT means and SEs, plus contrasts for
         ``direct = mu(c10) - mu(c00)`` and ``spillover = mu(c01) - mu(c00)``
         when the AS4 mapping is used.
+
+    References
+    ----------
+    aronow2017estimating
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(0)
+    >>> n = 60
+    >>> A = np.zeros((n, n), dtype=int)  # ring network: two neighbours each
+    >>> for i in range(n):
+    ...     A[i, (i + 1) % n] = 1
+    ...     A[i, (i - 1) % n] = 1
+    >>> Z = (rng.random(n) < 0.5).astype(int)
+    >>> Y = 1.0 + 2.0 * Z + 0.5 * (A @ Z) + rng.normal(size=n)
+    >>> res = sp.network_exposure(Y, Z, A, p_treat=0.5, n_sim=500, seed=0)
+    >>> res.estimates["exposure"].tolist()
+    ['c00', 'c01', 'c10', 'c11']
+    >>> res.contrasts["contrast"].tolist()  # doctest: +NORMALIZE_WHITESPACE
+    ['direct (c10 - c00)', 'spillover (c01 - c00)',
+     'composite (c11 - c00)', 'spillover_on_treated (c11 - c10)']
     """
     Y = np.asarray(Y, dtype=float)
     Z = np.asarray(Z, dtype=int)

@@ -133,6 +133,26 @@ def network_hte(
     -------
     NetworkHTEResult
 
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 200
+    >>> d = (rng.uniform(size=n) < 0.5).astype(float)
+    >>> e = rng.uniform(size=n)  # neighbour exposure share
+    >>> x1 = rng.normal(size=n)
+    >>> x2 = rng.normal(size=n)
+    >>> y = 1.0 + 0.8 * d + 0.5 * e + 0.3 * x1 + rng.normal(scale=0.5, size=n)
+    >>> df = pd.DataFrame({"y": y, "d": d, "e": e, "x1": x1, "x2": x2})
+    >>> res = sp.network_hte(
+    ...     df, y="y", treatment="d", neighbor_exposure="e",
+    ...     covariates=["x1", "x2"], n_folds=3, random_state=0,
+    ... )
+    >>> bool(res.direct_effect > res.spillover_effect)
+    True
+
     References
     ----------
     Wu & Yuan (arXiv:2509.18484, 2025). [@wu2025estimating]
@@ -254,6 +274,25 @@ def inward_outward_spillover(
     Returns
     -------
     InwardOutwardResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 200
+    >>> d = (rng.uniform(size=n) < 0.5).astype(float)
+    >>> e_in = rng.uniform(size=n)
+    >>> e_out = rng.uniform(size=n)
+    >>> y = 1.0 + 0.6 * d + 0.4 * e_in + 0.2 * e_out + rng.normal(scale=0.5, size=n)
+    >>> df = pd.DataFrame({"y": y, "d": d, "e_in": e_in, "e_out": e_out})
+    >>> res = sp.inward_outward_spillover(
+    ...     df, y="y", treatment="d",
+    ...     inward_exposure="e_in", outward_exposure="e_out",
+    ... )
+    >>> bool(res.inward_se > 0)
+    True
 
     References
     ----------

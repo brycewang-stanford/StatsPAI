@@ -42,6 +42,38 @@ from scipy import stats
 
 @dataclass
 class PeerEffectsResult:
+    """Container for :func:`peer_effects` linear-in-means estimates.
+
+    Attributes
+    ----------
+    endogenous_peer : float
+        The estimated endogenous peer effect ``beta`` (coefficient on ``WY``).
+    contextual_peer : dict
+        Contextual peer effects (``gamma``) per covariate.
+    direct : dict
+        Own-covariate (``delta``) coefficients.
+    coefficients : pandas.DataFrame
+        Full coefficient table with ``variable``, ``coef`` and ``se``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 80
+    >>> W = np.zeros((n, n))
+    >>> for i in range(n - 1):
+    ...     W[i, i + 1] = 1
+    ...     W[i + 1, i] = 1
+    >>> x = rng.normal(size=n)
+    >>> df = pd.DataFrame({"y": 0.8 * x + rng.normal(size=n), "x": x})
+    >>> res = sp.peer_effects(df, y="y", covariates=["x"], W=W)
+    >>> isinstance(res, sp.PeerEffectsResult)
+    True
+    >>> isinstance(res.endogenous_peer, float)
+    True
+    """
+
     endogenous_peer: float  # beta (mean of neighbors' y)
     contextual_peer: Dict[str, float]  # gamma per covariate
     direct: Dict[str, float]  # delta per covariate
@@ -94,6 +126,31 @@ def peer_effects(
     Returns
     -------
     PeerEffectsResult
+
+    References
+    ----------
+    bramoull2009identification
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 80
+    >>> W = np.zeros((n, n))  # path network: BDF exclusion restriction holds
+    >>> for i in range(n - 1):
+    ...     W[i, i + 1] = 1
+    ...     W[i + 1, i] = 1
+    >>> x = rng.normal(size=n)
+    >>> rs = W.sum(1, keepdims=True)
+    >>> Wn = W / np.where(rs == 0, 1, rs)
+    >>> y = 1.0 + 0.3 * (Wn @ x) + 0.8 * x + 0.5 * rng.normal(size=n)
+    >>> df = pd.DataFrame({"y": y, "x": x})
+    >>> res = sp.peer_effects(df, y="y", covariates=["x"], W=W)
+    >>> res.coefficients["variable"].tolist()
+    ['(Intercept)', 'WY', 'x', 'W*x']
+    >>> res.n_obs
+    80
     """
     cov = list(covariates)
     df = data[[y] + cov].dropna().reset_index(drop=True)

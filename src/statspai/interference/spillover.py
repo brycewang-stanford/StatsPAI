@@ -71,11 +71,26 @@ def spillover(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for c in range(40):
+    ...     treated = rng.integers(0, 2, size=5)
+    ...     frac = treated.mean()
+    ...     for i in range(5):
+    ...         y = 1.0 + 0.8 * treated[i] + 0.5 * frac + rng.normal()
+    ...         rows.append({"household": c, "vaccinated": int(treated[i]),
+    ...                      "outcome": y})
+    >>> df = pd.DataFrame(rows)
     >>> result = sp.spillover(df, y='outcome', treat='vaccinated',
-    ...                       cluster='household')
-    >>> print(result.model_info['direct_effect'])
-    >>> print(result.model_info['spillover_effect'])
+    ...                       cluster='household', n_bootstrap=50,
+    ...                       random_state=0)
+    >>> bool('direct_effect' in result.model_info)
+    True
+    >>> bool('spillover_effect' in result.model_info)
+    True
     """
     est = SpilloverEstimator(
         data=data, y=y, treat=treat, cluster=cluster,
@@ -87,7 +102,36 @@ def spillover(
 
 
 class SpilloverEstimator:
-    """Spillover / interference effects estimator."""
+    """Spillover / interference effects estimator.
+
+    The engine behind :func:`sp.spillover`. Construct it with the data
+    and column names, then call :meth:`fit` to obtain a ``CausalResult``
+    whose ``model_info`` carries ``direct_effect``, ``spillover_effect``
+    and ``total_effect``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for c in range(40):
+    ...     treated = rng.integers(0, 2, size=5)
+    ...     frac = treated.mean()
+    ...     for i in range(5):
+    ...         y = 1.0 + 0.8 * treated[i] + 0.5 * frac + rng.normal()
+    ...         rows.append({"hh": c, "vaccinated": int(treated[i]),
+    ...                      "outcome": y})
+    >>> df = pd.DataFrame(rows)
+    >>> est = sp.SpilloverEstimator(
+    ...     data=df, y="outcome", treat="vaccinated", cluster="hh",
+    ...     n_bootstrap=50, random_state=0,
+    ... )
+    >>> res = est.fit()
+    >>> sorted(k for k in res.model_info if k.endswith("_effect"))
+    ['direct_effect', 'spillover_effect', 'total_effect']
+    """
 
     def __init__(
         self,
