@@ -48,6 +48,33 @@ def _total_bic(data: np.ndarray, adj: np.ndarray) -> float:
 
 @dataclass
 class GESResult:
+    """Result of :func:`ges` — a CPDAG (Markov equivalence class).
+
+    Attributes
+    ----------
+    adjacency : np.ndarray
+        ``(p, p)`` CPDAG adjacency; ``adj[i, j]`` and ``adj[j, i]`` both
+        nonzero denotes an undirected edge ``i --- j``.
+    names : list of str
+        Variable names, aligned with ``adjacency`` rows/columns.
+    bic : float
+        Total BIC of the recovered graph (lower is better).
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> x = rng.normal(size=200)
+    >>> y = 2.0 * x + rng.normal(size=200)
+    >>> df = pd.DataFrame({"x": x, "y": y})
+    >>> res = sp.ges(df)
+    >>> isinstance(res, sp.GESResult)
+    True
+    >>> bool(res.to_frame().shape == (2, 2))
+    True
+    """
+
     adjacency: np.ndarray            # CPDAG adjacency (may have undirected edges)
     names: List[str]
     bic: float
@@ -94,6 +121,27 @@ def ges(data, max_iter: int = 500) -> GESResult:
     data : pd.DataFrame or (n, p) ndarray
     max_iter : int
         Maximum total edge additions + removals.
+
+    Returns
+    -------
+    GESResult
+        CPDAG (Markov equivalence class) with ``.adjacency``, ``.bic``,
+        ``.edges()`` and ``.to_frame()`` helpers.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> x = rng.normal(size=200)
+    >>> y = 2.0 * x + rng.normal(size=200)
+    >>> z = 1.5 * y + rng.normal(size=200)
+    >>> df = pd.DataFrame({"x": x, "y": y, "z": z})
+    >>> res = sp.ges(df)
+    >>> res.edges()  # doctest: +SKIP
+    [('x', 'y', '---'), ('y', 'z', '---')]
+    >>> bool(res.to_frame().shape == (3, 3))
+    True
     """
     if isinstance(data, pd.DataFrame):
         names = list(data.columns)

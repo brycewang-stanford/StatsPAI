@@ -33,6 +33,18 @@ class IdentificationResult:
         Witness C-forest pair (F, F') that proves non-identifiability.
     explanation : str
         Human-readable proof / refutation.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.dag("Z -> X; Z -> Y; X -> Y")
+    >>> res = sp.identify(g, treatment="X", outcome="Y")
+    >>> isinstance(res, sp.IdentificationResult)
+    True
+    >>> bool(res.identifiable)
+    True
+    >>> "Y" in res.estimand
+    True
     """
 
     identifiable: bool
@@ -62,6 +74,22 @@ def identify(dag, treatment, outcome) -> IdentificationResult:
     Returns
     -------
     IdentificationResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> # Backdoor confounder -- P(Y | do(X)) is identifiable
+    >>> g = sp.dag("Z -> X; Z -> Y; X -> Y")
+    >>> res = sp.identify(g, treatment="X", outcome="Y")
+    >>> bool(res.identifiable)
+    True
+    >>> # Bow arc (X <-> Y latent confounding) -- NOT identifiable
+    >>> g2 = sp.dag("X -> Y; X <-> Y")
+    >>> res2 = sp.identify(g2, treatment="X", outcome="Y")
+    >>> bool(res2.identifiable)
+    False
+    >>> "hedge" in res2.estimand
+    True
     """
     X = frozenset({treatment} if isinstance(treatment, str) else set(treatment))
     Y = frozenset({outcome} if isinstance(outcome, str) else set(outcome))

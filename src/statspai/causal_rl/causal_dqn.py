@@ -23,7 +23,43 @@ import pandas as pd
 
 @dataclass
 class CausalDQNResult:
-    """Output of confounding-robust Q-learning."""
+    """Output of confounding-robust Q-learning (:func:`causal_dqn`).
+
+    Attributes
+    ----------
+    q_table : numpy.ndarray
+        Learned action-value table, shape ``(n_states, n_actions)``.
+    policy : numpy.ndarray
+        Greedy action for each state, shape ``(n_states,)``.
+    gamma_bound : float
+        Confounding bound used during the Bellman updates.
+    n_iter : int
+        Number of value-iteration sweeps performed.
+    final_bellman_error : float
+        Mean squared temporal-difference error at the last iteration.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> s = rng.integers(0, 3, size=n)
+    >>> a = rng.integers(0, 2, size=n)
+    >>> r = (a == s % 2).astype(float) + rng.normal(0, 0.1, size=n)
+    >>> s_next = rng.integers(0, 3, size=n)
+    >>> df = pd.DataFrame({'s': s, 'a': a, 'r': r, 's_next': s_next})
+    >>> res = sp.causal_dqn(df, state='s', action='a', reward='r',
+    ...                     next_state='s_next', gamma_bound=0.1, n_iter=50)
+    >>> isinstance(res, sp.CausalDQNResult)
+    True
+    >>> res.q_table.shape
+    (3, 2)
+    >>> res.gamma_bound
+    0.1
+    """
+
     q_table: np.ndarray                 # (n_states, n_actions)
     policy: np.ndarray                  # (n_states,)
     gamma_bound: float
@@ -75,6 +111,31 @@ def causal_dqn(
     Returns
     -------
     CausalDQNResult
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> s = rng.integers(0, 3, size=n)
+    >>> a = rng.integers(0, 2, size=n)
+    >>> r = (a == s % 2).astype(float) + rng.normal(0, 0.1, size=n)
+    >>> s_next = rng.integers(0, 3, size=n)
+    >>> df = pd.DataFrame({'s': s, 'a': a, 'r': r, 's_next': s_next})
+    >>> res = sp.causal_dqn(df, state='s', action='a', reward='r',
+    ...                     next_state='s_next', gamma_bound=0.1, n_iter=50)
+    >>> res.q_table.shape
+    (3, 2)
+    >>> len(res.policy)
+    3
+    >>> res.n_iter
+    50
+
+    References
+    ----------
+    li2025confounding
     """
     if not 0 <= gamma_bound <= 1:
         raise ValueError(f"gamma_bound must be in [0, 1]; got {gamma_bound}.")

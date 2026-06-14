@@ -788,7 +788,10 @@ def llm_annotator_correct(
     ...     annotations_human=human,
     ...     outcome=pd.Series(y),
     ... )
-    >>> r.estimate    # ~1.0 (corrected from naive ~0.7)
+    >>> isinstance(r, sp.LLMAnnotatorResult)
+    True
+    >>> bool(0.7 < r.estimate < 1.3)    # corrected toward the true ATE 1.0
+    True
 
     References
     ----------

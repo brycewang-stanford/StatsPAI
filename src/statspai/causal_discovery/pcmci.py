@@ -59,6 +59,22 @@ def partial_corr_pvalue(
 
     Residualises X and Y on Z via OLS, then applies a Fisher-z
     transform to the residual correlation with df = n - |Z| - 2.
+
+    Examples
+    --------
+    Two variables sharing a common driver ``z`` are marginally
+    correlated but conditionally independent given ``z``:
+
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> z = rng.normal(size=200)
+    >>> x = z + rng.normal(size=200)
+    >>> y = z + rng.normal(size=200)
+    >>> bool(sp.partial_corr_pvalue(x, y) < 0.05)        # marginally dependent
+    True
+    >>> bool(sp.partial_corr_pvalue(x, y, z) > 0.05)     # independent given z
+    True
     """
     x = np.asarray(x, dtype=float).reshape(-1)
     y = np.asarray(y, dtype=float).reshape(-1)
@@ -129,7 +145,41 @@ def _coord(var: int, lag: int, d: int) -> int:
 
 @dataclass
 class PCMCIResult:
-    """PCMCI output — lag-specific adjacency + discovered links."""
+    """PCMCI output — lag-specific adjacency + discovered links.
+
+    Returned by :func:`pcmci`. Bundles the lag-specific p-value tensor
+    (``p_matrix``), the partial-correlation strengths (``val_matrix``),
+    the boolean ``adjacency`` decision tensor, and the effective sample
+    size. Call :meth:`discovered_links` for a tidy DataFrame of the
+    significant lagged links and :meth:`summary` for a one-screen report.
+
+    Examples
+    --------
+    A two-variable system where lagged GDP drives inflation:
+
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> T = 120
+    >>> gdp = np.zeros(T)
+    >>> inflation = np.zeros(T)
+    >>> eg = rng.normal(0, 1, T)
+    >>> ei = rng.normal(0, 1, T)
+    >>> for t in range(1, T):
+    ...     gdp[t] = 0.5 * gdp[t - 1] + eg[t]
+    ...     inflation[t] = 0.4 * gdp[t - 1] + 0.3 * inflation[t - 1] + ei[t]
+    >>> df = pd.DataFrame({"gdp": gdp, "inflation": inflation})
+    >>> res = sp.pcmci(df, tau_max=2, pc_alpha=0.05)
+    >>> isinstance(res, sp.PCMCIResult)
+    True
+    >>> links = res.discovered_links()
+    >>> list(links.columns)
+    ['source', 'target', 'lag', 'partial_corr', 'p_value']
+    >>> bool(((links["source"] == "gdp") &
+    ...       (links["target"] == "inflation")).any())
+    True
+    """
 
     variables: List[str]
     tau_max: int

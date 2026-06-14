@@ -52,6 +52,29 @@ class TextTreatmentResult(CausalResult):
     when P0's additions are present.  Exposes embedding-specific
     metadata on the instance and inside ``model_info['text_diagnostics']``
     so agents can introspect what happened.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 200
+    >>> docs = ['good service' if rng.random() > 0.5 else 'late delivery'
+    ...         for _ in range(n)]
+    >>> treat = rng.binomial(1, 0.5, size=n)
+    >>> y = 2.0 * treat + rng.normal(size=n)
+    >>> df = pd.DataFrame({'review': docs, 'treat': treat, 'y': y})
+    >>> res = sp.text_treatment_effect(
+    ...     df, text_col='review', outcome='y', treatment='treat',
+    ...     n_components=8, seed=0,
+    ... )
+    >>> isinstance(res, sp.TextTreatmentResult)
+    True
+    >>> res.estimand
+    'ATE'
+    >>> res.embedding_dim
+    8
     """
 
     def __init__(

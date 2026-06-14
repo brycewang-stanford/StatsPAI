@@ -33,7 +33,23 @@ _DOMAIN_PRIORS = {
 
 @dataclass
 class SensitivityPriorProposal:
-    """Suggested sensitivity parameter priors for sensemakr-style analysis."""
+    """Suggested sensitivity parameter priors for sensemakr-style analysis.
+
+    Returned by :func:`llm_sensitivity_priors`. Bundles the proposed
+    ``rho_max`` / ``r2`` Cinelli-Hazlett sensitivity bounds with the
+    domain, rationale, and which backend produced them.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> res = sp.llm_sensitivity_priors(treatment="schooling",
+    ...                                 outcome="earnings",
+    ...                                 domain="labor")
+    >>> isinstance(res, sp.SensitivityPriorProposal)
+    True
+    >>> isinstance(res.summary(), str)
+    True
+    """
     rho_max: float
     r2: float
     rationale: str
@@ -71,6 +87,23 @@ def llm_sensitivity_priors(
     Returns
     -------
     SensitivityPriorProposal
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> res = sp.llm_sensitivity_priors(treatment="smoking",
+    ...                                 outcome="weight_change",
+    ...                                 domain="health")
+    >>> type(res).__name__
+    'SensitivityPriorProposal'
+    >>> res.backend
+    'heuristic'
+    >>> (res.rho_max, res.r2)
+    (0.3, 0.04)
+
+    References
+    ----------
+    cinelli2020making
     """
     if client is not None and hasattr(client, "complete"):
         try:

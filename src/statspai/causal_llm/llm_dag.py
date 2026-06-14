@@ -55,7 +55,28 @@ def _classify_variable(name: str) -> str:
 
 @dataclass
 class LLMDAGProposal:
-    """Result of an LLM (or heuristic) DAG proposal."""
+    """Result of an LLM (or heuristic) DAG proposal.
+
+    Returned by :func:`llm_dag_propose`. Carries the proposed directed
+    edges, a per-variable role classification, one rationale sentence
+    per edge, and the backend that produced them. Use
+    :meth:`to_dag_string` to feed the proposal straight into
+    ``sp.dag(...)``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> prop = sp.llm_dag_propose(
+    ...     variables=["treatment", "wage", "age"],
+    ...     domain="labor economics",
+    ... )
+    >>> isinstance(prop, sp.LLMDAGProposal)
+    True
+    >>> prop.backend
+    'heuristic'
+    >>> prop.to_dag_string()
+    'treatment -> wage; age -> treatment; age -> wage'
+    """
     edges: List[tuple]                # (parent, child)
     roles: dict                       # var_name → role
     rationale: List[str]              # one sentence per edge
@@ -109,6 +130,24 @@ def llm_dag_propose(
     Returns
     -------
     LLMDAGProposal
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> prop = sp.llm_dag_propose(
+    ...     variables=["education", "treatment", "wage", "age"],
+    ...     domain="labor economics: schooling and earnings",
+    ... )
+    >>> prop.backend
+    'heuristic'
+    >>> prop.roles["treatment"]
+    'treatment'
+    >>> prop.roles["wage"]
+    'outcome'
+    >>> ("treatment", "wage") in prop.edges
+    True
+    >>> prop.to_dag_string()
+    'treatment -> wage; education -> treatment; education -> wage; age -> treatment; age -> wage'
     """
     if client is not None and hasattr(client, "complete"):
         try:

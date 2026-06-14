@@ -113,6 +113,22 @@ def pairwise_causal_benchmark(
     Returns
     -------
     PairwiseBenchmarkResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import pandas as pd
+    >>> def stub_client(prompt):
+    ...     # toy oracle: only "smoking" prompts get a "yes"
+    ...     return "yes" if "smoking" in prompt.lower() else "no"
+    >>> gt = pd.DataFrame({
+    ...     "A": ["smoking", "ice_cream"],
+    ...     "B": ["cancer", "drowning"],
+    ...     "a_causes_b": [True, False],
+    ... })
+    >>> res = sp.pairwise_causal_benchmark(gt, llm_client=stub_client)
+    >>> res.accuracy
+    1.0
     """
     required = {pair_a_col, pair_b_col, truth_col}
     missing = required - set(ground_truth.columns)
@@ -181,6 +197,23 @@ def llm_causal_assess(
     Returns
     -------
     LLMCausalAssessResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import pandas as pd
+    >>> def stub_client(question):
+    ...     # echo the last token so substring matching scores it correct
+    ...     return "The cause is " + question.split()[-1]
+    >>> level1 = pd.DataFrame({
+    ...     "question": ["Does X cause Y", "Does A cause B"],
+    ...     "answer": ["Y", "B"],
+    ... })
+    >>> res = sp.llm_causal_assess(
+    ...     level1_items=level1, llm_client=stub_client, llm_identifier="stub",
+    ... )
+    >>> res.level1_accuracy
+    1.0
     """
     rows: List[Dict[str, Any]] = []
 

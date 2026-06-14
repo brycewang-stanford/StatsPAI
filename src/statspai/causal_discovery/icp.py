@@ -37,6 +37,44 @@ from scipy import stats
 
 @dataclass
 class ICPResult:
+    """Result of an Invariant Causal Prediction run (:func:`icp`).
+
+    Attributes
+    ----------
+    parents : set of str
+        Provably-causal parents of ``Y`` -- the intersection of every
+        subset accepted by the invariance test. Empty when no informative
+        subset is accepted (the conservative answer).
+    accepted_subsets : list of frozenset
+        All candidate subsets that passed the level-alpha invariance test.
+    rejection_reason : dict
+        Maps each rejected subset to a human-readable reason string.
+    alpha : float
+        Family-wise significance level used.
+    coefficients : dict
+        ``var -> (lo, hi)`` 95% confidence interval for each parent's
+        coefficient in the pooled OLS fit on ``parents``.
+    method : str
+        ``"linear"`` or ``"nonlinear"``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> env = np.r_[np.zeros(n // 2, dtype=int), np.ones(n // 2, dtype=int)]
+    >>> x1 = 3.0 * env + rng.normal(size=n)
+    >>> y = 1.5 * x1 + rng.normal(size=n)
+    >>> x2 = y + rng.normal(size=n)
+    >>> X = pd.DataFrame({"X1": x1, "X2": x2})
+    >>> res = sp.icp(X, y, env)
+    >>> isinstance(res, sp.ICPResult)
+    True
+    >>> sorted(res.parents)
+    ['X1']
+    """
     parents: set[str]
     accepted_subsets: list[frozenset]
     rejection_reason: dict[frozenset, str]
@@ -100,6 +138,22 @@ def icp(
     Returns
     -------
     ICPResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> env = np.r_[np.zeros(n // 2, dtype=int), np.ones(n // 2, dtype=int)]
+    >>> x1 = 3.0 * env + rng.normal(size=n)   # environment intervenes on X1
+    >>> y = 1.5 * x1 + rng.normal(size=n)     # invariant conditional Y | X1
+    >>> x2 = y + rng.normal(size=n)           # X2 is a child of Y
+    >>> X = pd.DataFrame({"X1": x1, "X2": x2})
+    >>> res = sp.icp(X, y, env, alpha=0.05)
+    >>> sorted(res.parents)
+    ['X1']
     """
     X = pd.DataFrame(X) if not isinstance(X, pd.DataFrame) else X.copy()
     y = np.asarray(y, dtype=float)
@@ -222,5 +276,26 @@ def _invariance_test(
 
 
 def nonlinear_icp(X, y, environment, alpha: float = 0.05, **kw) -> ICPResult:
-    """Alias for ``icp(..., method='nonlinear')`` -- Heinze-Deml et al. 2018."""
+    """Alias for ``icp(..., method='nonlinear')`` -- Heinze-Deml et al. 2018.
+
+    The nonlinear variant swaps the linear mean/variance invariance test for
+    a two-sample Kolmogorov-Smirnov test on the residual distributions, so it
+    detects departures from invariance beyond the first two moments.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> env = np.r_[np.zeros(n // 2, dtype=int), np.ones(n // 2, dtype=int)]
+    >>> x1 = 3.0 * env + rng.normal(size=n)
+    >>> y = 1.5 * x1 + rng.normal(size=n)
+    >>> x2 = y + rng.normal(size=n)
+    >>> X = pd.DataFrame({"X1": x1, "X2": x2})
+    >>> res = sp.nonlinear_icp(X, y, env, alpha=0.05)
+    >>> sorted(res.parents)
+    ['X1']
+    """
     return icp(X, y, environment, alpha=alpha, method="nonlinear", **kw)

@@ -62,12 +62,31 @@ def causal_impact(
 
     Examples
     --------
-    >>> # Effect of a marketing campaign starting week 50
-    >>> result = causal_impact(df, y='sales', time='week',
-    ...                        intervention_time=50,
-    ...                        covariates=['competitor_sales', 'ad_spend'])
-    >>> print(result.summary())
-    >>> result.plot()
+    Effect of an intervention introduced at week 40, recovered against a
+    counterfactual built from an ad-spend control series:
+
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 60
+    >>> week = np.arange(n)
+    >>> ad_spend = rng.normal(100, 5, size=n)
+    >>> sales = 2.0 * ad_spend + rng.normal(0, 3, size=n)
+    >>> sales[40:] += 15.0          # intervention lifts sales from week 40
+    >>> df = pd.DataFrame({'week': week, 'sales': sales,
+    ...                    'ad_spend': ad_spend})
+    >>> result = sp.causal_impact(df, y='sales', time='week',
+    ...                           intervention_time=40,
+    ...                           covariates=['ad_spend'])
+    >>> result.n_obs
+    60
+    >>> bool(result.estimate > 0)        # positive average impact recovered
+    True
+
+    References
+    ----------
+    brodersen2015inferring
     """
     estimator = CausalImpactEstimator(
         data=data, y=y, time=time,
@@ -98,7 +117,52 @@ def causal_impact(
 
 class CausalImpactEstimator:
     """
-    Causal Impact estimator using structural time-series model.
+    Causal Impact estimator using a structural time-series model.
+
+    Fits a regression + local-level (AR(1)) model on the
+    pre-intervention period, then forecasts the counterfactual into the
+    post-intervention period. The high-level :func:`causal_impact`
+    wrapper is the usual entry point; instantiate this class directly
+    only when you want to drive ``.fit()`` yourself.
+
+    Parameters
+    ----------
+    data : pandas.DataFrame
+        Time-series data, one row per period.
+    y : str
+        Outcome (intervened) series.
+    time : str
+        Time column used for ordering.
+    intervention_time : Any
+        First post-intervention period (inclusive).
+    covariates : list of str, optional
+        Control series unaffected by the intervention.
+    alpha : float, default 0.05
+        Significance level for the credible intervals.
+    n_seasons : int, optional
+        Seasonal period, if any.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 60
+    >>> week = np.arange(n)
+    >>> ad_spend = rng.normal(100, 5, size=n)
+    >>> sales = 2.0 * ad_spend + rng.normal(0, 3, size=n)
+    >>> sales[40:] += 15.0
+    >>> df = pd.DataFrame({'week': week, 'sales': sales,
+    ...                    'ad_spend': ad_spend})
+    >>> est = sp.CausalImpactEstimator(df, y='sales', time='week',
+    ...                                intervention_time=40,
+    ...                                covariates=['ad_spend'])
+    >>> result = est.fit()
+    >>> (est.n_pre, est.n_post)
+    (40, 20)
+    >>> bool(result.estimate > 0)
+    True
     """
 
     def __init__(
@@ -375,6 +439,29 @@ def impactplot(
     Returns
     -------
     (fig, ax) or (fig, axes)
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import matplotlib
+    >>> matplotlib.use('Agg')
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 60
+    >>> week = np.arange(n)
+    >>> ad_spend = rng.normal(100, 5, size=n)
+    >>> sales = 2.0 * ad_spend + rng.normal(0, 3, size=n)
+    >>> sales[40:] += 15.0
+    >>> df = pd.DataFrame({'week': week, 'sales': sales,
+    ...                    'ad_spend': ad_spend})
+    >>> result = sp.causal_impact(df, y='sales', time='week',
+    ...                           intervention_time=40,
+    ...                           covariates=['ad_spend'])
+    >>> fig, axes = sp.impactplot(result, type='all')
+    >>> len(axes)
+    3
+    >>> fig.savefig('impact.png')  # doctest: +SKIP
     """
     try:
         import matplotlib.pyplot as plt

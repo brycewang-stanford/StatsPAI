@@ -36,7 +36,29 @@ __all__ = ["lpcmci", "LPCMCIResult"]
 
 @dataclass
 class LPCMCIResult:
-    """Output of :func:`lpcmci`."""
+    """Output of :func:`lpcmci`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(31)
+    >>> T = 200
+    >>> X = np.zeros(T); Y = np.zeros(T); Z = np.zeros(T)
+    >>> for t in range(1, T):
+    ...     X[t] = 0.5 * X[t - 1] + rng.normal(0, 0.5)
+    ...     Y[t] = 0.4 * X[t - 1] + 0.3 * Y[t - 1] + rng.normal(0, 0.5)
+    ...     Z[t] = 0.6 * Y[t - 1] + rng.normal(0, 0.5)
+    >>> df = pd.DataFrame({"X": X, "Y": Y, "Z": Z})
+    >>> res = sp.lpcmci(df, variables=["X", "Y", "Z"], tau_max=2, alpha=0.05)
+    >>> isinstance(res, sp.LPCMCIResult)
+    True
+    >>> res.edge_types[1, 0, 1]        # X --> Y at lag 1
+    '-->'
+    >>> list(res.to_frame().columns)
+    ['lag', 'from', 'to', 'type', 'p_value']
+    """
     variables: List[str]
     tau_max: int
     alpha: float
@@ -125,6 +147,25 @@ def lpcmci(
     Returns
     -------
     LPCMCIResult
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(31)
+    >>> T = 200
+    >>> X = np.zeros(T); Y = np.zeros(T); Z = np.zeros(T)
+    >>> for t in range(1, T):
+    ...     X[t] = 0.5 * X[t - 1] + rng.normal(0, 0.5)
+    ...     Y[t] = 0.4 * X[t - 1] + 0.3 * Y[t - 1] + rng.normal(0, 0.5)
+    ...     Z[t] = 0.6 * Y[t - 1] + rng.normal(0, 0.5)
+    >>> df = pd.DataFrame({"X": X, "Y": Y, "Z": Z})
+    >>> res = sp.lpcmci(df, variables=["X", "Y", "Z"], tau_max=2, alpha=0.05)
+    >>> res.edge_types[1, 0, 1]        # recovered X --> Y at lag 1
+    '-->'
+    >>> "LPCMCI" in res.summary()
+    True
 
     Notes
     -----

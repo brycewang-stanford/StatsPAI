@@ -36,7 +36,31 @@ _DOMAIN_CONFOUNDERS = {
 
 @dataclass
 class UnobservedConfounderProposal:
-    """List of plausible unobserved confounders + suggested E-values."""
+    """List of plausible unobserved confounders + suggested E-values.
+
+    Produced by :func:`llm_unobserved_confounders`. Carries the candidate
+    confounder names (``.candidates``), the matching E-value thresholds
+    needed to nullify the observed effect (``.suggested_evalue_thresholds``),
+    the ``.domain``, the ``.backend`` used, and a formatted ``.summary()``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> prop = sp.llm_unobserved_confounders(
+    ...     treatment="statin use",
+    ...     outcome="cardiovascular mortality",
+    ...     domain="health",
+    ...     point_estimate_rr=1.5,
+    ... )
+    >>> type(prop).__name__
+    'UnobservedConfounderProposal'
+    >>> prop.backend
+    'heuristic'
+    >>> bool(len(prop.candidates) > 0)
+    True
+    >>> bool(isinstance(prop.summary(), str))
+    True
+    """
     candidates: List[str]
     suggested_evalue_thresholds: List[float]
     domain: str
@@ -80,6 +104,22 @@ def llm_unobserved_confounders(
     Returns
     -------
     UnobservedConfounderProposal
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> prop = sp.llm_unobserved_confounders(
+    ...     treatment="statin use",
+    ...     outcome="cardiovascular mortality",
+    ...     domain="health",
+    ...     point_estimate_rr=1.5,
+    ... )
+    >>> prop.backend
+    'heuristic'
+    >>> prop.domain
+    'health'
+    >>> bool(len(prop.candidates) == len(prop.suggested_evalue_thresholds))
+    True
     """
     if client is not None and hasattr(client, "complete"):
         try:

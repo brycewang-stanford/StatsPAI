@@ -25,7 +25,24 @@ import pandas as pd
 
 @dataclass
 class BanditBenchmarkResult:
-    """Output from a causal-RL benchmark run."""
+    """Output from a causal-RL benchmark run.
+
+    Returned by :func:`causal_rl_benchmark`. Holds the generated transition
+    dataset, the optimal policy/value of the underlying causal model, and the
+    name of the recommended off-policy evaluator.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> res = sp.causal_rl_benchmark(
+    ...     name='confounded_bandit', n_episodes=200, seed=0)
+    >>> type(res).__name__
+    'BanditBenchmarkResult'
+    >>> res.suggested_evaluator
+    'sp.causal_dqn'
+    >>> res.transitions['action'].isin([0, 1]).all().item()
+    True
+    """
     benchmark: str
     transitions: pd.DataFrame
     optimal_policy: np.ndarray
@@ -64,6 +81,29 @@ def causal_rl_benchmark(
     Returns
     -------
     BanditBenchmarkResult
+
+    References
+    ----------
+    .. [1] cunha2025unifying
+
+    Examples
+    --------
+    Generate a confounded two-arm bandit and inspect the transition table:
+
+    >>> import statspai as sp
+    >>> res = sp.causal_rl_benchmark(
+    ...     name='confounded_bandit', n_episodes=200, seed=0)
+    >>> res.benchmark
+    'confounded_bandit'
+    >>> len(res.transitions)
+    200
+    >>> list(res.transitions.columns)
+    ['state', 'action', 'reward', 'next_state']
+    >>> res.optimal_value
+    1.5
+    >>> res.optimal_policy.tolist()
+    [1]
+    >>> print(res.summary())  # doctest: +SKIP
     """
     rng = np.random.default_rng(seed)
     if name == "confounded_bandit":

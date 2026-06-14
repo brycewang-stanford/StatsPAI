@@ -51,13 +51,14 @@ class DAG:
 
     Examples
     --------
-    >>> g = DAG('Z -> X; Z -> Y; X -> Y')
+    >>> import statspai as sp
+    >>> g = sp.DAG('Z -> X; Z -> Y; X -> Y')
     >>> g.adjustment_sets('X', 'Y')
     [{'Z'}]
 
-    >>> g = DAG('X -> M -> Y; X -> Y; U <-> Y')
-    >>> g.nodes
-    {'X', 'M', 'Y', '_L_U_Y'}
+    >>> g = sp.DAG('X -> M -> Y; X -> Y; U <-> Y')
+    >>> sorted(g.nodes)
+    ['M', 'U', 'X', 'Y', '_L_U_Y']
     """
 
     def __init__(self, spec: str = ""):
@@ -1328,7 +1329,15 @@ _EXAMPLE_POSITIONS = {
 
 
 def dag_examples() -> List[str]:
-    """List available classic DAG examples."""
+    """List available classic DAG examples.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> names = sp.dag_examples()
+    >>> 'confounding' in names and 'frontdoor' in names
+    True
+    """
     return sorted(_EXAMPLES.keys())
 
 
@@ -1372,7 +1381,20 @@ def dag_example(name: str) -> DAG:
 
 
 def dag_example_positions(name: str) -> Dict[str, Tuple[float, float]]:
-    """Return hand-tuned node positions for a named example DAG."""
+    """Return hand-tuned node positions for a named example DAG.
+
+    The returned ``{node: (x, y)}`` mapping can be passed to
+    ``DAG.plot(..., positions=...)`` for a reproducible layout.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> pos = sp.dag_example_positions('frontdoor')
+    >>> sorted(pos.keys())
+    ['M', 'X', 'Y']
+    >>> pos['X']
+    (-1.5, 0)
+    """
     if name not in _EXAMPLE_POSITIONS:
         avail = ", ".join(sorted(_EXAMPLE_POSITIONS.keys()))
         raise ValueError(

@@ -101,6 +101,26 @@ class LLMConstrainedDAGResult:
         ``True`` if the loop stopped early because no edges were
         demoted in the most recent iteration.
     provenance : dict
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 300
+    >>> x = rng.normal(size=n)
+    >>> z = 0.8 * x + rng.normal(size=n)
+    >>> y = 1.2 * x + 0.5 * z + rng.normal(size=n)
+    >>> data = pd.DataFrame({"X": x, "Z": z, "Y": y})
+    >>> def oracle(vars_, desc):
+    ...     return [("X", "Y", 0.95), ("X", "Z", 0.9)]
+    >>> res = sp.llm_dag_constrained(
+    ...     data, variables=["X", "Z", "Y"], oracle=oracle, max_iter=2)
+    >>> isinstance(res, sp.LLMConstrainedDAGResult)
+    True
+    >>> bool(len(res.final_edges) >= 1)
+    True
     """
     final_edges: List[Tuple[str, str]]
     edge_confidence: pd.DataFrame
@@ -167,7 +187,41 @@ class LLMConstrainedDAGResult:
 
 @dataclass
 class DAGValidationResult:
-    """Output of :func:`llm_dag_validate`."""
+    """Output of :func:`llm_dag_validate`.
+
+    Attributes
+    ----------
+    edge_evidence : pd.DataFrame
+        One row per declared edge with columns ``edge`` (tuple),
+        ``declared`` (bool), ``ci_pvalue`` (float or NaN) and
+        ``supported`` (bool -- ``True`` when the partial-correlation CI
+        test rejects conditional independence at ``alpha``, i.e. the data
+        backs keeping the edge).
+    n_supported : int
+        Number of edges the data supports.
+    n_unsupported : int
+        Number of edges the data does not support.
+    alpha : float
+        CI-test significance level used.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 200
+    >>> x = rng.normal(size=n)
+    >>> z = 0.8 * x + rng.normal(size=n)
+    >>> y = 1.2 * x + 0.5 * z + rng.normal(size=n)
+    >>> data = pd.DataFrame({"X": x, "Z": z, "Y": y})
+    >>> g = sp.dag("X -> Z; X -> Y; Z -> Y")
+    >>> res = sp.llm_dag_validate(g, data)
+    >>> isinstance(res, sp.DAGValidationResult)
+    True
+    >>> res.n_supported
+    3
+    """
     edge_evidence: pd.DataFrame  # edge, declared, ci_pvalue, supported
     n_supported: int
     n_unsupported: int
@@ -359,11 +413,20 @@ def llm_dag_constrained(
     Examples
     --------
     >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 300
+    >>> x = rng.normal(size=n)
+    >>> z = 0.8 * x + rng.normal(size=n)
+    >>> y = 1.2 * x + 0.5 * z + rng.normal(size=n)
+    >>> data = pd.DataFrame({"X": x, "Z": z, "Y": y})
     >>> def echo_oracle(vars_, desc):
-    ...     return [('X', 'Y', 0.95), ('Z', 'X', 0.9)]
-    >>> r = sp.llm_dag_constrained(df, variables=['X', 'Y', 'Z'],
-    ...                            oracle=echo_oracle, max_iter=3)
-    >>> r.summary()
+    ...     return [("X", "Y", 0.95), ("X", "Z", 0.9)]
+    >>> r = sp.llm_dag_constrained(
+    ...     data, variables=["X", "Z", "Y"], oracle=echo_oracle, max_iter=2)
+    >>> bool(len(r.final_edges) >= 1)
+    True
     """
     if variables is not None:
         var_list = [str(v) for v in variables]
@@ -569,6 +632,22 @@ def llm_dag_validate(
     Returns
     -------
     DAGValidationResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 200
+    >>> x = rng.normal(size=n)
+    >>> z = 0.8 * x + rng.normal(size=n)
+    >>> y = 1.2 * x + 0.5 * z + rng.normal(size=n)
+    >>> data = pd.DataFrame({"X": x, "Z": z, "Y": y})
+    >>> g = sp.dag("X -> Z; X -> Y; Z -> Y")
+    >>> res = sp.llm_dag_validate(g, data, alpha=0.05)
+    >>> res.n_supported, res.n_unsupported
+    (3, 0)
     """
     if ci_test != 'fisherz':
         raise ValueError(f"Unknown ci_test: {ci_test!r}. Use 'fisherz'.")

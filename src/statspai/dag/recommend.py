@@ -76,6 +76,16 @@ def recommend_estimator(
     candidate_instruments : list of str, optional
         Variable names to check as potential IVs.  If omitted, all
         observed nodes other than exposure/outcome are considered.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.dag("Z -> X; Z -> Y; X -> Y")  # Z confounds X -> Y
+    >>> rec = sp.dag_recommend_estimator(g, exposure="X", outcome="Y")
+    >>> rec.estimator
+    'regress'
+    >>> "Z" in rec.adjustment_set  # backdoor path blocked by conditioning on Z
+    True
     """
     if exposure not in dag.nodes or outcome not in dag.nodes:
         raise KeyError("exposure / outcome must be nodes in the DAG.")

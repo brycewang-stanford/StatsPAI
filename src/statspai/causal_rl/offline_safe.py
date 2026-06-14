@@ -18,7 +18,36 @@ import pandas as pd
 
 @dataclass
 class OfflineSafeResult:
-    """Output of safe offline policy learning."""
+    """Output of safe offline policy learning.
+
+    Returned by :func:`offline_safe_policy`. Holds the per-state action
+    table (``policy``), the policy's expected reward and cost, the cost
+    threshold it was constrained against, and whether the realised cost
+    stays under that threshold (``feasible``).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 600
+    >>> df = pd.DataFrame({
+    ...     "state": rng.integers(0, 3, n),
+    ...     "action": rng.integers(0, 2, n),
+    ...     "reward": rng.integers(0, 2, n) * 1.0 + rng.normal(0, 0.5, n),
+    ...     "cost": rng.integers(0, 2, n) * 0.3 + rng.normal(0, 0.1, n),
+    ... })
+    >>> res = sp.offline_safe_policy(df, state="state", action="action",
+    ...                              reward="reward", cost="cost",
+    ...                              cost_threshold=0.5)
+    >>> isinstance(res, sp.OfflineSafeResult)
+    True
+    >>> bool(res.feasible)
+    True
+    >>> bool(res.expected_cost <= res.cost_threshold)
+    True
+    """
     policy: np.ndarray
     expected_reward: float
     expected_cost: float
@@ -67,6 +96,27 @@ def offline_safe_policy(
     Returns
     -------
     OfflineSafeResult
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 600
+    >>> df = pd.DataFrame({
+    ...     "state": rng.integers(0, 3, n),
+    ...     "action": rng.integers(0, 2, n),
+    ...     "reward": rng.integers(0, 2, n) * 1.0 + rng.normal(0, 0.5, n),
+    ...     "cost": rng.integers(0, 2, n) * 0.3 + rng.normal(0, 0.1, n),
+    ... })
+    >>> res = sp.offline_safe_policy(df, state="state", action="action",
+    ...                              reward="reward", cost="cost",
+    ...                              cost_threshold=0.5)
+    >>> int(res.policy.shape[0])      # one action per visited state
+    3
+    >>> bool(res.feasible)
+    True
     """
     df = data[[state, action, reward, cost]].dropna().reset_index(drop=True)
     S = df[state].astype(int).to_numpy()

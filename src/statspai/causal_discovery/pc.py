@@ -94,10 +94,19 @@ def pc_algorithm(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> X = rng.normal(size=n)
+    >>> Z = 0.8 * X + rng.normal(size=n) * 0.5
+    >>> M = 0.7 * Z + rng.normal(size=n) * 0.5
+    >>> Y = 0.6 * M + rng.normal(size=n) * 0.5
+    >>> df = pd.DataFrame({'X': X, 'Z': Z, 'M': M, 'Y': Y})
     >>> result = sp.pc_algorithm(df, variables=['X', 'Z', 'M', 'Y'])
-    >>> print(result['edges'])       # directed edges
-    >>> print(result['cpdag'])       # CPDAG adjacency matrix
+    >>> bool(result['n_edges'] >= 0)  # CPDAG edge count
+    True
     """
     est = PCAlgorithm(
         data=data, variables=variables, alpha=alpha,
@@ -122,6 +131,28 @@ class PCAlgorithm:
     alpha : float
     max_cond_size : int, optional
     ci_test : str
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> from statspai.causal_discovery.pc import PCAlgorithm
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> X = rng.normal(size=n)
+    >>> Z = 0.8 * X + rng.normal(size=n) * 0.5
+    >>> M = 0.7 * Z + rng.normal(size=n) * 0.5
+    >>> Y = 0.6 * M + rng.normal(size=n) * 0.5
+    >>> df = pd.DataFrame({'X': X, 'Z': Z, 'M': M, 'Y': Y})
+    >>> est = PCAlgorithm(data=df, variables=['X', 'Z', 'M', 'Y'])
+    >>> result = est.fit()
+    >>> bool(result['n_edges'] >= 0)
+    True
+
+    References
+    ----------
+    [@spirtes2000causation]
     """
 
     def __init__(

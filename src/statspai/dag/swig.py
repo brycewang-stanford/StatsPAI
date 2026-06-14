@@ -38,6 +38,21 @@ class SWIGGraph:
         All SWIG nodes (split halves + potential outcomes).
     edges : dict[str, set[str]]
         Adjacency map on SWIG nodes.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.dag("L -> X; L -> Y; X -> Y")
+    >>> sw = sp.swig(g, {"X": "x"})
+    >>> isinstance(sw, sp.SWIGGraph)
+    True
+    >>> len(sw.nodes)
+    4
+    >>> print(sw.ascii())  # doctest: +NORMALIZE_WHITESPACE
+    SWIG under do({'X': 'x'}):
+      L(X=x) -> X
+      L(X=x) -> Y(X=x)
+      X(x) -> Y(X=x)
     """
 
     def __init__(self, parent, intervention: dict):
@@ -105,6 +120,18 @@ def swig(dag, intervention) -> SWIGGraph:
     Returns
     -------
     SWIGGraph
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.dag("L -> X; L -> Y; X -> Y")  # confounded triangle
+    >>> sw = sp.swig(g, {"X": "x"})
+    >>> repr(sw)
+    "SWIG(n=4, intervention={'X': 'x'})"
+    >>> "Y(X=x)" in sw.nodes  # potential outcome under do(X=x)
+    True
+    >>> sorted(sw.counterfactual_nodes())
+    ['L(X=x)', 'X', 'X(x)', 'Y(X=x)']
     """
     if isinstance(intervention, dict):
         mapping = intervention

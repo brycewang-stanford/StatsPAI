@@ -38,7 +38,30 @@ __all__ = ["dynotears", "DYNOTEARSResult"]
 
 @dataclass
 class DYNOTEARSResult:
-    """Output of :func:`dynotears`."""
+    """Output of :func:`dynotears`.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> T = 60
+    >>> x = np.zeros(T); z = np.zeros(T); w = np.zeros(T)
+    >>> for t in range(1, T):
+    ...     x[t] = 0.6 * x[t - 1] + rng.normal(0, 0.3)
+    ...     z[t] = 0.5 * x[t - 1] + rng.normal(0, 0.3)
+    ...     w[t] = 0.4 * z[t] + rng.normal(0, 0.3)
+    >>> df = pd.DataFrame({"x": x, "z": z, "w": w})
+    >>> res = sp.dynotears(df, lag=1, threshold=0.1)
+    >>> res.variables
+    ['x', 'z', 'w']
+    >>> res.lag
+    1
+    >>> edges = res.to_frame()
+    >>> bool(set(["lag", "from", "to", "coef"]).issubset(edges.columns)) if len(edges) else True
+    True
+    """
     variables: List[str]
     W: np.ndarray      # (d, d) contemporaneous
     A: np.ndarray      # (p, d, d) lagged
@@ -202,6 +225,30 @@ def dynotears(
     References
     ----------
     Pamfil et al. (2020), AISTATS.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> T = 60
+    >>> x = np.zeros(T); z = np.zeros(T); w = np.zeros(T)
+    >>> for t in range(1, T):
+    ...     x[t] = 0.6 * x[t - 1] + rng.normal(0, 0.3)
+    ...     z[t] = 0.5 * x[t - 1] + rng.normal(0, 0.3)
+    ...     w[t] = 0.4 * z[t] + rng.normal(0, 0.3)
+    >>> df = pd.DataFrame({"x": x, "z": z, "w": w})
+    >>> res = sp.dynotears(df, lag=1, threshold=0.1)
+    >>> isinstance(res, sp.DYNOTEARSResult)
+    True
+    >>> res.W.shape
+    (3, 3)
+    >>> res.A.shape
+    (1, 3, 3)
+    >>> bool(res.loss >= 0)
+    True
+    >>> print(res.summary())  # doctest: +SKIP
     """
     if not isinstance(data, pd.DataFrame):
         raise TypeError("`data` must be a pandas DataFrame.")

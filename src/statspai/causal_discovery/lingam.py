@@ -80,6 +80,37 @@ def _mi_quadratic(x: np.ndarray, y: np.ndarray) -> float:
 
 @dataclass
 class LiNGAMResult:
+    """Result of a :func:`lingam` (DirectLiNGAM) fit.
+
+    Attributes
+    ----------
+    order : list of int
+        Causal order, most exogenous variable first (column indices).
+    adjacency : numpy.ndarray
+        ``B[i, j]`` is the direct structural effect of variable ``j`` on ``i``.
+    names : list of str
+        Variable names, aligned with the columns of ``adjacency``.
+    residuals : numpy.ndarray
+        ``(n, k)`` structural residuals after removing recovered effects.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(1)
+    >>> n = 400
+    >>> x0 = rng.uniform(-1, 1, n) ** 3
+    >>> x1 = 1.5 * x0 + rng.exponential(0.4, n) - 0.4
+    >>> df = pd.DataFrame({"x0": x0, "x1": x1})
+    >>> res = sp.lingam(df)
+    >>> isinstance(res, sp.LiNGAMResult)
+    True
+    >>> res.to_frame().shape                # adjacency as a labelled DataFrame
+    (2, 2)
+    >>> bool(len(res.edges(threshold=0.5)) >= 1)
+    True
+    """
+
     order: List[int]                 # causal order (most exogenous first)
     adjacency: np.ndarray            # B[i, j] = direct effect of j on i
     names: List[str]
@@ -164,6 +195,28 @@ def lingam(data, standardize: bool = True) -> LiNGAMResult:
     data : pd.DataFrame or (n, k) ndarray
     standardize : bool, default True
         Zero-mean / unit-variance each variable before the algorithm.
+
+    Returns
+    -------
+    LiNGAMResult
+        Holds the recovered causal ``order``, the ``adjacency`` matrix of
+        direct effects, and the final ``residuals``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> x0 = rng.uniform(-1, 1, n) ** 3            # non-Gaussian source
+    >>> x1 = 2.0 * x0 + rng.exponential(0.5, n) - 0.5
+    >>> x2 = -1.5 * x1 + rng.uniform(-1, 1, n)
+    >>> df = pd.DataFrame({"x0": x0, "x1": x1, "x2": x2})
+    >>> res = sp.lingam(df)
+    >>> [res.names[i] for i in res.order]          # recovered causal order
+    ['x0', 'x1', 'x2']
+    >>> res.adjacency.shape
+    (3, 3)
     """
     if isinstance(data, pd.DataFrame):
         names = list(data.columns)

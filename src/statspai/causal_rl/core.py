@@ -146,6 +146,21 @@ def causal_bandit(
     Returns
     -------
     CausalBanditResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(0)
+    >>> true = {"A": 1.0, "B": 0.3, "C": 0.6}
+    >>> def reward_fn(arm, context):
+    ...     return true[arm] + rng.normal(0, 0.5)
+    >>> res = sp.causal_bandit(["A", "B", "C"], reward_fn=reward_fn,
+    ...                        n_samples=300, rng_seed=0)
+    >>> res.arm_labels[res.optimal_arm]
+    'A'
+    >>> len(res.expected_rewards)
+    3
     """
     if len(arms) < 2:
         raise ValueError("Need >= 2 arms.")
@@ -217,6 +232,24 @@ def counterfactual_policy_optimization(
     Returns
     -------
     CFPolicyResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 300
+    >>> s = rng.normal(0, 1, n)
+    >>> a = 0.5 * s + rng.normal(0, 1, n)
+    >>> r = 1.0 * s + 2.0 * a + rng.normal(0, 1, n)
+    >>> df = pd.DataFrame({"s": s, "a": a, "r": r})
+    >>> res = sp.counterfactual_policy_optimization(
+    ...     df, state="s", action="a", reward="r",
+    ...     target_policy=lambda si: si + 1.0)
+    >>> res.n_trajectories
+    300
+    >>> bool(np.isfinite(res.improvement))
+    True
     """
     cols = {state, action, reward}
     missing = cols - set(data.columns)
@@ -288,6 +321,31 @@ def structural_mdp(
     Returns
     -------
     StructuralMDPResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 200
+    >>> s1, s2 = rng.normal(0, 1, n), rng.normal(0, 1, n)
+    >>> a1 = rng.normal(0, 1, n)
+    >>> df = pd.DataFrame({
+    ...     "s1": s1, "s2": s2, "a1": a1,
+    ...     "ns1": 0.8 * s1 + 0.2 * a1 + rng.normal(0, 0.1, n),
+    ...     "ns2": 0.5 * s2 + 0.3 * a1 + rng.normal(0, 0.1, n),
+    ...     "r": 1.0 * s1 + 0.5 * a1 + rng.normal(0, 0.1, n)})
+    >>> res = sp.structural_mdp(
+    ...     df, state_cols=["s1", "s2"], action_cols=["a1"],
+    ...     reward="r", next_state_cols=["ns1", "ns2"])
+    >>> (res.state_dim, res.action_dim)
+    (2, 1)
+    >>> res.A.shape
+    (2, 2)
+    >>> roll = res.counterfactual_rollout(
+    ...     initial_state=[0.0, 0.0], policy=lambda s: np.array([1.0]), horizon=5)
+    >>> roll["states"].shape
+    (6, 2)
     """
     state_cols = list(state_cols)
     action_cols = list(action_cols)

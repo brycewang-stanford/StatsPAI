@@ -72,6 +72,42 @@ _MARK_SYMBOL = {
 
 @dataclass
 class FCIResult:
+    """Partial Ancestral Graph (PAG) learned by :func:`fci`.
+
+    Attributes
+    ----------
+    variables : list of str
+        Variable names (graph nodes).
+    skeleton : pd.DataFrame
+        Undirected adjacency matrix over ``variables``.
+    pag_left, pag_right : pd.DataFrame
+        Edge marks on the i-side and j-side of each edge (i, j).
+    edges : list of tuple
+        Human-readable ``(i, label, j)`` edges, e.g. ``("X", "-->", "Y")``.
+    separating_sets : dict
+        CI-test separating sets keyed by variable-name pairs.
+    n_obs : int
+        Number of complete observations used.
+    alpha : float
+        Significance level of the CI tests.
+    ci_test : str
+        Name of the conditional-independence test.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> x = rng.normal(size=n)
+    >>> m = x + rng.normal(size=n)
+    >>> y = m + rng.normal(size=n)
+    >>> data = pd.DataFrame({"X": x, "M": m, "Y": y})
+    >>> res = sp.fci(data)
+    >>> bool(res.skeleton.shape == (3, 3))
+    True
+    """
+
     variables: List[str]
     skeleton: pd.DataFrame
     pag_left: pd.DataFrame   # marks on the i-side of edge (i,j)
@@ -356,6 +392,28 @@ def fci(
     Returns
     -------
     FCIResult
+        Learned PAG with skeleton, edge marks, and human-readable edge
+        list.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> x = rng.normal(size=n)
+    >>> m = x + rng.normal(size=n)
+    >>> y = m + rng.normal(size=n)
+    >>> data = pd.DataFrame({"X": x, "M": m, "Y": y})
+    >>> res = sp.fci(data, alpha=0.05)
+    >>> res.variables
+    ['X', 'M', 'Y']
+    >>> bool(len(res.edges) >= 1)
+    True
+
+    References
+    ----------
+    zhang2008completeness
     """
     if ci_test != "fisherz":
         raise NotImplementedError("Only 'fisherz' is supported at the moment")

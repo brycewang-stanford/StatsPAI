@@ -81,10 +81,19 @@ def notears(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> X = rng.normal(size=n)
+    >>> Z = 0.8 * X + rng.normal(size=n) * 0.5
+    >>> M = 0.7 * Z + rng.normal(size=n) * 0.5
+    >>> Y = 0.6 * M + rng.normal(size=n) * 0.5
+    >>> df = pd.DataFrame({'X': X, 'Z': Z, 'M': M, 'Y': Y})
     >>> result = sp.notears(df, variables=['X', 'Z', 'M', 'Y'])
-    >>> print(result['edges'])  # [(parent, child, weight), ...]
-    >>> print(result['adjacency'])  # weighted adjacency matrix
+    >>> bool(result['n_edges'] >= 0)  # learned edge count
+    True
     """
     est = NOTEARS(
         data=data, variables=variables, lambda1=lambda1,
@@ -112,6 +121,28 @@ class NOTEARS:
     rho_max : float
     w_threshold : float
     random_state : int
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> from statspai.causal_discovery.notears import NOTEARS
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> X = rng.normal(size=n)
+    >>> Z = 0.8 * X + rng.normal(size=n) * 0.5
+    >>> M = 0.7 * Z + rng.normal(size=n) * 0.5
+    >>> Y = 0.6 * M + rng.normal(size=n) * 0.5
+    >>> df = pd.DataFrame({'X': X, 'Z': Z, 'M': M, 'Y': Y})
+    >>> est = NOTEARS(data=df, variables=['X', 'Z', 'M', 'Y'])
+    >>> result = est.fit()
+    >>> bool(result['n_edges'] >= 0)
+    True
+
+    References
+    ----------
+    [@zheng2018dags]
     """
 
     def __init__(
