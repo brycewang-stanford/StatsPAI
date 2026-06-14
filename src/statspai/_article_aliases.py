@@ -109,6 +109,25 @@ def frontdoor(
     :func:`statspai.inference.front_door`.
 
     ``X`` is mapped to the underlying ``covariates`` argument.
+
+    References
+    ----------
+    [@pearl1995causal]
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 300
+    >>> d = rng.binomial(1, 0.5, size=n)
+    >>> m = 0.7 * d + rng.normal(size=n)   # mediator driven by treatment
+    >>> y = 1.0 * m + rng.normal(size=n)   # outcome driven by mediator
+    >>> df = pd.DataFrame({'y': y, 'd': d, 'm': m})
+    >>> res = sp.frontdoor(df, y='y', d='d', m='m', n_boot=100, seed=0)
+    >>> round(res.estimate, 2)  # front-door effect of d on y (true ~0.7)
+    0.66
     """
     from .inference.front_door import front_door as _front_door
 
@@ -196,6 +215,25 @@ def conformal_ite(
     Covers the ``sp.conformal_ite(df, y, d, X)`` shape advertised in the
     2026-04-20 blog post.  Delegates to
     :func:`statspai.conformal_causal.conformal_cate`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> x1, x2 = rng.normal(size=n), rng.normal(size=n)
+    >>> d = rng.binomial(1, 0.5, size=n)
+    >>> y = 1.0 * d + 0.5 * x1 + rng.normal(size=n)
+    >>> df = pd.DataFrame({'y': y, 'd': d, 'x1': x1, 'x2': x2})
+    >>> res = sp.conformal_ite(df, y='y', d='d', X=['x1', 'x2'])
+    >>> res.model_info['cate'].shape  # one interval per individual
+    (400,)
+    >>> res.model_info['cate_lower'].shape == res.model_info['cate_upper'].shape
+    True
+    >>> res.model_info['coverage_level']  # default 95% conformal coverage
+    0.95
     """
     from .conformal_causal.conformal_ite import conformal_cate
 
@@ -434,6 +472,32 @@ def anderson_rubin_ci(*args, **kwargs):
 def conditional_lr_ci(*args, **kwargs):
     """Moreira (2003) CLR confidence set — re-export of
     :func:`statspai.iv.weak_iv_ci.conditional_lr_ci`.
+
+    The conditional likelihood-ratio test is similar (correctly sized) under
+    weak identification, so its inverted confidence set is a weak-IV-robust
+    CI that, unlike Anderson-Rubin, regains efficiency under strong instruments.
+
+    References
+    ----------
+    [@moreira2003conditional]
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 500
+    >>> z = rng.normal(size=n)
+    >>> u = rng.normal(size=n)
+    >>> d = 0.8 * z + u + rng.normal(size=n)
+    >>> y = 1.5 * d + u + rng.normal(size=n)
+    >>> df = pd.DataFrame({'y': y, 'd': d, 'z': z})
+    >>> ci = sp.conditional_lr_ci('y', 'd', ['z'], data=df, random_state=0)
+    >>> round(ci.lower, 2), round(ci.upper, 2)
+    (1.26, 1.57)
+    >>> len(ci.as_intervals())  # connected: a single interval
+    1
     """
     from .iv.weak_iv_ci import conditional_lr_ci as _impl
 
@@ -451,6 +515,18 @@ def tF_adjustment(first_stage_F: float, alpha: float = 0.05) -> float:
     Alias for :func:`statspai.diagnostics.weak_iv.tF_critical_value`.
     Named after the ``tF`` terminology used in the paper and blog post so
     that ``sp.tF_adjustment(F)`` works as advertised.
+
+    References
+    ----------
+    [@lee2022valid]
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> sp.tF_adjustment(15.0)  # weakish first stage -> inflated crit. value
+    2.54
+    >>> sp.tF_adjustment(100.0)  # strong first stage -> back to ~1.96
+    1.96
     """
     from .diagnostics.weak_iv import tF_critical_value
 
@@ -480,6 +556,29 @@ def matrix_completion(
 
     Article-facing alias for :func:`statspai.matrix_completion.mc_panel`,
     renaming ``d → treat`` to match the blog-post convention.
+
+    References
+    ----------
+    [@athey2021matrix]
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for u in range(15):
+    ...     ueff = rng.normal()
+    ...     for t in range(10):
+    ...         treated = 1 if (u >= 12 and t >= 6) else 0
+    ...         y = ueff + 0.2 * t + 2.0 * treated + rng.normal(scale=0.3)
+    ...         rows.append({'unit': u, 'time': t, 'y': y, 'd': treated})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.matrix_completion(df, y='y', d='d', unit='unit',
+    ...                            time='time', n_bootstrap=50)
+    >>> round(res.estimate, 2)  # average treatment effect on the treated
+    2.86
     """
     # Use importlib rather than `from .matrix_completion import mc_panel`
     # because this function itself is late-bound as `sp.matrix_completion`,
@@ -514,6 +613,27 @@ def causal_discovery(
     ``ges`` and ``lingam`` do not accept a ``variables`` kwarg — so this
     dispatcher subsets the DataFrame up front rather than forwarding
     ``variables=`` to every backend.
+
+    References
+    ----------
+    [@zheng2018dags]
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 300
+    >>> x1 = rng.normal(size=n)
+    >>> x2 = 1.5 * x1 + rng.normal(scale=0.5, size=n)   # x1 -> x2
+    >>> x3 = 0.8 * x2 + rng.normal(scale=0.5, size=n)   # x2 -> x3
+    >>> df = pd.DataFrame({'x1': x1, 'x2': x2, 'x3': x3})
+    >>> res = sp.causal_discovery(df, method='notears')
+    >>> res['variables']
+    ['x1', 'x2', 'x3']
+    >>> res['n_edges']  # recovers the x1 -> x2 -> x3 chain
+    2
     """
     # Same late-bind shadowing trick — use importlib to reach the
     # subpackage explicitly rather than the now-shadowed attribute.
@@ -558,6 +678,27 @@ def mediation(
 
     Translates the blog-post ``(y, d, m, X)`` surface to the underlying
     ``(y, treat, mediator, covariates)`` kwargs.
+
+    References
+    ----------
+    [@imai2010general]
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 300
+    >>> d = rng.binomial(1, 0.5, size=n)
+    >>> m = 0.6 * d + rng.normal(size=n)             # treatment -> mediator
+    >>> y = 0.8 * m + 0.4 * d + rng.normal(size=n)   # mediator + direct path
+    >>> df = pd.DataFrame({'y': y, 'd': d, 'm': m})
+    >>> res = sp.mediation(df, y='y', d='d', m='m', n_boot=100, seed=0)
+    >>> round(res.estimate, 2)  # ACME (indirect effect via m)
+    0.45
+    >>> round(res.model_info['total_effect'], 2)
+    0.8
     """
     import importlib
 
@@ -603,6 +744,22 @@ def evalue_rr(
     -------
     dict
         Same dict shape as :func:`statspai.diagnostics.evalue`.
+
+    References
+    ----------
+    [@vanderweele2017sensitivity]
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> res = sp.evalue_rr(2.0, rr_lower=1.5, rr_upper=2.7)
+    >>> round(res['evalue_estimate'], 2)  # 2 + sqrt(2)
+    3.41
+    >>> round(res['evalue_ci'], 2)  # E-value for the CI bound nearest the null
+    2.37
+
+    Note that ``rr_lower`` and ``rr_upper`` must be passed together (both
+    or neither); supplying only one raises ``ValueError``.
     """
     from .diagnostics import evalue as _evalue
 

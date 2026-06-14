@@ -65,6 +65,30 @@ class BridgeResult:
     detail : dict
         Extra path-specific metadata.
     reference : str
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> units = [f"u{i}" for i in range(6)] + ["CA"]
+    >>> rows = []
+    >>> for u in units:
+    ...     base = rng.normal(10, 1)
+    ...     for yr in range(1985, 1995):
+    ...         eff = 2.0 if (u == "CA" and yr >= 1990) else 0.0
+    ...         rows.append({"state": u, "year": yr,
+    ...                      "gdp": base + 0.1 * (yr - 1985) + eff
+    ...                             + rng.normal(0, 0.2)})
+    >>> df = pd.DataFrame(rows)
+    >>> res = sp.bridge(kind="did_sc", data=df, y="gdp", unit="state",
+    ...                 time="year", treated_unit="CA", treatment_time=1990)
+    >>> type(res).__name__
+    'BridgeResult'
+    >>> res.kind
+    'did_sc'
+    >>> bool(res.agreement)  # True when the two paths concur
+    True
     """
 
     kind: str
@@ -178,15 +202,31 @@ def bridge(kind: str, **kwargs) -> BridgeResult:
 
     Examples
     --------
-    DID ≡ Synthetic Control (Shi-Athey 2025) on a panel where one
-    unit gets treated at time T:
+    DID vs. Synthetic Control on a panel where one unit gets treated
+    at time T:
 
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> units = [f"u{i}" for i in range(6)] + ["CA"]
+    >>> rows = []
+    >>> for u in units:
+    ...     base = rng.normal(10, 1)
+    ...     for yr in range(1985, 1995):
+    ...         eff = 2.0 if (u == "CA" and yr >= 1990) else 0.0
+    ...         rows.append({"state": u, "year": yr,
+    ...                      "gdp": base + 0.1 * (yr - 1985) + eff
+    ...                             + rng.normal(0, 0.2)})
+    >>> df = pd.DataFrame(rows)
     >>> result = sp.bridge(
     ...     kind="did_sc", data=df,
-    ...     y='gdp', unit='state', time='year',
-    ...     treated_unit='CA', treatment_time=1989,
+    ...     y="gdp", unit="state", time="year",
+    ...     treated_unit="CA", treatment_time=1990,
     ... )
-    >>> print(result.summary())
+    >>> result.kind
+    'did_sc'
+    >>> bool(result.agreement)
+    True
     """
     # Lazy import: each bridge module registers itself on import.
     from . import (

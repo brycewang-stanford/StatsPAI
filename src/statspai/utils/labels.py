@@ -8,6 +8,9 @@ binscatter, etc.).
 
 Usage
 -----
+>>> import statspai as sp
+>>> import pandas as pd
+>>> df = pd.DataFrame({'wage': [10.0, 20.0], 'edu': [12, 16]})
 >>> sp.label_var(df, 'wage', 'Monthly wage (CNY)')
 >>> sp.label_var(df, 'edu', 'Years of education')
 >>> sp.get_label(df, 'wage')
@@ -17,7 +20,9 @@ Usage
 >>> sp.label_vars(df, {'wage': 'Monthly wage', 'edu': 'Education (years)'})
 
 >>> # Stata-style describe
->>> sp.describe(df)
+>>> tbl = sp.describe(df)
+>>> list(tbl.columns)
+['variable', 'type', 'n', 'n_missing', 'label']
 """
 
 from typing import Optional, Dict
@@ -42,8 +47,13 @@ def label_var(df: pd.DataFrame, var: str, label: str) -> None:
 
     Examples
     --------
+    >>> import statspai as sp
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'wage': [10.0, 20.0], 'edu': [12, 16]})
     >>> sp.label_var(df, 'wage', 'Monthly wage (CNY)')
     >>> sp.label_var(df, 'edu', 'Years of education')
+    >>> sp.get_label(df, 'wage')
+    'Monthly wage (CNY)'
     """
     if var not in df.columns:
         raise ValueError(f"Column '{var}' not found in DataFrame")
@@ -65,11 +75,18 @@ def label_vars(df: pd.DataFrame, labels: Dict[str, str]) -> None:
 
     Examples
     --------
+    >>> import statspai as sp
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'wage': [10.0, 20.0],
+    ...                    'edu': [12, 16],
+    ...                    'exp': [5, 8]})
     >>> sp.label_vars(df, {
     ...     'wage': 'Monthly wage (CNY)',
     ...     'edu': 'Years of education',
     ...     'exp': 'Work experience (years)',
     ... })
+    >>> sp.get_label(df, 'exp')
+    'Work experience (years)'
     """
     for var, label in labels.items():
         label_var(df, var, label)
@@ -88,6 +105,17 @@ def get_label(df: pd.DataFrame, var: str) -> str:
     -------
     str
         The label if set, otherwise the column name itself.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'wage': [10.0, 20.0], 'edu': [12, 16]})
+    >>> sp.label_var(df, 'wage', 'Monthly wage (CNY)')
+    >>> sp.get_label(df, 'wage')
+    'Monthly wage (CNY)'
+    >>> sp.get_label(df, 'edu')   # unlabeled -> falls back to column name
+    'edu'
     """
     labels = df.attrs.get('_labels', {})
     return labels.get(var, var)
@@ -102,6 +130,15 @@ def get_labels(df: pd.DataFrame) -> Dict[str, str]:
     dict
         {column_name: label} for all labeled columns.
         Unlabeled columns map to their own name.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'wage': [10.0, 20.0], 'edu': [12, 16]})
+    >>> sp.label_var(df, 'wage', 'Monthly wage (CNY)')
+    >>> sp.get_labels(df)
+    {'wage': 'Monthly wage (CNY)', 'edu': 'edu'}
     """
     labels = df.attrs.get('_labels', {})
     return {col: labels.get(col, col) for col in df.columns}
@@ -128,11 +165,16 @@ def describe(
 
     Examples
     --------
-    >>> sp.describe(df)
-       variable    type     n  n_missing              label
-    0      wage  float64  1000         0  Monthly wage (CNY)
-    1       edu    int64  1000         0  Years of education
-    2    female    int64   998         2            female
+    >>> import statspai as sp
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'wage': [10.0, 20.0, 15.0],
+    ...                    'edu': [12, 16, 14]})
+    >>> sp.label_var(df, 'wage', 'Monthly wage (CNY)')
+    >>> tbl = sp.describe(df)
+    >>> list(tbl.columns)
+    ['variable', 'type', 'n', 'n_missing', 'label']
+    >>> tbl['label'].tolist()
+    ['Monthly wage (CNY)', '']
     """
     cols = columns or list(df.columns)
     labels = df.attrs.get('_labels', {})
