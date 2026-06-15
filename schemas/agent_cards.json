@@ -4860,7 +4860,7 @@
       "Z is relevant for W given A, X (bridge first stage)"
     ],
     "category": "causal",
-    "description": "Proximal Causal Inference via linear 2SLS on the outcome bridge. Identifies ATE with unmeasured confounding using two proxy variables: a treatment-side Z (instrument for W) and an outcome-side W (endogenous bridge regressor).",
+    "description": "Proximal Causal Inference via linear 2SLS on the outcome bridge. Identifies ATE with unmeasured confounding using two proxy variables: a treatment-side Z (instrument for W) and an outcome-side W (endogenous bridge regressor). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.proximal(df, y=\"y\", treat=\"d\", proxy_z=[\"z\"], proxy_w=[\"w\"])",
     "failure_modes": [
       {
@@ -4893,7 +4893,7 @@
     ],
     "reference": "Tchetgen Tchetgen et al. (2020); Miao, Geng & Tchetgen Tchetgen (2018)",
     "signature": {
-      "description": "Proximal Causal Inference via linear 2SLS on the outcome bridge. Identifies ATE with unmeasured confounding using two proxy variables: a treatment-side Z (instrument for W) and an outcome-side W (endogenous bridge regressor).",
+      "description": "Proximal Causal Inference via linear 2SLS on the outcome bridge. Identifies ATE with unmeasured confounding using two proxy variables: a treatment-side Z (instrument for W) and an outcome-side W (endogenous bridge regressor). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "proximal",
       "parameters": {
         "properties": {
@@ -4957,9 +4957,10 @@
     "stability": "stable",
     "typical_n_min": 1000,
     "validation_notes": [
+      "tests/reference_parity/test_proximal_parity.py",
       "API/unit contract evidence: tests/test_proximal.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -13694,7 +13695,7 @@
       "A bridge function exists (completeness conditions hold)."
     ],
     "category": "causal",
-    "description": "Fortified proximal causal inference (Yu, Shi & Tchetgen Tchetgen 2025). Adds a bridge-function stability constraint that gives robust ATT under mild misspecification of the outcome/treatment bridge.",
+    "description": "Fortified proximal causal inference (Yu, Shi & Tchetgen Tchetgen 2025). Adds a bridge-function stability constraint that gives robust ATT under mild misspecification of the outcome/treatment bridge. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.fortified_pci(df, y=\"y\", treat=\"d\", proxy_z=[\"z\"], proxy_w=[\"w\"])",
     "failure_modes": [
       {
@@ -13712,7 +13713,7 @@
     ],
     "reference": "Yu, Shi & Tchetgen Tchetgen (2025). arXiv:2506.13152.",
     "signature": {
-      "description": "Fortified proximal causal inference (Yu, Shi & Tchetgen Tchetgen 2025). Adds a bridge-function stability constraint that gives robust ATT under mild misspecification of the outcome/treatment bridge.",
+      "description": "Fortified proximal causal inference (Yu, Shi & Tchetgen Tchetgen 2025). Adds a bridge-function stability constraint that gives robust ATT under mild misspecification of the outcome/treatment bridge. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "fortified_pci",
       "parameters": {
         "properties": {
@@ -13763,9 +13764,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "tests/reference_parity/test_proximal_parity.py",
       "API/unit contract evidence: tests/test_proximal_frontiers.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -13777,7 +13779,7 @@
       "A bridge function exists (completeness conditions hold)."
     ],
     "category": "causal",
-    "description": "Bidirectional proximal causal inference (Min, Zhang & Luo 2025). Solves for both outcome and treatment bridges simultaneously in a single two-way regression system.",
+    "description": "Bidirectional proximal causal inference (Min, Zhang & Luo 2025). Solves for both outcome and treatment bridges simultaneously in a single two-way regression system. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.bidirectional_pci(df, y=\"y\", treat=\"d\", proxy_z=[\"z\"], proxy_w=[\"w\"])",
     "failure_modes": [
       {
@@ -13795,7 +13797,7 @@
     ],
     "reference": "Min, Zhang & Luo (2025). arXiv:2507.13965.",
     "signature": {
-      "description": "Bidirectional proximal causal inference (Min, Zhang & Luo 2025). Solves for both outcome and treatment bridges simultaneously in a single two-way regression system.",
+      "description": "Bidirectional proximal causal inference (Min, Zhang & Luo 2025). Solves for both outcome and treatment bridges simultaneously in a single two-way regression system. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bidirectional_pci",
       "parameters": {
         "properties": {
@@ -13846,9 +13848,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "tests/reference_parity/test_proximal_parity.py",
       "API/unit contract evidence: tests/test_proximal_frontiers.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
