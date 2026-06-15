@@ -28,6 +28,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Mathematics",
     "Topic :: Office/Business :: Financial",
+    "Typing :: Typed",
 ]
 keywords = [
     "econometrics", "statistics", "causal-inference",
@@ -151,7 +152,7 @@ statspai-mcp = "statspai.agent.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/brycewang-stanford/statspai"
-Documentation = "https://github.com/brycewang-stanford/statspai#quick-example"
+Documentation = "https://brycewang-stanford.github.io/StatsPAI/"
 Repository = "https://github.com/brycewang-stanford/statspai"
 "Bug Reports" = "https://github.com/brycewang-stanford/statspai/issues"
 
