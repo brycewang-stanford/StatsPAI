@@ -50,7 +50,9 @@ jobs:
   registry-drift:
     name: Registry / API surface drift
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # The runnable-examples ratchet executes 1000+ docstring snippets. Keep
+    # enough headroom for GitHub-hosted runner variance after install/setup.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
