@@ -149,6 +149,50 @@ DGP, not from any external R or Stata output.
 - Estimators tested: `ebalance`, `cbps(ATT)`, `aipw`.
 - All must recover 2.0 within 2 sigma.
 
+### Proximal causal inference family (`proximal`, `fortified_pci`, `bidirectional_pci`)
+
+- **DGP** (`test_proximal_parity.py`, all seeded `np.random.default_rng`):
+  unmeasured confounder `U ~ N(0,1)`; proxies `Z = U + N(0,1)`
+  (treatment-side) and `W = U + N(0,1)` (outcome-side); measured
+  covariate `X ~ N(0,1)`; outcome
+  `Y = 1.5*D + 1.0*U + 0.3*X + N(0,1)`, so the **true ATE = `GAMMA_D = 1.5`**
+  and naive OLS-on-`(D,X)` inherits `U`'s confounding. Continuous-D
+  variant uses `D = 0.8*U + 0.5*X + N(0,1)`; binary-D variant draws
+  `D ~ Bernoulli(expit(0.8*U + 0.5*X))`. A separate just-identified
+  fixture drops `X` so the 2SLS system is square (`n=2000`).
+- **Anchor A (closed-form, tol 1e-9):** with a single `Z`, single `W`
+  and no covariates the proximal 2SLS reduces to the just-identified IV
+  estimator `(Z'X)^{-1} Z'Y` (instruments `[1,D,Z]`, regressors
+  `[1,D,W]`). `sp.proximal`'s coefficient on `D` must equal the
+  hand-computed `np.linalg.solve` entry to machine precision (probed
+  |diff| ~2e-16). Algebraic identity, not a finiteness check.
+- **Anchor B (recovery, 4-sigma):** single-draw `proximal` within 4 of
+  its own SE of 1.5 (probed z~1.1); 40-rep Monte-Carlo mean within
+  `4*SD/sqrt(40)` of 1.5 (probed 1.5004).
+- **Anchor C (naive-bias contrast):** hand-rolled OLS slope of `Y` on
+  `(D,X)` is `> 6` sigma above truth (probed ~1.98, z~30); `proximal`
+  recovers truth within 4 sigma AND lands strictly below naive by a
+  0.10 margin (directional de-confounding).
+- **Anchor D (family consistency):** (i) continuous `D` makes
+  `bidirectional_pci`'s logistic Z-IPW fail, so it collapses to the
+  outcome-bridge 2SLS and equals `sp.proximal` exactly (tol 1e-9,
+  probed diff 0.0, `treatment_bridge_fallback` True); (ii) binary `D`
+  engages the Z-IPW (`fallback` False) and both `bidirectional_pci` and
+  `fortified_pci` land strictly inside the `(truth, naive)` band while
+  `proximal` recovers truth — pinning the partial correctors between
+  "does nothing" and "fully corrects".
+- **Anchor E (orientation):** positive-effect DGPs (continuous and
+  binary D) yield positive estimates from all three estimators.
+- **Tolerance rationale:** machine-precision (1e-9) for the algebraic
+  identity (A) and the fallback collapse (D-i); 4-sigma recovery bands
+  (B, C) per the suite convention above; ordering / sign predicates
+  (C-margin, D-ii band, E) are non-tautological — a 20% bias breaks them.
+- **References (bib keys grep-confirmed in `paper.bib`):**
+  `@tchetgen2020introduction`, `@miao2018identifying`,
+  `@cui2024semiparametric` (linear-bridge 2SLS implemented here),
+  `@yu2025fortified` (fortified PCI), `@min2025regression`
+  (bidirectional PCI).
+
 ## External parity (offline procedure)
 
 For true cross-package numerical parity with R/Stata, run the
