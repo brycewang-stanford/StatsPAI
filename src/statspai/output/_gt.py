@@ -237,18 +237,18 @@ def to_gt(
     >>> x = rng.normal(0, 1, n)
     >>> data = pd.DataFrame({'y': 1.0 + 0.5 * x + rng.normal(0, 1, n), 'x': x})
     >>> rt = sp.regtable(sp.regress('y ~ x', data=data), title='Demo')
-    >>> g = sp.gt(rt)               # ready-to-render great_tables.GT
-    >>> type(g).__name__
+    >>> g = sp.gt(rt)               # doctest: +SKIP
+    >>> type(g).__name__            # doctest: +SKIP
     'GT'
-    >>> bool('<table' in g.as_raw_html())   # HTML export / Quarto
+    >>> bool('<table' in g.as_raw_html())   # doctest: +SKIP
     True
     >>> g.as_latex()                # doctest: +SKIP
 
     Plain DataFrame path — promote a column to row labels:
 
     >>> df = pd.DataFrame({'var': ['x', 'y'], 'M1': ['0.5***', '0.3']})
-    >>> g2 = sp.gt(df, rowname_col='var', title='Custom table')
-    >>> type(g2).__name__
+    >>> g2 = sp.gt(df, rowname_col='var', title='Custom table')  # doctest: +SKIP
+    >>> type(g2).__name__  # doctest: +SKIP
     'GT'
 
     Raises

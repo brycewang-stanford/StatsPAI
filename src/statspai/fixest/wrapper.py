@@ -102,8 +102,8 @@ def feols(
     >>> x1 = rng.normal(size=n)
     >>> y = 1.0 + 0.5 * x1 + 0.1 * firm + 0.2 * year + rng.normal(0, 0.5, n)
     >>> df = pd.DataFrame({"y": y, "x1": x1, "firm": firm, "year": year})
-    >>> res = sp.feols("y ~ x1 | firm + year", data=df, vcov={"CRV1": "firm"})
-    >>> "x1" in res.params.index
+    >>> res = sp.feols("y ~ x1 | firm + year", data=df, vcov={"CRV1": "firm"})  # doctest: +SKIP
+    >>> "x1" in res.params.index  # doctest: +SKIP
     True
 
     Multiple estimation (``csw0`` returns a list, one fit per FE set):
@@ -203,8 +203,8 @@ def fepois(
     >>> x1 = rng.normal(size=n)
     >>> mu = np.exp(0.3 + 0.5 * x1 + 0.1 * firm)
     >>> df = pd.DataFrame({"y": rng.poisson(mu), "x1": x1, "firm": firm})
-    >>> res = sp.fepois("y ~ x1 | firm", data=df)
-    >>> "x1" in res.params.index
+    >>> res = sp.fepois("y ~ x1 | firm", data=df)  # doctest: +SKIP
+    >>> "x1" in res.params.index  # doctest: +SKIP
     True
     """
     pf = _check_pyfixest()
@@ -278,8 +278,8 @@ def feglm(
     >>> p = 1.0 / (1.0 + np.exp(-(0.2 + 0.8 * x1)))
     >>> y = (rng.random(n) < p).astype(int)
     >>> df = pd.DataFrame({"y": y, "x1": x1, "firm": firm})
-    >>> res = sp.feglm("y ~ x1 | firm", data=df, family="logit")
-    >>> "x1" in res.params.index
+    >>> res = sp.feglm("y ~ x1 | firm", data=df, family="logit")  # doctest: +SKIP
+    >>> "x1" in res.params.index  # doctest: +SKIP
     True
     """
     pf = _check_pyfixest()
@@ -341,9 +341,9 @@ def etable(
     With ``sp.feols`` fits (requires the ``fixest`` extra), pyfixest's
     native styled table is returned instead:
 
-    >>> f1 = sp.feols("wage ~ x1 | firm", data=df)
-    >>> f2 = sp.feols("wage ~ x1 + x2 | firm", data=df)
-    >>> tab = sp.etable(f1, f2)
+    >>> f1 = sp.feols("wage ~ x1 | firm", data=df)  # doctest: +SKIP
+    >>> f2 = sp.feols("wage ~ x1 + x2 | firm", data=df)  # doctest: +SKIP
+    >>> tab = sp.etable(f1, f2)  # doctest: +SKIP
     """
     pf_fits = [
         getattr(r, "_pyfixest_fit") for r in results

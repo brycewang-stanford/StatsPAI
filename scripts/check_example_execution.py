@@ -117,7 +117,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             first = str(e).splitlines()[0] if str(e) else ""
             failures.append(f"{name}: {type(e).__name__}: {first[:100]}")
 
-    if not args.quiet:
+    should_print_failures = not args.quiet or (
+        args.max_failures is not None and len(failures) > args.max_failures
+    )
+    if should_print_failures:
         for f in failures:
             print(f"FAIL {f}")
     print(f"ran_ok={ran} failed={len(failures)}")
