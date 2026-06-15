@@ -61,7 +61,7 @@ def _build_problem(
 ) -> dict:
     """Build all NumPy arrays needed by the Wooldridge objective.
 
-    Returns a dict (instead of a class) so the boostrap path can rebuild
+    Returns a dict (instead of a class) so the bootstrap path can rebuild
     it cheaply per replicate.
     """
     free = list(free)

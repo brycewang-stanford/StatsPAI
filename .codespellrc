@@ -1,0 +1,23 @@
+[codespell]
+# Spell-check prose + docstrings. The econometrics / causal-inference
+# vocabulary trips a general dictionary heavily, so the ignore list below
+# is domain terms and acronyms that ARE correct here (not typos):
+#   te/hte/late/lates/ate/att/cate  - treatment-effect estimands
+#   ges/fci/pc                       - causal-discovery algorithms
+#   aer                              - American Economic Review (journal)
+#   mata                             - Stata's matrix language
+#   complier/compliers               - IV principal strata
+#   iy/nd/nin/ot/fo/te/ans/mor/wee   - common short-token false positives
+skip = ./.git,./build,./dist,*.json,*.csv,*.lock,*.svg,*.ipynb,./tests/r_parity,./tests/stata_parity,./tests/reference_parity/_fixtures,./src/statspai.egg-info,./.venv,./site,*.min.js,./paper.bib
+# Domain terms / proper nouns / code identifiers that are CORRECT here:
+#   tfe/tre   - Greene (2005) True Fixed / Random Effects frontier models
+#   stram     - Stram & Lee (1994), authors of a mixture method
+#   mian      - Atif Mian, economist (author name)
+#   ttest     - statistical t-test identifier
+#   numer     - numerator (code abbreviation)
+#   ehr       - electronic health records
+#   sems/sem  - structural equation models / standard error of the mean
+#   anc       - ancestor set (do-calculus code)
+#   infarction- myocardial infarction (epi example), not "infraction"
+ignore-words-list = te,hte,htes,late,lates,ate,att,cate,ges,fci,aer,mata,complier,compliers,nin,nd,ot,fo,ans,mor,iy,wee,thi,ist,fpr,parc,sav,ser,crate,pres,clen,dout,vart,coo,dur,supercede,bre,nce,fro,ines,reord,strat,strats,abd,ba,oder,recuse,tfe,tre,stram,mian,ttest,numer,ehr,sems,sem,anc,infarction,ment,unparseable,pre-emptive,re-use,re-uses,sate,parmeter,ede,bu
+quiet-level = 3
