@@ -1998,7 +1998,7 @@
     "name": "brief_result"
   },
   {
-    "description": "Estimate bunching at a policy threshold. Assumptions: The counterfactual density would be smooth through the threshold absent the policy; Excess mass at the threshold reflects the behavioural elasticity of interest; No other discontinuity coincides with the threshold. Pre-conditions: A behavioural choice variable (earnings, hours, ...) with a known kink or notch in the budget/choice set; A visible empirical density of the running variable around the threshold. Failure modes: Round-number heaping or a coincident policy contaminates the bunching mass -> Exclude heaping points, widen the excluded region, and test the counterfactual polynomial order. Alternatives: sp.rdrobust, sp.rkd. Typical minimum N: 500.",
+    "description": "Estimate bunching at a policy threshold. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The counterfactual density would be smooth through the threshold absent the policy; Excess mass at the threshold reflects the behavioural elasticity of interest; No other discontinuity coincides with the threshold. Pre-conditions: A behavioural choice variable (earnings, hours, ...) with a known kink or notch in the budget/choice set; A visible empirical density of the running variable around the threshold. Failure modes: Round-number heaping or a coincident policy contaminates the bunching mass -> Exclude heaping points, widen the excluded region, and test the counterfactual polynomial order. Alternatives: sp.rdrobust, sp.rkd. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -3531,7 +3531,7 @@
     "name": "conley"
   },
   {
-    "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [pending verification] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable. Assumptions: Parallel trends in potential outcomes across dose levels; No anticipation of treatment; Strong parallel trends (CGS 2024) required for ATT(d|g,t) interpretation in att_gt mode. Pre-conditions: panel data with unit x time x outcome x continuous dose; at least one unit with dose == 0 acts as untreated control (or the lowest dose quantile is us...",
+    "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [pending verification] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable. Assumptions: Parallel trends in potential outcomes across dose levels; No anticipation of treatment; Strong parallel trends (CGS 2024) required for ATT(d|g,t) interpretation in att_gt mode. Pre-conditions: panel data with unit x time x outcome x contin...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -5489,7 +5489,7 @@
     "name": "did_timevarying_covariates"
   },
   {
-    "description": "Distributional Synthetic Controls (Gunsilius 2023). Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth); Placebo / permutation inference shows the estimate is not extreme relative to donors -> Report the placebo distribution honestly; the effect may not be distinguishable from noise. Alternatives: sp.sdid, sp.augsynth, sp.gsynth, sp.callaway_santanna. Typical minimum N: 15.",
+    "description": "Distributional Synthetic Controls (Gunsilius 2023). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth); Placebo / permutation inference shows the estimate is not extreme relative to donors -> Report the placebo distribution honestly; the effect may not be distinguishable from noise. Alternatives: sp.sdid, sp.augsynth, sp.gsynth, sp.callaway_santanna. Typical minimum N: 15.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -5741,7 +5741,7 @@
     "name": "dist_iv"
   },
   {
-    "description": "Estimate distributional treatment effects. Assumptions: Selection-on-observables (unconfoundedness + overlap) or, for IV variants, instrument validity; For IV-QTE: rank invariance / rank similarity (monotonicity of the structural quantile function). Pre-conditions: Covariates, treatment, and outcome; for IV-quantile methods, a valid instrument; Enough data to estimate the outcome distribution across quantiles. Failure modes: Estimated conditional quantiles cross (non-monotone), or tail quantiles are unstable -> Use rearrangement / monotonization and avoid extreme quantiles where data are sparse. Alternatives: sp.qte, sp.iv, sp.dml. Typical minimum N: 500.",
+    "description": "Estimate distributional treatment effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Selection-on-observables (unconfoundedness + overlap) or, for IV variants, instrument validity; For IV-QTE: rank invariance / rank similarity (monotonicity of the structural quantile function). Pre-conditions: Covariates, treatment, and outcome; for IV-quantile methods, a valid instrument; Enough data to estimate the outcome distribution across quantiles. Failure modes: Estimated conditional quantiles cross (non-monotone), or tail quantiles are unstable -> Use rearrangement / monotonization and avoid extreme quantiles where data are sparse. Alternatives: sp.qte, sp.iv, sp.dml. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -6087,7 +6087,7 @@
     "name": "dml_sensitivity"
   },
   {
-    "description": "Dose-response function for a continuous treatment under unconfoundedness. Uses generalised propensity-score weighting or double ML for the conditional expectation E[Y(d)]. Assumptions: Weak unconfoundedness: Y(d) perp D | X for each d; Generalised overlap: positive conditional density of D at each evaluated dose; Smoothness of dose-response function (for local-polynomial / kernel smoothing). Pre-conditions: treat is continuous (numeric, not binary); covariates comprise the confounding set; n >= 1000 for stable dose-response curves. Failure modes: Sparse data at extreme doses -> Narrow dose_range; CIs at tails will be wide and uninformative; Heavy-tailed generalised propensity weights -> Use stabilised weights or restrict to common-support dose window. Alternatives: sp.dml, sp.metalearner, sp.causal_forest. Typical minimum N: 1000.",
+    "description": "Dose-response function for a continuous treatment under unconfoundedness. Uses generalised propensity-score weighting or double ML for the conditional expectation E[Y(d)]. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Weak unconfoundedness: Y(d) perp D | X for each d; Generalised overlap: positive conditional density of D at each evaluated dose; Smoothness of dose-response function (for local-polynomial / kernel smoothing). Pre-conditions: treat is continuous (numeric, not binary); covariates comprise the confounding set; n >= 1000 for stable dose-response curves. Failure modes: Sparse data at extreme doses -> Narrow dose_range; CIs at tails will be wide and uninformative; Heavy-tailed generalised propensity weights -> Use stabilised weights or restrict to common-support dose window. Alternatives: sp.dml, sp.metalearner, sp.causal_forest. Typical minimum N: 1000.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -7912,7 +7912,7 @@
     "name": "gelbach"
   },
   {
-    "description": "High-order bunching design with bias correction. Assumptions: The counterfactual density would be smooth through the threshold absent the policy; Excess mass at the threshold reflects the behavioural elasticity of interest; No other discontinuity coincides with the threshold. Pre-conditions: A behavioural choice variable (earnings, hours, ...) with a known kink or notch in the budget/choice set; A visible empirical density of the running variable around the threshold. Failure modes: Round-number heaping or a coincident policy contaminates the bunching mass -> Exclude heaping points, widen the excluded region, and test the counterfactual polynomial order. Alternatives: sp.rdrobust, sp.rkd. Typical minimum N: 500.",
+    "description": "High-order bunching design with bias correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The counterfactual density would be smooth through the threshold absent the policy; Excess mass at the threshold reflects the behavioural elasticity of interest; No other discontinuity coincides with the threshold. Pre-conditions: A behavioural choice variable (earnings, hours, ...) with a known kink or notch in the budget/choice set; A visible empirical density of the running variable around the threshold. Failure modes: Round-number heaping or a coincident policy contaminates the bunching mass -> Exclude heaping points, widen the excluded region, and test the counterfactual polynomial order. Alternatives: sp.rdrobust, sp.rkd. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -8179,7 +8179,7 @@
     "name": "glm"
   },
   {
-    "description": "General GMM estimator for arbitrary moment conditions.",
+    "description": "General GMM estimator for arbitrary moment conditions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "W": {
@@ -9124,7 +9124,7 @@
     "name": "interactive_fe"
   },
   {
-    "description": "Unified interference / spillover dispatcher. design= selects the estimator: 'partial' (Hudgens-Halloran cluster) / 'network_exposure' (Aronow-Samii HT) / 'peer_effects' (Manski / Bramoulle linear-in-means) / 'network_hte' (Wu & Yuan 2025 orthogonal, arXiv:2509.18484) / 'inward_outward' (directed network; Fang, Airoldi & Forastiere 2025, arXiv:2506.06615) / 'cluster_matched_pair' (Bai 2022) / 'cluster_cross' (Ding et al. 2025) / 'cluster_staggered' (Zhou et al. 2025) / 'dnc_gnn' (Zhao et al. 2026). Kwargs pass through to the target function; see sp.interference_family guide. Assumptions: Partial interference (within-cluster spillover only) OR an explicit exposure mapping; SUTVA modulo the declared spillover structure; Correctly specified exposure function (e.g. fraction-treated, neighbour-share). Pre-conditions: clustered data OR network / adjacency matrix; treatment varies within cluster (or exposure is well-defined on the network); enough clusters (>= 30) for cluster-robust inference. Failure modes: Few clusters (< 30) with cluster-level inference -> Use wild cluster bootstrap or permutation; CR3 jackknife for < 50; Very few treated per cluster -> Saturation DID (Baird et al.) or...",
+    "description": "Unified interference / spillover dispatcher. design= selects the estimator: 'partial' (Hudgens-Halloran cluster) / 'network_exposure' (Aronow-Samii HT) / 'peer_effects' (Manski / Bramoulle linear-in-means) / 'network_hte' (Wu & Yuan 2025 orthogonal, arXiv:2509.18484) / 'inward_outward' (directed network; Fang, Airoldi & Forastiere 2025, arXiv:2506.06615) / 'cluster_matched_pair' (Bai 2022) / 'cluster_cross' (Ding et al. 2025) / 'cluster_staggered' (Zhou et al. 2025) / 'dnc_gnn' (Zhao et al. 2026). Kwargs pass through to the target function; see sp.interference_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Partial interference (within-cluster spillover only) OR an explicit exposure mapping; SUTVA modulo the declared spillover structure; Correctly specified exposure function (e.g. fraction-treated, neighbour-share). Pre-conditions: clustered data OR network / adjacency matrix; treatment varies within cluster (or exposure is well-defined on the network); enough clusters (>= 30) for cluster-robust inference. Failure modes: Few clusters (< 30) with cluster-level inference -> Use wild cluster bootstrap...",
     "input_schema": {
       "properties": {
         "design": {
@@ -10225,7 +10225,7 @@
     "name": "lincom"
   },
   {
-    "description": "Fit DirectLiNGAM (Shimizu 2011). Assumptions: Causal Markov condition and faithfulness (PC/GES/FCI); Causal sufficiency for PC/GES (no latent confounders); FCI relaxes this; Acyclicity; LiNGAM additionally assumes a linear non-Gaussian model. Pre-conditions: Constraint-/score-based discovery needs i.i.d. observational data with enough samples for reliable conditional-independence tests; Invariance-based discovery (ICP) needs data labelled by environment / intervention. Failure modes: Unstable skeleton / many undirected edges -- faithfulness or sample size is the likely culprit -> Increase the sample, relax the CI-test threshold, or switch to FCI if latent confounders are plausible. Alternatives: sp.pc_algorithm, sp.fci, sp.ges, sp.lingam. Typical minimum N: 500.",
+    "description": "Fit DirectLiNGAM (Shimizu 2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Causal Markov condition and faithfulness (PC/GES/FCI); Causal sufficiency for PC/GES (no latent confounders); FCI relaxes this; Acyclicity; LiNGAM additionally assumes a linear non-Gaussian model. Pre-conditions: Constraint-/score-based discovery needs i.i.d. observational data with enough samples for reliable conditional-independence tests; Invariance-based discovery (ICP) needs data labelled by environment / intervention. Failure modes: Unstable skeleton / many undirected edges -- faithfulness or sample size is the likely culprit -> Increase the sample, relax the CI-test threshold, or switch to FCI if latent confounders are plausible. Alternatives: sp.pc_algorithm, sp.fci, sp.ges, sp.lingam. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "standardize": {
@@ -11111,7 +11111,7 @@
     "name": "match"
   },
   {
-    "description": "Matrix-completion causal panel estimator (Athey et al., 2021).",
+    "description": "Matrix-completion causal panel estimator (Athey et al., 2021). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "d": {
@@ -11142,7 +11142,7 @@
     "name": "matrix_completion"
   },
   {
-    "description": "Estimate treatment effects using matrix completion. Assumptions: The relationship between the treated unit and controls is stable absent the intervention (causal_impact); Matrix-completion: the untreated potential outcomes follow a low-rank factor structure with treatment as the missingness pattern; No concurrent intervention affects the controls. Pre-conditions: A treated unit with a pre-period and a set of control series, or a panel with a low-rank structure. Failure modes: Pre-period fit is poor or controls are themselves affected by the intervention -> Re-select controls, lengthen the pre-period, or use synthetic-control / DiD diagnostics. Alternatives: sp.synth, sp.sdid, sp.gsynth. Typical minimum N: 50.",
+    "description": "Estimate treatment effects using matrix completion. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The relationship between the treated unit and controls is stable absent the intervention (causal_impact); Matrix-completion: the untreated potential outcomes follow a low-rank factor structure with treatment as the missingness pattern; No concurrent intervention affects the controls. Pre-conditions: A treated unit with a pre-period and a set of control series, or a panel with a low-rank structure. Failure modes: Pre-period fit is poor or controls are themselves affected by the intervention -> Re-select controls, lengthen the pre-period, or use synthetic-control / DiD diagnostics. Alternatives: sp.synth, sp.sdid, sp.gsynth. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -12612,7 +12612,7 @@
     "name": "nbreg"
   },
   {
-    "description": "Aronow-Samii Horvitz-Thompson estimator for arbitrary interference via a user-supplied exposure mapping. Handles Bernoulli randomisation designs with simulated conservative variance. Known limitations: design='complete' is reserved but not implemented; passing it raises NotImplementedError. Use design='bernoulli' with p_treat=K/N as an approximation only if that matches the assignment mechanism you are willing to assume. Assumptions: Exposure mapping is correctly specified (as4 / as3 / as2 -- Aronow-Samii hierarchy); Positivity: every exposure level has positive probability under the design; Network adjacency is fixed / known (measurement error in ties introduces bias). Pre-conditions: adjacency is a binary n x n matrix encoding network ties; Y, Z have same length n; randomisation design is known (bernoulli with p_treat, or complete). Failure modes: Some exposure level has < 5 observed units -> Switch to a coarser mapping (as4 -> as3) or increase sample size; Variance estimate extremely conservative (wide CI) -> HT-style variance is conservative by design -- use sp.spillover for cluster case. Alternatives: sp.spillover, sp.peer_effects, sp.cluster_matched_pair. Typical minimum N:...",
+    "description": "Aronow-Samii Horvitz-Thompson estimator for arbitrary interference via a user-supplied exposure mapping. Handles Bernoulli randomisation designs with simulated conservative variance. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: design='complete' is reserved but not implemented; passing it raises NotImplementedError. Use design='bernoulli' with p_treat=K/N as an approximation only if that matches the assignment mechanism you are willing to assume. Assumptions: Exposure mapping is correctly specified (as4 / as3 / as2 -- Aronow-Samii hierarchy); Positivity: every exposure level has positive probability under the design; Network adjacency is fixed / known (measurement error in ties introduces bias). Pre-conditions: adjacency is a binary n x n matrix encoding network ties; Y, Z have same length n; randomisation design is known (bernoulli with p_treat, or complete). Failure modes: Some exposure level has < 5 observed units -> Switch to a coarser mapping (as4 -> as3) or increase sample size; Variance estimate extremely conservative (wide CI) -> HT-style variance is conservative by design -- use sp.spillover for...",
     "input_schema": {
       "properties": {
         "Y": {
@@ -12752,7 +12752,7 @@
     "name": "notch"
   },
   {
-    "description": "Learn a DAG from data using NOTEARS (Zheng et al. 2018). Assumptions: Causal Markov condition and faithfulness (PC/GES/FCI); Causal sufficiency for PC/GES (no latent confounders); FCI relaxes this; Acyclicity; LiNGAM additionally assumes a linear non-Gaussian model. Pre-conditions: Constraint-/score-based discovery needs i.i.d. observational data with enough samples for reliable conditional-independence tests; Invariance-based discovery (ICP) needs data labelled by environment / intervention. Failure modes: Unstable skeleton / many undirected edges -- faithfulness or sample size is the likely culprit -> Increase the sample, relax the CI-test threshold, or switch to FCI if latent confounders are plausible. Alternatives: sp.pc_algorithm, sp.fci, sp.ges, sp.lingam. Typical minimum N: 500.",
+    "description": "Learn a DAG from data using NOTEARS (Zheng et al. 2018). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Causal Markov condition and faithfulness (PC/GES/FCI); Causal sufficiency for PC/GES (no latent confounders); FCI relaxes this; Acyclicity; LiNGAM additionally assumes a linear non-Gaussian model. Pre-conditions: Constraint-/score-based discovery needs i.i.d. observational data with enough samples for reliable conditional-independence tests; Invariance-based discovery (ICP) needs data labelled by environment / intervention. Failure modes: Unstable skeleton / many undirected edges -- faithfulness or sample size is the likely culprit -> Increase the sample, relax the CI-test threshold, or switch to FCI if latent confounders are plausible. Alternatives: sp.pc_algorithm, sp.fci, sp.ges, sp.lingam. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "h_tol": {
@@ -13867,7 +13867,7 @@
     "name": "pate"
   },
   {
-    "description": "Learn causal structure using the PC algorithm. Assumptions: Causal Markov condition and faithfulness (PC/GES/FCI); Causal sufficiency for PC/GES (no latent confounders); FCI relaxes this; Acyclicity; LiNGAM additionally assumes a linear non-Gaussian model. Pre-conditions: Constraint-/score-based discovery needs i.i.d. observational data with enough samples for reliable conditional-independence tests; Invariance-based discovery (ICP) needs data labelled by environment / intervention. Failure modes: Unstable skeleton / many undirected edges -- faithfulness or sample size is the likely culprit -> Increase the sample, relax the CI-test threshold, or switch to FCI if latent confounders are plausible. Alternatives: sp.pc_algorithm, sp.fci, sp.ges, sp.lingam. Typical minimum N: 500.",
+    "description": "Learn causal structure using the PC algorithm. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Causal Markov condition and faithfulness (PC/GES/FCI); Causal sufficiency for PC/GES (no latent confounders); FCI relaxes this; Acyclicity; LiNGAM additionally assumes a linear non-Gaussian model. Pre-conditions: Constraint-/score-based discovery needs i.i.d. observational data with enough samples for reliable conditional-independence tests; Invariance-based discovery (ICP) needs data labelled by environment / intervention. Failure modes: Unstable skeleton / many undirected edges -- faithfulness or sample size is the likely culprit -> Increase the sample, relax the CI-test threshold, or switch to FCI if latent confounders are plausible. Alternatives: sp.pc_algorithm, sp.fci, sp.ges, sp.lingam. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -14492,7 +14492,7 @@
     "name": "pretrends_test"
   },
   {
-    "description": "Principal Stratification (Frangakis & Rubin 2002). 'monotonicity' method identifies the complier PCE (= LATE) and reports Zhang-Rubin sharp bounds on the always-survivor SACE. 'principal_score' uses Ding-Lu covariate weighting to point-identify stratum-specific effects under principal ignorability. Known limitations: Always-survivor SACE under encouragement design (Mealli & Pacini 2013, partial identification) is not yet implemented; only AIR / Wald LATE point estimates (tau_Y on outcome, tau_S on the post-treatment stratum) are reported when an instrument is supplied. Assumptions: Monotonicity (no defiers) for method='monotonicity'; Principal ignorability for method='principal_score' (strata perp Y(d) | X); SUTVA and exclusion restriction for the never-takers / always-takers interpretation. Pre-conditions: binary treatment; binary post-treatment stratum variable (compliance, survival, employment, ...); covariates required when method='principal_score' (for Ding-Lu weighting). Failure modes: Zhang-Rubin bounds include 0 and both signs -> Strata partition too weak for point identification -- add covariates and use method='principal_score'; Complier share near zero -> Low compliance...",
+    "description": "Principal Stratification (Frangakis & Rubin 2002). 'monotonicity' method identifies the complier PCE (= LATE) and reports Zhang-Rubin sharp bounds on the always-survivor SACE. 'principal_score' uses Ding-Lu covariate weighting to point-identify stratum-specific effects under principal ignorability. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Always-survivor SACE under encouragement design (Mealli & Pacini 2013, partial identification) is not yet implemented; only AIR / Wald LATE point estimates (tau_Y on outcome, tau_S on the post-treatment stratum) are reported when an instrument is supplied. Assumptions: Monotonicity (no defiers) for method='monotonicity'; Principal ignorability for method='principal_score' (strata perp Y(d) | X); SUTVA and exclusion restriction for the never-takers / always-takers interpretation. Pre-conditions: binary treatment; binary post-treatment stratum variable (compliance, survival, employment, ...); covariates required when method='principal_score' (for Ding-Lu weighting). Failure modes: Zhang-Rubin bounds include 0 and both signs -> Strata partition too weak for point ident...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -14941,7 +14941,7 @@
     "name": "pwcompare"
   },
   {
-    "description": "Quantile Difference-in-Differences (Athey & Imbens 2006 CIC). Estimates QTE at multiple quantiles via changes-in-changes on a 2x2 design with bootstrap SE. Assumptions: CIC rank invariance: the quantile rank in the untreated distribution is stable across groups; Continuous outcome support covering both groups in both periods; SUTVA (no cross-group spillovers). Pre-conditions: panel or repeated cross-section; group is binary 0/1; time is binary 0/1 (pre / post). Failure modes: Outcome heavily discrete / zero-inflated -> CIC rank-matching is unstable on discrete supports -- use QTE regression (sp.qte) or Firpo-RIF; Bootstrap CI across quantiles varies wildly -> Thin tails at extreme quantiles -- restrict to [0.2, 0.8] or raise n_boot to 2000. Alternatives: sp.qte, sp.did, sp.rifreg. Typical minimum N: 500.",
+    "description": "Quantile Difference-in-Differences (Athey & Imbens 2006 CIC). Estimates QTE at multiple quantiles via changes-in-changes on a 2x2 design with bootstrap SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: CIC rank invariance: the quantile rank in the untreated distribution is stable across groups; Continuous outcome support covering both groups in both periods; SUTVA (no cross-group spillovers). Pre-conditions: panel or repeated cross-section; group is binary 0/1; time is binary 0/1 (pre / post). Failure modes: Outcome heavily discrete / zero-inflated -> CIC rank-matching is unstable on discrete supports -- use QTE regression (sp.qte) or Firpo-RIF; Bootstrap CI across quantiles varies wildly -> Thin tails at extreme quantiles -- restrict to [0.2, 0.8] or raise n_boot to 2000. Alternatives: sp.qte, sp.did, sp.rifreg. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -15069,7 +15069,7 @@
     "name": "qreg"
   },
   {
-    "description": "Quantile Treatment Effect via quantile regression or IPW weighting. Returns QTE at supplied quantiles with bootstrap SE. Assumptions: For 'quantile_regression': unconfoundedness conditional on controls; For 'ipw': unconfoundedness + overlap 0 < e(x) < 1; Correct parametric quantile model (sensitivity tested via multiple quantiles). Pre-conditions: binary or continuous treatment (method='quantile_regression' supports both; 'ipw' needs binary); continuous outcome; controls cover the confounding set (for 'quantile_regression'). Failure modes: Large IPW weights (method='ipw') -> Extreme propensities -- trim (sp.trimming) or switch to doubly-robust DR-QTE; Quantile crossing -> Use rearrangement (Chernozhukov-Fernandez-Val-Galichon) or monotone constraints. Alternatives: sp.qdid, sp.rifreg, sp.cic, sp.metalearner. Typical minimum N: 500.",
+    "description": "Quantile Treatment Effect via quantile regression or IPW weighting. Returns QTE at supplied quantiles with bootstrap SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: For 'quantile_regression': unconfoundedness conditional on controls; For 'ipw': unconfoundedness + overlap 0 < e(x) < 1; Correct parametric quantile model (sensitivity tested via multiple quantiles). Pre-conditions: binary or continuous treatment (method='quantile_regression' supports both; 'ipw' needs binary); continuous outcome; controls cover the confounding set (for 'quantile_regression'). Failure modes: Large IPW weights (method='ipw') -> Extreme propensities -- trim (sp.trimming) or switch to doubly-robust DR-QTE; Quantile crossing -> Use rearrangement (Chernozhukov-Fernandez-Val-Galichon) or monotone constraints. Alternatives: sp.qdid, sp.rifreg, sp.cic, sp.metalearner. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -19128,7 +19128,7 @@
     "name": "spec_curve"
   },
   {
-    "description": "Direct + spillover treatment effect estimation under partial interference (within-cluster). Uses the Hudgens-Halloran decomposition with chosen exposure function. Assumptions: Partial interference: spillover only within cluster, not across; Correct exposure function (fraction / any / count -- sensitivity tested); Overlap: every (treatment x exposure) cell has positive probability. Pre-conditions: data has a cluster column defining the interference boundary; treatment varies within clusters; >= 30 clusters for cluster-robust inference. Failure modes: No within-cluster variation in treatment -> Assignments are cluster-level -- use sp.cluster_matched_pair or cluster-level ATE; Exposure function misspecified -> Compare estimates under exposure_fn in {fraction, any, count}. Alternatives: sp.network_exposure, sp.cluster_matched_pair, sp.peer_effects. Typical minimum N: 500.",
+    "description": "Direct + spillover treatment effect estimation under partial interference (within-cluster). Uses the Hudgens-Halloran decomposition with chosen exposure function. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Partial interference: spillover only within cluster, not across; Correct exposure function (fraction / any / count -- sensitivity tested); Overlap: every (treatment x exposure) cell has positive probability. Pre-conditions: data has a cluster column defining the interference boundary; treatment varies within clusters; >= 30 clusters for cluster-robust inference. Failure modes: No within-cluster variation in treatment -> Assignments are cluster-level -- use sp.cluster_matched_pair or cluster-level ATE; Exposure function misspecified -> Compare estimates under exposure_fn in {fraction, any, count}. Alternatives: sp.network_exposure, sp.cluster_matched_pair, sp.peer_effects. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -19448,7 +19448,7 @@
     "name": "stepwise"
   },
   {
-    "description": "Test for stochastic dominance of the treated distribution over the",
+    "description": "Test for stochastic dominance of the treated distribution over the Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "order": {
@@ -19830,7 +19830,7 @@
     "name": "survival_sensitivity"
   },
   {
-    "description": "Zhang-Rubin (2003) sharp bounds on the Survivor Average Causal Effect. Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
+    "description": "Zhang-Rubin (2003) sharp bounds on the Survivor Average Causal Effect. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
         "alpha": {

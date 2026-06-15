@@ -2657,7 +2657,7 @@
     }
   },
   {
-    "description": "Principal Stratification (Frangakis & Rubin 2002). 'monotonicity' method identifies the complier PCE (= LATE) and reports Zhang-Rubin sharp bounds on the always-survivor SACE. 'principal_score' uses Ding-Lu covariate weighting to point-identify stratum-specific effects under principal ignorability. Known limitations: Always-survivor SACE under encouragement design (Mealli & Pacini 2013, partial identification) is not yet implemented; only AIR / Wald LATE point estimates (tau_Y on outcome, tau_S on the post-treatment stratum) are reported when an instrument is supplied.",
+    "description": "Principal Stratification (Frangakis & Rubin 2002). 'monotonicity' method identifies the complier PCE (= LATE) and reports Zhang-Rubin sharp bounds on the always-survivor SACE. 'principal_score' uses Ding-Lu covariate weighting to point-identify stratum-specific effects under principal ignorability. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Always-survivor SACE under encouragement design (Mealli & Pacini 2013, partial identification) is not yet implemented; only AIR / Wald LATE point estimates (tau_Y on outcome, tau_S on the post-treatment stratum) are reported when an instrument is supplied.",
     "name": "principal_strat",
     "parameters": {
       "properties": {
@@ -8584,7 +8584,7 @@
     }
   },
   {
-    "description": "Unified interference / spillover dispatcher. design= selects the estimator: 'partial' (Hudgens-Halloran cluster) / 'network_exposure' (Aronow-Samii HT) / 'peer_effects' (Manski / Bramoulle linear-in-means) / 'network_hte' (Wu & Yuan 2025 orthogonal, arXiv:2509.18484) / 'inward_outward' (directed network; Fang, Airoldi & Forastiere 2025, arXiv:2506.06615) / 'cluster_matched_pair' (Bai 2022) / 'cluster_cross' (Ding et al. 2025) / 'cluster_staggered' (Zhou et al. 2025) / 'dnc_gnn' (Zhao et al. 2026). Kwargs pass through to the target function; see sp.interference_family guide.",
+    "description": "Unified interference / spillover dispatcher. design= selects the estimator: 'partial' (Hudgens-Halloran cluster) / 'network_exposure' (Aronow-Samii HT) / 'peer_effects' (Manski / Bramoulle linear-in-means) / 'network_hte' (Wu & Yuan 2025 orthogonal, arXiv:2509.18484) / 'inward_outward' (directed network; Fang, Airoldi & Forastiere 2025, arXiv:2506.06615) / 'cluster_matched_pair' (Bai 2022) / 'cluster_cross' (Ding et al. 2025) / 'cluster_staggered' (Zhou et al. 2025) / 'dnc_gnn' (Zhao et al. 2026). Kwargs pass through to the target function; see sp.interference_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "interference",
     "parameters": {
       "properties": {
@@ -8599,7 +8599,7 @@
     }
   },
   {
-    "description": "Quantile Difference-in-Differences (Athey & Imbens 2006 CIC). Estimates QTE at multiple quantiles via changes-in-changes on a 2x2 design with bootstrap SE.",
+    "description": "Quantile Difference-in-Differences (Athey & Imbens 2006 CIC). Estimates QTE at multiple quantiles via changes-in-changes on a 2x2 design with bootstrap SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "qdid",
     "parameters": {
       "properties": {
@@ -8647,7 +8647,7 @@
     }
   },
   {
-    "description": "Quantile Treatment Effect via quantile regression or IPW weighting. Returns QTE at supplied quantiles with bootstrap SE.",
+    "description": "Quantile Treatment Effect via quantile regression or IPW weighting. Returns QTE at supplied quantiles with bootstrap SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "qte",
     "parameters": {
       "properties": {
@@ -8706,7 +8706,7 @@
     }
   },
   {
-    "description": "Dose-response function for a continuous treatment under unconfoundedness. Uses generalised propensity-score weighting or double ML for the conditional expectation E[Y(d)].",
+    "description": "Dose-response function for a continuous treatment under unconfoundedness. Uses generalised propensity-score weighting or double ML for the conditional expectation E[Y(d)]. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "dose_response",
     "parameters": {
       "properties": {
@@ -8757,7 +8757,7 @@
     }
   },
   {
-    "description": "Direct + spillover treatment effect estimation under partial interference (within-cluster). Uses the Hudgens-Halloran decomposition with chosen exposure function.",
+    "description": "Direct + spillover treatment effect estimation under partial interference (within-cluster). Uses the Hudgens-Halloran decomposition with chosen exposure function. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "spillover",
     "parameters": {
       "properties": {
@@ -8863,7 +8863,7 @@
     }
   },
   {
-    "description": "Aronow-Samii Horvitz-Thompson estimator for arbitrary interference via a user-supplied exposure mapping. Handles Bernoulli randomisation designs with simulated conservative variance. Known limitations: design='complete' is reserved but not implemented; passing it raises NotImplementedError. Use design='bernoulli' with p_treat=K/N as an approximation only if that matches the assignment mechanism you are willing to assume.",
+    "description": "Aronow-Samii Horvitz-Thompson estimator for arbitrary interference via a user-supplied exposure mapping. Handles Bernoulli randomisation designs with simulated conservative variance. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: design='complete' is reserved but not implemented; passing it raises NotImplementedError. Use design='bernoulli' with p_treat=K/N as an approximation only if that matches the assignment mechanism you are willing to assume.",
     "name": "network_exposure",
     "parameters": {
       "properties": {
@@ -8918,7 +8918,7 @@
     }
   },
   {
-    "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [pending verification] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable.",
+    "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [pending verification] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable.",
     "name": "continuous_did",
     "parameters": {
       "properties": {
@@ -23283,7 +23283,7 @@
     }
   },
   {
-    "description": "Zhang-Rubin (2003) sharp bounds on the Survivor Average Causal Effect.",
+    "description": "Zhang-Rubin (2003) sharp bounds on the Survivor Average Causal Effect. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "survivor_average_causal_effect",
     "parameters": {
       "properties": {
@@ -25672,7 +25672,7 @@
     }
   },
   {
-    "description": "Learn a DAG from data using NOTEARS (Zheng et al. 2018).",
+    "description": "Learn a DAG from data using NOTEARS (Zheng et al. 2018). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "notears",
     "parameters": {
       "properties": {
@@ -25778,7 +25778,7 @@
     }
   },
   {
-    "description": "Learn causal structure using the PC algorithm.",
+    "description": "Learn causal structure using the PC algorithm. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "pc_algorithm",
     "parameters": {
       "properties": {
@@ -26548,7 +26548,7 @@
     }
   },
   {
-    "description": "Estimate bunching at a policy threshold.",
+    "description": "Estimate bunching at a policy threshold. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bunching",
     "parameters": {
       "properties": {
@@ -26841,7 +26841,7 @@
     }
   },
   {
-    "description": "Estimate treatment effects using matrix completion.",
+    "description": "Estimate treatment effects using matrix completion. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "mc_panel",
     "parameters": {
       "properties": {
@@ -33509,7 +33509,7 @@
     }
   },
   {
-    "description": "Estimate distributional treatment effects.",
+    "description": "Estimate distributional treatment effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "distributional_te",
     "parameters": {
       "properties": {
@@ -36730,7 +36730,7 @@
     }
   },
   {
-    "description": "General GMM estimator for arbitrary moment conditions.",
+    "description": "General GMM estimator for arbitrary moment conditions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "gmm",
     "parameters": {
       "properties": {
@@ -37186,7 +37186,7 @@
     }
   },
   {
-    "description": "Distributional Synthetic Controls (Gunsilius 2023).",
+    "description": "Distributional Synthetic Controls (Gunsilius 2023). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "discos",
     "parameters": {
       "properties": {
@@ -37394,7 +37394,7 @@
     }
   },
   {
-    "description": "Test for stochastic dominance of the treated distribution over the",
+    "description": "Test for stochastic dominance of the treated distribution over the Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "stochastic_dominance",
     "parameters": {
       "properties": {
@@ -41585,7 +41585,7 @@
     }
   },
   {
-    "description": "Fit DirectLiNGAM (Shimizu 2011).",
+    "description": "Fit DirectLiNGAM (Shimizu 2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "lingam",
     "parameters": {
       "properties": {
@@ -42955,7 +42955,7 @@
     }
   },
   {
-    "description": "Matrix-completion causal panel estimator (Athey et al., 2021).",
+    "description": "Matrix-completion causal panel estimator (Athey et al., 2021). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "matrix_completion",
     "parameters": {
       "properties": {
@@ -48461,7 +48461,7 @@
     }
   },
   {
-    "description": "High-order bunching design with bias correction.",
+    "description": "High-order bunching design with bias correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "general_bunching",
     "parameters": {
       "properties": {
