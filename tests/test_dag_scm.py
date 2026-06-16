@@ -44,6 +44,7 @@ def test_rule1_independence_on_mutilated_graph():
     g = sp.dag("Z -> X; X -> Y")
     # After deleting edges into X, Z ⊥ Y? no, Z -> X removed but Z is still parent of X which now isn't a parent of Y through that. Actually rule 1 checks Y ⊥ Z | X in G_{bar X}. Since X has no parents in G_{bar X}, Z and Y are d-separated given X iff there's no open path. Z -> X -> Y is blocked by X. Test passes.
     chk = sp.do_rule1(g, Y="Y", X="X", Z="Z")
+    np.testing.assert_allclose([chk.rule, int(chk.applicable)], [1, 1])
     assert chk.applicable
     assert chk.rule == 1
 
@@ -52,6 +53,7 @@ def test_rule2_observation_exchange():
     g = sp.dag("Z -> Y")
     # No confounding -> do(Z) and observing Z coincide.
     chk = sp.do_rule2(g, Y="Y", X=set(), Z="Z")
+    np.testing.assert_allclose([chk.rule, int(chk.applicable)], [2, 1])
     assert chk.applicable
 
 
@@ -60,6 +62,7 @@ def test_rule3_deletion_of_action():
     # Removing edges into Z leaves Y ⊥ Z when Z has no children other than Y.
     # Rule 3 should at least return a well-formed RuleCheck.
     chk = sp.do_rule3(g, Y="Y", X=set(), Z="Z")
+    np.testing.assert_allclose([chk.rule, int(chk.applicable)], [3, 0])
     assert isinstance(chk, sp.RuleCheck)
     assert chk.rule == 3
 
@@ -67,6 +70,7 @@ def test_rule3_deletion_of_action():
 def test_apply_rules_returns_all_three():
     g = sp.dag("X -> Y")
     results = sp.do_calculus_apply(g, Y="Y", X="X", Z=set())
+    np.testing.assert_allclose([r.rule for r in results], [1, 2, 3])
     assert len(results) == 3
     assert [r.rule for r in results] == [1, 2, 3]
 
@@ -77,6 +81,10 @@ def test_swig_splits_intervened_nodes():
     g = sp.dag("L -> X; L -> Y; X -> Y")
     sw = sp.swig(g, intervention={"X": "x"})
     # Should contain observation half X, action half X(x), and Y(x)
+    np.testing.assert_allclose(
+        [len(sw.nodes), sum(len(v) for v in sw.edges.values())],
+        [4, 3],
+    )
     assert "X" in sw.nodes
     assert "X(x)" in sw.nodes
     assert any(v.startswith("Y(") for v in sw.nodes)
@@ -87,6 +95,7 @@ def test_swig_splits_intervened_nodes():
 def test_swig_accepts_bare_variable_iterable():
     g = sp.dag("X -> Y")
     sw = sp.swig(g, intervention=["X"])
+    np.testing.assert_allclose(len(sw.nodes), 3)
     assert "X(x)" in sw.nodes
 
 

@@ -177,6 +177,17 @@ def test_standalone_genmatch_still_works(match_data):
                     covariates=["x1", "x2"],
                     population_size=20, generations=2)
     assert r is not None
+    np.testing.assert_allclose(
+        [r.att, r.att_se, r.n_treated, r.n_obs],
+        [2.128748453405153, 0.10217364088184239, 198, 400],
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        r.weights,
+        [1.4465821594982073, 6.951447775148186],
+        atol=1e-12,
+    )
+    assert r.matches.shape == (198, 1)
 
 
 def test_standalone_optimal_match_still_works(match_data):

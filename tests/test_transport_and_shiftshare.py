@@ -45,6 +45,27 @@ def test_pate_transports_above_source_sate(experiment_and_target):
     assert lo <= res.estimate <= hi
 
 
+@pytest.mark.parametrize("method", ["ipw", "aipw", "calibration"])
+def test_pate_recovers_constant_treatment_effect(method):
+    x = np.repeat(np.array([-1.0, 0.0, 1.0, 2.0]), 12)
+    t = np.tile(np.array([0.0, 1.0]), len(x) // 2)
+    y = 10.0 + 0.25 * x + 1.75 * t
+    exp = pd.DataFrame({"y": y, "t": t, "x": x})
+    target = pd.DataFrame({"x": np.linspace(-2.0, 3.0, 51)})
+
+    res = sp.pate(
+        data_experiment=exp,
+        data_target=target,
+        y="y",
+        treatment="t",
+        covariates=["x"],
+        method=method,
+        n_boot=0,
+    )
+
+    np.testing.assert_allclose(res.estimate, 1.75, atol=1e-10)
+
+
 def test_transport_generalize_direction_and_weights(experiment_and_target):
     exp, target = experiment_and_target
     tr = sp.transport_generalize(

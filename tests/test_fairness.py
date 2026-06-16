@@ -90,7 +90,7 @@ def test_equalized_odds_requires_both_labels_in_each_group():
 def test_counterfactual_fairness_detects_direct_dependence():
     rng = np.random.default_rng(11)
     n = 500
-    A = rng.binomial(1, 0.5, size=n)
+    A = np.tile([0, 1], n // 2)
     X = rng.normal(0, 1, size=n)
     df = pd.DataFrame({"A": A, "X": X})
 
@@ -108,7 +108,8 @@ def test_counterfactual_fairness_detects_direct_dependence():
         df, predictor=biased_predictor, protected="A",
         scm_intervention=scm_flip, threshold=0.05,
     )
-    assert res.value > 0.5  # |2 * 1| = 2 on flipped units, averaged with 0.
+    np.testing.assert_allclose(res.value, 2.0)
+    np.testing.assert_allclose([res.per_group[0], res.per_group[1]], [2.0, 2.0])
     assert res.passes is False
 
 
@@ -131,7 +132,7 @@ def test_counterfactual_fairness_unbiased_predictor_passes():
         df, predictor=fair_predictor, protected="A",
         scm_intervention=scm_flip, threshold=0.01,
     )
-    assert res.value < 1e-10  # Predictor doesn't use A at all.
+    np.testing.assert_allclose(res.value, 0.0)
     assert res.passes is True
 
 

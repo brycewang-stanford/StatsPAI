@@ -173,6 +173,18 @@ def test_proximal_surrogate_index_runs_with_valid_proxy():
         exp, obs, treatment="T", surrogates=["S"], proxies=["W"],
         long_term_outcome="Y", n_boot=100, random_state=29,
     )
+    obs_ones = np.ones((len(obs), 1))
+    stage1_x = np.column_stack([obs_ones, obs["W"].to_numpy(float)])
+    beta1, *_ = np.linalg.lstsq(stage1_x, obs[["S"]].to_numpy(float), rcond=None)
+    s_hat = stage1_x @ beta1
+    stage2_x = np.column_stack([obs_ones, obs["W"].to_numpy(float), s_hat])
+    beta2, *_ = np.linalg.lstsq(stage2_x, obs["Y"].to_numpy(float), rcond=None)
+    bridge_slope = beta2[2]
+    treated = exp["T"].to_numpy(bool)
+    expected = bridge_slope * (
+        exp.loc[treated, "S"].mean() - exp.loc[~treated, "S"].mean()
+    )
+    np.testing.assert_allclose(res.estimate, expected)
     assert np.isfinite(res.estimate)
     assert res.se > 0
     assert "proxies" in res.model_info

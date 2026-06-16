@@ -10,12 +10,14 @@ import numpy as np
 import pandas as pd
 
 import statspai as sp
+from statspai.target_trial import TARGET_ITEMS
 from statspai.target_trial.emulate import TargetTrialResult
 
 
 def test_llm_client_adapters_have_offline_contracts(monkeypatch):
     client = sp.causal_llm.echo_client(lambda role, prompt: f"{role}:{prompt}")
     assert client.chat("critic", "check") == "critic:check"
+    np.testing.assert_allclose(len(client.history), 1)
     assert client.history[-1]["model"] == "echo"
 
     class FakeOpenAI:
@@ -39,6 +41,7 @@ def test_llm_client_adapters_have_offline_contracts(monkeypatch):
     monkeypatch.setitem(sys.modules, "openai", openai_mod)
     openai = sp.causal_llm.openai_client(api_key="sk-test", model="fake-openai")
     assert openai.chat("proposer", "X -> Y") == "openai-ok"
+    np.testing.assert_allclose(len(openai.history), 1)
     assert openai.history[-1]["model"] == "fake-openai"
 
     class FakeAnthropic:
@@ -64,6 +67,7 @@ def test_llm_client_adapters_have_offline_contracts(monkeypatch):
         max_tokens=2048,
     )
     assert anthropic.chat("critic", "check graph") == "anthropic-ok"
+    np.testing.assert_allclose(len(anthropic.history), 1)
     assert anthropic.history[-1]["thinking"] == "private trace"
 
 
@@ -73,6 +77,8 @@ def test_dag_example_and_recommendation_contract():
 
     graph = sp.dag("Z -> X; Z -> Y; X -> Y")
     recommendation = sp.dag_recommend_estimator(graph, "X", "Y")
+    np.testing.assert_allclose(len(recommendation.adjustment_set), 1)
+    np.testing.assert_allclose(len(recommendation.alternatives), 3)
     assert recommendation.estimator == "regress"
     assert recommendation.adjustment_set == {"Z"}
     assert "sp.regress" in recommendation.sp_call
@@ -89,6 +95,7 @@ def test_target_trial_reporting_aliases_render():
         causal_contrast="ITT",
         analysis_plan="IPW",
     )
+    np.testing.assert_allclose(len(protocol.treatment_strategies), 2)
     result = TargetTrialResult(
         protocol=protocol,
         estimate=1.0,
@@ -101,6 +108,10 @@ def test_target_trial_reporting_aliases_render():
     )
 
     checklist = sp.target_trial_checklist(result, fmt="markdown")
+    np.testing.assert_allclose(
+        sum(line.startswith("|") for line in checklist.splitlines()),
+        len(TARGET_ITEMS) + 2,
+    )
     report = sp.target_trial_report(result, fmt="text")
     assert "TARGET Statement" in checklist
     assert "Eligibility" in checklist
@@ -179,6 +190,14 @@ def test_gformula_and_transport_top_level_aliases():
         treatment="a",
         outcome="y",
     )
+    w = transported.weights
+    a = source["a"].to_numpy(dtype=float)
+    y = source["y"].to_numpy(dtype=float)
+    manual = (
+        np.sum(w * a * y) / np.sum(w * a)
+        - np.sum(w * (1 - a) * y) / np.sum(w * (1 - a))
+    )
+    np.testing.assert_allclose(transported.effect_transported, manual)
     assert transported.ess > 0
     assert np.isfinite(transported.effect_transported)
 
@@ -211,6 +230,8 @@ def test_fairness_and_synth_design_frontier_helpers():
         random_state=0,
     )
     assert fairness.metric == "evidence_without_injustice"
+    np.testing.assert_allclose(fairness.value, 0.0)
+    np.testing.assert_allclose(fairness.ci, (0.0, 0.0))
     assert fairness.passes is True
 
     rows = []

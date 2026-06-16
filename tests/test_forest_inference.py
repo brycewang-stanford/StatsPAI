@@ -38,11 +38,21 @@ def _fit_forest():
 def test_calibration_returns_dataframe():
     cf, X, T, Y = _fit_forest()
     out = calibration_test(cf, X=X, Y=Y, T=T)
+    out_alias = sp.test_calibration(cf, X=X, Y=Y, T=T)
     assert isinstance(out, pd.DataFrame)
     assert "coef" in out.columns
     assert "se" in out.columns
     assert "p" in out.columns
     assert len(out) == 2
+    assert out_alias.equals(out)
+    np.testing.assert_allclose(
+        out.loc[:, ["coef", "se", "ci_low", "ci_high"]].to_numpy(),
+        np.array([
+            [1.719618, 0.259624, 1.210764, 2.228472],
+            [0.276105, 0.353360, -0.416468, 0.968677],
+        ]),
+        atol=5e-7,
+    )
     # Differential forest prediction coefficient should be positive
     # (forest captures real heterogeneity)
     diff = out.loc["differential_forest_prediction"]
@@ -57,12 +67,27 @@ def test_rate_returns_autoc_estimate():
     assert "ci_low" in out
     assert "toc_curve" in out
     assert out["toc_curve"].shape[1] == 2
+    np.testing.assert_allclose(
+        [out["estimate"], out["se"]],
+        [2.353477235918712, 0.5265415724187157],
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        out["toc_curve"][:2],
+        np.array([[0.02, 6.15126044], [0.04, 4.71057955]]),
+        atol=5e-9,
+    )
 
 
 def test_rate_qini_variant_runs():
     cf, X, T, Y = _fit_forest()
     out = rate(cf, X=X, Y=Y, T=T, target="QINI", q_grid=30, seed=4)
     assert np.isfinite(out["estimate"])
+    np.testing.assert_allclose(
+        [out["estimate"], out["se"]],
+        [0.7272169703582009, 0.08642613237286596],
+        atol=1e-12,
+    )
 
 
 def test_honest_variance_reports_ci():
@@ -72,6 +97,16 @@ def test_honest_variance_reports_ci():
     assert "ci_low" in out
     assert "ci_high" in out
     assert out["ci_low"] <= out["ate"] <= out["ci_high"]
+    np.testing.assert_allclose(
+        [out["ate"], out["se"], out["ci_low"], out["ci_high"]],
+        [
+            0.738347385601565,
+            0.02419936035047018,
+            0.6909175108657368,
+            0.7857772603373931,
+        ],
+        atol=1e-12,
+    )
 
 
 def test_average_treatment_effect_targets_run():
@@ -93,3 +128,8 @@ def test_forest_diagnostics_reports_overlap_and_warnings():
     assert "overlap_share" in out
     assert 0 <= out["overlap_share"] <= 1
     assert out_method["n"] == out["n"]
+    np.testing.assert_allclose(
+        [out["cate_mean"], out["cate_sd"], out["overlap_share"], out["n"]],
+        [0.738347385601565, 1.2820330479236453, 1.0, 400],
+        atol=1e-12,
+    )

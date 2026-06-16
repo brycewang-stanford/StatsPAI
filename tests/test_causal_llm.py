@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 import statspai as sp
 
 
@@ -12,6 +14,7 @@ def test_llm_dag_propose_heuristic():
     )
     assert isinstance(res, sp.LLMDAGProposal)
     # 'distance' should be classified as instrument
+    np.testing.assert_allclose([len(res.edges), len(res.roles)], [2, 4])
     assert res.roles['distance'] == 'instrument'
     assert res.roles['wage'] == 'outcome'
     # Should have at least one edge to wage
@@ -30,6 +33,11 @@ def test_llm_unobserved_confounders():
         point_estimate_rr=1.5,
     )
     assert isinstance(res, sp.UnobservedConfounderProposal)
+    np.testing.assert_allclose(len(res.candidates), 6)
+    np.testing.assert_allclose(
+        res.suggested_evalue_thresholds[:2],
+        [2.3660254, 1.89282032],
+    )
     assert len(res.candidates) > 0
     assert all(e > 0 for e in res.suggested_evalue_thresholds)
     assert "patient adherence" in res.candidates
@@ -42,6 +50,7 @@ def test_llm_sensitivity_priors():
         domain="labor",
     )
     assert isinstance(res, sp.SensitivityPriorProposal)
+    np.testing.assert_allclose([res.rho_max, res.r2], [0.35, 0.05])
     assert 0 < res.rho_max < 1
     assert 0 < res.r2 < 1
     assert "ability" in res.rationale.lower() or "motivation" in res.rationale.lower()

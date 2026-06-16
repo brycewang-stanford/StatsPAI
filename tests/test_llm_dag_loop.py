@@ -97,6 +97,10 @@ def test_loop_demotes_ci_rejected_edge():
         df, variables=["X", "Y", "Z"], oracle=oracle, max_iter=3,
     )
     edges = set(r.final_edges)
+    np.testing.assert_allclose(
+        [len(edges), sum(it["demoted"] for it in r.iteration_log)],
+        [2, 1],
+    )
     assert ("X", "Y") in edges
     assert ("Y", "Z") in edges
     # X -> Z should have been demoted.
@@ -196,6 +200,7 @@ def test_validate_returns_per_edge_support():
     v = sp.llm_dag_validate(g, df, alpha=0.05)
     # X->Z should be unsupported when conditioning on Y (parent of Z).
     by_edge = {tuple(row["edge"]): row for _, row in v.edge_evidence.iterrows()}
+    np.testing.assert_allclose([v.n_supported, v.n_unsupported], [2, 1])
     assert by_edge[("X", "Z")]["supported"] is False
     assert by_edge[("X", "Y")]["supported"] is True
     assert by_edge[("Y", "Z")]["supported"] is True

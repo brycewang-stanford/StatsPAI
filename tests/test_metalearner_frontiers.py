@@ -54,6 +54,8 @@ def test_focal_cate(functional_data):
     assert isinstance(res, sp.FunctionalCATEResult)
     assert res.cate_grid.shape == (len(df), 5)
     # Mean CATE should be around (1.0 + 0.2*2) ≈ 1.4
+    np.testing.assert_allclose(res.cate_grid.mean(), 1.39341894)
+    np.testing.assert_allclose(res.se_grid.mean(), 0.80039643)
     assert 0.5 < res.cate_grid.mean() < 2.5
 
 
@@ -63,6 +65,11 @@ def test_cluster_cate(cluster_cate_data):
         covariates=['x1', 'x2', 'x3', 'x4'], n_clusters=4,
     )
     assert isinstance(res, sp.ClusterCATEResult)
+    np.testing.assert_allclose(
+        [res.n_clusters, res.n_obs, res.cluster_table["cate"].mean()],
+        [4, 400, 0.52764616],
+    )
+    np.testing.assert_allclose(res.cluster_table["n"], [71, 118, 102, 109])
     assert res.n_clusters > 0
     assert 'cate' in res.cluster_table.columns
     # CATE should vary across clusters (because true CATE = 0.5 + x1)

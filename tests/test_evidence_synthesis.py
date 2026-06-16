@@ -82,6 +82,8 @@ def test_rwd_rct_concordance_inside():
         rct_estimate=0.5, rct_se=0.1, rwd_estimate=0.55,
     )
     assert res.rwd_inside_rct_ci is True
+    np.testing.assert_allclose(res.relative_difference, 0.1)
+    np.testing.assert_allclose(res.zscore_difference, 0.5)
     assert abs(res.zscore_difference) < 1.0
 
 
@@ -90,6 +92,8 @@ def test_rwd_rct_concordance_outside():
         rct_estimate=0.5, rct_se=0.05, rwd_estimate=0.8,
     )
     assert res.rwd_inside_rct_ci is False
+    np.testing.assert_allclose(res.relative_difference, 0.6)
+    np.testing.assert_allclose(res.zscore_difference, 6.0)
     assert res.zscore_difference > 1.96
 
 

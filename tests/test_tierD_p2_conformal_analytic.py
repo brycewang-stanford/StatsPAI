@@ -43,6 +43,7 @@ class TestWeightedConformalAnalytic:
         lo, hi, _ = sp.weighted_conformal_prediction(Xtr, ytr, Xca, yca, Xte, alpha=0.1)
         cov = np.mean((yte >= lo) & (yte <= hi))
         # Marginal guarantee ~ 1 - alpha = 0.90 (finite-sample band).
+        np.testing.assert_allclose(cov, 0.902)
         assert 0.87 <= cov <= 0.95
         assert np.all(hi > lo)
 
@@ -56,6 +57,7 @@ class TestWeightedConformalAnalytic:
         )
         cov1 = np.mean((yte >= lo1) & (yte <= hi1))
         cov2 = np.mean((yte >= lo2) & (yte <= hi2))
+        np.testing.assert_allclose([cov1, cov2], [0.902, 0.7922])
         assert cov1 > cov2
         assert 0.74 <= cov2 <= 0.86  # ~ 1 - 0.2
 

@@ -232,6 +232,15 @@ class TestConformalCounterfactual:
             df, y="Y", treat="T", covariates=["x1", "x2"],
             alpha=0.1, random_state=1,
         )
+        np.testing.assert_allclose(
+            [
+                np.mean(cf.lower_Y1),
+                np.mean(cf.upper_Y1),
+                np.mean(cf.lower_Y0),
+                np.mean(cf.upper_Y0),
+            ],
+            [-0.33584604, 1.22898655, -0.91242483, 0.79587504],
+        )
         assert np.all(cf.lower_Y1 <= cf.upper_Y1)
         assert np.all(cf.lower_Y0 <= cf.upper_Y0)
 
@@ -262,6 +271,7 @@ class TestConformalCounterfactual:
             X_tr, y_tr, X_cal, y_cal, X_te, alpha=0.1,
         )
         covered = np.mean((y_te >= lo) & (y_te <= hi))
+        np.testing.assert_allclose(covered, 0.89)
         assert 0.80 <= covered <= 1.0
 
     def test_exposed_at_top_level(self):

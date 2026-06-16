@@ -73,6 +73,11 @@ def test_ggdid_simple(cs_result):
     agg = sp.aggte(cs_result, type="simple", random_state=0, n_boot=200)
     fig, ax = sp.ggdid(agg)
     assert isinstance(fig, Figure)
+    np.testing.assert_allclose(
+        [agg.estimate, agg.se, agg.ci[0], agg.ci[1], len(ax.lines), len(ax.collections)],
+        [3.096126829333214, 0.06764777834888368, 2.9635396201352537, 3.2287140385311743, 4, 1],
+        atol=1e-12,
+    )
 
 
 def test_ggdid_dynamic_with_uniform_band(cs_result):

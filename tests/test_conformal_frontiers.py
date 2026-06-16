@@ -32,6 +32,10 @@ def test_conformal_density(cf_data):
     assert res.intervals.shape == (len(cf_data), 2)
     assert (res.intervals[:, 1] >= res.intervals[:, 0]).all()
     # Mean ITE should be near 2.0
+    np.testing.assert_allclose(res.point_estimate.mean(), 2.17957435)
+    np.testing.assert_allclose(
+        np.mean(res.intervals[:, 1] - res.intervals[:, 0]), 2.4519964
+    )
     assert 1.0 < res.point_estimate.mean() < 3.0
 
 
@@ -56,6 +60,10 @@ def test_conformal_debiased(cf_data):
         covariates=['x1', 'x2', 'x3'], alpha=0.1, n_folds=3,
     )
     assert res.intervals.shape == (len(cf_data), 2)
+    np.testing.assert_allclose(res.point_estimate.mean(), 2.01983682)
+    np.testing.assert_allclose(
+        np.mean(res.intervals[:, 1] - res.intervals[:, 0]), 3.16888497
+    )
     assert 1.0 < res.point_estimate.mean() < 3.0
 
 
@@ -66,6 +74,13 @@ def test_conformal_fair(cf_data):
         protected='group', alpha=0.1,
     )
     assert res.intervals.shape == (len(cf_data), 2)
+    np.testing.assert_allclose(
+        [res.group_widths['A'], res.group_widths['B']],
+        [1.74982442, 1.65977858],
+    )
+    np.testing.assert_allclose(
+        np.mean(res.intervals[:, 1] - res.intervals[:, 0]), 1.7048015
+    )
     assert set(res.group_widths.keys()) == {'A', 'B'}
 
 

@@ -59,6 +59,7 @@ def test_identify_transport_selection_node_separated():
     res = sp.transport.identify_transport(g, treatment="X", outcome="Y",
                                           selection_nodes={"S"})
     assert res.transportable
+    np.testing.assert_allclose(len(res.admissible_set), 0)
     assert "X" in res.formula
 
 
@@ -69,6 +70,7 @@ def test_identify_transport_fails_when_S_directly_causes_Y():
     res = sp.transport.identify_transport(g, treatment="X", outcome="Y",
                                           selection_nodes={"S"})
     assert not res.transportable
+    np.testing.assert_allclose(len(res.admissible_set), 0)
 
 
 def test_identify_transport_finds_admissible_set():
@@ -77,6 +79,7 @@ def test_identify_transport_finds_admissible_set():
                                           selection_nodes={"S"})
     # Z should render S irrelevant for Y
     assert res.transportable
+    np.testing.assert_allclose(len(res.admissible_set), 1)
     assert "Z" in res.admissible_set
 
 

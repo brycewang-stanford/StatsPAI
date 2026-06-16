@@ -42,6 +42,11 @@ def test_did_bcf(staggered_panel):
     assert -1.0 < res.estimate < 5.0
     assert res.method.startswith("DiD-BCF")
     assert 'catt_by_cohort' in res.model_info
+    np.testing.assert_allclose(
+        [res.estimate, res.se, res.pvalue, res.ci[0], res.ci[1]],
+        [1.875493484862111, 0.05533075076598776, 0.0, 1.767047206123213, 1.983939763601009],
+        atol=1e-12,
+    )
 
 
 def test_cohort_anchored(staggered_panel):
@@ -66,6 +71,21 @@ def test_design_robust(staggered_panel):
     es = res.model_info['event_study']
     assert isinstance(es, pd.DataFrame)
     assert 'diagnostics' in res.model_info
+    np.testing.assert_allclose(
+        [res.estimate, res.se, res.pvalue, res.ci[0], res.ci[1]],
+        [1.2398673925548866, 0.24138955398202597, 2.8008774366483635e-07, 0.7667525605059285, 1.7129822246038446],
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        es[["rel_time", "att", "se"]].to_numpy(),
+        np.array([
+            [-2.0, -0.165497, 0.429303],
+            [0.0, 1.341270, 0.388341],
+            [1.0, 1.218834, 0.369759],
+            [2.0, 1.159498, 0.486713],
+        ]),
+        atol=5e-7,
+    )
 
 
 def test_did_misclassified_no_correction(staggered_panel):

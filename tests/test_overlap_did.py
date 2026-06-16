@@ -72,6 +72,11 @@ def test_dl_propensity_score_returns_valid_probs():
     assert probs.ndim == 1
     assert (probs > 0).all()
     assert (probs < 1).all()
+    np.testing.assert_allclose(
+        [probs.mean(), probs.min(), probs.max()],
+        [0.5209584438667079, 0.02, 0.913179585115381],
+        atol=1e-12,
+    )
 
 
 def test_overlap_did_in_registry():

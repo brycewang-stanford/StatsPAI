@@ -29,6 +29,7 @@ def test_causal_bandit_picks_best_arm():
         context={"u": 42}, n_samples=400, rng_seed=151,
     )
     assert res.arm_labels == ["A", "B", "C"]
+    np.testing.assert_allclose(res.optimal_arm, int(np.argmax(res.expected_rewards)))
     assert res.optimal_arm == 1  # "B"
     assert res.context == {"u": 42}
     assert "Causal" in res.summary()
@@ -56,6 +57,14 @@ def test_cfpo_detects_better_policy():
         df, state="s", action="a", reward="r",
         target_policy=lambda si: 2.0 * si,  # high positive corr with a-coef
     )
+    X = np.column_stack([np.ones(n), s, a])
+    beta = np.linalg.lstsq(X, r, rcond=None)[0]
+    eps = r - X @ beta
+    a_new = 2.0 * s
+    r_cf = beta[0] + beta[1] * s + beta[2] * a_new + eps
+    np.testing.assert_allclose(res.expected_value_logged, r.mean())
+    np.testing.assert_allclose(res.expected_value_target, r_cf.mean())
+    np.testing.assert_allclose(res.improvement, r_cf.mean() - r.mean())
     # The target policy should systematically improve expected reward.
     assert res.expected_value_target > res.expected_value_logged
     assert "Counterfactual" in res.summary()

@@ -14,6 +14,10 @@ def test_causal_rl_benchmark():
         name="confounded_bandit", n_episodes=200, seed=0,
     )
     assert isinstance(res, sp.BanditBenchmarkResult)
+    np.testing.assert_allclose(
+        [res.optimal_value, res.transitions["reward"].mean()],
+        [1.5, 1.25338281],
+    )
     assert len(res.transitions) == 200
     assert res.optimal_policy[0] == 1
 
@@ -33,6 +37,8 @@ def test_causal_dqn():
         gamma_bound=0.05, n_iter=200, lr=0.1,
     )
     assert isinstance(res, sp.CausalDQNResult)
+    np.testing.assert_allclose(res.policy, [1, 1, 0])
+    np.testing.assert_allclose(res.final_bellman_error, 0.0373829, atol=1e-8)
     assert res.policy.shape == (3,)
     assert res.q_table.shape[1] == 2
 
@@ -59,5 +65,11 @@ def test_offline_safe_policy():
         cost_threshold=0.5,
     )
     assert isinstance(res, sp.OfflineSafeResult)
+    np.testing.assert_allclose(res.policy, [0, 0, 0])
+    np.testing.assert_allclose(
+        [res.expected_reward, res.expected_cost],
+        [-0.01671979, 0.00331091],
+        atol=1e-8,
+    )
     # With threshold=0.5 and a=1 cost ~0.8, policy should pick a=0 (cheaper)
     assert (res.policy == 0).all()

@@ -162,6 +162,18 @@ def test_partial_identification_manski():
     info = result.model_info
     assert "lower_bound" in info and "upper_bound" in info
     assert info["lower_bound"] <= info["upper_bound"]
+    np.testing.assert_allclose(
+        [result.estimate, result.se, result.ci[0], result.ci[1], info["lower_bound"], info["upper_bound"]],
+        [
+            0.0870222222222223,
+            0.01595365164580654,
+            -0.4442463604254567,
+            0.6182908048699013,
+            -0.4129777777777777,
+            0.5870222222222223,
+        ],
+        atol=1e-12,
+    )
 
 
 def test_partial_identification_manski_rejects_covariates():
@@ -187,6 +199,25 @@ def test_partial_identification_horowitz_manski():
     assert hasattr(result, "lower")
     assert hasattr(result, "upper")
     assert result.lower <= result.upper
+    np.testing.assert_allclose(
+        [
+            result.lower,
+            result.upper,
+            result.se_lower,
+            result.se_upper,
+            result.ci_lower[0],
+            result.ci_upper[1],
+        ],
+        [
+            -0.4197111111111112,
+            0.5802888888888889,
+            0.017182722206985006,
+            0.017197641483617028,
+            -0.4525719611264917,
+            0.6120289801491436,
+        ],
+        atol=1e-12,
+    )
 
 
 def test_partial_identification_horowitz_manski_requires_X():
@@ -262,10 +293,16 @@ def test_conditional_lr_ci_smoke():
         endog="treatment",
         instruments="instrument",
         data=df,
+        random_state=0,
     )
     assert isinstance(out, WeakIVConfidenceSet)
     # CLR is Moreira (2003)'s Conditional Likelihood Ratio test.
     assert "CLR" in out.method or "conditional" in out.method.lower() or "moreira" in out.method.lower()
+    np.testing.assert_allclose(
+        [out.lower, out.upper, len(out.beta_grid), out.critical_value[0], out.statistic.min(), out.in_set.sum()],
+        [0.38978995772354263, 0.6734980393245119, 201, 3.78068207615837, 0.0, 40],
+        atol=5e-9,
+    )
 
 
 # ---------------------------------------------------------------------------

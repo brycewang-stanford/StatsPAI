@@ -104,6 +104,38 @@ def test_analyze_ipw_without_time_varying(simple_cross_sectional_panel):
     assert r.n == df["pid"].nunique()
 
 
+def test_longitudinal_analyze_ipw_recovers_balanced_static_regime_means():
+    rows = []
+    pid = 0
+    for age in (30.0, 40.0, 50.0, 60.0):
+        for _ in range(15):
+            for treat in (0.0, 1.0):
+                rows.append({
+                    "pid": pid,
+                    "visit": 0,
+                    "age": age,
+                    "treat": treat,
+                    "y": 5.0 + 0.1 * age + 2.0 * treat,
+                })
+                pid += 1
+    df = pd.DataFrame(rows)
+
+    always = sp.longitudinal_analyze(
+        data=df, id="pid", time="visit",
+        treatment="treat", outcome="y",
+        baseline=["age"], regime=always_treat(),
+    )
+    never = sp.longitudinal_analyze(
+        data=df, id="pid", time="visit",
+        treatment="treat", outcome="y",
+        baseline=["age"], regime=never_treat(),
+    )
+
+    np.testing.assert_allclose(always.estimate, 11.5, atol=1e-12)
+    np.testing.assert_allclose(never.estimate, 9.5, atol=1e-12)
+    np.testing.assert_allclose(always.estimate - never.estimate, 2.0, atol=1e-12)
+
+
 def test_analyze_contrast_a_minus_b(simple_cross_sectional_panel):
     df = simple_cross_sectional_panel
     diff = sp.longitudinal_contrast(

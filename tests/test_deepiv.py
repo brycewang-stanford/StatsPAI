@@ -76,6 +76,7 @@ class TestDeepIVBasic:
         assert 0 <= result.pvalue <= 1
         assert result.detail is not None
         assert len(result.detail) == 5  # 5 treatment levels
+        np.testing.assert_allclose([result.n_obs, len(result.detail)], [2000, 5], atol=1e-12)
 
     def test_citation(self, linear_iv_data):
         result = deepiv(

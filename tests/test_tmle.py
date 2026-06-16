@@ -86,6 +86,23 @@ class TestSuperLearner:
         sl = super_learner(X, y, n_folds=3)
         preds = sl.predict(X)
         assert len(preds) == 200
+        np.testing.assert_allclose(
+            [preds.mean(), preds.std()],
+            [-0.05348289530260844, 1.1486410161614826],
+            atol=1e-12,
+        )
+        np.testing.assert_allclose(
+            sl.weights_,
+            [
+                9.65315439e-01,
+                0.0,
+                3.94612953e-03,
+                3.07384317e-02,
+                0.0,
+                2.35271871e-16,
+            ],
+            atol=5e-10,
+        )
 
     def test_weights_sum_to_one(self):
         rng = np.random.default_rng(42)

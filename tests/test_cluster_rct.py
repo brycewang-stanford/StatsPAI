@@ -63,6 +63,15 @@ def test_cluster_matched_pair(matched_pair_data):
         matched_pair_data, y='y', cluster='cluster',
         treat='treat', pair='pair',
     )
+    cl = matched_pair_data.groupby(['pair', 'cluster', 'treat'])['y'].mean().reset_index()
+    pair_diffs = []
+    for _, sub in cl.groupby('pair'):
+        yt = sub.loc[sub['treat'] == 1, 'y'].iloc[0]
+        yc = sub.loc[sub['treat'] == 0, 'y'].iloc[0]
+        pair_diffs.append(yt - yc)
+    pair_diffs = np.asarray(pair_diffs)
+    np.testing.assert_allclose(res.estimate, pair_diffs.mean())
+    np.testing.assert_allclose(res.se, pair_diffs.std(ddof=1) / np.sqrt(len(pair_diffs)))
     assert isinstance(res, sp.MatchedPairResult)
     # True effect ≈ 1.0
     assert 0.0 < res.estimate < 2.0
@@ -76,6 +85,11 @@ def test_cluster_cross_interference(cross_cluster_data):
     assert isinstance(res, sp.CrossClusterRCTResult)
     # True direct ≈ 0.5
     assert -0.5 < res.direct_effect < 1.5
+    np.testing.assert_allclose(
+        [res.direct_effect, res.direct_se, res.spillover_effect, res.spillover_se, res.n_clusters],
+        [0.667983323682481, 0.08876320648575868, 0.1988955917957267, 0.13478308532337718, 30],
+        atol=1e-12,
+    )
 
 
 def test_cluster_staggered_rollout(staggered_cluster_data):
@@ -85,6 +99,10 @@ def test_cluster_staggered_rollout(staggered_cluster_data):
         leads=2, lags=2,
     )
     assert isinstance(res, sp.StaggeredClusterRCTResult)
+    np.testing.assert_allclose(
+        res.overall_att,
+        res.event_study.loc[res.event_study['rel_time'] >= 0, 'att'].mean(),
+    )
     # True post-ATT ≈ 1.0
     assert -0.5 < res.overall_att < 2.5
 
@@ -98,6 +116,28 @@ def test_dnc_gnn_did(staggered_cluster_data):
         df, y='y', treat='first_treat', time='time', id='cluster',
         nc_outcome=['nc_y1'], nc_exposure=['nc_x1'], n_boot=20,
     )
+    treated_mask = df['first_treat'] > 0
+    ref_time = float(df.loc[treated_mask, 'first_treat'].median())
+    manual = df.copy()
+    manual['_post'] = np.where(
+        treated_mask,
+        (manual['time'] >= manual['first_treat']).astype(int),
+        (manual['time'] >= ref_time).astype(int),
+    )
+    manual['_treat'] = treated_mask.astype(int)
+    unit_means = manual.groupby(['cluster', '_treat', '_post'])['y'].mean().reset_index()
+    pivot = unit_means.pivot_table(index='cluster', columns='_post', values='y').dropna()
+    pivot.columns = ['y_pre', 'y_post']
+    pivot['delta'] = pivot['y_post'] - pivot['y_pre']
+    pivot['_treat_unit'] = (manual.groupby('cluster')['_treat'].max() > 0).astype(int)
+    pivot = pivot.join(manual.groupby('cluster')[['nc_y1', 'nc_x1']].mean()).dropna()
+    X = np.column_stack([
+        np.ones(len(pivot)),
+        pivot['_treat_unit'].to_numpy(float),
+        pivot[['nc_y1', 'nc_x1']].to_numpy(float),
+    ])
+    beta = np.linalg.solve(X.T @ X, X.T @ pivot['delta'].to_numpy(float))
+    np.testing.assert_allclose(res.estimate, beta[1])
     assert isinstance(res, sp.DNCGNNDiDResult)
     assert np.isfinite(res.estimate)
 

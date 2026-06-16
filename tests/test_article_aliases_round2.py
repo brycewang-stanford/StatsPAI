@@ -96,6 +96,12 @@ def test_causal_discovery_dispatch_notears():
     # notears dict keys: 'adjacency', 'adjacency_bin', 'edges', 'h_value', ...
     assert "adjacency" in out
     assert "edges" in out
+    np.testing.assert_allclose([out["n_edges"], out["h_value"]], [2, 0.0], atol=1e-12)
+    np.testing.assert_allclose(
+        out["adjacency"].loc[["x2", "x3"], ["x1", "x2"]].to_numpy(),
+        np.array([[0.630961, 0.0], [0.0, 0.386646]]),
+        atol=5e-7,
+    )
 
 
 def test_causal_discovery_rejects_unknown_method():

@@ -42,6 +42,12 @@ def test_icp_nonlinear_api_works():
     res = sp.nonlinear_icp(X, y, environment=E, alpha=0.1)
     assert isinstance(res, sp.ICPResult)
     assert res.method == "nonlinear"
+    assert res.parents == {"X1"}
+    np.testing.assert_allclose(
+        [len(res.accepted_subsets), *res.coefficients["X1"]],
+        [4, 1.4554821268165616, 1.5336932467712243],
+        atol=1e-12,
+    )
 
 
 def test_icp_requires_multiple_environments():

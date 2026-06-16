@@ -48,6 +48,48 @@ def test_ice_recovers_always_treat_value():
     assert "strategy=[1, 1]" in res.summary()
 
 
+def test_top_level_gformula_ice_fn_recovers_noiseless_static_strategies():
+    rows = []
+    for _ in range(10):
+        for l0_value in (-1.5, -0.5, 0.5, 1.5):
+            for a0_value in (0.0, 1.0):
+                for a1_value in (0.0, 1.0):
+                    rows.append((l0_value, a0_value, a1_value))
+    l0 = np.array([row[0] for row in rows])
+    a0 = np.array([row[1] for row in rows])
+    a1 = np.array([row[2] for row in rows])
+    y = 1.0 + 0.5 * l0 + 2.0 * a0 + 3.0 * a1
+    df = pd.DataFrame({
+        "id": np.arange(len(l0)),
+        "L0": l0,
+        "A0": a0,
+        "A1": a1,
+        "Y": y,
+    })
+
+    always = sp.gformula_ice_fn(
+        data=df,
+        id_col="id",
+        time_col=None,
+        treatment_cols=["A0", "A1"],
+        confounder_cols=[["L0"], []],
+        outcome_col="Y",
+        treatment_strategy=[1, 1],
+    )
+    never = sp.gformula_ice_fn(
+        data=df,
+        id_col="id",
+        time_col=None,
+        treatment_cols=["A0", "A1"],
+        confounder_cols=[["L0"], []],
+        outcome_col="Y",
+        treatment_strategy=[0, 0],
+    )
+
+    np.testing.assert_allclose(always.value, 6.0, atol=1e-12)
+    np.testing.assert_allclose(never.value, 1.0, atol=1e-12)
+
+
 def test_ice_recovers_never_treat_value():
     df = _make_longitudinal_dgp(n=3000, seed=1)
     res = sp.gformula.ice(

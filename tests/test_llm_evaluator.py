@@ -4,6 +4,7 @@ Tests for sp.llm_causal_assess + sp.pairwise_causal_benchmark.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -34,6 +35,10 @@ def test_pairwise_causal_benchmark_oracle():
     res = sp.pairwise_causal_benchmark(
         gt, llm_client=_oracle_llm, llm_identifier="oracle",
     )
+    np.testing.assert_allclose(
+        [res.accuracy, res.precision_forward, res.recall_forward],
+        [1.0, 1.0, 1.0],
+    )
     assert res.accuracy == 1.0
     assert res.recall_forward == 1.0
     assert len(res.per_pair) == 4
@@ -61,6 +66,8 @@ def test_llm_causal_assess_level1():
         level1_items=items, llm_client=llm, llm_identifier="toy",
     )
     # Only the first item matches
+    np.testing.assert_allclose(res.level1_accuracy, 0.5)
+    np.testing.assert_allclose(len(res.per_item), 2)
     assert res.level1_accuracy == 0.5
     assert res.level2_accuracy is None
     assert res.llm_identifier == "toy"

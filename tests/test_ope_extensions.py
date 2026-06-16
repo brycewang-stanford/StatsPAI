@@ -29,8 +29,26 @@ def test_sharp_ope_bounds_widen_with_gamma():
     )
     width1 = r1.upper_bound - r1.lower_bound
     width2 = r2.upper_bound - r2.lower_bound
+    reward_arr = df["r"].to_numpy(float)
+    logging_arr = df["e"].to_numpy(float)
+    target_arr = df["pi"].to_numpy(float)
+    ips = np.mean(target_arr * reward_arr / logging_arr)
+    gamma = 2.0
+    lower_ratio = target_arr / (gamma * logging_arr)
+    upper_ratio = gamma * target_arr / logging_arr
+    expected_lower = np.mean(
+        np.where(reward_arr >= 0.0, lower_ratio, upper_ratio) * reward_arr
+    )
+    expected_upper = np.mean(
+        np.where(reward_arr >= 0.0, upper_ratio, lower_ratio) * reward_arr
+    )
     # Gamma = 1 collapses bounds to point.
     assert width1 < 1e-8
+    np.testing.assert_allclose(r1.point_estimate, ips)
+    np.testing.assert_allclose(r1.lower_bound, ips)
+    np.testing.assert_allclose(r1.upper_bound, ips)
+    np.testing.assert_allclose(r2.lower_bound, expected_lower)
+    np.testing.assert_allclose(r2.upper_bound, expected_upper)
     assert width2 > width1
     assert "Sharp OPE" in r1.summary()
 
@@ -66,10 +84,16 @@ def test_causal_policy_forest_prefers_correct_action():
     )
     # Majority of units with x1>0 should be assigned action 1
     positive_x1 = df["x1"].to_numpy() > 0
+    expected_policy = positive_x1.astype(int)
+    np.testing.assert_allclose(res.assignments, expected_policy)
     action1_rate = (res.assignments[positive_x1] == 1).mean()
     assert action1_rate > 0.6, action1_rate
     action0_rate = (res.assignments[~positive_x1] == 0).mean()
     assert action0_rate > 0.6, action0_rate
+    assert set(res.action_counts) == {0, 1}
+    assert sum(res.action_counts.values()) == len(df)
+    assert res.n_trees == 15
+    assert res.depth == 3
     assert res.policy_value > 0.2, res.policy_value
     assert res.policy_value_se >= 0
 

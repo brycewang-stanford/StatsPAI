@@ -39,6 +39,10 @@ def test_dragonnet_neural_exports_and_plots(tmp_path):
     effects = sp.neural_effects_frame(result)
     summary = sp.neural_summary_frame(result)
     training = sp.neural_training_frame(result)
+    np.testing.assert_allclose(len(effects), result.n_obs)
+    np.testing.assert_allclose(summary.loc[0, "estimate"], result.estimate)
+    np.testing.assert_allclose(summary.loc[0, "n_obs"], result.n_obs)
+    np.testing.assert_allclose(len(training), result.model_info["n_epochs_trained"])
     assert {"cate", "mu0", "mu1", "propensity", "treatment"} <= set(effects.columns)
     assert summary.loc[0, "architecture"] == "DragonNet"
     assert len(training) >= 1

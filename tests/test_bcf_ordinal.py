@@ -68,6 +68,21 @@ def test_bcf_factor_exposure_runs():
         n_trees_mu=40, n_trees_tau=20, n_bootstrap=20,
     )
     assert r is not None
+    np.testing.assert_allclose(
+        [
+            r.total_mixture_ate,
+            r.total_mixture_se,
+            r.total_mixture_ci[0],
+            r.total_mixture_ci[1],
+        ],
+        [-1.0601311768880428, 0.20188509123723858, -1.4558186847286132, -0.6644436690474723],
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        r.per_factor_ate[["explained_var_ratio", "ate", "se"]].to_numpy(),
+        np.array([[0.241991, 0.293275, 0.157422], [0.224799, -1.353406, 0.126396]]),
+        atol=5e-7,
+    )
 
 
 def test_bcf_ordinal_validates_inputs():

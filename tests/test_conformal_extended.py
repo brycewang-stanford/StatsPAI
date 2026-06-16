@@ -80,6 +80,11 @@ def test_conformal_interference_cluster_level():
     assert set(res.predictions.columns) == {"cluster", "prediction", "lo", "hi"}
     # Interval widths must be strictly positive.
     widths = res.predictions["hi"] - res.predictions["lo"]
+    np.testing.assert_allclose(res.quantile, 1.1954392)
+    np.testing.assert_allclose(
+        res.predictions[["prediction", "lo", "hi"]].mean(),
+        [0.18143056, -1.01400863, 1.37686976],
+    )
     assert (widths > 0).all()
 
 
