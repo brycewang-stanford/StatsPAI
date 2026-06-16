@@ -40,6 +40,21 @@ class TestSurveyDesign:
         assert design.n == 500
         assert "SurveyDesign" in repr(design)
 
+    def test_svydesign_weighted_mean_matches_manual_formula(self):
+        from statspai.survey import svydesign
+        df = pd.DataFrame({
+            "weight": [1.0, 2.0, 3.0, 4.0],
+            "stratum": [0, 0, 1, 1],
+            "psu": [10, 11, 20, 21],
+            "income": [10.0, 20.0, 40.0, 80.0],
+        })
+
+        design = svydesign(df, weights="weight", strata="stratum", cluster="psu")
+        result = design.mean("income")
+
+        expected = np.average(df["income"], weights=df["weight"])
+        np.testing.assert_allclose(result.estimate["income"], expected)
+
     def test_design_no_strata(self):
         from statspai.survey import svydesign
         df = _make_survey_data()
@@ -58,6 +73,19 @@ class TestSurveyDesign:
         df.loc[0, "weight"] = -1.0
         with pytest.raises(ValueError, match="positive"):
             svydesign(df, weights="weight")
+
+    def test_nonfinite_weights_raise(self):
+        from statspai.survey import svydesign
+        df = _make_survey_data()
+        df.loc[0, "weight"] = np.nan
+        with pytest.raises(ValueError, match="finite"):
+            svydesign(df, weights="weight")
+
+    def test_array_weights_length_mismatch_raises(self):
+        from statspai.survey import svydesign
+        df = _make_survey_data()
+        with pytest.raises(ValueError, match="weights length"):
+            svydesign(df, weights=np.ones(len(df) - 1))
 
 
 class TestSvyMean:

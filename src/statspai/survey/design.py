@@ -71,29 +71,43 @@ class SurveyDesign:
         nest: bool = False,
     ):
         self.data = data.copy()
+        n_obs = len(data)
 
         # Resolve weights
         if isinstance(weights, str):
+            if weights not in data.columns:
+                raise ValueError(f"weights='{weights}' is not a column in data")
             self._weight_col = weights
             self.weights = data[weights].values.astype(np.float64)
         else:
             self._weight_col = "__weight__"
             self.weights = np.asarray(weights, dtype=np.float64)
+            if self.weights.shape[0] != n_obs:
+                raise ValueError(
+                    f"weights length ({self.weights.shape[0]}) must match "
+                    f"data length ({n_obs})"
+                )
             self.data[self._weight_col] = self.weights
 
+        if not np.all(np.isfinite(self.weights)):
+            raise ValueError("All sampling weights must be finite")
         if np.any(self.weights <= 0):
             raise ValueError("All sampling weights must be strictly positive")
 
         # Strata
         self.strata_col = strata
         if strata is not None:
+            if strata not in data.columns:
+                raise ValueError(f"strata='{strata}' is not a column in data")
             self.strata = data[strata].values
         else:
-            self.strata = np.ones(len(data), dtype=int)
+            self.strata = np.ones(n_obs, dtype=int)
 
         # PSU / cluster
         self.cluster_col = cluster
         if cluster is not None:
+            if cluster not in data.columns:
+                raise ValueError(f"cluster='{cluster}' is not a column in data")
             psu = data[cluster].values
             if nest and strata is not None:
                 # Make PSU ids unique within strata
@@ -103,12 +117,16 @@ class SurveyDesign:
             self.cluster_ids = psu
         else:
             # Each row is its own PSU
-            self.cluster_ids = np.arange(len(data))
+            self.cluster_ids = np.arange(n_obs)
 
         # Finite population correction
         self.fpc_col = fpc
         if fpc is not None:
+            if fpc not in data.columns:
+                raise ValueError(f"fpc='{fpc}' is not a column in data")
             raw = data[fpc].values.astype(np.float64)
+            if not np.all(np.isfinite(raw)) or np.any(raw <= 0):
+                raise ValueError("fpc values must be finite and strictly positive")
             if np.all(raw < 1):
                 self.fpc_values = raw  # sampling fractions
             else:
@@ -118,7 +136,7 @@ class SurveyDesign:
         else:
             self.fpc_values = None
 
-        self.n = len(data)
+        self.n = n_obs
 
     # ------------------------------------------------------------------ #
     #  Convenience methods
