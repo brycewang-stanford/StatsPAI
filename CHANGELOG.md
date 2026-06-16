@@ -4,6 +4,29 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **⚠️ Correctness — `sp.regress(..., weights=)` was silently ignored.** The
+  OLS estimator accepted a `weights=` argument via `**kwargs` and then dropped
+  it, returning the *unweighted* OLS fit with no warning. It now fits weighted
+  least squares with Stata `aweight` semantics: point estimates, classical /
+  HC1-robust / clustered standard errors, and R² match `regress y x [aw=w]`
+  to machine precision (verified live against **Stata 18 MP**). Invalid weights
+  (non-positive, NaN/inf, wrong length, missing column) now raise `ValueError`
+  instead of being ignored. This is the same fail-silently bug class fixed for
+  `sp.feols` in 1.18.0, now closed in the `sp.regress` / OLS path. The
+  unweighted path is byte-identical. See
+  [`MIGRATION.md`](MIGRATION.md#regress-weights).
+- **`sp.iv(..., robust=)` rejected standard spellings.** `sp.iv(robust='HC1')`
+  (uppercase) raised `ValueError: Unknown robust type: HC1` even though
+  `sp.regress` accepts it — the IV path did not normalise the SE-type string.
+  The IV estimators now accept case-insensitive `'hc0'`–`'hc3'`, the
+  Stata-style aliases `True` / `'robust'` (≡ HC1) and `'white'` (≡ HC0), and
+  raise a clear message for anything else. Classical and robust IV standard
+  errors match `ivregress 2sls, small` / `ivregress 2sls, robust small` (the
+  finite-sample *t* convention StatsPAI uses) to machine precision. Pinned in
+  `tests/reference_parity/test_regress_weights_iv_robust_parity.py`.
+
 ## [1.18.0] — 2026-06-15
 
 ### Added

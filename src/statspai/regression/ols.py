@@ -141,6 +141,24 @@ class OLSEstimator(BaseEstimator):
         """
         n, k = X.shape
 
+        # ---- Analytic weights (Stata ``aweight``) ---------------------------
+        # When weights are supplied we fit WLS by running the unweighted kernel
+        # on the sqrt(w)-transformed design: with X̃ = √w ⊙ X and ỹ = √w ⊙ y the
+        # kernel returns β̂ = (X'WX)⁻¹X'Wy and residuals r̃ = √w(y − Xβ̂), so
+        # (X̃'X̃)⁻¹ is the correct WLS "bread" and Σr̃² = Σ w r² feeds every VCE
+        # branch unchanged (classical, HCk, cluster). Point estimates and all
+        # standard errors are invariant to weight scaling, so normalising to
+        # Σw = n only pins the reported σ̂/RMSE and R² to Stata's aweight
+        # convention. The unweighted path is byte-identical (sw stays None).
+        weights = kwargs.get("weights", None)
+        X_orig, y_orig, sw = X, y, None
+        if weights is not None:
+            w = np.asarray(weights, dtype=float).ravel()
+            w = w * (n / w.sum())  # Stata aweight normalisation: Σw = n
+            sw = np.sqrt(w)
+            X = X * sw[:, None]
+            y = y * sw
+
         # Fast OLS via Numba-accelerated kernel (graceful fallback)
         (
             _fast_ols,
@@ -209,9 +227,18 @@ class OLSEstimator(BaseEstimator):
 
         std_errors = np.sqrt(np.diag(var_cov))
 
-        # Model diagnostics
-        tss = np.sum((y - np.mean(y)) ** 2)
-        rss = np.sum(residuals**2)
+        # Model diagnostics. For WLS, report fitted/residuals on the ORIGINAL
+        # scale and use weighted TSS/RSS so R²/RMSE match Stata's aweight output.
+        if sw is not None:
+            fitted_values = X_orig @ params
+            residuals = y_orig - fitted_values
+            wn = sw**2
+            ybar_w = np.sum(wn * y_orig) / np.sum(wn)
+            tss = np.sum(wn * (y_orig - ybar_w) ** 2)
+            rss = np.sum(wn * residuals**2)
+        else:
+            tss = np.sum((y - np.mean(y)) ** 2)
+            rss = np.sum(residuals**2)
         r_squared = 1 - rss / tss
         adj_r_squared = 1 - (rss / (n - k)) / (tss / (n - 1))
 
@@ -375,6 +402,38 @@ class OLSRegression(BaseModel):
         self.var_names = var_names
         self.estimator = OLSEstimator()
 
+    def _resolve_weights(self, weights, design_index):
+        """Resolve and validate analytic regression weights (Stata ``aweight``).
+
+        Accepts a column name (resolved against ``self.data`` and aligned to the
+        design's row index, so rows dropped for missing data stay aligned) or an
+        array-like of length ``nobs``. Fails loudly on length mismatch, NaN/inf,
+        or non-positive weights rather than silently producing wrong estimates.
+        """
+        if isinstance(weights, str):
+            if self.data is None or weights not in self.data.columns:
+                raise ValueError(
+                    f"weights='{weights}' is not a column in the data."
+                )
+            col = self.data[weights]
+            if design_index is not None:
+                col = col.reindex(design_index)
+            wv = np.asarray(col, dtype=float).ravel()
+        else:
+            wv = np.asarray(weights, dtype=float).ravel()
+        if wv.shape[0] != self.y.shape[0]:
+            raise ValueError(
+                f"weights length ({wv.shape[0]}) does not match the number of "
+                f"observations ({self.y.shape[0]})."
+            )
+        if not np.all(np.isfinite(wv)):
+            raise ValueError("weights contain NaN or infinite values.")
+        if np.any(wv <= 0):
+            raise ValueError(
+                "weights must be strictly positive (analytic/`aweight` semantics)."
+            )
+        return wv
+
     def fit(
         self, robust: str = "nonrobust", cluster: Optional[str] = None, **kwargs
     ) -> EconometricResults:
@@ -396,8 +455,10 @@ class OLSRegression(BaseModel):
             Fitted model results
         """
         # Prepare data
+        design_index = None
         if self.formula is not None and self.data is not None:
             y_df, X_df = create_design_matrices(self.formula, self.data)
+            design_index = y_df.index
             self.y = y_df.values.ravel()
             self.X = X_df.values
             self.var_names = list(X_df.columns)
@@ -412,6 +473,13 @@ class OLSRegression(BaseModel):
         # Fail loudly on an exactly rank-deficient design rather than returning
         # unidentified garbage coefficients.
         _detect_perfect_collinearity(self.X, self.var_names)
+
+        # Resolve analytic regression weights (Stata ``aweight`` semantics).
+        # These were previously accepted via **kwargs and *silently ignored*,
+        # returning unweighted OLS — a fail-silently correctness bug. Now they
+        # are resolved, validated, and threaded into the WLS kernel.
+        if kwargs.get("weights", None) is not None:
+            kwargs["weights"] = self._resolve_weights(kwargs["weights"], design_index)
 
         # Handle clustering
         cluster_var = None
@@ -599,9 +667,17 @@ def regress(
     data : pd.DataFrame
         Data containing variables
     robust : str, default 'nonrobust'
-        Type of standard errors
+        Type of standard errors ('nonrobust', 'hc0'–'hc3', 'hac';
+        case-insensitive)
     cluster : str, optional
         Variable name for clustering
+    weights : str or array-like, optional
+        Analytic regression weights (Stata ``aweight`` semantics). Pass a
+        column name or an array of length ``nobs``. Fits WLS — point
+        estimates, classical / robust / clustered SEs and R² match
+        ``regress y x [aw=w]``. Weights must be strictly positive and finite;
+        invalid weights raise ``ValueError`` rather than being silently
+        ignored.
     **kwargs
         Additional options
 

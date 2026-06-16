@@ -5,6 +5,30 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="regress-weights"></a>
+
+## Unreleased — ⚠️ `sp.regress` ignored `weights=` (silently fit unweighted OLS)
+
+**What changed.** `sp.regress(..., weights=col)` accepted the `weights`
+argument through `**kwargs` and then never used it — the returned fit was
+plain unweighted OLS, with no warning. As of this fix it solves the weighted
+least squares problem with Stata `aweight` semantics, so `weights=` changes the
+coefficients, standard errors (classical / HC-robust / clustered), and R²
+exactly as a weighted regression should. Verified against **Stata 18 MP**
+`regress y x [aw=w]` (+ `, robust` / `, vce(cluster …)`) to machine precision.
+
+**Who is affected.** Anyone who called `sp.regress(..., weights=w)`. Calls
+*without* `weights=` are numerically identical (the unweighted code path is
+byte-for-byte unchanged).
+
+**Action required.** Re-run any weighted `sp.regress` fits — prior results were
+the unweighted OLS solution. The new path also raises `ValueError` on
+non-finite, non-positive, wrong-length, or unknown-column weights instead of
+silently proceeding. This mirrors the `sp.feols` no-FE weights fix below; the
+same fail-silently bug existed independently in the OLS estimator.
+
+---
+
 <a id="feols-nofe-weights"></a>
 
 ## 1.18.0 — ⚠️ `sp.feols` ignored `weights=` when no fixed effects were absorbed

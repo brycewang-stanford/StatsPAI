@@ -532,6 +532,31 @@ def _first_stage_diagnostics(
     return results
 
 
+def _normalize_robust(robust) -> str:
+    """Canonicalise the SE-type vocabulary for the IV estimators.
+
+    Accepts (case-insensitively) ``'nonrobust'`` / ``'hc0'`` / ``'hc1'`` /
+    ``'hc2'`` / ``'hc3'`` plus the ergonomic aliases ``True`` / ``'robust'`` /
+    ``'white'`` so callers can mirror Stata (``robust`` ≡ HC1) and the
+    ``sp.regress`` spelling (uppercase HCk). Raises a clear ``ValueError`` for
+    anything else instead of failing deep inside the sandwich kernel.
+    """
+    if robust is None or robust is False:
+        return 'nonrobust'
+    if robust is True:
+        return 'hc1'  # Stata `robust` ≡ HC1
+    if isinstance(robust, str):
+        key = robust.strip().lower()
+        aliases = {'robust': 'hc1', 'white': 'hc0'}
+        key = aliases.get(key, key)
+        if key in ('nonrobust', 'hc0', 'hc1', 'hc2', 'hc3'):
+            return key
+    raise ValueError(
+        f"Unknown robust option: {robust!r}. Use one of 'nonrobust', "
+        f"'hc0', 'hc1', 'hc2', 'hc3' (case-insensitive), True, or 'robust'."
+    )
+
+
 def _robust_cov(
     X_hat: np.ndarray,
     A: np.ndarray,
@@ -816,8 +841,12 @@ class IVRegression(BaseModel):
 
         Parameters
         ----------
-        robust : str, default 'nonrobust'
-            Standard-error type ('nonrobust', 'hc0', 'hc1', 'hc2', 'hc3').
+        robust : str or bool, default 'nonrobust'
+            Standard-error type. Accepts 'nonrobust' and 'hc0'–'hc3'
+            (case-insensitive), plus the aliases ``True`` / ``'robust'``
+            (≡ HC1, matching Stata) and ``'white'`` (≡ HC0). Classical and
+            robust SEs match ``ivregress 2sls, small`` / ``..., robust small``
+            (the finite-sample t convention).
         cluster : str, optional
             Variable name for clustering.
 
@@ -825,6 +854,13 @@ class IVRegression(BaseModel):
         -------
         EconometricResults
         """
+        # Normalise the SE-type vocabulary so the IV path accepts the same
+        # spellings as ``sp.regress`` (case-insensitive HC0–HC3) plus the
+        # Stata-style ergonomic aliases. Previously a bare ``robust='HC1'``
+        # (uppercase) raised "Unknown robust type" — an API inconsistency with
+        # OLS, which lower-cases the type at point of use.
+        robust = _normalize_robust(robust)
+
         if self.formula is not None and self.data is not None:
             self._prepare_from_formula()
         elif not (self.y is not None and self.X_exog is not None
