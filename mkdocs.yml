@@ -117,6 +117,7 @@ nav:
       - "Choosing an RD estimator": guides/choosing_rd_estimator.md
       - "Choosing an IV estimator": guides/choosing_iv_estimator.md
       - "Choosing a matching estimator": guides/choosing_matching_estimator.md
+      - "PSM-DID and the Stata psmatch2 workflow": guides/psm_did.md
       - "Choosing an ML causal estimator (DML / TMLE / metalearner / causal_forest)": guides/choosing_ml_causal_estimator.md
       - "Panel data — FE / RE / Hausman / HDFE / dynamic GMM": guides/panel_data.md
       - "Migrating from R to StatsPAI": guides/migration-from-r.md

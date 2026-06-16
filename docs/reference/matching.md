@@ -39,6 +39,7 @@ diag = sp.balance_diagnostics(df, treat="training",
 | Family | Functions | Typical use |
 | --- | --- | --- |
 | Classical matching | `sp.match(method="nearest" | "psm" | "mahalanobis" | "cem" | "stratify")` | Matched samples or subclassification with transparent design choices. |
+| Stata `psmatch2` | `sp.psmatch2` | Stata-faithful supported PSM paths with matched-sample variables (`_weight`/`_support`; plus `_n1`/`_pdif` for nearest-neighbour), post-matching balance, common-support plot, and frequency-weighted PSM-DID. See the [PSM-DID guide](../guides/psm_did.md). |
 | Entropy / CBPS / SBW | `sp.ebalance`, `sp.cbps`, `sp.sbw` | Direct covariate balance by reweighting. |
 | Genetic matching | `sp.genmatch` | Automated balance search over covariate weights. |
 | Overlap weights | `sp.overlap_weights` | ATE-style overlap-population estimands with stable weights. |
@@ -49,6 +50,10 @@ diag = sp.balance_diagnostics(df, treat="training",
 ### `sp.match(...)`
 
 ::: statspai.match
+
+### `sp.psmatch2(...)`
+
+::: statspai.psmatch2
 
 ### `sp.ebalance(...)`
 
