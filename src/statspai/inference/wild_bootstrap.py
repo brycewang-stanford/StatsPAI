@@ -150,10 +150,13 @@ def wild_cluster_bootstrap(
     var_names = ['_const'] + list(x)
     test_idx = var_names.index(test_var)
     cl = df[cluster].values
-    unique_cl = np.unique(cl)
+    unique_cl, cl_inverse = np.unique(cl, return_inverse=True)
     G = len(unique_cl)
     n = len(Y)
     k = X.shape[1]
+
+    if G < 2:
+        raise ValueError("wild cluster bootstrap requires at least two clusters")
 
     if G < 6:
         warnings.warn(
@@ -170,11 +173,9 @@ def wild_cluster_bootstrap(
     beta_test = beta_hat[test_idx]
 
     # --- Cluster-robust SE (CR1) ---
-    meat = np.zeros((k, k))
-    for g in unique_cl:
-        idx = cl == g
-        score_g = X[idx].T @ resid[idx]
-        meat += np.outer(score_g, score_g)
+    cluster_scores = np.zeros((G, k))
+    np.add.at(cluster_scores, cl_inverse, X * resid[:, None])
+    meat = cluster_scores.T @ cluster_scores
     correction = (G / (G - 1)) * ((n - 1) / (n - k))
     vcov_cl = correction * XtX_inv @ meat @ XtX_inv
     se_cl = float(np.sqrt(vcov_cl[test_idx, test_idx]))
@@ -195,29 +196,25 @@ def wild_cluster_bootstrap(
 
     # --- Bootstrap ---
     t_boot = np.zeros(n_boot)
+    fitted_r = X @ beta_r
+    X_T = X.T
 
     for b in range(n_boot):
         # Draw cluster-level weights
         w = _draw_weights(G, weight_type, rng)
 
-        # Map cluster weights to observations
-        Y_star = np.zeros(n)
-        for g_idx, g_val in enumerate(unique_cl):
-            obs_idx = cl == g_val
-            # WCR: Y* = X β_r + w_g * ε̂_r
-            Y_star[obs_idx] = (X[obs_idx] @ beta_r
-                               + w[g_idx] * resid_r[obs_idx])
+        # WCR: Y* = X β_r + w_g * ε̂_r, with cluster weights mapped by
+        # the inverse index returned by np.unique.
+        Y_star = fitted_r + w[cl_inverse] * resid_r
 
         # OLS on bootstrap sample
-        beta_b = XtX_inv @ X.T @ Y_star
+        beta_b = XtX_inv @ X_T @ Y_star
         resid_b = Y_star - X @ beta_b
 
         # Cluster-robust SE for bootstrap sample
-        meat_b = np.zeros((k, k))
-        for g_idx, g_val in enumerate(unique_cl):
-            idx = cl == g_val
-            score_g = X[idx].T @ resid_b[idx]
-            meat_b += np.outer(score_g, score_g)
+        scores_b = np.zeros((G, k))
+        np.add.at(scores_b, cl_inverse, X * resid_b[:, None])
+        meat_b = scores_b.T @ scores_b
         vcov_b = correction * XtX_inv @ meat_b @ XtX_inv
         se_b = np.sqrt(max(vcov_b[test_idx, test_idx], 1e-20))
 

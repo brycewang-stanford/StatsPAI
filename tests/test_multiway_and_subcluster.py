@@ -124,6 +124,22 @@ def test_cr3_jackknife_gives_positive_semidefinite():
     assert (eigvals >= -1e-10).all()
 
 
+def test_cr3_jackknife_matches_manual_delete_one_cluster_formula():
+    X, y, firm, _ = _sim_clustered_ols(n_firms=8, n_years=5, seed=4)
+
+    V = cr3_jackknife_vcov(X, y, firm)
+
+    beta_full = np.linalg.lstsq(X, y, rcond=None)[0]
+    coefs = []
+    for g in np.unique(firm):
+        keep = firm != g
+        coefs.append(np.linalg.lstsq(X[keep], y[keep], rcond=None)[0])
+    coefs = np.vstack(coefs)
+    diff = coefs - beta_full
+    expected = (len(coefs) - 1) / len(coefs) * (diff.T @ diff)
+    np.testing.assert_allclose(V, expected, rtol=1e-12, atol=1e-14)
+
+
 def test_subcluster_wild_bootstrap_basic():
     # Small-G setting where subcluster WCR is the recommended method
     rng = np.random.default_rng(7)
@@ -142,6 +158,24 @@ def test_subcluster_wild_bootstrap_basic():
     assert 0 <= res["p_boot"] <= 1
     assert res["n_clusters"] == n_firms
     assert res["n_subclusters"] == n_years
+    X = np.column_stack([np.ones(len(df)), df["x"].to_numpy()])
+    expected_beta = np.linalg.lstsq(X, df["y"].to_numpy(), rcond=None)[0][1]
+    np.testing.assert_allclose(res["beta_hat"], expected_beta)
+
+
+def test_subcluster_wild_bootstrap_single_cluster_raises():
+    df = pd.DataFrame({
+        "firm": np.zeros(12, dtype=int),
+        "year": np.arange(12),
+        "x": np.linspace(-1.0, 1.0, 12),
+        "y": np.linspace(0.0, 1.0, 12),
+    })
+
+    with pytest.raises(ValueError, match="at least two clusters"):
+        subcluster_wild_bootstrap(
+            df, y="y", x=["x"], cluster="firm", subcluster="year",
+            n_boot=19, seed=1,
+        )
 
 
 def test_wild_cluster_ci_inv_brackets_truth():
@@ -159,3 +193,6 @@ def test_wild_cluster_ci_inv_brackets_truth():
     lo, hi = res["ci"]
     # True coefficient ~ 2.5 should lie in the inverted CI
     assert lo < 2.5 < hi
+    X = np.column_stack([np.ones(len(df)), df["x"].to_numpy()])
+    expected_beta = np.linalg.lstsq(X, df["y"].to_numpy(), rcond=None)[0][1]
+    np.testing.assert_allclose(res["beta_hat"], expected_beta)

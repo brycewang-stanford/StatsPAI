@@ -140,6 +140,15 @@ class TestWildClusterBootstrap:
         )
         assert isinstance(result['recommendation'], str)
 
+    def test_single_cluster_raises_clear_error(self, clustered_data):
+        one_cluster = clustered_data[clustered_data["cluster"] == 0].copy()
+
+        with pytest.raises(ValueError, match="at least two clusters"):
+            wild_cluster_bootstrap(
+                one_cluster, y="y", x=["x"], cluster="cluster",
+                n_boot=19, seed=42,
+            )
+
 
 # ======================================================================
 # AIPW

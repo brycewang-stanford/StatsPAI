@@ -113,6 +113,8 @@ def subcluster_wild_bootstrap(
     cl = df[cluster].values
     unique_cl, cl_idx = np.unique(cl, return_inverse=True)
     G = len(unique_cl)
+    if G < 2:
+        raise ValueError("subcluster wild bootstrap requires at least two clusters")
     if subcluster is not None:
         sc = df[subcluster].values
         sc_labels, sc_idx = np.unique(sc, return_inverse=True)
@@ -131,11 +133,9 @@ def subcluster_wild_bootstrap(
 
     # Cluster-robust SE (Liang-Zeger CR1)
     correction = (G / max(G - 1, 1)) * ((n - 1) / max(n - k, 1))
-    meat = np.zeros((k, k))
-    for g in range(G):
-        m = cl_idx == g
-        u_g = X[m].T @ resid[m]
-        meat += np.outer(u_g, u_g)
+    cluster_scores = np.zeros((G, k))
+    np.add.at(cluster_scores, cl_idx, X * resid[:, None])
+    meat = cluster_scores.T @ cluster_scores
     V_cl = correction * XtX_inv @ meat @ XtX_inv
     se_cl = float(np.sqrt(V_cl[j_test, j_test]))
     t_stat = (beta_test - h0) / se_cl if se_cl > 0 else 0.0
@@ -153,17 +153,17 @@ def subcluster_wild_bootstrap(
 
     # Bootstrap
     t_boot = np.empty(n_boot)
+    fitted_r = X @ beta_r
+    X_T = X.T
     for b in range(n_boot):
         w = _draw_weights(S, weight_type, rng)
         w_obs = w[sc_idx]
-        Y_star = X @ beta_r + w_obs * resid_r
-        beta_b = XtX_inv @ X.T @ Y_star
+        Y_star = fitted_r + w_obs * resid_r
+        beta_b = XtX_inv @ X_T @ Y_star
         resid_b = Y_star - X @ beta_b
-        meat_b = np.zeros((k, k))
-        for g in range(G):
-            m = cl_idx == g
-            u_b = X[m].T @ resid_b[m]
-            meat_b += np.outer(u_b, u_b)
+        scores_b = np.zeros((G, k))
+        np.add.at(scores_b, cl_idx, X * resid_b[:, None])
+        meat_b = scores_b.T @ scores_b
         V_b = correction * XtX_inv @ meat_b @ XtX_inv
         se_b = np.sqrt(max(V_b[j_test, j_test], 1e-20))
         t_boot[b] = (beta_b[j_test] - h0) / se_b
