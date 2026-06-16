@@ -40,6 +40,15 @@ from scipy import stats
 from scipy.spatial.distance import cdist
 
 from ..core.results import CausalResult
+from ._matched_frame import (
+    build_matched_frame,
+    common_support_mask,
+    matched_columns,
+    attach_matched_frame,
+    psmatch2_se,
+    abadie_imbens_se,
+    COL_WEIGHT,
+)
 
 
 # ======================================================================
@@ -52,7 +61,35 @@ _LEGACY_MAP = {
 }
 
 _VALID_DISTANCES = ('propensity', 'mahalanobis', 'euclidean', 'exact')
-_VALID_METHODS = ('nearest', 'stratify', 'cem')
+_VALID_METHODS = ('nearest', 'stratify', 'cem', 'kernel', 'radius')
+
+# Kernel functions K(u) used by kernel / radius matching, matching the
+# definitions in Stata psmatch2.ado (Leuven & Sianesi 2003).  Each returns
+# the (un-normalised) weight for |u| <= 1, and 0 outside the bandwidth
+# (the 'normal' kernel has unbounded support).  The leading constants
+# (e.g. 0.75 for Epanechnikov) cancel under the per-treated normalisation,
+# so psmatch2 omits them — we follow suit for digit-for-digit parity.
+_VALID_KERNELS = ('epan', 'normal', 'biweight', 'uniform', 'tricube')
+
+
+def _kernel_weight(u: np.ndarray, kernel: str) -> np.ndarray:
+    """Un-normalised kernel weight K(u); 0 outside [-1, 1] (save 'normal')."""
+    au = np.abs(u)
+    inside = au <= 1.0
+    if kernel == 'epan':
+        w = np.where(inside, 1.0 - u ** 2, 0.0)
+    elif kernel == 'biweight':
+        w = np.where(inside, (1.0 - u ** 2) ** 2, 0.0)
+    elif kernel == 'uniform':
+        w = np.where(inside, 1.0, 0.0)
+    elif kernel == 'tricube':
+        w = np.where(inside, (1.0 - au ** 3) ** 3, 0.0)
+    elif kernel == 'normal':
+        # standard normal density, unbounded support (no truncation)
+        w = np.exp(-0.5 * u ** 2) / np.sqrt(2.0 * np.pi)
+    else:  # pragma: no cover — guarded by _validate
+        raise ValueError(f"unknown kernel '{kernel}'")
+    return w
 
 
 # ======================================================================
@@ -76,6 +113,13 @@ def match(
     bias_correction: bool = False,
     # --- propensity score specification ---
     ps_poly: int = 1,
+    # --- common support ---
+    common_support: str = 'none',
+    # --- kernel / radius matching ---
+    kernel: str = 'epan',
+    bwidth: float = 0.06,
+    se_method: str = 'auto',
+    ai_matches: int = 1,
     # --- stratification parameters ---
     n_strata: int = 5,
     # --- CEM parameters ---
@@ -121,6 +165,36 @@ def match(
         Higher-order specifications are standard practice; see
         Cunningham (2021, Ch. 5) for worked examples with
         ``age + age^2 + age^3 + educ + educ^2 + educ*re74``.
+    common_support : {'none', 'minmax'}, default 'none'
+        Common-support trimming for nearest-neighbor matching.
+        ``'none'`` (default) matches every treated unit and leaves the
+        point estimate unchanged.  ``'minmax'`` mirrors Stata
+        ``psmatch2 , common``: treated units whose propensity score falls
+        outside the [min, max] range of the control scores are dropped
+        before matching and the ATT is taken over the on-support treated.
+        The matched-sample frame (``result.matched_data``) records the
+        common-support flag in ``_support`` either way.
+    kernel : str, default 'epan'
+        Kernel type for ``method='kernel'`` — one of ``'epan'``,
+        ``'normal'``, ``'biweight'``, ``'uniform'``, ``'tricube'`` (matches
+        Stata ``psmatch2 , kerneltype()``).  Ignored for other methods.
+    bwidth : float, default 0.06
+        Kernel bandwidth on the propensity score for ``method='kernel'``
+        (Stata's ``bwidth()`` default).  For ``method='radius'`` the
+        bandwidth is taken from ``caliper`` instead.
+    se_method : {'auto', 'ai', 'psmatch2', 'abadie_imbens'}, default 'auto'
+        Standard-error estimator. ``'ai'`` is the simple matched-pair SE (the
+        historical default for nearest-neighbour matching). ``'psmatch2'`` is
+        Stata psmatch2's homoskedastic analytic ATT SE
+        ``sqrt(var1/N1 + var0*Σw²/N1²)``. ``'abadie_imbens'`` is the
+        Abadie-Imbens (2006) heteroskedasticity-robust SE (Stata
+        ``psmatch2 , ai(J)``), with ``J = ai_matches`` within-arm matches.
+        ``'auto'`` keeps ``'ai'`` for nearest-neighbour matching and uses
+        ``'psmatch2'`` for kernel / radius matching.
+    ai_matches : int, default 1
+        Number of within-arm matches ``J`` used by the
+        ``se_method='abadie_imbens'`` conditional-variance estimate
+        (Stata's ``ai(J)``).
     n_strata : int, default 5
         Number of strata for method='stratify'.
     n_bins : int, optional
@@ -178,6 +252,9 @@ def match(
         distance=distance, method=method, estimand=estimand,
         n_matches=n_matches, caliper=caliper, replace=replace,
         bias_correction=bias_correction, ps_poly=ps_poly,
+        common_support=common_support,
+        kernel=kernel, bwidth=bwidth, se_method=se_method,
+        ai_matches=ai_matches,
         n_strata=n_strata, n_bins=n_bins, alpha=alpha,
     )
     _result = estimator.fit()
@@ -195,6 +272,9 @@ def match(
                 "replace": replace,
                 "bias_correction": bias_correction,
                 "ps_poly": ps_poly,
+                "common_support": common_support,
+                "kernel": kernel, "bwidth": bwidth,
+                "se_method": se_method, "ai_matches": ai_matches,
                 "n_strata": n_strata, "n_bins": n_bins,
                 "alpha": alpha,
             },
@@ -271,6 +351,11 @@ class MatchEstimator:
         replace: bool = True,
         bias_correction: bool = False,
         ps_poly: int = 1,
+        common_support: str = 'none',
+        kernel: str = 'epan',
+        bwidth: float = 0.06,
+        se_method: str = 'auto',
+        ai_matches: int = 1,
         n_strata: int = 5,
         n_bins: Optional[int] = None,
         alpha: float = 0.05,
@@ -285,9 +370,16 @@ class MatchEstimator:
         self.replace = replace
         self.bias_correction = bias_correction
         self.ps_poly = ps_poly
+        self.common_support = str(common_support).lower()
+        self.kernel = str(kernel).lower()
+        self.bwidth = bwidth
+        self.se_method = str(se_method).lower()
+        self.ai_matches = int(ai_matches)
         self.n_strata = n_strata
         self.n_bins = n_bins
         self.alpha = alpha
+        # Filled by _fit_nearest so fit() can build the matched-sample frame.
+        self._assignment = None
 
         # Resolve legacy method names
         method_lower = method.lower()
@@ -301,7 +393,7 @@ class MatchEstimator:
 
         # Set default distance for methods that need one
         if self.distance is None:
-            if self.method in ('nearest', 'stratify'):
+            if self.method in ('nearest', 'stratify', 'kernel', 'radius'):
                 self.distance = 'propensity'
             elif self.method == 'cem':
                 self.distance = None  # CEM doesn't use distance
@@ -325,6 +417,12 @@ class MatchEstimator:
         if self.estimand not in ('ATT', 'ATE'):
             raise ValueError(f"estimand must be 'ATT' or 'ATE', got '{self.estimand}'")
 
+        if self.common_support not in ('none', 'minmax'):
+            raise ValueError(
+                "common_support must be 'none' or 'minmax', "
+                f"got '{self.common_support}'"
+            )
+
         treat_vals = self.data[self.treat].dropna().unique()
         if not set(treat_vals).issubset({0, 1, 0.0, 1.0}):
             from statspai.exceptions import MethodIncompatibility
@@ -346,6 +444,34 @@ class MatchEstimator:
         # Stratification only works with propensity distance
         if self.method == 'stratify' and self.distance != 'propensity':
             raise ValueError("method='stratify' requires distance='propensity'")
+
+        # Kernel / radius matching are propensity-score based.
+        if self.method in ('kernel', 'radius') and self.distance != 'propensity':
+            raise ValueError(
+                f"method='{self.method}' requires distance='propensity'"
+            )
+        if self.method in ('kernel', 'radius') and self.estimand != 'ATT':
+            raise ValueError(
+                f"method='{self.method}' currently supports estimand='ATT' only"
+            )
+        if self.method == 'kernel' and self.kernel not in _VALID_KERNELS:
+            raise ValueError(
+                f"kernel must be one of {_VALID_KERNELS}, got '{self.kernel}'"
+            )
+        if self.method == 'kernel' and not (self.bwidth and self.bwidth > 0):
+            raise ValueError("kernel matching requires bwidth > 0")
+        if self.method == 'radius' and not (self.caliper and self.caliper > 0):
+            raise ValueError(
+                "radius matching requires caliper > 0 (the radius bandwidth)"
+            )
+
+        if self.se_method not in ('auto', 'ai', 'psmatch2', 'abadie_imbens'):
+            raise ValueError(
+                "se_method must be 'auto', 'ai', 'psmatch2', or "
+                f"'abadie_imbens', got '{self.se_method}'"
+            )
+        if self.estimand != 'ATT' and self.se_method == 'psmatch2':
+            raise ValueError("se_method='psmatch2' is only defined for estimand='ATT'")
 
     # ==================================================================
     # Main fit
@@ -386,6 +512,10 @@ class MatchEstimator:
         elif self.method == 'stratify':
             att, se, balance, extra_info = self._fit_stratify(Y, X, T, idx_t, idx_c)
             method_label = 'Matching (PS Stratification)'
+        elif self.method in ('kernel', 'radius'):
+            att, se, balance, extra_info = self._fit_kernel(Y, X, T, idx_t, idx_c)
+            kt = 'Radius' if self.method == 'radius' else f'Kernel:{self.kernel}'
+            method_label = f'Matching ({kt})'
         elif self.distance == 'exact':
             att, se, balance, extra_info = self._fit_exact(Y, X, T, idx_t, idx_c)
             method_label = 'Matching (Exact)'
@@ -403,12 +533,6 @@ class MatchEstimator:
                 UserWarning, stacklevel=3,
             )
 
-        # Inference
-        t_stat = att / se if se > 0 else 0.0
-        pvalue = float(2 * (1 - stats.norm.cdf(abs(t_stat))))
-        z = stats.norm.ppf(1 - self.alpha / 2)
-        ci = (att - z * se, att + z * se)
-
         model_info = {
             'distance': self.distance,
             'method': self.method,
@@ -420,11 +544,81 @@ class MatchEstimator:
             'replace': self.replace,
             'bias_correction': self.bias_correction,
             'ps_poly': self.ps_poly,
+            'common_support': self.common_support,
             'balance': balance,
             **extra_info,
         }
 
-        return CausalResult(
+        # Assemble the Stata psmatch2-style matched-sample frame for the
+        # assignment-producing paths (nearest / kernel / radius).  This is
+        # pure bookkeeping over the assignment already used for the point
+        # estimate.  When ``se_method`` resolves to ``'psmatch2'`` the
+        # analytic Lechner SE is read back off this frame.
+        matched_data = None
+        if self._assignment is not None and self.estimand == 'ATT':
+            a = self._assignment
+            emit_neighbors = a.get('neighbors', True)
+            frame = build_matched_frame(
+                index=clean.index,
+                treated=a['treated'],
+                pscore=a['pscore'],
+                idx_t=a['idx_t'],
+                idx_c=a['idx_c'],
+                matches=a['matches'],
+                weights=a['weights'],
+                n_matches=self.n_matches,
+                support=a['support'],
+                outcome=a['outcome'],
+                neighbors=emit_neighbors,
+            )
+            matched_data = attach_matched_frame(self.data, frame)
+            model_info['matched_columns'] = matched_columns(
+                self.n_matches, with_outcome=True, neighbors=emit_neighbors
+            )
+            # n_on_support = all on-support obs; n_treated_on_support = the
+            # treated subset (what the psmatch2 summary reports).
+            model_info['n_on_support'] = int(np.sum(a['support']))
+            model_info['n_treated_on_support'] = int(
+                np.sum(a['support'][a['idx_t']])
+            )
+            model_info['n_matched_treated'] = int(
+                np.sum([len(m) > 0 for m in a['matches']])
+            )
+
+            # Resolve and (optionally) override the SE with the digit-exact
+            # Stata psmatch2 analytic / Abadie-Imbens robust standard error.
+            se_method = self._resolve_se_method()
+            model_info['se_method'] = se_method
+            if se_method == 'psmatch2':
+                se_p = psmatch2_se(
+                    a['outcome'], a['treated'], a['support'],
+                    frame[COL_WEIGHT].to_numpy(dtype=float),
+                )
+                if np.isfinite(se_p):
+                    se = se_p
+            elif se_method == 'abadie_imbens':
+                model_info['ai_matches'] = self.ai_matches
+                se_ai = abadie_imbens_se(
+                    a['outcome'], a['treated'], a['pscore'], a['support'],
+                    frame[COL_WEIGHT].to_numpy(dtype=float),
+                    n_ai_matches=self.ai_matches,
+                )
+                if np.isfinite(se_ai):
+                    se = se_ai
+        elif self._assignment is not None:
+            model_info['matched_data_note'] = (
+                "psmatch2-style matched_data is omitted for estimand='ATE' "
+                "because Stata psmatch2 variables encode a treated-to-control "
+                "ATT assignment."
+            )
+
+        # Inference (after the SE is finalized)
+        t_stat = att / se if se > 0 else 0.0
+        pvalue = float(2 * (1 - stats.norm.cdf(abs(t_stat))))
+        z = stats.norm.ppf(1 - self.alpha / 2)
+        ci = (att - z * se, att + z * se)
+
+        result = CausalResult(
             method=method_label,
             estimand=self.estimand,
             estimate=att,
@@ -437,6 +631,12 @@ class MatchEstimator:
             model_info=model_info,
             _citation_key='matching',
         )
+        # Expose the matched frame both as a convenience attribute and in
+        # model_info (the latter survives serialisation / provenance).
+        result.matched_data = matched_data
+        if matched_data is not None:
+            result.model_info['matched_data'] = matched_data
+        return result
 
     # ==================================================================
     # Nearest-neighbor matching (propensity / mahalanobis / euclidean)
@@ -449,26 +649,45 @@ class MatchEstimator:
 
         # For propensity distance, estimate PS once with actual treatment
         pscore = self._logit_propensity(X, T, poly=self.ps_poly) if self.distance == 'propensity' else None
+        # PS is always needed downstream (balance table + matched frame +
+        # common-support flag), even when the distance metric is not PS.
+        if pscore is None:
+            pscore = self._logit_propensity(X, T, poly=self.ps_poly)
 
-        # Build distance matrix
-        dist_mat = self._compute_distance_matrix(X, idx_t, idx_c, pscore)
+        # Common-support flag over the full estimation sample.  With
+        # common_support='none' every unit is on support and the matching
+        # below is byte-identical to the historical implementation.
+        support = common_support_mask(pscore, T, rule=self.common_support)
+
+        # Targets actually fed to the matcher.  Under 'minmax' we drop the
+        # off-support treated *before* matching so the ATT is taken over the
+        # on-support treated (Stata psmatch2 `common`).
+        if self.common_support == 'minmax':
+            t_use = idx_t[support[idx_t]]
+        else:
+            t_use = idx_t
+
+        # Build distance matrix for the (used-treated × control) block
+        dist_mat = self._compute_distance_matrix(X, t_use, idx_c, pscore)
 
         if self.estimand == 'ATT':
             matches, weights = self._nn_match_from_dist(
                 dist_mat,
                 self.caliper,
-                target_order=row_order[idx_t],
+                target_order=row_order[t_use],
                 pool_order=row_order[idx_c],
             )
-            att = self._compute_effect(Y, idx_t, idx_c, X, matches, weights)
-            se = self._ai_se(Y, X, T, idx_t, idx_c, matches, weights)
+            att = self._compute_effect(Y, t_use, idx_c, X, matches, weights)
+            se = self._ai_se(Y, X, T, t_use, idx_c, matches, weights)
+            assign_matches, assign_weights = matches, weights
         else:
-            # ATE: match both directions, reuse the same propensity scores
+            # ATE: match both directions, reuse the same propensity scores.
+            # Common-support trimming is ATT-specific; ATE uses all units.
             dist_ct = self._compute_distance_matrix(X, idx_c, idx_t, pscore)
             m_tc, w_tc = self._nn_match_from_dist(
                 dist_mat,
                 self.caliper,
-                target_order=row_order[idx_t],
+                target_order=row_order[t_use],
                 pool_order=row_order[idx_c],
             )
             m_ct, w_ct = self._nn_match_from_dist(
@@ -477,17 +696,145 @@ class MatchEstimator:
                 target_order=row_order[idx_c],
                 pool_order=row_order[idx_t],
             )
-            att_part = self._compute_effect(Y, idx_t, idx_c, X, m_tc, w_tc)
+            att_part = self._compute_effect(Y, t_use, idx_c, X, m_tc, w_tc)
             atc_part = self._compute_effect(Y, idx_c, idx_t, X, m_ct, w_ct)
-            n_t, n_c = len(idx_t), len(idx_c)
+            n_t, n_c = len(t_use), len(idx_c)
             att = (n_t * att_part + n_c * (-atc_part)) / (n_t + n_c)
-            se = self._ai_se(Y, X, T, idx_t, idx_c, m_tc, w_tc)
+            se = self._ai_se(Y, X, T, t_use, idx_c, m_tc, w_tc)
+            assign_matches, assign_weights = m_tc, w_tc
 
-        if pscore is None:
-            pscore = self._logit_propensity(X, T, poly=self.ps_poly)
         balance = self._balance_table(X, T, pscore)
 
+        # Record the treated→control assignment so fit() can assemble the
+        # psmatch2-style matched-sample frame.  Expand back to the full
+        # treated index: off-support / unmatched treated get empty matches.
+        full_matches = [np.array([], dtype=int)] * len(idx_t)
+        full_weights = [np.array([], dtype=float)] * len(idx_t)
+        pos_in_full = {int(p): k for k, p in enumerate(idx_t)}
+        for j, t_pos in enumerate(t_use):
+            k = pos_in_full[int(t_pos)]
+            full_matches[k] = assign_matches[j]
+            full_weights[k] = assign_weights[j]
+
+        self._assignment = {
+            'pscore': pscore,
+            'treated': T,
+            'idx_t': idx_t,
+            'idx_c': idx_c,
+            'matches': full_matches,
+            'weights': full_weights,
+            'support': support,
+            'outcome': Y,
+            'neighbors': True,
+        }
+
         return att, se, balance
+
+    def _resolve_se_method(self) -> str:
+        """Resolve ``se_method='auto'`` to a concrete estimator.
+
+        Nearest-neighbour matching keeps the historical Abadie-Imbens
+        matched-pair SE; kernel / radius matching (which has no matched-pair
+        structure) uses Stata psmatch2's analytic SE.
+        """
+        if self.se_method != 'auto':
+            return self.se_method
+        if self.method in ('kernel', 'radius'):
+            return 'psmatch2'
+        return 'ai'
+
+    # ==================================================================
+    # Kernel / radius matching (Heckman-Ichimura-Todd 1997; psmatch2)
+    # ==================================================================
+
+    def _fit_kernel(self, Y, X, T, idx_t, idx_c):
+        """Kernel / radius propensity-score matching (Stata psmatch2).
+
+        Each treated unit is matched to *all* on-support controls, weighted
+        by a kernel of the propensity-score distance::
+
+            w_ij = K(|p_i - p_j| / h) / Σ_k K(|p_i - p_k| / h)
+
+        so the controls' contributions to a treated unit sum to 1.  The
+        matched-control mean outcome is ``_y_i = Σ_j w_ij Y_j`` and
+        ``ATT = mean_i (Y_i - _y_i)`` over the on-support treated.  A treated
+        unit with no control inside the bandwidth (all kernel weights zero)
+        is dropped off support.
+
+        ``method='radius'`` is the special case of a uniform kernel with the
+        bandwidth set to ``caliper`` (Stata: "radius matching is like kernel
+        matching with a uniform kernel").
+        """
+        pscore = self._logit_propensity(X, T, poly=self.ps_poly)
+
+        # Common-support trimming (Stata `common`) precedes kernel matching.
+        support = common_support_mask(pscore, T, rule=self.common_support)
+
+        kerneltype = 'uniform' if self.method == 'radius' else self.kernel
+        bw = float(self.caliper) if self.method == 'radius' else float(self.bwidth)
+
+        ps_c = pscore[idx_c]
+        Y_c = Y[idx_c]
+        # On-support controls form the donor pool (controls are always on
+        # support under psmatch2's comsup, but we honour the flag anyway).
+        c_on = support[idx_c]
+        pool = np.where(c_on)[0]  # positions into idx_c
+
+        full_matches = [np.array([], dtype=int) for _ in idx_t]
+        full_weights = [np.array([], dtype=float) for _ in idx_t]
+        effects = []
+        for i, t_pos in enumerate(idx_t):
+            if not support[t_pos] or len(pool) == 0:
+                support[t_pos] = False
+                continue
+            d = np.abs(pscore[t_pos] - ps_c[pool]) / bw
+            k = _kernel_weight(d, kerneltype)
+            ksum = k.sum()
+            if ksum <= 0:
+                # No control within the bandwidth -> drop off support.
+                support[t_pos] = False
+                continue
+            nz = k > 0
+            w = k[nz] / ksum
+            cpos = pool[nz]  # positions into idx_c
+            full_matches[i] = cpos
+            full_weights[i] = w
+            yhat = float(np.sum(w * Y_c[cpos]))
+            effects.append(Y[t_pos] - yhat)
+
+        if len(effects) == 0:
+            raise ValueError(
+                f"{self.method} matching: no treated unit found a control "
+                f"within bandwidth {bw}. Increase bwidth / caliper."
+            )
+
+        att = float(np.mean(effects))
+        # Placeholder SE; fit() replaces it with the psmatch2 analytic SE
+        # (se_method resolves to 'psmatch2' for kernel/radius).
+        se = float(np.std(effects, ddof=1) / np.sqrt(len(effects))) \
+            if len(effects) > 1 else 0.0
+
+        balance = self._balance_table(X, T, pscore)
+
+        self._assignment = {
+            'pscore': pscore,
+            'treated': T,
+            'idx_t': idx_t,
+            'idx_c': idx_c,
+            'matches': full_matches,
+            'weights': full_weights,
+            'support': support,
+            'outcome': Y,
+            'neighbors': False,
+        }
+
+        extra = {
+            'kernel': kerneltype,
+            'bwidth': bw,
+            'n_on_support': int(np.sum(support)),
+            'n_matched_treated': int(np.sum([len(m) > 0 for m in full_matches])),
+        }
+        return att, se, balance, extra
 
     @staticmethod
     def _stable_index_order(index):
