@@ -1,0 +1,34 @@
+{
+  "source": "Stata 18 MP, psmatch2 (Leuven & Sianesi 2003), double precision, set seed 12345, n=40",
+  "neighbor": {
+    "cmd": "psmatch2 d x1 x2, outcome(y) neighbor(1) logit",
+    "att": 3.758511605921656,
+    "se_att": 1.1675852016454364,
+    "n_treated": 18,
+    "n_control": 22,
+    "n_control_used": 9,
+    "sum_control_weight": 18.0
+  },
+  "kernel_epan_bw0.5": {
+    "cmd": "psmatch2 d x1 x2, outcome(y) kernel kerneltype(epan) bwidth(0.5) logit",
+    "data": "psmatch2_kernel_data.csv",
+    "att": 3.617975292503206,
+    "se_att": 0.9245573977838009
+  },
+  "radius_cal0.1": {
+    "cmd": "psmatch2 d x1 x2, outcome(y) radius caliper(0.1) logit",
+    "data": "psmatch2_radius_data.csv",
+    "att": 3.2232390828455704,
+    "se_att": 1.0247068078822834
+  },
+  "se_formula": "sqrt(var1/N1 + var0*wtot/N1^2); var1=Var(y|treated on support, ddof=1), var0=Var(y|used controls, ddof=1), wtot=sum(_weight^2 over controls)",
+  "notes": "NN ATT + SE and radius ATT + SE are machine-exact; kernel (smooth) ATT matches to ~1e-8, bounded by independent logit propensity-score estimation, not the matching algorithm. AI(2006) robust SE (ai option) matches Stata to machine precision (within-group J-NN self-match + the fixed _weight are discrete, so robust to the PS gap).",
+  "ai_robust": {
+    "cmd": "psmatch2 d x1 x2, outcome(y) neighbor(1) ai(J) logit",
+    "data": "psmatch2_ai_data.csv",
+    "att": 3.758511605921656,
+    "se_att_ai1": 1.0397946967952247,
+    "se_att_ai2": 0.913432354262176,
+    "formula": "Abadie-Imbens 2006: shat=(J/(J+1))(y-self_y)^2; VhatEt=shat*(D-(1-D)w)^2; se=sqrt(sum VhatEt)/N1"
+  }
+}
