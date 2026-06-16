@@ -1915,6 +1915,82 @@ def _build_registry():
 
     register(
         FunctionSpec(
+            name="psmatch2",
+            category="causal",
+            description=(
+                "Stata psmatch2-faithful supported propensity-score matching paths "
+                "(nearest-neighbour, kernel, radius): returns matched-sample variables "
+                "(_pscore _treated _support _weight _y; plus _n1.. _nn _pdif for "
+                "nearest-neighbour), the psmatch2 analytic ATT standard error, plus "
+                "post-matching balance, common-support plotting, and frequency-weighted "
+                "PSM-DID."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("treat", "str", True, description="Binary treatment column (0/1)"),
+                ParamSpec("covariates", "list", True),
+                ParamSpec("outcome", "str", False, None, "Outcome variable (Stata outcome(); optional)"),
+                ParamSpec(
+                    "method", "str", False, "neighbor",
+                    "Matching algorithm", ["neighbor", "kernel", "radius"],
+                ),
+                ParamSpec("neighbor", "int", False, 1, "Number of nearest neighbours k"),
+                ParamSpec("caliper", "float", False, None, "Max PS distance / radius bandwidth"),
+                ParamSpec(
+                    "kernel", "str", False, "epan",
+                    "Kernel type (method='kernel')",
+                    ["epan", "normal", "biweight", "uniform", "tricube"],
+                ),
+                ParamSpec("bwidth", "float", False, 0.06, "Kernel bandwidth (method='kernel')"),
+                ParamSpec(
+                    "se", "str", False, "psmatch2",
+                    "Standard-error estimator", ["psmatch2", "ai", "abadie_imbens"],
+                ),
+                ParamSpec("ai", "int", False, 0, "Abadie-Imbens (2006) robust SE with J within-arm matches (Stata ai(J))"),
+                ParamSpec(
+                    "common_support", "str", False, "none",
+                    "Common-support trimming", ["none", "minmax"],
+                ),
+            ],
+            returns="PSMatch2Result (.matched_data / .balance() / .psplot() / .psm_did())",
+            example=(
+                "sp.psmatch2(df, treat='union', outcome='log_wage', "
+                "covariates=['education','experience','tenure'])"
+            ),
+            tags=["matching", "propensity", "psm", "psmatch2", "stata", "did"],
+            reference="Leuven & Sianesi (2003) PSMATCH2 (SSC S432001); Rosenbaum & Rubin (1983)",
+            pre_conditions=[
+                "binary treatment 0/1",
+                "covariates are pre-treatment (temporally prior to D)",
+                "enough control units for each treated unit under k:1 matching",
+                "one row per unit in the matching data (id column required for psm_did)",
+            ],
+            assumptions=[
+                "Unconfoundedness / CIA: Y(d) ⊥ D | X",
+                "Overlap / common support on the propensity score",
+                "SUTVA: no interference between matched units",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Residual imbalance after matching (max |SMD| > 0.1)",
+                    exception="statspai.AssumptionWarning",
+                    remedy="Tighten caliper, add covariate interactions (ps_poly), or switch to sp.ebalance.",
+                    alternative="sp.ebalance",
+                ),
+                FailureMode(
+                    symptom="Treated units off common support",
+                    exception="statspai.AssumptionWarning",
+                    remedy="Pass common_support='minmax' (Stata `common`) or sp.trimming.",
+                    alternative="sp.trimming",
+                ),
+            ],
+            alternatives=["match", "psm", "ebalance", "cbps", "ipw", "drdid"],
+            typical_n_min=200,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="tmle",
             category="causal",
             description="Targeted Maximum Likelihood Estimation for ATE/ATT with double-robustness.",

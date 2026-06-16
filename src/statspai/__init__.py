@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "1.17.0"
+__version__ = "1.18.0"
 __author__ = "Biaoyue Wang and Scott Rozelle"
 __email__ = "brycew6m@stanford.edu"
 
@@ -244,6 +244,8 @@ from .matching import (
     GenMatchResult,
     sbw,
     SBWResult,
+    psmatch2,
+    PSMatch2Result,
 )
 from .dml import (
     dml,
@@ -1177,6 +1179,8 @@ __all__ = [
     "SBWResult",
     "genmatch",
     "GenMatchResult",
+    "psmatch2",
+    "PSMatch2Result",
     # Inference primitives
     "subcluster_wild_bootstrap",
     "wild_cluster_ci_inv",

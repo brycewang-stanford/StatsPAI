@@ -57,6 +57,7 @@ from .overlap_weights import overlap_weights
 from .cbps import cbps
 from .genmatch import genmatch, GenMatchResult
 from .sbw import sbw, SBWResult
+from .psmatch2 import psmatch2, PSMatch2Result
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -85,10 +86,12 @@ from .sbw import sbw, SBWResult
 _CLASSICAL_ONLY_KWARGS = frozenset({
     "distance", "n_matches", "caliper", "replace",
     "bias_correction", "ps_poly", "n_strata", "n_bins",
+    "common_support", "kernel", "bwidth", "se_method",
 })
 
 _CLASSICAL_METHODS = frozenset({
     "nearest", "stratify", "cem", "psm", "mahalanobis",
+    "kernel", "radius",
 })
 
 _MATCH_METHOD_ALIASES: Dict[str, str] = {
@@ -99,6 +102,8 @@ _MATCH_METHOD_ALIASES: Dict[str, str] = {
     "cem": "cem", "coarsened_exact": "cem",
     "psm": "psm",  # legacy alias for nearest+propensity
     "mahalanobis": "mahalanobis",  # legacy alias for nearest+mahalanobis
+    "kernel": "kernel",  # kernel propensity-score matching (psmatch2)
+    "radius": "radius",  # radius matching = uniform kernel, bw=caliper
 
     # Weighting
     "ebalance": "ebalance", "entropy_balancing": "ebalance",
@@ -252,4 +257,5 @@ __all__ = [
     'cbps',
     'genmatch', 'GenMatchResult',
     'sbw', 'SBWResult',
+    'psmatch2', 'PSMatch2Result',
 ]

@@ -450,6 +450,8 @@ from .matching.ps_diagnostics import ps_balance as ps_balance
 from .matching.ps_diagnostics import trimming as trimming
 from .matching.sbw import SBWResult as SBWResult
 from .matching.sbw import sbw as sbw
+from .matching.psmatch2 import PSMatch2Result as PSMatch2Result
+from .matching.psmatch2 import psmatch2 as psmatch2
 from .matrix_completion.mc_panel import MCPanel as MCPanel
 from .matrix_completion.mc_panel import mc_panel as mc_panel
 from .mediation.mediate import MediationAnalysis as MediationAnalysis
