@@ -78,6 +78,34 @@ def test_hdfe_no_fixed_effects(df):
     assert np.isfinite(_b(res))
 
 
+def test_hdfe_no_fixed_effects_weights_match_manual_wls():
+    df = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 1.5, 2.6, 1.2, 4.0, 1.7, 6.6],
+            "d": [0, 0, 0, 0, 1, 1, 1, 1],
+            "post": [0, 1, 0, 1, 0, 1, 0, 1],
+            "w": [1.0, 1.0, 8.0, 8.0, 1.0, 1.0, 8.0, 8.0],
+        }
+    )
+    df["_did"] = df["d"] * df["post"]
+
+    res = sp.hdfe_ols("y ~ d + post + _did", df, weights="w")
+
+    X = np.column_stack(
+        [
+            np.ones(len(df)),
+            df[["d", "post", "_did"]].to_numpy(dtype=float),
+        ]
+    )
+    y = df["y"].to_numpy(dtype=float)
+    w = df["w"].to_numpy(dtype=float)
+    beta = np.linalg.solve(X.T @ (X * w[:, None]), X.T @ (y * w))
+
+    assert res.params["_did"] == pytest.approx(beta[3], abs=1e-12)
+    unweighted = sp.hdfe_ols("y ~ d + post + _did", df)
+    assert res.params["_did"] != pytest.approx(unweighted.params["_did"])
+
+
 def test_hdfe_wild_cluster_bootstrap(df):
     res = sp.hdfe_ols("y ~ x1 | id", df, cluster="id", wild=True, wild_n_boot=199)
     assert res is not None

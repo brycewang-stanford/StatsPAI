@@ -295,19 +295,29 @@ def feols(
         X_arr = df[x_vars].to_numpy(dtype=np.float64)
         x_names = list(x_vars)
 
-    if fe_vars:
-        fe_mat = df[fe_vars].to_numpy()
-    else:
-        # No FE → fall back to plain OLS with intercept
-        if not x_vars:
-            raise ValueError("Need at least one regressor or one FE.")  # pragma: no cover
-        return _ols_no_fe(df, lhs, x_vars, weights, cluster_names, alpha, formula)
-
     w_arr = None
     if w_col is not None:
         w_arr = df[w_col].to_numpy(dtype=np.float64)
-    elif isinstance(weights, np.ndarray):
-        w_arr = np.asarray(weights, dtype=np.float64)
+    elif weights is not None:
+        raw_w = np.asarray(weights, dtype=np.float64).ravel()
+        if raw_w.size == len(data):
+            w_arr = pd.Series(raw_w, index=data.index).loc[df.index].to_numpy(dtype=np.float64)
+        elif raw_w.size == len(df):
+            w_arr = raw_w
+        else:
+            raise ValueError(
+                "weights array length must match the input data or the "
+                f"post-dropna sample; got {raw_w.size}, expected {len(data)} "
+                f"or {len(df)}."
+            )
+
+    if fe_vars:
+        fe_mat = df[fe_vars].to_numpy()
+    else:
+        # No FE -> fall back to plain OLS/WLS with intercept.
+        if not x_vars:
+            raise ValueError("Need at least one regressor or one FE.")  # pragma: no cover
+        return _ols_no_fe(df, lhs, x_vars, w_arr, cluster_names, alpha, formula)
 
     cluster_arr = None
     if cluster_names:
@@ -436,27 +446,53 @@ def _ols_no_fe(
     alpha: float,
     formula: str,
 ) -> FEOLSResult:
-    """Plain OLS with intercept when no FE is absorbed."""
+    """Plain OLS/WLS with intercept when no FE is absorbed."""
     y = df[lhs].to_numpy(dtype=np.float64)
     X = np.column_stack([np.ones(len(df)), df[x_vars].to_numpy(dtype=np.float64)])
     names = ["_const"] + list(x_vars)
     n, k = X.shape
 
-    XtX = X.T @ X
-    XtX_inv = np.linalg.inv(XtX)
-    coef = XtX_inv @ X.T @ y
+    w = None if weights is None else np.asarray(weights, dtype=np.float64).ravel()
+    if w is not None:
+        if w.size != n:
+            raise ValueError(f"weights length {w.size} does not match n={n}.")
+        if not np.all(np.isfinite(w)) or np.any(w < 0):
+            raise ValueError("weights must be finite and non-negative.")
+        if float(w.sum()) <= 0:
+            raise ValueError("weights must have positive total mass.")
+
+    if w is None:
+        XtX = X.T @ X
+        Xty = X.T @ y
+    else:
+        XtX = X.T @ (X * w[:, None])
+        Xty = X.T @ (y * w)
+    try:
+        XtX_inv = np.linalg.inv(XtX)
+        coef = XtX_inv @ Xty
+    except np.linalg.LinAlgError:
+        XtX_inv = np.linalg.pinv(XtX)
+        coef = XtX_inv @ Xty
     resid = y - X @ coef
     df_resid = n - k
-    sigma2 = float((resid ** 2).sum()) / df_resid
+    ss_res_w = float((resid ** 2).sum()) if w is None else float((w * resid ** 2).sum())
+    sigma2 = ss_res_w / df_resid
 
     if cluster_names:
-        from ..inference.multiway_cluster import multiway_cluster_vcov
         cl = (
             df[cluster_names[0]].to_numpy()
             if len(cluster_names) == 1
             else [df[c].to_numpy() for c in cluster_names]
         )
-        vcov = multiway_cluster_vcov(X, resid, cl, df_adjust=True, n_params=k)
+        if w is None:
+            from ..inference.multiway_cluster import multiway_cluster_vcov
+            vcov = multiway_cluster_vcov(X, resid, cl, df_adjust=True, n_params=k)
+        else:
+            from .hdfe import _cluster_sandwich
+            vcov = _cluster_sandwich(
+                X, resid, coef, XtX_inv, cl, df_resid=df_resid,
+                weights=w, n_absorbed=k,
+            )
         se_type = "cluster" if len(cluster_names) == 1 else "multiway_cluster"
     else:
         vcov = sigma2 * XtX_inv
@@ -467,9 +503,14 @@ def _ols_no_fe(
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
     pvals = 2 * (1 - stats.t.cdf(np.abs(np.nan_to_num(t_stats)), df_resid))
 
-    y_bar = y.mean()
-    ss_res = float(((y - X @ coef) ** 2).sum())
-    ss_tot = float(((y - y_bar) ** 2).sum())
+    if w is None:
+        y_bar = y.mean()
+        ss_res = float(((y - X @ coef) ** 2).sum())
+        ss_tot = float(((y - y_bar) ** 2).sum())
+    else:
+        y_bar = float(np.average(y, weights=w))
+        ss_res = float((w * (y - X @ coef) ** 2).sum())
+        ss_tot = float((w * (y - y_bar) ** 2).sum())
     r2 = 1 - ss_res / ss_tot if ss_tot > 0 else np.nan
 
     # Minimal Absorber stub (identity) — returned in the ``absorber``
