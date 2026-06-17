@@ -165,15 +165,20 @@ class EconometricResults:
     def _compute_statistics(self):
         """Compute t-statistics, p-values, and confidence intervals"""
         stats = _scipy_stats()
-        self.tvalues = self.params / self.std_errors
-        self.pvalues = 2 * (1 - stats.t.cdf(np.abs(self.tvalues), 
-                                           self.data_info.get('df_resid', np.inf)))
+        index = self.params.index
+        params = self.params.to_numpy(dtype=float, copy=False)
+        std_errors = self.std_errors.to_numpy(dtype=float, copy=False)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            tvalues = params / std_errors
+        df_resid = self.data_info.get('df_resid', np.inf)
+        self.tvalues = pd.Series(tvalues, index=index)
+        self.pvalues = 2 * (1 - stats.t.cdf(np.abs(tvalues), df_resid))
         
         # 95% confidence intervals by default
         alpha = 0.05
-        t_crit = stats.t.ppf(1 - alpha/2, self.data_info.get('df_resid', np.inf))
-        self.conf_int_lower = self.params - t_crit * self.std_errors
-        self.conf_int_upper = self.params + t_crit * self.std_errors
+        t_crit = stats.t.ppf(1 - alpha/2, df_resid)
+        self.conf_int_lower = pd.Series(params - t_crit * std_errors, index=index)
+        self.conf_int_upper = pd.Series(params + t_crit * std_errors, index=index)
     
     def summary(self, alpha: float = 0.05) -> str:
         """

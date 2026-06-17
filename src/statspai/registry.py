@@ -1920,7 +1920,7 @@ def _build_registry():
             description=(
                 "Stata psmatch2-faithful supported propensity-score matching paths "
                 "(nearest-neighbour, kernel, radius): returns matched-sample variables "
-                "(_pscore _treated _support _weight _y; plus _n1.. _nn _pdif for "
+                "(_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for "
                 "nearest-neighbour), the psmatch2 analytic ATT standard error, plus "
                 "post-matching balance, common-support plotting, and frequency-weighted "
                 "PSM-DID."

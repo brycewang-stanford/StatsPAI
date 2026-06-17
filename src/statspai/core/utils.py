@@ -9,6 +9,96 @@ import re
 from patsy import dmatrices, dmatrix
 
 
+_BARE_NAME_RE = re.compile(r"^[A-Za-z_]\w*$")
+
+
+def _try_simple_numeric_design_matrices(
+    formula: str,
+    data: pd.DataFrame,
+    return_type: str = "dataframe",
+):
+    """Fast path for plain numeric additive formulas.
+
+    Patsy remains the compatibility path for categorical transforms,
+    interactions, functions, quoting, and any non-numeric column. The common
+    benchmark/user path ``y ~ x1 + x2`` can be built directly with the same
+    column names, intercept convention, and NA-drop row index.
+    """
+    if return_type not in {"dataframe", "array"}:
+        return None
+    if formula.count("~") != 1 or "|" in formula:
+        return None
+
+    lhs, rhs = (part.strip() for part in formula.split("~", 1))
+    if not _BARE_NAME_RE.match(lhs) or lhs not in data.columns:
+        return None
+    if not rhs:
+        return None
+
+    # Reject Patsy syntax and non-bare column names. A leading '-' is only
+    # supported for the intercept-removal idiom, not variable subtraction.
+    if re.search(r"[():*/\[\]{}]", rhs):
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9_\s+\-]+", rhs):
+        return None
+
+    intercept = True
+    rhs_terms = [
+        term.strip()
+        for term in re.sub(r"(?<!^)-", "+-", rhs).split("+")
+        if term.strip()
+    ]
+    x_names: List[str] = []
+    seen = set()
+    for term in rhs_terms:
+        term = re.sub(r"\s+", "", term)
+        if term in {"1", "+1"}:
+            continue
+        if term in {"0", "+0", "-0", "-1"}:
+            intercept = False
+            continue
+        if term.startswith("-"):
+            return None
+        if not _BARE_NAME_RE.match(term) or term not in data.columns:
+            return None
+        if not pd.api.types.is_numeric_dtype(data[term]):
+            return None
+        if term not in seen:
+            x_names.append(term)
+            seen.add(term)
+
+    if not x_names and not intercept:
+        return None
+    if not pd.api.types.is_numeric_dtype(data[lhs]):
+        return None
+
+    used_cols = [lhs] + x_names
+    frame = data.loc[:, used_cols]
+    arr = frame.to_numpy(dtype=float, na_value=np.nan, copy=False)
+    complete = ~pd.isna(arr).any(axis=1)
+    if not bool(complete.any()):
+        return None
+    arr = arr[complete]
+    index = data.index[complete]
+
+    y_arr = arr[:, [0]]
+    x_parts = []
+    x_cols: List[str] = []
+    if intercept:
+        x_parts.append(np.ones((arr.shape[0], 1), dtype=float))
+        x_cols.append("Intercept")
+    if x_names:
+        x_parts.append(arr[:, 1:])
+        x_cols.extend(x_names)
+    X_arr = np.column_stack(x_parts) if len(x_parts) > 1 else x_parts[0]
+
+    if return_type == "array":
+        return y_arr, X_arr
+    y_df = pd.DataFrame(y_arr, columns=[lhs], index=index)
+    X_df = pd.DataFrame(X_arr, columns=x_cols, index=index)
+    return y_df, X_df
+
+
 def parse_formula(formula: str) -> Dict[str, Any]:
     """
     Parse econometric formula into components
@@ -103,6 +193,10 @@ def create_design_matrices(
     Tuple[pd.DataFrame, pd.DataFrame]
         (y, X) matrices
     """
+    fast = _try_simple_numeric_design_matrices(formula, data, return_type)
+    if fast is not None:
+        return fast
+
     try:
         y, X = dmatrices(formula, data, return_type=return_type)
         return y, X

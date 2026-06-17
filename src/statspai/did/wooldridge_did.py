@@ -41,6 +41,7 @@ import pandas as pd
 from scipy import optimize, stats
 
 from ..core.results import CausalResult
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -175,7 +176,7 @@ def wooldridge_did(
     cohorts = sorted(df.loc[df["_ft"].notna(), "_ft"].unique())
 
     if len(cohorts) == 0:
-        raise ValueError("No treated cohorts found. Check 'first_treat' column.")
+        raise DataInsufficient("No treated cohorts found. Check 'first_treat' column.")
 
     # ── Unit and time FE via demeaning ──────────────────────────────
     # Within-group (unit) demeaning
@@ -243,7 +244,7 @@ def wooldridge_did(
     X = df_valid[X_cols].values
 
     if X.shape[1] == 0:
-        raise ValueError("No cohort × post interactions could be created.")
+        raise DataInsufficient("No cohort × post interactions could be created.")
 
     # Add constant (absorbed into demeaning but keep for numerical stability)
     X = np.column_stack([np.ones(len(y_vec)), X])
@@ -553,7 +554,7 @@ def _dispatch_etwfe_impl(
     """
     # Validate cgroup
     if cgroup not in ("notyet", "nevertreated"):
-        raise ValueError(
+        raise MethodIncompatibility(
             f"cgroup must be 'notyet' or 'nevertreated'; got {cgroup!r}"
         )
 
@@ -568,12 +569,12 @@ def _dispatch_etwfe_impl(
             col = pd.to_numeric(data[xv], errors="coerce")
             finite = col.dropna()
             if len(finite) < 2:
-                raise ValueError(
+                raise DataInsufficient(
                     f"xvar {xv!r} has fewer than 2 non-NaN rows "
                     f"(found {len(finite)}); cannot estimate heterogeneity."
                 )
             if float(finite.std()) < 1e-12:
-                raise ValueError(
+                raise DataInsufficient(
                     f"xvar {xv!r} is (near-)constant — no heterogeneity "
                     "slope can be identified. Drop it or choose another column."
                 )
@@ -637,7 +638,7 @@ def _etwfe_with_xvar(
     periods = sorted(df[time].unique())
     cohorts = sorted(df.loc[df["_ft"].notna(), "_ft"].unique())
     if len(cohorts) == 0:
-        raise ValueError("No treated cohorts found. Check 'first_treat' column.")
+        raise DataInsufficient("No treated cohorts found. Check 'first_treat' column.")
 
     # Demean outcome
     df["_y"] = df[y].astype(float)
@@ -822,7 +823,7 @@ def _etwfe_repeated_cs(
     periods = sorted(df[time].unique())
     cohorts = sorted(df.loc[df["_ft"].notna(), "_ft"].unique())
     if len(cohorts) == 0:
-        raise ValueError("No treated cohorts found. Check 'first_treat' column.")
+        raise DataInsufficient("No treated cohorts found. Check 'first_treat' column.")
 
     # cgroup='nevertreated' is guarded at the dispatcher level —
     # combining it with panel=False is currently a NotImplementedError.
@@ -1030,10 +1031,10 @@ def _etwfe_never_only(
     ft_local = df[first_treat].replace(0, np.nan)
     cohorts = sorted(ft_local.dropna().unique())
     if len(cohorts) == 0:
-        raise ValueError("No treated cohorts found. Check 'first_treat' column.")
+        raise DataInsufficient("No treated cohorts found. Check 'first_treat' column.")
     never_ids = df.loc[ft_local.isna(), group].unique()
     if len(never_ids) == 0:
-        raise ValueError(
+        raise DataInsufficient(
             "cgroup='nevertreated' requires at least one never-treated "
             "unit (first_treat NaN / 0), but none were found."
         )
@@ -1181,7 +1182,7 @@ def drdid(
     # estimators are implemented. Previously any other string silently
     # fell through to the traditional branch (a §7 violation); fail loud.
     if method not in ("imp", "trad"):
-        raise ValueError(
+        raise MethodIncompatibility(
             f"method must be 'imp' (improved, locally efficient) or 'trad' "
             f"(traditional DR-DID); got {method!r}."
         )
@@ -1190,32 +1191,40 @@ def drdid(
     g_vals = sorted(df[group].dropna().unique())
     t_vals = sorted(df[time].dropna().unique())
     if len(g_vals) != 2:
-        raise ValueError(f"'{group}' must be binary, got values: {g_vals}")
+        raise MethodIncompatibility(f"'{group}' must be binary, got values: {g_vals}")
     if len(t_vals) != 2:
-        raise ValueError(f"'{time}' must be binary, got values: {t_vals}")
+        raise MethodIncompatibility(f"'{time}' must be binary, got values: {t_vals}")
 
     if id is not None:
         if id not in df.columns:
-            raise ValueError(f"'{id}' must be a column in data")
+            raise MethodIncompatibility(f"'{id}' must be a column in data")
         if method != "imp":
-            raise ValueError("id= panel DR-DID currently supports method='imp'")
+            raise MethodIncompatibility(
+                "id= panel DR-DID currently supports method='imp'"
+            )
 
         covariates_list = covariates or []
         needed = [id, y, group, time] + covariates_list
         missing = [col for col in needed if col not in df.columns]
         if missing:
-            raise ValueError(f"Missing columns for panel DR-DID: {missing}")
+            raise MethodIncompatibility(
+                f"Missing columns for panel DR-DID: {missing}"
+            )
         panel_df = df[needed].dropna().copy()
         pre_df = panel_df[panel_df[time] == t_vals[0]][[id, y, group] + covariates_list]
         post_df = panel_df[panel_df[time] == t_vals[1]][[id, y, group]]
         if pre_df[id].duplicated().any() or post_df[id].duplicated().any():
-            raise ValueError("id/time must identify at most one row per unit-period")
+            raise MethodIncompatibility(
+                "id/time must identify at most one row per unit-period"
+            )
 
         wide = pre_df.merge(post_df, on=id, suffixes=("_pre", "_post"))
         if wide.empty:
-            raise ValueError("No complete pre/post unit pairs for panel DR-DID")
+            raise DataInsufficient("No complete pre/post unit pairs for panel DR-DID")
         if not np.all(wide[f"{group}_pre"].to_numpy() == wide[f"{group}_post"].to_numpy()):
-            raise ValueError(f"'{group}' must be time-invariant within id")
+            raise MethodIncompatibility(
+                f"'{group}' must be time-invariant within id"
+            )
 
         D_panel = (wide[f"{group}_pre"] == g_vals[1]).astype(float).to_numpy()
         y0 = wide[f"{y}_pre"].astype(float).to_numpy()
@@ -1539,7 +1548,7 @@ def _calibrated_pscore(
     else:
         iw = np.asarray(i_weights, dtype=float)
         if np.any(iw < 0):
-            raise ValueError("i_weights must be non-negative")
+            raise MethodIncompatibility("i_weights must be non-negative")
         iw = iw / iw.mean()
 
     init = _logistic_coefficients(X, D, max_iter=100)
@@ -1579,10 +1588,10 @@ def _drdid_imp_panel_core(
     """Sant'Anna-Zhao improved panel DR-DID core matching DRDID::drdid_imp_panel."""
     n = len(D)
     if n == 0:
-        raise ValueError("panel DR-DID requires at least one complete unit")
+        raise DataInsufficient("panel DR-DID requires at least one complete unit")
     p_treat = D.mean()
     if p_treat <= 0 or p_treat >= 1:
-        raise ValueError("panel DR-DID requires treated and control units")
+        raise DataInsufficient("panel DR-DID requires treated and control units")
 
     ps, ps_flag = _calibrated_pscore(X, D)
     trim_ps = np.ones(n, dtype=float)
@@ -1590,7 +1599,9 @@ def _drdid_imp_panel_core(
 
     control = D == 0
     if control.sum() < X.shape[1]:
-        raise ValueError("Not enough control units for panel DR-DID outcome regression")
+        raise DataInsufficient(
+            "Not enough control units for panel DR-DID outcome regression"
+        )
     odds = ps / (1.0 - ps)
     beta = _weighted_lstsq(X[control], delta_y[control], odds[control])
     out_delta = X @ beta
@@ -1756,7 +1767,7 @@ def twfe_decomposition(
                 })
 
     if len(comparisons) == 0:
-        raise ValueError("No valid 2×2 comparisons found. Check data structure.")
+        raise DataInsufficient("No valid 2×2 comparisons found. Check data structure.")
 
     comp_df = pd.DataFrame(comparisons)
 
@@ -1929,17 +1940,19 @@ def etwfe_emfx(
     """
     valid = {"simple", "group", "event", "calendar"}
     if type not in valid:
-        raise ValueError(f"type must be one of {sorted(valid)}; got {type!r}")
+        raise MethodIncompatibility(
+            f"type must be one of {sorted(valid)}; got {type!r}"
+        )
     valid_weighting = {"cohort", "treated", "treated_observations"}
     if weighting not in valid_weighting:
-        raise ValueError(
+        raise MethodIncompatibility(
             "weighting must be one of "
             f"{sorted(valid_weighting)}; got {weighting!r}"
         )
     weighting = "treated" if weighting == "treated_observations" else weighting
 
     if not isinstance(result.model_info, dict) or "cohorts" not in result.model_info:
-        raise ValueError(
+        raise MethodIncompatibility(
             "etwfe_emfx requires a result produced by sp.etwfe / "
             "sp.wooldridge_did — missing 'cohorts' in model_info."
         )
@@ -1992,11 +2005,13 @@ def etwfe_emfx(
         elif "att" in det.columns:
             est_col = "att"
         else:
-            raise ValueError("ETWFE detail must contain 'att' or 'att_at_xmean'.")
+            raise MethodIncompatibility(
+                "ETWFE detail must contain 'att' or 'att_at_xmean'."
+            )
 
         weight_col = "n_obs" if weighting == "cohort" else "n_treated_obs"
         if weight_col not in det.columns:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"weighting={weighting!r} requires '{weight_col}' in result.detail; "
                 "refit with a current StatsPAI ETWFE result."
             )
@@ -2101,7 +2116,7 @@ def etwfe_emfx(
 
     # ── event / calendar ──
     if event_study is None or len(event_study) == 0:
-        raise ValueError(
+        raise DataInsufficient(
             "type='event'/'calendar' requires event_study coefficients "
             "in result.model_info['event_study']."
         )

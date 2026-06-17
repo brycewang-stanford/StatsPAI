@@ -35,6 +35,8 @@ from typing import Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
+
 
 # ---------------------------------------------------------------------------
 # Cluster-robust variance
@@ -105,9 +107,9 @@ def crve(
     28(2), 169–179.
     """
     if type not in ("cr1", "cr2", "cr3"):
-        raise ValueError(f"type={type!r}; expected 'cr1', 'cr2', or 'cr3'")
+        raise MethodIncompatibility(f"type={type!r}; expected 'cr1', 'cr2', or 'cr3'")
     if extra_df < 0:
-        raise ValueError(f"extra_df={extra_df}; must be >= 0")
+        raise MethodIncompatibility(f"extra_df={extra_df}; must be >= 0")
 
     n, k = X.shape
     if weights is None:
@@ -116,7 +118,7 @@ def crve(
     cluster_codes, _ = pd.factorize(cluster, sort=False)
     G = int(cluster_codes.max()) + 1 if cluster_codes.size else 0
     if G < 2:
-        raise ValueError(f"crve: need at least 2 clusters, got {G}")
+        raise DataInsufficient(f"crve: need at least 2 clusters, got {G}")
 
     if bread is None:
         XtWX = X.T @ (X * weights[:, None])
@@ -294,15 +296,19 @@ def boottest(
     BootTestResult
     """
     if weights not in ("rademacher", "webb"):
-        raise ValueError(f"weights={weights!r}; expected 'rademacher' or 'webb'")
+        raise MethodIncompatibility(
+            f"weights={weights!r}; expected 'rademacher' or 'webb'"
+        )
     if extra_df < 0:
-        raise ValueError(f"extra_df={extra_df}; must be >= 0")
+        raise MethodIncompatibility(f"extra_df={extra_df}; must be >= 0")
 
     n, k = X.shape
     if y.shape[0] != n:
-        raise ValueError(f"y has {y.shape[0]} rows but X has {n}")
+        raise MethodIncompatibility(f"y has {y.shape[0]} rows but X has {n}")
     if cluster.shape[0] != n:
-        raise ValueError(f"cluster has {cluster.shape[0]} rows but X has {n}")
+        raise MethodIncompatibility(
+            f"cluster has {cluster.shape[0]} rows but X has {n}"
+        )
     if not (0 <= null_coef < k):
         raise IndexError(f"null_coef={null_coef} out of range [0, {k})")
 
@@ -310,7 +316,7 @@ def boottest(
     cluster_codes, _ = pd.factorize(cluster, sort=False)
     G = int(cluster_codes.max()) + 1 if cluster_codes.size else 0
     if G < 2:
-        raise ValueError(f"boottest: need at least 2 clusters, got {G}")
+        raise DataInsufficient(f"boottest: need at least 2 clusters, got {G}")
 
     w = obs_weights if obs_weights is not None else np.ones(n)
 
@@ -472,34 +478,38 @@ def boottest_wald(
     BootWaldResult
     """
     if weights not in ("rademacher", "webb"):
-        raise ValueError(f"weights={weights!r}; expected 'rademacher' or 'webb'")
+        raise MethodIncompatibility(
+            f"weights={weights!r}; expected 'rademacher' or 'webb'"
+        )
     if extra_df < 0:
-        raise ValueError(f"extra_df={extra_df}; must be >= 0")
+        raise MethodIncompatibility(f"extra_df={extra_df}; must be >= 0")
 
     n, k = X.shape
     R = np.atleast_2d(np.asarray(R, dtype=np.float64))
     if R.shape[1] != k:
-        raise ValueError(f"R has {R.shape[1]} cols but X has {k}")
+        raise MethodIncompatibility(f"R has {R.shape[1]} cols but X has {k}")
     q = R.shape[0]
     if q < 1:
-        raise ValueError("R must have at least one row")
+        raise MethodIncompatibility("R must have at least one row")
     if q > k:
-        raise ValueError(f"R has {q} rows > k={k}; over-determined")
+        raise MethodIncompatibility(f"R has {q} rows > k={k}; over-determined")
     # Rank check: full row rank
     if np.linalg.matrix_rank(R) < q:
-        raise ValueError("R must have full row rank")
+        raise MethodIncompatibility("R must have full row rank")
     if r is None:
         r = np.zeros(q, dtype=np.float64)
     else:
         r = np.asarray(r, dtype=np.float64).reshape(-1)
         if r.shape[0] != q:
-            raise ValueError(f"r has length {r.shape[0]} but R has {q} rows")
+            raise MethodIncompatibility(
+                f"r has length {r.shape[0]} but R has {q} rows"
+            )
 
     rng = np.random.default_rng(seed)
     cluster_codes, _ = pd.factorize(cluster, sort=False)
     G = int(cluster_codes.max()) + 1 if cluster_codes.size else 0
     if G < 2:
-        raise ValueError(f"boottest_wald: need at least 2 clusters, got {G}")
+        raise DataInsufficient(f"boottest_wald: need at least 2 clusters, got {G}")
 
     w = obs_weights if obs_weights is not None else np.ones(n)
 
@@ -517,7 +527,7 @@ def boottest_wald(
     try:
         wald_obs = float(diff @ np.linalg.solve(RVRT, diff))
     except np.linalg.LinAlgError as exc:
-        raise RuntimeError(
+        raise NumericalInstability(
             f"R V R' is singular (rank {np.linalg.matrix_rank(RVRT)} of {q}); "
             "the restriction matrix may be redundant given the data."
         ) from exc
@@ -557,7 +567,7 @@ def boottest_wald(
 
     finite_mask = np.isfinite(boot_wald)
     if not finite_mask.any():
-        raise RuntimeError("All bootstrap Wald stats were singular; aborting")
+        raise NumericalInstability("All bootstrap Wald stats were singular; aborting")
     pvalue = float(np.mean(boot_wald[finite_mask] >= wald_obs))
 
     return BootWaldResult(
@@ -663,7 +673,7 @@ def cluster_dof_bm(
     contrast = np.asarray(contrast, dtype=np.float64).ravel()
     n, k = X.shape
     if contrast.shape[0] != k:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"contrast has {contrast.shape[0]} entries but X has k={k} cols"
         )
     if weights is None:
@@ -672,7 +682,7 @@ def cluster_dof_bm(
     cluster_codes, _ = pd.factorize(cluster, sort=False)
     G = int(cluster_codes.max()) + 1 if cluster_codes.size else 0
     if G < 2:
-        raise ValueError(f"cluster_dof_bm: need at least 2 clusters, got {G}")
+        raise DataInsufficient(f"cluster_dof_bm: need at least 2 clusters, got {G}")
 
     if bread is None:
         XtWX = X.T @ (X * weights[:, None])
@@ -790,14 +800,14 @@ def cluster_dof_wald_bm(
     R = np.atleast_2d(np.asarray(R, dtype=np.float64))
     n, k = X.shape
     if R.shape[1] != k:
-        raise ValueError(f"R has {R.shape[1]} cols but X has k={k}")
+        raise MethodIncompatibility(f"R has {R.shape[1]} cols but X has k={k}")
     q = R.shape[0]
     if q < 1:
-        raise ValueError("R must have at least one row")
+        raise MethodIncompatibility("R must have at least one row")
     if q > k:
-        raise ValueError(f"R has {q} rows > k={k}; over-determined")
+        raise MethodIncompatibility(f"R has {q} rows > k={k}; over-determined")
     if np.linalg.matrix_rank(R) < q:
-        raise ValueError("R must have full row rank")
+        raise MethodIncompatibility("R must have full row rank")
 
     if weights is None:
         weights = np.ones(n)
@@ -805,9 +815,11 @@ def cluster_dof_wald_bm(
     cluster_codes, _ = pd.factorize(cluster, sort=False)
     G = int(cluster_codes.max()) + 1 if cluster_codes.size else 0
     if G < 2:
-        raise ValueError(f"cluster_dof_wald_bm: need at least 2 clusters, got {G}")
+        raise DataInsufficient(
+            f"cluster_dof_wald_bm: need at least 2 clusters, got {G}"
+        )
     if G <= q:
-        raise ValueError(
+        raise DataInsufficient(
             f"cluster_dof_wald_bm: need G > q for a meaningful Wald DOF "
             f"(got G={G}, q={q})"
         )
@@ -989,21 +1001,21 @@ def _htz_per_cluster_quantities(
     R = np.atleast_2d(np.asarray(R, dtype=np.float64))
     n, k = X.shape
     if R.shape[1] != k:
-        raise ValueError(f"R has {R.shape[1]} cols but X has k={k}")
+        raise MethodIncompatibility(f"R has {R.shape[1]} cols but X has k={k}")
     q = R.shape[0]
     if q < 1:
-        raise ValueError("R must have at least one row")
+        raise MethodIncompatibility("R must have at least one row")
     if q > k:
-        raise ValueError(f"R has {q} rows > k={k}; over-determined")
+        raise MethodIncompatibility(f"R has {q} rows > k={k}; over-determined")
     if np.linalg.matrix_rank(R) < q:
-        raise ValueError("R must have full row rank")
+        raise MethodIncompatibility("R must have full row rank")
 
     if weights is None:
         weights = np.ones(n)
     else:
         weights = np.asarray(weights, dtype=np.float64).ravel()
         if (weights <= 0).any():
-            raise ValueError("weights must be strictly positive")
+            raise MethodIncompatibility("weights must be strictly positive")
         # Fail fast at the helper boundary rather than after one O(G·n_g²·k)
         # loop: v1 locks Φ = I (HTZ paper-faithful path) and the η formula
         # in :func:`_htz_eta_from_quantities` would reject non-uniform
@@ -1018,11 +1030,11 @@ def _htz_per_cluster_quantities(
     cluster_codes, _ = pd.factorize(cluster, sort=False)
     G_clusters = int(cluster_codes.max()) + 1 if cluster_codes.size else 0
     if G_clusters < 2:
-        raise ValueError(
+        raise DataInsufficient(
             f"HTZ requires at least 2 clusters, got {G_clusters}"
         )
     if G_clusters <= q:
-        raise ValueError(
+        raise DataInsufficient(
             f"HTZ Wald requires G > q (got G={G_clusters}, q={q})"
         )
 
@@ -1207,7 +1219,7 @@ def _htz_eta_from_quantities(qty: dict) -> float:
 
     total = float(var_mat.sum())
     if total <= 0:
-        raise ValueError(
+        raise NumericalInstability(
             f"HTZ var_mat sum non-positive (={total!r}); design degenerate. "
             f"Use boottest_wald."
         )
@@ -1271,7 +1283,7 @@ def cluster_dof_wald_htz(
     )
     eta = _htz_eta_from_quantities(qty)
     if eta <= qty["q"] - 1:
-        raise ValueError(
+        raise NumericalInstability(
             f"HTZ DOF η={eta:.4f} ≤ q−1 (q={qty['q']}); design too "
             f"degenerate. Use boottest_wald instead."
         )
@@ -1311,7 +1323,7 @@ def cluster_wald_htz(
     else:
         r = np.asarray(r, dtype=np.float64).ravel()
         if r.shape[0] != q:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"r has {r.shape[0]} entries but R has q={q} rows"
             )
 
@@ -1331,7 +1343,7 @@ def cluster_wald_htz(
 
     eta = _htz_eta_from_quantities(qty)
     if eta <= q - 1:
-        raise ValueError(
+        raise NumericalInstability(
             f"HTZ DOF η={eta:.4f} ≤ q−1 (q={q}); design too degenerate "
             f"for Hotelling-T² scaling. Use boottest_wald instead."
         )
@@ -1344,7 +1356,7 @@ def cluster_wald_htz(
         if np.allclose(diff, 0.0):
             Q = 0.0
         else:
-            raise ValueError(
+            raise NumericalInstability(
                 "HTZ: V_R is the zero matrix but R β̂ − r ≠ 0; "
                 "test is undefined (likely zero residuals with non-zero "
                 "constraint)."

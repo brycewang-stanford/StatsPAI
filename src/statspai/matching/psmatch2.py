@@ -528,7 +528,7 @@ class PSMatch2Result:
             cols = "_pscore _treated _support _weight _y"
         else:
             design = f"  Neighbours (k)    : {self.n_matches}"
-            cols = "_pscore _treated _support _weight _n1.. _nn _pdif _y"
+            cols = "_pscore _treated _support _weight _n1 through _nn _pdif _y"
         lines = [
             "Propensity Score Matching (psmatch2-style)",
             "=" * 62,
