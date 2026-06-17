@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import shutil
 import sys
 from pathlib import Path
@@ -47,6 +48,26 @@ DEFAULT_CURRENT = REPO / "benchmarks" / "results.json"
 # Timer noise floor: sub-millisecond rows flap with CPU frequency
 # scaling and are meaningless to ratchet.
 DEFAULT_MIN_SECONDS = 1e-3
+
+
+def _validate_float(
+    value: float,
+    *,
+    name: str,
+    strictly_positive: bool,
+) -> float:
+    """Return a finite float satisfying the requested sign constraint."""
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a finite number") from exc
+    if not math.isfinite(parsed):
+        raise ValueError(f"{name} must be finite")
+    if strictly_positive and parsed <= 0.0:
+        raise ValueError(f"{name} must be > 0")
+    if not strictly_positive and parsed < 0.0:
+        raise ValueError(f"{name} must be >= 0")
+    return parsed
 
 
 def _row_key(row: Dict) -> Tuple:
@@ -82,6 +103,12 @@ def compare(
     min_seconds: float,
 ) -> Tuple[List[str], List[str]]:
     """Return (failures, report_lines)."""
+    threshold = _validate_float(
+        threshold, name="threshold", strictly_positive=True
+    )
+    min_seconds = _validate_float(
+        min_seconds, name="min_seconds", strictly_positive=False
+    )
     failures: List[str] = []
     lines: List[str] = []
     sections = [
@@ -154,6 +181,17 @@ def main() -> int:
         print("nothing to do (pass --check or --update-baseline)")
         return 2
 
+    try:
+        threshold = _validate_float(
+            args.threshold, name="threshold", strictly_positive=True
+        )
+        min_seconds = _validate_float(
+            args.min_seconds, name="min_seconds", strictly_positive=False
+        )
+    except ValueError as exc:
+        print(f"invalid benchmark ratchet config: {exc}")
+        return 2
+
     if not args.baseline.exists():
         print(f"no baseline at {args.baseline}; create one with --update-baseline")
         return 2
@@ -182,7 +220,7 @@ def main() -> int:
     print()
 
     failures, lines = compare(
-        baseline, current, threshold=args.threshold, min_seconds=args.min_seconds
+        baseline, current, threshold=threshold, min_seconds=min_seconds
     )
     print("\n".join(lines))
     print()

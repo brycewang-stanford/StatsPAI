@@ -46,16 +46,16 @@ PROTOCOLS: dict[str, tuple[str, ...]] = {
 # them to hide a regression.
 FLOORS: dict[str, int] = {
     "result_classes": 262,
-    "method_summary": 251,
+    "method_summary": 256,
     "method_tidy": 21,
     "method_glance": 17,
-    "method_to_dict": 20,
-    "method_to_agent_summary": 11,
+    "method_to_dict": 35,
+    "method_to_agent_summary": 27,
     "method_brief": 11,
-    "protocol_printable": 251,
-    "protocol_serializable": 19,
+    "protocol_printable": 256,
+    "protocol_serializable": 34,
     "protocol_tidy_model": 17,
-    "protocol_agent_ready": 11,
+    "protocol_agent_ready": 27,
 }
 
 CANONICAL_CLASSES = {

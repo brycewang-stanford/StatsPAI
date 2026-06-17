@@ -4,6 +4,22 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Full coefficient table on limited-dependent-variable models.** `sp.tobit`
+  and `sp.heckman` now expose the *entire* coefficient vector through
+  `.params` / `.std_errors` / `.tvalues` / `.pvalues` (plus a new
+  `.coef_table()` helper), matching the Stata (`tobit`, `heckman`) and R
+  (`AER::tobit`, `sampleSelection::heckit`) convention. Previously `.params`
+  surfaced only the headline first-regressor coefficient, so an agent calling
+  `sp.tobit(...).params` got a one-element Series instead of `const`, every
+  regressor, and `sigma`. The headline `.estimate` / `.se` / `.ci` are
+  unchanged and `isinstance(result, CausalResult)` still holds, so no consumer
+  breaks; as a bonus `sp.etable(tobit_fit)` now renders the full regression
+  table. Implemented via a small `LimitedDepResult` subclass — the shared
+  `CausalResult` base is untouched. Pinned in
+  `tests/test_limited_dep_lane.py`.
+
 ### Fixed
 
 - **⚠️ Correctness — `sp.regress(..., weights=)` was silently ignored.** The
@@ -26,6 +42,17 @@ All notable changes to StatsPAI will be documented in this file.
   errors match `ivregress 2sls, small` / `ivregress 2sls, robust small` (the
   finite-sample *t* convention StatsPAI uses) to machine precision. Pinned in
   `tests/reference_parity/test_regress_weights_iv_robust_parity.py`.
+- **Reliability — spurious `converged: False` on `sp.tobit`, `sp.heckman`'s
+  selection probit, and `sp.truncreg`.** These MLE estimators reported
+  `model_info['converged'] = False` at perfectly good optima because SciPy's
+  BFGS returns `success=False` with status 2 ("Desired error not necessarily
+  achieved due to precision loss") on flat log-likelihoods — a line-search
+  artefact, not a real failure (Nelder-Mead reaches the identical objective
+  and coefficients to ~1e-13). The flag is now derived from the gradient norm
+  at the optimum (`success` **or** ‖∇‖ < 1e-3 with a finite objective), and a
+  new `model_info['gradient_norm']` is reported for transparency. Point
+  estimates and standard errors are byte-identical; only the boolean flag
+  changes. Pinned in `tests/test_limited_dep_lane.py`.
 
 ## [1.18.0] — 2026-06-15
 
