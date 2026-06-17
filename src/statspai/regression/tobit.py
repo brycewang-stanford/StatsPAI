@@ -25,6 +25,7 @@ import pandas as pd
 from scipy import stats, optimize
 
 from ..core.results import CausalResult
+from ._limited_dep_result import LimitedDepResult
 from ..exceptions import DataInsufficient
 
 
@@ -158,6 +159,21 @@ def tobit(
     result = optimize.minimize(neg_loglik, theta0, method='BFGS',
                                options={'maxiter': 1000, 'gtol': 1e-6})
 
+    # BFGS frequently returns ``success=False`` with status 2 ("Desired
+    # error not necessarily achieved due to precision loss") at a perfectly
+    # good optimum of the Tobit log-likelihood — a line-search artefact, not
+    # a real convergence failure (Nelder-Mead reaches the identical objective
+    # and coefficients). Trust a small gradient norm at the optimum instead of
+    # the raw flag so the reported ``converged`` does not spuriously distrust
+    # correct estimates. The estimates themselves are unchanged; only the
+    # boolean flag is made robust.
+    _grad = getattr(result, 'jac', None)
+    grad_norm = (float(np.linalg.norm(_grad))
+                 if _grad is not None else float('inf'))
+    converged = bool(result.success) or (
+        np.isfinite(result.fun) and grad_norm < 1e-3
+    )
+
     theta_hat = result.x
     beta = theta_hat[:k]
     sigma = np.exp(theta_hat[k])
@@ -206,10 +222,11 @@ def tobit(
         'lower_limit': ll,
         'upper_limit': ul if np.isfinite(ul) else None,
         'log_likelihood': float(-result.fun),
-        'converged': result.success,
+        'converged': converged,
+        'gradient_norm': grad_norm,
     }
 
-    return CausalResult(
+    return LimitedDepResult(
         method='Tobit (Censored Regression)',
         estimand=f'beta_{x[0]}',
         estimate=main_coef,

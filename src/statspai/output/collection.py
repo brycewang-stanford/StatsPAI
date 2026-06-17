@@ -24,10 +24,9 @@ straight into a manuscript.
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Sequence
+from typing import Any, Dict, Iterator, List, Literal, Optional, Sequence
 
 import pandas as pd
 
@@ -114,7 +113,7 @@ class Collection:
     def __len__(self) -> int:
         return len(self.items)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[CollectionItem]:
         return iter(self.items)
 
     def __repr__(self) -> str:
@@ -206,9 +205,9 @@ class Collection:
     # Alias mirroring tidyverse / broom vocabulary.
     to_long = to_frame
 
-    def to_csv(self, path: Optional[str] = None, **kwargs) -> str:
+    def to_csv(self, path: Optional[str] = None, **kwargs: Any) -> str:
         """Render :meth:`to_frame` to CSV; optionally write to ``path``."""
-        content = self.to_frame().to_csv(index=False, **kwargs)
+        content = str(self.to_frame().to_csv(index=False, **kwargs))
         if path is not None:
             Path(path).write_text(content, encoding="utf-8")
         return content
@@ -351,10 +350,10 @@ class Collection:
 
     def add_regression(
         self,
-        *results,
+        *results: Any,
         name: Optional[str] = None,
         title: Optional[str] = None,
-        **regtable_kwargs,
+        **regtable_kwargs: Any,
     ) -> "Collection":
         """Add a regression table built from one or more model results.
 
@@ -370,7 +369,7 @@ class Collection:
 
     def add_table(
         self,
-        result,
+        result: Any,
         *,
         name: Optional[str] = None,
         title: Optional[str] = None,
@@ -381,7 +380,9 @@ class Collection:
                 "add_table expects a RegtableResult or MeanComparisonResult; "
                 f"got {type(result).__name__}"
             )
-        kind: ItemKind = "regtable" if isinstance(result, RegtableResult) else "balance"
+        kind: ItemKind = (
+            "regtable" if isinstance(result, RegtableResult) else "balance"
+        )
         nm = name or self._gen_name(kind)
         self._check_name(nm)
         if title and getattr(result, "title", None) in (None, ""):
@@ -389,7 +390,9 @@ class Collection:
                 result.title = title
             except Exception:
                 pass
-        self.items.append(CollectionItem(nm, kind, title or getattr(result, "title", None), result))
+        self.items.append(
+            CollectionItem(nm, kind, title or getattr(result, "title", None), result)
+        )
         return self
 
     def add_summary(
@@ -413,7 +416,7 @@ class Collection:
             stats=list(stats) if stats else None,
             labels=labels,
             output="dataframe",
-            title=title,
+            title=title or "",
         )
         nm = name or self._gen_name("summary")
         self._check_name(nm)
@@ -502,12 +505,12 @@ class Collection:
         if it.kind == "heading":
             return f"\n{it.payload}\n{'-' * len(it.payload)}"
         if it.kind == "text":
-            return it.payload
+            return str(it.payload)
         if it.kind == "summary":
             head = f"=== {it.title or it.name} ===" if it.title or it.name else ""
             return f"{head}\n{it.payload.to_string()}".strip()
         if it.kind in {"regtable", "balance"}:
-            return it.payload.to_text()
+            return str(it.payload.to_text())
         return ""
 
     def to_markdown(self, path: Optional[str] = None) -> str:
@@ -609,7 +612,6 @@ class Collection:
         try:
             from docx import Document
             from docx.shared import Pt
-            from docx.enum.text import WD_ALIGN_PARAGRAPH
         except ImportError as e:
             raise ImportError(
                 "python-docx is required for .docx export. "
@@ -628,14 +630,12 @@ class Collection:
             for run in t.runs:
                 run.font.name = "Times New Roman"
 
-        last_was_table = False
         for it in self.items:
             if it.kind == "heading":
                 lvl = it.options.get("level", 2)
                 h = doc.add_heading(it.payload, level=lvl)
                 for run in h.runs:
                     run.font.name = "Times New Roman"
-                last_was_table = False
                 continue
             if it.kind == "text":
                 if it.title:
@@ -646,7 +646,6 @@ class Collection:
                 run = p.add_run(it.payload)
                 run.font.name = "Times New Roman"
                 run.font.size = Pt(11)
-                last_was_table = False
                 continue
 
             # Tables: heading + DataFrame -> AER booktab table
@@ -698,15 +697,18 @@ class Collection:
                     notes="\n".join(note_lines),
                     add_notes=add_word_notes_paragraph,
                 )
-            last_was_table = True
-
         doc.save(path)
         return path
 
     @staticmethod
     def _write_aer_table_to_doc(
-        doc, df, apply_rules, style_typo,
-        *, notes: Optional[str] = None, add_notes=None,
+        doc: Any,
+        df: pd.DataFrame,
+        apply_rules: Any,
+        style_typo: Any,
+        *,
+        notes: Optional[str] = None,
+        add_notes: Any = None,
     ) -> None:
         n_rows = len(df) + 1
         n_cols = len(df.columns)
@@ -804,16 +806,28 @@ class Collection:
                     note_row += 1
 
             for col_cells in ws.columns:
-                width = max((len(str(c.value)) for c in col_cells if c.value), default=8)
-                ws.column_dimensions[col_cells[0].column_letter].width = min(width + 3, 28)
+                width = max(
+                    (len(str(c.value)) for c in col_cells if c.value), default=8
+                )
+                ws.column_dimensions[col_cells[0].column_letter].width = min(
+                    width + 3, 28
+                )
 
         wb.save(path)
         return path
 
     @staticmethod
     def _write_aer_table_to_sheet(
-        ws, df, start_row, *, top_rule, mid_rule, bottom_rule,
-        header_font, body_font, center,
+        ws: Any,
+        df: pd.DataFrame,
+        start_row: int,
+        *,
+        top_rule: Any,
+        mid_rule: Any,
+        bottom_rule: Any,
+        header_font: Any,
+        body_font: Any,
+        center: Any,
     ) -> None:
         # Header
         for j, col in enumerate(df.columns, 1):

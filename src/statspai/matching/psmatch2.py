@@ -36,13 +36,97 @@ Heckman, J.J., Ichimura, H. and Todd, P.E. (1997). Review of Economic
 from __future__ import annotations
 
 import warnings
-from typing import Any, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
 
 from ..core.results import CausalResult, SummaryText
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _matched_frame as _mf
+
+if TYPE_CHECKING:
+    from .ps_diagnostics import BalanceDiagnosticsResult
+
+_PSMATCH2_ALTERNATIVES = ["sp.psmatch2", "sp.match", "sp.psm"]
+
+
+def _psmatch2_error(
+    message: str,
+    *,
+    diagnostics: Optional[dict[str, Any]] = None,
+    recovery_hint: str = "Check psmatch2 inputs and option names.",
+) -> MethodIncompatibility:
+    return MethodIncompatibility(
+        message,
+        recovery_hint=recovery_hint,
+        diagnostics=diagnostics,
+        alternative_functions=_PSMATCH2_ALTERNATIVES,
+    )
+
+
+def _require_dataframe(data: Any, context: str) -> pd.DataFrame:
+    if not isinstance(data, pd.DataFrame):
+        raise _psmatch2_error(
+            f"{context} must be a pandas DataFrame.",
+            diagnostics={"context": context, "type": type(data).__name__},
+            recovery_hint="Pass a pandas DataFrame.",
+        )
+    if data.empty:
+        raise DataInsufficient(
+            f"{context} is empty.",
+            recovery_hint="Provide a non-empty matching sample.",
+            diagnostics={"context": context, "n_rows": 0},
+            alternative_functions=_PSMATCH2_ALTERNATIVES,
+        )
+    return data
+
+
+def _require_column(data: pd.DataFrame, column: Any, role: str) -> str:
+    if not isinstance(column, str) or not column:
+        raise _psmatch2_error(
+            f"{role} must be a non-empty column-name string.",
+            diagnostics={"role": role, "value": repr(column)},
+            recovery_hint="Pass column names as strings.",
+        )
+    if column not in data.columns:
+        raise _psmatch2_error(
+            f"{role} column {column!r} not found in data.",
+            diagnostics={
+                "role": role,
+                "column": column,
+                "available_columns": [str(c) for c in data.columns],
+            },
+            recovery_hint="Check the column spelling or rename the DataFrame.",
+        )
+    return column
+
+
+def _normalize_columns(columns: Any, role: str) -> List[str]:
+    if columns is None:
+        return []
+    if isinstance(columns, str):
+        raw = [columns]
+    else:
+        try:
+            raw = list(columns)
+        except TypeError as exc:
+            raise _psmatch2_error(
+                f"{role} must be a sequence of column-name strings.",
+                diagnostics={"role": role, "type": type(columns).__name__},
+                recovery_hint=f"Pass {role} as ['x1', 'x2'] or a single string.",
+            ) from exc
+    out: List[str] = []
+    for idx, column in enumerate(raw):
+        if not isinstance(column, str) or not column:
+            raise _psmatch2_error(
+                f"{role}[{idx}] must be a non-empty column-name string.",
+                diagnostics={"role": role, "index": idx, "value": repr(column)},
+                recovery_hint="Pass column names as strings.",
+            )
+        out.append(column)
+    return out
+
 
 # ======================================================================
 # Result object
@@ -170,7 +254,7 @@ class PSMatch2Result:
         covariates: Optional[Sequence[str]] = None,
         *,
         threshold: float = 0.1,
-    ):
+    ) -> BalanceDiagnosticsResult:
         """Covariate balance before vs after matching (Stata ``pstest``).
 
         Standardized mean differences are reported two ways, exactly like
@@ -220,10 +304,10 @@ class PSMatch2Result:
         *,
         before: bool = True,
         n_grid: int = 300,
-        ax=None,
-        figsize=(8, 4.5),
+        ax: Any = None,
+        figsize: tuple[float, float] = (8.0, 4.5),
         title: Optional[str] = None,
-    ):
+    ) -> tuple[Any, Any]:
         """Propensity-score density by treatment group, after matching.
 
         Controls are reweighted by ``_weight`` so the plotted control
@@ -261,7 +345,7 @@ class PSMatch2Result:
 
         grid = np.linspace(0.0, 1.0, n_grid)
 
-        def _kde(x, weights=None):
+        def _kde(x: Any, weights: Optional[Any] = None) -> Optional[Any]:
             if len(x) < 2 or np.allclose(x, x[0]):
                 return None
             kde = _stats.gaussian_kde(x, weights=weights)
@@ -402,18 +486,39 @@ class PSMatch2Result:
         from ..panel.feols import feols
 
         if weight not in {"fweight", "none"}:
-            raise ValueError("weight must be 'fweight' or 'none'.")
+            raise _psmatch2_error(
+                "weight must be 'fweight' or 'none'.",
+                diagnostics={"weight": weight},
+                recovery_hint="Use weight='fweight' or weight='none'.",
+            )
 
+        panel = _require_dataframe(panel, "psm_did panel")
         treat = treat or self.treat
-        covariates = list(covariates) if covariates else []
-        fixed_effects = list(fixed_effects) if fixed_effects else []
+        id = _require_column(panel, id, "id")
+        y = _require_column(panel, y, "outcome")
+        treat = _require_column(panel, treat, "treat")
+        covariates = _normalize_columns(covariates, "covariates")
+        fixed_effects = _normalize_columns(fixed_effects, "fixed_effects")
+        for covariate in covariates:
+            _require_column(panel, covariate, "covariate")
+        for fixed_effect in fixed_effects:
+            _require_column(panel, fixed_effect, "fixed effect")
+        if cluster is not None:
+            if isinstance(cluster, str):
+                _require_column(panel, cluster, "cluster")
+            else:
+                for cluster_col in _normalize_columns(cluster, "cluster"):
+                    _require_column(panel, cluster_col, "cluster")
 
         # --- merge per-unit _weight / _support onto the panel ---
         md = self.matched_data
         if id not in md.columns:
-            raise ValueError(
+            raise _psmatch2_error(
                 f"id column {id!r} not found in the matching data; psm_did "
-                f"needs it to merge _weight onto the panel."
+                f"needs it to merge _weight onto the panel.",
+                diagnostics={"id": id},
+                recovery_hint="Run sp.psmatch2() on data that includes the "
+                "same unit id column as the panel.",
             )
         used_cols = set(panel.columns)
         psm_weight_col = _fresh_column("__statspai_psm_weight__", used_cols)
@@ -434,12 +539,18 @@ class PSMatch2Result:
         # --- build the post indicator ---
         if post is None:
             if time is None or treat_time is None:
-                raise ValueError(
+                raise _psmatch2_error(
                     "Provide either post=<column> or both time=<column> and "
-                    "treat_time=<scalar> so psm_did can build the post period."
+                    "treat_time=<scalar> so psm_did can build the post period.",
+                    diagnostics={"post": post, "time": time, "treat_time": treat_time},
+                    recovery_hint="Pass post='post' or pass both time= and "
+                    "treat_time=.",
                 )
+            time = _require_column(panel, time, "time")
             post = "_post"
             merged[post] = (merged[time] >= treat_time).astype(float)
+        else:
+            post = _require_column(panel, post, "post")
 
         # --- restrict to the matched sample ---
         mask = merged[psm_weight_col].notna()
@@ -447,7 +558,14 @@ class PSMatch2Result:
             mask &= merged[psm_support_col] == 1
         samp = merged.loc[mask].copy()
         if samp.empty:
-            raise ValueError("No matched panel rows after merging _weight.")
+            raise DataInsufficient(
+                "No matched panel rows after merging _weight.",
+                recovery_hint="Check that the panel id overlaps the psmatch2 "
+                "matched sample and relax common-support/caliper trimming if "
+                "needed.",
+                diagnostics={"on_support": on_support, "id": id},
+                alternative_functions=_PSMATCH2_ALTERNATIVES,
+            )
 
         # --- DiD interaction (feols needs a bare column) ---
         did_col = "_did"
@@ -554,7 +672,7 @@ class PSMatch2Result:
         ]
         return SummaryText("\n".join(lines))
 
-    def cite(self, format: str = "bibtex"):
+    def cite(self, format: str = "bibtex") -> Any:
         """Citation for the matching estimator (delegates to the result)."""
         return self.result.cite(format=format)
 
@@ -604,7 +722,7 @@ def psmatch2(
     data: pd.DataFrame,
     *,
     treat: Optional[str] = None,
-    covariates: Optional[List[str]] = None,
+    covariates: Optional[Union[Sequence[str], str]] = None,
     outcome: Optional[str] = None,
     y: Optional[str] = None,
     neighbor: int = 1,
@@ -713,13 +831,29 @@ def psmatch2(
     from .match import match as _match
 
     if treat is None or covariates is None:
-        raise ValueError("psmatch2 requires treat= and covariates=.")
-    covariates = list(covariates)
+        raise _psmatch2_error(
+            "psmatch2 requires treat= and covariates=.",
+            diagnostics={
+                "has_treat": treat is not None,
+                "has_covariates": covariates is not None,
+            },
+            recovery_hint="Pass treat='d' and covariates=['x1', 'x2'].",
+        )
+    data = _require_dataframe(data, "psmatch2 data")
+    treat = _require_column(data, treat, "treat")
+    covariates = _normalize_columns(covariates, "covariates")
+    for covariate in covariates:
+        _require_column(data, covariate, "covariate")
     out_var = outcome if outcome is not None else y
+    if out_var is not None:
+        out_var = _require_column(data, out_var, "outcome")
     if out_var is not None and out_var in covariates:
-        raise ValueError(
+        raise _psmatch2_error(
             f"outcome={out_var!r} is also listed in covariates; pass a "
-            f"distinct outcome (or outcome=None to only build _weight)."
+            f"distinct outcome (or outcome=None to only build _weight).",
+            diagnostics={"outcome": out_var, "covariates": covariates},
+            recovery_hint="Remove the outcome from covariates or set "
+            "outcome=None.",
         )
     k = n_matches if n_matches is not None else neighbor
 
@@ -733,16 +867,26 @@ def psmatch2(
         "radius": "radius",
     }
     if method not in _method_map:
-        raise ValueError(
-            "method must be 'neighbor', 'kernel', or 'radius', " f"got {method!r}."
+        raise _psmatch2_error(
+            "method must be 'neighbor', 'kernel', or 'radius', "
+            f"got {method!r}.",
+            diagnostics={"method": method, "valid_methods": list(_method_map)},
+            recovery_hint="Use method='neighbor', 'kernel', or 'radius'.",
         )
     match_method = _method_map[method]
     if method == "radius" and not caliper:
-        raise ValueError("method='radius' requires caliper=<radius>.")
+        raise _psmatch2_error(
+            "method='radius' requires caliper=<radius>.",
+            diagnostics={"method": method, "caliper": caliper},
+            recovery_hint="Pass a positive caliper for radius matching.",
+        )
     se_key = str(se).lower()
     if se_key not in {"psmatch2", "stata", "ai", "abadie_imbens", "ai_robust"}:
-        raise ValueError(
-            "se must be 'psmatch2' (or 'stata'), 'ai', or 'abadie_imbens'."
+        raise _psmatch2_error(
+            "se must be 'psmatch2' (or 'stata'), 'ai', or 'abadie_imbens'.",
+            diagnostics={"se": se},
+            recovery_hint="Use se='psmatch2', se='ai', or "
+            "se='abadie_imbens'.",
         )
     if se_key in ("psmatch2", "stata"):
         se_method = "psmatch2"
@@ -760,12 +904,13 @@ def psmatch2(
     # Stata's outcome() is optional: when omitted we still produce the
     # matched frame (the PSM-DID use case needs only _weight), so match on a
     # synthetic constant outcome and leave the ATT undefined.
-    fit_data = data
-    fit_y = out_var
     if out_var is None:
         fit_data = data.copy()
         fit_y = "__psmatch2_no_outcome__"
         fit_data[fit_y] = 0.0
+    else:
+        fit_data = data
+        fit_y = out_var
 
     # Deliberately do PSM (the user asked for psmatch2); silence the generic
     # King & Nielsen (2019) caveat that sp.match raises for PSM — we hand the
@@ -796,7 +941,12 @@ def psmatch2(
 
     matched = getattr(result, "matched_data", None)
     if matched is None:  # pragma: no cover — nearest path always sets it
-        raise RuntimeError("psmatch2: matched frame was not produced.")
+        raise _psmatch2_error(
+            "psmatch2: matched frame was not produced.",
+            diagnostics={"method": method},
+            recovery_hint="Report this internal invariant failure with the "
+            "matching inputs.",
+        )
     if out_var is None:
         # Drop the synthetic outcome and its matched-outcome column; the ATT
         # is meaningless without a real outcome.

@@ -27,12 +27,23 @@ Honest scope
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 from .feols import FeolsResult
+from ._result_protocol import distribution_summary as _distribution_summary
+from ._result_protocol import jsonable as _jsonable
+from ._result_protocol import tidy_records as _tidy_records
+from ._validation import (
+    nonempty_sample as _nonempty_sample,
+    nonnegative_finite_float as _nonnegative_finite_float,
+    open_unit_float as _open_unit_float,
+    positive_int as _positive_int,
+    positive_weight_mass as _positive_weight_mass,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -53,6 +64,59 @@ except ImportError:  # pragma: no cover - exercised on no-jax CI
     jnp = None  # type: ignore[assignment]
     jit = None  # type: ignore[assignment]
     _HAS_JAX = False
+
+
+def _require_dataframe(data: Any, *, context: str) -> None:
+    """Require a pandas DataFrame before touching ``.columns``."""
+    if not isinstance(data, pd.DataFrame):
+        raise MethodIncompatibility(
+            f"{context}: data must be a pandas DataFrame",
+            recovery_hint="Pass the estimator a pandas DataFrame with named columns.",
+            diagnostics={"type": type(data).__name__},
+        )
+
+
+def _parse_formula_checked(
+    formula: Any, *, context: str,
+) -> tuple[str, List[str], List[str]]:
+    """Parse the fast formula DSL and map syntax errors into the taxonomy."""
+    if not isinstance(formula, str):
+        raise MethodIncompatibility(
+            f"{context}: formula must be a string",
+            recovery_hint="Use a formula like 'y ~ x1 + x2 | firm + year'.",
+            diagnostics={"type": type(formula).__name__},
+        )
+    from .fepois import _parse_fepois_formula
+
+    try:
+        return _parse_fepois_formula(formula)
+    except ValueError as exc:
+        raise MethodIncompatibility(
+            f"{context}: {exc}",
+            recovery_hint=(
+                "Use the fast formula DSL: outcome ~ regressors | fixed_effects."
+            ),
+            diagnostics={"formula": formula},
+        ) from exc
+
+
+def _require_finite_outputs(context: str, **arrays: Any) -> None:
+    """Reject non-finite JAX outputs before they escape as silent NaNs."""
+    bad = []
+    for name, values in arrays.items():
+        arr = np.asarray(values, dtype=np.float64)
+        if not np.isfinite(arr).all():
+            bad.append(name)
+    if bad:
+        raise NumericalInstability(
+            f"{context}: JAX solve produced non-finite outputs",
+            recovery_hint=(
+                "Check for collinear regressors after fixed-effect residualisation "
+                "or use the native feols path to inspect the design matrix."
+            ),
+            diagnostics={"nonfinite_outputs": bad},
+            alternative_functions=["sp.fast.feols"],
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -152,30 +216,44 @@ def feols_jax(
     ImportError
         If jax is not installed.
     """
+    _require_dataframe(data, context="feols_jax")
     if not _HAS_JAX:
         raise ImportError(
             "jax is not installed; pip install jax jaxlib to enable "
             "feols_jax. Plain sp.fast.feols runs without JAX."
         )
     if vcov not in ("iid", "hc1", "cr1"):
-        raise ValueError(f"vcov={vcov!r}; supported: 'iid', 'hc1', or 'cr1'")
+        raise MethodIncompatibility(
+            f"feols_jax: vcov={vcov!r}; supported: 'iid', 'hc1', or 'cr1'"
+        )
     if vcov == "cr1" and cluster is None:
-        raise ValueError("vcov='cr1' requires cluster=<column name>")
+        raise MethodIncompatibility(
+            "feols_jax: vcov='cr1' requires cluster=<column name>"
+        )
     if cluster is not None and vcov in ("iid", "hc1"):
-        raise ValueError(
-            f"cluster={cluster!r} provided but vcov={vcov!r}; "
+        raise MethodIncompatibility(
+            f"feols_jax: cluster={cluster!r} provided but vcov={vcov!r}; "
             "set vcov='cr1' to compute cluster-robust SE"
         )
     if dtype not in ("float64", "float32"):
-        raise ValueError(f"dtype={dtype!r}; supported: 'float64' or 'float32'")
+        raise MethodIncompatibility(
+            f"feols_jax: dtype={dtype!r}; supported: 'float64' or 'float32'"
+        )
+    fe_maxiter = _positive_int(
+        fe_maxiter, name="fe_maxiter", context="feols_jax",
+    )
+    fe_tol = _nonnegative_finite_float(
+        fe_tol, name="fe_tol", context="feols_jax",
+    )
 
     # Lazy imports — keep module-level surface minimal.
-    from .fepois import _parse_fepois_formula
     from .demean import demean as _demean
     from .inference import crve as _crve
 
     # ---------- Formula parsing + data extraction (numpy) ----------
-    lhs, rhs_terms, fe_terms = _parse_fepois_formula(formula)
+    lhs, rhs_terms, fe_terms = _parse_formula_checked(
+        formula, context="feols_jax",
+    )
 
     user_intercept = "1" in rhs_terms
     rhs_terms = [t for t in rhs_terms if t != "1"]
@@ -188,15 +266,22 @@ def feols_jax(
         needed_cols = needed_cols + [cluster]
     missing = [c for c in needed_cols if c not in data.columns]
     if missing:
-        raise KeyError(f"columns missing from data: {missing}")
+        raise MethodIncompatibility(
+            f"feols_jax: columns missing from data: {missing}",
+            recovery_hint="Add the missing columns or update the formula/options.",
+            diagnostics={"missing_columns": missing},
+        )
 
     n_obs = len(data)
+    _nonempty_sample(n_obs, context="feols_jax")
     np_dtype = np.float64  # always work in float64 on host; JAX kernel
     # downcasts to float32 only if requested.
 
     y = data[lhs].to_numpy(dtype=np_dtype).copy()
     if not np.isfinite(y).all():
-        raise ValueError(f"outcome column {lhs!r} has non-finite values")
+        raise MethodIncompatibility(
+            f"feols_jax: outcome column {lhs!r} has non-finite values"
+        )
     X_user = (
         data[rhs_terms].to_numpy(dtype=np_dtype).copy()
         if rhs_terms else np.empty((n_obs, 0), dtype=np_dtype)
@@ -204,7 +289,9 @@ def feols_jax(
     if X_user.ndim == 1:
         X_user = X_user.reshape(-1, 1)
     if not np.isfinite(X_user).all():
-        raise ValueError("regressor columns contain non-finite values")
+        raise MethodIncompatibility(
+            "feols_jax: regressor columns contain non-finite values"
+        )
     if add_intercept:
         X = np.column_stack([np.ones(n_obs, dtype=np_dtype), X_user])
         coef_names_full: List[str] = ["(Intercept)"] + list(rhs_terms)
@@ -212,17 +299,24 @@ def feols_jax(
         X = X_user
         coef_names_full = list(rhs_terms)
     if X.shape[1] == 0:
-        raise ValueError(
-            "No regressors after parsing — formula must include at least "
+        raise MethodIncompatibility(
+            "feols_jax: No regressors after parsing — formula must include at least "
             "one RHS term (or '1' for an intercept)."
         )
 
     if weights is not None:
         w_full = data[weights].to_numpy(dtype=np_dtype).copy()
         if (w_full < 0).any():
-            raise ValueError(f"weights column {weights!r} contains negative values")
+            raise MethodIncompatibility(
+                f"feols_jax: weights column {weights!r} contains negative values"
+            )
         if not np.isfinite(w_full).all():
-            raise ValueError(f"weights column {weights!r} contains non-finite values")
+            raise MethodIncompatibility(
+                f"feols_jax: weights column {weights!r} contains non-finite values"
+            )
+        _positive_weight_mass(
+            w_full, context=f"feols_jax weights column {weights!r}",
+        )
     else:
         w_full = None
 
@@ -232,8 +326,9 @@ def feols_jax(
             cluster_arr_full, sort=False, use_na_sentinel=True,
         )
         if (cluster_codes_check < 0).any():
-            raise ValueError(
-                f"cluster column {cluster!r} contains NaN; drop or impute upstream"
+            raise MethodIncompatibility(
+                f"feols_jax: cluster column {cluster!r} contains NaN; "
+                "drop or impute upstream"
             )
     else:
         cluster_arr_full = None
@@ -263,7 +358,9 @@ def feols_jax(
                     data[col], sort=False, use_na_sentinel=True,
                 )
                 if (codes < 0).any():
-                    raise ValueError(f"NaN in fixed effect column {col!r}")
+                    raise MethodIncompatibility(
+                        f"feols_jax: NaN in fixed effect column {col!r}"
+                    )
                 fe_codes_raw.append(codes.astype(np.int64))
             keep_mask = (
                 _ds_helper(fe_codes_raw, n_obs)
@@ -287,6 +384,10 @@ def feols_jax(
             y_kept = y[keep_mask]
             X_kept = X[keep_mask]
             w_kept = w_full[keep_mask]
+            _positive_weight_mass(
+                w_kept,
+                context=f"feols_jax kept sample weights column {weights!r}",
+            )
             stacked = np.column_stack([y_kept, X_kept])
             stacked_dem, _, _ = _weighted_ap_demean(
                 stacked, fe_codes_kept, counts_list, w_kept,
@@ -306,6 +407,9 @@ def feols_jax(
 
     if w_full is not None:
         w = w_full[keep_mask]
+        _positive_weight_mass(
+            w, context=f"feols_jax kept sample weights column {weights!r}",
+        )
     else:
         w = np.ones(n_kept, dtype=np_dtype)
     if cluster_arr_full is not None:
@@ -331,6 +435,14 @@ def feols_jax(
     rss = float(np.asarray(rss_j, dtype=np_dtype))
     tss = float(np.asarray(tss_j, dtype=np_dtype))
     XtWX_inv = np.asarray(XtWX_inv_j, dtype=np_dtype)
+    _require_finite_outputs(
+        "feols_jax",
+        beta=beta,
+        residuals=resid,
+        rss=rss,
+        tss=tss,
+        bread=XtWX_inv,
+    )
     r_squared_within = 1.0 - rss / max(tss, 1e-30)
 
     df_resid = n - p - fe_dof
@@ -444,6 +556,50 @@ class FeolsBootstrapResult:
             f"n_boot={self.n_boot}"
         )
         return header + "\n" + df.to_string(float_format=lambda x: f"{x:.6f}")
+
+    def tidy(self) -> pd.DataFrame:
+        """Coefficient-level bootstrap table."""
+        b = self.coef.values
+        s = self.se_boot.values
+        with np.errstate(divide="ignore", invalid="ignore"):
+            t = np.where(s > 0, b / s, np.nan)
+        return pd.DataFrame({
+            "Estimate": b,
+            "SE (boot)": s,
+            "t value": t,
+            "CI lower": self.ci_lower.values,
+            "CI upper": self.ci_upper.values,
+        }, index=self.coef.index)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Lossless JSON-safe payload for JAX bootstrap results."""
+        return _jsonable({
+            "kind": "fast_feols_jax_bootstrap_result",
+            "n_boot": self.n_boot,
+            "bootstrap_type": self.bootstrap_type,
+            "backend": self.backend,
+            "coefficients": _tidy_records(self.tidy()),
+            "boot_betas": self.boot_betas.to_dict(orient="records"),
+        })
+
+    def to_agent_summary(self, *, max_terms: int = 10) -> Dict[str, Any]:
+        """Bounded agent-facing summary for JAX bootstrap results."""
+        n_terms = len(self.coef.index)
+        limit = max(int(max_terms), 0)
+        boot_summaries = {
+            str(term): _distribution_summary(self.boot_betas[term].to_numpy())
+            for term in self.boot_betas.columns[:limit]
+        }
+        return _jsonable({
+            "kind": "fast_feols_jax_bootstrap_agent_summary",
+            "n_boot": self.n_boot,
+            "bootstrap_type": self.bootstrap_type,
+            "backend": self.backend,
+            "coefficients": _tidy_records(self.tidy().head(limit)),
+            "bootstrap_distributions": boot_summaries,
+            "n_terms": n_terms,
+            "truncated_terms": max(n_terms - limit, 0),
+        })
 
     def __repr__(self) -> str:  # pragma: no cover - cosmetic
         return self.summary()
@@ -565,10 +721,18 @@ def _jax_prep_inputs(
     ``coef_names_full``, ``n_obs``, ``n_kept``, ``n_dropped_singletons``,
     ``fe_card``, ``fe_dof``, ``fe_terms``, ``keep_mask``.
     """
-    from .fepois import _parse_fepois_formula
+    _require_dataframe(data, context="feols_jax_bootstrap")
+    fe_maxiter = _positive_int(
+        fe_maxiter, name="fe_maxiter", context="feols_jax_bootstrap",
+    )
+    fe_tol = _nonnegative_finite_float(
+        fe_tol, name="fe_tol", context="feols_jax_bootstrap",
+    )
     from .demean import demean as _demean
 
-    lhs, rhs_terms, fe_terms = _parse_fepois_formula(formula)
+    lhs, rhs_terms, fe_terms = _parse_formula_checked(
+        formula, context="feols_jax_bootstrap",
+    )
     user_intercept = "1" in rhs_terms
     rhs_terms = [t for t in rhs_terms if t != "1"]
     add_intercept = user_intercept or not fe_terms
@@ -578,14 +742,21 @@ def _jax_prep_inputs(
         needed_cols = needed_cols + [weights]
     missing = [c for c in needed_cols if c not in data.columns]
     if missing:
-        raise KeyError(f"columns missing from data: {missing}")
+        raise MethodIncompatibility(
+            f"feols_jax_bootstrap: columns missing from data: {missing}",
+            recovery_hint="Add the missing columns or update the formula/options.",
+            diagnostics={"missing_columns": missing},
+        )
 
     n_obs = len(data)
+    _nonempty_sample(n_obs, context="feols_jax_bootstrap")
     np_dtype = np.float64
 
     y = data[lhs].to_numpy(dtype=np_dtype).copy()
     if not np.isfinite(y).all():
-        raise ValueError(f"outcome column {lhs!r} has non-finite values")
+        raise MethodIncompatibility(
+            f"feols_jax_bootstrap: outcome column {lhs!r} has non-finite values"
+        )
     X_user = (
         data[rhs_terms].to_numpy(dtype=np_dtype).copy()
         if rhs_terms else np.empty((n_obs, 0), dtype=np_dtype)
@@ -593,7 +764,9 @@ def _jax_prep_inputs(
     if X_user.ndim == 1:
         X_user = X_user.reshape(-1, 1)
     if not np.isfinite(X_user).all():
-        raise ValueError("regressor columns contain non-finite values")
+        raise MethodIncompatibility(
+            "feols_jax_bootstrap: regressor columns contain non-finite values"
+        )
     if add_intercept:
         X = np.column_stack([np.ones(n_obs, dtype=np_dtype), X_user])
         coef_names_full: List[str] = ["(Intercept)"] + list(rhs_terms)
@@ -601,17 +774,27 @@ def _jax_prep_inputs(
         X = X_user
         coef_names_full = list(rhs_terms)
     if X.shape[1] == 0:
-        raise ValueError(
-            "No regressors after parsing — formula must include at least "
+        raise MethodIncompatibility(
+            "feols_jax_bootstrap: No regressors after parsing — formula must "
+            "include at least "
             "one RHS term (or '1' for an intercept)."
         )
 
     if weights is not None:
         w_full = data[weights].to_numpy(dtype=np_dtype).copy()
         if (w_full < 0).any():
-            raise ValueError(f"weights column {weights!r} contains negative values")
+            raise MethodIncompatibility(
+                f"feols_jax_bootstrap: weights column {weights!r} contains "
+                "negative values"
+            )
         if not np.isfinite(w_full).all():
-            raise ValueError(f"weights column {weights!r} contains non-finite values")
+            raise MethodIncompatibility(
+                f"feols_jax_bootstrap: weights column {weights!r} contains "
+                "non-finite values"
+            )
+        _positive_weight_mass(
+            w_full, context=f"feols_jax_bootstrap weights column {weights!r}",
+        )
     else:
         w_full = None
 
@@ -639,7 +822,9 @@ def _jax_prep_inputs(
                     data[col], sort=False, use_na_sentinel=True,
                 )
                 if (codes < 0).any():
-                    raise ValueError(f"NaN in fixed effect column {col!r}")
+                    raise MethodIncompatibility(
+                        f"feols_jax_bootstrap: NaN in fixed effect column {col!r}"
+                    )
                 fe_codes_raw.append(codes.astype(np.int64))
             keep_mask = (
                 _ds_helper(fe_codes_raw, n_obs)
@@ -663,6 +848,13 @@ def _jax_prep_inputs(
             y_kept = y[keep_mask]
             X_kept = X[keep_mask]
             w_kept = w_full[keep_mask]
+            _positive_weight_mass(
+                w_kept,
+                context=(
+                    f"feols_jax_bootstrap kept sample weights column "
+                    f"{weights!r}"
+                ),
+            )
             stacked = np.column_stack([y_kept, X_kept])
             stacked_dem, _, _ = _weighted_ap_demean(
                 stacked, fe_codes_kept, counts_list, w_kept,
@@ -682,6 +874,10 @@ def _jax_prep_inputs(
 
     if w_full is not None:
         w = w_full[keep_mask]
+        _positive_weight_mass(
+            w,
+            context=f"feols_jax_bootstrap kept sample weights column {weights!r}",
+        )
     else:
         w = np.ones(n_kept, dtype=np_dtype)
 
@@ -784,28 +980,56 @@ def feols_jax_bootstrap(
     ... )
     >>> print(b.summary())
     """
+    _require_dataframe(data, context="feols_jax_bootstrap")
     if not _HAS_JAX:
         raise ImportError(
             "jax is not installed; pip install jax jaxlib to enable "
             "feols_jax_bootstrap."
         )
     if bootstrap not in ('pairs', 'cluster', 'wild', 'wild_cluster'):
-        raise ValueError(
-            f"bootstrap={bootstrap!r}; supported: 'pairs', 'cluster', "
+        raise MethodIncompatibility(
+            f"feols_jax_bootstrap: bootstrap={bootstrap!r}; supported: "
+            f"'pairs', 'cluster', "
             f"'wild', or 'wild_cluster'"
         )
     if bootstrap in ('cluster', 'wild_cluster') and cluster is None:
-        raise ValueError(
-            f"bootstrap={bootstrap!r} requires cluster=<column name>"
+        raise MethodIncompatibility(
+            f"feols_jax_bootstrap: bootstrap={bootstrap!r} requires "
+            "cluster=<column name>"
         )
     if dtype not in ('float64', 'float32'):
-        raise ValueError(f"dtype={dtype!r}; supported: 'float64' or 'float32'")
-    if n_boot < 1:
-        raise ValueError(f"n_boot={n_boot}; must be >= 1")
-    if vmap_chunk_size < 1:
-        raise ValueError(f"vmap_chunk_size={vmap_chunk_size}; must be >= 1")
-    if not (0 < ci_alpha < 1):
-        raise ValueError(f"ci_alpha={ci_alpha}; must be in (0, 1)")
+        raise MethodIncompatibility(
+            f"feols_jax_bootstrap: dtype={dtype!r}; supported: "
+            "'float64' or 'float32'"
+        )
+    n_boot = _positive_int(n_boot, name="n_boot", context="feols_jax_bootstrap")
+    if n_boot < 2:
+        raise DataInsufficient(
+            "feols_jax_bootstrap: n_boot must be >= 2 to estimate bootstrap SE",
+            recovery_hint=(
+                "Use at least two bootstrap draws; production runs should use "
+                "many more."
+            ),
+            diagnostics={"n_boot": n_boot},
+        )
+    vmap_chunk_size = _positive_int(
+        vmap_chunk_size, name="vmap_chunk_size", context="feols_jax_bootstrap",
+    )
+    ci_alpha = _open_unit_float(
+        ci_alpha, name="ci_alpha", context="feols_jax_bootstrap",
+    )
+    fe_maxiter = _positive_int(
+        fe_maxiter, name="fe_maxiter", context="feols_jax_bootstrap",
+    )
+    fe_tol = _nonnegative_finite_float(
+        fe_tol, name="fe_tol", context="feols_jax_bootstrap",
+    )
+    if cluster is not None and cluster not in data.columns:
+        raise MethodIncompatibility(
+            f"feols_jax_bootstrap: cluster column {cluster!r} not in data",
+            recovery_hint="Pass an existing cluster column or omit cluster bootstrap.",
+            diagnostics={"cluster": cluster},
+        )
 
     prep = _jax_prep_inputs(
         formula, data,
@@ -817,23 +1041,22 @@ def feols_jax_bootstrap(
     # carries through the demean-singleton path even though demean
     # doesn't touch it directly.
     if cluster is not None:
-        if cluster not in data.columns:
-            raise KeyError(f"cluster column {cluster!r} not in data")
         cluster_arr_full = data[cluster].to_numpy()
         cluster_codes_check, _ = pd.factorize(
             cluster_arr_full, sort=False, use_na_sentinel=True,
         )
         if (cluster_codes_check < 0).any():
-            raise ValueError(
-                f"cluster column {cluster!r} contains NaN; drop or impute upstream"
+            raise MethodIncompatibility(
+                f"feols_jax_bootstrap: cluster column {cluster!r} contains "
+                "NaN; drop or impute upstream"
             )
         cluster_kept = cluster_arr_full[prep['keep_mask']]
         cluster_codes_kept, _ = pd.factorize(cluster_kept, sort=False)
         cluster_codes_kept = cluster_codes_kept.astype(np.int32)
         n_clusters = int(cluster_codes_kept.max()) + 1 if cluster_codes_kept.size else 0
         if n_clusters < 2 and bootstrap in ('cluster', 'wild_cluster'):
-            raise ValueError(
-                f"bootstrap={bootstrap!r} requires ≥ 2 clusters; "
+            raise DataInsufficient(
+                f"feols_jax_bootstrap: bootstrap={bootstrap!r} requires >= 2 clusters; "
                 f"got {n_clusters}"
             )
     else:
@@ -852,6 +1075,14 @@ def feols_jax_bootstrap(
     _wls_solve, _, _ = _make_jax_kernels()
     beta_point_j, resid_j, _, XtWX_inv_j = _wls_solve(X_j, y_j, w_j)
     beta_point = np.asarray(beta_point_j, dtype=np_dtype)
+    resid_point = np.asarray(resid_j, dtype=np_dtype)
+    XtWX_inv = np.asarray(XtWX_inv_j, dtype=np_dtype)
+    _require_finite_outputs(
+        "feols_jax_bootstrap",
+        beta=beta_point,
+        residuals=resid_point,
+        bread=XtWX_inv,
+    )
 
     # Bootstrap.
     (
@@ -901,6 +1132,10 @@ def feols_jax_bootstrap(
         chunk_betas = _run_chunk(chunk_keys)
         chunks.append(np.asarray(chunk_betas, dtype=np_dtype))
     boot_betas = np.concatenate(chunks, axis=0)  # (n_boot, p)
+    _require_finite_outputs(
+        "feols_jax_bootstrap",
+        bootstrap_betas=boot_betas,
+    )
 
     se_boot = boot_betas.std(axis=0, ddof=1)
     lower = float(ci_alpha / 2)

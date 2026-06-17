@@ -24,6 +24,28 @@ from typing import Iterable, List, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from ..exceptions import DataInsufficient, MethodIncompatibility
+
+
+def _has_missing(values) -> bool:
+    mask = pd.isna(values)
+    return bool(np.asarray(mask).any())
+
+
+def _as_1d_no_missing(values, *, context: str) -> np.ndarray:
+    arr = np.asarray(values)
+    if arr.ndim != 1:
+        raise MethodIncompatibility(f"{context}: input must be 1-D")
+    if _has_missing(arr):
+        raise DataInsufficient(f"{context}: missing values are not allowed")
+    return arr
+
+
+def _spec_to_list(spec: Iterable[str]) -> List[str]:
+    if isinstance(spec, str):
+        return [spec]
+    return list(spec)
+
 
 # ---------------------------------------------------------------------------
 # i() — event-study / interacted dummies
@@ -61,8 +83,12 @@ def i(
     """
     if isinstance(var, pd.Series):
         ser = var
+        if ser.ndim != 1:
+            raise MethodIncompatibility("i: var must be 1-D")
     else:
-        ser = pd.Series(np.asarray(var))
+        ser = pd.Series(_as_1d_no_missing(var, context="i"))
+    if ser.isna().any():
+        raise DataInsufficient("i: missing values are not allowed")
     if prefix is None:
         prefix = str(ser.name) if ser.name is not None else "i"
 
@@ -76,7 +102,7 @@ def i(
     if ref is not None:
         col = f"{prefix}::{ref}"
         if col not in out.columns:
-            raise ValueError(f"ref={ref!r} not a level of {prefix!r}")
+            raise MethodIncompatibility(f"ref={ref!r} not a level of {prefix!r}")
         out = out.drop(columns=[col])
     elif drop_first and len(out.columns) > 0:
         out = out.iloc[:, 1:]
@@ -100,15 +126,17 @@ def fe_interact(*cols: Union[pd.Series, np.ndarray, Sequence]) -> np.ndarray:
     ndarray of int64
     """
     if not cols:
-        raise ValueError("fe_interact: at least one column required")
+        raise MethodIncompatibility("fe_interact: at least one column required")
 
-    arrays = [np.asarray(c) for c in cols]
+    arrays = [_as_1d_no_missing(c, context="fe_interact") for c in cols]
     n = arrays[0].shape[0]
     for a in arrays[1:]:
         if a.shape[0] != n:
-            raise ValueError("fe_interact: all columns must have the same length")
+            raise MethodIncompatibility(
+                "fe_interact: all columns must have the same length"
+            )
     if len(arrays) == 1:
-        codes, _ = pd.factorize(arrays[0], sort=False)
+        codes, _ = pd.factorize(arrays[0], sort=False, use_na_sentinel=True)
         return codes.astype(np.int64)
 
     # Build one-shot tuples; pd.factorize on the tuple-Series gives codes.
@@ -116,8 +144,8 @@ def fe_interact(*cols: Union[pd.Series, np.ndarray, Sequence]) -> np.ndarray:
     # quick path: pack into int128-equivalent by concatenating factorised
     # halves with a multiplier. Falls through to the safe path otherwise.
     if len(arrays) == 2:
-        c0, _ = pd.factorize(arrays[0], sort=False)
-        c1, _ = pd.factorize(arrays[1], sort=False)
+        c0, _ = pd.factorize(arrays[0], sort=False, use_na_sentinel=True)
+        c1, _ = pd.factorize(arrays[1], sort=False, use_na_sentinel=True)
         n1 = int(c1.max()) + 1 if c1.size else 0
         if n1 == 0:
             return c0.astype(np.int64)
@@ -127,7 +155,9 @@ def fe_interact(*cols: Union[pd.Series, np.ndarray, Sequence]) -> np.ndarray:
 
     # General K-way fallback.
     df = pd.DataFrame({f"_c{i}": a for i, a in enumerate(arrays)})
-    codes, _ = pd.factorize(df.apply(tuple, axis=1), sort=False)
+    codes, _ = pd.factorize(
+        df.apply(tuple, axis=1), sort=False, use_na_sentinel=True,
+    )
     return codes.astype(np.int64)
 
 
@@ -140,7 +170,7 @@ def sw(*specs: Iterable[str]) -> List[List[str]]:
 
     ``sw(['x1'], ['x2'], ['x1', 'x2'])`` → three separate variable lists.
     """
-    return [list(s) for s in specs]
+    return [_spec_to_list(s) for s in specs]
 
 
 def csw(*specs: Iterable[str]) -> List[List[str]]:
@@ -152,7 +182,7 @@ def csw(*specs: Iterable[str]) -> List[List[str]]:
     cur: List[str] = []
     out: List[List[str]] = []
     for s in specs:
-        cur = cur + list(s)
+        cur = cur + _spec_to_list(s)
         out.append(list(cur))
     return out
 

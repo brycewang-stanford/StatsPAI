@@ -18,11 +18,14 @@ Provides estimators for:
 - TWFE decomposition — Bacon (2021) + de Chaisemartin–D'Haultfoeuille (2020) weights
 """
 
-from typing import Optional, List
+from numbers import Real
+from typing import Any, Literal, Optional, List, Sequence, cast
 
+import numpy as np
 import pandas as pd
 
 from ..core.results import CausalResult
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from .did_2x2 import did_2x2
 from .overlap_did import overlap_weighted_did, dl_propensity_score
 from .ddd import ddd
@@ -48,12 +51,23 @@ from .pretrends import (
     SensitivityResult,
     pretrends_summary,
 )
-from .wooldridge_did import wooldridge_did, etwfe, etwfe_emfx, drdid, twfe_decomposition
+from .wooldridge_did import (
+    wooldridge_did,
+    etwfe,
+    etwfe_emfx,
+    drdid,
+    twfe_decomposition,
+)
 from .did_bcf import did_bcf
 from .cohort_anchored import cohort_anchored_event_study
 from .design_robust import design_robust_event_study
 from .misclassified import did_misclassified
-from .summary import did_summary, did_summary_to_markdown, did_summary_to_latex, did_report
+from .summary import (
+    did_summary,
+    did_summary_to_markdown,
+    did_summary_to_latex,
+    did_report,
+)
 from .continuous_did import continuous_did
 from .plots import (
     parallel_trends_plot,
@@ -71,6 +85,122 @@ from .plots import (
 bjs = did_imputation
 borusyak_jaravel_spiess = did_imputation
 
+_SDIDSeMethod = Literal["placebo", "bootstrap", "jackknife"]
+
+
+class DIDInputTypeError(MethodIncompatibility, TypeError):
+    """DID input type error that preserves the historical TypeError catch."""
+
+
+def _require_dataframe(data: Any) -> pd.DataFrame:
+    if not isinstance(data, pd.DataFrame):
+        raise DIDInputTypeError(
+            f"'data' must be a pandas DataFrame, got {type(data).__name__}.",
+            recovery_hint="Pass DID data as a pandas DataFrame.",
+            diagnostics={"argument": "data", "type": type(data).__name__},
+        )
+    if data.empty:
+        raise DataInsufficient(
+            "DataFrame is empty — no observations for DID.",
+            recovery_hint="Provide non-empty DID data after filtering.",
+            diagnostics={"argument": "data", "n_rows": 0},
+        )
+    return data
+
+
+def _require_column_name(name: Any, *, argument: str) -> str:
+    if not isinstance(name, str) or not name:
+        raise MethodIncompatibility(
+            f"`{argument}` must be a non-empty column name string.",
+            recovery_hint=(
+                f"Pass the name of an existing DataFrame column for `{argument}`."
+            ),
+            diagnostics={"argument": argument, "type": type(name).__name__},
+        )
+    return name
+
+
+def _coerce_optional_columns(
+    columns: Optional[Sequence[str] | str],
+    *,
+    argument: str,
+) -> Optional[List[str]]:
+    if columns is None:
+        return None
+    if isinstance(columns, str):
+        out = [columns]
+    else:
+        try:
+            out = list(columns)
+        except TypeError as exc:
+            raise MethodIncompatibility(
+                f"`{argument}` must be a column name or a sequence of column names.",
+                recovery_hint=f"Pass `{argument}` as 'x' or ['x1', 'x2'].",
+                diagnostics={"argument": argument, "type": type(columns).__name__},
+            ) from exc
+    return [_require_column_name(col, argument=argument) for col in out]
+
+
+def _require_string_option(value: Any, *, argument: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise MethodIncompatibility(
+            f"`{argument}` must be a non-empty string.",
+            recovery_hint=f"Pass a supported string value for `{argument}`.",
+            diagnostics={"argument": argument, "type": type(value).__name__},
+        )
+    return value
+
+
+def _require_alpha(alpha: Any) -> float:
+    if isinstance(alpha, (bool, np.bool_)) or not isinstance(alpha, Real):
+        raise MethodIncompatibility(
+            "`alpha` must be a finite number in (0, 1).",
+            recovery_hint="Pass a significance level such as alpha=0.05.",
+            diagnostics={"argument": "alpha", "value": alpha},
+        )
+    out = float(alpha)
+    if not np.isfinite(out) or not (0.0 < out < 1.0):
+        raise MethodIncompatibility(
+            "`alpha` must be a finite number in (0, 1).",
+            recovery_hint="Pass a significance level such as alpha=0.05.",
+            diagnostics={"argument": "alpha", "value": alpha},
+        )
+    return out
+
+
+def _require_bool(value: Any, *, argument: str) -> bool:
+    if not isinstance(value, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"`{argument}` must be boolean.",
+            recovery_hint=f"Pass `{argument}=True` or `{argument}=False`.",
+            diagnostics={"argument": argument, "type": type(value).__name__},
+        )
+    return bool(value)
+
+
+def _require_int_at_least(value: Any, *, argument: str, minimum: int) -> int:
+    if isinstance(value, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"`{argument}` must be an integer >= {minimum}.",
+            recovery_hint=f"Pass an integer value for `{argument}`.",
+            diagnostics={"argument": argument, "value": value},
+        )
+    try:
+        out = int(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"`{argument}` must be an integer >= {minimum}.",
+            recovery_hint=f"Pass an integer value for `{argument}`.",
+            diagnostics={"argument": argument, "type": type(value).__name__},
+        ) from exc
+    if out < minimum:
+        raise MethodIncompatibility(
+            f"`{argument}` must be an integer >= {minimum}.",
+            recovery_hint=f"Increase `{argument}` to at least {minimum}.",
+            diagnostics={"argument": argument, "value": value},
+        )
+    return out
+
 
 def did(
     data: pd.DataFrame,
@@ -78,7 +208,7 @@ def did(
     treat: str,
     time: str,
     id: Optional[str] = None,
-    covariates: Optional[List[str]] = None,
+    covariates: Optional[Any] = None,
     method: str = 'auto',
     estimator: str = 'dr',
     control_group: str = 'nevertreated',
@@ -90,8 +220,8 @@ def did(
     # DDD-specific
     subgroup: Optional[str] = None,
     # SDID-specific
-    treat_unit=None,
-    treat_time=None,
+    treat_unit: Any = None,
+    treat_time: Any = None,
     se_method: str = 'placebo',
     # CS aggte-dispatch (v0.7.1+)
     aggregation: Optional[str] = None,
@@ -99,7 +229,7 @@ def did(
     random_state: Optional[int] = None,
     panel: bool = True,
     anticipation: int = 0,
-    **kwargs,
+    **kwargs: Any,
 ) -> CausalResult:
     """
     Difference-in-Differences estimation.
@@ -240,12 +370,33 @@ def did(
     True
     """
     # --- Input validation (Stata-quality error messages) ---
-    if not isinstance(data, pd.DataFrame):
-        raise TypeError(
-            f"'data' must be a pandas DataFrame, got {type(data).__name__}."
-        )
-    if data.empty:
-        raise ValueError("DataFrame is empty — no observations for DID.")
+    data = _require_dataframe(data)
+    y = _require_column_name(y, argument="y")
+    treat = _require_column_name(treat, argument="treat")
+    time = _require_column_name(time, argument="time")
+    if id is not None:
+        id = _require_column_name(id, argument="id")
+    if subgroup is not None:
+        subgroup = _require_column_name(subgroup, argument="subgroup")
+    if weights is not None:
+        weights = _require_column_name(weights, argument="weights")
+    if cluster is not None:
+        cluster = _require_column_name(cluster, argument="cluster")
+    covariates = _coerce_optional_columns(covariates, argument="covariates")
+    method = _require_string_option(method, argument="method")
+    estimator = _require_string_option(estimator, argument="estimator")
+    control_group = _require_string_option(control_group, argument="control_group")
+    base_period = _require_string_option(base_period, argument="base_period")
+    se_method = _require_string_option(se_method, argument="se_method")
+    if aggregation is not None:
+        aggregation = _require_string_option(aggregation, argument="aggregation")
+    robust = _require_bool(robust, argument="robust")
+    panel = _require_bool(panel, argument="panel")
+    alpha = _require_alpha(alpha)
+    n_boot = _require_int_at_least(n_boot, argument="n_boot", minimum=1)
+    anticipation = _require_int_at_least(
+        anticipation, argument="anticipation", minimum=0,
+    )
     required = {'y': y, 'treat': treat, 'time': time}
     if id is not None:
         required['id'] = id
@@ -259,12 +410,17 @@ def did(
     missing = {label: col for label, col in required.items()
                if col not in data.columns}
     if missing:
-        details = ', '.join(f'{l}={c!r}' for l, c in missing.items())
+        details = ', '.join(f'{label}={col!r}' for label, col in missing.items())
         available = ', '.join(sorted(data.columns)[:10])
-        raise ValueError(
+        raise MethodIncompatibility(
             f"Column(s) not found in data: {details}. "
             f"Available: {available}"
-            + (" ..." if len(data.columns) > 10 else "")
+            + (" ..." if len(data.columns) > 10 else ""),
+            recovery_hint="Check the DID variable names against the DataFrame columns.",
+            diagnostics={
+                "missing_columns": dict(missing),
+                "available_columns": list(data.columns),
+            },
         )
 
     # If estimator-specific aggregation arguments are passed with auto,
@@ -290,21 +446,30 @@ def did(
     _cs_methods = {'callaway_santanna', 'cs', 'auto'}
     _sa_methods = {'sun_abraham', 'sa', 'sunab'}
     if aggregation is not None and method not in (_cs_methods | _sa_methods):
-        raise ValueError(
+        raise MethodIncompatibility(
             f"`aggregation={aggregation!r}` is only supported with the "
             f"Callaway-Sant'Anna estimator (method='cs') or the "
             f"Sun-Abraham estimator (method='sun_abraham'); got "
-            f"method={method!r}."
+            f"method={method!r}.",
+            recovery_hint=(
+                "Use method='cs' or method='sun_abraham' when passing "
+                "aggregation."
+            ),
+            diagnostics={"aggregation": aggregation, "method": method},
         )
     if (not panel) and method not in _cs_methods:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"`panel=False` is only supported with Callaway-Sant'Anna; "
-            f"got method={method!r}."
+            f"got method={method!r}.",
+            recovery_hint="Use panel=False only with method='cs'/'callaway_santanna'.",
+            diagnostics={"panel": panel, "method": method},
         )
     if anticipation != 0 and method not in _cs_methods:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"`anticipation={anticipation}` is only supported with "
-            f"Callaway-Sant'Anna; got method={method!r}."
+            f"Callaway-Sant'Anna; got method={method!r}.",
+            recovery_hint="Use anticipation only with method='cs'/'callaway_santanna'.",
+            diagnostics={"anticipation": anticipation, "method": method},
         )
 
     # Auto-detect if subgroup is provided → DDD
@@ -320,10 +485,16 @@ def did(
             if treat_vals <= {0, 1, True, False}:
                 method = '2x2'
             else:
-                raise ValueError(
+                shown_vals = sorted(treat_vals, key=repr)
+                raise MethodIncompatibility(
                     f"Cannot auto-detect DID type. Treatment '{treat}' has "
-                    f"values {sorted(treat_vals)}. Provide 'id' for staggered "
-                    "DID, or set method='2x2' or method='callaway_santanna'."
+                    f"values {shown_vals}. Provide 'id' for staggered "
+                    "DID, or set method='2x2' or method='callaway_santanna'.",
+                    recovery_hint=(
+                        "Pass id=... for staggered DID, or set method explicitly "
+                        "for non-binary treatment coding."
+                    ),
+                    diagnostics={"treat": treat, "values": shown_vals},
                 )
 
     # ── Normalize aliases ─────────────────────────────────────────── #
@@ -352,10 +523,12 @@ def did(
 
     if method == 'ddd':
         if subgroup is None:
-            raise ValueError(
+            raise MethodIncompatibility(
                 "'subgroup' is required for Triple Differences (DDD). "
                 "Provide the name of a binary column indicating the "
-                "affected subgroup."
+                "affected subgroup.",
+                recovery_hint="Pass subgroup='...' for method='ddd'.",
+                diagnostics={"method": method},
             )
         return ddd(
             data, y=y, treat=treat, time=time, subgroup=subgroup,
@@ -365,8 +538,10 @@ def did(
 
     if method in ('callaway_santanna', 'cs'):
         if id is None:
-            raise ValueError(
-                "'id' (unit identifier) is required for staggered DID."
+            raise MethodIncompatibility(
+                "'id' (unit identifier) is required for staggered DID.",
+                recovery_hint="Pass id='unit_column' for method='cs'.",
+                diagnostics={"method": method},
             )
         cs_result = callaway_santanna(
             data, y=y, g=treat, t=time, i=id,
@@ -377,10 +552,15 @@ def did(
         )
         if aggregation is not None:
             if aggregation not in ('simple', 'dynamic', 'group', 'calendar'):
-                raise ValueError(
+                raise MethodIncompatibility(
                     f"aggregation must be one of "
                     f"'simple'/'dynamic'/'group'/'calendar', "
-                    f"got {aggregation!r}"
+                    f"got {aggregation!r}",
+                    recovery_hint=(
+                        "Use aggregation='simple', 'dynamic', 'group', or "
+                        "'calendar'."
+                    ),
+                    diagnostics={"aggregation": aggregation},
                 )
             return aggte(
                 cs_result, type=aggregation, alpha=alpha,
@@ -390,8 +570,10 @@ def did(
 
     if method in ('sun_abraham', 'sa', 'sunab'):
         if id is None:
-            raise ValueError(
-                "'id' (unit identifier) is required for Sun-Abraham."
+            raise MethodIncompatibility(
+                "'id' (unit identifier) is required for Sun-Abraham.",
+                recovery_hint="Pass id='unit_column' for method='sun_abraham'.",
+                diagnostics={"method": method},
             )
         return sun_abraham(
             data, y=y, g=treat, t=time, i=id,
@@ -407,8 +589,10 @@ def did(
         'borusyak',
     ):
         if id is None:
-            raise ValueError(
-                "'id' (unit identifier) is required for BJS imputation."
+            raise MethodIncompatibility(
+                "'id' (unit identifier) is required for BJS imputation.",
+                recovery_hint="Pass id='unit_column' for method='bjs'.",
+                diagnostics={"method": method},
             )
         horizon = kwargs.pop('horizon', None)
         event_window = kwargs.pop('event_window', None)
@@ -429,8 +613,21 @@ def did(
 
     if method == 'sdid':
         from ..synth.sdid import sdid as _sdid
+        if se_method not in {"placebo", "bootstrap", "jackknife"}:
+            raise MethodIncompatibility(
+                "se_method for method='sdid' must be 'placebo', 'bootstrap', "
+                "or 'jackknife'.",
+                recovery_hint="Use se_method='placebo', 'bootstrap', or "
+                "'jackknife'.",
+                diagnostics={"method": method, "se_method": se_method},
+            )
+        sdid_se_method = cast(_SDIDSeMethod, se_method)
         if id is None:
-            raise ValueError("'id' (unit identifier) is required for SDID.")
+            raise MethodIncompatibility(
+                "'id' (unit identifier) is required for SDID.",
+                recovery_hint="Pass id='unit_column' for method='sdid'.",
+                diagnostics={"method": method},
+            )
         # Infer treat_unit / treat_time from the treat column if not provided
         _treat_unit = treat_unit
         _treat_time = treat_time
@@ -444,14 +641,16 @@ def did(
             data, y=y, unit=id, time=time,
             treat_unit=_treat_unit, treat_time=_treat_time,
             method='sdid', covariates=covariates,
-            se_method=se_method, alpha=alpha, **kwargs,
+            se_method=sdid_se_method, alpha=alpha, **kwargs,
         )
 
-    raise ValueError(
+    raise MethodIncompatibility(
         f"Unknown DID method: '{method}'. "
         "Available: '2x2' (or 'classic', 'twfe'), 'ddd', "
         "'callaway_santanna' (or 'cs'), 'sun_abraham' (or 'sa'), "
-        "'bjs' (or 'did_imputation'), 'sdid'."
+        "'bjs' (or 'did_imputation'), 'sdid'.",
+        recovery_hint="Choose one of the supported DID method strings.",
+        diagnostics={"method": method},
     )
 
 
@@ -480,6 +679,8 @@ __all__ = [
     'stacked_did',
     'gardner_did',
     'did_2stage',
+    'harvest_did',
+    'HarvestDIDResult',
     'cic',
     # Wooldridge / DR-DID / TWFE decomposition
     'wooldridge_did',
@@ -513,4 +714,5 @@ __all__ = [
     'cohort_event_study_plot',
     'ggdid',
     'did_summary_plot',
+    'continuous_did',
 ]

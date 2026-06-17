@@ -39,6 +39,13 @@ from typing import List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._validation import (
+    nonempty_sample as _nonempty_sample,
+    nonnegative_finite_float as _nonnegative_finite_float,
+    positive_int as _positive_int,
+)
+
 # Optional Rust backend. Failure to import is silent: the NumPy fallback
 # always works, just slower on large panels.
 try:
@@ -106,18 +113,38 @@ def _coerce_fe_columns(
 ) -> List[np.ndarray]:
     """Return a list of K 1-D arrays, one per FE column, length n each."""
     if isinstance(fe, pd.DataFrame):
+        if len(fe) != n:
+            raise MethodIncompatibility(
+                f"fe has {len(fe)} rows but X has length {n}"
+            )
+        if fe.shape[1] < 1:
+            raise MethodIncompatibility("fe must contain at least one column")
         return [fe.iloc[:, k].values for k in range(fe.shape[1])]
     if isinstance(fe, np.ndarray):
         if fe.ndim == 1:
+            if fe.shape[0] != n:
+                raise MethodIncompatibility(
+                    f"fe column has length {fe.shape[0]} but X has length {n}"
+                )
             return [fe]
         if fe.ndim == 2:
+            if fe.shape[0] != n:
+                raise MethodIncompatibility(
+                    f"fe has {fe.shape[0]} rows but X has length {n}"
+                )
+            if fe.shape[1] < 1:
+                raise MethodIncompatibility("fe must contain at least one column")
             return [fe[:, k] for k in range(fe.shape[1])]
-        raise ValueError("fe ndarray must be 1-D or 2-D")
+        raise MethodIncompatibility("fe ndarray must be 1-D or 2-D")
     # Sequence of arrays
     cols = [np.asarray(c) for c in fe]
-    for c in cols:
+    if not cols:
+        raise MethodIncompatibility("fe must contain at least one column")
+    for idx, c in enumerate(cols):
+        if c.ndim != 1:
+            raise MethodIncompatibility(f"fe column {idx} must be 1-D")
         if c.shape[0] != n:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"fe column has length {c.shape[0]} but X has length {n}"
             )
     return cols
@@ -130,7 +157,7 @@ def _factorize_columns(cols: List[np.ndarray]) -> Tuple[List[np.ndarray], List[i
     for c in cols:
         codes, uniq = pd.factorize(c, sort=False, use_na_sentinel=True)
         if (codes < 0).any():
-            raise ValueError("fast.demean: NaN in FE column not allowed")
+            raise MethodIncompatibility("fast.demean: NaN in FE column not allowed")
         out_codes.append(codes.astype(np.int64))
         out_card.append(len(uniq))
     return out_codes, out_card
@@ -303,9 +330,25 @@ def demean(
         If ``backend="rust"`` is forced but the extension is missing.
     """
     if accel not in ("aitken", "none"):
-        raise ValueError(f"accel={accel!r}; expected 'aitken' or 'none'")
+        raise MethodIncompatibility(
+            f"fast.demean: accel={accel!r}; expected 'aitken' or 'none'"
+        )
     if backend not in ("auto", "rust", "numpy", "jax"):
-        raise ValueError(f"backend={backend!r}; expected 'auto'|'rust'|'numpy'|'jax'")
+        raise MethodIncompatibility(
+            f"fast.demean: backend={backend!r}; expected 'auto'|'rust'|'numpy'|'jax'"
+        )
+    max_iter = _positive_int(max_iter, name="max_iter", context="fast.demean")
+    accel_period = _positive_int(
+        accel_period, name="accel_period", context="fast.demean"
+    )
+    tol = _nonnegative_finite_float(tol, name="tol", context="fast.demean")
+    tol_abs = _nonnegative_finite_float(
+        tol_abs, name="tol_abs", context="fast.demean"
+    )
+    if jax_max_iter is not None:
+        jax_max_iter = _positive_int(
+            jax_max_iter, name="jax_max_iter", context="fast.demean"
+        )
 
     X = np.asarray(X)
     if X.dtype != np.float64:
@@ -317,11 +360,12 @@ def demean(
     elif X.ndim == 2:
         squeeze = False
     else:
-        raise ValueError(f"X must be 1-D or 2-D, got ndim={X.ndim}")
+        raise MethodIncompatibility(f"X must be 1-D or 2-D, got ndim={X.ndim}")
 
     n, p = X.shape
+    _nonempty_sample(n, context="fast.demean")
     if not np.isfinite(X).all():
-        raise ValueError("fast.demean: non-finite values in X")
+        raise MethodIncompatibility("fast.demean: non-finite values in X")
 
     # Factorise FE columns
     fe_cols = _coerce_fe_columns(fe, n)
@@ -334,6 +378,10 @@ def demean(
         keep_mask = np.ones(n, dtype=bool)
     n_kept = int(keep_mask.sum())
     n_dropped = n - n_kept
+    if n_kept < 1:
+        raise DataInsufficient(
+            "fast.demean: no rows remain after singleton pruning"
+        )
 
     # Re-densify codes on kept rows (so they're contiguous in [0, G_k))
     fe_codes: List[np.ndarray] = []

@@ -211,7 +211,7 @@ class ConvergenceFailure(StatsPAIError, RuntimeError):
     code = "convergence_failure"
 
 
-class NumericalInstability(StatsPAIError, RuntimeError):
+class NumericalInstability(StatsPAIError, RuntimeError, ValueError):
     """Computation hit a numerical corner case.
 
     Covers singular / near-singular design matrices, near-zero weight
@@ -223,8 +223,9 @@ class NumericalInstability(StatsPAIError, RuntimeError):
     >>> try:
     ...     raise sp.NumericalInstability("singular design matrix")
     ... except sp.StatsPAIError as e:
-    ...     print(type(e).__name__, isinstance(e, RuntimeError))
-    NumericalInstability True
+    ...     print(type(e).__name__, isinstance(e, RuntimeError),
+    ...           isinstance(e, ValueError))
+    NumericalInstability True True
     """
 
     code = "numerical_instability"

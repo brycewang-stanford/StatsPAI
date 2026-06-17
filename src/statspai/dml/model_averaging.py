@@ -73,6 +73,7 @@ import numpy as np
 import pandas as pd
 
 from ..core.results import CausalResult
+from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
 
 __all__ = ["dml_model_averaging", "model_averaging_dml", "DMLAveragingResult"]
@@ -91,6 +92,177 @@ def _default_candidates() -> List[Tuple[Any, Any, str]]:
         (GradientBoostingRegressor(n_estimators=200, random_state=0),
          GradientBoostingRegressor(n_estimators=200, random_state=0), "gbm"),
     ]
+
+
+def _require_dataframe(value: Any, name: str, context: str) -> pd.DataFrame:
+    if not isinstance(value, pd.DataFrame):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a pandas DataFrame.",
+            diagnostics={"context": context, name: type(value).__name__},
+        )
+    if value.empty:
+        raise DataInsufficient(
+            f"{context}: `{name}` is empty.",
+            diagnostics={"context": context, name: len(value)},
+        )
+    return value
+
+
+def _require_column_name(value: Any, name: str, context: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a non-empty column name.",
+            diagnostics={"context": context, name: repr(value)},
+        )
+    return value
+
+
+def _coerce_column_list(value: Any, name: str, context: str) -> List[str]:
+    if isinstance(value, str):
+        out = [value]
+    else:
+        try:
+            out = list(value)
+        except TypeError as exc:
+            raise MethodIncompatibility(
+                f"{context}: `{name}` must be a column name or list of columns.",
+                diagnostics={"context": context, name: repr(value)},
+            ) from exc
+    if not out:
+        raise MethodIncompatibility(
+            "At least one covariate required",
+            diagnostics={"context": context, name: out},
+        )
+    bad = [col for col in out if not isinstance(col, str) or not col]
+    if bad:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must contain only non-empty column names.",
+            diagnostics={"context": context, name: out, "invalid_columns": bad},
+        )
+    return out
+
+
+def _require_columns(data: pd.DataFrame, columns: Sequence[str], context: str) -> None:
+    missing = [col for col in columns if col not in data.columns]
+    if missing:
+        raise MethodIncompatibility(
+            f"Column '{missing[0]}' not found in data",
+            diagnostics={"context": context, "missing_columns": missing},
+        )
+
+
+def _require_string_option(value: Any, name: str, context: str) -> str:
+    if not isinstance(value, str):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a string option.",
+            diagnostics={"context": context, name: repr(value)},
+        )
+    out = value.lower().strip()
+    if not out:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a non-empty string option.",
+            diagnostics={"context": context, name: repr(value)},
+        )
+    return out
+
+
+def _require_int_at_least(
+    value: Any,
+    name: str,
+    context: str,
+    minimum: int,
+) -> int:
+    if isinstance(value, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be an integer >= {minimum}.",
+            diagnostics={"context": context, name: repr(value), "minimum": minimum},
+        )
+    try:
+        out = int(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be an integer >= {minimum}.",
+            diagnostics={"context": context, name: repr(value), "minimum": minimum},
+        ) from exc
+    if out < minimum:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be >= {minimum}.",
+            diagnostics={"context": context, name: out, "minimum": minimum},
+        )
+    return out
+
+
+def _require_open_unit_float(value: Any, name: str, context: str) -> float:
+    if isinstance(value, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a number in (0, 1).",
+            diagnostics={"context": context, name: repr(value)},
+        )
+    try:
+        out = float(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a number in (0, 1).",
+            diagnostics={"context": context, name: repr(value)},
+        ) from exc
+    if not np.isfinite(out) or not 0.0 < out < 1.0:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be in (0, 1).",
+            diagnostics={"context": context, name: out},
+        )
+    return out
+
+
+def _finite_array(value: Any, name: str, context: str, ndim: int) -> np.ndarray:
+    try:
+        out = np.asarray(value, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be numeric.",
+            diagnostics={"context": context, name: repr(value)},
+        ) from exc
+    if out.ndim != ndim:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be {ndim}-D.",
+            diagnostics={"context": context, name: repr(value), "shape": out.shape},
+        )
+    if not np.all(np.isfinite(out)):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` contains non-finite values.",
+            diagnostics={"context": context, name: out.shape},
+        )
+    return out
+
+
+def _validate_candidates(
+    candidates: Optional[List[Tuple[Any, Any, str]]],
+    context: str,
+) -> List[Tuple[Any, Any, str]]:
+    cand = list(candidates) if candidates is not None else _default_candidates()
+    if len(cand) == 0:
+        raise MethodIncompatibility(
+            "No candidate nuisance models supplied",
+            diagnostics={"context": context},
+        )
+    labels: List[str] = []
+    out: List[Tuple[Any, Any, str]] = []
+    for idx, item in enumerate(cand):
+        if not isinstance(item, (tuple, list)) or len(item) != 3:
+            raise MethodIncompatibility(
+                "Each candidate must be a (ml_g, ml_m, label) triple.",
+                diagnostics={"context": context, "candidate_index": idx},
+            )
+        ml_g, ml_m, label = item
+        label = _require_column_name(label, "candidate_label", context)
+        labels.append(label)
+        out.append((ml_g, ml_m, label))
+    duplicates = sorted({label for label in labels if labels.count(label) > 1})
+    if duplicates:
+        raise MethodIncompatibility(
+            "Candidate labels must be unique.",
+            diagnostics={"context": context, "duplicate_labels": duplicates},
+        )
+    return out
 
 
 class DMLAveragingResult(CausalResult):
@@ -218,11 +390,42 @@ def _solve_cls_weights(
     """
     from scipy.optimize import minimize
 
+    target = _finite_array(target, "target", "_solve_cls_weights", ndim=1)
+    predictions = _finite_array(
+        predictions, "predictions", "_solve_cls_weights", ndim=2,
+    )
+    if predictions.shape[0] != len(target) or predictions.shape[1] == 0:
+        raise MethodIncompatibility(
+            "_solve_cls_weights: predictions must have shape (n, K) with K > 0.",
+            diagnostics={
+                "context": "_solve_cls_weights",
+                "target_length": len(target),
+                "prediction_shape": predictions.shape,
+            },
+        )
     K = predictions.shape[1]
     sw = (
         np.ones(len(target)) if sample_weight is None
-        else np.asarray(sample_weight, dtype=float)
+        else _finite_array(sample_weight, "sample_weight", "_solve_cls_weights", 1)
     )
+    if len(sw) != len(target):
+        raise MethodIncompatibility(
+            "_solve_cls_weights: sample_weight must match target length.",
+            diagnostics={
+                "context": "_solve_cls_weights",
+                "target_length": len(target),
+                "weight_length": len(sw),
+            },
+        )
+    if np.any(sw < 0) or sw.sum() <= 0:
+        raise MethodIncompatibility(
+            "_solve_cls_weights: sample_weight must be non-negative with "
+            "positive total mass.",
+            diagnostics={
+                "context": "_solve_cls_weights",
+                "weight_sum": float(sw.sum()),
+            },
+        )
 
     def loss(w):
         r = target - predictions @ w
@@ -346,21 +549,29 @@ def dml_model_averaging(
     """
     from scipy import stats as sp_stats
 
-    for c in [y, treat] + list(covariates):
-        if c not in data.columns:
-            raise ValueError(f"Column '{c}' not found in data")
+    context = "dml_model_averaging"
+    data = _require_dataframe(data, "data", context)
+    y = _require_column_name(y, "y", context)
+    treat = _require_column_name(treat, "treat", context)
+    covariates = _coerce_column_list(covariates, "covariates", context)
+    _require_columns(data, [y, treat] + list(covariates), context)
     valid_rules = {"short_stacking", "single_best", "inverse_risk", "equal"}
+    weight_rule = _require_string_option(weight_rule, "weight_rule", context)
     if weight_rule not in valid_rules:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"weight_rule must be one of {sorted(valid_rules)}, "
-            f"got {weight_rule!r}"
+            f"got {weight_rule!r}",
+            diagnostics={
+                "context": context,
+                "weight_rule": weight_rule,
+                "valid_rules": sorted(valid_rules),
+            },
         )
-    if len(covariates) == 0:
-        raise ValueError("At least one covariate required")
+    n_folds = _require_int_at_least(n_folds, "n_folds", context, 2)
+    seed = _require_int_at_least(seed, "seed", context, 0)
+    alpha = _require_open_unit_float(alpha, "alpha", context)
 
-    cand = list(candidates) if candidates is not None else _default_candidates()
-    if len(cand) == 0:
-        raise ValueError("No candidate nuisance models supplied")
+    cand = _validate_candidates(candidates, context)
 
     # Drop rows with any missing value in y, treat, covariates *and*
     # sample_weight so the dropna mask aligns. NaNs would otherwise
@@ -372,16 +583,27 @@ def dml_model_averaging(
     if sample_weight is not None:
         if isinstance(sample_weight, str):
             if sample_weight not in data.columns:
-                raise ValueError(  # pragma: no cover
-                    f"sample_weight column '{sample_weight}' not in data"
+                raise MethodIncompatibility(  # pragma: no cover
+                    f"sample_weight column '{sample_weight}' not in data",
+                    diagnostics={
+                        "context": context,
+                        "sample_weight": sample_weight,
+                    },
                 )
-            work["__sw__"] = data[sample_weight].astype(float).values
+            work["__sw__"] = _finite_array(
+                data[sample_weight], "sample_weight", context, 1,
+            )
         else:
-            arr = np.asarray(sample_weight, dtype=float)
+            arr = _finite_array(sample_weight, "sample_weight", context, 1)
             if arr.ndim != 1 or len(arr) != len(data):
-                raise ValueError(  # pragma: no cover
+                raise MethodIncompatibility(  # pragma: no cover
                     f"sample_weight must be 1-D of length {len(data)}; "
-                    f"got shape {arr.shape}"
+                    f"got shape {arr.shape}",
+                    diagnostics={
+                        "context": context,
+                        "expected_length": len(data),
+                        "shape": arr.shape,
+                    },
                 )
             work["__sw__"] = arr
     clean = work.dropna()
@@ -389,24 +611,53 @@ def dml_model_averaging(
     Y = clean[y].to_numpy(dtype=float)
     D = clean[treat].to_numpy(dtype=float)
     X = clean[list(covariates)].to_numpy(dtype=float)
+    if not np.isfinite(Y).all() or not np.isfinite(D).all() or not np.isfinite(X).all():
+        raise MethodIncompatibility(
+            "dml_model_averaging: y, treat, and covariates must be finite "
+            "after dropping missing values.",
+            diagnostics={"context": context},
+        )
     if "__sw__" in clean.columns:
         sw = clean["__sw__"].to_numpy(dtype=float)
         if np.any(sw < 0):
-            raise ValueError("sample_weight must be non-negative")  # pragma: no cover
+            raise MethodIncompatibility(  # pragma: no cover
+                "sample_weight must be non-negative",
+                diagnostics={"context": context},
+            )
         if not np.isfinite(sw).all():
-            raise ValueError("sample_weight contains non-finite values")  # pragma: no cover
+            raise MethodIncompatibility(  # pragma: no cover
+                "sample_weight contains non-finite values",
+                diagnostics={"context": context},
+            )
         if sw.sum() <= 0:
-            raise ValueError("sample_weight has zero total mass")
+            raise MethodIncompatibility(
+                "sample_weight has zero total mass",
+                diagnostics={"context": context},
+            )
     else:
         sw = None
     n = len(Y)
     if n == 0:
-        raise ValueError(  # pragma: no cover
+        raise DataInsufficient(  # pragma: no cover
             "No rows remain after dropping missing values in y / treat / "
-            "covariates. Check the input data."
+            "covariates. Check the input data.",
+            diagnostics={"context": context, "n_dropped_missing": int(n_dropped)},
+        )
+    if n < n_folds:
+        raise DataInsufficient(
+            f"n_folds={n_folds} exceeds the usable sample size n={n}.",
+            diagnostics={"context": context, "n_obs": int(n), "n_folds": n_folds},
         )
     if n != len(D) or n != X.shape[0]:  # pragma: no cover — defensive
-        raise ValueError("Inconsistent row counts between y, treat, covariates")
+        raise MethodIncompatibility(
+            "Inconsistent row counts between y, treat, covariates",
+            diagnostics={
+                "context": context,
+                "n_y": len(Y),
+                "n_d": len(D),
+                "n_x": X.shape[0],
+            },
+        )
 
     # --- Stage 1: fit every candidate, collect cross-fitted predictions and
     # per-candidate diagnostics. We need both predictions (for stacking)
@@ -452,7 +703,10 @@ def dml_model_averaging(
         dhat_mat.append(dhat)
 
     if not labels:
-        raise RuntimeError("No candidate produced a finite estimate")  # pragma: no cover
+        raise ConvergenceFailure(  # pragma: no cover
+            "No candidate produced a finite estimate",
+            diagnostics={"context": context, "n_candidates": len(cand)},
+        )
 
     thetas_arr = np.array(thetas)
     ses_arr = np.array(ses)
@@ -476,11 +730,12 @@ def dml_model_averaging(
         else:
             denom = float(np.sum(sw * d_resid_stack ** 2))
         if denom < 1e-12:
-            raise RuntimeError(  # pragma: no cover
+            raise ConvergenceFailure(  # pragma: no cover
                 "short_stacking: stacked first stage is degenerate "
                 f"(Σ d_resid² ≈ {denom:.2e}). All candidate m̂ predict D "
                 "near-perfectly; consider richer covariates or a "
-                "different roster."
+                "different roster.",
+                diagnostics={"context": context, "denom": denom},
             )
         if sw is None:
             theta_avg = float(np.sum(y_resid_stack * d_resid_stack) / denom)

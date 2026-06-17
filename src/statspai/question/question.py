@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from ..exceptions import DataInsufficient, MethodIncompatibility
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -33,6 +35,81 @@ _VALID_DESIGNS = (
     # ML-based selection-on-observables (v1.13+):
     "dml", "tmle", "metalearner", "causal_forest",
 )
+
+
+def _require_dataframe(value: Any, name: str) -> pd.DataFrame:
+    if not isinstance(value, pd.DataFrame):
+        raise MethodIncompatibility(
+            f"`{name}` must be a pandas DataFrame.",
+            diagnostics={name: value.__class__.__name__},
+        )
+    if value.empty:
+        raise DataInsufficient(f"`{name}` is empty.", diagnostics={name: len(value)})
+    return value
+
+
+def _require_column_name(value: Any, name: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise MethodIncompatibility(
+            f"`{name}` must be a non-empty column name.",
+            diagnostics={name: repr(value)},
+        )
+    return value
+
+
+def _require_string_option(value: Any, name: str) -> str:
+    if not isinstance(value, str):
+        raise MethodIncompatibility(
+            f"`{name}` must be a string option.",
+            diagnostics={name: repr(value)},
+        )
+    out = value.lower().strip()
+    if not out:
+        raise MethodIncompatibility(
+            f"`{name}` must be a non-empty string option.",
+            diagnostics={name: repr(value)},
+        )
+    return out
+
+
+def _coerce_column_list(value: Any, name: str, *, allow_empty: bool = False) -> List[str]:
+    if isinstance(value, str):
+        out = [value]
+    else:
+        try:
+            out = list(value)
+        except TypeError as exc:
+            raise MethodIncompatibility(
+                f"`{name}` must be a column name or list of column names.",
+                diagnostics={name: repr(value)},
+            ) from exc
+    if not allow_empty and not out:
+        raise MethodIncompatibility(
+            f"`{name}` must contain at least one column name.",
+            diagnostics={name: out},
+        )
+    bad = [c for c in out if not isinstance(c, str) or not c]
+    if bad:
+        raise MethodIncompatibility(
+            f"`{name}` must contain only non-empty string column names.",
+            diagnostics={name: out, "invalid_columns": bad},
+        )
+    return out
+
+
+def _coerce_optional_column_list(value: Any, name: str) -> List[str]:
+    if value is None:
+        return []
+    return _coerce_column_list(value, name, allow_empty=True)
+
+
+def _require_columns_present(data: pd.DataFrame, columns: Sequence[str], context: str) -> None:
+    missing = [col for col in columns if col not in data.columns]
+    if missing:
+        raise MethodIncompatibility(
+            f"{context}: missing columns {missing}",
+            diagnostics={"missing_columns": missing, "context": context},
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -240,7 +317,11 @@ class CausalQuestion:
     def estimate(self, **kwargs) -> EstimationResult:
         """Execute the identification plan against ``self.data``."""
         if self.data is None:
-            raise ValueError("CausalQuestion.data must be set before estimate().")
+            raise DataInsufficient(
+                "CausalQuestion.data must be set before estimate().",
+                recovery_hint="Pass data=... when constructing the question.",
+            )
+        self.data = _require_dataframe(self.data, "data")
         if self._plan is None:
             self.identify()
         result = _dispatch_estimator(self, self._plan, **kwargs)
@@ -254,7 +335,10 @@ class CausalQuestion:
         if self._plan is None:
             self.identify()
         if self._result is None:
-            raise ValueError("Run .estimate() before .report().")
+            raise MethodIncompatibility(
+                "Run .estimate() before .report().",
+                recovery_hint="Call q.estimate() before rendering a report.",
+            )
         return _render_report(self, self._plan, self._result, fmt=fmt)
 
     # --- Paper builder --------------------------------------------------- #
@@ -363,17 +447,38 @@ def causal_question(
     >>> res.estimand
     'ATE'
     """
+    treatment = _require_column_name(treatment, "treatment")
+    outcome = _require_column_name(outcome, "outcome")
+    estimand = _require_string_option(estimand, "estimand").upper()
+    design = _require_string_option(design, "design")
+    time_structure = _require_string_option(time_structure, "time_structure")
+    if data is not None:
+        data = _require_dataframe(data, "data")
+    if time is not None:
+        time = _require_column_name(time, "time")
+    if id is not None:
+        id = _require_column_name(id, "id")
+    covariates = _coerce_optional_column_list(covariates, "covariates")
+    instruments = _coerce_optional_column_list(instruments, "instruments")
+    if running_variable is not None:
+        running_variable = _require_column_name(running_variable, "running_variable")
+    if cohort is not None:
+        cohort = _require_column_name(cohort, "cohort")
+
     if estimand not in _VALID_ESTIMANDS:
-        raise ValueError(
-            f"estimand must be one of {_VALID_ESTIMANDS}; got {estimand!r}"
+        raise MethodIncompatibility(
+            f"estimand must be one of {_VALID_ESTIMANDS}; got {estimand!r}",
+            diagnostics={"estimand": estimand},
         )
     if design not in _VALID_DESIGNS:
-        raise ValueError(
-            f"design must be one of {_VALID_DESIGNS}; got {design!r}"
+        raise MethodIncompatibility(
+            f"design must be one of {_VALID_DESIGNS}; got {design!r}",
+            diagnostics={"design": design},
         )
     if time_structure not in _VALID_TIME:
-        raise ValueError(
-            f"time_structure must be one of {_VALID_TIME}; got {time_structure!r}"
+        raise MethodIncompatibility(
+            f"time_structure must be one of {_VALID_TIME}; got {time_structure!r}",
+            diagnostics={"time_structure": time_structure},
         )
     return CausalQuestion(
         treatment=treatment,
@@ -385,8 +490,8 @@ def causal_question(
         time_structure=time_structure,
         time=time,
         id=id,
-        covariates=list(covariates or []),
-        instruments=list(instruments or []),
+        covariates=list(covariates),
+        instruments=list(instruments),
         running_variable=running_variable,
         cutoff=cutoff,
         cohort=cohort,
@@ -869,10 +974,23 @@ def _dispatch_estimator(q: CausalQuestion,
         )
 
     if est_name == "rdrobust":
+        if q.running_variable is None or q.cutoff is None:
+            raise MethodIncompatibility(
+                "design='regression_discontinuity' requires "
+                "running_variable=... and cutoff=....",
+                diagnostics={
+                    "running_variable": q.running_variable,
+                    "cutoff": q.cutoff,
+                },
+            )
+        _require_columns_present(data, [q.outcome, q.running_variable], "rdrobust")
+        fuzzy = q.treatment if q.treatment in data.columns else None
         res = sp.rdrobust(
-            y=data[q.outcome],
-            x=data[q.running_variable],
+            data=data,
+            y=q.outcome,
+            x=q.running_variable,
             c=q.cutoff,
+            fuzzy=fuzzy,
             **kwargs,
         )
         est, se, ci = _extract_generic(res)
@@ -883,12 +1001,20 @@ def _dispatch_estimator(q: CausalQuestion,
         )
 
     if est_name == "synth":
+        if q.id is None or q.time is None or q.cutoff is None:
+            raise MethodIncompatibility(
+                "design='synthetic_control' requires id=..., time=..., "
+                "and cutoff=... as the treated unit's first treatment time.",
+                diagnostics={"id": q.id, "time": q.time, "cutoff": q.cutoff},
+            )
+        _require_columns_present(data, [q.outcome, q.id, q.time], "synth")
         res = sp.synth(
             data=data,
             outcome=q.outcome,
-            treat=q.treatment,
+            unit=q.id,
             time=q.time,
-            id=q.id,
+            treated_unit=q.treatment,
+            treatment_time=q.cutoff,
             **kwargs,
         )
         est, se, ci = _extract_generic(res)
@@ -929,9 +1055,10 @@ def _dispatch_estimator(q: CausalQuestion,
 
     if est_name == "dml":
         if not q.covariates:
-            raise ValueError(
+            raise MethodIncompatibility(
                 "design='dml' requires covariates=[...] (DML orthogonalises "
-                "Y and D against X; an empty X is not a DML problem)."
+                "Y and D against X; an empty X is not a DML problem).",
+                diagnostics={"design": "dml", "covariates": q.covariates},
             )
         _reject_reserved_kwargs(
             kwargs, "dml",
@@ -950,8 +1077,12 @@ def _dispatch_estimator(q: CausalQuestion,
             if len(q.instruments) == 1:
                 z_col = q.instruments[0]
                 if z_col not in data.columns:
-                    raise KeyError(
-                        f"instrument {z_col!r} not found in data columns"
+                    raise MethodIncompatibility(
+                        f"instrument {z_col!r} not found in data columns",
+                        diagnostics={
+                            "missing_column": z_col,
+                            "available_columns": list(data.columns),
+                        },
                     )
                 z_binary = data[z_col].dropna().nunique() == 2
                 d_binary = data[q.treatment].dropna().nunique() == 2
@@ -966,22 +1097,24 @@ def _dispatch_estimator(q: CausalQuestion,
         # NOT receive one (sp.dml will reject the kwarg). This is the
         # collision Bug 2/6 — gate strictly.
         if is_iv_model and not q.instruments:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"DML model={model!r} requires instruments=[...] on the "
-                "CausalQuestion; none were declared."
+                "CausalQuestion; none were declared.",
+                diagnostics={"model": model, "instruments": q.instruments},
             )
         # sp.dml's PLIV / IIVM expect a single scalar instrument. Reject
         # multi-instrument up-front with a pointer to the scalar
         # projection helper, instead of letting sp.dml's error surface
         # deep inside the dispatch.
         if is_iv_model and q.instruments and len(q.instruments) > 1:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"DML model={model!r} accepts a single scalar instrument; "
                 f"got {len(q.instruments)}: {list(q.instruments)!r}. For "
                 "multiple instruments, build a scalar first-stage index "
                 "first via sp.scalar_iv_projection(data, treat=..., "
                 "instruments=[...], covariates=[...]), then declare it "
-                "as the single instrument on the CausalQuestion."
+                "as the single instrument on the CausalQuestion.",
+                diagnostics={"model": model, "instruments": list(q.instruments)},
             )
         if is_iv_model:
             instrument = kwargs.pop(
@@ -1019,9 +1152,10 @@ def _dispatch_estimator(q: CausalQuestion,
 
     if est_name == "tmle":
         if not q.covariates:
-            raise ValueError(
+            raise MethodIncompatibility(
                 "design='tmle' requires covariates=[...] for the outcome "
-                "and propensity nuisance models."
+                "and propensity nuisance models.",
+                diagnostics={"design": "tmle", "covariates": q.covariates},
             )
         _reject_reserved_kwargs(
             kwargs, "tmle",
@@ -1046,9 +1180,10 @@ def _dispatch_estimator(q: CausalQuestion,
 
     if est_name == "metalearner":
         if not q.covariates:
-            raise ValueError(
+            raise MethodIncompatibility(
                 "design='metalearner' requires covariates=[...] — these "
-                "are the effect modifiers used to estimate tau(x)."
+                "are the effect modifiers used to estimate tau(x).",
+                diagnostics={"design": "metalearner", "covariates": q.covariates},
             )
         _reject_reserved_kwargs(
             kwargs, "metalearner",
@@ -1096,9 +1231,10 @@ def _dispatch_estimator(q: CausalQuestion,
 
     if est_name == "causal_forest":
         if not q.covariates:
-            raise ValueError(
+            raise MethodIncompatibility(
                 "design='causal_forest' requires covariates=[...] as "
-                "effect modifiers."
+                "effect modifiers.",
+                diagnostics={"design": "causal_forest", "covariates": q.covariates},
             )
         _reject_reserved_kwargs(
             kwargs, "causal_forest",
@@ -1126,18 +1262,20 @@ def _dispatch_estimator(q: CausalQuestion,
         try:
             T_numeric = np.asarray(T_raw).astype(float)
         except (TypeError, ValueError) as exc:
-            raise ValueError(
+            raise MethodIncompatibility(
                 "design='causal_forest' requires a numeric binary "
                 "treatment (0/1) for AIPW-IF inference; got a "
                 f"non-numeric column ({exc!s}). For continuous "
-                "treatments use design='dml'."
+                "treatments use design='dml'.",
+                alternative_functions=["sp.causal_question"],
             ) from exc
         T_unique = np.unique(T_numeric[~np.isnan(T_numeric)])
         if not set(T_unique.tolist()) <= {0.0, 1.0}:
-            raise ValueError(
+            raise MethodIncompatibility(
                 "design='causal_forest' requires a binary treatment "
                 "(0/1) for AIPW-IF inference; for continuous treatments "
-                "use design='dml'."
+                "use design='dml'.",
+                diagnostics={"treatment_values": T_unique.tolist()},
             )
         # Use the cleaned numeric array everywhere downstream.
         T = T_numeric
@@ -1176,11 +1314,12 @@ def _reject_reserved_kwargs(kwargs: dict, design: str, *,
     """
     bad = [k for k in reserved if k in kwargs]
     if bad:
-        raise TypeError(
+        raise MethodIncompatibility(
             f"design={design!r}: the following kwargs collide with the "
             f"CausalQuestion fields and cannot be passed to estimate(): "
             f"{bad!r}. They are populated from "
-            "the CausalQuestion's treatment/outcome/covariates/data."
+            "the CausalQuestion's treatment/outcome/covariates/data.",
+            diagnostics={"design": design, "reserved_kwargs": bad},
         )
 
 
@@ -1221,9 +1360,10 @@ def _ate_inference_aipw(
     D_raw = np.asarray(D).astype(float).ravel()
     D_clean = D_raw[~np.isnan(D_raw)]
     if set(np.unique(D_clean).tolist()) - {0.0, 1.0}:
-        raise ValueError(
+        raise MethodIncompatibility(
             "AIPW-IF for ATE requires binary treatment (0/1); for "
-            "continuous treatments use design='dml'."
+            "continuous treatments use design='dml'.",
+            diagnostics={"treatment_values": np.unique(D_clean).tolist()},
         )
     D = D_raw.astype(int)
     X = np.asarray(X)
@@ -1308,4 +1448,7 @@ def _render_report(
             f"Identification: {plan.identification_story}\n"
             "Assumptions: " + "; ".join(plan.assumptions)
         )
-    raise ValueError("fmt must be 'markdown' or 'text'")
+    raise MethodIncompatibility(
+        "fmt must be 'markdown' or 'text'",
+        diagnostics={"fmt": fmt},
+    )

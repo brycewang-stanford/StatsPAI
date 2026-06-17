@@ -7,14 +7,18 @@ variance estimation used across multiple decomposition methods.
 
 from __future__ import annotations
 
-from typing import Optional, Sequence, Tuple, Union, Callable
+from typing import Optional, Sequence, Tuple, Union, Callable, cast
 import warnings
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import ConvergenceFailure, DataInsufficient
+from ..exceptions import (
+    ConvergenceFailure,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -93,7 +97,7 @@ def cluster_vcov(
         u_g = (X[idx] * (w[idx] * resid[idx])[:, None]).sum(axis=0)
         meat += np.outer(u_g, u_g)
     factor = G / max(G - 1, 1) * (n - 1) / max(n - k, 1)
-    return XtX_inv @ meat @ XtX_inv * factor
+    return cast(np.ndarray, XtX_inv @ meat @ XtX_inv * factor)
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -179,7 +183,7 @@ def logit_fit(
 def logit_predict(beta: np.ndarray, X: np.ndarray) -> np.ndarray:
     """Predicted probabilities from logit coefficients."""
     eta = np.clip(X @ beta, -30, 30)
-    return 1.0 / (1.0 + np.exp(-eta))
+    return cast(np.ndarray, 1.0 / (1.0 + np.exp(-eta)))
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -314,7 +318,11 @@ def wild_bootstrap_stat(
                 rng.random(n_g) < p, -(phi - 1.0), phi
             )
         else:
-            raise ValueError(f"unknown weights {weights!r}")
+            raise MethodIncompatibility(
+                f"unknown weights {weights!r}",
+                recovery_hint="Use weights='rademacher' or weights='mammen'.",
+                diagnostics={"weights": weights},
+            )
         v = v_g if c_idx is None else v_g[c_idx]
         y_star = fitted + v * resid
         try:
@@ -376,7 +384,13 @@ def bootstrap_ci(
         lo = point - z * se
         hi = point + z * se
     else:
-        raise ValueError(f"unknown method {method!r}")
+        raise MethodIncompatibility(
+            f"unknown method {method!r}",
+            recovery_hint=(
+                "Use method='percentile', method='basic', or method='normal'."
+            ),
+            diagnostics={"method": method},
+        )
     return se, lo, hi
 
 
@@ -402,7 +416,7 @@ def weighted_quantile(
     out = np.interp(q_arr, cum, y_s)
     if np.isscalar(q):
         return float(out[0])
-    return out
+    return cast(np.ndarray, out)
 
 
 def weighted_quantile_hmisc(
@@ -421,7 +435,11 @@ def weighted_quantile_hmisc(
         w = np.ones_like(y)
     w = np.asarray(w, dtype=float).ravel()
     if y.shape[0] != w.shape[0]:
-        raise ValueError("y and w must have the same length")
+        raise MethodIncompatibility(
+            "y and w must have the same length",
+            recovery_hint="Pass one positive weight per outcome observation.",
+            diagnostics={"n_y": y.shape[0], "n_w": w.shape[0]},
+        )
 
     mask = np.isfinite(y) & np.isfinite(w) & (w > 0)
     if not np.any(mask):
@@ -430,7 +448,11 @@ def weighted_quantile_hmisc(
     w = w[mask]
 
     if np.any((np.asarray(q) < 0) | (np.asarray(q) > 1)):
-        raise ValueError("quantile probabilities must be between 0 and 1")
+        raise MethodIncompatibility(
+            "quantile probabilities must be between 0 and 1",
+            recovery_hint="Pass quantile probabilities in the closed unit interval.",
+            diagnostics={"q": np.asarray(q).tolist()},
+        )
 
     order = np.argsort(y, kind="mergesort")
     y_s = y[order]
@@ -454,7 +476,7 @@ def weighted_quantile_hmisc(
     out = (1.0 - frac) * vals[:k] + frac * vals[k:]
     if np.isscalar(q):
         return float(out[0])
-    return out
+    return cast(np.ndarray, out)
 
 
 def _bw_nrd0(y: np.ndarray) -> float:
@@ -491,7 +513,11 @@ def kde_at_dineq(y: np.ndarray, point: float, w: Optional[np.ndarray] = None) ->
         w = np.ones_like(y)
     w = np.asarray(w, dtype=float).ravel()
     if y.shape[0] != w.shape[0]:
-        raise ValueError("y and w must have the same length")
+        raise MethodIncompatibility(
+            "y and w must have the same length",
+            recovery_hint="Pass one positive weight per outcome observation.",
+            diagnostics={"n_y": y.shape[0], "n_w": w.shape[0]},
+        )
     mask = np.isfinite(y) & np.isfinite(w) & (w > 0)
     if not np.any(mask):
         raise DataInsufficient("at least one positive finite weight is required")
@@ -564,9 +590,10 @@ def kde_at(y: np.ndarray, point: float, w: Optional[np.ndarray] = None) -> float
         w = np.ones_like(y)
     w = np.asarray(w, dtype=float)
     n_eff = (w.sum() ** 2) / (w ** 2).sum()
-    sigma = np.sqrt(np.cov(y, aweights=w))
+    sigma = float(np.sqrt(np.cov(y, aweights=w)))
     if sigma <= 0 or not np.isfinite(sigma):
-        sigma = y.std() if y.std() > 0 else 1.0
+        y_std = float(y.std())
+        sigma = y_std if y_std > 0 else 1.0
     h = 1.06 * float(sigma) * n_eff ** (-0.2)
     h = max(h, 1e-6)
     kern = np.exp(-0.5 * ((y - point) / h) ** 2) / (h * np.sqrt(2 * np.pi))
@@ -641,7 +668,14 @@ def statistic_value(
         if mu <= 0:
             return float("nan")  # pragma: no cover
         return float(1.0 - np.exp(np.average(np.log(yp), weights=w)) / mu)
-    raise ValueError(f"unknown statistic {stat!r}")
+    raise MethodIncompatibility(
+        f"unknown statistic {stat!r}",
+        recovery_hint=(
+            "Use a supported statistic such as 'mean', 'quantile', 'gini', "
+            "'theil_t', 'theil_l', or 'atkinson'."
+        ),
+        diagnostics={"stat": stat},
+    )
 
 
 def analytical_ci(
@@ -720,25 +754,31 @@ def influence_function(
             q = float(weighted_quantile_hmisc(y, tau, w=w))
             f_q = max(kde_at_dineq(y, q, w=w), 1e-12)
             return q + (tau - (y < q).astype(float)) / f_q
-        raise ValueError(
-            "quantile_convention must be 'statspai' or 'dineq'"
+        raise MethodIncompatibility(
+            "quantile_convention must be 'statspai' or 'dineq'",
+            recovery_hint=(
+                "Use quantile_convention='statspai' or "
+                "quantile_convention='dineq'."
+            ),
+            diagnostics={"quantile_convention": quantile_convention},
         )
     if stat == "mean":
-        return y.copy()
+        return cast(np.ndarray, y.copy())
     if stat == "variance":
         mu = float(np.average(y, weights=w))
-        return (y - mu) ** 2
+        return cast(np.ndarray, (y - mu) ** 2)
     if stat == "std":
         mu = float(np.average(y, weights=w))
         s2 = float(np.average((y - mu) ** 2, weights=w))
         s = np.sqrt(max(s2, 1e-12))
-        return s + ((y - mu) ** 2 - s2) / (2 * s)
+        return cast(np.ndarray, s + ((y - mu) ** 2 - s2) / (2 * s))
     if stat == "log_var":
         ly = np.log(np.clip(y, 1e-12, None))
         mu = float(np.average(ly, weights=w))
-        return (ly - mu) ** 2
+        return cast(np.ndarray, (ly - mu) ** 2)
     if stat == "iqr":
-        return (
+        return cast(
+            np.ndarray,
             influence_function(
                 y, "quantile", tau=0.75, w=w,
                 quantile_convention=quantile_convention,
@@ -746,7 +786,7 @@ def influence_function(
             - influence_function(
                 y, "quantile", tau=0.25, w=w,
                 quantile_convention=quantile_convention,
-            )
+            ),
         )
     if stat == "gini":
         order = np.argsort(y)
@@ -762,7 +802,7 @@ def influence_function(
         rif_sorted = 1.0 + (2.0 / mu) * (y_s * F - GL) - ((G + 1.0) / mu) * y_s
         rif_orig = np.empty_like(rif_sorted)
         rif_orig[order] = rif_sorted
-        return rif_orig
+        return cast(np.ndarray, rif_orig)
     if stat == "theil_t":
         yp = np.clip(y, 1e-12, None)
         mu = float(np.average(yp, weights=w))
@@ -770,13 +810,13 @@ def influence_function(
             return np.full_like(y, np.nan)  # pragma: no cover
         s = yp / mu
         T = float(np.average(s * np.log(s), weights=w))
-        return s * np.log(s) - (s - 1.0) * (T + 1.0)
+        return cast(np.ndarray, s * np.log(s) - (s - 1.0) * (T + 1.0))
     if stat == "theil_l":
         yp = np.clip(y, 1e-12, None)
         mu = float(np.average(yp, weights=w))
         if mu <= 0:
             return np.full_like(y, np.nan)  # pragma: no cover
-        return (yp / mu - 1.0) - (np.log(yp) - np.log(mu))
+        return cast(np.ndarray, (yp / mu - 1.0) - (np.log(yp) - np.log(mu)))
     if stat == "atkinson":
         yp = np.clip(y, 1e-12, None)
         mu = float(np.average(yp, weights=w))
@@ -785,10 +825,20 @@ def influence_function(
         mean_log = float(np.average(np.log(yp), weights=w))
         geo_mean = np.exp(mean_log)
         A1 = 1.0 - geo_mean / mu
-        return A1 + (geo_mean / mu) * (
-            (yp - mu) / mu - (np.log(yp) - mean_log)
+        return cast(
+            np.ndarray,
+            A1 + (geo_mean / mu) * (
+                (yp - mu) / mu - (np.log(yp) - mean_log)
+            ),
         )
-    raise ValueError(f"unknown statistic {stat!r}")
+    raise MethodIncompatibility(
+        f"unknown statistic {stat!r}",
+        recovery_hint=(
+            "Use a supported statistic such as 'mean', 'quantile', 'gini', "
+            "'theil_t', 'theil_l', or 'atkinson'."
+        ),
+        diagnostics={"stat": stat},
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -798,7 +848,11 @@ def influence_function(
 def parse_formula(formula: str) -> Tuple[str, list[str]]:
     """'y ~ x1 + x2 + x3' -> ('y', ['x1', 'x2', 'x3'])."""
     if "~" not in formula:
-        raise ValueError("formula must contain '~'")
+        raise MethodIncompatibility(
+            "formula must contain '~'",
+            recovery_hint="Use a formula such as 'y ~ x1 + x2'.",
+            diagnostics={"formula": formula},
+        )
     dep, rhs = [s.strip() for s in formula.split("~", 1)]
     indep = [v.strip() for v in rhs.split("+") if v.strip() and v.strip() != "1"]
     return dep, indep
@@ -816,15 +870,32 @@ def prepare_frame(
         use_cols = list(dict.fromkeys(cols + [weights]))
     else:
         use_cols = list(dict.fromkeys(cols))
+    missing = [col for col in use_cols if col not in data.columns]
+    if missing:
+        raise MethodIncompatibility(
+            "prepare_frame columns are missing from data.",
+            recovery_hint="Check requested columns and weights against data.columns.",
+            diagnostics={
+                "missing_columns": missing,
+                "available_columns": list(data.columns),
+            },
+        )
     df = data[use_cols].dropna()
     if weights is None:
-        w = np.ones(len(df))
+        w_out = np.ones(len(df), dtype=float)
     elif isinstance(weights, str):
-        w = df[weights].to_numpy(dtype=float)
+        w_out = df[weights].to_numpy(dtype=float)
         df = df.drop(columns=[weights])
     else:
-        w = np.asarray(weights, dtype=float)
-        if len(w) != len(df):
+        w_out = np.asarray(weights, dtype=float).ravel()
+        if len(w_out) != len(df):
             # Likely the user passed original-length weights; align by index
-            raise ValueError("weights array length does not match data.")
-    return df, w
+            raise MethodIncompatibility(
+                "weights array length does not match data.",
+                recovery_hint=(
+                    "Pass weights already aligned to the cleaned analysis "
+                    "frame or use a weight column name."
+                ),
+                diagnostics={"n_weights": len(w_out), "n_rows": len(df)},
+            )
+    return df, w_out

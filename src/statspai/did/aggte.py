@@ -203,7 +203,8 @@ def aggte(
         crit_unif = stats.norm.ppf(1 - alpha / 2)
 
     z_point = stats.norm.ppf(1 - alpha / 2)
-    pval = 2 * (1 - stats.norm.cdf(np.abs(est_cells / np.where(se_cells > 0, se_cells, np.nan))))
+    denom = np.where(se_cells > 0, se_cells, np.nan)
+    pval = 2 * (1 - stats.norm.cdf(np.abs(est_cells / denom)))
 
     out = pd.DataFrame({
         dim_name: labels,
@@ -462,7 +463,7 @@ def _apply_balance_e(
 def _analytic_se(W: np.ndarray, detail: pd.DataFrame) -> np.ndarray:
     """Conservative SE assuming independence across (g, t)."""
     v = detail['se'].values ** 2
-    return np.sqrt((W ** 2) @ v)
+    return np.asarray(np.sqrt((W ** 2) @ v), dtype=float)
 
 
 def _multiplier_bootstrap(
@@ -486,8 +487,6 @@ def _multiplier_bootstrap(
     # Influence functions of the K linear combinations: shape (n, K)
     psi = inf_matrix @ W.T  # (n_units, K)
     n = psi.shape[0]
-    K = psi.shape[1]
-
     # Two-point Mammen weights with mean 0, variance 1.
     # P(V = (1-√5)/2) = (√5+1)/(2√5); P(V = (1+√5)/2) = (√5-1)/(2√5).
     sqrt5 = np.sqrt(5.0)

@@ -15,6 +15,9 @@ Weighted variant (with sample_weight w_i):
     Var(theta) = sum( w² * psi_score² ) / ( sum(w * d_tilde²) )²
 where psi_score_i = (y_tilde_i - theta * d_tilde_i) * d_tilde_i.
 """
+from __future__ import annotations
+
+from typing import Iterable, Optional, Tuple
 
 import numpy as np
 
@@ -56,13 +59,21 @@ class DoubleMLPLR(_DoubleMLBase):
     _SUPPORTS_SAMPLE_WEIGHT = True
 
     def _fit_one_rep(
-        self, Y, D, X, Z, n, rng_seed, sample_weight=None, fold_indices=None
-    ):
+        self,
+        Y: np.ndarray,
+        D: np.ndarray,
+        X: np.ndarray,
+        Z: np.ndarray,
+        n: int,
+        rng_seed: int,
+        sample_weight: Optional[np.ndarray] = None,
+        fold_indices: Optional[np.ndarray] = None,
+    ) -> Tuple[float, float]:
         from sklearn.model_selection import KFold
 
         if fold_indices is None:
             kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=rng_seed)
-            splits = kf.split(X)
+            splits: Iterable[Tuple[np.ndarray, np.ndarray]] = kf.split(X)
         else:
             splits = (
                 (
@@ -71,8 +82,8 @@ class DoubleMLPLR(_DoubleMLBase):
                 )
                 for fold in range(self.n_folds)
             )
-        y_resid = np.zeros(n)
-        d_resid = np.zeros(n)
+        y_resid: np.ndarray = np.zeros(n, dtype=float)
+        d_resid: np.ndarray = np.zeros(n, dtype=float)
 
         for train_idx, test_idx in splits:
             w_train = (
@@ -100,7 +111,7 @@ class DoubleMLPLR(_DoubleMLBase):
                 if abs(J) > 1e-10 else 0.0
             )
         else:
-            w = sample_weight
+            w: np.ndarray = sample_weight
             denom = float(np.sum(w * d_resid * d_resid))
             if denom < 1e-12:
                 raise RuntimeError(  # pragma: no cover

@@ -35,6 +35,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
 
 __all__ = [
@@ -80,12 +81,175 @@ class SurrogateResult:
 # ---------------------------------------------------------------------------
 
 
+def _require_dataframe(value: Any, name: str) -> pd.DataFrame:
+    if not isinstance(value, pd.DataFrame):
+        raise MethodIncompatibility(
+            f"`{name}` must be a pandas DataFrame.",
+            diagnostics={name: value.__class__.__name__},
+        )
+    if value.empty:
+        raise DataInsufficient(
+            f"`{name}` must contain at least one row.",
+            diagnostics={name: len(value)},
+        )
+    return value
+
+
+def _require_column_name(value: Any, name: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise MethodIncompatibility(
+            f"`{name}` must be a non-empty column name.",
+            diagnostics={name: repr(value)},
+        )
+    return value
+
+
+def _coerce_column_list(
+    columns: Any,
+    name: str,
+    *,
+    allow_empty: bool = False,
+) -> List[str]:
+    if isinstance(columns, str):
+        out = [columns]
+    else:
+        try:
+            out = list(columns)
+        except TypeError as exc:
+            raise MethodIncompatibility(
+                f"`{name}` must be a column name or list of column names.",
+                diagnostics={name: repr(columns)},
+            ) from exc
+    if not allow_empty and not out:
+        raise MethodIncompatibility(
+            f"`{name}` must contain at least one column name.",
+            diagnostics={name: out},
+        )
+    bad = [c for c in out if not isinstance(c, str) or not c]
+    if bad:
+        raise MethodIncompatibility(
+            f"`{name}` must contain only non-empty string column names.",
+            diagnostics={name: out, "invalid_columns": bad},
+        )
+    return out
+
+
+def _coerce_optional_column_list(columns: Any, name: str) -> List[str]:
+    if columns is None:
+        return []
+    return _coerce_column_list(columns, name, allow_empty=True)
+
+
+def _coerce_waves(waves: Any) -> List[List[str]]:
+    if isinstance(waves, str):
+        raise MethodIncompatibility(
+            "`surrogates_waves` must be a sequence of per-wave column lists.",
+            diagnostics={"surrogates_waves": repr(waves)},
+        )
+    try:
+        out = [
+            _coerce_column_list(wave, f"surrogates_waves[{i}]")
+            for i, wave in enumerate(waves)
+        ]
+    except TypeError as exc:
+        raise MethodIncompatibility(
+            "`surrogates_waves` must be a sequence of per-wave column lists.",
+            diagnostics={"surrogates_waves": repr(waves)},
+        ) from exc
+    if not out:
+        raise MethodIncompatibility(
+            "`surrogates_waves` must contain at least one wave.",
+            diagnostics={"n_waves": 0},
+        )
+    return out
+
+
+def _require_open_unit_float(value: Any, name: str) -> float:
+    if isinstance(value, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"`{name}` must be a number in (0, 1).",
+            diagnostics={name: repr(value)},
+        )
+    try:
+        out = float(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"`{name}` must be a number in (0, 1).",
+            diagnostics={name: repr(value)},
+        ) from exc
+    if not np.isfinite(out) or not 0.0 < out < 1.0:
+        raise MethodIncompatibility(
+            f"`{name}` must be in (0, 1).",
+            diagnostics={name: out},
+        )
+    return out
+
+
+def _require_int_at_least(value: Any, name: str, minimum: int) -> int:
+    if isinstance(value, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"`{name}` must be an integer >= {minimum}.",
+            diagnostics={name: repr(value), "minimum": minimum},
+        )
+    try:
+        out = int(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"`{name}` must be an integer >= {minimum}.",
+            diagnostics={name: repr(value), "minimum": minimum},
+        ) from exc
+    if out != value or out < minimum:
+        raise MethodIncompatibility(
+            f"`{name}` must be an integer >= {minimum}.",
+            diagnostics={name: repr(value), "minimum": minimum},
+        )
+    return out
+
+
+def _raise_missing_columns(sample: str, missing: set[str]) -> None:
+    if missing:
+        raise MethodIncompatibility(
+            f"{sample} missing columns: {sorted(missing)}",
+            diagnostics={sample: sorted(missing)},
+        )
+
+
+def _require_finite_vector(values: np.ndarray, name: str) -> np.ndarray:
+    arr = np.asarray(values, dtype=float)
+    if arr.size == 0 or np.any(~np.isfinite(arr)):
+        raise DataInsufficient(
+            f"`{name}` must contain finite numeric values.",
+            diagnostics={"name": name, "n": int(arr.size)},
+        )
+    return arr
+
+
+def _require_binary_treatment(values: np.ndarray, name: str) -> np.ndarray:
+    arr = _require_finite_vector(values, name)
+    uniques = np.unique(arr)
+    if set(uniques) - {0.0, 1.0}:
+        raise MethodIncompatibility(
+            f"`treatment` '{name}' must be binary 0/1; found {sorted(uniques)}.",
+            diagnostics={"treatment": name, "values": sorted(uniques.tolist())},
+        )
+    mask = arr.astype(bool)
+    if mask.all() or (~mask).all():
+        raise DataInsufficient(
+            "Experimental sample has no treatment overlap.",
+            recovery_hint="Include both treated and control observations.",
+            diagnostics={"treatment": name, "n_treated": int(mask.sum())},
+        )
+    return mask
+
+
 def _as_matrix(df: pd.DataFrame, cols: Sequence[str]) -> np.ndarray:
     arr = df[list(cols)].to_numpy(dtype=float, copy=True)
-    if np.isnan(arr).any():
-        raise ValueError(
+    if np.any(~np.isfinite(arr)):
+        raise DataInsufficient(
             "Surrogate/covariate columns contain NaN. Drop or impute before "
-            "calling sp.surrogate.surrogate_index()."
+            "calling sp.surrogate.surrogate_index().",
+            recovery_hint="Drop or impute missing surrogate/covariate values.",
+            diagnostics={"columns": list(cols)},
         )
     return arr
 
@@ -123,9 +287,10 @@ def _fit_outcome_model(
     fit_fn = getattr(model, "fit", None)
     predict_fn = getattr(model, "predict", None)
     if fit_fn is None or predict_fn is None:
-        raise TypeError(
+        raise MethodIncompatibility(
             "`model` must be 'ols' or an object with .fit(X,y) and .predict(X) "
-            f"methods; got {type(model).__name__}."
+            f"methods; got {type(model).__name__}.",
+            diagnostics={"model": type(model).__name__},
         )
     try:
         if weights is not None:
@@ -247,27 +412,33 @@ def surrogate_index(
     Long-Term Treatment Effects More Rapidly and Precisely."
     NBER Working Paper 26463. [@athey2019surrogate]
     """
-    if not isinstance(experimental, pd.DataFrame):
-        raise TypeError("`experimental` must be a pandas DataFrame.")
-    if not isinstance(observational, pd.DataFrame):
-        raise TypeError("`observational` must be a pandas DataFrame.")
+    experimental = _require_dataframe(experimental, "experimental")
+    observational = _require_dataframe(observational, "observational")
+    treatment = _require_column_name(treatment, "treatment")
+    surrogates = _coerce_column_list(surrogates, "surrogates")
+    long_term_outcome = _require_column_name(
+        long_term_outcome, "long_term_outcome"
+    )
+    cov_list = _coerce_optional_column_list(covariates, "covariates")
+    alpha = _require_open_unit_float(alpha, "alpha")
+    n_boot = _require_int_at_least(n_boot, "n_boot", 0)
     cols_e = {treatment, *surrogates}
     cols_o = {long_term_outcome, *surrogates}
-    if covariates:
-        cols_e |= set(covariates)
-        cols_o |= set(covariates)
+    if cov_list:
+        cols_e |= set(cov_list)
+        cols_o |= set(cov_list)
     missing_e = cols_e - set(experimental.columns)
     missing_o = cols_o - set(observational.columns)
-    if missing_e:
-        raise ValueError(f"experimental missing columns: {sorted(missing_e)}")
-    if missing_o:
-        raise ValueError(f"observational missing columns: {sorted(missing_o)}")
+    _raise_missing_columns("experimental", missing_e)
+    _raise_missing_columns("observational", missing_o)
 
-    feat_cols: List[str] = list(surrogates) + (list(covariates) if covariates else [])
+    feat_cols: List[str] = list(surrogates) + cov_list
 
     # --- Fit f(S) on observational sample -------------------------------
     S_o = _as_matrix(observational, feat_cols)
-    Y_o = observational[long_term_outcome].to_numpy(dtype=float)
+    Y_o = _require_finite_vector(
+        observational[long_term_outcome].to_numpy(dtype=float), long_term_outcome
+    )
     predict = _fit_outcome_model(S_o, Y_o, model=model)
     h_pred_obs = predict(S_o)
     resid_obs = Y_o - h_pred_obs
@@ -275,13 +446,8 @@ def surrogate_index(
     # --- Predict h on experimental sample and compute ATE ---------------
     S_e = _as_matrix(experimental, feat_cols)
     T_e = experimental[treatment].to_numpy(dtype=float)
-    if set(np.unique(T_e)) - {0.0, 1.0}:
-        raise ValueError(
-            f"`treatment` '{treatment}' must be binary 0/1; found "
-            f"{sorted(np.unique(T_e))}."
-        )
+    T_bool = _require_binary_treatment(T_e, treatment)
     h = predict(S_e)
-    T_bool = T_e.astype(bool)
     est = float(h[T_bool].mean() - h[~T_bool].mean())
 
     # --- Variance -------------------------------------------------------
@@ -301,9 +467,11 @@ def surrogate_index(
             boots[b] = h_b[T_b].mean() - h_b[~T_b].mean()
         boots = boots[~np.isnan(boots)]
         if boots.size < 10:
-            raise RuntimeError(
+            raise ConvergenceFailure(
                 "Bootstrap produced <10 valid replicates; check treatment "
-                "overlap in experimental sample."
+                "overlap in experimental sample.",
+                recovery_hint="Increase n_boot or ensure both treatment arms resample.",
+                diagnostics={"valid_replicates": int(boots.size), "n_boot": n_boot},
             )
         se = float(boots.std(ddof=1))
         ci = (
@@ -341,7 +509,7 @@ def surrogate_index(
             "n_exp": int(len(experimental)),
             "n_obs": int(len(observational)),
             "surrogates": list(surrogates),
-            "covariates": list(covariates) if covariates else [],
+            "covariates": cov_list,
             "outcome_model": str(model),
             "inference": "bootstrap" if n_boot > 0 else "delta_method",
             "resid_std_obs": float(resid_obs.std(ddof=1)),
@@ -357,7 +525,7 @@ def surrogate_index(
                 "treatment": treatment,
                 "surrogates": list(surrogates),
                 "long_term_outcome": long_term_outcome,
-                "covariates": list(covariates) if covariates else None,
+                "covariates": cov_list if cov_list else None,
                 "model": str(model),
                 "alpha": alpha,
                 "n_boot": n_boot,
@@ -441,29 +609,34 @@ def long_term_from_short(
     Causal Effects of Long-Term Treatments from Short-Term Experiments."
     arXiv:2311.08527.
     """
-    if not surrogates_waves:
-        raise ValueError("`surrogates_waves` must contain at least one wave.")
+    experimental = _require_dataframe(experimental, "experimental")
+    observational = _require_dataframe(observational, "observational")
+    treatment = _require_column_name(treatment, "treatment")
+    surrogates_waves = _coerce_waves(surrogates_waves)
+    long_term_outcome = _require_column_name(
+        long_term_outcome, "long_term_outcome"
+    )
+    cov_list = _coerce_optional_column_list(covariates, "covariates")
+    alpha = _require_open_unit_float(alpha, "alpha")
+    n_boot = _require_int_at_least(n_boot, "n_boot", 50)
     flat_surr: List[str] = [c for wave in surrogates_waves for c in wave]
     base_cols_e = {treatment, *flat_surr}
     base_cols_o = {long_term_outcome, *flat_surr}
-    if covariates:
-        base_cols_e |= set(covariates)
-        base_cols_o |= set(covariates)
+    if cov_list:
+        base_cols_e |= set(cov_list)
+        base_cols_o |= set(cov_list)
     missing_e = base_cols_e - set(experimental.columns)
     missing_o = base_cols_o - set(observational.columns)
-    if missing_e:
-        raise ValueError(f"experimental missing columns: {sorted(missing_e)}")
-    if missing_o:
-        raise ValueError(f"observational missing columns: {sorted(missing_o)}")
-    if n_boot < 50:
-        raise ValueError("`n_boot` >= 50 required for multi-wave surrogate index.")
+    _raise_missing_columns("experimental", missing_e)
+    _raise_missing_columns("observational", missing_o)
 
-    cov_list = list(covariates) if covariates else []
     K = len(surrogates_waves)
 
     def _point_estimate(obs_df: pd.DataFrame, exp_df: pd.DataFrame) -> float:
         # Backward induction: start with Y on final wave, then iterate.
-        current_target = obs_df[long_term_outcome].to_numpy(dtype=float)
+        current_target = _require_finite_vector(
+            obs_df[long_term_outcome].to_numpy(dtype=float), long_term_outcome
+        )
         preds_cache: List[Callable] = []
         for k in range(K - 1, -1, -1):
             feat_k = list(surrogates_waves[k]) + cov_list
@@ -477,9 +650,7 @@ def long_term_from_short(
         # Final: apply wave-1 predictor to experimental sample.
         wave1_cols = list(surrogates_waves[0]) + cov_list
         f1_exp = preds_cache[-1](_as_matrix(exp_df, wave1_cols))
-        T = exp_df[treatment].to_numpy(dtype=float).astype(bool)
-        if T.all() or (~T).all():
-            raise ValueError("Experimental sample has no treatment overlap.")
+        T = _require_binary_treatment(exp_df[treatment].to_numpy(dtype=float), treatment)
         return float(f1_exp[T].mean() - f1_exp[~T].mean())
 
     est = _point_estimate(observational, experimental)
@@ -501,9 +672,11 @@ def long_term_from_short(
             continue
     boots = boots[:n_ok]
     if n_ok < max(50, int(0.8 * n_boot)):
-        raise RuntimeError(
+        raise ConvergenceFailure(
             f"Only {n_ok}/{n_boot} bootstrap replicates succeeded; check "
-            "treatment overlap and surrogate availability."
+            "treatment overlap and surrogate availability.",
+            recovery_hint="Increase n_boot or inspect treatment/surrogate support.",
+            diagnostics={"valid_replicates": int(n_ok), "n_boot": int(n_boot)},
         )
     se = float(boots.std(ddof=1))
     ci = (
@@ -610,21 +783,30 @@ def proximal_surrogate_index(
     Combination." Journal of the Royal Statistical Society Series B,
     87(2), 362-388. arXiv:2202.07234. [@imbens2025long]
     """
+    experimental = _require_dataframe(experimental, "experimental")
+    observational = _require_dataframe(observational, "observational")
+    treatment = _require_column_name(treatment, "treatment")
+    surrogates = _coerce_column_list(surrogates, "surrogates")
+    proxies = _coerce_column_list(proxies, "proxies", allow_empty=True)
+    long_term_outcome = _require_column_name(
+        long_term_outcome, "long_term_outcome"
+    )
+    cov_list = _coerce_optional_column_list(covariates, "covariates")
+    alpha = _require_open_unit_float(alpha, "alpha")
+    n_boot = _require_int_at_least(n_boot, "n_boot", 50)
     if len(proxies) == 0:
-        raise ValueError(
+        raise MethodIncompatibility(
             "`proxies` must contain at least one proxy variable W; "
-            "otherwise reduce to sp.surrogate.surrogate_index()."
+            "otherwise reduce to sp.surrogate.surrogate_index().",
+            alternative_functions=["sp.surrogate_index"],
         )
-    cov_list = list(covariates) if covariates else []
     feat_s = list(surrogates) + cov_list
     cols_o = {long_term_outcome, *surrogates, *proxies, *cov_list}
     cols_e = {treatment, *surrogates, *cov_list}
     missing_o = cols_o - set(observational.columns)
     missing_e = cols_e - set(experimental.columns)
-    if missing_o:
-        raise ValueError(f"observational missing columns: {sorted(missing_o)}")
-    if missing_e:
-        raise ValueError(f"experimental missing columns: {sorted(missing_e)}")
+    _raise_missing_columns("observational", missing_o)
+    _raise_missing_columns("experimental", missing_e)
 
     def _bridge_predict(obs_df: pd.DataFrame) -> Callable[[np.ndarray], np.ndarray]:
         """Solve E[Y|S,X,W] = Wα + h(S,X) by 2SLS.
@@ -636,7 +818,9 @@ def proximal_surrogate_index(
         """
         S_o = _as_matrix(obs_df, feat_s)  # n_o × p_s+p_x
         W_o = _as_matrix(obs_df, list(proxies))  # n_o × p_w
-        Y_o = obs_df[long_term_outcome].to_numpy(dtype=float)
+        Y_o = _require_finite_vector(
+            obs_df[long_term_outcome].to_numpy(dtype=float), long_term_outcome
+        )
         n_o = S_o.shape[0]
         ones = np.ones((n_o, 1))
         # Stage 1: S_hat ~ [1, W, X]
@@ -673,9 +857,7 @@ def proximal_surrogate_index(
         S_e = _as_matrix(exp_df, list(surrogates))
         X_e = _as_matrix(exp_df, cov_list) if cov_list else None
         h_e = predict(S_e, X_e)
-        T = exp_df[treatment].to_numpy(dtype=float).astype(bool)
-        if T.all() or (~T).all():
-            raise ValueError("Experimental sample has no treatment overlap.")
+        T = _require_binary_treatment(exp_df[treatment].to_numpy(dtype=float), treatment)
         return float(h_e[T].mean() - h_e[~T].mean())
 
     est = _point_estimate(observational, experimental)
@@ -697,9 +879,11 @@ def proximal_surrogate_index(
             continue
     boots = boots[:n_ok]
     if n_ok < max(50, int(0.7 * n_boot)):
-        raise RuntimeError(
+        raise ConvergenceFailure(
             f"Only {n_ok}/{n_boot} bootstrap replicates succeeded; check "
-            "proxy strength and overlap."
+            "proxy strength and overlap.",
+            recovery_hint="Increase n_boot or inspect proxy strength and overlap.",
+            diagnostics={"valid_replicates": int(n_ok), "n_boot": int(n_boot)},
         )
     se = float(boots.std(ddof=1))
     ci = (

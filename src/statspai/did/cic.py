@@ -23,7 +23,7 @@ Identification and Inference in Nonlinear Difference-in-Differences Models.
 
 from __future__ import annotations
 
-from typing import Optional, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -44,14 +44,114 @@ def _ecdf_values(x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 def _ecdf(x: np.ndarray, grid: np.ndarray) -> np.ndarray:
     """Evaluate empirical CDF of *x* on *grid* via linear interpolation."""
     xs, cdf = _ecdf_values(x)
-    return np.interp(grid, xs, cdf, left=0.0, right=1.0)
+    return np.asarray(np.interp(grid, xs, cdf, left=0.0, right=1.0), dtype=float)
 
 
 def _quantile_func(x: np.ndarray, probs: np.ndarray) -> np.ndarray:
     """Evaluate empirical quantile function (inverse CDF) at *probs*."""
     xs, cdf = _ecdf_values(x)
     # Ensure monotonicity for interp (CDF is already non-decreasing)
-    return np.interp(probs, cdf, xs)
+    return np.asarray(np.interp(probs, cdf, xs), dtype=float)
+
+
+class CICResult(CausalResult):
+    """CIC result with estimator-specific plot and summary methods."""
+
+    _cic_plot_data: Dict[str, Any]
+
+    def plot(self, type: str = "auto", **kwargs: Any) -> Tuple[Any, Any]:
+        """CIC-specific plot: QTE plot if quantiles given, else CDF comparison."""
+        import matplotlib.pyplot as plt
+
+        ax = kwargs.pop("ax", None)
+        plot_data = self._cic_plot_data
+        has_qte = plot_data["qte_taus"] is not None
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(8, 5))
+        else:
+            fig = ax.get_figure()
+
+        if has_qte:
+            taus = plot_data["qte_taus"]
+            qte = plot_data["qte_point"]
+            se = plot_data["qte_se"]
+            z = stats.norm.ppf(1 - plot_data["alpha"] / 2)
+            ax.plot(taus, qte, "o-", color="#2c7bb6", linewidth=2, label="QTE")
+            ax.fill_between(
+                taus,
+                qte - z * se,
+                qte + z * se,
+                alpha=0.2,
+                color="#2c7bb6",
+            )
+            ax.axhline(0, color="grey", linestyle="--", linewidth=0.8)
+            ax.axhline(
+                self.estimate,
+                color="#d7191c",
+                linestyle=":",
+                linewidth=1.2,
+                label=f"ATT = {self.estimate:.4f}",
+            )
+            ax.set_xlabel("Quantile (τ)")
+            ax.set_ylabel("Treatment Effect")
+            ax.set_title("Changes-in-Changes: Quantile Treatment Effects")
+            ax.legend()
+        else:
+            tau = plot_data["tau_grid"]
+            obs_q = _quantile_func(plot_data["y11"], tau)
+            cf_q_vals = plot_data["cf_quantiles"]
+            ax.plot(
+                tau,
+                obs_q,
+                color="#2c7bb6",
+                linewidth=2,
+                label="Observed (treated-post)",
+            )
+            ax.plot(
+                tau,
+                cf_q_vals,
+                color="#d7191c",
+                linewidth=2,
+                linestyle="--",
+                label="Counterfactual",
+            )
+            ax.set_xlabel("Quantile (τ)")
+            ax.set_ylabel("Outcome")
+            ax.set_title("Changes-in-Changes: Observed vs Counterfactual")
+            ax.legend()
+
+        fig.tight_layout()
+        return fig, ax
+
+    def summary(self, alpha: Optional[float] = None) -> str:
+        a = self.alpha if alpha is None else alpha
+        lines = []
+        lines.append("━" * 60)
+        lines.append("  Changes-in-Changes (Athey & Imbens, 2006)")
+        lines.append("━" * 60)
+        stars = CausalResult._stars(self.pvalue)
+        lines.append(f"  ATT:          {self.estimate:.4f}{stars}")
+        lines.append(f"  Bootstrap SE: {self.se:.4f}")
+        pct = int(100 * (1 - a))
+        lines.append(f"  {pct}% CI:      [{self.ci[0]:.4f}, {self.ci[1]:.4f}]")
+        lines.append("")
+
+        if self.detail is not None:
+            lines.append("  Quantile Treatment Effects:")
+            for _, row in self.detail.iterrows():
+                s = CausalResult._stars(row["pvalue"])
+                lines.append(
+                    f"    τ = {row['quantile']:.2f}:   "
+                    f"{row['qte']:.4f}  ({row['se']:.4f}) {s}"
+                )
+        lines.append("━" * 60)
+        lines.append(f"  Observations: {self.n_obs:,}")
+        lines.append(f"  Bootstrap replications: {self.model_info['n_boot']}")
+        lines.append("━" * 60)
+        out = "\n".join(lines)
+        print(out)
+        return out
 
 
 def _counterfactual_quantiles(
@@ -189,6 +289,7 @@ def cic(
         boot_att[b] = np.mean(b11) - np.mean(bcf)
 
         if qte_taus is not None:
+            assert boot_qte is not None
             bq11 = _quantile_func(b11, qte_taus)
             bcf_tau = _counterfactual_quantiles(b00, b01, b10, qte_taus)
             boot_qte[b] = bq11 - bcf_tau
@@ -203,7 +304,7 @@ def cic(
 
     # ── Build detail DataFrame ────────────────────────────────────── #
     detail = None
-    model_info: dict = {
+    model_info: Dict[str, Any] = {
         "n_control_pre": len(y00),
         "n_control_post": len(y01),
         "n_treated_pre": len(y10),
@@ -230,7 +331,7 @@ def cic(
 
     n_obs = len(df)
 
-    result = CausalResult(
+    result = CICResult(
         method="Changes-in-Changes (Athey & Imbens, 2006)",
         estimand="ATT",
         estimate=float(att_point),
@@ -244,7 +345,6 @@ def cic(
         _citation_key="cic",
     )
 
-    # Attach plot helper
     result._cic_plot_data = {
         "y11": y11,
         "cf_quantiles": cf_q,
@@ -254,89 +354,6 @@ def cic(
         "qte_se": np.std(boot_qte, axis=0, ddof=1) if boot_qte is not None else None,
         "alpha": alpha,
     }
-    _orig_plot = result.plot if hasattr(result, 'plot') else None
-
-    def _cic_plot(ax=None):
-        """CIC-specific plot: QTE plot if quantiles given, else CDF comparison."""
-        import matplotlib.pyplot as plt
-
-        pd = result._cic_plot_data
-        has_qte = pd["qte_taus"] is not None
-
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(8, 5))
-        else:
-            fig = ax.get_figure()
-
-        if has_qte:
-            taus = pd["qte_taus"]
-            qte = pd["qte_point"]
-            se = pd["qte_se"]
-            z = stats.norm.ppf(1 - pd["alpha"] / 2)
-            ax.plot(taus, qte, "o-", color="#2c7bb6", linewidth=2, label="QTE")
-            ax.fill_between(
-                taus, qte - z * se, qte + z * se,
-                alpha=0.2, color="#2c7bb6",
-            )
-            ax.axhline(0, color="grey", linestyle="--", linewidth=0.8)
-            ax.axhline(
-                result.estimate, color="#d7191c", linestyle=":",
-                linewidth=1.2, label=f"ATT = {result.estimate:.4f}",
-            )
-            ax.set_xlabel("Quantile (τ)")
-            ax.set_ylabel("Treatment Effect")
-            ax.set_title("Changes-in-Changes: Quantile Treatment Effects")
-            ax.legend()
-        else:
-            tau = pd["tau_grid"]
-            obs_q = _quantile_func(pd["y11"], tau)
-            cf_q_vals = pd["cf_quantiles"]
-            ax.plot(tau, obs_q, color="#2c7bb6", linewidth=2, label="Observed (treated-post)")
-            ax.plot(tau, cf_q_vals, color="#d7191c", linewidth=2,
-                    linestyle="--", label="Counterfactual")
-            ax.set_xlabel("Quantile (τ)")
-            ax.set_ylabel("Outcome")
-            ax.set_title("Changes-in-Changes: Observed vs Counterfactual")
-            ax.legend()
-
-        fig.tight_layout()
-        return fig, ax
-
-    result.plot = _cic_plot
-
-    # Custom summary for CIC
-    _orig_summary = result.summary
-
-    def _cic_summary(alpha_override=None):
-        a = alpha_override or alpha
-        lines = []
-        lines.append("━" * 60)
-        lines.append("  Changes-in-Changes (Athey & Imbens, 2006)")
-        lines.append("━" * 60)
-        stars = CausalResult._stars(att_pvalue)
-        lines.append(f"  ATT:          {att_point:.4f}{stars}")
-        lines.append(f"  Bootstrap SE: {att_se:.4f}")
-        pct = int(100 * (1 - a))
-        lines.append(f"  {pct}% CI:      [{att_ci[0]:.4f}, {att_ci[1]:.4f}]")
-        lines.append("")
-
-        if detail is not None:
-            lines.append("  Quantile Treatment Effects:")
-            for _, row in detail.iterrows():
-                s = CausalResult._stars(row["pvalue"])
-                lines.append(
-                    f"    τ = {row['quantile']:.2f}:   "
-                    f"{row['qte']:.4f}  ({row['se']:.4f}) {s}"
-                )
-        lines.append("━" * 60)
-        lines.append(f"  Observations: {n_obs:,}")
-        lines.append(f"  Bootstrap replications: {n_boot}")
-        lines.append("━" * 60)
-        out = "\n".join(lines)
-        print(out)
-        return out
-
-    result.summary = _cic_summary
     try:
         from ..output._lineage import attach_provenance as _attach_prov
         _attach_prov(

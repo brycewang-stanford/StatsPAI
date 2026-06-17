@@ -21,19 +21,121 @@ References
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from ..exceptions import (
+    DataInsufficient,
+    MethodIncompatibility,
+    NumericalInstability,
+)
+
 
 # ────────────────────────────────────────────────────────────────────
 # Helpers
 # ────────────────────────────────────────────────────────────────────
 
-def _extract_event_study(result) -> pd.DataFrame:
+
+class _UnsupportedSensitivityMethod(MethodIncompatibility, NotImplementedError):
+    """Compatibility bridge for unsupported sensitivity-analysis methods."""
+
+
+def _require_string_option(value: Any, name: str, context: str) -> str:
+    if not isinstance(value, str):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a string option.",
+            diagnostics={"context": context, name: repr(value)},
+        )
+    out = value.strip()
+    if not out:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a non-empty string option.",
+            diagnostics={"context": context, name: repr(value)},
+        )
+    return out
+
+
+def _require_open_unit_float(value: Any, name: str, context: str) -> float:
+    if isinstance(value, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a number in (0, 1).",
+            diagnostics={"context": context, name: repr(value)},
+        )
+    try:
+        out = float(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a number in (0, 1).",
+            diagnostics={"context": context, name: repr(value)},
+        ) from exc
+    if not np.isfinite(out) or not 0.0 < out < 1.0:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be in (0, 1).",
+            diagnostics={"context": context, name: out},
+        )
+    return out
+
+
+def _require_int_at_least(
+    value: Any,
+    name: str,
+    context: str,
+    minimum: int,
+) -> int:
+    if isinstance(value, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be an integer >= {minimum}.",
+            diagnostics={"context": context, name: repr(value), "minimum": minimum},
+        )
+    try:
+        out = int(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be an integer >= {minimum}.",
+            diagnostics={"context": context, name: repr(value), "minimum": minimum},
+        ) from exc
+    if out < minimum:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be >= {minimum}.",
+            diagnostics={"context": context, name: out, "minimum": minimum},
+        )
+    return out
+
+
+def _finite_vector(value: Any, name: str, context: str) -> np.ndarray:
+    try:
+        out = np.asarray(value, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be numeric.",
+            diagnostics={"context": context, name: repr(value)},
+        ) from exc
+    if out.ndim != 1 or out.size == 0:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a non-empty one-dimensional array.",
+            diagnostics={"context": context, name: repr(value)},
+        )
+    if not np.all(np.isfinite(out)):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must contain only finite values.",
+            diagnostics={"context": context, name: out.tolist()},
+        )
+    return out
+
+
+def _require_nonnegative(values: np.ndarray, name: str, context: str) -> None:
+    if np.any(values < 0):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must contain non-negative values.",
+            diagnostics={"context": context, name: values.tolist()},
+        )
+
+
+def _extract_event_study(result: Any) -> pd.DataFrame:
     """Pull the event-study DataFrame from a CausalResult.
 
     Looks in ``result.model_info['event_study']`` first, then falls back
@@ -46,20 +148,27 @@ def _extract_event_study(result) -> pd.DataFrame:
     if es is None and hasattr(result, "detail"):
         es = result.detail
     if es is None or (isinstance(es, pd.DataFrame) and es.empty):
-        raise ValueError(
+        raise DataInsufficient(
             "Cannot extract event-study estimates from the result object. "
             "Make sure you pass a CausalResult with an 'event_study' key in "
-            "model_info or a non-empty 'detail' DataFrame."
+            "model_info or a non-empty 'detail' DataFrame.",
+            diagnostics={"context": "pretrends", "has_result": result is not None},
         )
     if not isinstance(es, pd.DataFrame):
-        raise TypeError(
-            f"Expected a DataFrame for event-study estimates, got {type(es)}."
+        raise MethodIncompatibility(
+            "Expected a DataFrame for event-study estimates.",
+            diagnostics={"context": "pretrends", "type": type(es).__name__},
         )
     return es
 
 
-def _resolve_columns(df: pd.DataFrame):
+def _resolve_columns(df: pd.DataFrame) -> tuple:
     """Return (time_col, est_col, se_col) after inspecting column names."""
+    if not isinstance(df, pd.DataFrame):
+        raise MethodIncompatibility(
+            "event-study estimates must be a pandas DataFrame.",
+            diagnostics={"context": "pretrends", "type": type(df).__name__},
+        )
     # Time column
     time_candidates = ["relative_time", "rel_time", "event_time", "t", "time", "period"]
     time_col = None
@@ -68,9 +177,14 @@ def _resolve_columns(df: pd.DataFrame):
             time_col = c
             break
     if time_col is None:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"Cannot find a relative-time column. Looked for {time_candidates}; "
-            f"columns are {list(df.columns)}."
+            f"columns are {list(df.columns)}.",
+            diagnostics={
+                "context": "pretrends",
+                "missing": "relative_time",
+                "columns": list(df.columns),
+            },
         )
 
     # Estimate column
@@ -81,9 +195,14 @@ def _resolve_columns(df: pd.DataFrame):
             est_col = c
             break
     if est_col is None:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"Cannot find an estimate column. Looked for {est_candidates}; "
-            f"columns are {list(df.columns)}."
+            f"columns are {list(df.columns)}.",
+            diagnostics={
+                "context": "pretrends",
+                "missing": "estimate",
+                "columns": list(df.columns),
+            },
         )
 
     # SE column
@@ -94,19 +213,112 @@ def _resolve_columns(df: pd.DataFrame):
             se_col = c
             break
     if se_col is None:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"Cannot find a standard-error column. Looked for {se_candidates}; "
-            f"columns are {list(df.columns)}."
+            f"columns are {list(df.columns)}.",
+            diagnostics={
+                "context": "pretrends",
+                "missing": "standard_error",
+                "columns": list(df.columns),
+            },
         )
 
     return time_col, est_col, se_col
 
 
-def _split_pre_post(df: pd.DataFrame, time_col: str, est_col: str, se_col: str):
+def _split_pre_post(
+    df: pd.DataFrame,
+    time_col: str,
+    est_col: str,
+    se_col: str,
+) -> tuple:
     """Split event-study into pre-period (t < 0) and post-period (t >= 1)."""
+    for col in (time_col, est_col, se_col):
+        _finite_vector(df[col], col, "pretrends")
     pre = df[df[time_col] < 0].sort_values(time_col).copy()
     post = df[df[time_col] >= 1].sort_values(time_col).copy()
     return pre, post
+
+
+def _pre_arrays(
+    pre: pd.DataFrame,
+    est_col: str,
+    se_col: str,
+    context: str,
+) -> tuple:
+    if len(pre) == 0:
+        raise DataInsufficient(
+            "No pre-treatment periods found (relative_time < 0).",
+            diagnostics={"context": context},
+        )
+    beta_pre_all = _finite_vector(pre[est_col], est_col, context)
+    se_pre_all = _finite_vector(pre[se_col], se_col, context)
+    _require_nonnegative(se_pre_all, se_col, context)
+    estimated = se_pre_all > 0
+    if not estimated.any():
+        raise DataInsufficient(
+            "All pre-treatment periods have zero standard error (only the "
+            "reference period is present); the pre-trend test is undefined.",
+            diagnostics={"context": context, "n_pre": int(len(pre))},
+        )
+    return beta_pre_all, se_pre_all, estimated
+
+
+def _pre_vcv(
+    result: Any,
+    se_pre: np.ndarray,
+    estimated: np.ndarray,
+    K_all: int,
+    K: int,
+    context: str,
+) -> np.ndarray:
+    vcv = None
+    if hasattr(result, "model_info") and isinstance(result.model_info, dict):
+        vcv = result.model_info.get("vcv_pre", None)
+    if vcv is None:
+        return np.diag(se_pre ** 2)
+    try:
+        out = np.asarray(vcv, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{context}: `vcv_pre` must be numeric.",
+            diagnostics={"context": context, "vcv_pre": repr(vcv)},
+        ) from exc
+    if out.ndim != 2 or out.shape[0] != out.shape[1]:
+        raise MethodIncompatibility(
+            f"{context}: `vcv_pre` must be a square matrix.",
+            diagnostics={"context": context, "shape": out.shape},
+        )
+    if out.shape[0] == K_all:
+        out = out[np.ix_(estimated, estimated)]
+    elif out.shape[0] != K:
+        raise MethodIncompatibility(
+            f"{context}: `vcv_pre` has incompatible shape.",
+            diagnostics={
+                "context": context,
+                "shape": out.shape,
+                "expected": [(K, K), (K_all, K_all)],
+            },
+        )
+    if not np.all(np.isfinite(out)):
+        raise MethodIncompatibility(
+            f"{context}: `vcv_pre` must contain only finite values.",
+            diagnostics={"context": context},
+        )
+    return out
+
+
+def _invert_vcv(vcv: np.ndarray, context: str, target: str) -> np.ndarray:
+    try:
+        return np.linalg.inv(vcv)
+    except np.linalg.LinAlgError as exc:
+        raise NumericalInstability(
+            "Pre-period variance-covariance matrix is singular even after "
+            "dropping the reference period: the pre-treatment coefficients are "
+            f"collinear, so the {target} is undefined. Supply a full-rank "
+            "'vcv_pre' via model_info or narrow the event window.",
+            diagnostics={"context": context, "shape": vcv.shape},
+        ) from exc
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -114,7 +326,7 @@ def _split_pre_post(df: pd.DataFrame, time_col: str, est_col: str, se_col: str):
 # ────────────────────────────────────────────────────────────────────
 
 def pretrends_test(
-    result,
+    result: Any,
     type: str = "wald",
     alpha: float = 0.05,
 ) -> Dict[str, Any]:
@@ -158,62 +370,31 @@ def pretrends_test(
     >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id")
     >>> sp.pretrends_test(es)
     """
+    context = "pretrends_test"
+    test_type = _require_string_option(type, "type", context).lower()
+    alpha = _require_open_unit_float(alpha, "alpha", context)
     es = _extract_event_study(result)
     time_col, est_col, se_col = _resolve_columns(es)
     pre, _ = _split_pre_post(es, time_col, est_col, se_col)
 
-    if len(pre) == 0:
-        raise ValueError("No pre-treatment periods found (relative_time < 0).")
-
-    beta_pre_all = pre[est_col].values.astype(float)
-    se_pre_all = pre[se_col].values.astype(float)
+    beta_pre_all, se_pre_all, estimated = _pre_arrays(
+        pre, est_col, se_col, context,
+    )
     K_all = len(beta_pre_all)
-
-    # The omitted reference period (relative_time = -1) carries a standard
-    # error of exactly zero: it is the baseline, not an estimated coefficient.
-    # Keeping it makes the diagonal VCV singular, which previously raised an
-    # opaque LinAlgError on every standard sp.event_study() result. Drop all
-    # zero-SE (mechanically-normalised) periods before forming the test.
-    estimated = se_pre_all > 0
-    if not estimated.any():
-        raise ValueError(
-            "All pre-treatment periods have zero standard error (only the "
-            "reference period is present); the pre-trend test is undefined."
-        )
-
     beta_pre = beta_pre_all[estimated]
     se_pre = se_pre_all[estimated]
     K = len(beta_pre)
 
     # Build variance-covariance matrix (diagonal if full VCV unavailable)
-    vcv = None
-    if hasattr(result, "model_info") and isinstance(result.model_info, dict):
-        vcv = result.model_info.get("vcv_pre", None)
-    if vcv is None:
-        vcv = np.diag(se_pre ** 2)
-    else:
-        vcv = np.asarray(vcv, dtype=float)
-        # Align a full VCV (one row per pre-period, reference included) to the
-        # estimated periods retained above.
-        if vcv.shape[0] == K_all:
-            vcv = vcv[np.ix_(estimated, estimated)]
-
-    try:
-        vcv_inv = np.linalg.inv(vcv)
-    except np.linalg.LinAlgError as exc:
-        raise ValueError(
-            "Pre-period variance-covariance matrix is singular even after "
-            "dropping the reference period: the pre-treatment coefficients are "
-            "collinear, so the pre-trend test is undefined. Supply a full-rank "
-            "'vcv_pre' via model_info or narrow the event window."
-        ) from exc
+    vcv = _pre_vcv(result, se_pre, estimated, K_all, K, context)
+    vcv_inv = _invert_vcv(vcv, context, "pre-trend test")
     wald_stat = float(beta_pre @ vcv_inv @ beta_pre)
 
-    if type == "wald":
+    if test_type == "wald":
         pvalue = float(1.0 - sp_stats.chi2.cdf(wald_stat, df=K))
         stat_label = f"Wald chi2({K})"
         out_type = "wald"
-    elif type == "f":
+    elif test_type == "f":
         df_resid = None
         if hasattr(result, "model_info") and isinstance(result.model_info, dict):
             df_resid = result.model_info.get("df_resid", None)
@@ -227,7 +408,14 @@ def pretrends_test(
         stat_label = f"F({K}, {df_resid})"
         out_type = "f"
     else:
-        raise ValueError(f"type must be 'wald' or 'f', got '{type}'.")
+        raise MethodIncompatibility(
+            f"type must be 'wald' or 'f', got '{type}'.",
+            diagnostics={
+                "context": context,
+                "type": type,
+                "valid_types": ["wald", "f"],
+            },
+        )
 
     reject = pvalue < alpha
     if reject:
@@ -257,7 +445,7 @@ def pretrends_test(
 # ────────────────────────────────────────────────────────────────────
 
 def pretrends_power(
-    result,
+    result: Any,
     delta: Optional[np.ndarray] = None,
     alpha: float = 0.05,
 ) -> Dict[str, Any]:
@@ -306,56 +494,21 @@ def pretrends_power(
     >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id")
     >>> sp.pretrends_power(es)
     """
+    context = "pretrends_power"
+    alpha = _require_open_unit_float(alpha, "alpha", context)
     es = _extract_event_study(result)
     time_col, est_col, se_col = _resolve_columns(es)
     pre, _ = _split_pre_post(es, time_col, est_col, se_col)
 
-    if len(pre) == 0:
-        raise ValueError("No pre-treatment periods found (relative_time < 0).")
-
-    se_pre_all = pre[se_col].values.astype(float)
+    _, se_pre_all, estimated = _pre_arrays(pre, est_col, se_col, context)
     K_all = len(se_pre_all)
-
-    # The omitted reference period (and any mechanically-normalised period)
-    # carries a standard error of exactly zero: it is the baseline, not an
-    # estimated coefficient. It contributes nothing to the joint pre-trend
-    # test and would make the diagonal VCV singular, so drop it before
-    # inverting. Without this guard `pretrends_power` raised an opaque
-    # LinAlgError on every standard `event_study` result (which always
-    # includes the SE = 0 reference period).
-    estimated = se_pre_all > 0
-    if not estimated.any():
-        raise ValueError(
-            "All pre-treatment periods have zero standard error (only the "
-            "reference period is present); the pre-trend test is undefined."
-        )
-
     pre = pre.loc[estimated]
     se_pre = se_pre_all[estimated]
     K = len(se_pre)
 
     # Build VCV (diagonal if full VCV unavailable)
-    vcv = None
-    if hasattr(result, "model_info") and isinstance(result.model_info, dict):
-        vcv = result.model_info.get("vcv_pre", None)
-    if vcv is None:
-        vcv = np.diag(se_pre ** 2)
-    else:
-        vcv = np.asarray(vcv, dtype=float)
-        # Align a full VCV (one row per pre-period, reference included) to the
-        # estimated periods retained above.
-        if vcv.shape[0] == K_all:
-            vcv = vcv[np.ix_(estimated, estimated)]
-
-    try:
-        vcv_inv = np.linalg.inv(vcv)
-    except np.linalg.LinAlgError as exc:
-        raise ValueError(
-            "Pre-period variance-covariance matrix is singular even after "
-            "dropping the reference period: the pre-treatment coefficients are "
-            "collinear, so the pre-trend power is undefined. Supply a full-rank "
-            "'vcv_pre' via model_info or narrow the event window."
-        ) from exc
+    vcv = _pre_vcv(result, se_pre, estimated, K_all, K, context)
+    vcv_inv = _invert_vcv(vcv, context, "pre-trend power")
 
     # Default delta: linear trend scaled by minimum SE
     if delta is None:
@@ -364,14 +517,19 @@ def pretrends_power(
         # Linear trend: magnitude grows toward treatment
         delta = np.array([(i + 1) / K * min_se for i in range(K)])
     else:
-        delta = np.asarray(delta, dtype=float)
+        delta = _finite_vector(delta, "delta", context)
         if len(delta) == K_all:
             # One entry per pre-period including the reference: align it.
             delta = delta[estimated]
         elif len(delta) != K:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"delta has length {len(delta)} but there are {K} estimated "
-                "pre-periods (the reference period is excluded)."
+                "pre-periods (the reference period is excluded).",
+                diagnostics={
+                    "context": context,
+                    "delta_length": len(delta),
+                    "expected_lengths": [K, K_all],
+                },
             )
 
     # Non-centrality parameter
@@ -499,8 +657,14 @@ class SensitivityResult:
             f"{self.att + z * self.att_se:.4f}]"
         )
         lines.append("")
-        lines.append(f"  {'Mbar':>8s}  {'CI Lower':>12s}  {'CI Upper':>12s}  {'Includes 0?':>12s}")
-        lines.append(f"  {'----':>8s}  {'--------':>12s}  {'--------':>12s}  {'-----------':>12s}")
+        lines.append(
+            f"  {'Mbar':>8s}  {'CI Lower':>12s}  "
+            f"{'CI Upper':>12s}  {'Includes 0?':>12s}"
+        )
+        lines.append(
+            f"  {'----':>8s}  {'--------':>12s}  "
+            f"{'--------':>12s}  {'-----------':>12s}"
+        )
         for i, m in enumerate(self.mbar_grid):
             lo = self.ci_lower[i]
             hi = self.ci_upper[i]
@@ -559,7 +723,12 @@ class SensitivityResult:
 
     # ── Plot ─────────────────────────────────────────────────────── #
 
-    def plot(self, ax=None, figsize=(8, 5), **kwargs):
+    def plot(
+        self,
+        ax: Any = None,
+        figsize: tuple[float, float] = (8, 5),
+        **kwargs: Any,
+    ) -> Any:
         """Sensitivity plot: M-bar on x-axis, honest CI band on y-axis.
 
         Parameters
@@ -590,8 +759,13 @@ class SensitivityResult:
             self.mbar_grid, self.ci_upper, color="steelblue", linewidth=0.8
         )
         ax.axhline(0, color="black", linestyle="--", linewidth=0.8)
-        ax.axhline(self.att, color="crimson", linestyle="-", linewidth=1.0,
-                    label=f"ATT = {self.att:.4f}")
+        ax.axhline(
+            self.att,
+            color="crimson",
+            linestyle="-",
+            linewidth=1.0,
+            label=f"ATT = {self.att:.4f}",
+        )
 
         if np.isfinite(self.breakdown_mbar):
             ax.axvline(
@@ -608,7 +782,7 @@ class SensitivityResult:
 
 
 def sensitivity_rr(
-    result,
+    result: Any,
     Mbar: Optional[Union[np.ndarray, List[float]]] = None,
     method: str = "C-LF",
     alpha: float = 0.05,
@@ -627,7 +801,8 @@ def sensitivity_rr(
     result : CausalResult
         Event-study result with pre- and post-treatment estimates.
     Mbar : array-like, optional
-        Grid of M-bar values.  Default: ``np.linspace(0, 3 * max_pre_slope, n_grid)``.
+        Grid of M-bar values.  Default:
+        ``np.linspace(0, 3 * max_pre_slope, n_grid)``.
     method : ``'C-LF'``
         Extrapolation method.  Currently only C-LF is implemented.
     alpha : float, default 0.05
@@ -644,7 +819,8 @@ def sensitivity_rr(
     References
     ----------
     Rambachan, A. & Roth, J. (2023). A More Credible Approach to
-    Parallel Trends. *Review of Economic Studies*, 90(5), 2555--2591. [@rambachan2023more]
+    Parallel Trends. *Review of Economic Studies*, 90(5), 2555--2591.
+    [@rambachan2023more]
 
     Examples
     --------
@@ -662,9 +838,18 @@ def sensitivity_rr(
     >>> sens = sp.sensitivity_rr(es, Mbar=[0, 0.01, 0.02, 0.05])
     >>> sens.summary()
     """
+    context = "sensitivity_rr"
+    method = _require_string_option(method, "method", context).upper()
+    alpha = _require_open_unit_float(alpha, "alpha", context)
+    n_grid = _require_int_at_least(n_grid, "n_grid", context, 1)
     if method != "C-LF":
-        raise NotImplementedError(
-            f"Only method='C-LF' is currently implemented, got '{method}'."
+        raise _UnsupportedSensitivityMethod(
+            f"Only method='C-LF' is currently implemented, got '{method}'.",
+            diagnostics={
+                "context": context,
+                "method": method,
+                "valid_methods": ["C-LF"],
+            },
         )
 
     es = _extract_event_study(result)
@@ -672,9 +857,15 @@ def sensitivity_rr(
     pre, post = _split_pre_post(es, time_col, est_col, se_col)
 
     if len(pre) == 0:
-        raise ValueError("No pre-treatment periods found (relative_time < 0).")
+        raise DataInsufficient(
+            "No pre-treatment periods found (relative_time < 0).",
+            diagnostics={"context": context},
+        )
     if len(post) == 0:
-        raise ValueError("No post-treatment periods found (relative_time >= 1).")
+        raise DataInsufficient(
+            "No post-treatment periods found (relative_time >= 1).",
+            diagnostics={"context": context},
+        )
 
     # ── Extract ATT ──────────────────────────────────────────────── #
     att = float(result.estimate) if hasattr(result, "estimate") else float(
@@ -683,28 +874,41 @@ def sensitivity_rr(
     att_se = float(result.se) if hasattr(result, "se") else float(
         post[se_col].iloc[0]
     )
+    if not np.isfinite(att) or not np.isfinite(att_se) or att_se < 0:
+        raise MethodIncompatibility(
+            "sensitivity_rr: ATT and standard error must be finite, with "
+            "non-negative SE.",
+            diagnostics={"context": context, "att": att, "att_se": att_se},
+        )
 
     # ── Fit linear trend through pre-period ──────────────────────── #
-    pre_t = pre[time_col].values.astype(float)
-    pre_est = pre[est_col].values.astype(float)
+    pre_t = _finite_vector(pre[time_col], time_col, context)
+    pre_est = _finite_vector(pre[est_col], est_col, context)
 
     if len(pre_t) >= 2:
         # Weighted least squares through pre-period estimates
-        pre_se = pre[se_col].values.astype(float)
+        pre_se = _finite_vector(pre[se_col], se_col, context)
+        _require_nonnegative(pre_se, se_col, context)
         weights = 1.0 / (pre_se ** 2 + 1e-16)
         # WLS: y = a + b*t
         W = np.diag(weights)
         X = np.column_stack([np.ones(len(pre_t)), pre_t])
         XtWX = X.T @ W @ X
         XtWy = X.T @ W @ pre_est
-        coefs = np.linalg.solve(XtWX, XtWy)
+        try:
+            coefs = np.linalg.solve(XtWX, XtWy)
+        except np.linalg.LinAlgError as exc:
+            raise NumericalInstability(
+                "sensitivity_rr: pre-period linear trend is not identified.",
+                diagnostics={"context": context, "n_pre": int(len(pre_t))},
+            ) from exc
         slope = coefs[1]
     else:
         # Single pre-period: slope = estimate / |time|
         slope = pre_est[0] / max(abs(pre_t[0]), 1.0)
 
     # ── Extrapolate linear trend to post-period ──────────────────── #
-    post_t = post[time_col].values.astype(float)
+    post_t = _finite_vector(post[time_col], time_col, context)
     # Baseline bias for the first post-period
     baseline_bias = abs(slope) * post_t[0]
 
@@ -717,7 +921,12 @@ def sensitivity_rr(
     if Mbar is None:
         mbar_grid = np.linspace(0.0, 3.0 * max_pre_slope, n_grid)
     else:
-        mbar_grid = np.asarray(Mbar, dtype=float)
+        mbar_grid = _finite_vector(Mbar, "Mbar", context)
+        if np.any(mbar_grid < 0):
+            raise MethodIncompatibility(
+                "sensitivity_rr: `Mbar` values must be non-negative.",
+                diagnostics={"context": context, "Mbar": mbar_grid.tolist()},
+            )
 
     z = sp_stats.norm.ppf(1.0 - alpha / 2)
 
@@ -753,7 +962,11 @@ def sensitivity_rr(
 # Convenience: formatted combined report
 # ────────────────────────────────────────────────────────────────────
 
-def pretrends_summary(result, delta=None, alpha: float = 0.05) -> str:
+def pretrends_summary(
+    result: Any,
+    delta: Optional[np.ndarray] = None,
+    alpha: float = 0.05,
+) -> str:
     """Print a combined pre-trends diagnostic report.
 
     Runs ``pretrends_test`` and ``pretrends_power`` and formats the
@@ -813,9 +1026,9 @@ def pretrends_summary(result, delta=None, alpha: float = 0.05) -> str:
     lines.append("  Power against linear violation:")
     lines.append(f"    Power = {pwr['power']:.2f}", )
     if pwr["warning"] and pwr["power"] < 0.50:
-        lines.append(f"    \u2190 LOW POWER WARNING")
+        lines.append("    \u2190 LOW POWER WARNING")
     elif pwr["warning"] and pwr["power"] < 0.80:
-        lines.append(f"    \u2190 Moderate power")
+        lines.append("    \u2190 Moderate power")
     lines.append(hbar)
 
     report = "\n".join(lines)

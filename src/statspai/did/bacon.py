@@ -20,7 +20,7 @@ Goodman-Bacon, A., Goldring, T. and Nichols, A. (2019).
 of difference-in-differences estimation."
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -131,7 +131,6 @@ def bacon_decomposition(
         )
 
     time_periods = sorted(df[time].unique())
-    T = len(time_periods)
     time_min = min(time_periods)
 
     # Get treatment timing for each unit
@@ -239,7 +238,13 @@ def bacon_decomposition(
     }
 
 
-def _twfe_estimate(df, y, treat, time, id_col):
+def _twfe_estimate(
+    df: pd.DataFrame,
+    y: str,
+    treat: str,
+    time: str,
+    id_col: str,
+) -> float:
     """Standard TWFE DID regression: Y_it = α_i + γ_t + β·D_it + ε_it."""
     # Demean by unit and time (within transformation)
     panel = df.set_index([id_col, time])
@@ -247,10 +252,18 @@ def _twfe_estimate(df, y, treat, time, id_col):
     D = panel[treat].unstack()
 
     # Double-demean
-    y_dm = Y.values - Y.values.mean(axis=1, keepdims=True) \
-           - Y.values.mean(axis=0, keepdims=True) + Y.values.mean()
-    d_dm = D.values - D.values.mean(axis=1, keepdims=True) \
-           - D.values.mean(axis=0, keepdims=True) + D.values.mean()
+    y_dm = (
+        Y.values
+        - Y.values.mean(axis=1, keepdims=True)
+        - Y.values.mean(axis=0, keepdims=True)
+        + Y.values.mean()
+    )
+    d_dm = (
+        D.values
+        - D.values.mean(axis=1, keepdims=True)
+        - D.values.mean(axis=0, keepdims=True)
+        + D.values.mean()
+    )
 
     y_flat = y_dm.ravel()
     d_flat = d_dm.ravel()
@@ -259,14 +272,26 @@ def _twfe_estimate(df, y, treat, time, id_col):
     if valid.sum() < 2 or np.var(d_flat[valid]) < 1e-12:
         return 0.0
 
-    beta = float(np.sum(d_flat[valid] * y_flat[valid]) /
-                 np.sum(d_flat[valid] ** 2))
+    beta = float(
+        np.sum(d_flat[valid] * y_flat[valid])
+        / np.sum(d_flat[valid] ** 2)
+    )
     return beta
 
 
-def _validate_monotone_treatment(df, treat, time, id_col, unit_treat):
+def _validate_monotone_treatment(
+    df: pd.DataFrame,
+    treat: str,
+    time: str,
+    id_col: str,
+    unit_treat: pd.Series,
+) -> None:
     """Require absorbing treatment timing."""
-    merged = df.merge(unit_treat.rename('_treat_time'), left_on=id_col, right_index=True)
+    merged = df.merge(
+        unit_treat.rename('_treat_time'),
+        left_on=id_col,
+        right_index=True,
+    )
     expected = np.where(
         np.isinf(merged['_treat_time'].to_numpy(dtype=float)),
         0,
@@ -285,7 +310,13 @@ def _validate_monotone_treatment(df, treat, time, id_col, unit_treat):
         )
 
 
-def _subset_bacon_dyad(df, treated_group, untreated_group, time, treat_time):
+def _subset_bacon_dyad(
+    df: pd.DataFrame,
+    treated_group: float,
+    untreated_group: float,
+    time: str,
+    treat_time: str,
+) -> pd.DataFrame:
     """Subset one bacondecomp dyad and its admissible comparison window."""
     data_pair = df[df[treat_time].isin([treated_group, untreated_group])].copy()
     if treated_group < untreated_group:
@@ -295,7 +326,13 @@ def _subset_bacon_dyad(df, treated_group, untreated_group, time, treat_time):
     return data_pair
 
 
-def _bacon_weight(data_pair, treat, treat_time, treated_group, untreated_group):
+def _bacon_weight(
+    data_pair: pd.DataFrame,
+    treat: str,
+    treat_time: str,
+    treated_group: float,
+    untreated_group: float,
+) -> float:
     """Uncontrolled Goodman-Bacon weight used by R/Stata bacondecomp."""
     if untreated_group == np.inf:
         n_u = float((data_pair[treat_time] == untreated_group).sum())
@@ -303,7 +340,9 @@ def _bacon_weight(data_pair, treat, treat_time, treated_group, untreated_group):
         if n_k + n_u == 0:
             return 0.0
         n_ku = n_k / (n_k + n_u)
-        D_k = float(data_pair.loc[data_pair[treat_time] == treated_group, treat].mean())
+        D_k = float(
+            data_pair.loc[data_pair[treat_time] == treated_group, treat].mean()
+        )
         V_ku = n_ku * (1 - n_ku) * D_k * (1 - D_k)
         return float((n_k + n_u) ** 2 * V_ku)
 
@@ -313,8 +352,12 @@ def _bacon_weight(data_pair, treat, treat_time, treated_group, untreated_group):
         if n_k + n_l == 0:
             return 0.0
         n_kl = n_k / (n_k + n_l)
-        D_k = float(data_pair.loc[data_pair[treat_time] == treated_group, treat].mean())
-        D_l = float(data_pair.loc[data_pair[treat_time] == untreated_group, treat].mean())
+        D_k = float(
+            data_pair.loc[data_pair[treat_time] == treated_group, treat].mean()
+        )
+        D_l = float(
+            data_pair.loc[data_pair[treat_time] == untreated_group, treat].mean()
+        )
         denom = 1 - D_l
         if abs(denom) < 1e-15:
             return 0.0
@@ -326,7 +369,9 @@ def _bacon_weight(data_pair, treat, treat_time, treated_group, untreated_group):
     if n_k + n_l == 0:
         return 0.0
     n_kl = n_k / (n_k + n_l)
-    D_k = float(data_pair.loc[data_pair[treat_time] == untreated_group, treat].mean())
+    D_k = float(
+        data_pair.loc[data_pair[treat_time] == untreated_group, treat].mean()
+    )
     D_l = float(data_pair.loc[data_pair[treat_time] == treated_group, treat].mean())
     if abs(D_k) < 1e-15:
         return 0.0

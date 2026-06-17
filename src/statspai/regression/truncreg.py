@@ -128,6 +128,17 @@ def truncreg(
 
     result = minimize(neg_log_lik, theta0, method='BFGS',
                       options={'maxiter': maxiter, 'gtol': tol})
+    # BFGS often returns ``success=False`` with status 2 ("precision loss")
+    # at a perfectly good optimum of the truncated-regression log-likelihood
+    # — a line-search artefact, not a real convergence failure. Trust a small
+    # gradient norm at the optimum instead of the raw flag (estimates are
+    # unchanged; only the reported ``converged`` boolean is made robust).
+    _grad = getattr(result, 'jac', None)
+    grad_norm = (float(np.linalg.norm(_grad))
+                 if _grad is not None else float('inf'))
+    converged = bool(result.success) or (
+        np.isfinite(result.fun) and grad_norm < 1e-3
+    )
     theta_hat = result.x
 
     beta_hat = theta_hat[:k]
@@ -175,7 +186,8 @@ def truncreg(
             'lower_limit': ll,
             'upper_limit': ul,
             'sigma': sigma_hat,
-            'converged': result.success,
+            'converged': converged,
+            'gradient_norm': grad_norm,
         },
         data_info={
             'n_obs': n,

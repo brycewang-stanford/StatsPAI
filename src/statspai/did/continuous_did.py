@@ -29,11 +29,10 @@ de Chaisemartin, C. & D'Haultfœuille, X. (2018).
 "Fuzzy Differences-in-Differences." [@dechaisemartin2018fuzzy].
 """
 
-from typing import Optional, List, Dict, Any, Union
+from typing import List, Optional
 import numpy as np
 import pandas as pd
 from scipy import stats
-import warnings
 
 from ..core.results import CausalResult
 
@@ -44,16 +43,16 @@ def continuous_did(
     dose: str,
     time: str,
     id: str,
-    post: str = None,
-    t_pre: int = None,
-    t_post: int = None,
+    post: Optional[str] = None,
+    t_pre: Optional[int] = None,
+    t_post: Optional[int] = None,
     method: str = "att_gt",
     n_quantiles: int = 5,
-    controls: List[str] = None,
-    cluster: str = None,
+    controls: Optional[List[str]] = None,
+    cluster: Optional[str] = None,
     n_boot: int = 500,
     alpha: float = 0.05,
-    seed: int = None,
+    seed: Optional[int] = None,
 ) -> CausalResult:
     """
     Difference-in-Differences with continuous treatment (heuristic).
@@ -153,7 +152,9 @@ def continuous_did(
         post_col = post
 
     if method == 'twfe':
-        return _continuous_did_twfe(df, y, dose, time, id, post_col, controls, cluster, alpha)
+        return _continuous_did_twfe(
+            df, y, dose, time, id, post_col, controls, cluster, alpha,
+        )
     elif method == 'cgs':
         return _continuous_did_cgs(
             df, y=y, dose=dose, time=time, unit=id,
@@ -161,14 +162,28 @@ def continuous_did(
             n_boot=n_boot, alpha=alpha, rng=rng,
         )
     elif method == 'dose_response':
-        return _continuous_did_dose_response(df, y, dose, time, id, post_col,
-                                              controls, n_quantiles, n_boot, alpha, rng)
+        return _continuous_did_dose_response(
+            df, y, dose, time, id, post_col,
+            controls, n_quantiles, n_boot, alpha, rng,
+        )
     else:
-        return _continuous_did_att_gt(df, y, dose, time, id, post_col,
-                                      controls, n_quantiles, n_boot, alpha, rng)
+        return _continuous_did_att_gt(
+            df, y, dose, time, id, post_col,
+            controls, n_quantiles, n_boot, alpha, rng,
+        )
 
 
-def _continuous_did_twfe(df, y, dose, time, id, post, controls, cluster, alpha):
+def _continuous_did_twfe(
+    df: pd.DataFrame,
+    y: str,
+    dose: str,
+    time: str,
+    id: str,
+    post: str,
+    controls: Optional[List[str]],
+    cluster: Optional[str],
+    alpha: float,
+) -> CausalResult:
     """TWFE approach: y_it = α_i + λ_t + β·dose_i·post_t + ε_it"""
     # Create interaction
     df['_dose_post'] = df[dose] * df[post]
@@ -255,8 +270,19 @@ def _continuous_did_twfe(df, y, dose, time, id, post, controls, cluster, alpha):
     )
 
 
-def _continuous_did_att_gt(df, y, dose, time, id, post, controls,
-                            n_quantiles, n_boot, alpha, rng):
+def _continuous_did_att_gt(
+    df: pd.DataFrame,
+    y: str,
+    dose: str,
+    time: str,
+    id: str,
+    post: str,
+    controls: Optional[List[str]],
+    n_quantiles: int,
+    n_boot: int,
+    alpha: float,
+    rng: np.random.Generator,
+) -> CausalResult:
     """
     Group-time ATT approach: discretize dose into quantiles,
     estimate ATT for each dose group vs untreated.
@@ -266,14 +292,18 @@ def _continuous_did_att_gt(df, y, dose, time, id, post, controls,
     dose_baseline = pre_data.groupby(id)[dose].mean()
 
     # Define dose groups (quantiles)
-    quantile_edges = np.quantile(dose_baseline[dose_baseline > 0].values,
-                                  np.linspace(0, 1, n_quantiles + 1))
+    quantile_edges = np.quantile(
+        dose_baseline[dose_baseline > 0].values,
+        np.linspace(0, 1, n_quantiles + 1),
+    )
     quantile_edges = np.unique(quantile_edges)
     if len(quantile_edges) < 2:
         quantile_edges = np.array([dose_baseline.min(), dose_baseline.max()])
 
-    dose_groups = pd.cut(dose_baseline, bins=quantile_edges, labels=False,
-                          include_lowest=True)
+    dose_groups = pd.cut(
+        dose_baseline, bins=quantile_edges, labels=False,
+        include_lowest=True,
+    )
 
     # Untreated group: dose = 0
     untreated_ids = dose_baseline[dose_baseline == 0].index
@@ -298,7 +328,8 @@ def _continuous_did_att_gt(df, y, dose, time, id, post, controls,
             control_ids = dose_groups[dose_groups == lowest_g].index
             control_data = df[df[id].isin(control_ids)]
 
-        # DID: E[Y|post=1,group] - E[Y|post=0,group] - (E[Y|post=1,ctrl] - E[Y|post=0,ctrl])
+        # DID: E[Y|post=1,group] - E[Y|post=0,group]
+        #      - (E[Y|post=1,ctrl] - E[Y|post=0,ctrl])
         y_g_post = group_data.loc[group_data[post] == 1, y].mean()
         y_g_pre = group_data.loc[group_data[post] == 0, y].mean()
         y_c_post = control_data.loc[control_data[post] == 1, y].mean()
@@ -335,7 +366,10 @@ def _continuous_did_att_gt(df, y, dose, time, id, post, controls,
             'se': se,
             'ci_lower': att - z_crit * se,
             'ci_upper': att + z_crit * se,
-            'p_value': 2 * (1 - stats.norm.cdf(abs(att / se))) if se > 0 else np.nan,
+            'p_value': (
+                2 * (1 - stats.norm.cdf(abs(att / se)))
+                if se > 0 else np.nan
+            ),
             'n_treated': len(group_ids),
             'n_control': len(untreated_ids),
         })
@@ -350,7 +384,10 @@ def _continuous_did_att_gt(df, y, dose, time, id, post, controls,
     else:
         pooled_att, pooled_se = np.nan, np.nan
 
-    p_val = 2 * (1 - stats.norm.cdf(abs(pooled_att / pooled_se))) if pooled_se > 0 else np.nan
+    p_val = (
+        2 * (1 - stats.norm.cdf(abs(pooled_att / pooled_se)))
+        if pooled_se > 0 else np.nan
+    )
 
     return CausalResult(
         method='Continuous DID (dose-bin heuristic)',
@@ -370,8 +407,19 @@ def _continuous_did_att_gt(df, y, dose, time, id, post, controls,
     )
 
 
-def _continuous_did_dose_response(df, y, dose, time, id, post,
-                                   controls, n_quantiles, n_boot, alpha, rng):
+def _continuous_did_dose_response(
+    df: pd.DataFrame,
+    y: str,
+    dose: str,
+    time: str,
+    id: str,
+    post: str,
+    controls: Optional[List[str]],
+    n_quantiles: int,
+    n_boot: int,
+    alpha: float,
+    rng: np.random.Generator,
+) -> CausalResult:
     """
     Estimate a full dose-response curve in DID framework.
     Uses local linear regression of the DID estimand on dose.
@@ -396,7 +444,9 @@ def _continuous_did_dose_response(df, y, dose, time, id, post,
     except Exception:
         # Fallback: simple linear
         from scipy.stats import linregress
-        slope, intercept, _, p_val, se_slope = linregress(dose_vals.dropna(), delta_y.dropna())
+        slope, intercept, _, p_val, se_slope = linregress(
+            dose_vals.dropna(), delta_y.dropna(),
+        )
 
         z_crit = stats.norm.ppf(1 - alpha / 2)
         return CausalResult(

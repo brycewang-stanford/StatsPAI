@@ -42,6 +42,8 @@ from typing import Optional, Dict, Any, Tuple
 import numpy as np
 from scipy import stats as sp_stats
 
+from ..exceptions import DataInsufficient, MethodIncompatibility
+
 
 _RATIO_MEASURES = {"RR", "OR", "HR"}
 _DIFF_MEASURES = {"MD", "SMD", "OLS", "DIFF", "RD"}
@@ -52,6 +54,83 @@ _VALID_MEASURES = _RATIO_MEASURES | _DIFF_MEASURES
 # interval uses exp(0.91 * d +/- 1.78 * SE)  (1.78 = 0.91 * 1.96).
 _MD_SLOPE = 0.91
 _MD_CI_FACTOR = 1.78
+
+
+def _require_string_option(value: Any, name: str, context: str) -> str:
+    if not isinstance(value, str):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a string option.",
+            diagnostics={"context": context, name: repr(value)},
+        )
+    out = value.upper().strip()
+    if not out:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a non-empty string option.",
+            diagnostics={"context": context, name: repr(value)},
+        )
+    return out
+
+
+def _finite_float(value: Any, name: str, context: str) -> float:
+    if isinstance(value, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a finite number.",
+            diagnostics={"context": context, name: repr(value)},
+        )
+    try:
+        out = float(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a finite number.",
+            diagnostics={"context": context, name: repr(value)},
+        ) from exc
+    if not np.isfinite(out):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be finite.",
+            diagnostics={"context": context, name: out},
+        )
+    return out
+
+
+def _positive_float(value: Any, name: str, context: str) -> float:
+    out = _finite_float(value, name, context)
+    if out <= 0:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be positive.",
+            diagnostics={"context": context, name: out},
+        )
+    return out
+
+
+def _nonnegative_float(value: Any, name: str, context: str) -> float:
+    out = _finite_float(value, name, context)
+    if out < 0:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be non-negative.",
+            diagnostics={"context": context, name: out},
+        )
+    return out
+
+
+def _open_unit_float(value: Any, name: str, context: str) -> float:
+    out = _finite_float(value, name, context)
+    if not 0.0 < out < 1.0:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be in (0, 1).",
+            diagnostics={"context": context, name: out},
+        )
+    return out
+
+
+def _optional_bool(value: Optional[bool], name: str, context: str) -> Optional[bool]:
+    if value is None:
+        return None
+    if not isinstance(value, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be boolean when supplied.",
+            diagnostics={"context": context, name: repr(value)},
+        )
+    return bool(value)
 
 
 def evalue(
@@ -124,38 +203,55 @@ def evalue(
     >>> import statspai as sp
     >>> round(sp.evalue(estimate=2.5, measure="RR")["evalue_estimate"], 4)
     4.4365
-    >>> round(sp.evalue(estimate=0.5, se=0.1, sd=2.0, measure="OLS")["evalue_estimate"], 4)
+    >>> out = sp.evalue(estimate=0.5, se=0.1, sd=2.0, measure="OLS")
+    >>> round(out["evalue_estimate"], 4)
     1.8218
     """
-    measure = measure.upper()
+    context = "evalue"
+    estimate = _finite_float(estimate, "estimate", context)
+    measure = _require_string_option(measure, "measure", context)
     if measure not in _VALID_MEASURES:
-        raise ValueError(
-            f"measure must be one of {sorted(_VALID_MEASURES)}, got '{measure}'"
+        raise MethodIncompatibility(
+            f"measure must be one of {sorted(_VALID_MEASURES)}, got '{measure}'",
+            diagnostics={
+                "context": context,
+                "measure": measure,
+                "valid_measures": sorted(_VALID_MEASURES),
+            },
         )
     if rare is None and rare_outcome is not None:
         rare = rare_outcome
-    if se is not None and se < 0:
-        raise ValueError("Standard error cannot be negative.")
+    rare = _optional_bool(rare, "rare", context)
+    if se is not None:
+        se = _nonnegative_float(se, "se", context)
+    alpha = _open_unit_float(alpha, "alpha", context)
+    delta = _finite_float(delta, "delta", context)
 
     # Default reference (null) value on the native scale.
     null_value = 0.0 if measure in _DIFF_MEASURES else 1.0
-    true_native = null_value if true is None else float(true)
+    true_native = null_value if true is None else _finite_float(true, "true", context)
 
     # ------------------------------------------------------------------
     # Map (estimate, CI) onto the risk-ratio scale.
     # ------------------------------------------------------------------
     if measure in _RATIO_MEASURES:
         if estimate <= 0:
-            raise ValueError(f"{measure} must be positive, got {estimate}.")
+            raise MethodIncompatibility(
+                f"{measure} must be positive, got {estimate}.",
+                diagnostics={"context": context, "estimate": estimate},
+            )
         if true_native < 0:
-            raise ValueError("true value is impossible for a ratio measure.")
+            raise MethodIncompatibility(
+                "true value is impossible for a ratio measure.",
+                diagnostics={"context": context, "true": true_native},
+            )
         if ci is None and se is not None:
             z = sp_stats.norm.ppf(1 - alpha / 2)
             ci = (estimate - z * se, estimate + z * se)
         rr = _ratio_to_rr(estimate, measure, rare)
         true_rr = _ratio_to_rr(true_native, measure, rare) if true_native > 0 else 0.0
         if ci is not None:
-            _check_ci(estimate, ci)
+            ci = _check_ci(estimate, ci)
             rr_lo = _ratio_to_rr(ci[0], measure, rare)
             rr_hi = _ratio_to_rr(ci[1], measure, rare)
         else:
@@ -164,8 +260,12 @@ def evalue(
     elif measure in ("MD", "SMD", "OLS"):
         est_d, se_d = estimate, se
         if measure == "OLS":
-            if sd is None or sd <= 0:
-                raise ValueError("measure='OLS' requires the outcome sd > 0.")
+            if sd is None:
+                raise MethodIncompatibility(
+                    "measure='OLS' requires the outcome sd > 0.",
+                    diagnostics={"context": context, "sd": None},
+                )
+            sd = _positive_float(sd, "sd", context)
             d = abs(delta)
             est_d = estimate * d / sd
             se_d = None if se is None else se * d / sd
@@ -179,7 +279,7 @@ def evalue(
             rr_hi = float(np.exp(_MD_SLOPE * est_d + _MD_CI_FACTOR * se_d))
         elif ci is not None:
             # CI supplied on the (standardised) difference scale.
-            _check_ci(estimate, ci)
+            ci = _check_ci(estimate, ci)
             scale = (abs(delta) / sd) if measure == "OLS" else 1.0
             rr_lo = float(np.exp(_MD_SLOPE * ci[0] * scale))
             rr_hi = float(np.exp(_MD_SLOPE * ci[1] * scale))
@@ -193,7 +293,7 @@ def evalue(
             z = sp_stats.norm.ppf(1 - alpha / 2)
             ci = (estimate - z * se, estimate + z * se)
         if ci is not None:
-            _check_ci(estimate, ci)
+            ci = _check_ci(estimate, ci)
             rr_lo = _diff_to_rr(ci[0])
             rr_hi = _diff_to_rr(ci[1])
         else:
@@ -264,23 +364,50 @@ def evalue_rd(
     >>> round(sp.evalue_rd(200, 150, 100, 250)["evalue_estimate"], 4)
     3.4142
     """
-    cells = np.array([n11, n10, n01, n00], dtype=float)
+    context = "evalue_rd"
+    cells = np.array(
+        [
+            _finite_float(n11, "n11", context),
+            _finite_float(n10, "n10", context),
+            _finite_float(n01, "n01", context),
+            _finite_float(n00, "n00", context),
+        ],
+        dtype=float,
+    )
     if np.any(cells < 0):
-        raise ValueError("Negative cell counts are impossible.")
+        raise MethodIncompatibility(
+            "Negative cell counts are impossible.",
+            diagnostics={"context": context, "cells": cells.tolist()},
+        )
+    n11, n10, n01, n00 = cells.tolist()
+    true = _finite_float(true, "true", context)
+    alpha = _open_unit_float(alpha, "alpha", context)
+    grid = _positive_float(grid, "grid", context)
     N = cells.sum()
     N1 = n10 + n11
     N0 = n00 + n01
     if N1 <= 0 or N0 <= 0:
-        raise ValueError("Each exposure group must have at least one unit.")
+        raise DataInsufficient(
+            "Each exposure group must have at least one unit.",
+            diagnostics={"context": context, "N1": float(N1), "N0": float(N0)},
+        )
     f = N1 / N
     p1 = n11 / N1
     p0 = n01 / N0
     if p1 < p0:
-        raise ValueError(
-            "RD < 0; relabel the exposure so the risk difference is > 0."
+        raise MethodIncompatibility(
+            "RD < 0; relabel the exposure so the risk difference is > 0.",
+            diagnostics={"context": context, "p1": float(p1), "p0": float(p0)},
         )
     if (p1 - p0) <= true:
-        raise ValueError("true value must be <= the observed risk difference.")
+        raise MethodIncompatibility(
+            "true value must be strictly less than the observed risk difference.",
+            diagnostics={
+                "context": context,
+                "true": float(true),
+                "rd": float(p1 - p0),
+            },
+        )
 
     s2_f = f * (1 - f) / N
     s2_p1 = p1 * (1 - p1) / N1
@@ -337,8 +464,13 @@ def bias_factor(rr_eu: float, rr_ud: float) -> float:
     >>> round(sp.bias_factor(3.0, 3.0), 4)
     1.8
     """
+    rr_eu = _finite_float(rr_eu, "rr_eu", "bias_factor")
+    rr_ud = _finite_float(rr_ud, "rr_ud", "bias_factor")
     if rr_eu < 1 or rr_ud < 1:
-        raise ValueError("Confounding associations must be >= 1.")
+        raise MethodIncompatibility(
+            "Confounding associations must be >= 1.",
+            diagnostics={"rr_eu": rr_eu, "rr_ud": rr_ud},
+        )
     return float((rr_eu * rr_ud) / (rr_eu + rr_ud - 1.0))
 
 
@@ -392,13 +524,18 @@ def evalue_from_result(
     True
     """
     if not hasattr(result, "estimate"):
-        raise TypeError(
+        raise MethodIncompatibility(
             "evalue_from_result expects a CausalResult carrying a single "
             "causal estimate (.estimate / .se / .ci), e.g. from sp.did, "
             "sp.iv, sp.dml, sp.synth or sp.metalearner. Got "
             f"{type(result).__name__}, which exposes no scalar treatment "
             "effect. For a single regression coefficient call "
-            "sp.evalue(estimate=..., se=...) directly."
+            "sp.evalue(estimate=..., se=...) directly.",
+            diagnostics={
+                "context": "evalue_from_result",
+                "type": type(result).__name__,
+            },
+            alternative_functions=["sp.evalue"],
         )
     return evalue(
         estimate=result.estimate,
@@ -427,7 +564,10 @@ def _threshold(x: Optional[float], true: float = 1.0) -> Optional[float]:
         return None
     x = float(x)
     if x < 0:
-        raise ValueError("The risk ratio must be non-negative.")
+        raise MethodIncompatibility(
+            "The risk ratio must be non-negative.",
+            diagnostics={"context": "_threshold", "x": x},
+        )
     if x <= 1.0:
         x = 1.0 / x if x > 0 else np.inf
         true = 1.0 / true if true > 0 else np.inf
@@ -488,15 +628,28 @@ def _diff_to_rr(value: float) -> float:
     return float(np.exp(2.0 * capped))
 
 
-def _check_ci(estimate, ci) -> None:
+def _check_ci(estimate, ci) -> Tuple[float, float]:
     """Validate a (lower, upper) confidence interval."""
-    lo, hi = ci
+    try:
+        lo_raw, hi_raw = ci
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            "CI must be a two-element (lower, upper) tuple.",
+            diagnostics={"context": "evalue", "ci": repr(ci)},
+        ) from exc
+    lo = _finite_float(lo_raw, "ci_lower", "evalue")
+    hi = _finite_float(hi_raw, "ci_upper", "evalue")
     if lo > hi:
-        raise ValueError(
-            "Lower confidence limit should be <= the upper limit."
+        raise MethodIncompatibility(
+            "Lower confidence limit should be <= the upper limit.",
+            diagnostics={"context": "evalue", "ci": [lo, hi]},
         )
     if not (lo <= estimate <= hi):
-        raise ValueError("Point estimate should lie inside the CI.")
+        raise MethodIncompatibility(
+            "Point estimate should lie inside the CI.",
+            diagnostics={"context": "evalue", "estimate": estimate, "ci": [lo, hi]},
+        )
+    return lo, hi
 
 
 def _interpret(ev_est, ev_ci, measure, true_value) -> str:

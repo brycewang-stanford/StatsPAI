@@ -46,7 +46,7 @@ Regression: A Robust Inference Approach." *Journal of Econometrics*,
 
 from __future__ import annotations
 
-from typing import Optional, List, Union, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 import warnings
 import numpy as np
 import pandas as pd
@@ -120,7 +120,8 @@ def ivqreg(
     >>> race = rng.binomial(1, 0.3, n)
     >>> u = rng.normal(size=n)
     >>> education = 0.6 * qob1 + 0.4 * qob2 + 0.2 * (age - 40) + u + rng.normal(size=n)
-    >>> wage = 1.0 + 0.5 * education + 0.1 * (age - 40) - 0.3 * race + u + rng.normal(size=n)
+    >>> wage = (1.0 + 0.5 * education + 0.1 * (age - 40)
+    ...         - 0.3 * race + u + rng.normal(size=n))
     >>> df = pd.DataFrame({"wage": wage, "education": education,
     ...                    "qob1": qob1, "qob2": qob2, "age": age, "race": race})
     >>> res = sp.ivqreg(df, y='wage', endog='education',
@@ -176,9 +177,8 @@ def ivqreg(
 
     # Aux regressor matrix  W = [X | Z]
     W = np.column_stack([X, Z])
-    kz = Z.shape[1]
 
-    rows_out = []
+    rows_out: List[Dict[str, Any]] = []
 
     for tq in taus:
         alpha_hat, b_final, beta_final, grid_vals, grid_crit = _fit_ivqreg_one(
@@ -222,7 +222,7 @@ def ivqreg(
         ci_lo = alpha_hat - zcrit * se_alpha
         ci_hi = alpha_hat + zcrit * se_alpha
 
-        record = {'tau': tq}
+        record: Dict[str, Any] = {'tau': tq}
         for j, name in enumerate(endog_list):
             record[f'{name}_coef'] = alpha_hat[j]
             record[f'{name}_se'] = se_alpha[j]
@@ -306,7 +306,12 @@ def ivqreg(
 # ---------------------------------------------------------------------------
 
 def _fit_ivqreg_one(
-    Y, D, X, Z, W, tau,
+    Y: np.ndarray,
+    D: np.ndarray,
+    X: np.ndarray,
+    Z: np.ndarray,
+    W: np.ndarray,
+    tau: float,
     n_grid: int = 41,
     refine: bool = True,
     verbose: bool = False,
@@ -319,9 +324,8 @@ def _fit_ivqreg_one(
     """
     n, kd = D.shape
     kx = X.shape[1]
-    kz = Z.shape[1]
 
-    def profile_crit(alpha_vec):
+    def profile_crit(alpha_vec: np.ndarray) -> Tuple[float, np.ndarray, np.ndarray]:
         """Quadratic criterion in b̂(α) at quantile τ."""
         Y_tilde = Y - D @ alpha_vec
         coef = _qreg_fit(Y_tilde, W, tau)        # (kx + kz,)
@@ -334,8 +338,6 @@ def _fit_ivqreg_one(
     if kd == 1:
         # Rough scaling of α: regress D on [X, Z] OLS for a reasonable centre
         try:
-            beta_ols = np.linalg.lstsq(np.column_stack([X, Z]),
-                                       Y, rcond=None)[0]
             # Coefficient on D proxy: regress Y on D with X,Z partialled out
             X_all = np.column_stack([X, Z])
             P = X_all @ np.linalg.pinv(X_all.T @ X_all) @ X_all.T
@@ -354,6 +356,10 @@ def _fit_ivqreg_one(
             crits[i] = c
             if best is None or c < best[0]:
                 best = (c, coef, b, a)
+        if best is None:
+            raise RuntimeError(
+                "ivqreg profile search did not evaluate any grid points."
+            )
         alpha_hat = np.array([best[3]])
         coef_hat = best[1]
         b_hat = best[2]
@@ -378,7 +384,10 @@ def _fit_ivqreg_one(
 
         beta_hat = coef_hat[:kx]
         if verbose:
-            print(f"τ={tau:.3f}  α̂={alpha_hat[0]:.4f}  ‖b̂‖²={float(b_hat @ b_hat):.3e}")
+            print(
+                f"τ={tau:.3f}  α̂={alpha_hat[0]:.4f}  "
+                f"‖b̂‖²={float(b_hat @ b_hat):.3e}"
+            )
         return alpha_hat, b_hat, beta_hat, grid, crits
 
     # Multi-dim D — use BFGS directly
@@ -398,17 +407,19 @@ def _fit_ivqreg_one(
 # ---------------------------------------------------------------------------
 
 try:
-    EconometricResults._CITATIONS['ivqreg'] = (
-        "@article{chernozhukov2008instrumental,\n"
-        "  title={Instrumental Variable Quantile Regression: "
-        "A Robust Inference Approach},\n"
-        "  author={Chernozhukov, Victor and Hansen, Christian},\n"
-        "  journal={Journal of Econometrics},\n"
-        "  volume={142},\n"
-        "  number={1},\n"
-        "  pages={379--398},\n"
-        "  year={2008}\n"
-        "}"
-    )
+    citations = getattr(EconometricResults, "_CITATIONS", None)
+    if isinstance(citations, dict):
+        citations['ivqreg'] = (
+            "@article{chernozhukov2008instrumental,\n"
+            "  title={Instrumental Variable Quantile Regression: "
+            "A Robust Inference Approach},\n"
+            "  author={Chernozhukov, Victor and Hansen, Christian},\n"
+            "  journal={Journal of Econometrics},\n"
+            "  volume={142},\n"
+            "  number={1},\n"
+            "  pages={379--398},\n"
+            "  year={2008}\n"
+            "}"
+        )
 except Exception:
     pass

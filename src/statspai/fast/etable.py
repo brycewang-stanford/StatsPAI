@@ -17,11 +17,13 @@ objects directly; for ``sp.feols`` results we wrap ``params`` /
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+import operator
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
+
+from ..exceptions import MethodIncompatibility
 
 
 # ---------------------------------------------------------------------------
@@ -38,8 +40,8 @@ def _coef_series(fit: Any) -> pd.Series:
     if hasattr(fit, "coef_vec"):
         names = getattr(fit, "coef_names", None) or list(range(len(fit.coef_vec)))
         return pd.Series(fit.coef_vec, index=names)
-    raise AttributeError(
-        f"cannot extract coefficients from {type(fit).__name__}"
+    raise MethodIncompatibility(
+        f"etable: cannot extract coefficients from {type(fit).__name__}"
     )
 
 
@@ -55,8 +57,8 @@ def _se_series(fit: Any) -> pd.Series:
     if hasattr(fit, "vcov_matrix") and hasattr(fit, "coef_names"):
         return pd.Series(np.sqrt(np.diag(fit.vcov_matrix)),
                          index=fit.coef_names)
-    raise AttributeError(
-        f"cannot extract standard errors from {type(fit).__name__}"
+    raise MethodIncompatibility(
+        f"etable: cannot extract standard errors from {type(fit).__name__}"
     )
 
 
@@ -84,6 +86,48 @@ def _maybe(fit: Any, attr: str) -> Optional[float]:
     if isinstance(v, (int, float, np.floating, np.integer)):
         return float(v)
     return None
+
+
+def _nonnegative_int(value: Any, *, name: str) -> int:
+    try:
+        parsed = operator.index(value)
+    except TypeError as exc:
+        raise MethodIncompatibility(
+            f"etable: {name} must be a non-negative integer"
+        ) from exc
+    if isinstance(value, bool) or parsed < 0:
+        raise MethodIncompatibility(
+            f"etable: {name} must be a non-negative integer"
+        )
+    return int(parsed)
+
+
+def _string_sequence(
+    value: Optional[Sequence[str]],
+    *,
+    name: str,
+    allow_none: bool = True,
+) -> Optional[List[str]]:
+    if value is None:
+        if allow_none:
+            return None
+        raise MethodIncompatibility(f"etable: {name} must be provided")
+    if isinstance(value, str):
+        raise MethodIncompatibility(
+            f"etable: {name} must be a sequence of strings, not a bare string"
+        )
+    try:
+        out = list(value)
+    except TypeError as exc:
+        raise MethodIncompatibility(
+            f"etable: {name} must be a sequence of strings"
+        ) from exc
+    bad = [v for v in out if not isinstance(v, str) or not v]
+    if bad:
+        raise MethodIncompatibility(
+            f"etable: {name} must contain only non-empty strings"
+        )
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -132,11 +176,16 @@ def etable(
         raise ValueError(f"format={format!r}; expected dataframe|latex|html|markdown")
     if se_format not in ("paren", "below"):
         raise ValueError(f"se_format={se_format!r}; expected paren|below")
+    digits = _nonnegative_int(digits, name="digits")
 
     if names is None:
         names = [f"({i+1})" for i in range(len(fits))]
+    else:
+        names = _string_sequence(names, name="names", allow_none=False)
     if len(names) != len(fits):
         raise ValueError(f"len(names)={len(names)} but len(fits)={len(fits)}")
+    keep = _string_sequence(keep, name="keep")
+    drop = _string_sequence(drop, name="drop")
 
     coefs: List[pd.Series] = [_coef_series(f) for f in fits]
     ses:   List[pd.Series] = [_se_series(f) for f in fits]

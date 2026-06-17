@@ -8,13 +8,59 @@ validation, default learners, repeat-split aggregation, and
 :class:`CausalResult` construction.
 """
 
+import operator
 from typing import Optional, List, Any, Union
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._learners import resolve_learner
+
+
+def _positive_int(value: Any, *, name: str, context: str) -> int:
+    try:
+        parsed = operator.index(value)
+    except TypeError as exc:
+        raise MethodIncompatibility(
+            f"{context}: {name} must be a positive integer"
+        ) from exc
+    if isinstance(value, bool) or parsed < 1:
+        raise MethodIncompatibility(
+            f"{context}: {name} must be a positive integer"
+        )
+    return int(parsed)
+
+
+def _open_unit_float(value: Any, *, name: str, context: str) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{context}: {name} must be finite and in the open interval (0, 1)"
+        ) from exc
+    if not np.isfinite(parsed) or not (0.0 < parsed < 1.0):
+        raise MethodIncompatibility(
+            f"{context}: {name} must be finite and in the open interval (0, 1)"
+        )
+    return parsed
+
+
+def _coerce_column_list(value: Any, *, name: str, context: str) -> List[str]:
+    if isinstance(value, str):
+        return [value]
+    try:
+        cols = list(value)
+    except TypeError as exc:
+        raise MethodIncompatibility(
+            f"{context}: {name} must be a column name or a list of column names"
+        ) from exc
+    if not all(isinstance(col, str) for col in cols):
+        raise MethodIncompatibility(
+            f"{context}: {name} must contain only column-name strings"
+        )
+    return cols
 
 
 class _DoubleMLBase:
@@ -61,43 +107,63 @@ class _DoubleMLBase:
         sample_weight: Optional[Any] = None,
         fold_indices: Optional[Any] = None,
     ):
+        context = f"dml.{self._MODEL_TAG.lower() or 'base'}"
+        if not isinstance(data, pd.DataFrame):
+            raise MethodIncompatibility(
+                f"{context}: data must be a pandas DataFrame",
+                recovery_hint=(
+                    "Pass a pandas DataFrame with named outcome, treatment, "
+                    "covariate, and instrument columns."
+                ),
+                diagnostics={"type": type(data).__name__},
+            )
         self.data = data
         self.y = y
         self.treat = treat
-        self.covariates = list(covariates)
+        self.covariates = _coerce_column_list(
+            covariates, name="covariates", context=context,
+        )
         if instrument is None:
             self.instrument = None
         elif isinstance(instrument, str):
             self.instrument = [instrument]
         else:
-            self.instrument = list(instrument)
-        self.n_folds = n_folds
-        self.n_rep = n_rep
-        self.alpha = alpha
-        self.random_state = int(random_state)
+            self.instrument = _coerce_column_list(
+                instrument, name="instrument", context=context,
+            )
+        self.n_folds = _positive_int(n_folds, name="n_folds", context=context)
+        self.n_rep = _positive_int(n_rep, name="n_rep", context=context)
+        self.alpha = _open_unit_float(alpha, name="alpha", context=context)
+        try:
+            self.random_state = int(random_state)
+        except (TypeError, ValueError) as exc:
+            raise MethodIncompatibility(
+                f"{context}: random_state must be integer-like"
+            ) from exc
         if fold_indices is not None and self._MODEL_TAG != "PLR":
-            raise NotImplementedError(
-                "Explicit fold_indices are currently supported for "
+            raise MethodIncompatibility(
+                f"{context}: explicit fold_indices are currently supported for "
                 "model='plr' only."
             )
-        if fold_indices is not None and n_rep != 1:
-            raise ValueError(
-                "Explicit fold_indices require n_rep=1; pass one fold "
+        if fold_indices is not None and self.n_rep != 1:
+            raise MethodIncompatibility(
+                f"{context}: explicit fold_indices require n_rep=1; pass one fold "
                 "assignment for the single cross-fit repetition."
             )
         if fold_indices is None:
             self._fold_indices_input: Any = None
         elif isinstance(fold_indices, str):
             if fold_indices not in data.columns:
-                raise ValueError(
-                    f"fold_indices column '{fold_indices}' not in data"
+                raise MethodIncompatibility(
+                    f"{context}: fold_indices column '{fold_indices}' not in data",
+                    diagnostics={"missing_columns": [fold_indices]},
                 )
             self._fold_indices_input = fold_indices
         else:
             arr = np.asarray(fold_indices)
             if arr.ndim != 1 or len(arr) != len(data):
-                raise ValueError(
-                    f"fold_indices must be 1-D of length {len(data)} "
+                raise MethodIncompatibility(
+                    f"{context}: fold_indices must be 1-D of length {len(data)} "
                     f"(matching data); got shape {arr.shape}"
                 )
             self._fold_indices_input = arr
@@ -106,15 +172,21 @@ class _DoubleMLBase:
             self._sample_weight_input: Any = None
         elif isinstance(sample_weight, str):
             if sample_weight not in data.columns:
-                raise ValueError(  # pragma: no cover
-                    f"sample_weight column '{sample_weight}' not in data"
+                raise MethodIncompatibility(
+                    f"{context}: sample_weight column '{sample_weight}' not in data",
+                    diagnostics={"missing_columns": [sample_weight]},
                 )
             self._sample_weight_input = sample_weight
         else:
-            arr = np.asarray(sample_weight, dtype=float)
+            try:
+                arr = np.asarray(sample_weight, dtype=float)
+            except (TypeError, ValueError) as exc:
+                raise MethodIncompatibility(
+                    f"{context}: sample_weight must be numeric"
+                ) from exc
             if arr.ndim != 1 or len(arr) != len(data):
-                raise ValueError(
-                    f"sample_weight must be 1-D of length {len(data)} "
+                raise MethodIncompatibility(
+                    f"{context}: sample_weight must be 1-D of length {len(data)} "
                     f"(matching data); got shape {arr.shape}"
                 )
             self._sample_weight_input = arr
@@ -122,8 +194,8 @@ class _DoubleMLBase:
             self._sample_weight_input is not None
             and not self._SUPPORTS_SAMPLE_WEIGHT
         ):
-            raise NotImplementedError(  # pragma: no cover
-                f"sample_weight is not yet supported for "
+            raise MethodIncompatibility(  # pragma: no cover
+                f"{context}: sample_weight is not yet supported for "
                 f"model='{self._MODEL_TAG.lower()}'. Weighted support is "
                 f"currently implemented for model in "
                 f"{{'plr', 'irm', 'pliv', 'iivm'}} only."
@@ -153,20 +225,27 @@ class _DoubleMLBase:
         )
 
     def _validate(self):
+        context = f"dml.{self._MODEL_TAG.lower() or 'base'}"
         required = [self.y, self.treat] + self.covariates
         if self.instrument is not None:
             required = required + self.instrument
-        for col in required:
-            if col not in self.data.columns:
-                raise ValueError(f"Column '{col}' not found in data")
+        missing = [col for col in required if col not in self.data.columns]
+        if missing:
+            raise MethodIncompatibility(
+                f"{context}: columns not found in data: {missing}",
+                recovery_hint=(
+                    "Check y, treat, covariates, and instrument column names."
+                ),
+                diagnostics={"missing_columns": missing},
+            )
         if self._REQUIRES_INSTRUMENT and not self.instrument:
-            raise ValueError(
-                f"model='{self._MODEL_TAG.lower()}' requires an "
+            raise MethodIncompatibility(
+                f"{context}: model='{self._MODEL_TAG.lower()}' requires an "
                 f"'instrument' argument"
             )
         if not self._REQUIRES_INSTRUMENT and self.instrument is not None:
-            raise ValueError(
-                f"'instrument' is only valid when model requires an IV "
+            raise MethodIncompatibility(
+                f"{context}: 'instrument' is only valid when model requires an IV "
                 f"(got model='{self._MODEL_TAG.lower()}')"
             )
         if (
@@ -175,8 +254,8 @@ class _DoubleMLBase:
             and self.instrument is not None
             and len(self.instrument) > 1
         ):
-            raise ValueError(
-                f"model='{self._MODEL_TAG.lower()}' accepts a single scalar "
+            raise MethodIncompatibility(
+                f"{context}: model='{self._MODEL_TAG.lower()}' accepts a single scalar "
                 f"instrument; got {len(self.instrument)}: {self.instrument}. "
                 f"For multiple excluded instruments, use "
                 f"sp.scalar_iv_projection(data, treat=..., "
@@ -185,7 +264,9 @@ class _DoubleMLBase:
                 f"its name to the `instrument=` argument."
             )
         if self.n_folds < 2:
-            raise ValueError(f"n_folds must be >= 2, got {self.n_folds}")
+            raise MethodIncompatibility(
+                f"{context}: n_folds must be >= 2, got {self.n_folds}"
+            )
 
     def _default_ml_g(self):
         from sklearn.ensemble import GradientBoostingRegressor
@@ -229,22 +310,24 @@ class _DoubleMLBase:
     def _validate_fold_indices(fold_indices, n: int, n_folds: int) -> np.ndarray:
         raw = np.asarray(fold_indices)
         if raw.ndim != 1 or len(raw) != n:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"fold_indices must be length {n} after dropping missing "
                 f"model rows; got shape {raw.shape}"
             )
         codes, _ = pd.factorize(raw, sort=True, use_na_sentinel=True)
         if (codes < 0).any():
-            raise ValueError("fold_indices contain missing values")
+            raise MethodIncompatibility("fold_indices contain missing values")
         unique = np.unique(codes)
         if len(unique) != n_folds:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"fold_indices define {len(unique)} folds, but n_folds="
                 f"{n_folds}"
             )
         counts = np.bincount(codes, minlength=n_folds)
         if np.any(counts == 0):
-            raise ValueError("fold_indices must assign at least one row per fold")
+            raise DataInsufficient(
+                "fold_indices must assign at least one row per fold"
+            )
         return codes.astype(int)
 
     # ----- Sample-weight helpers (used by subclasses) -----------------
@@ -345,16 +428,27 @@ class _DoubleMLBase:
         if "__sw__" in clean.columns:
             sample_weight = clean["__sw__"].values.astype(float)
             if np.any(sample_weight < 0):
-                raise ValueError(
+                raise MethodIncompatibility(
                     "sample_weight must be non-negative; got negative entries."
                 )
             if not np.isfinite(sample_weight).all():
-                raise ValueError("sample_weight contains non-finite values.")
+                raise MethodIncompatibility(
+                    "sample_weight contains non-finite values."
+                )
             if sample_weight.sum() <= 0:
-                raise ValueError("sample_weight has zero total mass.")
+                raise DataInsufficient("sample_weight has zero total mass.")
         else:
             sample_weight = None
         n = len(Y)
+        if n == 0:
+            raise DataInsufficient(
+                "DML has no complete rows after dropping missing values."
+            )
+        if n < self.n_folds:
+            raise DataInsufficient(
+                f"DML needs at least n_folds complete rows; got n={n}, "
+                f"n_folds={self.n_folds}."
+            )
         if "__fold__" in clean.columns:
             fold_indices = self._validate_fold_indices(
                 clean["__fold__"].values, n, self.n_folds,

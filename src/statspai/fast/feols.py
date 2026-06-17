@@ -33,10 +33,20 @@ Correia, S. (2017). Linear models with high-dimensional fixed effects.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+
+from ..exceptions import MethodIncompatibility
+from ._result_protocol import jsonable as _jsonable
+from ._result_protocol import tidy_records as _tidy_records
+from ._validation import (
+    nonempty_sample as _nonempty_sample,
+    nonnegative_finite_float as _nonnegative_finite_float,
+    positive_int as _positive_int,
+    positive_weight_mass as _positive_weight_mass,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +130,61 @@ class FeolsResult:
         lines.append("")
         lines.append(self.tidy().to_string(float_format=lambda x: f"{x:.6f}"))
         return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Lossless JSON-safe payload for HDFE OLS results."""
+        return _jsonable({
+            "kind": "fast_feols_result",
+            "model": "ols_hdfe",
+            "formula": self.formula,
+            "n_obs": self.n_obs,
+            "n_kept": self.n_kept,
+            "n_dropped_singletons": self.n_dropped_singletons,
+            "rss": self.rss,
+            "tss": self.tss,
+            "r_squared_within": self.r_squared_within,
+            "df_resid": self.df_resid,
+            "vcov_type": self.vcov_type,
+            "ssc": self.ssc,
+            "cluster_var": self.cluster_var,
+            "backend": self.backend,
+            "fixed_effects": [
+                {"name": name, "cardinality": cardinality}
+                for name, cardinality in zip(self.fe_names, self.fe_cardinality)
+            ],
+            "coefficients": _tidy_records(self.tidy()),
+            "vcov": {
+                "terms": list(self.coef_names),
+                "matrix": self.vcov_matrix,
+            },
+        })
+
+    def to_agent_summary(self, *, max_terms: int = 10) -> dict[str, Any]:
+        """Bounded agent-facing summary for fast HDFE OLS results."""
+        n_terms = len(self.coef_names)
+        limit = max(int(max_terms), 0)
+        rows = _tidy_records(self.tidy().head(limit))
+        return _jsonable({
+            "kind": "fast_feols_agent_summary",
+            "model": "ols_hdfe",
+            "formula": self.formula,
+            "n_obs": self.n_obs,
+            "n_kept": self.n_kept,
+            "n_dropped_singletons": self.n_dropped_singletons,
+            "df_resid": self.df_resid,
+            "r_squared_within": self.r_squared_within,
+            "vcov_type": self.vcov_type,
+            "ssc": self.ssc,
+            "cluster_var": self.cluster_var,
+            "fixed_effects": [
+                {"name": name, "cardinality": cardinality}
+                for name, cardinality in zip(self.fe_names, self.fe_cardinality)
+            ],
+            "coefficients": rows,
+            "n_terms": n_terms,
+            "truncated_terms": max(n_terms - limit, 0),
+            "backend": self.backend,
+        })
 
     def __repr__(self) -> str:  # pragma: no cover  - cosmetic
         return self.summary()
@@ -206,16 +271,22 @@ def feols(
     >>> fit.se()                                  # pd.Series
     """
     if vcov not in ("iid", "hc1", "cr1"):
-        raise ValueError(f"vcov={vcov!r}; supported: 'iid', 'hc1', or 'cr1'")
+        raise MethodIncompatibility(
+            f"feols: vcov={vcov!r}; supported: 'iid', 'hc1', or 'cr1'"
+        )
     if ssc not in ("statspai", "fixest"):
-        raise ValueError(f"ssc={ssc!r}; supported: 'statspai' or 'fixest'")
+        raise MethodIncompatibility(
+            f"feols: ssc={ssc!r}; supported: 'statspai' or 'fixest'"
+        )
     if vcov == "cr1" and cluster is None:
-        raise ValueError("vcov='cr1' requires cluster=<column name>")
+        raise MethodIncompatibility("feols: vcov='cr1' requires cluster=<column name>")
     if cluster is not None and vcov in ("iid", "hc1"):
-        raise ValueError(
-            f"cluster={cluster!r} provided but vcov={vcov!r}; "
+        raise MethodIncompatibility(
+            f"feols: cluster={cluster!r} provided but vcov={vcov!r}; "
             "set vcov='cr1' to compute cluster-robust SE"
         )
+    fe_maxiter = _positive_int(fe_maxiter, name="fe_maxiter", context="feols")
+    fe_tol = _nonnegative_finite_float(fe_tol, name="fe_tol", context="feols")
 
     # Lazy imports to keep top-level `sp.fast` cheap.
     from .fepois import _parse_fepois_formula
@@ -235,12 +306,15 @@ def feols(
         needed_cols = needed_cols + [cluster]
     missing = [c for c in needed_cols if c not in data.columns]
     if missing:
-        raise KeyError(f"columns missing from data: {missing}")
+        raise MethodIncompatibility(f"feols: columns missing from data: {missing}")
 
     n_obs = len(data)
+    _nonempty_sample(n_obs, context="feols")
     y = data[lhs].to_numpy(dtype=np.float64).copy()
     if not np.isfinite(y).all():
-        raise ValueError(f"outcome column {lhs!r} has non-finite values")
+        raise MethodIncompatibility(
+            f"feols: outcome column {lhs!r} has non-finite values"
+        )
     X_user = (
         data[rhs_terms].to_numpy(dtype=np.float64).copy()
         if rhs_terms else np.empty((n_obs, 0), dtype=np.float64)
@@ -248,7 +322,7 @@ def feols(
     if X_user.ndim == 1:
         X_user = X_user.reshape(-1, 1)
     if not np.isfinite(X_user).all():
-        raise ValueError("regressor columns contain non-finite values")
+        raise MethodIncompatibility("feols: regressor columns contain non-finite values")
     if add_intercept:
         X = np.column_stack([np.ones(n_obs, dtype=np.float64), X_user])
         coef_names_full: List[str] = ["(Intercept)"] + list(rhs_terms)
@@ -265,9 +339,16 @@ def feols(
     if weights is not None:
         w_full = data[weights].to_numpy(dtype=np.float64).copy()
         if (w_full < 0).any():
-            raise ValueError(f"weights column {weights!r} contains negative values")
+            raise MethodIncompatibility(
+                f"feols: weights column {weights!r} contains negative values"
+            )
         if not np.isfinite(w_full).all():
-            raise ValueError(f"weights column {weights!r} contains non-finite values")
+            raise MethodIncompatibility(
+                f"feols: weights column {weights!r} contains non-finite values"
+            )
+        _positive_weight_mass(
+            w_full, context=f"feols weights column {weights!r}",
+        )
     else:
         w_full = None
 
@@ -278,8 +359,9 @@ def feols(
             cluster_arr_full, sort=False, use_na_sentinel=True,
         )
         if (cluster_codes_check < 0).any():
-            raise ValueError(
-                f"cluster column {cluster!r} contains NaN; drop or impute upstream"
+            raise MethodIncompatibility(
+                f"feols: cluster column {cluster!r} contains NaN; "
+                "drop or impute upstream"
             )
     else:
         cluster_arr_full = None
@@ -314,7 +396,9 @@ def feols(
                     data[col], sort=False, use_na_sentinel=True,
                 )
                 if (codes < 0).any():
-                    raise ValueError(f"NaN in fixed effect column {col!r}")
+                    raise MethodIncompatibility(
+                        f"feols: NaN in fixed effect column {col!r}"
+                    )
                 fe_codes_raw.append(codes.astype(np.int64))
             keep_mask = (
                 _ds_helper(fe_codes_raw, n_obs)
@@ -359,6 +443,9 @@ def feols(
     # Apply mask to weights / cluster (demean already returned masked X̃, ỹ)
     if w_full is not None:
         w = w_full[keep_mask]
+        _positive_weight_mass(
+            w, context=f"feols kept sample weights column {weights!r}",
+        )
     else:
         w = np.ones(n_kept, dtype=np.float64)
     if cluster_arr_full is not None:

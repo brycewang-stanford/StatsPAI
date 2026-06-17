@@ -17,7 +17,7 @@ with no further formatting work.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence
 
 from .regression_table import regtable, RegtableResult
@@ -278,7 +278,6 @@ class PaperTables:
                 ws.cell(row=row, column=1, value=str(tbl.title)).font = title_font
                 row += 2
 
-            header_row = row
             ws.cell(row=row, column=1).border = top_rule
             for j, col in enumerate(df.columns, 2):
                 cell = ws.cell(row=row, column=j, value=str(col))
@@ -327,8 +326,12 @@ class PaperTables:
 
             # Auto-fit columns
             for col_cells in ws.columns:
-                width = max((len(str(c.value)) for c in col_cells if c.value), default=8)
-                ws.column_dimensions[col_cells[0].column_letter].width = min(width + 3, 28)
+                width = max(
+                    (len(str(c.value)) for c in col_cells if c.value), default=8
+                )
+                ws.column_dimensions[col_cells[0].column_letter].width = min(
+                    width + 3, 28
+                )
 
         wb.save(path)
         return path
@@ -430,7 +433,11 @@ def paper_tables(
         raise ValueError(
             f"Unknown template {template!r}; choose from {list(TEMPLATES)}")
 
-    def _build(results, title, model_labels):
+    def _build(
+        results: Optional[Sequence[Any]],
+        title: str,
+        model_labels: Optional[Sequence[str]],
+    ) -> Optional[RegtableResult]:
         if not results:
             return None
         # Delegate journal styling to regtable's template system. Doing so
@@ -440,7 +447,7 @@ def paper_tables(
         return regtable(
             *results,
             title=title,
-            model_labels=model_labels,
+            model_labels=list(model_labels) if model_labels is not None else None,
             coef_labels=coef_labels,
             keep=keep,
             template=template,

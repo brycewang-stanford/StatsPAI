@@ -261,7 +261,7 @@ def _dispatch(
     method: str = "2sls",
     augmented_diagnostics: bool = True,
     **kwargs: Any,
-):
+) -> Any:
     """
     Unified IV dispatcher.
 
@@ -459,7 +459,7 @@ def fit(
     method: str = "2sls",
     augmented_diagnostics: bool = True,
     **kwargs: Any,
-):
+) -> Any:
     """Alias for :func:`_dispatch`.  See ``sp.iv.__doc__`` for usage."""
     return _dispatch(
         formula=formula, data=data, method=method,
@@ -507,7 +507,13 @@ def _unwrap_singleton_str(kwargs: Dict[str, Any], key: str) -> None:
             )
 
 
-def _resolve_iv_args(formula, data, kwargs, *, allow_formula: bool):
+def _resolve_iv_args(
+    formula: Optional[str],
+    data: Any,
+    kwargs: Dict[str, Any],
+    *,
+    allow_formula: bool,
+) -> tuple[Any, Any, Any, Any]:
     """Pop ``y/endog/instruments/exog`` from kwargs, falling back to the
     formula parser.  Used by methods that take explicit arrays/columns
     rather than a Patsy-style formula.
@@ -529,7 +535,7 @@ def _resolve_iv_args(formula, data, kwargs, *, allow_formula: bool):
     return y_, endog_, instruments_, exog_
 
 
-def _formula_to_parts(formula: str, data):
+def _formula_to_parts(formula: str, data: Any) -> tuple[Any, Any, Any, Any]:
     from ..core.utils import parse_formula
     parsed = parse_formula(formula)
     return (
@@ -540,7 +546,7 @@ def _formula_to_parts(formula: str, data):
     )
 
 
-def _attach_augmented_diagnostics(model, result):
+def _attach_augmented_diagnostics(model: Any, result: Any) -> None:
     """Attach KP rk, SW per-endog F, MOP effective F on top of the standard
     EconometricResults.diagnostics dict.  Failures are swallowed into a
     ``augmented_diagnostics_error`` key — augmenting is *additive* and must
@@ -586,7 +592,11 @@ def _attach_augmented_diagnostics(model, result):
                     exog=[e for e in model._exog_names if e != "Intercept"] or None,
                 )
                 if isinstance(ep, dict):
-                    stat = ep.get("F_eff") or ep.get("statistic") or ep.get("effective_F")
+                    stat = (
+                        ep.get("F_eff")
+                        or ep.get("statistic")
+                        or ep.get("effective_F")
+                    )
                 else:
                     stat = (
                         getattr(ep, "F_eff", None)
@@ -600,7 +610,7 @@ def _attach_augmented_diagnostics(model, result):
         result.diagnostics["augmented_diagnostics_error"] = str(e)
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     """Lazily expose optional IV sub-families.
 
     This keeps ``sp.iv.bartik`` / ``sp.iv.deepiv`` working without forcing the
@@ -626,7 +636,7 @@ def __getattr__(name: str):
 class _CallableIVModule(ModuleType):
     """A ModuleType subclass that delegates calls to :func:`_dispatch`."""
 
-    def __call__(self, *args: Any, **kwargs: Any):  # noqa: D401
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:  # noqa: D401
         return _dispatch(*args, **kwargs)
 
 

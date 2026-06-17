@@ -31,10 +31,16 @@ studies with binary data." *American Journal of Epidemiology*, 159(7),
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 from scipy import stats
+
+from ..exceptions import (
+    DataInsufficient,
+    MethodIncompatibility,
+    NumericalInstability,
+)
 
 
 __all__ = [
@@ -59,25 +65,94 @@ __all__ = [
 # --------------------------------------------------------------------------- #
 
 
-def _coerce_2x2(a, b=None, c=None, d=None):
+def _coerce_2x2(
+    a: Any,
+    b: Any = None,
+    c: Any = None,
+    d: Any = None,
+) -> tuple[float, float, float, float]:
     """Accept either ``(a, b, c, d)`` counts or a 2x2 matrix.
 
     Returns floats to allow continuity corrections downstream without
     integer truncation issues.
     """
     if b is None:
-        arr = np.asarray(a, dtype=float)
+        try:
+            arr = np.asarray(a, dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise MethodIncompatibility(
+                "2x2 table must contain numeric counts.",
+                recovery_hint=(
+                    "Pass numeric cell counts as a 2x2 array or as "
+                    "a, b, c, d."
+                ),
+                diagnostics={"input_type": type(a).__name__},
+            ) from exc
         if arr.shape != (2, 2):
-            raise ValueError(
-                "2x2 table expected; got shape %s" % (arr.shape,)
+            raise MethodIncompatibility(
+                "2x2 table expected; got shape %s" % (arr.shape,),
+                recovery_hint=(
+                    "Pass rows [exposed, unexposed] and columns "
+                    "[event, non-event]."
+                ),
+                diagnostics={"shape": arr.shape},
             )
         (a, b), (c, d) = arr
-    if any(x < 0 for x in (a, b, c, d)):
-        raise ValueError("Counts must be non-negative.")
-    return float(a), float(b), float(c), float(d)
+    elif c is None or d is None:
+        raise MethodIncompatibility(
+            "Pass either a full 2x2 table or all four cell counts.",
+            recovery_hint=(
+                "Call with odds_ratio([[a, b], [c, d]]) or "
+                "odds_ratio(a, b, c, d)."
+            ),
+            diagnostics={
+                "missing": [
+                    name
+                    for name, value in {"c": c, "d": d}.items()
+                    if value is None
+                ]
+            },
+        )
+    try:
+        counts = np.asarray([a, b, c, d], dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            "Counts must be numeric.",
+            recovery_hint="Pass finite numeric cell counts.",
+            diagnostics={"values": [repr(x) for x in (a, b, c, d)]},
+        ) from exc
+    if not np.all(np.isfinite(counts)):
+        raise MethodIncompatibility(
+            "Counts must be finite.",
+            recovery_hint=(
+                "Drop or impute non-finite counts before computing "
+                "epidemiology measures."
+            ),
+            diagnostics={"values": counts.tolist()},
+        )
+    if np.any(counts < 0):
+        raise MethodIncompatibility(
+            "Counts must be non-negative.",
+            recovery_hint=(
+                "Check the 2x2 table construction; event and non-event "
+                "counts cannot be negative."
+            ),
+            diagnostics={"values": counts.tolist()},
+        )
+    return (
+        float(counts[0]),
+        float(counts[1]),
+        float(counts[2]),
+        float(counts[3]),
+    )
 
 
-def _haldane_correction(a: float, b: float, c: float, d: float):
+def _haldane_correction(
+    a: float,
+    b: float,
+    c: float,
+    d: float,
+) -> tuple[float, float, float, float]:
     """Haldane-Anscombe 0.5 continuity correction when any cell is zero."""
     if min(a, b, c, d) == 0:
         return a + 0.5, b + 0.5, c + 0.5, d + 0.5
@@ -85,7 +160,21 @@ def _haldane_correction(a: float, b: float, c: float, d: float):
 
 
 def _z_crit(alpha: float) -> float:
-    return float(stats.norm.ppf(1 - alpha / 2))
+    try:
+        alpha_float = float(alpha)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            "alpha must be a finite probability in (0, 1).",
+            recovery_hint="Use a significance level such as alpha=0.05.",
+            diagnostics={"alpha": repr(alpha)},
+        ) from exc
+    if not np.isfinite(alpha_float) or not 0 < alpha_float < 1:
+        raise MethodIncompatibility(
+            "alpha must be a finite probability in (0, 1).",
+            recovery_hint="Use a significance level such as alpha=0.05.",
+            diagnostics={"alpha": alpha_float},
+        )
+    return float(stats.norm.ppf(1 - alpha_float / 2))
 
 
 # --------------------------------------------------------------------------- #
@@ -166,7 +255,8 @@ class RD2x2Result:
 class ARResult:
     """Attributable-risk quantities (Levin 1953, Miettinen 1974)."""
 
-    ar_exposed: float  # AR% among the exposed (a.k.a. attributable fraction in exposed)
+    # AR% among the exposed (a.k.a. attributable fraction in exposed)
+    ar_exposed: float
     paf: float         # Population attributable fraction (Levin)
     paf_ci: tuple[float, float]
     prevalence_exposed: float
@@ -207,7 +297,8 @@ class IRRResult:
             f"  Rate (exposed)   = {self.rate_exposed:.6f}  "
             f"({self.events_exposed:.0f}/{self.pt_exposed:.1f} person-time)\n"
             f"  Rate (unexposed) = {self.rate_unexposed:.6f}  "
-            f"({self.events_unexposed:.0f}/{self.pt_unexposed:.1f} person-time)"
+            f"({self.events_unexposed:.0f}/"
+            f"{self.pt_unexposed:.1f} person-time)"
         )
 
 
@@ -219,7 +310,7 @@ class NNTResult:
 
     def summary(self) -> str:
         lo, hi = self.ci
-        # NNT is reported as NNT-Benefit or NNT-Harm; the sign of RD drives it.
+        # NNT is reported as NNT-Benefit or NNT-Harm; RD sign drives it.
         tag = "NNT Benefit" if self.risk_difference < 0 else "NNT Harm"
         return (
             f"{tag}\n"
@@ -233,7 +324,7 @@ class NNTResult:
 
 
 def odds_ratio(
-    a,
+    a: Any,
     b: Optional[float] = None,
     c: Optional[float] = None,
     d: Optional[float] = None,
@@ -273,7 +364,14 @@ def odds_ratio(
     """
     a, b, c, d = _coerce_2x2(a, b, c, d)
     if method not in ("woolf", "exact"):
-        raise ValueError("method must be 'woolf' or 'exact'")
+        raise MethodIncompatibility(
+            "method must be 'woolf' or 'exact'",
+            recovery_hint=(
+                "Use method='woolf' for asymptotic inference or "
+                "method='exact' for Fisher-style inference."
+            ),
+            diagnostics={"method": method},
+        )
 
     # Haldane correction for log-OR SE path.
     a_c, b_c, c_c, d_c = _haldane_correction(a, b, c, d)
@@ -289,18 +387,24 @@ def odds_ratio(
         z_stat = log_or / se_log if se_log > 0 else 0.0
         p = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
     else:
-        # Fisher's exact: use scipy, which gives unconditional MLE OR + exact CI.
+        # Fisher's exact returns an unconditional MLE OR and p-value.
         table = np.array([[a, b], [c, d]], dtype=int)
         try:
             res = stats.fisher_exact(table, alternative="two-sided")
             # scipy returns (odds_ratio, p_value)
-            or_exact = float(res.statistic) if hasattr(res, "statistic") else float(res[0])
-            p = float(res.pvalue) if hasattr(res, "pvalue") else float(res[1])
+            if hasattr(res, "statistic"):
+                or_exact = float(res.statistic)
+                p = float(res.pvalue)
+            else:
+                or_exact = float(res[0])
+                p = float(res[1])
             # Use scipy.stats.contingency.odds_ratio for exact CI if available
             try:
                 from scipy.stats.contingency import odds_ratio as _scipy_or
                 obj = _scipy_or(table, kind="conditional")
-                ci_lo, ci_hi = obj.confidence_interval(confidence_level=1 - alpha)
+                ci_lo, ci_hi = obj.confidence_interval(
+                    confidence_level=1 - alpha
+                )
                 ci = (float(ci_lo), float(ci_hi))
                 or_point = or_exact
             except Exception:
@@ -308,8 +412,15 @@ def odds_ratio(
                 z = _z_crit(alpha)
                 ci = (float(np.exp(log_or - z * se_log)),
                       float(np.exp(log_or + z * se_log)))
-        except Exception as exc:  # pragma: no cover - scipy always has fisher_exact
-            raise RuntimeError(f"scipy.stats.fisher_exact failed: {exc}")
+        except Exception as exc:  # pragma: no cover
+            raise NumericalInstability(
+                f"scipy.stats.fisher_exact failed: {exc}",
+                recovery_hint=(
+                    "Use method='woolf' or check that the 2x2 table is "
+                    "well formed."
+                ),
+                diagnostics={"table": table.tolist()},
+            ) from exc
 
     _result = OR2x2Result(
         estimate=float(or_point),
@@ -339,7 +450,7 @@ def odds_ratio(
 
 
 def relative_risk(
-    a,
+    a: Any,
     b: Optional[float] = None,
     c: Optional[float] = None,
     d: Optional[float] = None,
@@ -363,7 +474,13 @@ def relative_risk(
     n1 = a + b
     n0 = c + d
     if n1 == 0 or n0 == 0:
-        raise ValueError("Empty exposure row in 2x2 table.")
+        raise DataInsufficient(
+            "Empty exposure row in 2x2 table.",
+            recovery_hint=(
+                "Each exposure row must contain at least one observation."
+            ),
+            diagnostics={"n_exposed": n1, "n_unexposed": n0},
+        )
 
     a_c, b_c, c_c, d_c = _haldane_correction(a, b, c, d)
     p1 = a_c / (a_c + b_c)
@@ -396,7 +513,7 @@ def relative_risk(
     )
 
 
-def prevalence_ratio(*args, **kwargs) -> RR2x2Result:
+def prevalence_ratio(*args: Any, **kwargs: Any) -> RR2x2Result:
     """Prevalence ratio (cross-sectional RR); mathematically identical
     to :func:`relative_risk` when called on a 2x2 prevalence table.
     Distinguished for semantic clarity in cross-sectional studies.
@@ -432,7 +549,7 @@ def prevalence_ratio(*args, **kwargs) -> RR2x2Result:
 
 
 def risk_difference(
-    a,
+    a: Any,
     b: Optional[float] = None,
     c: Optional[float] = None,
     d: Optional[float] = None,
@@ -459,12 +576,22 @@ def risk_difference(
     """
     a, b, c, d = _coerce_2x2(a, b, c, d)
     if method not in ("wald", "newcombe"):
-        raise ValueError("method must be 'wald' or 'newcombe'")
+        raise MethodIncompatibility(
+            "method must be 'wald' or 'newcombe'",
+            recovery_hint="Use method='wald' or method='newcombe'.",
+            diagnostics={"method": method},
+        )
 
     n1 = a + b
     n0 = c + d
     if n1 == 0 or n0 == 0:
-        raise ValueError("Empty row in 2x2 table.")
+        raise DataInsufficient(
+            "Empty row in 2x2 table.",
+            recovery_hint=(
+                "Each 2x2 row must contain at least one observation."
+            ),
+            diagnostics={"n_exposed": n1, "n_unexposed": n0},
+        )
     p1 = a / n1
     p0 = c / n0
     rd = p1 - p0
@@ -475,13 +602,16 @@ def risk_difference(
         ci = (rd - z * se, rd + z * se)
     else:
         # Newcombe hybrid score: combine Wilson score intervals per arm.
-        def _wilson(k, n):
+        def _wilson(k: float, n: float) -> tuple[float, float]:
             if n == 0:
                 return 0.0, 1.0
             phat = k / n
             denom = 1 + z ** 2 / n
             centre = (phat + z ** 2 / (2 * n)) / denom
-            half = (z * np.sqrt(phat * (1 - phat) / n + z ** 2 / (4 * n ** 2))) / denom
+            half = (
+                z
+                * np.sqrt(phat * (1 - phat) / n + z ** 2 / (4 * n ** 2))
+            ) / denom
             return float(centre - half), float(centre + half)
 
         l1, u1 = _wilson(a, n1)
@@ -514,7 +644,7 @@ def risk_difference(
 
 
 def attributable_risk(
-    a,
+    a: Any,
     b: Optional[float] = None,
     c: Optional[float] = None,
     d: Optional[float] = None,
@@ -550,7 +680,8 @@ def attributable_risk(
 
     # Delta-method CI on log(1 - PAF) via log(RR) variance (Greenland 2001)
     # 1 - PAF = 1 / (1 + P_e*(RR-1))
-    # var[log(1 - PAF)] approximated via var[log(RR)] * (dlog(1-PAF)/dlog(RR))^2
+    # var[log(1 - PAF)] approximated via var[log(RR)] times the
+    # squared derivative of log(1 - PAF) with respect to log(RR).
     if rr > 0 and paf < 1:
         one_minus_paf = 1 - paf
         # d(log(1-PAF))/d(logRR) = -P_e * RR / (1 + P_e*(RR-1))
@@ -608,10 +739,73 @@ def incidence_rate_ratio(
     >>> round(res.rate_exposed, 3), round(res.rate_unexposed, 3)
     (0.03, 0.015)
     """
+    if method not in ("exact", "wald"):
+        raise MethodIncompatibility(
+            "method must be 'exact' or 'wald'",
+            recovery_hint=(
+                "Use method='exact' for small event counts or "
+                "method='wald' for asymptotic inference."
+            ),
+            diagnostics={"method": method},
+        )
+    try:
+        events_exposed = float(events_exposed)
+        pt_exposed = float(pt_exposed)
+        events_unexposed = float(events_unexposed)
+        pt_unexposed = float(pt_unexposed)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            "Events and person-time must be numeric.",
+            recovery_hint=(
+                "Pass finite numeric event counts and positive person-time."
+            ),
+            diagnostics={
+                "events_exposed": repr(events_exposed),
+                "pt_exposed": repr(pt_exposed),
+                "events_unexposed": repr(events_unexposed),
+                "pt_unexposed": repr(pt_unexposed),
+            },
+        ) from exc
+    values = np.asarray(
+        [events_exposed, pt_exposed, events_unexposed, pt_unexposed],
+        dtype=float,
+    )
+    if not np.all(np.isfinite(values)):
+        raise MethodIncompatibility(
+            "Events and person-time must be finite.",
+            recovery_hint=(
+                "Drop or impute non-finite rates inputs before computing "
+                "IRR."
+            ),
+            diagnostics={
+                "events_exposed": events_exposed,
+                "pt_exposed": pt_exposed,
+                "events_unexposed": events_unexposed,
+                "pt_unexposed": pt_unexposed,
+            },
+        )
     if pt_exposed <= 0 or pt_unexposed <= 0:
-        raise ValueError("Person-time must be positive.")
+        raise MethodIncompatibility(
+            "Person-time must be positive.",
+            recovery_hint=(
+                "Use strictly positive person-time in both exposure groups."
+            ),
+            diagnostics={
+                "pt_exposed": pt_exposed,
+                "pt_unexposed": pt_unexposed,
+            },
+        )
     if events_exposed < 0 or events_unexposed < 0:
-        raise ValueError("Event counts must be non-negative.")
+        raise MethodIncompatibility(
+            "Event counts must be non-negative.",
+            recovery_hint=(
+                "Check event aggregation; counts cannot be negative."
+            ),
+            diagnostics={
+                "events_exposed": events_exposed,
+                "events_unexposed": events_unexposed,
+            },
+        )
 
     rate1 = events_exposed / pt_exposed
     rate0 = events_unexposed / pt_unexposed
@@ -641,7 +835,7 @@ def incidence_rate_ratio(
         log_irr = np.log(irr) if irr > 0 else np.nan
         ci = (float(np.exp(log_irr - z * se_log)),
               float(np.exp(log_irr + z * se_log)))
-    elif method == "exact":
+    else:
         # Conditional on total events, D1 ~ Binomial(D, pi) where
         # pi = (lambda1 * PT1) / (lambda1*PT1 + lambda0*PT0)
         # IRR is a one-to-one transform of pi.
@@ -665,8 +859,6 @@ def incidence_rate_ratio(
             lo_irr = (lo_pi / (1 - lo_pi)) * ratio if lo_pi < 1 else np.inf
             hi_irr = (hi_pi / (1 - hi_pi)) * ratio if hi_pi < 1 else np.inf
             ci = (float(lo_irr), float(hi_irr))
-    else:
-        raise ValueError("method must be 'exact' or 'wald'")
 
     # Two-sided Wald p-value on log-IRR
     log_irr = np.log(irr) if irr > 0 else 0.0
@@ -693,7 +885,7 @@ def incidence_rate_ratio(
 
 
 def number_needed_to_treat(
-    a,
+    a: Any,
     b: Optional[float] = None,
     c: Optional[float] = None,
     d: Optional[float] = None,

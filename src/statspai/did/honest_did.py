@@ -27,14 +27,87 @@ import json
 import shutil
 import subprocess
 import tempfile
+from numbers import Real
 from pathlib import Path
-from typing import Optional, List
+from typing import Any, Optional, List, Sequence
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+
+
+def _require_string(value: Any, *, argument: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise MethodIncompatibility(
+            f"`{argument}` must be a non-empty string.",
+            recovery_hint=f"Pass a supported string value for `{argument}`.",
+            diagnostics={"argument": argument, "type": type(value).__name__},
+        )
+    return value
+
+
+def _require_alpha(alpha: Any) -> float:
+    if isinstance(alpha, (bool, np.bool_)) or not isinstance(alpha, Real):
+        raise MethodIncompatibility(
+            "`alpha` must be a finite number in (0, 1).",
+            recovery_hint="Pass a significance level such as alpha=0.05.",
+            diagnostics={"argument": "alpha", "value": alpha},
+        )
+    out = float(alpha)
+    if not np.isfinite(out) or not (0.0 < out < 1.0):
+        raise MethodIncompatibility(
+            "`alpha` must be a finite number in (0, 1).",
+            recovery_hint="Pass a significance level such as alpha=0.05.",
+            diagnostics={"argument": "alpha", "value": alpha},
+        )
+    return out
+
+
+def _require_int(value: Any, *, argument: str) -> int:
+    if isinstance(value, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"`{argument}` must be an integer.",
+            recovery_hint=f"Pass an integer relative-time value for `{argument}`.",
+            diagnostics={"argument": argument, "value": value},
+        )
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"`{argument}` must be an integer.",
+            recovery_hint=f"Pass an integer relative-time value for `{argument}`.",
+            diagnostics={"argument": argument, "type": type(value).__name__},
+        ) from exc
+
+
+def _coerce_m_grid(m_grid: Optional[Sequence[float]], *, se_hat: float) -> List[float]:
+    if m_grid is None:
+        sigma = float(se_hat)
+        return [0.0, 0.5 * sigma, sigma, 1.5 * sigma, 2.0 * sigma, 3.0 * sigma]
+    try:
+        out = [float(m) for m in m_grid]
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            "`m_grid` must be a sequence of finite non-negative numbers.",
+            recovery_hint="Pass m_grid=[0, 0.5, 1.0] or leave it as None.",
+            diagnostics={"argument": "m_grid", "type": type(m_grid).__name__},
+        ) from exc
+    if not out:
+        raise DataInsufficient(
+            "`m_grid` must contain at least one value.",
+            recovery_hint="Pass at least one M value or leave m_grid as None.",
+            diagnostics={"argument": "m_grid"},
+        )
+    if any((not np.isfinite(m)) or m < 0 for m in out):
+        raise MethodIncompatibility(
+            "`m_grid` must be a sequence of finite non-negative numbers.",
+            recovery_hint="Remove NaN/Inf/negative M values from m_grid.",
+            diagnostics={"argument": "m_grid", "values": out},
+        )
+    return out
 
 
 def honest_did(
@@ -141,6 +214,10 @@ def honest_did(
     Rambachan, A. and Roth, J. (2023). A more credible approach to parallel
     trends. *Review of Economic Studies*. [@rambachan2023more]
     """
+    e = _require_int(e, argument="e")
+    method = _require_string(method, argument="method")
+    alpha = _require_alpha(alpha)
+    backend = _require_string(backend, argument="backend")
     backend_norm = backend.lower().replace("-", "_")
     if backend_norm in {"r", "honestdid", "honest_did", "honestdid_r"}:
         return _honest_did_r_backend(
@@ -152,7 +229,11 @@ def honest_did(
             honestdid_method=honestdid_method,
         )
     if backend_norm not in {"native", "statspai"}:
-        raise ValueError("backend must be 'native', 'honestdid', or 'r'.")
+        raise MethodIncompatibility(
+            "backend must be 'native', 'honestdid', or 'r'.",
+            recovery_hint="Use backend='native' unless exact R HonestDiD parity is required.",
+            diagnostics={"backend": backend},
+        )
 
     es = _extract_event_study(result)
     z_crit = stats.norm.ppf(1 - alpha / 2)
@@ -160,7 +241,11 @@ def honest_did(
     # Find the target period
     target_row = es[es["relative_time"] == e]
     if len(target_row) == 0:
-        raise ValueError(f"No event study estimate at relative time e={e}")
+        raise DataInsufficient(
+            f"No event study estimate at relative time e={e}",
+            recovery_hint="Choose an `e` value present in the event-study table.",
+            diagnostics={"e": e, "available": es["relative_time"].tolist()},
+        )
 
     theta_hat = float(target_row["att"].iloc[0])
     se_hat = float(target_row["se"].iloc[0])
@@ -168,12 +253,9 @@ def honest_did(
     # Pre-treatment estimates (for calibrating M)
     pre = es[es["relative_time"] < 0].sort_values("relative_time")
     pre_atts = pre["att"].values
-    pre_ses = pre["se"].values
 
     # Default M grid: multiples of SE
-    if m_grid is None:
-        sigma = se_hat
-        m_grid = [0, 0.5 * sigma, sigma, 1.5 * sigma, 2.0 * sigma, 3.0 * sigma]
+    m_grid = _coerce_m_grid(m_grid, se_hat=se_hat)
 
     rows = []
 
@@ -221,8 +303,10 @@ def honest_did(
             )
 
     else:
-        raise ValueError(
-            f"method must be 'smoothness' or 'relative_magnitude', " f"got '{method}'"
+        raise MethodIncompatibility(
+            f"method must be 'smoothness' or 'relative_magnitude', got '{method}'",
+            recovery_hint="Use method='smoothness' or method='relative_magnitude'.",
+            diagnostics={"method": method},
         )
 
     return pd.DataFrame(rows)
@@ -237,10 +321,15 @@ def _honest_did_r_backend(
     honestdid_method: Optional[str] = None,
 ) -> pd.DataFrame:
     """Run the R HonestDiD reference implementation for CI parity."""
+    e = _require_int(e, argument="e")
+    method = _require_string(method, argument="method")
+    alpha = _require_alpha(alpha)
     method_norm = method.lower().replace("-", "_")
     if method_norm not in {"smoothness", "relative_magnitude", "relative_magnitudes"}:
-        raise ValueError(
-            f"method must be 'smoothness' or 'relative_magnitude', got '{method}'"
+        raise MethodIncompatibility(
+            f"method must be 'smoothness' or 'relative_magnitude', got '{method}'",
+            recovery_hint="Use method='smoothness' or method='relative_magnitude'.",
+            diagnostics={"method": method},
         )
     if honestdid_method is None:
         honestdid_method_arg = (
@@ -249,6 +338,9 @@ def _honest_did_r_backend(
             else "FLCI"
         )
     else:
+        honestdid_method = _require_string(
+            honestdid_method, argument="honestdid_method",
+        )
         method_aliases = {
             "c_lf": "C-LF",
             "c-lf": "C-LF",
@@ -261,17 +353,24 @@ def _honest_did_r_backend(
         }
         key = honestdid_method.lower().replace(" ", "_")
         if key not in method_aliases:
-            raise ValueError(
+            raise MethodIncompatibility(
                 "honestdid_method must be one of 'C-LF', 'Conditional', "
-                "'FLCI', or 'C-F'."
+                "'FLCI', or 'C-F'.",
+                recovery_hint="Use an HonestDiD solver method supported by the selected restriction.",
+                diagnostics={"honestdid_method": honestdid_method},
             )
         honestdid_method_arg = method_aliases[key]
     if method_norm in {"relative_magnitude", "relative_magnitudes"} and (
         honestdid_method_arg not in {"C-LF", "Conditional"}
     ):
-        raise ValueError(
+        raise MethodIncompatibility(
             "honestdid_method must be 'C-LF' or 'Conditional' for "
-            "method='relative_magnitude'."
+            "method='relative_magnitude'.",
+            recovery_hint="Use honestdid_method='C-LF' or 'Conditional'.",
+            diagnostics={
+                "method": method_norm,
+                "honestdid_method": honestdid_method_arg,
+            },
         )
 
     rscript = _find_rscript()
@@ -283,20 +382,29 @@ def _honest_did_r_backend(
     es = _extract_event_study(result)
     target_row = es[es["relative_time"] == e]
     if len(target_row) == 0:
-        raise ValueError(f"No event study estimate at relative time e={e}")
+        raise DataInsufficient(
+            f"No event study estimate at relative time e={e}",
+            recovery_hint="Choose an `e` value present in the event-study table.",
+            diagnostics={"e": e, "available": es["relative_time"].tolist()},
+        )
 
-    theta_hat = float(target_row["att"].iloc[0])
     se_hat = float(target_row["se"].iloc[0])
-    if m_grid is None:
-        sigma = se_hat
-        m_grid = [0, 0.5 * sigma, sigma, 1.5 * sigma, 2.0 * sigma, 3.0 * sigma]
+    m_grid = _coerce_m_grid(m_grid, se_hat=se_hat)
 
     pre = es[es["relative_time"] < 0].sort_values("relative_time")
     post = es[es["relative_time"] >= 0].sort_values("relative_time")
     if len(pre) == 0:
-        raise ValueError("backend='honestdid' requires at least one pre-treatment period.")
+        raise DataInsufficient(
+            "backend='honestdid' requires at least one pre-treatment period.",
+            recovery_hint="Use an event study with at least one pre-treatment coefficient.",
+            diagnostics={"backend": "honestdid"},
+        )
     if len(post) == 0 or e not in set(post["relative_time"].astype(int)):
-        raise ValueError("backend='honestdid' requires e to be a post-treatment period.")
+        raise DataInsufficient(
+            "backend='honestdid' requires e to be a post-treatment period.",
+            recovery_hint="Choose a post-treatment relative time for `e`.",
+            diagnostics={"backend": "honestdid", "e": e},
+        )
 
     r_code = r"""
 suppressPackageStartupMessages({
@@ -394,9 +502,11 @@ cat(jsonlite::toJSON(out, dataframe = "rows", auto_unbox = TRUE,
         )
 
     if proc.returncode != 0:
-        raise RuntimeError(
+        raise ConvergenceFailure(
             "backend='honestdid' failed while running the R HonestDiD package: "
-            f"{proc.stderr.strip() or proc.stdout.strip()}"
+            f"{proc.stderr.strip() or proc.stdout.strip()}",
+            recovery_hint="Check the local R HonestDiD/jsonlite installation or use backend='native'.",
+            diagnostics={"backend": "honestdid", "returncode": proc.returncode},
         )
 
     out = json.loads(proc.stdout)
@@ -486,11 +596,24 @@ def breakdown_m(
 
     See Rambachan & Roth (2023, *ReStud*), Definition 2.
     """
+    e = _require_int(e, argument="e")
+    alpha = _require_alpha(alpha)
+    method = _require_string(method, argument="method")
+    if method not in {"smoothness", "relative_magnitude"}:
+        raise MethodIncompatibility(
+            f"method must be 'smoothness' or 'relative_magnitude', got '{method}'",
+            recovery_hint="Use method='smoothness' or method='relative_magnitude'.",
+            diagnostics={"method": method},
+        )
     es = _extract_event_study(result)
 
     target = es[es["relative_time"] == e]
     if len(target) == 0:
-        raise ValueError(f"No estimate at relative time e={e}")
+        raise DataInsufficient(
+            f"No estimate at relative time e={e}",
+            recovery_hint="Choose an `e` value present in the event-study table.",
+            diagnostics={"e": e, "available": es["relative_time"].tolist()},
+        )
 
     theta = float(target["att"].iloc[0])
     se = float(target["se"].iloc[0])
@@ -533,10 +656,12 @@ def _extract_event_study(result: CausalResult) -> pd.DataFrame:
         if {"relative_time", "att", "se"}.issubset(det.columns):
             es = det
     if es is None:
-        raise ValueError(
+        raise MethodIncompatibility(
             "Result does not expose an event-study table.  Supported "
             "inputs: callaway_santanna(), sun_abraham(), did_multiplegt(), "
-            "or aggte(result, type='dynamic')."
+            "or aggte(result, type='dynamic').",
+            recovery_hint="Pass a DID/event-study result with relative_time, att, and se columns.",
+            diagnostics={"result_type": type(result).__name__},
         )
     # Defensive copy — callers mutate / filter it.
     es = es.copy()
@@ -544,7 +669,11 @@ def _extract_event_study(result: CausalResult) -> pd.DataFrame:
     required = {"relative_time", "att", "se"}
     missing = required - set(es.columns)
     if missing:
-        raise ValueError(f"Event-study table is missing required columns: {missing}")
+        raise MethodIncompatibility(
+            f"Event-study table is missing required columns: {missing}",
+            recovery_hint="Provide an event-study table with relative_time, att, and se columns.",
+            diagnostics={"missing_columns": sorted(missing)},
+        )
     return es
 
 

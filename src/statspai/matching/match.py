@@ -28,10 +28,12 @@ Abadie, A. and Imbens, G.W. (2011). JBES, 29(1), 1-11.
 Iacus, S.M., King, G., and Porro, G. (2012). Political Analysis, 20(1), 1-24.
 King, G. and Nielsen, R. (2019). Political Analysis, 27(4), 435-454.
 Cunningham, S. (2021). *Causal Inference: The Mixtape*. Yale University Press.
-    Ch. 5: Matching and Subclassification. https://mixtape.scunning.com/ [@rosenbaum1983central]
+    Ch. 5: Matching and Subclassification. https://mixtape.scunning.com/
+    [@rosenbaum1983central]
 """
 
-from typing import Optional, List
+import operator
+from typing import Any, Optional, List
 import warnings
 
 import numpy as np
@@ -40,6 +42,7 @@ from scipy import stats
 from scipy.spatial.distance import cdist
 
 from ..core.results import CausalResult
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._matched_frame import (
     build_matched_frame,
     common_support_mask,
@@ -72,6 +75,64 @@ _VALID_METHODS = ('nearest', 'stratify', 'cem', 'kernel', 'radius')
 _VALID_KERNELS = ('epan', 'normal', 'biweight', 'uniform', 'tricube')
 
 
+def _positive_int(value: Any, *, name: str, context: str) -> int:
+    try:
+        parsed = operator.index(value)
+    except TypeError as exc:
+        raise MethodIncompatibility(
+            f"{context}: {name} must be a positive integer"
+        ) from exc
+    if isinstance(value, bool) or parsed < 1:
+        raise MethodIncompatibility(
+            f"{context}: {name} must be a positive integer"
+        )
+    return int(parsed)
+
+
+def _open_unit_float(value: Any, *, name: str, context: str) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{context}: {name} must be finite and in the open interval (0, 1)"
+        ) from exc
+    if not np.isfinite(parsed) or not (0.0 < parsed < 1.0):
+        raise MethodIncompatibility(
+            f"{context}: {name} must be finite and in the open interval (0, 1)"
+        )
+    return parsed
+
+
+def _positive_float(value: Any, *, name: str, context: str) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{context}: {name} must be finite and positive"
+        ) from exc
+    if not np.isfinite(parsed) or parsed <= 0.0:
+        raise MethodIncompatibility(
+            f"{context}: {name} must be finite and positive"
+        )
+    return parsed
+
+
+def _coerce_column_list(value: Any, *, name: str, context: str) -> List[str]:
+    if isinstance(value, str):
+        return [value]
+    try:
+        cols = list(value)
+    except TypeError as exc:
+        raise MethodIncompatibility(
+            f"{context}: {name} must be a column name or a list of column names"
+        ) from exc
+    if not all(isinstance(col, str) for col in cols):
+        raise MethodIncompatibility(
+            f"{context}: {name} must contain only column-name strings"
+        )
+    return cols
+
+
 def _kernel_weight(u: np.ndarray, kernel: str) -> np.ndarray:
     """Un-normalised kernel weight K(u); 0 outside [-1, 1] (save 'normal')."""
     au = np.abs(u)
@@ -88,7 +149,7 @@ def _kernel_weight(u: np.ndarray, kernel: str) -> np.ndarray:
         # standard normal density, unbounded support (no truncation)
         w = np.exp(-0.5 * u ** 2) / np.sqrt(2.0 * np.pi)
     else:  # pragma: no cover — guarded by _validate
-        raise ValueError(f"unknown kernel '{kernel}'")
+        raise MethodIncompatibility(f"unknown kernel '{kernel}'")
     return w
 
 
@@ -265,7 +326,7 @@ def match(
             function="sp.matching.match",
             params={
                 "y": y, "treat": treat,
-                "covariates": list(covariates) if covariates else None,
+                "covariates": list(estimator.covariates),
                 "distance": distance, "method": method,
                 "estimand": estimand,
                 "n_matches": n_matches, "caliper": caliper,
@@ -360,36 +421,62 @@ class MatchEstimator:
         n_bins: Optional[int] = None,
         alpha: float = 0.05,
     ):
+        context = "match"
+        if not isinstance(data, pd.DataFrame):
+            raise MethodIncompatibility(
+                "match: data must be a pandas DataFrame",
+                recovery_hint=(
+                    "Pass a pandas DataFrame with named outcome, treatment, "
+                    "and covariate columns."
+                ),
+                diagnostics={"type": type(data).__name__},
+            )
         self.data = data.copy()
         self.y = y
         self.treat = treat
-        self.covariates = covariates
-        self.estimand = estimand.upper()
-        self.n_matches = n_matches
-        self.caliper = caliper
+        self.covariates = _coerce_column_list(
+            covariates, name="covariates", context=context,
+        )
+        self.estimand = str(estimand).upper()
+        self.n_matches = _positive_int(
+            n_matches, name="n_matches", context=context,
+        )
+        self.caliper = (
+            None if caliper is None
+            else _positive_float(caliper, name="caliper", context=context)
+        )
         self.replace = replace
         self.bias_correction = bias_correction
-        self.ps_poly = ps_poly
+        self.ps_poly = _positive_int(ps_poly, name="ps_poly", context=context)
         self.common_support = str(common_support).lower()
         self.kernel = str(kernel).lower()
-        self.bwidth = bwidth
+        self.bwidth = _positive_float(bwidth, name="bwidth", context=context)
         self.se_method = str(se_method).lower()
-        self.ai_matches = int(ai_matches)
-        self.n_strata = n_strata
-        self.n_bins = n_bins
-        self.alpha = alpha
+        self.ai_matches = _positive_int(
+            ai_matches, name="ai_matches", context=context,
+        )
+        self.n_strata = _positive_int(
+            n_strata, name="n_strata", context=context,
+        )
+        self.n_bins = (
+            None if n_bins is None
+            else _positive_int(n_bins, name="n_bins", context=context)
+        )
+        self.alpha = _open_unit_float(alpha, name="alpha", context=context)
         # Filled by _fit_nearest so fit() can build the matched-sample frame.
         self._assignment = None
 
         # Resolve legacy method names
-        method_lower = method.lower()
+        method_lower = str(method).lower()
         if method_lower in _LEGACY_MAP:
             resolved_dist, resolved_method = _LEGACY_MAP[method_lower]
-            self.distance = resolved_dist if distance is None else distance.lower()
+            self.distance = (
+                resolved_dist if distance is None else str(distance).lower()
+            )
             self.method = resolved_method
         else:
             self.method = method_lower
-            self.distance = distance.lower() if distance else None
+            self.distance = str(distance).lower() if distance else None
 
         # Set default distance for methods that need one
         if self.distance is None:
@@ -400,32 +487,41 @@ class MatchEstimator:
 
         self._validate()
 
-    def _validate(self):
-        for col in [self.y, self.treat] + self.covariates:
-            if col not in self.data.columns:
-                raise ValueError(f"Column '{col}' not found in data")
+    def _validate(self) -> None:
+        required = [self.y, self.treat] + self.covariates
+        missing = [col for col in required if col not in self.data.columns]
+        if missing:
+            raise MethodIncompatibility(
+                f"match: columns not found in data: {missing}",
+                recovery_hint=(
+                    "Check y, treat, and covariates column names before matching."
+                ),
+                diagnostics={"missing_columns": missing},
+            )
 
         if self.method not in _VALID_METHODS:
-            raise ValueError(
-                f"method must be one of {_VALID_METHODS} "
+            raise MethodIncompatibility(
+                f"match: method must be one of {_VALID_METHODS} "
                 f"(or legacy: 'psm', 'mahalanobis'), got '{self.method}'"
             )
         if self.distance is not None and self.distance not in _VALID_DISTANCES:
-            raise ValueError(
-                f"distance must be one of {_VALID_DISTANCES}, got '{self.distance}'"
+            raise MethodIncompatibility(
+                f"match: distance must be one of {_VALID_DISTANCES}, "
+                f"got '{self.distance}'"
             )
         if self.estimand not in ('ATT', 'ATE'):
-            raise ValueError(f"estimand must be 'ATT' or 'ATE', got '{self.estimand}'")
+            raise MethodIncompatibility(
+                f"match: estimand must be 'ATT' or 'ATE', got '{self.estimand}'"
+            )
 
         if self.common_support not in ('none', 'minmax'):
-            raise ValueError(
-                "common_support must be 'none' or 'minmax', "
+            raise MethodIncompatibility(
+                "match: common_support must be 'none' or 'minmax', "
                 f"got '{self.common_support}'"
             )
 
         treat_vals = self.data[self.treat].dropna().unique()
         if not set(treat_vals).issubset({0, 1, 0.0, 1.0}):
-            from statspai.exceptions import MethodIncompatibility
             raise MethodIncompatibility(
                 f"Treatment must be binary (0/1), got values: {treat_vals}",
                 recovery_hint=(
@@ -439,39 +535,46 @@ class MatchEstimator:
 
         # Exact matching only supports ATT
         if self.distance == 'exact' and self.estimand == 'ATE':
-            raise ValueError("Exact matching only supports estimand='ATT'")
+            raise MethodIncompatibility(
+                "match: exact matching only supports estimand='ATT'"
+            )
 
         # Stratification only works with propensity distance
         if self.method == 'stratify' and self.distance != 'propensity':
-            raise ValueError("method='stratify' requires distance='propensity'")
+            raise MethodIncompatibility(
+                "match: method='stratify' requires distance='propensity'"
+            )
 
         # Kernel / radius matching are propensity-score based.
         if self.method in ('kernel', 'radius') and self.distance != 'propensity':
-            raise ValueError(
-                f"method='{self.method}' requires distance='propensity'"
+            raise MethodIncompatibility(
+                f"match: method='{self.method}' requires distance='propensity'"
             )
         if self.method in ('kernel', 'radius') and self.estimand != 'ATT':
-            raise ValueError(
-                f"method='{self.method}' currently supports estimand='ATT' only"
+            raise MethodIncompatibility(
+                f"match: method='{self.method}' currently supports "
+                "estimand='ATT' only"
             )
         if self.method == 'kernel' and self.kernel not in _VALID_KERNELS:
-            raise ValueError(
-                f"kernel must be one of {_VALID_KERNELS}, got '{self.kernel}'"
+            raise MethodIncompatibility(
+                f"match: kernel must be one of {_VALID_KERNELS}, "
+                f"got '{self.kernel}'"
             )
-        if self.method == 'kernel' and not (self.bwidth and self.bwidth > 0):
-            raise ValueError("kernel matching requires bwidth > 0")
-        if self.method == 'radius' and not (self.caliper and self.caliper > 0):
-            raise ValueError(
-                "radius matching requires caliper > 0 (the radius bandwidth)"
+        if self.method == 'radius' and self.caliper is None:
+            raise MethodIncompatibility(
+                "match: radius matching requires caliper > 0 "
+                "(the radius bandwidth)"
             )
 
         if self.se_method not in ('auto', 'ai', 'psmatch2', 'abadie_imbens'):
-            raise ValueError(
-                "se_method must be 'auto', 'ai', 'psmatch2', or "
+            raise MethodIncompatibility(
+                "match: se_method must be 'auto', 'ai', 'psmatch2', or "
                 f"'abadie_imbens', got '{self.se_method}'"
             )
         if self.estimand != 'ATT' and self.se_method == 'psmatch2':
-            raise ValueError("se_method='psmatch2' is only defined for estimand='ATT'")
+            raise MethodIncompatibility(
+                "match: se_method='psmatch2' is only defined for estimand='ATT'"
+            )
 
     # ==================================================================
     # Main fit
@@ -521,7 +624,7 @@ class MatchEstimator:
             method_label = 'Matching (Exact)'
         else:
             att, se, balance = self._fit_nearest(Y, X, T, idx_t, idx_c, row_order)
-            dist_name = self.distance.capitalize()
+            dist_name = str(self.distance).capitalize()
             bc_tag = ', BC' if self.bias_correction else ''
             method_label = f'Matching ({dist_name}{bc_tag})'
 
@@ -648,7 +751,10 @@ class MatchEstimator:
             row_order = np.arange(len(T), dtype=float)
 
         # For propensity distance, estimate PS once with actual treatment
-        pscore = self._logit_propensity(X, T, poly=self.ps_poly) if self.distance == 'propensity' else None
+        pscore = (
+            self._logit_propensity(X, T, poly=self.ps_poly)
+            if self.distance == 'propensity' else None
+        )
         # PS is always needed downstream (balance table + matched frame +
         # common-support flag), even when the distance metric is not PS.
         if pscore is None:
@@ -803,9 +909,11 @@ class MatchEstimator:
             effects.append(Y[t_pos] - yhat)
 
         if len(effects) == 0:
-            raise ValueError(
-                f"{self.method} matching: no treated unit found a control "
-                f"within bandwidth {bw}. Increase bwidth / caliper."
+            raise DataInsufficient(
+                f"match: {self.method} matching found no treated unit with a "
+                f"control within bandwidth {bw}.",
+                recovery_hint="Increase bwidth/caliper or inspect common support.",
+                diagnostics={"method": self.method, "bandwidth": bw},
             )
 
         att = float(np.mean(effects))
@@ -912,13 +1020,19 @@ class MatchEstimator:
             n_matched += 1
 
         if n_matched == 0:
-            raise ValueError(
-                "Exact matching: no treated units found exact matches. "
-                "Consider distance='mahalanobis' or method='cem'."
+            raise DataInsufficient(
+                "match: exact matching found no treated units with exact matches.",
+                recovery_hint=(
+                    "Consider distance='mahalanobis', method='cem', or coarser "
+                    "covariates."
+                ),
             )
 
         att = float(np.mean(effects))
-        se = float(np.std(effects, ddof=1) / np.sqrt(n_matched)) if n_matched > 1 else 0.0
+        se = (
+            float(np.std(effects, ddof=1) / np.sqrt(n_matched))
+            if n_matched > 1 else 0.0
+        )
 
         pscore = self._logit_propensity(X, T, poly=self.ps_poly)
         balance = self._balance_table(X, T, pscore)
@@ -981,7 +1095,9 @@ class MatchEstimator:
             strata_results.append((tau_s, w_s, vt, vc))
 
         if len(strata_results) == 0:
-            raise ValueError("No strata contain both treated and control units")
+            raise DataInsufficient(
+                "match: no strata contain both treated and control units"
+            )
 
         effects = np.array([r[0] for r in strata_results])
         raw_weights = np.array([r[1] for r in strata_results])
@@ -1042,7 +1158,9 @@ class MatchEstimator:
                 weights_c.extend([w] * len(c_in))
 
         if len(matched_t) == 0:
-            raise ValueError("CEM: no strata with both treated and control units")
+            raise DataInsufficient(
+                "match: CEM found no strata with both treated and control units"
+            )
 
         Y_t = Y[matched_t]
         Y_c = Y[matched_c]
@@ -1145,7 +1263,9 @@ class MatchEstimator:
     # NN matching helpers
     # ==================================================================
 
-    def _nn_match_from_dist(self, dist, caliper=None, target_order=None, pool_order=None):
+    def _nn_match_from_dist(
+        self, dist, caliper=None, target_order=None, pool_order=None,
+    ):
         """
         k-NN matching from a precomputed distance matrix.
 

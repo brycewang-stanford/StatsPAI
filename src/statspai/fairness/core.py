@@ -5,10 +5,13 @@ Core fairness metrics and counterfactual-fairness diagnostics.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from numbers import Real
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
+
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
 
 __all__ = [
@@ -93,24 +96,180 @@ class FairnessAudit:
 # -------------------------------------------------------------------------
 
 
+def _format_values(values: Sequence[Any]) -> str:
+    return ", ".join(repr(v) for v in values)
+
+
+def _require_dataframe(data: pd.DataFrame, *, function: str) -> pd.DataFrame:
+    if not isinstance(data, pd.DataFrame):
+        raise MethodIncompatibility(
+            f"`data` must be a pandas DataFrame, got {type(data).__name__}.",
+            recovery_hint=(
+                "Pass a pandas DataFrame containing the prediction, protected, "
+                "and optional label columns."
+            ),
+            diagnostics={"function": function, "type": type(data).__name__},
+        )
+    if data.empty:
+        raise DataInsufficient(
+            "`data` must contain at least one row.",
+            recovery_hint="Provide non-empty audit data after any missing-value filtering.",
+            diagnostics={"function": function, "n_rows": 0},
+        )
+    return data
+
+
+def _require_column_name(name: Any, *, argument: str) -> str:
+    if not isinstance(name, str) or not name:
+        raise MethodIncompatibility(
+            f"`{argument}` must be a non-empty column name string.",
+            recovery_hint=f"Pass the name of an existing DataFrame column for `{argument}`.",
+            diagnostics={"argument": argument, "type": type(name).__name__},
+        )
+    return name
+
+
+def _require_threshold(value: Any, *, argument: str = "threshold") -> float:
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, Real):
+        raise MethodIncompatibility(
+            f"`{argument}` must be a finite non-negative number.",
+            recovery_hint=f"Pass a numeric `{argument}` such as 0.05 or 0.1.",
+            diagnostics={"argument": argument, "value": value},
+        )
+    out = float(value)
+    if not np.isfinite(out) or out < 0:
+        raise MethodIncompatibility(
+            f"`{argument}` must be a finite non-negative number.",
+            recovery_hint=f"Pass a numeric `{argument}` such as 0.05 or 0.1.",
+            diagnostics={"argument": argument, "value": value},
+        )
+    return out
+
+
+def _coerce_columns(columns: Sequence[str] | str, *, argument: str) -> List[str]:
+    if isinstance(columns, str):
+        out = [columns]
+    else:
+        try:
+            out = list(columns)
+        except TypeError as exc:
+            raise MethodIncompatibility(
+                f"`{argument}` must be a column name or a sequence of column names.",
+                recovery_hint=f"Pass `{argument}` as 'x' or ['x1', 'x2'].",
+                diagnostics={"argument": argument, "type": type(columns).__name__},
+            ) from exc
+    if not out:
+        raise MethodIncompatibility(
+            f"`{argument}` must contain at least one column name.",
+            recovery_hint=f"Pass at least one numeric feature column in `{argument}`.",
+            diagnostics={"argument": argument},
+        )
+    return [_require_column_name(col, argument=argument) for col in out]
+
+
 def _check_binary(arr: np.ndarray, name: str) -> np.ndarray:
-    vals = set(np.unique(arr))
+    arr = np.asarray(arr)
+    if arr.ndim != 1:
+        raise MethodIncompatibility(
+            f"`{name}` must be a one-dimensional binary column.",
+            recovery_hint=f"Pass a single 0/1 column for `{name}`.",
+            diagnostics={"column": name, "shape": arr.shape},
+        )
+    if arr.size == 0:
+        raise DataInsufficient(
+            f"`{name}` has no observations.",
+            recovery_hint="Provide non-empty audit data after missing-value filtering.",
+            diagnostics={"column": name},
+        )
+    try:
+        vals = set(np.unique(arr))
+    except TypeError as exc:
+        raise MethodIncompatibility(
+            f"`{name}` must be binary 0/1.",
+            recovery_hint=f"Coerce `{name}` to numeric 0/1 values before auditing.",
+            diagnostics={"column": name, "dtype": str(arr.dtype)},
+        ) from exc
     if not vals.issubset({0, 1, 0.0, 1.0, True, False}):
-        raise ValueError(
-            f"`{name}` must be binary 0/1; got unique values {sorted(vals)}."
+        raise MethodIncompatibility(
+            f"`{name}` must be binary 0/1; got unique values {_format_values(sorted(vals, key=repr))}.",
+            recovery_hint=f"Coerce `{name}` to numeric 0/1 values before auditing.",
+            diagnostics={"column": name, "unique_values": [repr(v) for v in vals]},
         )
     return arr.astype(int)
 
 
 def _column(df: pd.DataFrame, col: str) -> np.ndarray:
+    col = _require_column_name(col, argument="column")
     if col not in df.columns:
-        raise ValueError(f"Column {col!r} not found in data.")
+        raise MethodIncompatibility(
+            f"Column {col!r} not found in data.",
+            recovery_hint="Check the column names passed to the fairness diagnostic.",
+            diagnostics={"column": col, "available_columns": list(df.columns)},
+        )
     arr = df[col].to_numpy()
     if pd.isna(arr).any():
-        raise ValueError(
-            f"Column {col!r} contains NaN; drop or impute before fairness audit."
+        raise MethodIncompatibility(
+            f"Column {col!r} contains NaN; drop or impute before fairness audit.",
+            recovery_hint="Drop missing rows or impute this column before running the diagnostic.",
+            diagnostics={"column": col},
         )
     return arr
+
+
+def _finite_numeric_vector(values: Any, *, name: str, n_expected: Optional[int] = None) -> np.ndarray:
+    try:
+        arr = np.asarray(values, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"`{name}` must be numeric.",
+            recovery_hint=f"Return or pass a numeric vector for `{name}`.",
+            diagnostics={"name": name, "type": type(values).__name__},
+        ) from exc
+    if arr.ndim == 0:
+        raise MethodIncompatibility(
+            f"`{name}` must be a one-dimensional numeric vector.",
+            recovery_hint=f"Return one value per row for `{name}`.",
+            diagnostics={"name": name, "shape": arr.shape},
+        )
+    if arr.ndim > 1:
+        if n_expected is not None and arr.size == n_expected and 1 in arr.shape:
+            arr = arr.reshape(-1)
+        else:
+            raise MethodIncompatibility(
+                f"`{name}` must be a one-dimensional numeric vector.",
+                recovery_hint=f"Return one value per row for `{name}`.",
+                diagnostics={"name": name, "shape": arr.shape},
+            )
+    if n_expected is not None and arr.shape[0] != n_expected:
+        raise MethodIncompatibility(
+            f"`{name}` must return one value per row; got {arr.shape[0]} for {n_expected} rows.",
+            recovery_hint="Make the predictor return an array with length equal to the input DataFrame.",
+            diagnostics={"name": name, "n_expected": n_expected, "n_observed": arr.shape[0]},
+        )
+    if not np.all(np.isfinite(arr)):
+        raise NumericalInstability(
+            f"`{name}` contains non-finite values.",
+            recovery_hint="Check the predictor or feature preprocessing for NaN/Inf outputs.",
+            diagnostics={"name": name},
+        )
+    return arr
+
+
+def _prediction_vector(
+    predictor: Callable[[pd.DataFrame], np.ndarray],
+    data: pd.DataFrame,
+    *,
+    name: str,
+) -> np.ndarray:
+    try:
+        raw = predictor(data)
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"`{name}` failed while evaluating the predictor: {exc}",
+            recovery_hint="Check that the predictor accepts the DataFrame columns supplied here.",
+            diagnostics={"name": name, "error_type": type(exc).__name__},
+        ) from exc
+    return _finite_numeric_vector(raw, name=name, n_expected=len(data))
 
 
 # -------------------------------------------------------------------------
@@ -161,12 +320,22 @@ def demographic_parity(
     >>> isinstance(res.passes, bool)
     True
     """
+    data = _require_dataframe(data, function="demographic_parity")
+    predictions = _require_column_name(predictions, argument="predictions")
+    protected = _require_column_name(protected, argument="protected")
+    threshold = _require_threshold(threshold)
     yhat = _check_binary(_column(data, predictions), predictions)
     a = _column(data, protected)
     if len(np.unique(a)) < 2:
-        raise ValueError(
+        raise DataInsufficient(
             f"`protected` column has only one level ({np.unique(a)}). "
-            "Need at least 2 groups for demographic parity."
+            "Need at least 2 groups for demographic parity.",
+            recovery_hint="Provide audit data with at least two protected groups.",
+            diagnostics={
+                "function": "demographic_parity",
+                "protected": protected,
+                "n_groups": int(len(np.unique(a))),
+            },
         )
     per_group: Dict[Any, float] = {}
     for g in np.unique(a):
@@ -248,6 +417,11 @@ def equalized_odds(
     ----------
     hardt2016equality
     """
+    data = _require_dataframe(data, function="equalized_odds")
+    predictions = _require_column_name(predictions, argument="predictions")
+    labels = _require_column_name(labels, argument="labels")
+    protected = _require_column_name(protected, argument="protected")
+    threshold = _require_threshold(threshold)
     yhat = _check_binary(_column(data, predictions), predictions)
     y = _check_binary(_column(data, labels), labels)
     a = _column(data, protected)
@@ -262,9 +436,16 @@ def equalized_odds(
         if (y_g == 0).sum() > 0:
             fprs[g] = float((yhat_g[y_g == 0] == 1).mean())
     if len(tprs) < 2 or len(fprs) < 2:
-        raise ValueError(
+        raise DataInsufficient(
             "Equalized odds requires at least one positive and one negative "
-            "label in each group."
+            "label in each group.",
+            recovery_hint="Use data with both outcome classes represented in at least two protected groups.",
+            diagnostics={
+                "function": "equalized_odds",
+                "protected": protected,
+                "n_tpr_groups": len(tprs),
+                "n_fpr_groups": len(fprs),
+            },
         )
     tpr_vals = np.array(list(tprs.values()))
     fpr_vals = np.array(list(fprs.values()))
@@ -361,21 +542,61 @@ def counterfactual_fairness(
     ----------
     kusner2017counterfactual
     """
-    if protected not in data.columns:
-        raise ValueError(f"`protected` column {protected!r} not in data.")
-    y_obs = np.asarray(predictor(data), dtype=float)
-    if y_obs.shape[0] != len(data):
-        raise ValueError(
-            "`predictor(data)` must return one value per row; got "
-            f"{y_obs.shape[0]} for {len(data)} rows."
+    data = _require_dataframe(data, function="counterfactual_fairness")
+    protected = _require_column_name(protected, argument="protected")
+    threshold = _require_threshold(threshold)
+    if not callable(predictor):
+        raise MethodIncompatibility(
+            "`predictor` must be callable.",
+            recovery_hint="Pass a function that accepts a DataFrame and returns one numeric prediction per row.",
+            diagnostics={"argument": "predictor", "type": type(predictor).__name__},
         )
+    if not callable(scm_intervention):
+        raise MethodIncompatibility(
+            "`scm_intervention` must be callable.",
+            recovery_hint=(
+                "Pass a function of (data, protected_value) returning a counterfactual DataFrame."
+            ),
+            diagnostics={"argument": "scm_intervention", "type": type(scm_intervention).__name__},
+        )
+    if protected not in data.columns:
+        raise MethodIncompatibility(
+            f"`protected` column {protected!r} not in data.",
+            recovery_hint="Check the `protected` column name passed to counterfactual_fairness.",
+            diagnostics={"protected": protected, "available_columns": list(data.columns)},
+        )
+    y_obs = _prediction_vector(predictor, data, name="predictor(data)")
     observed_a = data[protected].to_numpy()
     if alternative_values is None:
         alternative_values = [v for v in np.unique(observed_a)]
         if len(alternative_values) < 2:
-            raise ValueError(
+            raise DataInsufficient(
                 f"Protected attribute {protected!r} has only one level; "
-                "counterfactual fairness is undefined."
+                "counterfactual fairness is undefined.",
+                recovery_hint="Provide at least two protected-attribute values or explicit alternatives.",
+                diagnostics={
+                    "function": "counterfactual_fairness",
+                    "protected": protected,
+                    "n_levels": int(len(alternative_values)),
+                },
+            )
+    else:
+        try:
+            alternative_values = list(alternative_values)
+        except TypeError as exc:
+            raise MethodIncompatibility(
+                "`alternative_values` must be a non-empty sequence.",
+                recovery_hint="Pass explicit protected-attribute alternatives such as [0, 1].",
+                diagnostics={
+                    "argument": "alternative_values",
+                    "type": type(alternative_values).__name__,
+                },
+            ) from exc
+        if not alternative_values:
+            raise DataInsufficient(
+                "`alternative_values` must contain at least one value.",
+                recovery_hint="Pass explicit protected-attribute alternatives such as [0, 1].",
+                diagnostics={"function": "counterfactual_fairness"},
             )
 
     # For each alternative value, intervene and predict.
@@ -384,16 +605,20 @@ def counterfactual_fairness(
     for a_alt in alternative_values:
         df_cf = scm_intervention(data, a_alt)
         if not isinstance(df_cf, pd.DataFrame):
-            raise TypeError(
+            raise MethodIncompatibility(
                 "`scm_intervention` must return a pandas DataFrame; got "
-                f"{type(df_cf).__name__}."
+                f"{type(df_cf).__name__}.",
+                recovery_hint="Return a DataFrame with the same row count as the factual data.",
+                diagnostics={"returned_type": type(df_cf).__name__},
             )
         if len(df_cf) != len(data):
-            raise ValueError(
+            raise MethodIncompatibility(
                 "`scm_intervention` returned a DataFrame with different "
-                f"length ({len(df_cf)} vs {len(data)})."
+                f"length ({len(df_cf)} vs {len(data)}).",
+                recovery_hint="Return one counterfactual row for every factual row.",
+                diagnostics={"n_expected": len(data), "n_observed": len(df_cf)},
             )
-        y_cf = np.asarray(predictor(df_cf), dtype=float)
+        y_cf = _prediction_vector(predictor, df_cf, name="predictor(counterfactual)")
         # Only count units whose observed A differs from a_alt.
         differs = observed_a != a_alt
         diff = np.abs(y_cf - y_obs)
@@ -472,20 +697,36 @@ def orthogonal_to_bias(
     ----------
     chen2024counterfactual
     """
+    data = _require_dataframe(data, function="orthogonal_to_bias")
+    features = _coerce_columns(features, argument="features")
+    protected = _require_column_name(protected, argument="protected")
     if method != "residualize":
-        raise ValueError(f"Unknown method {method!r}; only 'residualize' supported.")
+        raise MethodIncompatibility(
+            f"Unknown method {method!r}; only 'residualize' supported.",
+            recovery_hint="Use method='residualize'.",
+            diagnostics={"method": method, "valid_methods": ["residualize"]},
+        )
     if protected not in data.columns:
-        raise ValueError(f"Protected column {protected!r} not in data.")
+        raise MethodIncompatibility(
+            f"Protected column {protected!r} not in data.",
+            recovery_hint="Check the `protected` column name.",
+            diagnostics={"protected": protected, "available_columns": list(data.columns)},
+        )
     missing = [f for f in features if f not in data.columns]
     if missing:
-        raise ValueError(f"Feature columns not in data: {missing}")
+        raise MethodIncompatibility(
+            f"Feature columns not in data: {missing}",
+            recovery_hint="Pass feature names that exist in the DataFrame.",
+            diagnostics={"missing": missing, "available_columns": list(data.columns)},
+        )
     out = data.copy()
+    _column(data, protected)
     A_raw = data[protected]
     # One-hot encode categorical/object protected attribute.
     if A_raw.dtype.kind in "OUSb" or isinstance(A_raw.dtype, pd.CategoricalDtype):
         A_oh = pd.get_dummies(A_raw, drop_first=True).to_numpy(dtype=float)
     else:
-        a_arr = A_raw.to_numpy(dtype=float)
+        a_arr = _finite_numeric_vector(A_raw.to_numpy(), name=protected)
         if len(np.unique(a_arr)) > 2:
             # Treat multi-level numeric as categorical to avoid linearity assumption.
             A_oh = pd.get_dummies(A_raw.astype("category"), drop_first=True).to_numpy(dtype=float)
@@ -494,9 +735,7 @@ def orthogonal_to_bias(
     n = A_oh.shape[0]
     X_design = np.column_stack([np.ones(n), A_oh])
     for f in features:
-        col = data[f].to_numpy(dtype=float)
-        if np.isnan(col).any():
-            raise ValueError(f"Feature {f!r} contains NaN; drop or impute first.")
+        col = _finite_numeric_vector(data[f].to_numpy(), name=f, n_expected=len(data))
         beta, *_ = np.linalg.lstsq(X_design, col, rcond=None)
         resid = col - X_design @ beta
         out[f] = resid
@@ -552,6 +791,12 @@ def fairness_audit(
     >>> audit.equalized_odds.metric
     'equalized_odds'
     """
+    data = _require_dataframe(data, function="fairness_audit")
+    predictions = _require_column_name(predictions, argument="predictions")
+    protected = _require_column_name(protected, argument="protected")
+    if labels is not None:
+        labels = _require_column_name(labels, argument="labels")
+    threshold = _require_threshold(threshold)
     dp = demographic_parity(
         data, predictions=predictions, protected=protected, threshold=threshold,
     )

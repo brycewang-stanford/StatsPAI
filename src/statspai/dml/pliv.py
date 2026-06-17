@@ -14,6 +14,9 @@ Weighted variant (with sample_weight w_i):
     Var(theta) = sum(w^2 * psi_i^2) / (sum(w * d_tilde * z_tilde))^2
 where psi_i = (y_tilde_i - theta * d_tilde_i) * z_tilde_i.
 """
+from __future__ import annotations
+
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -69,12 +72,20 @@ class DoubleMLPLIV(_DoubleMLBase):
     _FIRST_STAGE_CORR_FLOOR = 1e-3
 
     def _fit_one_rep(
-        self, Y, D, X, Z, n, rng_seed, sample_weight=None, fold_indices=None
-    ):
+        self,
+        Y: np.ndarray,
+        D: np.ndarray,
+        X: np.ndarray,
+        Z: np.ndarray,
+        n: int,
+        rng_seed: int,
+        sample_weight: Optional[np.ndarray] = None,
+        fold_indices: Optional[np.ndarray] = None,
+    ) -> Tuple[float, float]:
         from sklearn.model_selection import KFold
 
         if sample_weight is None:
-            w_full = None
+            w_full: Optional[np.ndarray] = None
         else:
             w_arr = np.asarray(sample_weight, dtype=float)
             # Nuisance learners can be numerically sensitive to a pure
@@ -84,9 +95,9 @@ class DoubleMLPLIV(_DoubleMLBase):
             w_full = w_arr * (len(w_arr) / float(np.sum(w_arr)))
 
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=rng_seed)
-        y_resid = np.zeros(n)
-        d_resid = np.zeros(n)
-        z_resid = np.zeros(n)
+        y_resid: np.ndarray = np.zeros(n, dtype=float)
+        d_resid: np.ndarray = np.zeros(n, dtype=float)
+        z_resid: np.ndarray = np.zeros(n, dtype=float)
 
         for train_idx, test_idx in kf.split(X):
             w_train = (
@@ -108,7 +119,7 @@ class DoubleMLPLIV(_DoubleMLBase):
             z_resid[test_idx] = Z[test_idx] - ml_r.predict(X[test_idx])
 
         if w_full is None:
-            w = np.ones(n, dtype=float)
+            w: np.ndarray = np.ones(n, dtype=float)
             label = "PLIV"
         else:
             w = w_full

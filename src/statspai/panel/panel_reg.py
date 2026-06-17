@@ -34,6 +34,61 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import EconometricResults
+from ..exceptions import DataInsufficient, MethodIncompatibility
+
+
+_PANEL_ALTERNATIVES = ["sp.panel", "sp.panel_compare", "sp.feols"]
+
+
+def _panel_method_error(
+    message: str,
+    *,
+    diagnostics: Optional[Dict[str, Any]] = None,
+    recovery_hint: str = "Check the panel method, formula, and column names.",
+) -> MethodIncompatibility:
+    return MethodIncompatibility(
+        message,
+        recovery_hint=recovery_hint,
+        diagnostics=diagnostics,
+        alternative_functions=_PANEL_ALTERNATIVES,
+    )
+
+
+def _require_panel_dataframe(data: Any) -> pd.DataFrame:
+    if not isinstance(data, pd.DataFrame):
+        raise _panel_method_error(
+            "panel data must be a pandas DataFrame.",
+            diagnostics={"type": type(data).__name__},
+            recovery_hint="Pass a long-format pandas DataFrame to sp.panel().",
+        )
+    if data.empty:
+        raise DataInsufficient(
+            "panel data is empty.",
+            recovery_hint="Provide a non-empty long-format panel dataset.",
+            diagnostics={"n_rows": 0},
+            alternative_functions=_PANEL_ALTERNATIVES,
+        )
+    return data
+
+
+def _require_panel_column(data: pd.DataFrame, column: Any, role: str) -> str:
+    if not isinstance(column, str) or not column:
+        raise _panel_method_error(
+            f"{role} must be a non-empty column-name string.",
+            diagnostics={"role": role, "value": repr(column)},
+            recovery_hint="Pass panel role columns as strings.",
+        )
+    if column not in data.columns:
+        raise _panel_method_error(
+            f"Column '{column}' not found in data.",
+            diagnostics={
+                "role": role,
+                "column": column,
+                "available_columns": [str(c) for c in data.columns],
+            },
+            recovery_hint="Check the column spelling or rename the DataFrame.",
+        )
+    return column
 
 
 # ======================================================================
@@ -121,7 +176,12 @@ class PanelResults(EconometricResults):
             'statistic', 'df', 'pvalue', 'recommendation', 'interpretation'
         """
         if self._panel_data is None:
-            raise ValueError("Panel data not stored — cannot run Hausman test.")  # pragma: no cover
+            raise _panel_method_error(
+                "Panel data not stored — cannot run Hausman test.",
+                diagnostics={"diagnostic": "hausman"},
+                recovery_hint="Run the diagnostic on a PanelResults object "
+                "created by sp.panel().",
+            )  # pragma: no cover
         from .panel_diagnostics import _hausman_from_data
         return _hausman_from_data(
             self._panel_data, self._dep_var, self._indep_vars,
@@ -145,7 +205,12 @@ class PanelResults(EconometricResults):
             'statistic', 'df', 'pvalue', 'recommendation', 'interpretation'
         """
         if self._panel_data is None:
-            raise ValueError("Panel data not stored — cannot run BP-LM test.")  # pragma: no cover
+            raise _panel_method_error(
+                "Panel data not stored — cannot run BP-LM test.",
+                diagnostics={"diagnostic": "bp_lm"},
+                recovery_hint="Run the diagnostic on a PanelResults object "
+                "created by sp.panel().",
+            )  # pragma: no cover
         from .panel_diagnostics import _bp_lm_test
         return _bp_lm_test(
             self._panel_data, self._dep_var, self._indep_vars,
@@ -168,7 +233,12 @@ class PanelResults(EconometricResults):
             'statistic', 'df1', 'df2', 'pvalue', 'interpretation'
         """
         if self._panel_data is None:
-            raise ValueError("Panel data not stored — cannot run F-test.")  # pragma: no cover
+            raise _panel_method_error(
+                "Panel data not stored — cannot run F-test.",
+                diagnostics={"diagnostic": "f_test_effects"},
+                recovery_hint="Run the diagnostic on a PanelResults object "
+                "created by sp.panel().",
+            )  # pragma: no cover
         from .panel_diagnostics import _f_test_effects
         return _f_test_effects(
             self._panel_data, self._dep_var, self._indep_vars,
@@ -189,7 +259,12 @@ class PanelResults(EconometricResults):
             'statistic', 'pvalue', 'interpretation'
         """
         if self._lm_result is None:
-            raise ValueError("linearmodels result not stored — cannot run CD test.")  # pragma: no cover
+            raise _panel_method_error(
+                "linearmodels result not stored — cannot run CD test.",
+                diagnostics={"diagnostic": "pesaran_cd"},
+                recovery_hint="Run the diagnostic on a PanelResults object "
+                "created by a linearmodels-backed sp.panel() method.",
+            )  # pragma: no cover
         from .panel_diagnostics import _pesaran_cd
         resids = self._lm_result.resids
         return _pesaran_cd(resids, self._entity, self._time, self._panel_data)
@@ -226,9 +301,12 @@ class PanelResults(EconometricResults):
         elif type == 'hausman':
             return plot_hausman(self, **kwargs)
         else:
-            raise ValueError(  # pragma: no cover
+            raise _panel_method_error(  # pragma: no cover
                 f"Unknown plot type '{type}'. "
-                f"Choose from: coef, effects, residuals, hausman"
+                f"Choose from: coef, effects, residuals, hausman",
+                diagnostics={"plot_type": type},
+                recovery_hint="Use type='coef', 'effects', 'residuals', or "
+                "'hausman'.",
             )
 
     def plot_effects(self, **kwargs):
@@ -607,23 +685,41 @@ def _dispatch_panel_impl(
     hausman_test : Standalone Hausman test.
     """
     # --- Resolve method alias ---
+    data = _require_panel_dataframe(data)
+    if not isinstance(method, str):
+        raise _panel_method_error(
+            f"method must be a string, got {type(method).__name__}.",
+            diagnostics={"method": repr(method)},
+            recovery_hint="Pass method='fe', 're', 'pooled', or another "
+            "supported panel method.",
+        )
     method_key = method.lower().replace('-', '_').replace(' ', '_')
     if method_key not in _METHOD_ALIASES:
         valid = sorted(set(_METHOD_ALIASES.keys()))
-        raise ValueError(f"method must be one of {valid}, got '{method}'")
+        raise _panel_method_error(
+            f"method must be one of {valid}, got '{method}'",
+            diagnostics={"method": method, "valid_methods": valid},
+            recovery_hint="Choose one of the supported panel estimators.",
+        )
     canonical = _METHOD_ALIASES[method_key]
 
     # --- Parse formula ---
-    if '~' not in formula:
-        raise ValueError("Formula must contain '~'")
+    if not isinstance(formula, str) or '~' not in formula:
+        raise _panel_method_error(
+            "Formula must contain '~'",
+            diagnostics={"formula": repr(formula)},
+            recovery_hint="Use a formula like 'y ~ x1 + x2'.",
+        )
     dep, indep = formula.split('~', 1)
     dep_var = dep.strip()
     indep_vars = [v.strip() for v in indep.split('+') if v.strip()]
 
-    all_cols = [dep_var] + indep_vars + [entity, time]
-    for col in all_cols:
-        if col not in data.columns:
-            raise ValueError(f"Column '{col}' not found in data")
+    dep_var = _require_panel_column(data, dep_var, "dependent variable")
+    indep_vars = [
+        _require_panel_column(data, col, "regressor") for col in indep_vars
+    ]
+    entity = _require_panel_column(data, entity, "entity")
+    time = _require_panel_column(data, time, "time")
 
     # --- Balance panel if requested ---
     if balance:
@@ -631,10 +727,14 @@ def _dispatch_panel_impl(
         n_periods = data[time].nunique()
         data = balance_panel(data, entity=entity, time=time)
         if len(data) == 0:
-            raise ValueError(  # pragma: no cover
+            raise DataInsufficient(  # pragma: no cover
                 f"balance=True dropped all units: none of the {n_units} "
                 f"entities appear in all {n_periods} time periods. "
-                "Check data or set balance=False."
+                "Check data or set balance=False.",
+                recovery_hint="Inspect panel balance or rerun with "
+                "balance=False.",
+                diagnostics={"n_units": n_units, "n_periods": n_periods},
+                alternative_functions=_PANEL_ALTERNATIVES,
             )
 
     # --- Route to estimator ---
@@ -697,7 +797,11 @@ def _fit_linearmodels(
     elif method == 'pooled':
         lm_model = PooledOLS(dep, add_constant(exog))
     else:
-        raise ValueError(f"Unknown linearmodels method: {method}")
+        raise _panel_method_error(
+            f"Unknown linearmodels method: {method}",
+            diagnostics={"method": method},
+            recovery_hint="Use the public sp.panel() method aliases.",
+        )
 
     cov_kwargs = _build_cov_kwargs(robust, cluster)
     lm_result = lm_model.fit(**cov_kwargs)
@@ -754,7 +858,14 @@ def _convert_lm_result(
 
     data_info = {
         'nobs': int(lm_result.nobs),
-        'df_model': int(lm_result.df_model) if hasattr(lm_result, 'df_model') and not isinstance(lm_result.df_model, tuple) else len(params) - 1,
+        'df_model': (
+            int(lm_result.df_model)
+            if (
+                hasattr(lm_result, 'df_model')
+                and not isinstance(lm_result.df_model, tuple)
+            )
+            else len(params) - 1
+        ),
         'df_resid': int(lm_result.df_resid),
         'dependent_var': dep_var,
         'fitted_values': lm_result.fitted_values.values.ravel(),
@@ -764,9 +875,15 @@ def _convert_lm_result(
     diagnostics = {
         'R-squared': float(lm_result.rsquared),
     }
-    if hasattr(lm_result, 'rsquared_within') and lm_result.rsquared_within is not None:
+    if (
+        hasattr(lm_result, 'rsquared_within')
+        and lm_result.rsquared_within is not None
+    ):
         diagnostics['R-squared (within)'] = float(lm_result.rsquared_within)
-    if hasattr(lm_result, 'rsquared_between') and lm_result.rsquared_between is not None:
+    if (
+        hasattr(lm_result, 'rsquared_between')
+        and lm_result.rsquared_between is not None
+    ):
         diagnostics['R-squared (between)'] = float(lm_result.rsquared_between)
     if hasattr(lm_result, 'entity_info'):
         diagnostics['N entities'] = lm_result.entity_info.total
@@ -837,8 +954,8 @@ def _fit_cre(
                 t_col = f'_cham_{var}_t{t_val}'
                 df[t_col] = 0.0
                 df.loc[df[time] == t_val, t_col] = (
-                    df.loc[df[time] == t_val, var] -
-                    df.loc[df[time] == t_val, mean_col]
+                    df.loc[df[time] == t_val, var]
+                    - df.loc[df[time] == t_val, mean_col]
                 )
                 chamberlain_vars.append(t_col)
         all_exog = indep_vars + chamberlain_vars
@@ -913,7 +1030,10 @@ def _fit_gmm(
     )
 
     # Convert CausalResult detail into PanelResults format
-    if causal_result.detail is not None and 'coefficient' in causal_result.detail.columns:
+    if (
+        causal_result.detail is not None
+        and 'coefficient' in causal_result.detail.columns
+    ):
         params = pd.Series(
             causal_result.detail['coefficient'].values,
             index=causal_result.detail['variable'].values,
@@ -1071,9 +1191,18 @@ def panel_compare(
                     pv = float(pvals[idx]) if idx < len(pvals) else np.nan
                 else:
                     pv = np.nan
-                stars = '***' if pv < 0.01 else '**' if pv < 0.05 else '*' if pv < 0.1 else ''
+                if pv < 0.01:
+                    stars = '***'
+                elif pv < 0.05:
+                    stars = '**'
+                elif pv < 0.1:
+                    stars = '*'
+                else:
+                    stars = ''
                 row[name] = f"{coef:.4f}{stars}" if not np.isnan(coef) else ''
-                row[f"{name} (SE)"] = f"({se:.4f})" if not np.isnan(se) else ''
+                row[f"{name} (SE)"] = (
+                    f"({se:.4f})" if not np.isnan(se) else ''
+                )
             else:
                 row[name] = 'error'
                 row[f"{name} (SE)"] = ''

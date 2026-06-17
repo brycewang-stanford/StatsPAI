@@ -66,8 +66,43 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
+
 
 __all__ = ["DMLPanelResult", "dml_panel"]
+
+
+def _column_list(columns: Any, label: str) -> list[str]:
+    if isinstance(columns, str):
+        out = [columns]
+    else:
+        try:
+            out = list(columns)
+        except TypeError as exc:
+            raise MethodIncompatibility(
+                f"`{label}` must be a column name or a sequence of column names.",
+                recovery_hint=f"Pass {label}='x' or {label}=['x1', 'x2'].",
+                diagnostics={"argument": label, "type": type(columns).__name__},
+            ) from exc
+    bad = [c for c in out if not isinstance(c, str) or not c]
+    if bad:
+        raise MethodIncompatibility(
+            f"`{label}` must contain non-empty column-name strings.",
+            recovery_hint=f"Check `{label}` before calling dml_panel.",
+            diagnostics={"argument": label, "bad_values": [repr(c) for c in bad]},
+        )
+    return out
+
+
+def _require_column_name(name: Any, label: str) -> None:
+    if not isinstance(name, str) or not name:
+        raise MethodIncompatibility(
+            f"`{label}` must be a non-empty column-name string.",
+            recovery_hint=(
+                f"Pass the name of an existing DataFrame column for `{label}`."
+            ),
+            diagnostics={"argument": label, "value": repr(name)},
+        )
 
 
 @dataclass
@@ -383,24 +418,68 @@ def dml_panel(
     >>> print(res.summary())  # doctest: +SKIP
     """
     # ---- Input validation & bookkeeping --------------------------------
-    if n_folds < 2:
-        raise ValueError(f"n_folds must be >= 2; got {n_folds}")
-    required = [y, treat, unit] + list(covariates)
+    if not isinstance(data, pd.DataFrame):
+        raise MethodIncompatibility(
+            "`data` must be a pandas DataFrame",
+            recovery_hint="Pass a long-format panel DataFrame.",
+            diagnostics={"type": type(data).__name__},
+        )
+    for label, col in (("y", y), ("treat", treat), ("unit", unit)):
+        _require_column_name(col, label)
+    covariates = _column_list(covariates, "covariates")
+    if not isinstance(n_folds, int) or isinstance(n_folds, bool) or n_folds < 2:
+        raise MethodIncompatibility(
+            f"n_folds must be >= 2; got {n_folds}",
+            recovery_hint="Use at least two cross-fit folds.",
+            diagnostics={"n_folds": n_folds},
+        )
+    if not np.isfinite(alpha) or not 0 < alpha < 1:
+        raise MethodIncompatibility(
+            "alpha must be between 0 and 1",
+            recovery_hint="Pass a significance level such as alpha=0.05.",
+            diagnostics={"alpha": alpha},
+        )
+    if not isinstance(include_time_fe, bool):
+        raise MethodIncompatibility(
+            "include_time_fe must be True or False",
+            recovery_hint="Pass a boolean for `include_time_fe`.",
+            diagnostics={"include_time_fe": include_time_fe},
+        )
+    if not isinstance(binary_treatment, bool):
+        raise MethodIncompatibility(
+            "binary_treatment must be True or False",
+            recovery_hint="Pass a boolean for `binary_treatment`.",
+            diagnostics={"binary_treatment": binary_treatment},
+        )
+    required = [y, treat, unit] + covariates
     if include_time_fe and time is None:
-        raise ValueError("time must be provided when include_time_fe=True")
+        raise MethodIncompatibility(
+            "time must be provided when include_time_fe=True",
+            recovery_hint="Pass `time='period_column'` or set include_time_fe=False.",
+            diagnostics={"include_time_fe": include_time_fe},
+        )
     if time is not None:
+        _require_column_name(time, "time")
         required.append(time)
     missing = [c for c in required if c not in data.columns]
     if missing:
-        raise ValueError(f"missing columns in data: {missing}")
+        raise MethodIncompatibility(
+            f"missing columns in data: {missing}",
+            recovery_hint=(
+                "Check y/treat/unit/time/covariate names against data.columns."
+            ),
+            diagnostics={"missing_columns": missing},
+        )
     if binary_treatment:
         import warnings  # pragma: no cover
         d_unique = pd.unique(data[treat].dropna())
         if not set(d_unique.tolist()).issubset({0, 1, 0.0, 1.0}):
-            raise ValueError(  # pragma: no cover
+            raise MethodIncompatibility(  # pragma: no cover
                 "binary_treatment=True requires D ∈ {0, 1}; "
                 f"saw {len(d_unique)} unique values: "
-                f"{sorted(map(float, d_unique))[:10]}"
+                f"{sorted(map(float, d_unique))[:10]}",
+                recovery_hint="Set binary_treatment=False for continuous treatments.",
+                diagnostics={"n_unique": int(len(d_unique))},
             )
         warnings.warn(  # pragma: no cover
             "dml_panel(binary_treatment=True) is deprecated and now a "
@@ -420,36 +499,79 @@ def dml_panel(
     if sample_weight is not None:
         if isinstance(sample_weight, str):
             if sample_weight not in data.columns:
-                raise ValueError(  # pragma: no cover
-                    f"sample_weight column '{sample_weight}' not in data"
+                raise MethodIncompatibility(  # pragma: no cover
+                    f"sample_weight column '{sample_weight}' not in data",
+                    recovery_hint="Pass an existing weight column or a weight array.",
+                    diagnostics={"sample_weight": sample_weight},
                 )
             work["__sw__"] = data[sample_weight].astype(float).values
         else:
             arr = np.asarray(sample_weight, dtype=float)
             if arr.ndim != 1 or len(arr) != len(data):
-                raise ValueError(  # pragma: no cover
+                raise MethodIncompatibility(  # pragma: no cover
                     f"sample_weight must be 1-D of length {len(data)}; "
-                    f"got shape {arr.shape}"
+                    f"got shape {arr.shape}",
+                    recovery_hint="Pass one numeric weight per row in `data`.",
+                    diagnostics={
+                        "expected_length": int(len(data)),
+                        "shape": tuple(arr.shape),
+                    },
                 )
             work["__sw__"] = arr
     df = work.dropna().reset_index(drop=True)
     n = len(df)
+    if n == 0:
+        raise DataInsufficient(
+            "No complete observations remain after dropping missing values",
+            recovery_hint="Impute or remove missing values before calling dml_panel.",
+            diagnostics={"required_columns": required},
+        )
     unit_ids = df[unit].to_numpy()
     time_ids = df[time].to_numpy() if time is not None else None
     Y = df[y].to_numpy(dtype=float)
     D = df[treat].to_numpy(dtype=float)
+    if not np.isfinite(Y).all():
+        raise DataInsufficient(
+            "Outcome contains non-finite values",
+            recovery_hint="Drop or impute non-finite outcome rows.",
+            diagnostics={"column": y},
+        )
+    if not np.isfinite(D).all():
+        raise DataInsufficient(
+            "Treatment contains non-finite values",
+            recovery_hint="Drop or impute non-finite treatment rows.",
+            diagnostics={"column": treat},
+        )
     if "__sw__" in df.columns:
         w_full = df["__sw__"].to_numpy(dtype=float)
         if np.any(w_full < 0):
-            raise ValueError("sample_weight must be non-negative")  # pragma: no cover
+            raise MethodIncompatibility(  # pragma: no cover
+                "sample_weight must be non-negative",
+                recovery_hint="Use non-negative survey or probability weights.",
+                diagnostics={"min_weight": float(np.min(w_full))},
+            )
         if not np.isfinite(w_full).all():
-            raise ValueError("sample_weight contains non-finite values")  # pragma: no cover
+            raise MethodIncompatibility(  # pragma: no cover
+                "sample_weight contains non-finite values",
+                recovery_hint="Drop or replace non-finite weights.",
+                diagnostics={"n_weights": int(len(w_full))},
+            )
         if w_full.sum() <= 0:
-            raise ValueError("sample_weight has zero total mass")  # pragma: no cover
+            raise DataInsufficient(  # pragma: no cover
+                "sample_weight has zero total mass",
+                recovery_hint="Provide at least one positive sample weight.",
+                diagnostics={"n_weights": int(len(w_full))},
+            )
     else:
         w_full = None
     if covariates:
         X = df[list(covariates)].to_numpy(dtype=float)
+        if not np.isfinite(X).all():
+            raise DataInsufficient(
+                "Covariates contain non-finite values",
+                recovery_hint="Drop or impute non-finite covariate rows.",
+                diagnostics={"covariates": list(covariates)},
+            )
     else:
         # No covariates: X is a column of zeros so nuisance learners
         # return the mean; equivalent to pure FE-OLS within-transform.
@@ -458,8 +580,10 @@ def dml_panel(
     unique_units = pd.unique(unit_ids)
     n_units = len(unique_units)
     if n_folds > n_units:
-        raise ValueError(
-            f"n_folds ({n_folds}) cannot exceed n_units ({n_units})"
+        raise DataInsufficient(
+            f"n_folds ({n_folds}) cannot exceed n_units ({n_units})",
+            recovery_hint="Use fewer folds or provide more panel units.",
+            diagnostics={"n_folds": int(n_folds), "n_units": int(n_units)},
         )
 
     # ---- Within transform (absorb FE) ----------------------------------
@@ -541,10 +665,15 @@ def dml_panel(
     else:
         denom = float(np.sum(w_full * d_resid * d_resid))
     if denom < 1e-12:
-        raise RuntimeError(  # pragma: no cover
+        raise NumericalInstability(  # pragma: no cover
             "dml_panel: Σ d_tilde² ≈ 0 after within + nuisance residualisation. "
             "Treatment has no residual within-variation — try a lower-"
-            "capacity ml_m, drop time FE, or check for multicollinearity."
+            "capacity ml_m, drop time FE, or check for multicollinearity.",
+            recovery_hint=(
+                "Use a lower-capacity treatment nuisance model, drop time FE, "
+                "or verify residual treatment variation."
+            ),
+            diagnostics={"denom": denom},
         )
     if w_full is None:
         theta = float(np.sum(d_resid * y_resid) / denom)

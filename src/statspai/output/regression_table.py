@@ -35,7 +35,6 @@ from .estimates import (
     _ci_bounds,
     _extract_model_data,
     _ModelData,
-    _format_stars,
     _fmt_val,
     _fmt_int,
     _latex_escape,
@@ -44,8 +43,9 @@ from .estimates import (
     _STAT_DISPLAY,
 )
 from ._diagnostics import extract_diagnostic_rows
-from ._journals import get_template, list_templates, star_note_for
+from ._journals import get_template, star_note_for
 from ._repro import build_repro_note
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
 # Bracket styles cycled through when rendering ``multi_se`` extra SE rows.
@@ -55,7 +55,11 @@ from ._repro import build_repro_note
 _MULTI_SE_BRACKETS = (("[", "]"), ("{", "}"), ("⟨", "⟩"), ("«", "»"))
 
 
-def _hc_recompute_se(model_data: _ModelData, raw_result: Any, vcov: str) -> Optional[Dict[str, Any]]:
+def _hc_recompute_se(
+    model_data: _ModelData,
+    raw_result: Any,
+    vcov: str,
+) -> Optional[Dict[str, Any]]:
     """Recompute HC0/HC1/HC2/HC3 SE/t/p/CI for an OLS-style result.
 
     Returns ``{'std_errors', 'tvalues', 'pvalues', 'conf_int_lower',
@@ -93,6 +97,7 @@ def _hc_recompute_se(model_data: _ModelData, raw_result: Any, vcov: str) -> Opti
         H_full = X_arr @ XtX_inv  # n×k
         h_ii = np.einsum("ij,ij->i", X_arr, H_full)
         h_ii = np.clip(h_ii, 0.0, 1.0 - 1e-10)
+    omega: np.ndarray
     if vcov.upper() == "HC0":
         omega = e_arr ** 2
     elif vcov.upper() in ("HC1", "ROBUST"):
@@ -102,7 +107,7 @@ def _hc_recompute_se(model_data: _ModelData, raw_result: Any, vcov: str) -> Opti
     elif vcov.upper() == "HC3":
         omega = (e_arr ** 2) / ((1.0 - h_ii) ** 2)
     else:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"vcov={vcov!r} not supported for OLS recompute. Choose "
             f"from 'HC0', 'HC1' (Stata robust), 'HC2', 'HC3', 'robust'."
         )
@@ -170,7 +175,8 @@ def _apply_vcov_to_panels(
     if skipped:
         cols = ", ".join(f"({c})" for c in skipped)
         warnings.warn(
-            f"vcov={vcov!r}: recompute skipped for column{'s' if len(skipped)!=1 else ''} "
+            f"vcov={vcov!r}: recompute skipped for "
+            f"column{'s' if len(skipped) != 1 else ''} "
             f"{cols} — the result lacks data_info['X']/['residuals'] needed for "
             f"HC reweighting. Those columns retain their fit-time SEs.",
             UserWarning,
@@ -280,12 +286,22 @@ def _resolve_tests(
     out: List[Tuple[str, List[str]]] = []
     for label, seq in tests.items():
         if not isinstance(label, str) or not label:
-            raise ValueError(f"tests keys must be non-empty strings, got {label!r}.")
+            raise MethodIncompatibility(
+                f"tests keys must be non-empty strings, got {label!r}.",
+                recovery_hint="Use a non-empty display label for each test row.",
+                diagnostics={"label": label},
+            )
         items = list(seq)
         if len(items) != n_models:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"tests[{label!r}] has {len(items)} entries but there are "
-                f"{n_models} models."
+                f"{n_models} models.",
+                recovery_hint="Pass one tests entry per model column.",
+                diagnostics={
+                    "label": label,
+                    "n_entries": len(items),
+                    "n_models": n_models,
+                },
             )
         cells: List[str] = []
         for entry in items:
@@ -334,12 +350,22 @@ def _resolve_multi_se(
     out: List[Tuple[str, List[Dict[str, float]]]] = []
     for label, per_model in multi_se.items():
         if not isinstance(label, str) or not label:
-            raise ValueError(f"multi_se keys must be non-empty strings, got {label!r}.")
+            raise MethodIncompatibility(
+                f"multi_se keys must be non-empty strings, got {label!r}.",
+                recovery_hint="Use a non-empty display label for each SE row.",
+                diagnostics={"label": label},
+            )
         seq = list(per_model) if per_model is not None else []
         if len(seq) != n_models:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"multi_se[{label!r}] has {len(seq)} entries but there are "
-                f"{n_models} models."
+                f"{n_models} models.",
+                recovery_hint="Pass one multi_se entry per model column.",
+                diagnostics={
+                    "label": label,
+                    "n_entries": len(seq),
+                    "n_models": n_models,
+                },
             )
         normalized: List[Dict[str, float]] = []
         for entry in seq:
@@ -353,9 +379,11 @@ def _resolve_multi_se(
                 normalized.append({str(k): float(v) for k, v in entry.items()
                                    if v is not None and not pd.isna(v)})
             else:
-                raise TypeError(
+                raise MethodIncompatibility(
                     f"multi_se[{label!r}] entries must be pandas.Series or "
-                    f"dict, got {type(entry).__name__}."
+                    f"dict, got {type(entry).__name__}.",
+                    recovery_hint="Pass pandas.Series, dict, or None entries.",
+                    diagnostics={"label": label, "entry_type": type(entry).__name__},
                 )
         out.append((label, normalized))
     return out
@@ -425,7 +453,11 @@ class RegtableResult:
         transpose: bool = False,
     ):
         if not 0.0 < alpha < 1.0:
-            raise ValueError(f"alpha must be in (0, 1), got {alpha!r}")
+            raise MethodIncompatibility(
+                f"alpha must be in (0, 1), got {alpha!r}",
+                recovery_hint="Use an alpha value such as 0.05.",
+                diagnostics={"alpha": alpha},
+            )
         self.panels = panels
         self.panel_labels = panel_labels
         self.model_labels = model_labels
@@ -471,9 +503,14 @@ class RegtableResult:
         if eform_flags is None:
             eform_flags = [False] * self.n_models
         if len(eform_flags) != self.n_models:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"eform_flags has {len(eform_flags)} entries but "
-                f"there are {self.n_models} models."
+                f"there are {self.n_models} models.",
+                recovery_hint="Pass one eform flag per model.",
+                diagnostics={
+                    "n_eform_flags": len(eform_flags),
+                    "n_models": self.n_models,
+                },
             )
         self.eform_flags = [bool(f) for f in eform_flags]
 
@@ -484,10 +521,12 @@ class RegtableResult:
         if column_spanners is not None:
             total_span = sum(int(s) for _, s in column_spanners)
             if total_span != self.n_models:
-                raise ValueError(
+                raise MethodIncompatibility(
                     f"column_spanners total span = {total_span} but there are "
                     f"{self.n_models} models. The spans must partition the "
-                    f"columns exactly (consecutive grouping)."
+                    f"columns exactly (consecutive grouping).",
+                    recovery_hint="Make spanner spans sum to the number of models.",
+                    diagnostics={"total_span": total_span, "n_models": self.n_models},
                 )
         self.column_spanners = (
             [(str(lbl), int(s)) for lbl, s in column_spanners]
@@ -513,13 +552,19 @@ class RegtableResult:
         # public regtable() entry. Optional ``apply_coef_deriv`` enables
         # delta-method SE rescaling: SE → |f'(b)| · SE(b).
         if apply_coef is not None and not callable(apply_coef):
-            raise TypeError(
-                f"apply_coef must be callable, got {type(apply_coef).__name__}"
+            raise MethodIncompatibility(
+                f"apply_coef must be callable, got {type(apply_coef).__name__}",
+                recovery_hint="Pass a callable coefficient transform.",
+                diagnostics={"apply_coef_type": type(apply_coef).__name__},
             )
         if apply_coef_deriv is not None and not callable(apply_coef_deriv):
-            raise TypeError(
+            raise MethodIncompatibility(
                 f"apply_coef_deriv must be callable, got "
-                f"{type(apply_coef_deriv).__name__}"
+                f"{type(apply_coef_deriv).__name__}",
+                recovery_hint="Pass a callable derivative for apply_coef.",
+                diagnostics={
+                    "apply_coef_deriv_type": type(apply_coef_deriv).__name__,
+                },
             )
         self.apply_coef = apply_coef
         self.apply_coef_deriv = apply_coef_deriv
@@ -607,21 +652,27 @@ class RegtableResult:
                 return ("*", "**", "***")
             if key == "symbols":
                 return ("†", "‡", "§")
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"notation={notation!r} unrecognised. Use 'stars', "
-                f"'symbols', or pass a 3-tuple of custom strings."
+                f"'symbols', or pass a 3-tuple of custom strings.",
+                recovery_hint="Use notation='stars', notation='symbols', or a 3-tuple.",
+                diagnostics={"notation": notation},
             )
         try:
             tup = tuple(str(s) for s in notation)
         except TypeError:
-            raise TypeError(
+            raise MethodIncompatibility(
                 f"notation must be a string or 3-tuple, got "
-                f"{type(notation).__name__}"
+                f"{type(notation).__name__}",
+                recovery_hint="Use notation='stars', notation='symbols', or a 3-tuple.",
+                diagnostics={"notation_type": type(notation).__name__},
             )
         if len(tup) != 3:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"notation tuple must have exactly 3 entries (low, mid, "
-                f"high), got {len(tup)}."
+                f"high), got {len(tup)}.",
+                recovery_hint="Pass exactly three marker strings.",
+                diagnostics={"n_entries": len(tup)},
             )
         return tup  # type: ignore[return-value]
 
@@ -753,7 +804,7 @@ class RegtableResult:
             ctx = self._build_cell_context(model, var, flat_idx)
             return self.statistic_template.format_map(ctx)
         eform = self._model_eform(flat_idx)
-        apply_active = self.apply_coef is not None
+        apply_coef = self.apply_coef
         if self.se_type == "ci":
             lo_v, hi_v = _ci_bounds(model, var, self.alpha)
             if eform:
@@ -761,12 +812,12 @@ class RegtableResult:
                     lo_v = float(np.exp(lo_v))
                 if not (hi_v is None or pd.isna(hi_v)):
                     hi_v = float(np.exp(hi_v))
-            elif apply_active:
+            elif apply_coef is not None:
                 try:
                     if not (lo_v is None or pd.isna(lo_v)):
-                        lo_v = float(self.apply_coef(lo_v))
+                        lo_v = float(apply_coef(lo_v))
                     if not (hi_v is None or pd.isna(hi_v)):
-                        hi_v = float(self.apply_coef(hi_v))
+                        hi_v = float(apply_coef(hi_v))
                 except Exception:
                     pass
             lo = _fmt_val(lo_v, self.fmt)
@@ -918,7 +969,10 @@ class RegtableResult:
                 row3 = " " * label_w
                 for off, m in enumerate(models):
                     per_model = per_model_list[base_idx + off]
-                    row3 += f"{self._multi_se_cell(per_model, var, ext_idx, m, base_idx + off):>{col_w}}"
+                    cell = self._multi_se_cell(
+                        per_model, var, ext_idx, m, base_idx + off
+                    )
+                    row3 += f"{cell:>{col_w}}"
                 lines.append(row3)
             lines.append("")  # blank between vars
         return lines
@@ -989,7 +1043,11 @@ class RegtableResult:
                 lines.append(thin)
 
             var_list = self._resolve_vars(panel.models)
-            lines.extend(self._text_panel(panel.models, var_list, col_w, label_w, panel_idx=pi))
+            lines.extend(
+                self._text_panel(
+                    panel.models, var_list, col_w, label_w, panel_idx=pi
+                )
+            )
 
             if multi and pi < len(self.panels) - 1:
                 lines.append(thin)
@@ -1043,6 +1101,16 @@ class RegtableResult:
 
         return "\n".join(lines)
 
+    def summary(self) -> str:
+        """Return the configured human-readable regression table render.
+
+        ``RegtableResult`` already exposed explicit renderers such as
+        :meth:`to_text`, :meth:`to_latex`, and :meth:`to_markdown`. Providing a
+        standard ``summary()`` surface makes the object behave like the rest of
+        StatsPAI's result containers without changing any rendering semantics.
+        """
+        return self._render(self._output)
+
     # ═══════════════════════════════════════════════════════════════════════
     # Transposed renderers (single-panel pivot — rows ↔ models)
     # ═══════════════════════════════════════════════════════════════════════
@@ -1063,14 +1131,13 @@ class RegtableResult:
         var_labels = [self.coef_labels.get(v, v) for v in var_list]
         # Width of leftmost column (model labels)
         label_w = max(
-            (len(l) for l in self.model_labels),
+            (len(label) for label in self.model_labels),
             default=4,
         )
         label_w = max(label_w + 2, 8)
 
         total_w = label_w + col_w * len(var_list) + 4
         thick = "━" * total_w
-        thin = "─" * total_w
         lines: List[str] = []
         if self.title:
             lines.append(f"  {self.title}")
@@ -1103,20 +1170,6 @@ class RegtableResult:
         if self._stat_keys:
             # Re-render header with stats appended for visibility
             stat_disp = [_STAT_DISPLAY.get(k, k) for k in self._stat_keys]
-            stat_hdr = " " * (label_w + col_w * len(var_list))
-            for sd in stat_disp:
-                stat_hdr += f"{sd:>{col_w}}"
-            # Splice stat columns into existing rows
-            new_lines: List[str] = []
-            row_idx = 0
-            for ln in lines:
-                if ln == thick or ln == thin or ln == "" or ln.startswith("  "):
-                    new_lines.append(ln)
-                    continue
-                # First data row after the second thick is the header;
-                # the body rows alternate (est, se). Append stat values
-                # only on est rows.
-                pass
             # Simpler: rebuild header + body with stat columns
             # ────────────────────────────────────────────────────────
             # Reset lines and rebuild fresh
@@ -1186,12 +1239,14 @@ class RegtableResult:
         )
         for vl in var_labels:
             lines.append(
-                f'<th style="border-top:3px solid black; border-bottom:1px solid black; '
+                f'<th style="border-top:3px solid black; '
+                f'border-bottom:1px solid black; '
                 f'padding:4px 12px;">{self._esc_html(vl)}</th>'
             )
         for sd in stat_disp:
             lines.append(
-                f'<th style="border-top:3px solid black; border-bottom:1px solid black; '
+                f'<th style="border-top:3px solid black; '
+                f'border-bottom:1px solid black; '
                 f'padding:4px 12px; font-style:italic;">{self._esc_html(sd)}</th>'
             )
         lines.append("</tr>")
@@ -1333,7 +1388,6 @@ class RegtableResult:
 
         # Panels
         multi = len(self.panels) > 1
-        model_idx = 0
         for pi, panel in enumerate(self.panels):
             if multi and self.panel_labels and pi < len(self.panel_labels):
                 lines.append(
@@ -1355,9 +1409,12 @@ class RegtableResult:
                 for gi, p2 in enumerate(self.panels):
                     for m in p2.models:
                         if gi == pi:
+                            coef_cell = _html_escape(
+                                self._coef_cell(m, var, flat_idx)
+                            )
                             lines.append(
                                 f'<td style="text-align:center; padding:1px 12px;">'
-                                f'{_html_escape(self._coef_cell(m, var, flat_idx))}</td>'
+                                f"{coef_cell}</td>"
                             )
                         else:
                             lines.append(
@@ -1402,7 +1459,8 @@ class RegtableResult:
                                 )
                             else:
                                 lines.append(
-                                    '<td style="text-align:center; padding:0 12px;"></td>'
+                                    '<td style="text-align:center; '
+                                    'padding:0 12px;"></td>'
                                 )
                     lines.append("</tr>")
 
@@ -2216,8 +2274,9 @@ class RegtableResult:
                 "add_rows": {str(k): [str(x) for x in v]
                              for k, v in self.add_rows.items()},
                 "keep": list(self.keep) if self.keep else None,
-                "drop": sorted(str(x) for x in self.drop) if self.drop
-                        else None,
+                "drop": (
+                    sorted(str(x) for x in self.drop) if self.drop else None
+                ),
                 "order": list(self.order) if self.order else None,
                 "se_label": self._se_label_override,
             },
@@ -2258,6 +2317,53 @@ class RegtableResult:
         return json.dumps(
             self.to_dict(renders=renders), indent=indent, default=str
         )
+
+    def to_agent_summary(
+        self,
+        *,
+        max_rows: int = 12,
+        max_terms: int = 8,
+    ) -> Dict[str, Any]:
+        """Return a compact JSON-ready summary for agent/tool workflows.
+
+        The full :meth:`to_dict` payload is lossless and can be large. This
+        method keeps the decision-critical metadata, the first rendered rows,
+        and a bounded coefficient slice per model so agents can inspect a
+        regression table without pulling every rendered/export format.
+        """
+        payload = self.to_dict()
+        row_limit = max(0, int(max_rows))
+        term_limit = max(0, int(max_terms))
+        models: List[Dict[str, Any]] = []
+        for model in payload["models"]:
+            coefficients = model.get("coefficients", {})
+            if isinstance(coefficients, dict):
+                coefficients = dict(list(coefficients.items())[:term_limit])
+            else:
+                coefficients = {}
+            models.append(
+                {
+                    "label": model.get("label"),
+                    "depvar": model.get("depvar"),
+                    "coefficients": coefficients,
+                    "stats": model.get("stats", {}),
+                }
+            )
+        return {
+            "kind": "regression_table_summary",
+            "n_models": payload["n_models"],
+            "n_panels": payload["n_panels"],
+            "model_labels": payload["model_labels"],
+            "dep_var_labels": payload["dep_var_labels"],
+            "panel_labels": payload["panel_labels"],
+            "title": payload["title"],
+            "template": payload["template"],
+            "se_type": payload["se_type"],
+            "columns": payload["columns"],
+            "table_head": payload["table"][:row_limit],
+            "models": models,
+            "notes": payload["notes"][:5],
+        }
 
     @classmethod
     def from_dict(cls, payload: Dict[str, Any]) -> "RegtableResult":
@@ -2416,7 +2522,6 @@ class RegtableResult:
             row_idx += 1
 
         # Header row
-        header_label_row = row_idx
         c0 = ws.cell(row=row_idx, column=1, value="")
         c0.font = header_font
         for j, col in enumerate(df.columns, 2):
@@ -2547,7 +2652,11 @@ class RegtableResult:
         style_word_table_typography(table, header_rows=header_rows)
         apply_word_booktab_rules(
             table,
-            header_top_idx=spanner_row_idx if spanner_row_idx is not None else header_row_idx,
+            header_top_idx=(
+                spanner_row_idx
+                if spanner_row_idx is not None
+                else header_row_idx
+            ),
             header_bot_idx=header_row_idx,
         )
 
@@ -2639,7 +2748,7 @@ class _PanelData:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def regtable(
-    *args,
+    *args: Any,
     panel_labels: Optional[List[str]] = None,
     coef_labels: Optional[Dict[str, str]] = None,
     dep_var_labels: Optional[List[str]] = None,
@@ -2955,16 +3064,21 @@ def regtable(
     'RegtableResult'
     """
     if not args:
-        raise ValueError("At least one model result is required.")
+        raise DataInsufficient(
+            "At least one model result is required.",
+            recovery_hint="Pass one or more fitted model result objects.",
+        )
 
     _VALID_OUTPUTS = {
         "text", "latex", "tex", "html", "markdown", "md",
         "quarto", "qmd", "word", "excel",
     }
     if output not in _VALID_OUTPUTS:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"output={output!r} is invalid. Must be one of: "
-            f"{sorted(_VALID_OUTPUTS)}"
+            f"{sorted(_VALID_OUTPUTS)}",
+            recovery_hint="Choose a supported table output format.",
+            diagnostics={"output": output},
         )
 
     # --- Resolve journal template (sets defaults; explicit kwargs win) ---
@@ -2997,16 +3111,18 @@ def regtable(
     # and silent precedence would surprise users.
     if coef_map is not None:
         if coef_labels is not None:
-            raise ValueError(
+            raise MethodIncompatibility(
                 "Pass either coef_map or coef_labels, not both. coef_map is "
                 "the unified shortcut (rename + order + drop); coef_labels "
-                "only renames."
+                "only renames.",
+                recovery_hint="Use coef_map alone or coef_labels alone.",
             )
         if keep is not None or drop is not None or order is not None:
-            raise ValueError(
+            raise MethodIncompatibility(
                 "coef_map already defines the keep / order behaviour "
                 "(via its insertion order and key set). Drop the explicit "
-                "keep/drop/order arguments when using coef_map."
+                "keep/drop/order arguments when using coef_map.",
+                recovery_hint="Remove keep/drop/order when using coef_map.",
             )
         coef_labels = dict(coef_map)
         keep = list(coef_map.keys())
@@ -3038,9 +3154,11 @@ def regtable(
     if vcov is not None:
         valid = {"HC0", "HC1", "HC2", "HC3", "ROBUST"}
         if vcov.upper() not in valid:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"vcov={vcov!r} not supported. Valid choices: "
-                f"{sorted(valid)} (Stata's 'robust' is an alias for HC1)."
+                f"{sorted(valid)} (Stata's 'robust' is an alias for HC1).",
+                recovery_hint="Use vcov='HC0', 'HC1', 'HC2', 'HC3', or 'robust'.",
+                diagnostics={"vcov": vcov},
             )
         _apply_vcov_to_panels(panels, flat_results, vcov)
 
@@ -3066,9 +3184,14 @@ def regtable(
     else:
         eform_seq = list(eform)
         if len(eform_seq) != total_models:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"eform list has {len(eform_seq)} entries but there are "
-                f"{total_models} models."
+                f"{total_models} models.",
+                recovery_hint="Pass one eform flag per model.",
+                diagnostics={
+                    "n_eform_flags": len(eform_seq),
+                    "n_models": total_models,
+                },
             )
         eform_flags = [bool(f) for f in eform_seq]
 
@@ -3076,11 +3199,12 @@ def regtable(
     # point estimate, and silently combining them would hide whichever
     # the user listed second.
     if apply_coef is not None and any(eform_flags):
-        raise ValueError(
+        raise MethodIncompatibility(
             "eform and apply_coef both transform the coefficient. "
             "Pick one — eform=True is the canonical exp(b) shortcut "
             "for logit/poisson/cox; apply_coef accepts an arbitrary "
-            "callable for percentage / log / signed-sqrt transforms."
+            "callable for percentage / log / signed-sqrt transforms.",
+            recovery_hint="Use either eform or apply_coef, not both.",
         )
 
     # Validate template placeholders early — surface a KeyError at the
@@ -3131,16 +3255,26 @@ def regtable(
     if model_labels is None:
         model_labels = [f"({i + 1})" for i in range(total_models)]
     elif len(model_labels) != total_models:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"model_labels has {len(model_labels)} entries but "
-            f"there are {total_models} models."
+            f"there are {total_models} models.",
+            recovery_hint="Pass one model label per model column.",
+            diagnostics={
+                "n_model_labels": len(model_labels),
+                "n_models": total_models,
+            },
         )
 
     # Validate dep_var_labels length
     if dep_var_labels is not None and len(dep_var_labels) != total_models:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"dep_var_labels has {len(dep_var_labels)} entries but "
-            f"there are {total_models} models."
+            f"there are {total_models} models.",
+            recovery_hint="Pass one dependent-variable label per model column.",
+            diagnostics={
+                "n_dep_var_labels": len(dep_var_labels),
+                "n_models": total_models,
+            },
         )
 
     # --- Auto-extract diagnostic rows ----------------------------------

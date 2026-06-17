@@ -19,17 +19,21 @@ high-throughput AP-only path for the new Rust kernel.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from .demean import (
-    demean as _fast_demean,
     _demean_core,
     DemeanInfo,
     _detect_singletons,
+)
+from ._validation import (
+    nonempty_sample,
+    nonnegative_finite_float,
+    positive_int,
 )
 
 
@@ -61,7 +65,7 @@ class WithinTransformer:
     def __init__(
         self,
         data: Optional[pd.DataFrame] = None,
-        fe: Union[pd.DataFrame, np.ndarray, Sequence] = None,
+        fe: Union[pd.DataFrame, np.ndarray, Sequence, str] = None,
         *,
         drop_singletons: bool = True,
         accel: str = "aitken",
@@ -72,12 +76,32 @@ class WithinTransformer:
         backend: str = "auto",
     ) -> None:
         if fe is None:
-            raise ValueError("`fe` is required")
+            raise MethodIncompatibility("fast.within: `fe` is required")
+        if accel not in ("aitken", "none"):
+            raise MethodIncompatibility(
+                f"fast.within: accel={accel!r}; expected 'aitken' or 'none'"
+            )
+        if backend not in ("auto", "rust", "numpy", "jax"):
+            raise MethodIncompatibility(
+                "fast.within: backend must be one of 'auto', 'rust', 'numpy', or 'jax'"
+            )
+        max_iter = positive_int(max_iter, name="max_iter", context="fast.within")
+        accel_period = positive_int(
+            accel_period, name="accel_period", context="fast.within"
+        )
+        tol = nonnegative_finite_float(tol, name="tol", context="fast.within")
+        tol_abs = nonnegative_finite_float(
+            tol_abs, name="tol_abs", context="fast.within"
+        )
 
         # Resolve FE columns into a list of 1-D arrays
         fe_arrays: List[np.ndarray] = []
         fe_names: List[str] = []
         if isinstance(fe, pd.DataFrame):
+            if fe.shape[1] < 1:
+                raise MethodIncompatibility(
+                    "fast.within: `fe` must contain at least one fixed-effect column"
+                )
             for col in fe.columns:
                 fe_arrays.append(fe[col].to_numpy())
                 fe_names.append(str(col))
@@ -86,16 +110,42 @@ class WithinTransformer:
                 fe_arrays.append(fe)
                 fe_names.append("fe0")
             elif fe.ndim == 2:
+                if fe.shape[1] < 1:
+                    raise MethodIncompatibility(
+                        "fast.within: `fe` must contain at least one fixed-effect column"
+                    )
                 for k in range(fe.shape[1]):
                     fe_arrays.append(fe[:, k])
                     fe_names.append(f"fe{k}")
             else:
-                raise ValueError("fe ndarray must be 1-D or 2-D")
+                raise MethodIncompatibility("fast.within: fe ndarray must be 1-D or 2-D")
+        elif isinstance(fe, str):
+            if data is None:
+                raise MethodIncompatibility(
+                    "fast.within: pass `data=` when `fe` is a column name"
+                )
+            if fe not in data.columns:
+                raise MethodIncompatibility(
+                    f"fast.within: fixed-effect column {fe!r} is not in data"
+                )
+            fe_arrays.append(data[fe].to_numpy())
+            fe_names.append(fe)
         elif isinstance(fe, (list, tuple)):
+            if len(fe) < 1:
+                raise MethodIncompatibility(
+                    "fast.within: `fe` must contain at least one fixed-effect column"
+                )
             # Could be a list of column names or a list of arrays.
             if all(isinstance(c, str) for c in fe):
                 if data is None:
-                    raise ValueError("Pass `data=` when `fe` is column names")
+                    raise MethodIncompatibility(
+                        "fast.within: pass `data=` when `fe` is column names"
+                    )
+                missing = [col for col in fe if col not in data.columns]
+                if missing:
+                    raise MethodIncompatibility(
+                        f"fast.within: fixed-effect columns not in data: {missing}"
+                    )
                 for col in fe:
                     fe_arrays.append(data[col].to_numpy())
                     fe_names.append(col)
@@ -103,26 +153,32 @@ class WithinTransformer:
                 for k, c in enumerate(fe):
                     arr = np.asarray(c)
                     if arr.ndim != 1:
-                        raise ValueError("each fe array must be 1-D")
+                        raise MethodIncompatibility(
+                            f"fast.within: fixed-effect array {k} must be 1-D"
+                        )
                     fe_arrays.append(arr)
                     fe_names.append(getattr(c, "name", f"fe{k}"))
         else:
-            raise TypeError(f"fe of type {type(fe).__name__} is not supported")
+            raise MethodIncompatibility(
+                f"fast.within: fe of type {type(fe).__name__} is not supported"
+            )
 
         n = fe_arrays[0].shape[0]
-        for a in fe_arrays[1:]:
+        nonempty_sample(n, context="fast.within")
+        for name, a in zip(fe_names[1:], fe_arrays[1:]):
             if a.shape[0] != n:
-                raise ValueError("all fe columns must have the same length")
+                raise MethodIncompatibility(
+                    f"fast.within: fixed-effect column {name!r} has length "
+                    f"{a.shape[0]} but expected {n}"
+                )
 
         # Factorise to int64
         fe_codes_raw: List[np.ndarray] = []
-        n_fe_raw: List[int] = []
         for a in fe_arrays:
-            codes, uniq = pd.factorize(a, sort=False, use_na_sentinel=True)
+            codes, _ = pd.factorize(a, sort=False, use_na_sentinel=True)
             if (codes < 0).any():
-                raise ValueError("NaN in FE column")
+                raise MethodIncompatibility("fast.within: NaN in FE column")
             fe_codes_raw.append(codes.astype(np.int64))
-            n_fe_raw.append(len(uniq))
 
         # Singleton drop
         if drop_singletons:
@@ -131,6 +187,10 @@ class WithinTransformer:
             keep = np.ones(n, dtype=bool)
 
         n_kept = int(keep.sum())
+        if n_kept < 1:
+            raise DataInsufficient(
+                "fast.within: no rows remain after singleton pruning"
+            )
 
         # Re-densify post-prune
         fe_codes_kept: List[np.ndarray] = []
@@ -178,15 +238,29 @@ class WithinTransformer:
         elif isinstance(X, pd.DataFrame):
             X = X.to_numpy()
         X = np.asarray(X, dtype=np.float64)
+        if X.ndim not in (1, 2):
+            raise MethodIncompatibility(
+                f"fast.within.transform: X must be 1-D or 2-D, got ndim={X.ndim}"
+            )
+        if not np.isfinite(X).all():
+            raise MethodIncompatibility(
+                "fast.within.transform: X contains non-finite values"
+            )
 
-        if not already_masked:
+        if already_masked:
+            if X.shape[0] != self.n_kept:
+                raise MethodIncompatibility(
+                    f"fast.within.transform: already_masked=True requires "
+                    f"{self.n_kept} rows, got {X.shape[0]}"
+                )
+        else:
             if X.shape[0] != self.n:
                 if X.shape[0] == self.n_kept:
                     already_masked = True
                 else:
-                    raise ValueError(
-                        f"X has {X.shape[0]} rows but cached n={self.n} "
-                        f"(or n_kept={self.n_kept})"
+                    raise MethodIncompatibility(
+                        f"fast.within.transform: X has {X.shape[0]} rows but "
+                        f"cached n={self.n} (or n_kept={self.n_kept})"
                     )
         if not already_masked:
             X = X[self.keep_mask]
@@ -229,7 +303,17 @@ class WithinTransformer:
         Useful when feeding the within-residualised X into a downstream
         estimator that prefers DataFrames (DML, Lasso, etc.).
         """
-        X = data[list(columns)].to_numpy(dtype=np.float64)
+        columns = list(columns)
+        if not columns:
+            raise MethodIncompatibility(
+                "fast.within.transform_columns: columns must be non-empty"
+            )
+        missing = [col for col in columns if col not in data.columns]
+        if missing:
+            raise MethodIncompatibility(
+                f"fast.within.transform_columns: columns not in data: {missing}"
+            )
+        X = data[columns].to_numpy(dtype=np.float64)
         Xd, _info = self.transform(X, already_masked=already_masked)
         if Xd.ndim == 1:
             Xd = Xd.reshape(-1, 1)
@@ -238,7 +322,7 @@ class WithinTransformer:
             idx = data.index
         else:
             idx = data.index[self.keep_mask]
-        return pd.DataFrame(Xd, index=idx, columns=list(columns))
+        return pd.DataFrame(Xd, index=idx, columns=columns)
 
     # ------------------------------------------------------------------
     # Convenience

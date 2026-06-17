@@ -29,7 +29,8 @@ de Chaisemartin, C. and D'Haultfoeuille, X. (2020).
 
 de Chaisemartin, C. and D'Haultfoeuille, X. (2022).
 "Two-way fixed effects and differences-in-differences with heterogeneous
-treatment effects: A survey."  *The Econometrics Journal*, 26(3), C1-C30. [@dechaisemartin2022fixed]
+treatment effects: A survey."  *The Econometrics Journal*, 26(3), C1-C30.
+[@dechaisemartin2022fixed]
 
 de Chaisemartin, C. and D'Haultfoeuille, X. (2024).
 "Difference-in-Differences Estimators of Intertemporal Treatment Effects."
@@ -37,7 +38,7 @@ de Chaisemartin, C. and D'Haultfoeuille, X. (2024).
 and average cumulative effect, Section 3.) [@dechaisemartin2024difference]
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -178,14 +179,18 @@ def did_multiplegt(
 
     # ── Placebo effects ──────────────────────────────────────────── #
     placebo_results = []
-    for l in range(1, placebo + 1):
-        plac = _estimate_placebo(df, y, group, time, treatment, controls, lag=l)
+    for lag_idx in range(1, placebo + 1):
+        plac = _estimate_placebo(
+            df, y, group, time, treatment, controls, lag=lag_idx,
+        )
         placebo_results.append(plac)
 
     # ── Dynamic effects ──────────────────────────────────────────── #
     dynamic_results = []
-    for l in range(0, dynamic + 1):
-        dyn = _estimate_dynamic(df, y, group, time, treatment, controls, horizon=l)
+    for horizon_idx in range(0, dynamic + 1):
+        dyn = _estimate_dynamic(
+            df, y, group, time, treatment, controls, horizon=horizon_idx,
+        )
         dynamic_results.append(dyn)
 
     # ── Bootstrap standard errors ────────────────────────────────── #
@@ -194,7 +199,10 @@ def did_multiplegt(
     n_clusters = len(clusters)
 
     boot_main = np.full(n_boot, np.nan)
-    boot_placebo = np.full((n_boot, max(placebo, 0)), np.nan) if placebo > 0 else None
+    boot_placebo = (
+        np.full((n_boot, max(placebo, 0)), np.nan)
+        if placebo > 0 else None
+    )
     boot_dynamic = np.full((n_boot, dynamic + 1), np.nan) if dynamic >= 0 else None
 
     for b in range(n_boot):
@@ -212,14 +220,21 @@ def did_multiplegt(
         boot_main[b] = b_main['did_m']
 
         if placebo > 0:
-            for l in range(1, placebo + 1):
-                plac = _estimate_placebo(bdf, y, group, time, treatment, controls, lag=l)
-                boot_placebo[b, l - 1] = plac['estimate']
+            assert boot_placebo is not None
+            for lag_idx in range(1, placebo + 1):
+                plac = _estimate_placebo(
+                    bdf, y, group, time, treatment, controls, lag=lag_idx,
+                )
+                boot_placebo[b, lag_idx - 1] = plac['estimate']
 
         if dynamic >= 0:
-            for l in range(0, dynamic + 1):
-                dyn = _estimate_dynamic(bdf, y, group, time, treatment, controls, horizon=l)
-                boot_dynamic[b, l] = dyn['estimate']
+            assert boot_dynamic is not None
+            for horizon_idx in range(0, dynamic + 1):
+                dyn = _estimate_dynamic(
+                    bdf, y, group, time, treatment, controls,
+                    horizon=horizon_idx,
+                )
+                boot_dynamic[b, horizon_idx] = dyn['estimate']
 
     # ── Compute SEs, p-values, CIs ───────────────────────────────── #
     se_main = np.nanstd(boot_main, ddof=1)
@@ -231,27 +246,33 @@ def did_multiplegt(
 
     # Placebo SEs
     placebo_out = []
-    for l in range(placebo):
-        est = placebo_results[l]['estimate']
-        se = np.nanstd(boot_placebo[:, l], ddof=1) if boot_placebo is not None else 0.0
+    for lag_idx in range(placebo):
+        est = placebo_results[lag_idx]['estimate']
+        se = (
+            np.nanstd(boot_placebo[:, lag_idx], ddof=1)
+            if boot_placebo is not None else 0.0
+        )
         z = est / se if se > 0 else 0.0
         p = 2 * (1 - stats.norm.cdf(abs(z)))
         ci = (est - z_crit * se, est + z_crit * se)
         placebo_out.append({
-            'lag': -(l + 1), 'estimate': est, 'se': se,
+            'lag': -(lag_idx + 1), 'estimate': est, 'se': se,
             'pvalue': p, 'ci_lower': ci[0], 'ci_upper': ci[1],
         })
 
     # Dynamic SEs
     dynamic_out = []
-    for l in range(dynamic + 1):
-        est = dynamic_results[l]['estimate']
-        se = np.nanstd(boot_dynamic[:, l], ddof=1) if boot_dynamic is not None else 0.0
+    for horizon_idx in range(dynamic + 1):
+        est = dynamic_results[horizon_idx]['estimate']
+        se = (
+            np.nanstd(boot_dynamic[:, horizon_idx], ddof=1)
+            if boot_dynamic is not None else 0.0
+        )
         z = est / se if se > 0 else 0.0
         p = 2 * (1 - stats.norm.cdf(abs(z)))
         ci = (est - z_crit * se, est + z_crit * se)
         dynamic_out.append({
-            'horizon': l, 'estimate': est, 'se': se,
+            'horizon': horizon_idx, 'estimate': est, 'se': se,
             'pvalue': p, 'ci_lower': ci[0], 'ci_upper': ci[1],
         })
 
@@ -354,7 +375,7 @@ def _residualize(dy: np.ndarray, dX: np.ndarray) -> np.ndarray:
     X = np.hstack([ones, dX])
     try:
         beta = np.linalg.lstsq(X, dy, rcond=None)[0]
-        return dy - X @ beta
+        return np.asarray(dy - X @ beta, dtype=float)
     except np.linalg.LinAlgError:
         return dy
 
@@ -379,10 +400,16 @@ def _estimate_did_m(
     for idx in range(1, len(periods)):
         t_prev, t_curr = periods[idx - 1], periods[idx]
 
-        df_prev = df[df[time] == t_prev][[group, y, treatment] + (controls or [])].copy()
-        df_curr = df[df[time] == t_curr][[group, y, treatment] + (controls or [])].copy()
+        df_prev = df[df[time] == t_prev][
+            [group, y, treatment] + (controls or [])
+        ].copy()
+        df_curr = df[df[time] == t_curr][
+            [group, y, treatment] + (controls or [])
+        ].copy()
 
-        df_prev = df_prev.rename(columns={y: f'{y}_prev', treatment: f'{treatment}_prev'})
+        df_prev = df_prev.rename(
+            columns={y: f'{y}_prev', treatment: f'{treatment}_prev'},
+        )
         if controls:
             df_prev = df_prev.rename(columns={c: f'{c}_prev' for c in controls})
 

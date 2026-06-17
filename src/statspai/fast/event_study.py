@@ -34,14 +34,16 @@ estimators with heterogeneous treatment effects. AER 110(9): 2964–2996.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from .within import within as _within
-from .dsl import i as _i
 from .inference import crve as _crve
+from ._result_protocol import jsonable as _jsonable
+from ._result_protocol import tidy_records as _tidy_records
 
 
 @dataclass
@@ -93,6 +95,42 @@ class EventStudyResult:
             self.tidy().to_string(index=False, float_format=lambda v: f"{v:.4f}")
         )
 
+    def to_dict(self) -> dict[str, Any]:
+        """Lossless JSON-safe payload for the fast TWFE event study."""
+        return _jsonable({
+            "kind": "fast_event_study_result",
+            "model": "twfe_event_study",
+            "formula": self.formula,
+            "n_obs": self.n_obs,
+            "n_kept": self.n_kept,
+            "n_clusters": self.n_clusters,
+            "cluster_var": self.cluster_var,
+            "reference_event_time": self.reference_event_time,
+            "event_times": self.event_times,
+            "coefficients": self.coefs,
+            "standard_errors": self.ses,
+            "tidy": _tidy_records(self.tidy()),
+        })
+
+    def to_agent_summary(self, *, max_event_times: int = 20) -> dict[str, Any]:
+        """Bounded agent-facing summary for fast TWFE event-study results."""
+        n_terms = len(self.event_times)
+        limit = max(int(max_event_times), 0)
+        rows = _tidy_records(self.tidy().head(limit))
+        return _jsonable({
+            "kind": "fast_event_study_agent_summary",
+            "model": "twfe_event_study",
+            "formula": self.formula,
+            "n_obs": self.n_obs,
+            "n_kept": self.n_kept,
+            "n_clusters": self.n_clusters,
+            "cluster_var": self.cluster_var,
+            "reference_event_time": self.reference_event_time,
+            "event_times": rows,
+            "n_event_times": n_terms,
+            "truncated_event_times": max(n_terms - limit, 0),
+        })
+
 
 def event_study(
     data: pd.DataFrame,
@@ -137,22 +175,93 @@ def event_study(
     -------
     EventStudyResult
     """
-    for col in (y, unit, time, event_time):
-        if col not in data.columns:
-            raise KeyError(f"data missing column {col!r}")
+    if not isinstance(data, pd.DataFrame):
+        raise MethodIncompatibility("fast.event_study: data must be a DataFrame")
+    if len(data) < 1:
+        raise DataInsufficient("fast.event_study: data must contain at least one row")
+    roles = {"y": y, "unit": unit, "time": time, "event_time": event_time}
+    bad_roles = [name for name, col in roles.items() if not isinstance(col, str) or not col]
+    if bad_roles:
+        raise MethodIncompatibility(
+            f"fast.event_study: column arguments must be non-empty strings: {bad_roles}"
+        )
+    missing = [col for col in roles.values() if col not in data.columns]
+    if missing:
+        raise MethodIncompatibility(
+            f"fast.event_study: data missing columns: {missing}"
+        )
 
     cluster_col = cluster if cluster is not None else unit
+    if not isinstance(cluster_col, str) or not cluster_col:
+        raise MethodIncompatibility(
+            "fast.event_study: cluster must be a non-empty string column name"
+        )
     if cluster_col not in data.columns:
-        raise KeyError(f"data missing cluster column {cluster_col!r}")
+        raise MethodIncompatibility(
+            f"fast.event_study: data missing cluster column {cluster_col!r}"
+        )
+    if not isinstance(reference, (int, np.integer)):
+        raise MethodIncompatibility(
+            "fast.event_study: reference must be an integer event-time offset"
+        )
+    reference = int(reference)
+    if window is not None:
+        try:
+            lo, hi = window
+        except (TypeError, ValueError) as exc:
+            raise MethodIncompatibility(
+                "fast.event_study: window must be a (lo, hi) pair"
+            ) from exc
+        if isinstance(window, (str, bytes)):
+            raise MethodIncompatibility(
+                "fast.event_study: window must be a (lo, hi) pair"
+            )
+        if (
+            not isinstance(lo, (int, np.integer))
+            or not isinstance(hi, (int, np.integer))
+        ):
+            raise MethodIncompatibility(
+                "fast.event_study: window bounds must be integer event-time offsets"
+            )
+        lo = int(lo)
+        hi = int(hi)
+        if lo > hi:
+            raise MethodIncompatibility(
+                "fast.event_study: window lower bound must be <= upper bound"
+            )
+        window = (lo, hi)
 
     df = data.copy()
     n_obs = len(df)
+    y_values = df[y].to_numpy(dtype=np.float64)
+    if not np.isfinite(y_values).all():
+        raise MethodIncompatibility(
+            f"fast.event_study: outcome column {y!r} has non-finite values"
+        )
 
     # Build event-time dummies (one-hot), masking NaN rows out.
-    et = df[event_time].to_numpy()
+    try:
+        et = df[event_time].to_numpy(dtype=np.float64)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"fast.event_study: event_time column {event_time!r} must be numeric with NaN for "
+            "never-treated rows"
+        ) from exc
+    if np.isinf(et).any():
+        raise MethodIncompatibility(
+            f"fast.event_study: event_time column {event_time!r} contains infinite values; "
+            "use NaN only for never-treated rows"
+        )
     finite = np.isfinite(et)
+    rounded_et = np.rint(et[finite])
+    if not np.allclose(et[finite], rounded_et, atol=1e-10, rtol=0.0):
+        raise MethodIncompatibility(
+            f"fast.event_study: event_time column {event_time!r} must contain integer event-time "
+            "offsets; non-integer finite values would be silently truncated"
+        )
     # cast finite rows to int for dummy labels; non-finite get a sentinel
-    et_int = np.where(finite, et, np.iinfo(np.int64).min).astype(np.int64)
+    et_int = np.full(et.shape, np.iinfo(np.int64).min, dtype=np.int64)
+    et_int[finite] = rounded_et.astype(np.int64)
     if window is not None:
         lo, hi = window
         et_int = np.where(
@@ -164,8 +273,9 @@ def event_study(
     # Use pd.Categorical so we control the level set
     levels = sorted({v for v in et_int[finite] if v != reference})
     if not levels:
-        raise ValueError(
-            "no event-time dummies after filtering — check event_time / window"
+        raise DataInsufficient(
+            "fast.event_study: no event-time dummies after filtering; "
+            "check event_time / window"
         )
     dummies = pd.DataFrame({
         f"et_{lv}": ((et_int == lv) & finite).astype(np.float64)
@@ -176,13 +286,21 @@ def event_study(
 
     # FE residualisation
     wt = _within(df_aug, fe=[unit, time], drop_singletons=drop_singletons)
-    y_dem, _ = wt.transform(df_aug[y].to_numpy(dtype=np.float64))
+    y_dem, _ = wt.transform(y_values)
     X_dem = wt.transform_columns(df_aug, dummy_cols).to_numpy()
 
     # OLS on residualised
     XtX = X_dem.T @ X_dem
     Xty = X_dem.T @ y_dem
-    beta = np.linalg.solve(XtX, Xty)
+    try:
+        bread = np.linalg.inv(XtX)
+    except np.linalg.LinAlgError as exc:
+        raise RuntimeError(
+            "event_study normal equations are singular. Likely cause: "
+            "event-time dummies are perfectly collinear with the absorbed "
+            "unit/time fixed effects after filtering."
+        ) from exc
+    beta = bread @ Xty
     resid = y_dem - X_dem @ beta
 
     # Cluster-robust SE on the residualised system. The CR1 small-sample
@@ -190,7 +308,6 @@ def event_study(
     # convention as ``reghdfe`` / ``fixest``. Without it, SEs are
     # systematically too small (the FE rank is "free" parameters).
     cluster_arr = df_aug.loc[wt.keep_mask, cluster_col].to_numpy()
-    bread = np.linalg.inv(XtX)
     fe_dof = sum(int(g) - 1 for g in wt.n_fe)
     V = _crve(
         X_dem, resid, cluster_arr,

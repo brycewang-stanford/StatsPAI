@@ -40,6 +40,8 @@ Press. [@rosenbaum1983central]
 
 from typing import Any, Dict, List, Optional
 
+from ..exceptions import MethodIncompatibility
+
 # Underlying estimators — the dispatcher delegates here.
 from .match import match as _match_classical
 from .match import MatchEstimator, balanceplot, psplot
@@ -129,7 +131,7 @@ def match(
     *,
     method: str = "nearest",
     **kwargs: Any,
-):
+) -> Any:
     """Unified matching/weighting dispatcher.
 
     Parameters
@@ -190,9 +192,28 @@ def match(
     if canon is None:
         # Wording note: keep "method must be" in the message — older
         # tests grep for it (tests/test_matching.py).
-        raise ValueError(
+        raise MethodIncompatibility(
             f"Unknown method '{method}' for sp.match — method must be "
-            f"one of: {sorted(set(_MATCH_METHOD_ALIASES.values()))}"
+            f"one of: {sorted(set(_MATCH_METHOD_ALIASES.values()))}",
+            diagnostics={
+                "method": method,
+                "supported_methods": sorted(set(_MATCH_METHOD_ALIASES.values())),
+            },
+        )
+
+    if y is None or treat is None or covariates is None:
+        missing = [
+            name
+            for name, value in (
+                ("y", y),
+                ("treat", treat),
+                ("covariates", covariates),
+            )
+            if value is None
+        ]
+        raise MethodIncompatibility(
+            "sp.match requires y, treat, and covariates.",
+            diagnostics={"missing": missing, "method": method},
         )
 
     # ── Classical: delegate to match.py:match ────────────────────────

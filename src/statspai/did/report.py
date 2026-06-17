@@ -24,7 +24,7 @@ Rambachan, A. and Roth, J. (2023).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -91,7 +91,7 @@ class CSReport:
     # ------------------------------------------------------------------
     # Plot: 2×2 summary panel
     # ------------------------------------------------------------------
-    def plot(self, figsize=(14, 10), suptitle: Optional[str] = None):
+    def plot(self, figsize: Any = (14, 10), suptitle: Optional[str] = None) -> Any:
         """Render a 2×2 summary figure of the report.
 
         The four quadrants show:
@@ -113,7 +113,6 @@ class CSReport:
 
         # Local import to avoid a circular statspai.did.__init__ dependency.
         from .plots import ggdid
-        from .aggte import aggte
 
         cs_like = _CSReportLike(self.dynamic, {'aggregation': 'dynamic'},
                                 self.overall.get('estimate', 0.0),
@@ -134,7 +133,7 @@ class CSReport:
         fig.tight_layout()
         return fig, axes
 
-    def _plot_breakdown(self, ax) -> None:
+    def _plot_breakdown(self, ax: Any) -> None:
         """Render the R-R breakdown M* panel (horizontal bars)."""
         import matplotlib.pyplot as plt  # noqa: F401 — caller loaded it
         df = self.breakdown
@@ -207,9 +206,9 @@ class CSReport:
             present = [c for c in cols if c in df.columns]
             sub = _format_numeric_columns(df[present], float_format)
             try:
-                return sub.to_markdown(index=False)
+                return str(sub.to_markdown(index=False))
             except ImportError:  # tabulate missing — fall back to plain
-                return sub.to_string(index=False)
+                return str(sub.to_string(index=False))
 
         lines.append("### Event study (dynamic aggregation)")
         lines.append("")
@@ -252,7 +251,7 @@ class CSReport:
     # ------------------------------------------------------------------
     def to_excel(
         self,
-        path,
+        path: Any,
         float_format: Optional[str] = "%.6f",
         engine: Optional[str] = None,
     ) -> str:
@@ -339,7 +338,7 @@ class CSReport:
                                     index=False, float_format=float_format)
             meta_df.to_excel(w, sheet_name="Meta",
                              index=False, float_format=float_format)
-        return path
+        return str(path)
 
     # ------------------------------------------------------------------
     # Export: LaTeX (booktabs)
@@ -498,14 +497,14 @@ class CSReport:
         cols = ["relative_time", "att", "se", "ci_lower", "ci_upper",
                 "cband_lower", "cband_upper", "pvalue"]
         present = [c for c in cols if c in df.columns]
-        return df[present].to_string(index=False, float_format="%.4f")
+        return str(df[present].to_string(index=False, float_format="%.4f"))
 
     @staticmethod
     def _fmt_aggregation(df: pd.DataFrame, id_col: str) -> str:
         cols = [id_col, "att", "se", "ci_lower", "ci_upper",
                 "cband_lower", "cband_upper", "pvalue"]
         present = [c for c in cols if c in df.columns]
-        return df[present].to_string(index=False, float_format="%.4f")
+        return str(df[present].to_string(index=False, float_format="%.4f"))
 
 
 # ======================================================================
@@ -594,15 +593,15 @@ def _df_to_booktabs(df: pd.DataFrame, float_format: str = "%.4f") -> str:
     import re as _re
     _LATEX_ESCAPES = {
         '\\': r'\textbackslash{}',
-        '~':  r'\textasciitilde{}',
-        '^':  r'\textasciicircum{}',
-        '&':  r'\&',
-        '%':  r'\%',
-        '$':  r'\$',
-        '#':  r'\#',
-        '_':  r'\_',
-        '{':  r'\{',
-        '}':  r'\}',
+        '~': r'\textasciitilde{}',
+        '^': r'\textasciicircum{}',
+        '&': r'\&',
+        '%': r'\%',
+        '$': r'\$',
+        '#': r'\#',
+        '_': r'\_',
+        '{': r'\{',
+        '}': r'\}',
     }
     _LATEX_RE = _re.compile(r'[\\~^&%$#_{}]')
 
@@ -632,7 +631,7 @@ def _df_to_booktabs(df: pd.DataFrame, float_format: str = "%.4f") -> str:
 # ======================================================================
 
 def cs_report(
-    data_or_result,
+    data_or_result: Union[pd.DataFrame, CausalResult],
     y: Optional[str] = None,
     g: Optional[str] = None,
     t: Optional[str] = None,
@@ -717,16 +716,23 @@ def cs_report(
         # a pre-fitted result is passed, which is easy to misread as
         # "the report re-estimated under my new settings".
         import warnings as _warnings
-        _shadowed = []
-        if y is not None: _shadowed.append(f'y={y!r}')
-        if g is not None: _shadowed.append(f'g={g!r}')
-        if t is not None: _shadowed.append(f't={t!r}')
-        if i is not None: _shadowed.append(f'i={i!r}')
-        if x is not None: _shadowed.append(f'x={x!r}')
-        if estimator != 'dr': _shadowed.append(f'estimator={estimator!r}')
+        _shadowed: List[str] = []
+        if y is not None:
+            _shadowed.append(f'y={y!r}')
+        if g is not None:
+            _shadowed.append(f'g={g!r}')
+        if t is not None:
+            _shadowed.append(f't={t!r}')
+        if i is not None:
+            _shadowed.append(f'i={i!r}')
+        if x is not None:
+            _shadowed.append(f'x={x!r}')
+        if estimator != 'dr':
+            _shadowed.append(f'estimator={estimator!r}')
         if control_group != 'nevertreated':
             _shadowed.append(f'control_group={control_group!r}')
-        if anticipation != 0: _shadowed.append(f'anticipation={anticipation}')
+        if anticipation != 0:
+            _shadowed.append(f'anticipation={anticipation}')
         if _shadowed:
             _warnings.warn(
                 "cs_report() received a pre-fitted CausalResult together "
@@ -752,13 +758,14 @@ def cs_report(
                 "honest_did() directly on the event study."
             )
     else:
-        if not all([y, g, t, i]):
+        if y is None or g is None or t is None or i is None:
             raise ValueError(
                 "When passing raw data, the 'y', 'g', 't', and 'i' column "
                 "names must all be specified."
             )
+        y_col, g_col, t_col, i_col = y, g, t, i
         cs = callaway_santanna(
-            data_or_result, y=y, g=g, t=t, i=i, x=x,
+            data_or_result, y=y_col, g=g_col, t=t_col, i=i_col, x=x,
             estimator=estimator, control_group=control_group,
             anticipation=anticipation, alpha=alpha,
         )
@@ -774,9 +781,23 @@ def cs_report(
     calendar = aggte(cs, type='calendar', alpha=alpha,
                      n_boot=n_boot, random_state=random_state)
 
+    simple_detail = (
+        simple.detail if simple.detail is not None else pd.DataFrame()
+    )
+    dynamic_detail = (
+        dynamic.detail if dynamic.detail is not None else pd.DataFrame()
+    )
+    group_detail = group.detail if group.detail is not None else pd.DataFrame()
+    calendar_detail = (
+        calendar.detail if calendar.detail is not None else pd.DataFrame()
+    )
+
     # Breakdown M* for every post-treatment event time in the dynamic frame.
-    post_es = dynamic.detail[dynamic.detail['relative_time'] >= 0]
-    rr_rows = []
+    if 'relative_time' in dynamic_detail.columns:
+        post_es = dynamic_detail[dynamic_detail['relative_time'] >= 0]
+    else:  # pragma: no cover - defensive result-protocol fallback
+        post_es = dynamic_detail.iloc[0:0]
+    rr_rows: List[Dict[str, Any]] = []
     for _, row in post_es.iterrows():
         e_int = int(row['relative_time'])
         try:
@@ -816,10 +837,10 @@ def cs_report(
 
     report = CSReport(
         overall=overall,
-        simple=simple.detail,
-        dynamic=dynamic.detail,
-        group=group.detail,
-        calendar=calendar.detail,
+        simple=simple_detail,
+        dynamic=dynamic_detail,
+        group=group_detail,
+        calendar=calendar_detail,
         pretrend=cs.model_info.get('pretrend_test') or {},
         breakdown=breakdown_df,
         meta=meta,
@@ -847,7 +868,7 @@ def _save_report_bundle(
     import os
     import sys
 
-    def _sys_modules():
+    def _sys_modules() -> Any:
         return sys.modules
 
     # Expand a leading "~" / "~user" so `save_to='~/study/cs_v1'` works,

@@ -74,13 +74,16 @@ def _ols_fit(
     resid = y - X @ beta
 
     if cluster is not None:
-        unique_cl = np.unique(cluster)
-        n_cl = len(unique_cl)
-        meat = np.zeros((k, k))
-        for c in unique_cl:
-            idx = cluster == c
-            score = (X[idx] * resid[idx, np.newaxis]).sum(axis=0)
-            meat += np.outer(score, score)
+        _, cluster_inverse = np.unique(cluster, return_inverse=True)
+        n_cl = int(cluster_inverse.max()) + 1
+        if n_cl < 2:
+            raise DataInsufficient(
+                "Cluster-robust Wooldridge DID inference requires at least "
+                "two clusters."
+            )
+        scores = np.zeros((n_cl, k), dtype=float)
+        np.add.at(scores, cluster_inverse, X * resid[:, np.newaxis])
+        meat = scores.T @ scores
         correction = (n_cl / (n_cl - 1)) * ((n - 1) / (n - k))
         vcov = correction * XtX_inv @ meat @ XtX_inv
     else:
@@ -212,22 +215,33 @@ def wooldridge_did(
             rel_times.add(rel)
 
     # ── Demean interactions (same FE projection) ────────────────────
-    for col in interaction_cols + event_cols:
-        u_m = df.groupby(group)[col].transform("mean")
-        t_m = df.groupby(time)[col].transform("mean")
-        g_m = df[col].mean()
-        df[f"{col}_dm"] = df[col] - u_m - t_m + g_m
+    # Batch the two-way demeaning across all dummy columns. The previous
+    # per-column groupby loop repeated identical grouping work dozens of times
+    # on event-study designs; the algebra is unchanged.
+    dummy_cols = interaction_cols + event_cols
+    if dummy_cols:
+        dummy_values = df[dummy_cols]
+        unit_means = dummy_values.groupby(df[group]).transform("mean")
+        time_means = dummy_values.groupby(df[time]).transform("mean")
+        dummy_dm = dummy_values - unit_means - time_means + dummy_values.mean()
+        dummy_dm.columns = [f"{col}_dm" for col in dummy_cols]
+        df[dummy_dm.columns] = dummy_dm
 
     # ── Demean controls ─────────────────────────────────────────────
     ctrl_dm_cols: List[str] = []
     if controls:
+        ctrl_cols = []
         for c in controls:
-            df[f"_ctrl_{c}"] = df[c].astype(float)
-            u_m = df.groupby(group)[f"_ctrl_{c}"].transform("mean")
-            t_m = df.groupby(time)[f"_ctrl_{c}"].transform("mean")
-            g_m = df[f"_ctrl_{c}"].mean()
-            df[f"_ctrl_{c}_dm"] = df[f"_ctrl_{c}"] - u_m - t_m + g_m
-            ctrl_dm_cols.append(f"_ctrl_{c}_dm")
+            col = f"_ctrl_{c}"
+            df[col] = df[c].astype(float)
+            ctrl_cols.append(col)
+            ctrl_dm_cols.append(f"{col}_dm")
+        ctrl_values = df[ctrl_cols]
+        unit_means = ctrl_values.groupby(df[group]).transform("mean")
+        time_means = ctrl_values.groupby(df[time]).transform("mean")
+        ctrl_dm = ctrl_values - unit_means - time_means + ctrl_values.mean()
+        ctrl_dm.columns = ctrl_dm_cols
+        df[ctrl_dm_cols] = ctrl_dm
 
     # ── Drop NaN rows ───────────────────────────────────────────────
     keep_cols = (

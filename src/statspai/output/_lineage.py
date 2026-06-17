@@ -114,11 +114,36 @@ def compute_data_hash(data: Any, length: int = 12) -> Optional[str]:
             # change "what the dataset means" — fold names + dtypes into
             # the digest explicitly so two frames with identical values
             # but different column names hash differently.
-            row_h = pd.util.hash_pandas_object(data, index=True).values.tobytes()
             schema = (
                 "|".join(map(str, data.columns)) + "::"
                 + "|".join(str(dt) for dt in data.dtypes)
             ).encode()
+            if isinstance(data.index, pd.RangeIndex) and all(
+                pd.api.types.is_numeric_dtype(dt) for dt in data.dtypes
+            ):
+                arr = data.to_numpy(copy=False)
+                if arr.dtype.kind in "biufc":
+                    # Hot path for estimator inputs: all-numeric frames with
+                    # a default RangeIndex. This preserves schema, row order,
+                    # dtype, shape, and index metadata while avoiding pandas'
+                    # per-column object hashing overhead on every fit.
+                    digest = hashlib.sha256()
+                    digest.update(b"numeric-dataframe-v1")
+                    digest.update(schema)
+                    digest.update(
+                        (
+                            f"RangeIndex:{data.index.start}:"
+                            f"{data.index.stop}:{data.index.step}:"
+                            f"{data.index.name}"
+                        ).encode()
+                    )
+                    arr = np.ascontiguousarray(arr)
+                    digest.update(str(arr.shape).encode())
+                    digest.update(str(arr.dtype).encode())
+                    digest.update(arr.tobytes())
+                    return digest.hexdigest()[:length]
+
+            row_h = pd.util.hash_pandas_object(data, index=True).values.tobytes()
             digest = hashlib.sha256()
             digest.update(schema)
             digest.update(row_h)

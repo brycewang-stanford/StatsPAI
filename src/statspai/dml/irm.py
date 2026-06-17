@@ -14,6 +14,9 @@ Folds are stratified by D so that each training fold contains both
 arms — without stratification, a small data set or small ``n_folds``
 can produce a degenerate fold whose subgroup-fitted nuisance is junk.
 """
+from __future__ import annotations
+
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -68,8 +71,16 @@ class DoubleMLIRM(_DoubleMLBase):
     _SUPPORTS_SAMPLE_WEIGHT = True
 
     def _fit_one_rep(
-        self, Y, D, X, Z, n, rng_seed, sample_weight=None, fold_indices=None
-    ):
+        self,
+        Y: np.ndarray,
+        D: np.ndarray,
+        X: np.ndarray,
+        Z: np.ndarray,
+        n: int,
+        rng_seed: int,
+        sample_weight: Optional[np.ndarray] = None,
+        fold_indices: Optional[np.ndarray] = None,
+    ) -> Tuple[float, float]:
         from sklearn.model_selection import StratifiedKFold
 
         if not set(np.unique(D)).issubset({0, 1}):
@@ -114,8 +125,8 @@ class DoubleMLIRM(_DoubleMLBase):
         skf = StratifiedKFold(
             n_splits=self.n_folds, shuffle=True, random_state=rng_seed,
         )
-        psi_scores = np.zeros(n)
-        m_hat_full = np.zeros(n)
+        psi_scores: np.ndarray = np.zeros(n, dtype=float)
+        m_hat_full: np.ndarray = np.zeros(n, dtype=float)
         min_fit = self._MIN_SUBGROUP_FIT
         n_fallback_g1 = 0
         n_fallback_g0 = 0
@@ -149,7 +160,8 @@ class DoubleMLIRM(_DoubleMLBase):
                 n_fallback_g1 += 1
             else:
                 # StratifiedKFold should preclude this — guard anyway.
-                from statspai.exceptions import IdentificationFailure  # pragma: no cover
+                # pragma: no cover
+                from statspai.exceptions import IdentificationFailure
                 raise IdentificationFailure(  # pragma: no cover
                     "IRM cross-fit produced a training fold with no D=1 "
                     "rows despite stratification; aborting rather than "
@@ -165,7 +177,9 @@ class DoubleMLIRM(_DoubleMLBase):
             mask0 = D_tr == 0
             if mask0.sum() >= min_fit:
                 w_sub = w_tr[mask0] if w_tr is not None else None
-                ml_g0 = self._fit_weighted(self.ml_g, X_tr[mask0], Y_tr[mask0], w_sub)
+                ml_g0 = self._fit_weighted(
+                    self.ml_g, X_tr[mask0], Y_tr[mask0], w_sub,
+                )
                 g0_hat = ml_g0.predict(X_te)
             elif mask0.sum() > 0:
                 if w_tr is not None:
@@ -178,7 +192,8 @@ class DoubleMLIRM(_DoubleMLBase):
                     g0_hat = np.full(len(test_idx), float(np.mean(Y_tr[mask0])))
                 n_fallback_g0 += 1
             else:
-                from statspai.exceptions import IdentificationFailure  # pragma: no cover
+                # pragma: no cover
+                from statspai.exceptions import IdentificationFailure
                 raise IdentificationFailure(  # pragma: no cover
                     "IRM cross-fit produced a training fold with no D=0 "
                     "rows despite stratification; aborting rather than "

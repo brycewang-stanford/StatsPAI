@@ -19,9 +19,9 @@ Public surface
     sp.fast.demean_polars(df_or_lf, X_cols, fe_cols, **kw)
     sp.fast.fepois_polars(df_or_lf, formula, **kw)
 
-Both accept either ``polars.DataFrame`` or ``polars.LazyFrame`` (lazy
-inputs are collected before column extraction; we don't fuse the demean
-into Polars' query plan).
+Both accept ``polars.DataFrame``, ``polars.LazyFrame`` (lazy inputs are
+collected before column extraction), or ``pyarrow.Table``. We don't fuse
+the demean into Polars' query plan.
 """
 from __future__ import annotations
 
@@ -44,6 +44,7 @@ except ImportError:  # pragma: no cover
     pa = None  # type: ignore
     _HAS_ARROW = False
 
+from ..exceptions import MethodIncompatibility
 from .demean import demean as _fast_demean, DemeanInfo
 from .fepois import fepois as _fast_fepois, FePoisResult
 
@@ -52,18 +53,42 @@ from .fepois import fepois as _fast_fepois, FePoisResult
 # Conversion helpers
 # ---------------------------------------------------------------------------
 
-def _ensure_polars_eager(obj: Any):
-    """Resolve ``LazyFrame`` to ``DataFrame``; identity for eager input."""
-    if not _HAS_POLARS:
-        raise RuntimeError(
-            "polars is not installed; pip install polars to use this path"
+def _normalize_columns(cols: Sequence[str] | str, *, name: str) -> List[str]:
+    """Return a non-empty list of string column names."""
+    if isinstance(cols, str):
+        out = [cols]
+    else:
+        try:
+            out = list(cols)
+        except TypeError as exc:
+            raise MethodIncompatibility(
+                f"{name} must be a non-empty sequence of column names"
+            ) from exc
+    if not out:
+        raise MethodIncompatibility(f"{name} must be non-empty")
+    bad = [c for c in out if not isinstance(c, str) or not c]
+    if bad:
+        raise MethodIncompatibility(
+            f"{name} must contain only non-empty string column names"
         )
-    if isinstance(obj, pl.LazyFrame):
+    return out
+
+
+def _ensure_columnar_eager(obj: Any):
+    """Resolve supported lazy/eager columnar inputs.
+
+    Polars LazyFrames are collected. Polars DataFrames and PyArrow Tables
+    already expose eager column access and are returned unchanged.
+    """
+    if _HAS_POLARS and isinstance(obj, pl.LazyFrame):
         return obj.collect()
-    if isinstance(obj, pl.DataFrame):
+    if _HAS_POLARS and isinstance(obj, pl.DataFrame):
         return obj
-    raise TypeError(
-        f"expected polars DataFrame or LazyFrame, got {type(obj).__name__}"
+    if _HAS_ARROW and isinstance(obj, pa.Table):
+        return obj
+    raise MethodIncompatibility(
+        "expected polars DataFrame/LazyFrame or pyarrow Table, "
+        f"got {type(obj).__name__}"
     )
 
 
@@ -84,27 +109,75 @@ def _polars_to_numpy_zero_copy(series) -> np.ndarray:
         return series.to_numpy()
 
 
-def _polars_columns_to_numpy(df, cols: Sequence[str]) -> np.ndarray:
+def _arrow_to_numpy_zero_copy(column) -> np.ndarray:
+    """Best-effort conversion of a PyArrow ChunkedArray to NumPy."""
+    try:
+        return column.to_numpy(zero_copy_only=True)
+    except (pa.ArrowInvalid, ValueError, TypeError):
+        return column.to_numpy(zero_copy_only=False)
+
+
+def _column_names(df) -> List[str]:
+    if _HAS_POLARS and isinstance(df, pl.DataFrame):
+        return list(df.columns)
+    if _HAS_ARROW and isinstance(df, pa.Table):
+        return list(df.column_names)
+    raise MethodIncompatibility(
+        f"unsupported columnar object type: {type(df).__name__}"
+    )
+
+
+def _n_rows(df) -> int:
+    if _HAS_ARROW and isinstance(df, pa.Table):
+        return int(df.num_rows)
+    return len(df)
+
+
+def _column_to_numpy(df, column: str) -> np.ndarray:
+    if _HAS_POLARS and isinstance(df, pl.DataFrame):
+        return _polars_to_numpy_zero_copy(df[column])
+    if _HAS_ARROW and isinstance(df, pa.Table):
+        return _arrow_to_numpy_zero_copy(df[column])
+    raise MethodIncompatibility(
+        f"unsupported columnar object type: {type(df).__name__}"
+    )
+
+
+def _select_to_pandas(df, cols: Sequence[str]) -> pd.DataFrame:
+    if _HAS_POLARS and isinstance(df, pl.DataFrame):
+        return df.select(cols).to_pandas()
+    if _HAS_ARROW and isinstance(df, pa.Table):
+        return df.select(cols).to_pandas()
+    raise MethodIncompatibility(
+        f"unsupported columnar object type: {type(df).__name__}"
+    )
+
+
+def _require_columns(df, cols: Sequence[str], *, context: str) -> None:
+    missing = [c for c in cols if c not in _column_names(df)]
+    if missing:
+        raise MethodIncompatibility(f"{context}: missing columns: {missing}")
+
+
+def _columns_to_numpy(df, cols: Sequence[str]) -> np.ndarray:
     """Stack the named columns into a (n, len(cols)) float64 ndarray."""
+    _require_columns(df, cols, context="fast.demean_polars")
     arrays: List[np.ndarray] = []
     for c in cols:
-        if c not in df.columns:
-            raise KeyError(f"polars frame missing column {c!r}")
-        arr = _polars_to_numpy_zero_copy(df[c])
+        arr = _column_to_numpy(df, c)
         if arr.dtype != np.float64:
             # dtype cast forces a copy regardless; accept it
             arr = arr.astype(np.float64)
         arrays.append(arr)
-    return np.column_stack(arrays) if arrays else np.empty((len(df), 0))
+    return np.column_stack(arrays) if arrays else np.empty((_n_rows(df), 0))
 
 
-def _polars_columns_as_object(df, cols: Sequence[str]) -> List[np.ndarray]:
+def _columns_as_object(df, cols: Sequence[str]) -> List[np.ndarray]:
     """Extract columns as 1-D NumPy arrays (any dtype) for FE factorisation."""
+    _require_columns(df, cols, context="fast.demean_polars")
     out: List[np.ndarray] = []
     for c in cols:
-        if c not in df.columns:
-            raise KeyError(f"polars frame missing column {c!r}")
-        out.append(_polars_to_numpy_zero_copy(df[c]))
+        out.append(_column_to_numpy(df, c))
     return out
 
 
@@ -133,13 +206,11 @@ def demean_polars(
     -------
     (X_dem, info) : same as :func:`sp.fast.demean`.
     """
-    df = _ensure_polars_eager(df)
-    if len(X_cols) == 0:
-        raise ValueError("X_cols must be non-empty")
-    if len(fe_cols) == 0:
-        raise ValueError("fe_cols must be non-empty")
-    X = _polars_columns_to_numpy(df, list(X_cols))
-    fe_arrays = _polars_columns_as_object(df, list(fe_cols))
+    df = _ensure_columnar_eager(df)
+    X_cols = _normalize_columns(X_cols, name="X_cols")
+    fe_cols = _normalize_columns(fe_cols, name="fe_cols")
+    X = _columns_to_numpy(df, X_cols)
+    fe_arrays = _columns_as_object(df, fe_cols)
     return _fast_demean(X, fe_arrays, **kwargs)
 
 
@@ -155,16 +226,14 @@ def fepois_polars(
     ``sp.fast.fepois``. Materialisation is on a *projected* subset of
     columns — we don't pull the whole frame into pandas.
     """
-    df = _ensure_polars_eager(df)
+    df = _ensure_columnar_eager(df)
 
     from .fepois import _parse_fepois_formula
     lhs, rhs_terms, fe_terms = _parse_fepois_formula(formula)
     needed = [lhs] + [t for t in rhs_terms if t != "1"] + list(fe_terms)
     needed = list(dict.fromkeys(needed))  # de-dupe, preserve order
-    missing = [c for c in needed if c not in df.columns]
-    if missing:
-        raise KeyError(f"polars frame missing columns: {missing}")
-    pandas_df = df.select(needed).to_pandas()
+    _require_columns(df, needed, context="fast.fepois_polars")
+    pandas_df = _select_to_pandas(df, needed)
     return _fast_fepois(formula, pandas_df, **kwargs)
 
 

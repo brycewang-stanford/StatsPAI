@@ -21,13 +21,157 @@ Sant'Anna, P.H.C. and Zhao, J. (2020).
 *Journal of Econometrics*, 219(1), 101-122.
 """
 
-from typing import Optional, List, Dict, Tuple, Any
+from numbers import Real
+from typing import Optional, List, Dict, Tuple, Any, Sequence
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ..exceptions import DataInsufficient, MethodIncompatibility
+
+
+class CallawayNotImplemented(MethodIncompatibility, NotImplementedError):
+    """Unsupported CS branch that preserves historical NotImplementedError."""
+
+
+def _require_dataframe(data: Any, *, function: str) -> pd.DataFrame:
+    if not isinstance(data, pd.DataFrame):
+        raise MethodIncompatibility(
+            f"`data` must be a pandas DataFrame, got {type(data).__name__}.",
+            recovery_hint=f"Pass `{function}` data as a pandas DataFrame.",
+            diagnostics={"function": function, "type": type(data).__name__},
+        )
+    if data.empty:
+        raise DataInsufficient(
+            "`data` must contain at least one row.",
+            recovery_hint=f"Provide non-empty data before calling `{function}`.",
+            diagnostics={"function": function, "n_rows": 0},
+        )
+    return data
+
+
+def _require_column_name(name: Any, *, argument: str) -> str:
+    if not isinstance(name, str) or not name:
+        raise MethodIncompatibility(
+            f"`{argument}` must be a non-empty column name string.",
+            recovery_hint=(
+                f"Pass the name of an existing DataFrame column for `{argument}`."
+            ),
+            diagnostics={"argument": argument, "type": type(name).__name__},
+        )
+    return name
+
+
+def _coerce_optional_columns(
+    columns: Optional[Sequence[str] | str],
+    *,
+    argument: str,
+) -> Optional[List[str]]:
+    if columns is None:
+        return None
+    if isinstance(columns, str):
+        out = [columns]
+    else:
+        try:
+            out = list(columns)
+        except TypeError as exc:
+            raise MethodIncompatibility(
+                f"`{argument}` must be a column name or sequence of column names.",
+                recovery_hint=(
+                    f"Pass `{argument}` as 'x' or ['x1', 'x2']."
+                ),
+                diagnostics={"argument": argument, "type": type(columns).__name__},
+            ) from exc
+    return [_require_column_name(col, argument=argument) for col in out]
+
+
+def _require_string_option(value: Any, *, argument: str, valid: Sequence[str]) -> str:
+    if not isinstance(value, str):
+        raise MethodIncompatibility(
+            f"`{argument}` must be one of {tuple(valid)}, got "
+            f"{type(value).__name__}.",
+            recovery_hint=f"Pass a supported string value for `{argument}`.",
+            diagnostics={"argument": argument, "type": type(value).__name__},
+        )
+    if value not in valid:
+        raise MethodIncompatibility(
+            f"{argument} must be one of {tuple(valid)}, got {value!r}",
+            recovery_hint=f"Choose a supported `{argument}` value.",
+            diagnostics={"argument": argument, "value": value, "valid": list(valid)},
+        )
+    return value
+
+
+def _require_alpha(alpha: Any) -> float:
+    if isinstance(alpha, (bool, np.bool_)) or not isinstance(alpha, Real):
+        raise MethodIncompatibility(
+            "`alpha` must be a finite number in (0, 1).",
+            recovery_hint="Pass a significance level such as alpha=0.05.",
+            diagnostics={"argument": "alpha", "value": alpha},
+        )
+    out = float(alpha)
+    if not np.isfinite(out) or not (0.0 < out < 1.0):
+        raise MethodIncompatibility(
+            "`alpha` must be a finite number in (0, 1).",
+            recovery_hint="Pass a significance level such as alpha=0.05.",
+            diagnostics={"argument": "alpha", "value": alpha},
+        )
+    return out
+
+
+def _require_int_at_least(value: Any, *, argument: str, minimum: int) -> int:
+    if isinstance(value, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"{argument} must be an integer >= {minimum}.",
+            recovery_hint=f"Pass an integer value for `{argument}`.",
+            diagnostics={"argument": argument, "value": value},
+        )
+    try:
+        out = int(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{argument} must be an integer >= {minimum}.",
+            recovery_hint=f"Pass an integer value for `{argument}`.",
+            diagnostics={"argument": argument, "type": type(value).__name__},
+        ) from exc
+    if out < minimum:
+        raise MethodIncompatibility(
+            f"{argument} must be an integer >= {minimum}.",
+            recovery_hint=f"Increase `{argument}` to at least {minimum}.",
+            diagnostics={"argument": argument, "value": value},
+        )
+    return out
+
+
+def _require_bool(value: Any, *, argument: str) -> bool:
+    if not isinstance(value, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"`{argument}` must be boolean.",
+            recovery_hint=f"Pass `{argument}=True` or `{argument}=False`.",
+            diagnostics={"argument": argument, "type": type(value).__name__},
+        )
+    return bool(value)
+
+
+def _require_columns(
+    data: pd.DataFrame,
+    columns: Sequence[str],
+    *,
+    function: str,
+) -> None:
+    missing = [col for col in columns if col not in data.columns]
+    if missing:
+        raise MethodIncompatibility(
+            f"Column(s)/Covariate(s) not found in data: {missing}",
+            recovery_hint=f"Check column names before calling `{function}`.",
+            diagnostics={
+                "function": function,
+                "missing_columns": missing,
+                "available_columns": list(data.columns),
+            },
+        )
 
 
 # ======================================================================
@@ -119,27 +263,47 @@ def callaway_santanna(
     Callaway, B. and Sant'Anna, P. H. C. (2021). Difference-in-differences
     with multiple time periods. *Journal of Econometrics*. [@callaway2021difference]
     """
-    if estimator not in ("dr", "ipw", "reg"):
-        raise ValueError(f"estimator must be 'dr', 'ipw', or 'reg', got '{estimator}'")
-    if control_group not in ("nevertreated", "notyettreated"):
-        raise ValueError(
-            f"control_group must be 'nevertreated' or 'notyettreated', "
-            f"got '{control_group}'"
-        )
-    if anticipation < 0:
-        raise ValueError(f"anticipation must be >= 0, got {anticipation}")
+    data = _require_dataframe(data, function="callaway_santanna")
+    y = _require_column_name(y, argument="y")
+    g = _require_column_name(g, argument="g")
+    t = _require_column_name(t, argument="t")
+    i = _require_column_name(i, argument="i")
+    x = _coerce_optional_columns(x, argument="x")
+    estimator = _require_string_option(
+        estimator, argument="estimator", valid=("dr", "ipw", "reg"),
+    )
+    control_group = _require_string_option(
+        control_group,
+        argument="control_group",
+        valid=("nevertreated", "notyettreated"),
+    )
+    base_period = _require_string_option(
+        base_period, argument="base_period", valid=("universal", "varying"),
+    )
+    anticipation = _require_int_at_least(
+        anticipation, argument="anticipation", minimum=0,
+    )
+    alpha = _require_alpha(alpha)
+    panel = _require_bool(panel, argument="panel")
+    _require_columns(data, (y, g, t, i, *(x or [])), function="callaway_santanna")
 
     # ---- Repeated cross-sections branch --------------------------------
     if not panel:
         if estimator != "reg":
-            raise NotImplementedError(
+            raise CallawayNotImplemented(
                 "panel=False currently only supports estimator='reg' "
                 "(unconditional / covariate-adjusted 2×2 cell-mean DID).  "
-                "IPW / DR for RCS are planned for a future release."
+                "IPW / DR for RCS are planned for a future release.",
+                recovery_hint=(
+                    "Use estimator='reg' with panel=False, or use panel=True."
+                ),
+                diagnostics={"panel": panel, "estimator": estimator},
             )
         if control_group != "nevertreated":
-            raise NotImplementedError(
-                "panel=False currently requires " "control_group='nevertreated'."
+            raise CallawayNotImplemented(
+                "panel=False currently requires control_group='nevertreated'.",
+                recovery_hint="Use control_group='nevertreated' with panel=False.",
+                diagnostics={"panel": panel, "control_group": control_group},
             )
         return _callaway_santanna_rcs(
             data=data,
@@ -158,12 +322,32 @@ def callaway_santanna(
     )
 
     if not cohorts:
-        raise ValueError("No treatment cohorts found. Check group variable encoding.")
+        raise DataInsufficient(
+            "No treatment cohorts found. Check group variable encoding.",
+            recovery_hint=(
+                "Encode first treatment periods in `g`, using 0 for "
+                "never-treated units."
+            ),
+            diagnostics={"function": "callaway_santanna"},
+        )
 
     # 2. Determine (g, t, base) estimation triples
     gt_pairs = _get_gt_pairs(cohorts, time_periods, base_period, anticipation)
     if not gt_pairs:
-        raise ValueError("No valid (group, time) pairs to estimate.")
+        raise DataInsufficient(
+            "No valid (group, time) pairs to estimate.",
+            recovery_hint=(
+                "Check treatment timing, base_period, anticipation, and "
+                "available periods."
+            ),
+            diagnostics={
+                "function": "callaway_santanna",
+                "cohorts": cohorts,
+                "time_periods": time_periods,
+                "base_period": base_period,
+                "anticipation": anticipation,
+            },
+        )
 
     # 3. Estimate ATT(g,t) for each pair
     gt_results: List[Dict[str, Any]] = []
@@ -210,9 +394,14 @@ def callaway_santanna(
 
     # 5. Simple aggregation (post-treatment)
     post_mask = detail["relative_time"] >= 0
+    post_inf = (
+        np.asarray(inf_matrix[:, post_mask.values], dtype=float)
+        if inf_matrix is not None
+        else None
+    )
     agg_est, agg_se, agg_pval, agg_ci = _aggregate_simple(
         detail[post_mask],
-        inf_matrix[:, post_mask.values] if inf_matrix is not None else None,
+        post_inf,
         cohort_sizes,
         n_units,
         alpha,
@@ -313,13 +502,7 @@ def _prepare_panel(
         Sorted treatment cohorts (excluding never-treated).
     n_units : int
     """
-    for col in (y, g, t, i):
-        if col not in data.columns:
-            raise ValueError(f"Column '{col}' not found in data")
-    if x:
-        for col in x:
-            if col not in data.columns:
-                raise ValueError(f"Covariate '{col}' not found in data")
+    _require_columns(data, (y, g, t, i, *(x or [])), function="_prepare_panel")
 
     # Pivot outcome to wide: rows = units, columns = time periods
     y_wide = data.pivot_table(index=i, columns=t, values=y, aggfunc="first")
@@ -555,28 +738,36 @@ def _reg_att(
     c_mask = c.astype(bool)
     c_count = int(c_mask.sum())
 
-    use_constant_outcome = x is None or x.shape[1] == 0 or c_count < 2
-    if not use_constant_outcome:
-        k = x.shape[1]
+    x_arr: Optional[np.ndarray]
+    if x is None or x.shape[1] == 0:
+        x_arr = None
+        use_constant_outcome = True
+    else:
+        x_arr = x
+        use_constant_outcome = c_count < 2
+
+    if x_arr is not None and not use_constant_outcome:
+        k = x_arr.shape[1]
         use_constant_outcome = c_count <= k + 1
 
     if use_constant_outcome:
         m0 = np.mean(dy[c_mask]) if c_count > 0 else 0.0
-        m_hat = np.full(n, m0)
-        resid = dy - m_hat
+        m_hat_const = np.full(n, m0, dtype=float)
+        resid = dy - m_hat_const
         att = float(np.mean(w1 * resid))
 
         p_c = np.mean(c)
         control_adjust = c * resid / p_c if p_c > 0 else np.zeros(n)
     else:
+        assert x_arr is not None
         try:
             import statsmodels.api as sm
 
-            x_const_control = sm.add_constant(x[c_mask])
+            x_const_control = sm.add_constant(x_arr[c_mask])
             ols = sm.OLS(dy[c_mask], x_const_control)
             result = ols.fit()
-            x_const = sm.add_constant(x)
-            m_hat = result.predict(x_const)
+            x_const = sm.add_constant(x_arr)
+            m_hat = np.asarray(result.predict(x_const), dtype=float).reshape(n)
             resid = dy - m_hat
             att = float(np.mean(w1 * resid))
 
@@ -627,7 +818,7 @@ def _estimate_pscore(
         x_const = sm.add_constant(x)
         logit = sm.Logit(d, x_const)
         result = logit.fit(disp=0, maxiter=500, warn_convergence=False)
-        pscore = result.predict(x_const)
+        pscore = np.asarray(result.predict(x_const), dtype=float)
     except Exception:
         pscore = np.full(n, p_d)
 
@@ -659,7 +850,7 @@ def _estimate_outcome_reg(
         x_const = sm.add_constant(x[c_mask])
         ols = sm.OLS(dy[c_mask], x_const)
         result = ols.fit()
-        m_hat = result.predict(sm.add_constant(x))
+        m_hat = np.asarray(result.predict(sm.add_constant(x)), dtype=float)
     except Exception:
         m_hat = np.full(n, np.mean(dy[c_mask]))
 
@@ -828,20 +1019,21 @@ def _callaway_santanna_rcs(
     variance of ψ divided by ``n``, matching CS2021 eqn (2.4) for RCS.
     """
     df = data.copy()
-    for col in (y, g, t):
-        if col not in df.columns:
-            raise ValueError(f"Column '{col}' not found in data")
-    if x:
-        for col in x:
-            if col not in df.columns:
-                raise ValueError(f"Covariate '{col}' not found in data")
+    _require_columns(df, (y, g, t, *(x or [])), function="_callaway_santanna_rcs")
 
     df[g] = df[g].fillna(0).replace([np.inf, -np.inf], 0).astype(int)
     drop_cols = [y, t] + (list(x) if x else [])
     df = df.dropna(subset=drop_cols).reset_index(drop=True)
     n_obs = len(df)
     if n_obs == 0:
-        raise ValueError("No observations after dropping NaNs.")
+        raise DataInsufficient(
+            "No observations after dropping NaNs.",
+            recovery_hint=(
+                "Drop fewer rows or impute outcome/time/covariate data before "
+                "RCS DID."
+            ),
+            diagnostics={"function": "_callaway_santanna_rcs"},
+        )
 
     # Covariate adjustment: residualise Y on X using the never-treated
     # pool with period fixed effects. Plug-in influence functions treat
@@ -859,11 +1051,31 @@ def _callaway_santanna_rcs(
     t_max = max(time_periods)
     cohorts = sorted([v for v in df[g].unique() if v > 0 and v <= t_max])
     if not cohorts:
-        raise ValueError("No treatment cohorts found.")
+        raise DataInsufficient(
+            "No treatment cohorts found.",
+            recovery_hint=(
+                "Encode first treatment periods in `g`, using 0 for "
+                "never-treated observations."
+            ),
+            diagnostics={"function": "_callaway_santanna_rcs"},
+        )
 
     gt_pairs = _get_gt_pairs(cohorts, time_periods, base_period, anticipation)
     if not gt_pairs:
-        raise ValueError("No valid (group, time) pairs to estimate.")
+        raise DataInsufficient(
+            "No valid (group, time) pairs to estimate.",
+            recovery_hint=(
+                "Check treatment timing, base_period, anticipation, and "
+                "available periods."
+            ),
+            diagnostics={
+                "function": "_callaway_santanna_rcs",
+                "cohorts": cohorts,
+                "time_periods": time_periods,
+                "base_period": base_period,
+                "anticipation": anticipation,
+            },
+        )
 
     y_arr = y_series  # possibly residualised
     g_arr = df[g].values
@@ -1048,4 +1260,4 @@ def _rcs_residualise_on_controls(
     # only subtract the X contribution.  The period FE absorbs only the
     # control group's period mean, which is exactly what we want to
     # leave inside Y for the treated cell.
-    return y_arr - x_mat @ beta_x
+    return np.asarray(y_arr - x_mat @ beta_x, dtype=float)

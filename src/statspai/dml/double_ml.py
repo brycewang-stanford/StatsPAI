@@ -15,13 +15,15 @@ References
 ----------
 Chernozhukov, V., Chetverikov, D., Demirer, M., Duflo, E., Hansen, C.,
 Newey, W., and Robins, J. (2018). "Double/Debiased Machine Learning for
-Treatment and Structural Parameters." *Econometrics Journal*, 21(1), C1-C68. [@chernozhukov2018double]
+Treatment and Structural Parameters." *Econometrics Journal*, 21(1), C1-C68.
+[@chernozhukov2018double]
 """
 
 from typing import Optional, List, Any, Union
 import pandas as pd
 
 from ..core.results import CausalResult
+from ..exceptions import MethodIncompatibility
 from ._base import _DoubleMLBase
 from .plr import DoubleMLPLR
 from .irm import DoubleMLIRM
@@ -162,8 +164,10 @@ def dml(
     """
     key = str(model).lower()
     if key not in _MODEL_REGISTRY:
-        raise ValueError(
-            f"model must be one of {tuple(_MODEL_REGISTRY.keys())}, got '{model}'"
+        raise MethodIncompatibility(
+            f"dml: model must be one of {tuple(_MODEL_REGISTRY.keys())}, "
+            f"got '{model}'",
+            diagnostics={"model": model, "supported_models": tuple(_MODEL_REGISTRY)},
         )
     estimator_cls = _MODEL_REGISTRY[key]
     estimator = estimator_cls(
@@ -183,11 +187,11 @@ def dml(
             function="sp.dml",
             params={
                 "y": y, "treat": treat,
-                "covariates": list(covariates),
+                "covariates": list(estimator.covariates),
                 "model": model,
-                "instrument": instrument
-                              if isinstance(instrument, (str, list))
-                              else None,
+                "instrument": (
+                    instrument if isinstance(instrument, (str, list)) else None
+                ),
                 "n_folds": n_folds, "n_rep": n_rep,
                 "alpha": alpha, "random_state": int(random_state),
                 "fold_indices": (
@@ -284,27 +288,48 @@ class DoubleML:
 
     # expose common attributes for legacy access
     @property
-    def data(self): return self._impl.data
+    def data(self) -> Any:
+        return self._impl.data
+
     @property
-    def y(self): return self._impl.y
+    def y(self) -> Any:
+        return self._impl.y
+
     @property
-    def treat(self): return self._impl.treat
+    def treat(self) -> Any:
+        return self._impl.treat
+
     @property
-    def covariates(self): return self._impl.covariates
+    def covariates(self) -> Any:
+        return self._impl.covariates
+
     @property
-    def instrument(self): return self._impl.instrument
+    def instrument(self) -> Any:
+        return self._impl.instrument
+
     @property
-    def n_folds(self): return self._impl.n_folds
+    def n_folds(self) -> Any:
+        return self._impl.n_folds
+
     @property
-    def n_rep(self): return self._impl.n_rep
+    def n_rep(self) -> Any:
+        return self._impl.n_rep
+
     @property
-    def alpha(self): return self._impl.alpha
+    def alpha(self) -> Any:
+        return self._impl.alpha
+
     @property
-    def ml_g(self): return self._impl.ml_g
+    def ml_g(self) -> Any:
+        return self._impl.ml_g
+
     @property
-    def ml_m(self): return self._impl.ml_m
+    def ml_m(self) -> Any:
+        return self._impl.ml_m
+
     @property
-    def ml_r(self): return self._impl.ml_r
+    def ml_r(self) -> Any:
+        return self._impl.ml_r
 
 
 # Citation

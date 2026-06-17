@@ -21,6 +21,98 @@ import warnings
 from ..core.base import BaseModel, BaseEstimator
 from ..core.results import EconometricResults
 from ..core.utils import parse_formula, create_design_matrices, prepare_data
+from ..exceptions import DataInsufficient, MethodIncompatibility
+
+
+def _require_string(value: Any, name: str) -> str:
+    if not isinstance(value, str):
+        raise MethodIncompatibility(
+            f"`{name}` must be a string.",
+            diagnostics={name: repr(value)},
+        )
+    return value
+
+
+def _require_dataframe(value: Any, name: str) -> pd.DataFrame:
+    if not isinstance(value, pd.DataFrame):
+        raise MethodIncompatibility(
+            f"`{name}` must be a pandas DataFrame.",
+            diagnostics={name: value.__class__.__name__},
+        )
+    return value
+
+
+def _require_open_unit_float(value: Any, name: str) -> float:
+    try:
+        out = float(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"`{name}` must be a number in (0, 1).",
+            diagnostics={name: repr(value)},
+        ) from exc
+    if not np.isfinite(out) or not 0.0 < out < 1.0:
+        raise MethodIncompatibility(
+            f"`{name}` must be in (0, 1).",
+            diagnostics={name: out},
+        )
+    return out
+
+
+def _require_positive_float(value: Any, name: str) -> float:
+    try:
+        out = float(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"`{name}` must be a positive finite number.",
+            diagnostics={name: repr(value)},
+        ) from exc
+    if not np.isfinite(out) or out <= 0.0:
+        raise MethodIncompatibility(
+            f"`{name}` must be a positive finite number.",
+            diagnostics={name: out},
+        )
+    return out
+
+
+def _require_int_at_least(value: Any, name: str, minimum: int) -> int:
+    if isinstance(value, bool):
+        raise MethodIncompatibility(
+            f"`{name}` must be an integer >= {minimum}.",
+            diagnostics={name: repr(value), "minimum": minimum},
+        )
+    try:
+        out = int(value)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"`{name}` must be an integer >= {minimum}.",
+            diagnostics={name: repr(value), "minimum": minimum},
+        ) from exc
+    if out != value or out < minimum:
+        raise MethodIncompatibility(
+            f"`{name}` must be an integer >= {minimum}.",
+            diagnostics={name: repr(value), "minimum": minimum},
+        )
+    return out
+
+
+def _coerce_column_list(value: Any, name: str) -> List[str]:
+    if isinstance(value, str):
+        cols = [value]
+    else:
+        try:
+            cols = list(value)
+        except TypeError as exc:
+            raise MethodIncompatibility(
+                f"`{name}` must be a column name or list of column names.",
+                diagnostics={name: repr(value)},
+            ) from exc
+    bad = [c for c in cols if not isinstance(c, str) or not c]
+    if bad:
+        raise MethodIncompatibility(
+            f"`{name}` must contain only non-empty string column names.",
+            diagnostics={name: cols, "invalid_columns": bad},
+        )
+    return cols
 
 
 # ---------------------------------------------------------------------------
@@ -388,10 +480,16 @@ FAMILIES = {
 
 
 def _get_family(family: str) -> Family:
+    family = _require_string(family, "family")
     key = family.lower().replace("-", "_").replace(" ", "_")
     if key not in FAMILIES:
-        raise ValueError(
-            f"Unknown family '{family}'. Choose from: {', '.join(FAMILIES.keys())}"
+        raise MethodIncompatibility(
+            f"Unknown family '{family}'. Choose from: {', '.join(FAMILIES.keys())}",
+            recovery_hint=(
+                "Use family='gaussian', 'binomial', 'poisson', 'gamma', "
+                "'inverse_gaussian', or 'negative_binomial'."
+            ),
+            diagnostics={"family": family, "valid": sorted(FAMILIES)},
         )
     return FAMILIES[key]()
 
@@ -399,10 +497,17 @@ def _get_family(family: str) -> Family:
 def _get_link(link: Optional[str], family: Family) -> LinkFunction:
     if link is None:
         link = family.canonical_link
+    link = _require_string(link, "link")
     key = link.lower()
     if key not in LINK_FUNCTIONS:
-        raise ValueError(
-            f"Unknown link function '{link}'. Choose from: {', '.join(LINK_FUNCTIONS.keys())}"
+        raise MethodIncompatibility(
+            f"Unknown link function '{link}'. Choose from: "
+            f"{', '.join(LINK_FUNCTIONS.keys())}",
+            recovery_hint=(
+                "Use one of the supported GLM link functions or omit link "
+                "to use the family default."
+            ),
+            diagnostics={"link": link, "valid": sorted(LINK_FUNCTIONS)},
         )
     return LINK_FUNCTIONS[key]()
 
@@ -487,6 +592,9 @@ class GLMEstimator(BaseEstimator):
         -------
         Dict[str, Any]
         """
+        maxiter = _require_int_at_least(maxiter, "maxiter", 1)
+        tol = _require_positive_float(tol, "tol")
+        robust = _require_string(robust, "robust").lower()
         n, k = X.shape
         if weights is None:
             weights = np.ones(n)
@@ -595,13 +703,25 @@ class GLMEstimator(BaseEstimator):
             var_cov = self._cluster_cov(X, y, mu, V, g_prime, weights, XtWX_inv, cluster, n, k)
         elif robust == "nonrobust":
             var_cov = phi * XtWX_inv
-        elif robust.lower() in ("hc0", "hc1", "hc2", "hc3"):
-            var_cov = self._robust_cov(X, y, mu, V, g_prime, weights, XtWX_inv, robust.lower(), n, k)
-        elif robust.lower() == "hac":
+        elif robust in ("hc0", "hc1", "hc2", "hc3"):
+            var_cov = self._robust_cov(
+                X, y, mu, V, g_prime, weights, XtWX_inv, robust, n, k
+            )
+        elif robust == "hac":
             lags = kwargs.get("lags", None)
             var_cov = self._hac_cov(X, y, mu, V, g_prime, weights, XtWX_inv, n, k, lags)
         else:
-            raise ValueError(f"Unknown robust option: {robust}")
+            raise MethodIncompatibility(
+                f"Unknown robust option: {robust}",
+                recovery_hint=(
+                    "Use robust='nonrobust', 'hc0', 'hc1', 'hc2', "
+                    "'hc3', or 'hac'."
+                ),
+                diagnostics={
+                    "robust": robust,
+                    "valid": ["nonrobust", "hc0", "hc1", "hc2", "hc3", "hac"],
+                },
+            )
 
         std_errors = np.sqrt(np.diag(var_cov))
 
@@ -683,7 +803,10 @@ class GLMEstimator(BaseEstimator):
             S_adj = S / np.clip(1 - h, 1e-10, None)[:, np.newaxis]
             meat = S_adj.T @ S_adj
         else:
-            raise ValueError(f"Unknown HC type: {robust_type}")
+            raise MethodIncompatibility(
+                f"Unknown HC type: {robust_type}",
+                diagnostics={"robust_type": robust_type},
+            )
 
         return bread @ meat @ bread
 
@@ -802,6 +925,10 @@ class GLMRegression(BaseModel):
         link: Optional[str] = None,
     ):
         super().__init__()
+        if formula is not None:
+            formula = _require_string(formula, "formula")
+        if data is not None:
+            data = _require_dataframe(data, "data")
         self.formula = formula
         self.data = data
         self.y = y
@@ -812,6 +939,7 @@ class GLMRegression(BaseModel):
         self.family = _get_family(family)
         self.link = _get_link(link, self.family)
         self.estimator = GLMEstimator()
+        self._design_info = None
 
     def fit(
         self,
@@ -851,9 +979,15 @@ class GLMRegression(BaseModel):
         -------
         EconometricResults
         """
+        maxiter = _require_int_at_least(maxiter, "maxiter", 1)
+        tol = _require_positive_float(tol, "tol")
+        alpha = _require_open_unit_float(alpha, "alpha")
         # --- prepare design matrices ---
+        design_index = None
         if self.formula is not None and self.data is not None:
             y_df, X_df = create_design_matrices(self.formula, self.data)
+            self._design_info = getattr(X_df, "design_info", None)
+            design_index = y_df.index
             self.y = y_df.values.ravel()
             self.X = X_df.values
             self.var_names = list(X_df.columns)
@@ -863,24 +997,122 @@ class GLMRegression(BaseModel):
                 self.var_names = [f"x{i}" for i in range(self.X.shape[1])]
             self.dependent_var = "y"
         else:
-            raise ValueError("Must provide either (formula, data) or (y, X)")
+            raise MethodIncompatibility(
+                "Must provide either (formula, data) or (y, X).",
+                recovery_hint=(
+                    "Pass a model formula with a DataFrame, or pass both y "
+                    "and X arrays."
+                ),
+                diagnostics={
+                    "has_formula": self.formula is not None,
+                    "has_data": self.data is not None,
+                    "has_y": self.y is not None,
+                    "has_X": self.X is not None,
+                },
+            )
 
         n = len(self.y)
+        if n == 0:
+            raise DataInsufficient(
+                "No rows remain for GLM estimation.",
+                recovery_hint="Provide at least one complete estimation row.",
+                diagnostics={"nobs": 0},
+            )
+
+        def _aligned_numeric_column(column: str, role: str) -> np.ndarray:
+            if self.data is None:
+                raise MethodIncompatibility(f"{role} requires data=.")
+            if column not in self.data.columns:
+                raise MethodIncompatibility(
+                    f"{role} column '{column}' is not in data.",
+                    diagnostics={"column": column, "role": role},
+                )
+            series = self.data[column]
+            if design_index is not None:
+                series = series.reindex(design_index)
+            if len(series) != n:
+                raise MethodIncompatibility(
+                    f"{role} length does not match the estimation sample.",
+                    diagnostics={
+                        "role": role,
+                        "length": int(len(series)),
+                        "nobs": int(n),
+                    },
+                )
+            if series.isna().any():
+                raise MethodIncompatibility(
+                    f"{role} contains missing values in the estimation sample.",
+                    recovery_hint=(
+                        "Drop or impute missing auxiliary values before "
+                        "fitting the GLM."
+                    ),
+                    diagnostics={"role": role, "column": column},
+                )
+            try:
+                values = series.to_numpy(dtype=float)
+            except (TypeError, ValueError) as exc:
+                raise MethodIncompatibility(
+                    f"{role} column '{column}' must be numeric.",
+                    diagnostics={"column": column, "role": role},
+                ) from exc
+            if not np.isfinite(values).all():
+                raise MethodIncompatibility(
+                    f"{role} column '{column}' must contain finite values.",
+                    diagnostics={"column": column, "role": role},
+                )
+            return values
 
         # Weights, offset, exposure
         w = None
-        if weights and self.data is not None:
-            w = self.data[weights].values.astype(float)
+        if weights:
+            w = _aligned_numeric_column(weights, "weights")
+            if (w < 0).any() or not (w > 0).any():
+                raise MethodIncompatibility(
+                    "weights must be non-negative with at least one positive "
+                    "value.",
+                    diagnostics={"column": weights},
+                )
 
         off = np.zeros(n)
-        if offset and self.data is not None:
-            off = self.data[offset].values.astype(float)
-        if exposure and self.data is not None:
-            off = off + np.log(self.data[exposure].values.astype(float))
+        if offset:
+            off = _aligned_numeric_column(offset, "offset")
+        if exposure:
+            exposure_values = _aligned_numeric_column(exposure, "exposure")
+            if (exposure_values <= 0).any():
+                raise MethodIncompatibility(
+                    "exposure must be strictly positive.",
+                    diagnostics={"column": exposure},
+                )
+            off = off + np.log(exposure_values)
 
         cluster_var = None
-        if cluster and self.data is not None:
+        if cluster:
+            if self.data is None:
+                raise MethodIncompatibility("cluster requires data=.")
+            if cluster not in self.data.columns:
+                raise MethodIncompatibility(
+                    f"cluster column '{cluster}' is not in data.",
+                    diagnostics={"column": cluster},
+                )
             cluster_var = self.data[cluster]
+            if design_index is not None:
+                cluster_var = cluster_var.reindex(design_index)
+            if len(cluster_var) != n:
+                raise MethodIncompatibility(
+                    "cluster length does not match the estimation sample.",
+                    diagnostics={"length": int(len(cluster_var)), "nobs": int(n)},
+                )
+            if cluster_var.isna().any():
+                raise MethodIncompatibility(
+                    "cluster contains missing labels in the estimation sample.",
+                    diagnostics={"column": cluster},
+                )
+            if len(pd.unique(cluster_var)) < 2:
+                raise MethodIncompatibility(
+                    "cluster-robust GLM inference requires at least two "
+                    "clusters.",
+                    diagnostics={"column": cluster},
+                )
 
         # --- estimate ---
         results = self.estimator.estimate(
@@ -988,17 +1220,131 @@ class GLMRegression(BaseModel):
         np.ndarray
         """
         if not self.is_fitted:
-            raise ValueError("Model must be fitted before prediction")
+            raise MethodIncompatibility(
+                "Model must be fitted before prediction.",
+                recovery_hint="Call fit() before predict().",
+                diagnostics={"is_fitted": False},
+            )
+        valid_types = {"response", "link", "variance"}
+        if not isinstance(type, str) or type not in valid_types:
+            raise MethodIncompatibility(
+                "`type` must be 'response', 'link', or 'variance'; "
+                f"got {type!r}.",
+                recovery_hint="Choose one of: response, link, variance.",
+                diagnostics={"type": repr(type), "valid": sorted(valid_types)},
+            )
 
         if data is not None:
-            _, X_new = create_design_matrices(self.formula, data)
-            X_pred = X_new.values
+            if self.formula is None:
+                raise MethodIncompatibility(
+                    "Out-of-sample prediction requires the model to have been "
+                    "fit with a formula (not raw y, X arrays).",
+                    recovery_hint=(
+                        "Fit GLMRegression with formula=... and data=..., or "
+                        "call predict() without new data for in-sample fitted "
+                        "values."
+                    ),
+                    diagnostics={"formula": None},
+                )
+            if not isinstance(data, pd.DataFrame):
+                raise MethodIncompatibility(
+                    "Out-of-sample GLM prediction requires a pandas DataFrame.",
+                    recovery_hint=(
+                        "Pass a DataFrame containing the fitted formula's "
+                        "right-hand-side variables."
+                    ),
+                    diagnostics={"data_type": data.__class__.__name__},
+                )
+            if self.var_names is None:
+                raise MethodIncompatibility(
+                    "Model variable names are unavailable; refit the model "
+                    "before out-of-sample prediction.",
+                    recovery_hint=(
+                        "Refit GLMRegression with a formula-backed design before "
+                        "calling predict(data=...)."
+                    ),
+                    diagnostics={"missing_state": "var_names"},
+                )
+
+            from patsy import PatsyError, build_design_matrices, dmatrix
+
+            try:
+                if self._design_info is not None:
+                    X_new = build_design_matrices(
+                        [self._design_info],
+                        data,
+                        return_type="dataframe",
+                    )[0]
+                else:
+                    rhs = self.formula.split("~", 1)[1].strip()
+                    X_new = dmatrix(rhs, data, return_type="dataframe")
+            except (PatsyError, KeyError, ValueError) as exc:
+                raise MethodIncompatibility(
+                    "Could not build prediction design matrix from new data.",
+                    recovery_hint=(
+                        "Check that new data contains the formula regressors "
+                        "and only categorical levels seen during model fitting."
+                    ),
+                    diagnostics={"formula": self.formula, "error": str(exc)},
+                ) from exc
+            var_names = list(self.var_names)
+            missing = [nm for nm in var_names if nm not in X_new.columns]
+            if missing:
+                raise MethodIncompatibility(
+                    f"New data is missing columns produced by the formula: {missing}",
+                    recovery_hint=(
+                        "Use data compatible with the fitted formula design, "
+                        "or refit the model with the desired design."
+                    ),
+                    diagnostics={"missing_columns": missing},
+                )
+            X_pred = X_new[var_names].values
         else:
             X_pred = self.X
 
-        eta = X_pred @ self._results.params.values
+        params = np.asarray(self._results.params)
+        if X_pred.shape[1] != params.shape[0]:
+            raise MethodIncompatibility(
+                "Prediction design matrix shape does not match model "
+                "parameters.",
+                recovery_hint="Refit the model or pass formula-compatible data.",
+                diagnostics={
+                    "n_columns": int(X_pred.shape[1]),
+                    "n_parameters": int(params.shape[0]),
+                },
+            )
+
+        eta = X_pred @ params
         if offset is not None:
-            eta = eta + offset
+            try:
+                offset_arr = np.asarray(offset, dtype=float).ravel()
+            except (TypeError, ValueError) as exc:
+                raise MethodIncompatibility(
+                    "Prediction offset must be numeric.",
+                    recovery_hint="Pass a numeric offset vector aligned to data.",
+                    diagnostics={"offset": repr(offset)},
+                ) from exc
+            if offset_arr.shape[0] == 1 and X_pred.shape[0] != 1:
+                offset_arr = np.full(X_pred.shape[0], offset_arr[0], dtype=float)
+            if offset_arr.shape[0] != X_pred.shape[0]:
+                raise MethodIncompatibility(
+                    "Prediction offset length does not match prediction rows.",
+                    recovery_hint=(
+                        "Pass one offset value for each row in the prediction "
+                        "data."
+                    ),
+                    diagnostics={
+                        "offset_length": int(offset_arr.shape[0]),
+                        "n_rows": int(X_pred.shape[0]),
+                    },
+                )
+            if not np.isfinite(offset_arr).all():
+                raise MethodIncompatibility(
+                    "Prediction offset must contain only finite values.",
+                    recovery_hint="Drop or impute non-finite offset values.",
+                    diagnostics={"offset": repr(offset)},
+                )
+            eta = eta + offset_arr
 
         if type == "link":
             return eta
@@ -1007,7 +1353,6 @@ class GLMRegression(BaseModel):
             return mu
         if type == "variance":
             return self.family.variance(mu)
-        raise ValueError(f"Unknown prediction type '{type}'. Choose 'response', 'link', or 'variance'.")
 
     # ------------------------------------------------------------------
     # Marginal effects
@@ -1149,11 +1494,27 @@ def glm(
     True
     """
     # Handle y/x style specification
+    if data is not None:
+        data = _require_dataframe(data, "data")
     if formula is None and y is not None and x is not None and data is not None:
-        formula = f"{y} ~ {' + '.join(x)}"
+        y = _require_string(y, "y")
+        x_terms = _coerce_column_list(x, "x")
+        formula = f"{y} ~ {' + '.join(x_terms)}"
 
     if formula is None or data is None:
-        raise ValueError("Must provide (formula, data) or (y, x, data)")
+        raise MethodIncompatibility(
+            "Must provide (formula, data) or (y, x, data).",
+            recovery_hint=(
+                "Pass a Patsy formula and DataFrame, or pass y/x column "
+                "names with data."
+            ),
+            diagnostics={
+                "has_formula": formula is not None,
+                "has_data": data is not None,
+                "has_y": y is not None,
+                "has_x": x is not None,
+            },
+        )
 
     model = GLMRegression(formula=formula, data=data, family=family, link=link)
     return model.fit(

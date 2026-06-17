@@ -1,5 +1,5 @@
 """
-Count data models: Poisson, Negative Binomial, and PPML (Pseudo-Poisson Maximum Likelihood)
+Count data models: Poisson, Negative Binomial, and PPML.
 
 Implements native numpy/scipy MLE estimation with robust and clustered standard errors,
 following Stata-like API conventions for applied econometric work.
@@ -12,30 +12,143 @@ References
   high-dimensional fixed effects." Stata Journal. [@cameron2013regression]
 """
 
-from typing import Optional, List, Dict, Any, Union, Sequence
+from typing import List, Dict, Any, Sequence
 import pandas as pd
 import numpy as np
 from scipy import stats, optimize, special
 import warnings
 
 from ..core.results import EconometricResults
-from ..core.utils import parse_formula, create_design_matrices, prepare_data
+from ..core.utils import parse_formula
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+_COUNT_ALTERNATIVES = ["sp.poisson", "sp.nbreg", "sp.ppmlhdfe", "sp.xtnbreg"]
+
+
+def _require_count_dataframe(data: Any, context: str) -> pd.DataFrame:
+    if not isinstance(data, pd.DataFrame):
+        raise MethodIncompatibility(
+            f"{context} requires data to be a pandas DataFrame.",
+            recovery_hint="Pass the model data with data=<DataFrame>.",
+            diagnostics={"context": context, "type": type(data).__name__},
+            alternative_functions=_COUNT_ALTERNATIVES,
+        )
+    if data.empty:
+        raise DataInsufficient(
+            f"{context} received an empty DataFrame.",
+            recovery_hint="Provide a non-empty count-regression sample.",
+            diagnostics={"context": context, "n_rows": 0},
+            alternative_functions=_COUNT_ALTERNATIVES,
+        )
+    return data
+
+
+def _require_column_name(name: Any, role: str) -> str:
+    if not isinstance(name, str) or not name:
+        raise MethodIncompatibility(
+            f"{role} must be a non-empty column-name string.",
+            recovery_hint="Pass column names as strings.",
+            diagnostics={"role": role, "value": repr(name)},
+            alternative_functions=_COUNT_ALTERNATIVES,
+        )
+    return name
+
+
+def _normalize_column_list(columns: Any, role: str) -> List[str]:
+    if columns is None:
+        return []
+    if isinstance(columns, str):
+        raw = [columns]
+    else:
+        try:
+            raw = list(columns)
+        except TypeError as exc:
+            raise MethodIncompatibility(
+                f"{role} must be a sequence of column-name strings.",
+                recovery_hint=f"Pass {role} as ['x1', 'x2'] or a single string.",
+                diagnostics={"role": role, "type": type(columns).__name__},
+                alternative_functions=_COUNT_ALTERNATIVES,
+            ) from exc
+    return [_require_column_name(column, f"{role}[{idx}]")
+            for idx, column in enumerate(raw)]
+
+
+def _require_columns(data: pd.DataFrame, columns: Sequence[str], role: str) -> None:
+    missing = [column for column in columns if column not in data.columns]
+    if missing:
+        raise MethodIncompatibility(
+            f"{role} references missing column(s): {missing}.",
+            recovery_hint="Check spelling or rename columns before fitting the "
+            "count model.",
+            diagnostics={
+                "role": role,
+                "missing_columns": missing,
+                "available_columns": [str(column) for column in data.columns],
+            },
+            alternative_functions=_COUNT_ALTERNATIVES,
+        )
+
+
+def _numeric_column(data: pd.DataFrame, column: str, role: str) -> np.ndarray:
+    _require_columns(data, [column], role)
+    try:
+        values = pd.to_numeric(data[column], errors="raise").to_numpy(
+            dtype=np.float64
+        )
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{role} column {column!r} must be numeric.",
+            recovery_hint="Convert the column to numeric values before fitting.",
+            diagnostics={"role": role, "column": column},
+            alternative_functions=_COUNT_ALTERNATIVES,
+        ) from exc
+    if not np.all(np.isfinite(values)):
+        raise NumericalInstability(
+            f"{role} column {column!r} contains NaN or infinite values.",
+            recovery_hint="Drop, impute, or recode non-finite values.",
+            diagnostics={
+                "role": role,
+                "column": column,
+                "nonfinite_count": int((~np.isfinite(values)).sum()),
+            },
+            alternative_functions=_COUNT_ALTERNATIVES,
+        )
+    return np.asarray(values, dtype=np.float64)
+
+
+def _positive_exposure(data: pd.DataFrame, exposure: str) -> np.ndarray:
+    values = _numeric_column(data, exposure, "exposure")
+    if np.any(values <= 0):
+        raise MethodIncompatibility(
+            "exposure must be strictly positive.",
+            recovery_hint="Drop or recode non-positive exposure values before "
+            "fitting a log-link count model.",
+            diagnostics={
+                "column": exposure,
+                "nonpositive_count": int((values <= 0).sum()),
+            },
+            alternative_functions=_COUNT_ALTERNATIVES,
+        )
+    return values
+
+
 def _parse_formula_or_xy(
     formula, data, y, x, add_constant=True
 ):
     """Parse formula/data or y/x into arrays + variable names."""
     if formula is not None and data is not None:
+        data = _require_count_dataframe(data, "count regression")
         parsed = parse_formula(formula)
         dep_var = parsed['dependent']
         indep_vars = parsed['exogenous']
         fe_vars = parsed.get('fixed_effects', [])
         has_constant = parsed['has_constant']
+        _require_columns(data, [dep_var, *indep_vars], "formula")
 
         y_arr = data[dep_var].values.astype(np.float64)
         X_cols = indep_vars
@@ -50,9 +163,11 @@ def _parse_formula_or_xy(
             var_names = ['_cons']
         return y_arr, X_arr, var_names, dep_var, fe_vars, data
     elif y is not None and x is not None and data is not None:
-        dep_var = y
+        data = _require_count_dataframe(data, "count regression")
+        dep_var = _require_column_name(y, "y")
+        X_cols = _normalize_column_list(x, "x")
+        _require_columns(data, [dep_var, *X_cols], "y/x")
         y_arr = data[dep_var].values.astype(np.float64)
-        X_cols = list(x)
         X_arr_parts = [data[v].values.astype(np.float64) for v in X_cols]
         if add_constant:
             X_arr_parts = [np.ones(len(data))] + X_arr_parts
@@ -64,7 +179,18 @@ def _parse_formula_or_xy(
             var_names = ['_cons']
         return y_arr, X_arr, var_names, dep_var, [], data
     else:
-        raise ValueError("Must provide either (formula, data) or (y, x, data)")
+        raise MethodIncompatibility(
+            "Must provide either (formula, data) or (y, x, data).",
+            recovery_hint="Call sp.nbreg('y ~ x', data=df) or "
+            "sp.nbreg(y='y', x=['x'], data=df).",
+            diagnostics={
+                "has_formula": formula is not None,
+                "has_data": data is not None,
+                "has_y": y is not None,
+                "has_x": x is not None,
+            },
+            alternative_functions=_COUNT_ALTERNATIVES,
+        )
 
 
 def _append_fixed_effect_dummies(
@@ -89,12 +215,17 @@ def _append_fixed_effect_dummies(
     level_counts: Dict[str, int] = {}
 
     for fe in clean_fe:
-        if fe not in data.columns:
-            raise ValueError(f"fixed-effect column {fe!r} not found in data")
+        _require_columns(data, [fe], "fixed effects")
         if data[fe].isna().any():
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"fixed-effect column {fe!r} contains missing values; "
-                "drop or impute them before fitting a fixed-effects count model"
+                "drop or impute them before fitting a fixed-effects count model",
+                recovery_hint="Drop or impute missing fixed-effect identifiers.",
+                diagnostics={
+                    "column": fe,
+                    "missing_count": int(data[fe].isna().sum()),
+                },
+                alternative_functions=_COUNT_ALTERNATIVES,
             )
 
         levels = int(data[fe].nunique(dropna=False))
@@ -235,9 +366,9 @@ def _poisson_irls(y, X, offset=None, weights=None, maxiter=100, tol=1e-8):
 
 def _nb2_loglik(y, mu, alpha):
     """NB2 log-likelihood: Var(y) = mu + alpha * mu^2."""
-    inv_alpha = 1.0 / max(alpha, 1e-300)
-    r = inv_alpha
-    # l = sum( lgamma(y + r) - lgamma(r) - lgamma(y+1) + r*log(r/(r+mu)) + y*log(mu/(r+mu)) )
+    r = 1.0 / max(alpha, 1e-300)
+    # Sum lgamma(y + r) - lgamma(r) - lgamma(y+1)
+    # plus r*log(r/(r+mu)) + y*log(mu/(r+mu)).
     ll = np.sum(
         special.gammaln(y + r)
         - special.gammaln(r)
@@ -291,7 +422,6 @@ def _nb2_fit(y, X, offset=None, weights=None, maxiter=100, tol=1e-8):
             eta = X @ beta + offset
             mu = _safe_exp(eta)
 
-            inv_alpha = 1.0 / alpha
             # NB2 weight: mu / (1 + alpha*mu)
             w = weights * mu / (1 + alpha * mu)
             z = eta + (y - mu) / mu - offset
@@ -425,9 +555,6 @@ def _demean_poisson(y, X, fe_indices_list, mu, maxiter_demean=500, tol_demean=1e
 
     # Actually we need to demean the working response and weighted X.
     # Working response in IRLS: z_i = eta_i + (y_i - mu_i)/mu_i
-    # We demean X*sqrt(w) and z*sqrt(w) for the WLS step.
-    sqrt_w = np.sqrt(w)
-
     # We demean each column of Z by subtracting weighted group means iteratively
     Z_dm = Z.copy()
     for _ in range(maxiter_demean):
@@ -462,7 +589,6 @@ def _detect_separation(y, X, fe_indices_list=None):
     Returns list of warning messages.
     """
     warnings_list = []
-    n = len(y)
     zero_mask = y == 0
 
     # Check regressors
@@ -485,7 +611,8 @@ def _detect_separation(y, X, fe_indices_list=None):
                 mask = fe_idx == g
                 if np.all(y[mask] == 0):
                     warnings_list.append(
-                        f"Separation: FE group {g} (FE dim {fe_i}) has all-zero outcomes"
+                        f"Separation: FE group {g} (FE dim {fe_i}) has "
+                        "all-zero outcomes"
                     )
 
     return warnings_list
@@ -681,8 +808,11 @@ def _overdispersion_test(y, mu):
     X_test = np.column_stack([np.ones_like(mu), mu])
     beta_test = np.linalg.lstsq(X_test, dep, rcond=None)[0]
     resid_test = dep - X_test @ beta_test
-    se_test = np.sqrt(np.sum(resid_test**2) / (len(y) - 2) *
-                      np.linalg.inv(X_test.T @ X_test)[1, 1])
+    se_test = np.sqrt(
+        np.sum(resid_test**2)
+        / (len(y) - 2)
+        * np.linalg.inv(X_test.T @ X_test)[1, 1]
+    )
     t_stat = beta_test[1] / se_test
     p_val = 2 * (1 - stats.t.cdf(abs(t_stat), len(y) - 2))
     return float(t_stat), float(p_val)
@@ -773,7 +903,7 @@ def poisson(
     if offset is not None:
         offset_arr = data[offset].values.astype(np.float64)
     if exposure is not None:
-        offset_arr = np.log(data[exposure].values.astype(np.float64))
+        offset_arr = np.log(_positive_exposure(data, exposure))
 
     # Weights
     w_arr = None
@@ -818,7 +948,12 @@ def poisson(
 
     # Goodness of fit
     deviance = 2 * np.sum(
-        np.where(y_arr > 0, y_arr * np.log(np.maximum(y_arr, 1e-300) / mu), 0) - (y_arr - mu)
+        np.where(
+            y_arr > 0,
+            y_arr * np.log(np.maximum(y_arr, 1e-300) / mu),
+            0,
+        )
+        - (y_arr - mu)
     )
     pearson_chi2 = np.sum((y_arr - mu) ** 2 / mu)
 
@@ -982,7 +1117,7 @@ def nbreg(
     if offset is not None:
         offset_arr = data[offset].values.astype(np.float64)
     if exposure is not None:
-        offset_arr = np.log(data[exposure].values.astype(np.float64))
+        offset_arr = np.log(_positive_exposure(data, exposure))
 
     w_arr = None
     if weights is not None:
@@ -1226,23 +1361,45 @@ def xtnbreg(
     >>> "x" in res.params.index
     True
     """
-    if data is None:
-        raise ValueError("xtnbreg requires `data=`")
+    data = _require_count_dataframe(data, "xtnbreg")
 
-    x_list = list(x or [])
+    x_list = _normalize_column_list(x, "x")
     if formula is None:
         if y is None:
-            raise ValueError("xtnbreg requires either `formula` or `y=`")
+            raise MethodIncompatibility(
+                "xtnbreg requires either `formula` or `y=`.",
+                recovery_hint="Call sp.xtnbreg('y ~ x', data=df, entity='id') "
+                "or pass y='y' with x=[...].",
+                diagnostics={"has_formula": False, "has_y": False},
+                alternative_functions=["sp.xtnbreg", "sp.nbreg"],
+            )
+        y = _require_column_name(y, "y")
+        _require_columns(data, [y, *x_list], "xtnbreg y/x")
         rhs = " + ".join(x_list) if x_list else "1"
         formula = f"{y} ~ {rhs}"
     else:
         parsed = parse_formula(formula)
         y = parsed["dependent"]
         x_list = parsed["exogenous"]
+        _require_columns(
+            data,
+            [y, *x_list, *parsed.get("fixed_effects", [])],
+            "xtnbreg formula",
+        )
         if entity is None and parsed.get("fixed_effects"):
             entity = parsed["fixed_effects"][0]
 
-    model_key = (model or "fe").lower().replace("-", "_")
+    if model is None:
+        model_key = "fe"
+    elif isinstance(model, str):
+        model_key = model.lower().replace("-", "_")
+    else:
+        raise MethodIncompatibility(
+            "model must be one of 'fe', 're', or 'pooled'.",
+            recovery_hint="Pass model='fe', model='re', or model='pooled'.",
+            diagnostics={"model": repr(model)},
+            alternative_functions=["sp.xtnbreg"],
+        )
     if model_key in {"fixed", "fixed_effects"}:
         model_key = "fe"
     if model_key in {"random", "random_effects"}:
@@ -1273,14 +1430,26 @@ def xtnbreg(
         fe_formula = formula
         if "|" not in fe_formula:
             if not entity:
-                raise ValueError(
+                raise MethodIncompatibility(
                     "fixed-effects xtnbreg requires `entity=` or a formula "
-                    "fixed-effect part such as 'y ~ x | id'"
+                    "fixed-effect part such as 'y ~ x | id'.",
+                    recovery_hint="Pass entity='id' or include a fixed-effect "
+                    "part in the formula.",
+                    diagnostics={"model": model_key, "entity": entity},
+                    alternative_functions=["sp.xtnbreg", "sp.nbreg"],
                 )
+            _require_columns(data, [entity], "xtnbreg entity")
             fe_terms = [entity]
             if time_effects:
                 if not time:
-                    raise ValueError("time_effects=True requires `time=`")
+                    raise MethodIncompatibility(
+                        "time_effects=True requires `time=`.",
+                        recovery_hint="Pass the time column name or set "
+                        "time_effects=False.",
+                        diagnostics={"time_effects": True, "time": time},
+                        alternative_functions=["sp.xtnbreg"],
+                    )
+                _require_columns(data, [time], "xtnbreg time")
                 fe_terms.append(time)
             fe_formula = f"{formula} | {' + '.join(fe_terms)}"
         elif entity is None:
@@ -1312,19 +1481,29 @@ def xtnbreg(
 
     if model_key == "re":
         if not entity:
-            raise ValueError(
+            raise MethodIncompatibility(
                 "random-effects xtnbreg requires `entity=` or a formula "
-                "fixed-effect part whose first term is the panel id"
+                "fixed-effect part whose first term is the panel id.",
+                recovery_hint="Pass entity='id' for the random-intercept "
+                "negative-binomial model.",
+                diagnostics={"model": model_key, "entity": entity},
+                alternative_functions=["sp.xtnbreg"],
             )
+        _require_columns(data, [entity], "xtnbreg entity")
         if weights is not None:
-            warnings.warn("xtnbreg(model='re') does not support weights; ignoring weights")
+            warnings.warn(
+                "xtnbreg(model='re') does not support weights; ignoring weights"
+            )
         if cluster is not None or robust != "nonrobust":
             warnings.warn(
                 "xtnbreg(model='re') uses GLMM model-based standard errors; "
                 "robust/cluster options are ignored"
             )
         if dispersion.lower() != "mean":
-            warnings.warn("xtnbreg(model='re') uses NB2 mean dispersion; ignoring dispersion")
+            warnings.warn(
+                "xtnbreg(model='re') uses NB2 mean dispersion; "
+                "ignoring dispersion"
+            )
         if irr:
             warnings.warn(
                 "xtnbreg(model='re') returns coefficients; call "
@@ -1334,9 +1513,7 @@ def xtnbreg(
         re_data = data
         offset_col = offset
         if exposure is not None:
-            exposure_values = data[exposure].to_numpy(dtype=np.float64)
-            if np.any(exposure_values <= 0):
-                raise ValueError("exposure must be strictly positive")
+            exposure_values = _positive_exposure(data, exposure)
             offset_col = "__statspai_log_exposure__"
             re_data = data.copy()
             re_data[offset_col] = np.log(exposure_values)
@@ -1354,7 +1531,12 @@ def xtnbreg(
             alpha=alpha,
         )
 
-    raise ValueError("model must be one of 'fe', 're', or 'pooled'")
+    raise MethodIncompatibility(
+        "model must be one of 'fe', 're', or 'pooled'.",
+        recovery_hint="Pass model='fe', model='re', or model='pooled'.",
+        diagnostics={"model": model},
+        alternative_functions=["sp.xtnbreg"],
+    )
 
 
 def ppmlhdfe(
@@ -1496,7 +1678,11 @@ def ppmlhdfe(
     # Separation detection
     sep_warnings = []
     if separation:
-        sep_warnings = _detect_separation(y_arr, X, fe_indices_list if fe_indices_list else None)
+        sep_warnings = _detect_separation(
+            y_arr,
+            X,
+            fe_indices_list if fe_indices_list else None,
+        )
         for sw in sep_warnings:
             warnings.warn(sw)
 
@@ -1529,12 +1715,21 @@ def ppmlhdfe(
     ll_null = _poisson_loglik(y_arr, mu_null)
 
     lr_chi2 = 2 * (ll - ll_null)
-    lr_pvalue = 1 - stats.chi2.cdf(lr_chi2, max(k - 1, 1)) if k > 1 else np.nan
+    lr_pvalue = (
+        1 - stats.chi2.cdf(lr_chi2, max(k - 1, 1))
+        if k > 1
+        else np.nan
+    )
     pseudo_r2 = 1 - ll / ll_null
 
     # Deviance
     deviance = 2 * np.sum(
-        np.where(y_arr > 0, y_arr * np.log(np.maximum(y_arr, 1e-300) / mu), 0) - (y_arr - mu)
+        np.where(
+            y_arr > 0,
+            y_arr * np.log(np.maximum(y_arr, 1e-300) / mu),
+            0,
+        )
+        - (y_arr - mu)
     )
     pearson_chi2 = np.sum((y_arr - mu) ** 2 / np.maximum(mu, 1e-300))
 
@@ -1542,7 +1737,11 @@ def ppmlhdfe(
     bic = -2 * ll + np.log(n) * k
 
     # Number of FE levels absorbed
-    n_fe = sum(len(np.unique(idx)) for idx in fe_indices_list) if fe_indices_list else 0
+    n_fe = (
+        sum(len(np.unique(idx)) for idx in fe_indices_list)
+        if fe_indices_list
+        else 0
+    )
 
     params_series = pd.Series(beta, index=var_names)
     se_series = pd.Series(se, index=var_names)
@@ -1551,7 +1750,10 @@ def ppmlhdfe(
         'model_type': 'PPML' + (' HDFE' if fe_indices_list else ''),
         'family': 'Poisson (Pseudo-MLE)',
         'link': 'log',
-        'method': 'IRLS (Quasi-MLE)' + (' + Alternating Projection' if fe_indices_list else ''),
+        'method': (
+            'IRLS (Quasi-MLE)'
+            + (' + Alternating Projection' if fe_indices_list else '')
+        ),
         'robust': robust,
         'cluster': cluster,
         'converged': converged,

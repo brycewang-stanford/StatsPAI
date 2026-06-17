@@ -21,10 +21,14 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
+
+from ..exceptions import MethodIncompatibility
+from ._result_protocol import jsonable as _jsonable
+from ._validation import nonnegative_finite_float, positive_int
 
 
 # ---------------------------------------------------------------------------
@@ -161,10 +165,75 @@ class HDFEBenchResult:
         lines.append(df.to_string(index=False))
         return '\n'.join(lines)
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Lossless JSON-safe payload for benchmark evidence."""
+        return _jsonable({
+            "kind": "fast_hdfe_bench_result",
+            "reference": self.reference,
+            "backends": {
+                name: {"available": backend.available, "note": backend.note}
+                for name, backend in self.backends.items()
+            },
+            "results": self.to_dataframe().to_dict(orient="records"),
+        })
+
+    def to_agent_summary(self, *, max_rows: int = 20) -> Dict[str, Any]:
+        """Bounded agent-facing benchmark summary."""
+        df = self.to_dataframe()
+        limit = max(int(max_rows), 0)
+        available = df[
+            df.get("available", pd.Series(dtype=bool)).astype(bool)
+            & np.isfinite(df.get("wall_time_s", pd.Series(dtype=float)))
+        ]
+        if available.empty:
+            best_by_n = pd.DataFrame(columns=[
+                "n", "backend", "wall_time_s", "relative_to_numpy",
+            ])
+        else:
+            best_by_n = (
+                available.sort_values(["n", "wall_time_s"])
+                .groupby("n", as_index=False)
+                .first()[["n", "backend", "wall_time_s", "relative_to_numpy"]]
+            )
+        return _jsonable({
+            "kind": "fast_hdfe_bench_agent_summary",
+            "reference": self.reference,
+            "backends": {
+                name: {"available": backend.available, "note": backend.note}
+                for name, backend in self.backends.items()
+            },
+            "results": df.head(limit).to_dict(orient="records"),
+            "n_rows": int(len(df)),
+            "truncated_rows": max(int(len(df)) - limit, 0),
+            "best_by_n": best_by_n.to_dict(orient="records"),
+        })
+
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
+def _positive_int_sequence(value: Sequence[int], *, name: str) -> Tuple[int, ...]:
+    """Return a non-empty tuple of positive integers."""
+    if isinstance(value, (str, bytes)):
+        raise MethodIncompatibility(
+            f"hdfe_bench: {name} must be a sequence of positive integers"
+        )
+    try:
+        raw = list(value)
+    except TypeError as exc:
+        raise MethodIncompatibility(
+            f"hdfe_bench: {name} must be a sequence of positive integers"
+        ) from exc
+    if not raw:
+        raise MethodIncompatibility(
+            f"hdfe_bench: {name} must contain at least one sample size"
+        )
+    return tuple(
+        positive_int(n, name=f"{name}[{idx}]", context="hdfe_bench")
+        for idx, n in enumerate(raw)
+    )
+
 
 def hdfe_bench(
     n_list: Sequence[int] = (1_000, 10_000, 100_000),
@@ -196,11 +265,16 @@ def hdfe_bench(
     HDFEBenchResult
         Results + backend availability metadata.
     """
+    n_values = _positive_int_sequence(n_list, name="n_list")
+    n_groups = positive_int(n_groups, name="n_groups", context="hdfe_bench")
+    repeat = positive_int(repeat, name="repeat", context="hdfe_bench")
+    atol = nonnegative_finite_float(atol, name="atol", context="hdfe_bench")
+
     backends = _detect_backends()
     rng = np.random.default_rng(seed)
     rows: List[Dict[str, object]] = []
 
-    for n in n_list:
+    for n in n_values:
         codes = rng.integers(0, n_groups, size=n).astype(np.int64)
         counts = np.bincount(codes, minlength=n_groups).astype(np.int64)
         # Ensure no zero-count groups (avoid divide-by-zero in numpy path)
@@ -208,8 +282,7 @@ def hdfe_bench(
         y = rng.normal(size=n).astype(np.float64)
 
         # Reference result for correctness comparison
-        ref_out = backends[_Backend.__dataclass_fields__['name'].default
-                           if False else 'numpy'].fn(y, codes, counts)  # type: ignore  # noqa: E501
+        ref_out = backends['numpy'].fn(y, codes, counts)
 
         for name, b in backends.items():
             if not b.available:

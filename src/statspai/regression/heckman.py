@@ -25,6 +25,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ._limited_dep_result import LimitedDepResult
 
 
 def heckman(
@@ -232,7 +233,7 @@ def heckman(
         'rho': float(lambda_coef / np.sqrt(sigma2)) if sigma2 > 0 else np.nan,
     }
 
-    return CausalResult(
+    return LimitedDepResult(
         method='Heckman (1979) Selection Model',
         estimand=f'beta_{x[0]}',
         estimate=main_coef,

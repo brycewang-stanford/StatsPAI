@@ -2,7 +2,7 @@
 OLS regression implementation with comprehensive features
 """
 
-from typing import Optional, Union, Dict, Any, List
+from typing import Optional, Dict, Any, List
 import pandas as pd
 import numpy as np
 from scipy import stats
@@ -10,8 +10,141 @@ import warnings
 
 from ..core.base import BaseModel, BaseEstimator
 from ..core.results import EconometricResults
-from ..core.utils import parse_formula, create_design_matrices, prepare_data
-from ..exceptions import NumericalInstability
+from ..core.utils import create_design_matrices
+from ..exceptions import (
+    DataInsufficient,
+    MethodIncompatibility,
+    NumericalInstability,
+)
+
+
+_NORMAL_EQUATION_COND_MAX = 1e8
+_LOW_ORDER_DEP_MAX_WORK = 50_000
+
+
+def _validate_analytic_weights(
+    weights: Any,
+    n: int,
+    *,
+    context: str,
+) -> np.ndarray:
+    """Validate Stata-style analytic weights for OLS/WLS paths."""
+    try:
+        w = np.asarray(weights, dtype=float).ravel()
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{context}: weights must be numeric"
+        ) from exc
+    if w.shape[0] != n:
+        raise MethodIncompatibility(
+            f"{context}: weights length ({w.shape[0]}) does not match "
+            f"the number of observations ({n})."
+        )
+    if not np.isfinite(w).all():
+        raise DataInsufficient(
+            f"{context}: weights contain NaN or infinite values."
+        )
+    if (w <= 0).any():
+        raise MethodIncompatibility(
+            f"{context}: weights must be strictly positive "
+            "(analytic/`aweight` semantics)."
+        )
+    return w
+
+
+def _validate_ols_arrays(
+    y: Any,
+    X: Any,
+    *,
+    context: str,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return validated float64 OLS arrays with aligned rows."""
+    try:
+        y_arr = np.asarray(y, dtype=float).ravel()
+        X_arr = np.asarray(X, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{context}: y and X must be numeric arrays"
+        ) from exc
+    if X_arr.ndim != 2:
+        raise MethodIncompatibility(
+            f"{context}: X must be 2-D, got ndim={X_arr.ndim}"
+        )
+    if y_arr.shape[0] != X_arr.shape[0]:
+        raise MethodIncompatibility(
+            f"{context}: y has {y_arr.shape[0]} rows but X has "
+            f"{X_arr.shape[0]} rows"
+        )
+    if y_arr.shape[0] < 1:
+        raise DataInsufficient(f"{context}: data must contain at least one row")
+    if not np.isfinite(y_arr).all():
+        raise DataInsufficient(f"{context}: y contains non-finite values")
+    if not np.isfinite(X_arr).all():
+        raise DataInsufficient(f"{context}: X contains non-finite values")
+    return y_arr, X_arr
+
+
+def _crossprod_fit_if_well_conditioned(
+    X: np.ndarray,
+    y: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """OLS via cross-products for well-conditioned designs.
+
+    QR remains the fallback for ill-conditioned certification cases. The
+    cross-product path is only used when the small k x k system is comfortably
+    conditioned, so the expected normal-equation precision loss stays far below
+    the estimator tolerances while avoiding QR's fixed cost on common designs.
+    """
+    XtX = X.T @ X
+    cond = np.linalg.cond(XtX)
+    if not np.isfinite(cond) or cond > _NORMAL_EQUATION_COND_MAX:
+        raise np.linalg.LinAlgError("ill-conditioned cross-product system")
+    XtX_inv = np.linalg.solve(XtX, np.eye(XtX.shape[0]))
+    params = XtX_inv @ (X.T @ y)
+    fitted = X @ params
+    residuals = y - fitted
+    return params, fitted, residuals, XtX_inv
+
+
+def _qr_fit_with_bread(
+    X: np.ndarray,
+    y: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """OLS via QR, returning coefficients and ``(X'X)^-1`` from the same R."""
+    Q, R = np.linalg.qr(X)
+    params = np.linalg.solve(R, Q.T @ y)
+    fitted = X @ params
+    residuals = y - fitted
+    R_inv = np.linalg.solve(R, np.eye(R.shape[0]))
+    XtX_inv = R_inv @ R_inv.T
+    return params, fitted, residuals, XtX_inv
+
+
+def _centered_intercept_bread(
+    *,
+    n: int,
+    k: int,
+    const_col: int,
+    other: List[int],
+    const_value: float,
+    x_mean: np.ndarray,
+    slope_xtx_inv: np.ndarray,
+) -> np.ndarray:
+    """Assemble ``(X'X)^-1`` for ``X=[c, Z]`` from centered slope bread."""
+    XtX_inv = np.empty((k, k), dtype=float)
+    mean_bread = x_mean @ slope_xtx_inv
+    XtX_inv[const_col, const_col] = (
+        1.0 / (n * const_value * const_value)
+        + float(mean_bread @ x_mean) / (const_value * const_value)
+    )
+    cross = -mean_bread / const_value
+    for pos, j in enumerate(other):
+        XtX_inv[const_col, j] = cross[pos]
+        XtX_inv[j, const_col] = cross[pos]
+    for pos_i, i in enumerate(other):
+        for pos_j, j in enumerate(other):
+            XtX_inv[i, j] = slope_xtx_inv[pos_i, pos_j]
+    return XtX_inv
 
 
 def _detect_constant_column(X: np.ndarray) -> Optional[int]:
@@ -73,12 +206,19 @@ def _detect_perfect_collinearity(X: np.ndarray, var_names: List[str]) -> None:
     # 2) Duplicate / proportional columns (|corr| == 1), including
     #    complementary 0/1 dummies (the dummy-variable trap). Needs >=3 rows for
     #    a meaningful correlation; smaller-n degeneracy is caught elsewhere.
+    #    Keep this path lean: ``np.corrcoef`` is convenient but expensive on
+    #    the hot ``sp.regress`` path, so compute only the small k x k Gram
+    #    matrix needed for this structural check.
     if k >= 2 and n >= 3:
-        with np.errstate(invalid="ignore", divide="ignore"):
-            corr = np.corrcoef(X, rowvar=False)
+        centered = X - X.mean(axis=0)
+        norms = np.sqrt(np.sum(centered * centered, axis=0))
         for i in range(k):
+            if norms[i] == 0:
+                continue
             for j in range(i + 1, k):
-                c = corr[i, j]
+                if norms[j] == 0:
+                    continue
+                c = float(centered[:, i] @ centered[:, j]) / (norms[i] * norms[j])
                 if np.isfinite(c) and abs(c) >= 1.0 - 1e-8:
                     raise NumericalInstability(
                         f"Regressors '{names[i]}' and '{names[j]}' are "
@@ -89,6 +229,65 @@ def _detect_perfect_collinearity(X: np.ndarray, var_names: List[str]) -> None:
                         diagnostics={
                             "collinear_pair": [names[i], names[j]],
                             "abs_correlation": float(abs(c)),
+                        },
+                    )
+
+
+def _detect_low_order_linear_dependence(
+    X: np.ndarray,
+    var_names: Optional[List[str]],
+) -> None:
+    """Raise when a column is exactly spanned by two other columns.
+
+    This guard is intentionally run only after a design has already failed the
+    well-conditioned cross-product path. It catches structural mistakes such as
+    ``x_sum = x1 + x2`` without adding work to ordinary regressions or using
+    a rank tolerance that would reject NIST's ill-conditioned full-rank cases.
+    """
+    n, k = X.shape
+    if k < 3:
+        return
+    # Keep the QR fallback cheap for wide designs. Pairwise duplicate and
+    # constant-column failures are already caught by the hot-path structural
+    # check above; this targeted search handles the common low-order mistakes.
+    if n * k * (k - 1) * (k - 2) // 2 > _LOW_ORDER_DEP_MAX_WORK:
+        return
+
+    names = (
+        list(var_names) if var_names is not None else [f"x{i}" for i in range(k)]
+    )
+    eps = np.finfo(float).eps
+    for target in range(k):
+        y_col = X[:, target]
+        y_norm = float(np.linalg.norm(y_col))
+        others = [idx for idx in range(k) if idx != target]
+        for first_pos, first in enumerate(others[:-1]):
+            for second in others[first_pos + 1:]:
+                basis = X[:, [first, second]]
+                coeffs, *_ = np.linalg.lstsq(basis, y_col, rcond=None)
+                fitted = basis @ coeffs
+                residual_norm = float(np.linalg.norm(y_col - fitted))
+                scale = y_norm + float(np.linalg.norm(fitted)) + 1.0
+                if residual_norm <= 256 * eps * scale:
+                    raise NumericalInstability(
+                        f"Regressor '{names[target]}' is an exact linear "
+                        f"combination of '{names[first]}' and "
+                        f"'{names[second]}'; the design matrix is "
+                        f"rank-deficient and coefficients are not separately "
+                        f"identified.",
+                        recovery_hint=(
+                            f"Drop '{names[target]}' or one of "
+                            f"'{names[first]}'/'{names[second]}'."
+                        ),
+                        diagnostics={
+                            "linear_dependence": {
+                                "target": names[target],
+                                "basis": [names[first], names[second]],
+                                "coefficients": [
+                                    float(coeffs[0]),
+                                    float(coeffs[1]),
+                                ],
+                            }
                         },
                     )
 
@@ -139,7 +338,20 @@ class OLSEstimator(BaseEstimator):
         Dict[str, Any]
             Estimation results
         """
+        y, X = _validate_ols_arrays(y, X, context="OLSEstimator")
         n, k = X.shape
+        if n <= k:
+            raise DataInsufficient(
+                "OLS requires more observations than parameters to estimate "
+                "residual variance and standard errors: "
+                f"nobs={n}, parameters={k}, residual df={n - k}."
+            )
+        robust_key = str(robust).lower()
+        var_names = kwargs.pop("var_names", None)
+        if var_names is not None:
+            var_names = list(var_names)
+            if len(var_names) != k:
+                var_names = None
 
         # ---- Analytic weights (Stata ``aweight``) ---------------------------
         # When weights are supplied we fit WLS by running the unweighted kernel
@@ -153,7 +365,9 @@ class OLSEstimator(BaseEstimator):
         weights = kwargs.get("weights", None)
         X_orig, y_orig, sw = X, y, None
         if weights is not None:
-            w = np.asarray(weights, dtype=float).ravel()
+            w = _validate_analytic_weights(
+                weights, n, context="OLS analytic weights",
+            )
             w = w * (n / w.sum())  # Stata aweight normalisation: Σw = n
             sw = np.sqrt(w)
             X = X * sw[:, None]
@@ -182,48 +396,114 @@ class OLSEstimator(BaseEstimator):
             X_other = X[:, other]
             x_mean = X_other.mean(axis=0)
             y_mean = y.mean()
-            slopes, _, resid_c = _fast_ols(X_other - x_mean, y - y_mean)
-            params = np.empty(k, dtype=float)
-            for pos, j in enumerate(other):
-                params[j] = slopes[pos]
-            params[const_col] = y_mean - x_mean @ slopes
-            # resid_c = (y - ȳ) - (X_other - x̄) @ slopes is the exact residual
-            # of the full model and is O(1) (no cancellation); fitted follows.
-            residuals = resid_c
-            fitted_values = y - residuals
-        else:
-            params, fitted_values, residuals = _fast_ols(X, y)
+            X_centered = X_other - x_mean
+            y_centered = y - y_mean
+            try:
+                slopes, _, residuals, slope_xtx_inv = (
+                    _crossprod_fit_if_well_conditioned(X_centered, y_centered)
+                )
+            except np.linalg.LinAlgError:
+                other_names = None
+                if var_names is not None:
+                    other_names = [var_names[j] for j in other]
+                _detect_low_order_linear_dependence(X_centered, other_names)
+                try:
+                    slopes, _, residuals, slope_xtx_inv = _qr_fit_with_bread(
+                        X_centered, y_centered
+                    )
+                except np.linalg.LinAlgError:
+                    params, fitted_values, residuals = _fast_ols(X, y)
+                    XtX_inv = np.linalg.pinv(X.T @ X)
+                    warnings.warn("X'X matrix is singular, using pseudo-inverse")
+                else:
+                    params = np.empty(k, dtype=float)
+                    for pos, j in enumerate(other):
+                        params[j] = slopes[pos]
+                    const_value = float(X[0, const_col])
+                    params[const_col] = (
+                        y_mean - x_mean @ slopes
+                    ) / const_value
+                    fitted_values = y - residuals
+                    XtX_inv = _centered_intercept_bread(
+                        n=n,
+                        k=k,
+                        const_col=const_col,
+                        other=other,
+                        const_value=const_value,
+                        x_mean=x_mean,
+                        slope_xtx_inv=slope_xtx_inv,
+                    )
+            else:
+                params = np.empty(k, dtype=float)
+                for pos, j in enumerate(other):
+                    params[j] = slopes[pos]
+                const_value = float(X[0, const_col])
+                params[const_col] = (y_mean - x_mean @ slopes) / const_value
+                fitted_values = y - residuals
 
-        # (X'X)^{-1} via the QR factor R (X = QR  =>  X'X = R'R), which keeps
-        # the covariance accuracy tracking cond(X) rather than cond(X)**2.
-        # Forming inv(X'X) directly squares the condition number and collapses
-        # on ill-conditioned designs (see NIST StRD Filippelli/Wampler).
-        try:
-            _Q, R = np.linalg.qr(X)
-            R_inv = np.linalg.solve(R, np.eye(R.shape[0]))
-            XtX_inv = R_inv @ R_inv.T
-        except np.linalg.LinAlgError:
-            XtX_inv = np.linalg.pinv(X.T @ X)
-            warnings.warn("X'X matrix is singular, using pseudo-inverse")
+                # Reuse the centered cross-product inverse for the OLS bread.
+                # For X=[c, Z], with centered Zc and A=(Zc'Zc)^-1:
+                # inv(X'X) = [[1/(n c^2)+mAm'/c^2, -mA/c], [-Am/c, A]].
+                XtX_inv = _centered_intercept_bread(
+                    n=n,
+                    k=k,
+                    const_col=const_col,
+                    other=other,
+                    const_value=const_value,
+                    x_mean=x_mean,
+                    slope_xtx_inv=slope_xtx_inv,
+                )
+        else:
+            # Use cross-products only for comfortably conditioned designs; QR
+            # remains the certified fallback for hard numerical cases.
+            try:
+                params, fitted_values, residuals, XtX_inv = (
+                    _crossprod_fit_if_well_conditioned(X, y)
+                )
+            except np.linalg.LinAlgError:
+                _detect_low_order_linear_dependence(X, var_names)
+                try:
+                    params, fitted_values, residuals, XtX_inv = (
+                        _qr_fit_with_bread(X, y)
+                    )
+                except np.linalg.LinAlgError:
+                    params, fitted_values, residuals = _fast_ols(X, y)
+                    XtX_inv = np.linalg.pinv(X.T @ X)
+                    warnings.warn("X'X matrix is singular, using pseudo-inverse")
 
         # Variance-covariance via accelerated sandwich kernels
         if cluster is not None:
             cluster_arr = np.asarray(cluster)
+            if cluster_arr.shape[0] != n:
+                raise MethodIncompatibility(
+                    "cluster length does not match the estimation sample after "
+                    f"missing-data filtering: got {cluster_arr.shape[0]}, "
+                    f"expected {n}."
+                )
+            if pd.isna(cluster_arr).any():
+                raise DataInsufficient(
+                    "Cluster-robust OLS inference requires non-missing cluster "
+                    "labels for every observation in the estimation sample."
+                )
+            n_clusters = len(pd.unique(cluster_arr))
+            if n_clusters < 2:
+                raise DataInsufficient(
+                    "Cluster-robust OLS inference requires at least two clusters."
+                )
             meat = _fast_cluster_meat(X, residuals, cluster_arr)
-            n_clusters = len(np.unique(cluster_arr))
             correction = (n_clusters / (n_clusters - 1)) * ((n - 1) / (n - k))
             var_cov = correction * XtX_inv @ meat @ XtX_inv
-        elif robust == "nonrobust":
+        elif robust_key == "nonrobust":
             sigma2 = np.sum(residuals**2) / (n - k)
             var_cov = sigma2 * XtX_inv
-        elif robust.lower() in ["hc0", "hc1", "hc2", "hc3"]:
-            var_cov = _fast_sandwich_hc(X, residuals, XtX_inv, robust.lower())
-        elif robust.lower() == "hac":
+        elif robust_key in ["hc0", "hc1", "hc2", "hc3"]:
+            var_cov = _fast_sandwich_hc(X, residuals, XtX_inv, robust_key)
+        elif robust_key == "hac":
             lags = kwargs.get("lags", None)
             meat = _fast_hac_meat(X, residuals, lags)
             var_cov = XtX_inv @ meat @ XtX_inv
         else:
-            raise ValueError(f"Unknown robust option: {robust}")
+            raise MethodIncompatibility(f"Unknown robust option: {robust}")
 
         std_errors = np.sqrt(np.diag(var_cov))
 
@@ -239,11 +519,15 @@ class OLSEstimator(BaseEstimator):
         else:
             tss = np.sum((y - np.mean(y)) ** 2)
             rss = np.sum(residuals**2)
-        r_squared = 1 - rss / tss
-        adj_r_squared = 1 - (rss / (n - k)) / (tss / (n - 1))
+        if tss <= 0:
+            r_squared = np.nan
+            adj_r_squared = np.nan
+        else:
+            r_squared = 1 - rss / tss
+            adj_r_squared = 1 - (rss / (n - k)) / (tss / (n - 1))
 
         # F-statistic (assuming constant in first column)
-        if k > 1:
+        if k > 1 and np.isfinite(r_squared):
             r_squared_restricted = 0  # R² from constant-only model
             denom = (1 - r_squared) / (n - k)
             if denom <= 0:
@@ -400,6 +684,7 @@ class OLSRegression(BaseModel):
         self.y = y
         self.X = X
         self.var_names = var_names
+        self._design_info = None
         self.estimator = OLSEstimator()
 
     def _resolve_weights(self, weights, design_index):
@@ -421,18 +706,9 @@ class OLSRegression(BaseModel):
             wv = np.asarray(col, dtype=float).ravel()
         else:
             wv = np.asarray(weights, dtype=float).ravel()
-        if wv.shape[0] != self.y.shape[0]:
-            raise ValueError(
-                f"weights length ({wv.shape[0]}) does not match the number of "
-                f"observations ({self.y.shape[0]})."
-            )
-        if not np.all(np.isfinite(wv)):
-            raise ValueError("weights contain NaN or infinite values.")
-        if np.any(wv <= 0):
-            raise ValueError(
-                "weights must be strictly positive (analytic/`aweight` semantics)."
-            )
-        return wv
+        return _validate_analytic_weights(
+            wv, self.y.shape[0], context="OLS analytic weights",
+        )
 
     def fit(
         self, robust: str = "nonrobust", cluster: Optional[str] = None, **kwargs
@@ -458,17 +734,27 @@ class OLSRegression(BaseModel):
         design_index = None
         if self.formula is not None and self.data is not None:
             y_df, X_df = create_design_matrices(self.formula, self.data)
+            self._design_info = getattr(X_df, "design_info", None)
             design_index = y_df.index
             self.y = y_df.values.ravel()
             self.X = X_df.values
             self.var_names = list(X_df.columns)
             self.dependent_var = y_df.columns[0]
         elif self.y is not None and self.X is not None:
-            if self.var_names is None:
-                self.var_names = [f"x{i}" for i in range(self.X.shape[1])]
             self.dependent_var = "y"
         else:
             raise ValueError("Must provide either (formula, data) or (y, X)")
+
+        self.y, self.X = _validate_ols_arrays(
+            self.y, self.X, context="OLSRegression.fit"
+        )
+        if self.var_names is None:
+            self.var_names = [f"x{i}" for i in range(self.X.shape[1])]
+        elif len(self.var_names) != self.X.shape[1]:
+            raise MethodIncompatibility(
+                f"OLSRegression.fit: var_names has {len(self.var_names)} "
+                f"entries but X has {self.X.shape[1]} columns"
+            )
 
         # Fail loudly on an exactly rank-deficient design rather than returning
         # unidentified garbage coefficients.
@@ -484,11 +770,22 @@ class OLSRegression(BaseModel):
         # Handle clustering
         cluster_var = None
         if cluster and self.data is not None:
+            if cluster not in self.data.columns:
+                raise MethodIncompatibility(
+                    f"cluster='{cluster}' is not a column in the data."
+                )
             cluster_var = self.data[cluster]
+            if design_index is not None:
+                cluster_var = cluster_var.reindex(design_index)
 
         # Estimate model
         results = self.estimator.estimate(
-            self.y, self.X, robust=robust, cluster=cluster_var, **kwargs
+            self.y,
+            self.X,
+            robust=robust,
+            cluster=cluster_var,
+            var_names=self.var_names,
+            **kwargs,
         )
 
         # Create results object
@@ -515,18 +812,32 @@ class OLSRegression(BaseModel):
             "var_names": self.var_names,
         }
 
+        rss_per_obs = results["rss"] / results["nobs"]
+        if rss_per_obs <= 0:
+            log_likelihood = np.inf
+            aic = -np.inf
+            bic = -np.inf
+        else:
+            log_likelihood = (
+                -0.5
+                * results["nobs"]
+                * (np.log(2 * np.pi * rss_per_obs) + 1)
+            )
+            aic = results["nobs"] * np.log(rss_per_obs) + 2 * (
+                results["df_model"] + 1
+            )
+            bic = results["nobs"] * np.log(rss_per_obs) + np.log(
+                results["nobs"]
+            ) * (results["df_model"] + 1)
+
         diagnostics = {
             "R-squared": results["r_squared"],
             "Adj. R-squared": results["adj_r_squared"],
             "F-statistic": results["f_statistic"],
             "Prob (F-statistic)": results["f_pvalue"],
-            "Log-Likelihood": -0.5
-            * results["nobs"]
-            * (np.log(2 * np.pi * results["rss"] / results["nobs"]) + 1),
-            "AIC": results["nobs"] * np.log(results["rss"] / results["nobs"])
-            + 2 * (results["df_model"] + 1),
-            "BIC": results["nobs"] * np.log(results["rss"] / results["nobs"])
-            + np.log(results["nobs"]) * (results["df_model"] + 1),
+            "Log-Likelihood": log_likelihood,
+            "AIC": aic,
+            "BIC": bic,
         }
 
         self._results = EconometricResults(
@@ -572,7 +883,40 @@ class OLSRegression(BaseModel):
             Point predictions, optionally with interval columns.
         """
         if not self.is_fitted:
-            raise ValueError("Model must be fitted before prediction")
+            raise MethodIncompatibility(
+                "Model must be fitted before prediction.",
+                recovery_hint="Call fit() before predict().",
+                diagnostics={"is_fitted": False},
+            )
+        valid_what = {"mean", "confidence", "prediction"}
+        if not isinstance(what, str) or what not in valid_what:
+            raise MethodIncompatibility(
+                "`what` must be 'mean', 'confidence', or 'prediction'; "
+                f"got {what!r}.",
+                recovery_hint="Choose one of: mean, confidence, prediction.",
+                diagnostics={"what": repr(what), "valid": sorted(valid_what)},
+            )
+        if what != "mean":
+            try:
+                alpha = float(alpha)
+            except (TypeError, ValueError) as exc:
+                raise MethodIncompatibility(
+                    "`alpha` must be a finite number in the open interval (0, 1).",
+                    recovery_hint=(
+                        "Use alpha=0.05 for 95% intervals, or another value "
+                        "strictly between 0 and 1."
+                    ),
+                    diagnostics={"alpha": repr(alpha)},
+                ) from exc
+            if not np.isfinite(alpha) or not (0.0 < alpha < 1.0):
+                raise MethodIncompatibility(
+                    "`alpha` must be a finite number in the open interval (0, 1).",
+                    recovery_hint=(
+                        "Use alpha=0.05 for 95% intervals, or another value "
+                        "strictly between 0 and 1."
+                    ),
+                    diagnostics={"alpha": repr(alpha)},
+                )
 
         # In-sample path
         if data is None:
@@ -583,43 +927,97 @@ class OLSRegression(BaseModel):
             X_new = self.X
         else:
             if self.formula is None:
-                raise ValueError(
+                raise MethodIncompatibility(
                     "Out-of-sample prediction requires the model to have been fit "
-                    "with a formula (not raw y, X arrays)."
+                    "with a formula (not raw y, X arrays).",
+                    recovery_hint=(
+                        "Fit OLSRegression with formula=... and data=..., or "
+                        "call predict() without new data for in-sample fitted values."
+                    ),
+                    diagnostics={"formula": None},
                 )
             # Build X from the RHS of the formula. patsy's dmatrices() wants
             # the LHS variable present in `data`; at prediction time we only
             # have the regressors, so use dmatrix on the RHS only.
-            from patsy import dmatrix
+            from patsy import PatsyError, build_design_matrices, dmatrix
 
-            rhs = self.formula.split("~", 1)[1].strip()
-            X_df = dmatrix(rhs, data, return_type="dataframe")
-            missing = [nm for nm in self.var_names if nm not in X_df.columns]
-            if missing:
-                raise ValueError(
-                    f"New data is missing columns produced by the formula: {missing}"
+            if self.var_names is None:
+                raise MethodIncompatibility(
+                    "Model variable names are unavailable; refit the model "
+                    "before out-of-sample prediction.",
+                    recovery_hint=(
+                        "Refit OLSRegression with a formula-backed design before "
+                        "calling predict(data=...)."
+                    ),
+                    diagnostics={"missing_state": "var_names"},
                 )
-            X_new = X_df[self.var_names].values
+            var_names = list(self.var_names)
+            try:
+                if self._design_info is not None:
+                    X_df = build_design_matrices(
+                        [self._design_info],
+                        data,
+                        return_type="dataframe",
+                    )[0]
+                else:
+                    rhs = self.formula.split("~", 1)[1].strip()
+                    X_df = dmatrix(rhs, data, return_type="dataframe")
+            except (PatsyError, KeyError, ValueError) as exc:
+                raise MethodIncompatibility(
+                    "Could not build prediction design matrix from new data.",
+                    recovery_hint=(
+                        "Check that new data contains the formula regressors "
+                        "and only categorical levels seen during model fitting."
+                    ),
+                    diagnostics={"formula": self.formula, "error": str(exc)},
+                ) from exc
+            missing = [nm for nm in var_names if nm not in X_df.columns]
+            if missing:
+                raise MethodIncompatibility(
+                    f"New data is missing columns produced by the formula: {missing}",
+                    recovery_hint=(
+                        "Use data compatible with the fitted formula design, "
+                        "or refit the model with the desired design."
+                    ),
+                    diagnostics={"missing_columns": missing},
+                )
+            X_new = X_df[var_names].values
             params = np.asarray(self._results.params)
             yhat = X_new @ params
 
         if what == "mean" and not return_df:
             return yhat
+        if what == "mean":
+            return pd.DataFrame({"yhat": yhat})
 
         params = np.asarray(self._results.params)
         # Covariance of the estimated coefficients
-        cov = None
-        diag = (
+        cov_source = (
             self._results.data_info.get("cov_params", None)
             if hasattr(self._results, "data_info")
             else None
         )
-        if diag is not None:
-            cov = np.asarray(diag)
+        if cov_source is None and hasattr(self._results, "data_info"):
+            cov_source = self._results.data_info.get("var_cov", None)
+        if cov_source is not None:
+            cov = np.asarray(cov_source, dtype=float)
         else:
             # Reconstruct from std_errors (diagonal approximation if full cov missing)
             se = np.asarray(self._results.std_errors)
             cov = np.diag(se**2)
+        if cov.shape != (params.shape[0], params.shape[0]):
+            raise MethodIncompatibility(
+                "Coefficient covariance matrix shape does not match model "
+                "parameters.",
+                recovery_hint=(
+                    "Refit the model or provide a result object with a square "
+                    "covariance matrix aligned to params."
+                ),
+                diagnostics={
+                    "covariance_shape": list(cov.shape),
+                    "n_parameters": int(params.shape[0]),
+                },
+            )
 
         # var(x' beta) = x' Σ x
         var_mean = np.einsum("ij,jk,ik->i", X_new, cov, X_new)
@@ -642,8 +1040,11 @@ class OLSRegression(BaseModel):
             lower = yhat - t_crit * se_pred
             upper = yhat + t_crit * se_pred
         else:
-            raise ValueError(
-                f"`what` must be 'mean', 'confidence', or 'prediction'; got {what!r}"
+            raise MethodIncompatibility(
+                "`what` must be 'mean', 'confidence', or 'prediction'; "
+                f"got {what!r}.",
+                recovery_hint="Choose one of: mean, confidence, prediction.",
+                diagnostics={"what": repr(what)},
             )
 
         out = pd.DataFrame({"yhat": yhat, "lower": lower, "upper": upper})

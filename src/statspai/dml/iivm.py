@@ -29,6 +29,9 @@ the instrument; fitting g(z, X) on an empty subgroup would otherwise
 silently fall back to zero and bias every test-fold influence-function
 contribution.
 """
+from __future__ import annotations
+
+from typing import Any, Optional, Tuple
 
 import numpy as np
 
@@ -84,8 +87,16 @@ class DoubleMLIIVM(_DoubleMLBase):
     _COMPLIANCE_CLIP_HI = 1 - 1e-4
 
     def _fit_one_rep(
-        self, Y, D, X, Z, n, rng_seed, sample_weight=None, fold_indices=None
-    ):
+        self,
+        Y: np.ndarray,
+        D: np.ndarray,
+        X: np.ndarray,
+        Z: np.ndarray,
+        n: int,
+        rng_seed: int,
+        sample_weight: Optional[np.ndarray] = None,
+        fold_indices: Optional[np.ndarray] = None,
+    ) -> Tuple[float, float]:
         from sklearn.model_selection import StratifiedKFold
 
         if not set(np.unique(Z)).issubset({0, 1}):
@@ -129,18 +140,18 @@ class DoubleMLIIVM(_DoubleMLBase):
             n_splits=self.n_folds, shuffle=True, random_state=rng_seed,
         )
         if sample_weight is None:
-            w_full = None
+            w_full: Optional[np.ndarray] = None
         else:
             w_arr = np.asarray(sample_weight, dtype=float)
             # Classifiers with regularisation can react to a pure scale
             # change in sample_weight. Normalise to mean 1 so w and c*w
             # define the same weighted empirical measure in practice.
             w_full = w_arr * (len(w_arr) / float(np.sum(w_arr)))
-        g1 = np.zeros(n)
-        g0 = np.zeros(n)
-        r1 = np.zeros(n)
-        r0 = np.zeros(n)
-        m_hat = np.zeros(n)
+        g1: np.ndarray = np.zeros(n, dtype=float)
+        g0: np.ndarray = np.zeros(n, dtype=float)
+        r1: np.ndarray = np.zeros(n, dtype=float)
+        r0: np.ndarray = np.zeros(n, dtype=float)
+        m_hat: np.ndarray = np.zeros(n, dtype=float)
         n_fallback_g1 = 0
         n_fallback_g0 = 0
         n_fallback_r1 = 0
@@ -207,7 +218,7 @@ class DoubleMLIIVM(_DoubleMLBase):
         )
 
         if w_full is None:
-            w = np.ones(n, dtype=float)
+            w: np.ndarray = np.ones(n, dtype=float)
             W = float(n)
         else:
             w = w_full
@@ -261,9 +272,14 @@ class DoubleMLIIVM(_DoubleMLBase):
 
     @staticmethod
     def _fit_predict_subgroup(
-        learner, X_sub, y_sub, X_te, fallback_y, weights_sub=None,
-        arm_label="(unspecified)",
-    ):
+        learner: Any,
+        X_sub: np.ndarray,
+        y_sub: np.ndarray,
+        X_te: np.ndarray,
+        fallback_y: np.ndarray,
+        weights_sub: Optional[np.ndarray] = None,
+        arm_label: str = "(unspecified)",
+    ) -> Tuple[np.ndarray, bool]:
         """Fit ``learner`` on a subgroup; fall back to subgroup mean if too small.
 
         Returns ``(predictions, fallback_used)`` where ``fallback_used``
@@ -296,9 +312,13 @@ class DoubleMLIIVM(_DoubleMLBase):
 
     @staticmethod
     def _fit_predict_classifier(
-        learner, X_sub, d_sub, X_te, weights_sub=None,
-        arm_label="(unspecified)",
-    ):
+        learner: Any,
+        X_sub: np.ndarray,
+        d_sub: np.ndarray,
+        X_te: np.ndarray,
+        weights_sub: Optional[np.ndarray] = None,
+        arm_label: str = "(unspecified)",
+    ) -> Tuple[np.ndarray, bool]:
         """Fit a classifier on (X_sub, d_sub); fall back to mean(d_sub).
 
         Returns ``(predictions, fallback_used)``.

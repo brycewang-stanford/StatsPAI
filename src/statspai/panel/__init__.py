@@ -30,7 +30,7 @@ Pesaran, M.H. (2004). "General Diagnostic Tests for Cross Section Dependence."
 Correia, S. (2017). "Linear Models with High-Dimensional Fixed Effects."
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 # Underlying estimators
 from .panel_reg import (
@@ -45,6 +45,7 @@ from .panel_binary import panel_logit, panel_probit
 from .panel_plots import plot_within_between
 from .hdfe import Absorber, demean, absorb_ols
 from .feols import feols as hdfe_feols, hdfe_ols, FEOLSResult
+from ..exceptions import MethodIncompatibility
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -106,7 +107,7 @@ def panel(
     *,
     method: str = "fe",
     **kwargs: Any,
-):
+) -> Union[PanelResults, FEOLSResult]:
     """Unified panel-regression dispatcher.
 
     Parameters
@@ -181,13 +182,34 @@ def panel(
     canon = _PANEL_METHOD_ALIASES.get(key)
     if canon is None:
         # Wording note: keep "method must be" — older callers grep for it.
-        raise ValueError(
+        raise MethodIncompatibility(
             f"Unknown method '{method}' for sp.panel — method must be "
-            f"one of: {sorted(set(_PANEL_METHOD_ALIASES.values()))}"
+            f"one of: {sorted(set(_PANEL_METHOD_ALIASES.values()))}",
+            recovery_hint="Choose a supported panel method such as 'fe', 're', "
+            "'pooled', 'ab', or 'hdfe'.",
+            diagnostics={
+                "method": method,
+                "valid_methods": sorted(set(_PANEL_METHOD_ALIASES.values())),
+            },
+            alternative_functions=["sp.panel", "sp.feols"],
         )
 
     # ── Classical: delegate to panel_reg.panel ───────────────────────
     if canon in _CLASSICAL_PANEL_METHODS:
+        if formula is None or entity is None or time is None:
+            missing = [
+                name
+                for name, value in (
+                    ("formula", formula),
+                    ("entity", entity),
+                    ("time", time),
+                )
+                if value is None
+            ]
+            raise ValueError(
+                "Classical panel methods require formula, entity, and time; "
+                f"missing: {', '.join(missing)}."
+            )
         return _panel_classical(
             data=data, formula=formula, entity=entity, time=time,
             method=canon, **kwargs,

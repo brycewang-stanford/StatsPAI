@@ -10,6 +10,8 @@ Contents (v1.8 / Phase 1+):
 The module exposes building blocks that Phase 2+ (PPML / GLM HDFE),
 Phase 3 (`sp.within`), and Phase 5 (Polars/Arrow direct) sit on top of.
 """
+from typing import Any, Optional
+
 from .bench import hdfe_bench, HDFEBenchResult
 from .demean import demean, DemeanInfo
 from .fepois import fepois, FePoisResult
@@ -51,19 +53,52 @@ try:
 except ImportError:  # pragma: no cover
     _HAS_JAX_FEOLS = False
 
-    def feols_jax(*_args, **_kwargs):  # type: ignore[no-redef]
+    def feols_jax(
+        formula: str,
+        data: Any,
+        *,
+        vcov: str = "iid",
+        cluster: Optional[str] = None,
+        weights: Optional[str] = None,
+        drop_singletons: bool = True,
+        fe_tol: float = 1e-10,
+        fe_maxiter: int = 1_000,
+        dtype: str = "float64",
+    ) -> FeolsResult:
         raise ImportError(
             "jax is not installed; pip install jax jaxlib to enable "
             "feols_jax. Plain sp.fast.feols runs without JAX."
         )
 
-    def feols_jax_bootstrap(*_args, **_kwargs):  # type: ignore[no-redef]
+    class FeolsBootstrapResult:  # type: ignore[no-redef]
+        """Placeholder exported when the optional JAX backend is unavailable."""
+
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            raise ImportError(
+                "jax is not installed; pip install jax jaxlib to enable "
+                "FeolsBootstrapResult."
+            )
+
+    def feols_jax_bootstrap(
+        formula: str,
+        data: Any,
+        *,
+        n_boot: int = 1_000,
+        seed: int = 0,
+        bootstrap: str = "pairs",
+        cluster: Optional[str] = None,
+        weights: Optional[str] = None,
+        drop_singletons: bool = True,
+        fe_tol: float = 1e-10,
+        fe_maxiter: int = 1_000,
+        ci_alpha: float = 0.05,
+        vmap_chunk_size: int = 200,
+        dtype: str = "float64",
+    ) -> FeolsBootstrapResult:
         raise ImportError(
             "jax is not installed; pip install jax jaxlib to enable "
             "feols_jax_bootstrap."
         )
-
-    FeolsBootstrapResult = None  # type: ignore[assignment]
 
 # Torch device diagnostic — mirrors jax_device_info for the optional
 # neural backends (deepiv / neural_causal / cevae). See

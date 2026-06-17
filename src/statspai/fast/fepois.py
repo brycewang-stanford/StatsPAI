@@ -39,7 +39,16 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from ..exceptions import MethodIncompatibility
 from .demean import demean as _fast_demean
+from ._result_protocol import jsonable as _jsonable
+from ._result_protocol import tidy_records as _tidy_records
+from ._validation import (
+    nonempty_sample as _nonempty_sample,
+    nonnegative_finite_float as _nonnegative_finite_float,
+    positive_int as _positive_int,
+    positive_weight_mass as _positive_weight_mass,
+)
 
 # Optional Rust kernel for the weighted IRLS-internal demean. When available,
 # the dispatcher below routes to it; when not, the pure-NumPy fallback runs.
@@ -134,6 +143,63 @@ class FePoisResult:
             f"Deviance: {self.deviance:.4f}    Log-likelihood: {self.log_likelihood:.4f}"
         )
         return "\n".join(lines)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Lossless JSON-safe payload for Poisson HDFE results."""
+        return _jsonable({
+            "kind": "fast_fepois_result",
+            "model": "poisson_hdfe",
+            "formula": self.formula,
+            "n_obs": self.n_obs,
+            "n_kept": self.n_kept,
+            "n_dropped_singletons": self.n_dropped_singletons,
+            "n_dropped_separation": self.n_dropped_separation,
+            "deviance": self.deviance,
+            "log_likelihood": self.log_likelihood,
+            "iterations": self.iterations,
+            "converged": self.converged,
+            "vcov_type": self.vcov_type,
+            "df_residual": self.df_residual,
+            "backend": self.backend,
+            "fixed_effects": [
+                {"name": name, "cardinality": cardinality}
+                for name, cardinality in zip(self.fe_names, self.fe_cardinality)
+            ],
+            "coefficients": _tidy_records(self.tidy()),
+            "vcov": {
+                "terms": list(self.coef_names),
+                "matrix": self.vcov_matrix,
+            },
+        })
+
+    def to_agent_summary(self, *, max_terms: int = 10) -> Dict[str, Any]:
+        """Bounded agent-facing summary for fast Poisson HDFE results."""
+        n_terms = len(self.coef_names)
+        limit = max(int(max_terms), 0)
+        rows = _tidy_records(self.tidy().head(limit))
+        return _jsonable({
+            "kind": "fast_fepois_agent_summary",
+            "model": "poisson_hdfe",
+            "formula": self.formula,
+            "n_obs": self.n_obs,
+            "n_kept": self.n_kept,
+            "n_dropped_singletons": self.n_dropped_singletons,
+            "n_dropped_separation": self.n_dropped_separation,
+            "iterations": self.iterations,
+            "converged": self.converged,
+            "deviance": self.deviance,
+            "log_likelihood": self.log_likelihood,
+            "vcov_type": self.vcov_type,
+            "df_residual": self.df_residual,
+            "fixed_effects": [
+                {"name": name, "cardinality": cardinality}
+                for name, cardinality in zip(self.fe_names, self.fe_cardinality)
+            ],
+            "coefficients": rows,
+            "n_terms": n_terms,
+            "truncated_terms": max(n_terms - limit, 0),
+            "backend": self.backend,
+        })
 
     def __repr__(self) -> str:  # pragma: no cover  - cosmetic
         return self.summary()
@@ -640,14 +706,20 @@ def fepois(
     FePoisResult
     """
     if vcov not in ("iid", "hc1", "cr1"):
-        raise ValueError(f"vcov={vcov!r}; supported: 'iid', 'hc1', or 'cr1'")
+        raise MethodIncompatibility(
+            f"fepois: vcov={vcov!r}; supported: 'iid', 'hc1', or 'cr1'"
+        )
     if vcov == "cr1" and cluster is None:
-        raise ValueError("vcov='cr1' requires cluster=<column name>")
+        raise MethodIncompatibility("fepois: vcov='cr1' requires cluster=<column name>")
     if cluster is not None and vcov in ("iid", "hc1"):
-        raise ValueError(
-            f"cluster={cluster!r} provided but vcov={vcov!r}; "
+        raise MethodIncompatibility(
+            f"fepois: cluster={cluster!r} provided but vcov={vcov!r}; "
             "set vcov='cr1' to compute cluster-robust SE"
         )
+    maxiter = _positive_int(maxiter, name="maxiter", context="fepois")
+    fe_maxiter = _positive_int(fe_maxiter, name="fe_maxiter", context="fepois")
+    tol = _nonnegative_finite_float(tol, name="tol", context="fepois")
+    fe_tol = _nonnegative_finite_float(fe_tol, name="fe_tol", context="fepois")
 
     lhs, rhs_terms, fe_terms = _parse_fepois_formula(formula)
 
@@ -664,18 +736,30 @@ def fepois(
         needed_cols = needed_cols + [cluster]
     missing = [c for c in needed_cols if c not in data.columns]
     if missing:
-        raise KeyError(f"columns missing from data: {missing}")
+        raise MethodIncompatibility(f"fepois: columns missing from data: {missing}")
 
     n_obs = len(data)
+    _nonempty_sample(n_obs, context="fepois")
     y = data[lhs].to_numpy(dtype=np.float64).copy()
+    if not np.isfinite(y).all():
+        raise MethodIncompatibility(
+            f"fepois: outcome column {lhs!r} has non-finite values"
+        )
     if (y < 0).any():
-        raise ValueError("Poisson y must be non-negative")
+        raise MethodIncompatibility("fepois: Poisson y must be non-negative")
     if weights is not None:
         obs_weights = data[weights].to_numpy(dtype=np.float64).copy()
         if (obs_weights < 0).any():
-            raise ValueError(f"weights column {weights!r} contains negative values")
+            raise MethodIncompatibility(
+                f"fepois: weights column {weights!r} contains negative values"
+            )
         if not np.isfinite(obs_weights).all():
-            raise ValueError(f"weights column {weights!r} contains non-finite values")
+            raise MethodIncompatibility(
+                f"fepois: weights column {weights!r} contains non-finite values"
+            )
+        _positive_weight_mass(
+            obs_weights, context=f"fepois weights column {weights!r}",
+        )
     else:
         obs_weights = None
 
@@ -686,8 +770,9 @@ def fepois(
             cluster_arr_full, sort=False, use_na_sentinel=True,
         )
         if (cluster_codes_check < 0).any():
-            raise ValueError(
-                f"cluster column {cluster!r} contains NaN; drop or impute upstream"
+            raise MethodIncompatibility(
+                f"fepois: cluster column {cluster!r} contains NaN; "
+                "drop or impute upstream"
             )
     else:
         cluster_arr_full = None
@@ -695,6 +780,8 @@ def fepois(
         np.empty((n_obs, 0), dtype=np.float64)
     if X_user.ndim == 1:
         X_user = X_user.reshape(-1, 1)
+    if not np.isfinite(X_user).all():
+        raise MethodIncompatibility("fepois: regressor columns contain non-finite values")
     if add_intercept:
         X = np.column_stack([np.ones(n_obs, dtype=np.float64), X_user])
         coef_names_full = ["(Intercept)"] + list(rhs_terms)
@@ -708,7 +795,9 @@ def fepois(
     for fe_name in fe_terms:
         codes, uniq = pd.factorize(data[fe_name], sort=False, use_na_sentinel=True)
         if (codes < 0).any():
-            raise ValueError(f"NaN in fixed effect column {fe_name!r}")
+            raise MethodIncompatibility(
+                f"fepois: NaN in fixed effect column {fe_name!r}"
+            )
         fe_codes_raw.append(codes.astype(np.int64))
         fe_card_raw.append(len(uniq))
 
@@ -790,6 +879,10 @@ def fepois(
     # Default to 1 so the unweighted MLE path is unchanged.
     if obs_weights is None:
         obs_weights = np.ones(n, dtype=np.float64)
+    else:
+        _positive_weight_mass(
+            obs_weights, context=f"fepois kept sample weights column {weights!r}",
+        )
     # Initialisation: add a small jitter so log(y) is well-defined for y=0 rows.
     mu = np.maximum(y, 1.0) + 0.1
     eta = np.log(mu)

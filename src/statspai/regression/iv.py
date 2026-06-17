@@ -37,6 +37,33 @@ import warnings
 from ..core.base import BaseModel, BaseEstimator
 from ..core.results import EconometricResults
 from ..core.utils import parse_formula
+from ..exceptions import DataInsufficient, MethodIncompatibility
+
+
+def _require_string(value: Any, name: str) -> str:
+    if not isinstance(value, str):
+        raise MethodIncompatibility(
+            f"`{name}` must be a string.",
+            diagnostics={name: repr(value)},
+        )
+    return value
+
+
+def _require_dataframe(value: Any, name: str) -> pd.DataFrame:
+    if not isinstance(value, pd.DataFrame):
+        raise MethodIncompatibility(
+            f"`{name}` must be a pandas DataFrame.",
+            diagnostics={name: type(value).__name__},
+        )
+    return value
+
+
+def _not_fitted_error(accessor: str) -> MethodIncompatibility:
+    return MethodIncompatibility(
+        "Model must be fitted first.",
+        recovery_hint="Call fit() before accessing fitted IV diagnostics.",
+        diagnostics={"accessor": accessor, "is_fitted": False},
+    )
 
 
 # ====================================================================== #
@@ -538,8 +565,8 @@ def _normalize_robust(robust) -> str:
     Accepts (case-insensitively) ``'nonrobust'`` / ``'hc0'`` / ``'hc1'`` /
     ``'hc2'`` / ``'hc3'`` plus the ergonomic aliases ``True`` / ``'robust'`` /
     ``'white'`` so callers can mirror Stata (``robust`` ≡ HC1) and the
-    ``sp.regress`` spelling (uppercase HCk). Raises a clear ``ValueError`` for
-    anything else instead of failing deep inside the sandwich kernel.
+    ``sp.regress`` spelling (uppercase HCk). Raises a structured taxonomy
+    error for anything else instead of failing deep inside the sandwich kernel.
     """
     if robust is None or robust is False:
         return 'nonrobust'
@@ -551,9 +578,14 @@ def _normalize_robust(robust) -> str:
         key = aliases.get(key, key)
         if key in ('nonrobust', 'hc0', 'hc1', 'hc2', 'hc3'):
             return key
-    raise ValueError(
+    raise MethodIncompatibility(
         f"Unknown robust option: {robust!r}. Use one of 'nonrobust', "
-        f"'hc0', 'hc1', 'hc2', 'hc3' (case-insensitive), True, or 'robust'."
+        f"'hc0', 'hc1', 'hc2', 'hc3' (case-insensitive), True, or 'robust'.",
+        recovery_hint=(
+            "Use robust='nonrobust', 'hc0', 'hc1', 'hc2', 'hc3', "
+            "True, 'robust', or 'white'."
+        ),
+        diagnostics={"robust": repr(robust)},
     )
 
 
@@ -771,6 +803,11 @@ class IVRegression(BaseModel):
         var_names: Optional[Dict[str, List[str]]] = None,
     ):
         super().__init__()
+        if formula is not None:
+            formula = _require_string(formula, "formula")
+        if data is not None:
+            data = _require_dataframe(data, "data")
+        method = _require_string(method, "method")
         self.formula = formula
         self.data = data
         self.method = method.lower()
@@ -782,9 +819,16 @@ class IVRegression(BaseModel):
         self.var_names = var_names
 
         if self.method not in ('2sls', 'liml', 'fuller', 'gmm', 'jive'):
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"Unknown IV method '{method}'. "
-                f"Choose from: 2sls, liml, fuller, gmm, jive"
+                f"Choose from: 2sls, liml, fuller, gmm, jive",
+                recovery_hint=(
+                    "Use method='2sls', 'liml', 'fuller', 'gmm', or 'jive'."
+                ),
+                diagnostics={
+                    "method": method,
+                    "valid": ["2sls", "liml", "fuller", "gmm", "jive"],
+                },
             )
 
     def _prepare_from_formula(self):
@@ -792,9 +836,13 @@ class IVRegression(BaseModel):
         parsed = parse_formula(self.formula)
 
         if not parsed['endogenous'] or not parsed['instruments']:
-            raise ValueError(
+            raise MethodIncompatibility(
                 "IV formula must specify endogenous variables and instruments. "
-                "Use syntax: \"y ~ (endog ~ z1 + z2) + exog\""
+                "Use syntax: \"y ~ (endog ~ z1 + z2) + exog\"",
+                recovery_hint=(
+                    "Write the endogenous block as (endog ~ instrument)."
+                ),
+                diagnostics={"formula": self.formula},
             )
 
         self.dependent_var = parsed['dependent']
@@ -805,10 +853,26 @@ class IVRegression(BaseModel):
         all_vars = [self.dependent_var] + exog_names + endog_names + instrument_names
         missing = [v for v in all_vars if v not in self.data.columns]
         if missing:
-            raise ValueError(f"Variables not found in data: {missing}")
+            raise MethodIncompatibility(
+                f"Variables not found in data: {missing}",
+                recovery_hint=(
+                    "Add the missing outcome, exogenous, endogenous, or "
+                    "instrument columns to the DataFrame."
+                ),
+                diagnostics={"missing_columns": missing},
+            )
 
         extra_cols = [c for c in self.data.columns if c not in all_vars]
         clean = self.data[all_vars + extra_cols].dropna(subset=all_vars)
+        if len(clean) == 0:
+            raise DataInsufficient(
+                "No rows remain after dropping NaNs.",
+                recovery_hint=(
+                    "Provide at least one complete row for the IV formula "
+                    "variables."
+                ),
+                diagnostics={"required_columns": all_vars},
+            )
 
         self.y = clean[self.dependent_var].values
 
@@ -865,8 +929,20 @@ class IVRegression(BaseModel):
             self._prepare_from_formula()
         elif not (self.y is not None and self.X_exog is not None
                   and self.X_endog is not None and self.Z is not None):
-            raise ValueError(
-                "Provide either (formula, data) or (y, X_exog, X_endog, Z)"
+            raise MethodIncompatibility(
+                "Provide either (formula, data) or (y, X_exog, X_endog, Z).",
+                recovery_hint=(
+                    "Pass a formula with a DataFrame, or pass all four raw "
+                    "arrays."
+                ),
+                diagnostics={
+                    "has_formula": self.formula is not None,
+                    "has_data": self.data is not None,
+                    "has_y": self.y is not None,
+                    "has_X_exog": self.X_exog is not None,
+                    "has_X_endog": self.X_endog is not None,
+                    "has_Z": self.Z is not None,
+                },
             )
         else:
             self._exog_names = (
@@ -889,9 +965,27 @@ class IVRegression(BaseModel):
         # Cluster variable
         cluster_var = None
         if cluster and self.data is not None:
+            cluster = _require_string(cluster, "cluster")
             if hasattr(self, '_clean_data'):
+                if cluster not in self._clean_data.columns:
+                    raise MethodIncompatibility(
+                        f"Cluster variable not found in data: {cluster!r}",
+                        recovery_hint=(
+                            "Pass a cluster column present in the formula "
+                            "data."
+                        ),
+                        diagnostics={"cluster": cluster},
+                    )
                 cluster_var = self._clean_data[cluster]
             else:
+                if cluster not in self.data.columns:
+                    raise MethodIncompatibility(
+                        f"Cluster variable not found in data: {cluster!r}",
+                        recovery_hint=(
+                            "Pass a cluster column present in the model data."
+                        ),
+                        diagnostics={"cluster": cluster},
+                    )
                 cluster_var = self.data[cluster]
 
         # --- Dispatch to estimation method ---
@@ -1020,13 +1114,31 @@ class IVRegression(BaseModel):
             ``None``, returns in-sample fitted values.
         """
         if not self.is_fitted:
-            raise ValueError("Model must be fitted before prediction")
+            raise MethodIncompatibility(
+                "Model must be fitted before prediction.",
+                recovery_hint="Call fit() before predict().",
+                diagnostics={"is_fitted": False},
+            )
         if data is None:
             return self._results.fitted_values()
         if self.formula is None:
-            raise ValueError(
+            raise MethodIncompatibility(
                 "Out-of-sample prediction requires the model to have been fit "
-                "with a formula (not raw y, X arrays)."
+                "with a formula (not raw y, X arrays).",
+                recovery_hint=(
+                    "Fit IVRegression with formula=... and data=..., or call "
+                    "predict() without new data for in-sample fitted values."
+                ),
+                diagnostics={"formula": None},
+            )
+        if not isinstance(data, pd.DataFrame):
+            raise MethodIncompatibility(
+                "Out-of-sample IV prediction requires a pandas DataFrame.",
+                recovery_hint=(
+                    "Pass a DataFrame containing the fitted formula's "
+                    "exogenous and endogenous variables."
+                ),
+                diagnostics={"data_type": type(data).__name__},
             )
 
         parsed = parse_formula(self.formula)
@@ -1035,8 +1147,13 @@ class IVRegression(BaseModel):
         needed = exog + endog
         missing = [v for v in needed if v not in data.columns]
         if missing:
-            raise ValueError(
-                f"New data is missing columns referenced by the model: {missing}"
+            raise MethodIncompatibility(
+                f"New data is missing columns referenced by the model: {missing}",
+                recovery_hint=(
+                    "Add the missing formula columns to the prediction data "
+                    "or refit the model with the desired specification."
+                ),
+                diagnostics={"missing_columns": missing},
             )
 
         params = np.asarray(self._results.params)
@@ -1050,10 +1167,25 @@ class IVRegression(BaseModel):
             if nm in {"Intercept", "const"}:
                 X_new_cols.append(np.ones(n_new))
             elif nm in data.columns:
-                X_new_cols.append(data[nm].to_numpy(dtype=float))
+                try:
+                    X_new_cols.append(data[nm].to_numpy(dtype=float))
+                except (TypeError, ValueError) as exc:
+                    raise MethodIncompatibility(
+                        f"Prediction column '{nm}' must be numeric.",
+                        recovery_hint=(
+                            "Coerce prediction data columns to numeric values "
+                            "before calling predict()."
+                        ),
+                        diagnostics={"column": nm, "error": str(exc)},
+                    ) from exc
             else:
-                raise ValueError(
-                    f"Cannot map parameter '{nm}' to a column in the new data"
+                raise MethodIncompatibility(
+                    f"Cannot map parameter '{nm}' to a column in the new data.",
+                    recovery_hint=(
+                        "Use prediction data compatible with the fitted IV "
+                        "formula or refit the model."
+                    ),
+                    diagnostics={"parameter": nm},
                 )
         X_new = np.column_stack(X_new_cols)
         return X_new @ params
@@ -1062,21 +1194,21 @@ class IVRegression(BaseModel):
     def first_stage(self) -> List[Dict[str, float]]:
         """First-stage diagnostics for each endogenous variable."""
         if not self.is_fitted:
-            raise ValueError("Model must be fitted first")
+            raise _not_fitted_error("first_stage")
         return self._first_stage
 
     @property
     def sargan_test(self) -> Optional[Dict[str, float]]:
         """Sargan/Hansen J overidentification test results."""
         if not self.is_fitted:
-            raise ValueError("Model must be fitted first")
+            raise _not_fitted_error("sargan_test")
         return self._sargan
 
     @property
     def hausman_test(self) -> Dict[str, float]:
         """Durbin-Wu-Hausman endogeneity test results."""
         if not self.is_fitted:
-            raise ValueError("Model must be fitted first")
+            raise _not_fitted_error("hausman_test")
         return self._hausman
 
 
@@ -1122,9 +1254,11 @@ def _iv_absorb_preprocess(
 
     parsed = parse_formula(formula)
     if not parsed['endogenous'] or not parsed['instruments']:
-        raise ValueError(
+        raise MethodIncompatibility(
             "IV formula must specify endogenous variables and instruments. "
-            "Use syntax: \"y ~ (endog ~ z1 + z2) + exog\""
+            "Use syntax: \"y ~ (endog ~ z1 + z2) + exog\"",
+            recovery_hint="Write the endogenous block as (endog ~ instrument).",
+            diagnostics={"formula": formula},
         )
 
     dependent = parsed['dependent']
@@ -1138,17 +1272,33 @@ def _iv_absorb_preprocess(
         needed.append(cluster_name)
     missing = [v for v in needed if v not in data.columns]
     if missing:
-        raise ValueError(f"Variables not found in data: {missing}")
+        raise MethodIncompatibility(
+            f"Variables not found in data: {missing}",
+            recovery_hint=(
+                "Add the missing formula, absorb, or cluster columns to the "
+                "DataFrame."
+            ),
+            diagnostics={"missing_columns": missing},
+        )
     missing_absorb = [c for c in absorb_terms if c not in data.columns]
     if missing_absorb:
-        raise ValueError(
-            f"absorb columns not found in data: {missing_absorb}"
+        raise MethodIncompatibility(
+            f"absorb columns not found in data: {missing_absorb}",
+            recovery_hint="Pass absorb columns present in the DataFrame.",
+            diagnostics={"missing_absorb_columns": missing_absorb},
         )
 
     clean = data[needed].dropna(subset=needed)
     n_obs = len(clean)
     if n_obs == 0:
-        raise ValueError("No rows remain after dropping NaNs")
+        raise DataInsufficient(
+            "No rows remain after dropping NaNs.",
+            recovery_hint=(
+                "Provide complete rows for formula, absorb, and cluster "
+                "columns."
+            ),
+            diagnostics={"required_columns": needed},
+        )
 
     y = clean[dependent].to_numpy(dtype=np.float64)
     X_exog = (
@@ -1444,9 +1594,16 @@ def iv(
     absorb_terms = _normalise_absorb(absorb)
     if absorb_terms:
         if formula is None or data is None:
-            raise ValueError(
+            raise MethodIncompatibility(
                 "absorb= requires (formula, data) — matrix mode is not "
-                "supported. Build the formula and pass the DataFrame."
+                "supported. Build the formula and pass the DataFrame.",
+                recovery_hint=(
+                    "Use formula/data mode when requesting absorbed IV."
+                ),
+                diagnostics={
+                    "has_formula": formula is not None,
+                    "has_data": data is not None,
+                },
             )
         _result, _model, _pre = _iv_absorb_run(
             formula=formula, data=data,
