@@ -2370,7 +2370,149 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "tests/reference_parity/test_matching_parity.py"
+      "tests/reference_parity/test_matching_parity.py",
+      "tests/reference_parity/test_psmatch2_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alternatives": [
+      "match",
+      "psm",
+      "ebalance",
+      "cbps",
+      "ipw",
+      "drdid"
+    ],
+    "assumptions": [
+      "Unconfoundedness / CIA: Y(d) perp D | X",
+      "Overlap / common support on the propensity score",
+      "SUTVA: no interference between matched units"
+    ],
+    "category": "causal",
+    "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance, common-support plotting, and frequency-weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "example": "sp.psmatch2(df, treat='union', outcome='log_wage', covariates=['education','experience','tenure'])",
+    "failure_modes": [
+      {
+        "alternative": "sp.ebalance",
+        "exception": "statspai.AssumptionWarning",
+        "remedy": "Tighten caliper, add covariate interactions (ps_poly), or switch to sp.ebalance.",
+        "symptom": "Residual imbalance after matching (max |SMD| > 0.1)"
+      },
+      {
+        "alternative": "sp.trimming",
+        "exception": "statspai.AssumptionWarning",
+        "remedy": "Pass common_support='minmax' (Stata `common`) or sp.trimming.",
+        "symptom": "Treated units off common support"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "psmatch2",
+    "pre_conditions": [
+      "binary treatment 0/1",
+      "covariates are pre-treatment (temporally prior to D)",
+      "enough control units for each treated unit under k:1 matching",
+      "one row per unit in the matching data (id column required for psm_did)"
+    ],
+    "reference": "Leuven & Sianesi (2003) PSMATCH2 (SSC S432001); Rosenbaum & Rubin (1983)",
+    "signature": {
+      "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance, common-support plotting, and frequency-weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "psmatch2",
+      "parameters": {
+        "properties": {
+          "ai": {
+            "default": 0,
+            "description": "Abadie-Imbens (2006) robust SE with J within-arm matches (Stata ai(J))",
+            "type": "integer"
+          },
+          "bwidth": {
+            "default": 0.06,
+            "description": "Kernel bandwidth (method='kernel')",
+            "type": "number"
+          },
+          "caliper": {
+            "description": "Max PS distance / radius bandwidth",
+            "type": "number"
+          },
+          "common_support": {
+            "default": "none",
+            "description": "Common-support trimming",
+            "enum": [
+              "none",
+              "minmax"
+            ],
+            "type": "string"
+          },
+          "covariates": {
+            "description": "Covariate matrix, DataFrame, or column names.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "kernel": {
+            "default": "epan",
+            "description": "Kernel type (method='kernel')",
+            "enum": [
+              "epan",
+              "normal",
+              "biweight",
+              "uniform",
+              "tricube"
+            ],
+            "type": "string"
+          },
+          "method": {
+            "default": "neighbor",
+            "description": "Matching algorithm",
+            "enum": [
+              "neighbor",
+              "kernel",
+              "radius"
+            ],
+            "type": "string"
+          },
+          "neighbor": {
+            "default": 1,
+            "description": "Number of nearest neighbours k",
+            "type": "integer"
+          },
+          "outcome": {
+            "description": "Outcome variable (Stata outcome(); optional)",
+            "type": "string"
+          },
+          "se": {
+            "default": "psmatch2",
+            "description": "Standard-error estimator",
+            "enum": [
+              "psmatch2",
+              "ai",
+              "abadie_imbens"
+            ],
+            "type": "string"
+          },
+          "treat": {
+            "description": "Binary treatment column (0/1)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "treat",
+          "covariates"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 200,
+    "validation_notes": [
+      "tests/reference_parity/test_psmatch2_parity.py"
     ],
     "validation_status": "validated"
   },

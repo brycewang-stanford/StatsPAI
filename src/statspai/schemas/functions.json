@@ -1283,6 +1283,99 @@
     }
   },
   {
+    "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance, common-support plotting, and frequency-weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "psmatch2",
+    "parameters": {
+      "properties": {
+        "ai": {
+          "default": 0,
+          "description": "Abadie-Imbens (2006) robust SE with J within-arm matches (Stata ai(J))",
+          "type": "integer"
+        },
+        "bwidth": {
+          "default": 0.06,
+          "description": "Kernel bandwidth (method='kernel')",
+          "type": "number"
+        },
+        "caliper": {
+          "description": "Max PS distance / radius bandwidth",
+          "type": "number"
+        },
+        "common_support": {
+          "default": "none",
+          "description": "Common-support trimming",
+          "enum": [
+            "none",
+            "minmax"
+          ],
+          "type": "string"
+        },
+        "covariates": {
+          "description": "Covariate matrix, DataFrame, or column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "kernel": {
+          "default": "epan",
+          "description": "Kernel type (method='kernel')",
+          "enum": [
+            "epan",
+            "normal",
+            "biweight",
+            "uniform",
+            "tricube"
+          ],
+          "type": "string"
+        },
+        "method": {
+          "default": "neighbor",
+          "description": "Matching algorithm",
+          "enum": [
+            "neighbor",
+            "kernel",
+            "radius"
+          ],
+          "type": "string"
+        },
+        "neighbor": {
+          "default": 1,
+          "description": "Number of nearest neighbours k",
+          "type": "integer"
+        },
+        "outcome": {
+          "description": "Outcome variable (Stata outcome(); optional)",
+          "type": "string"
+        },
+        "se": {
+          "default": "psmatch2",
+          "description": "Standard-error estimator",
+          "enum": [
+            "psmatch2",
+            "ai",
+            "abadie_imbens"
+          ],
+          "type": "string"
+        },
+        "treat": {
+          "description": "Binary treatment column (0/1)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "treat",
+        "covariates"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Targeted Maximum Likelihood Estimation for ATE/ATT with double-robustness. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "tmle",
     "parameters": {
@@ -15641,6 +15734,11 @@
     "name": "MatchEstimator",
     "parameters": {
       "properties": {
+        "ai_matches": {
+          "default": 1,
+          "description": "ai_matches parameter (int).",
+          "type": "integer"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
@@ -15651,9 +15749,19 @@
           "description": "bias_correction parameter (bool).",
           "type": "boolean"
         },
+        "bwidth": {
+          "default": 0.06,
+          "description": "bwidth parameter (float).",
+          "type": "number"
+        },
         "caliper": {
           "description": "caliper parameter (Optional[float]).",
           "type": "number"
+        },
+        "common_support": {
+          "default": "none",
+          "description": "common_support parameter (str).",
+          "type": "string"
         },
         "covariates": {
           "description": "Variables to match on.",
@@ -15673,6 +15781,11 @@
         "estimand": {
           "default": "ATT",
           "description": "``'ATT'`` or ``'ATE'``.",
+          "type": "string"
+        },
+        "kernel": {
+          "default": "epan",
+          "description": "Kernel function used for weighting or smoothing.",
           "type": "string"
         },
         "method": {
@@ -15703,6 +15816,11 @@
           "default": true,
           "description": "replace parameter (bool).",
           "type": "boolean"
+        },
+        "se_method": {
+          "default": "auto",
+          "description": "se_method parameter (str).",
+          "type": "string"
         },
         "treat": {
           "description": "Binary (0/1) treatment column.",
@@ -18550,6 +18668,60 @@
         "matches",
         "n_treated",
         "n_obs"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Container for a ``sp.psmatch2`` run.",
+    "name": "PSMatch2Result",
+    "parameters": {
+      "properties": {
+        "common_support": {
+          "description": "common_support parameter (str).",
+          "type": "string"
+        },
+        "covariates": {
+          "description": "Covariate matrix, DataFrame, or column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "matched_data": {
+          "description": "matched_data parameter (pd.DataFrame).",
+          "type": "string"
+        },
+        "method": {
+          "default": "neighbor",
+          "description": "Estimator or algorithm variant to use.",
+          "type": "string"
+        },
+        "n_matches": {
+          "description": "Number of matches.",
+          "type": "integer"
+        },
+        "outcome": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        },
+        "result": {
+          "description": "result parameter (CausalResult).",
+          "type": "string"
+        },
+        "treat": {
+          "description": "Treatment indicator or first-treatment-period column.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result",
+        "matched_data",
+        "treat",
+        "covariates",
+        "outcome",
+        "n_matches",
+        "common_support"
       ],
       "type": "object"
     }
