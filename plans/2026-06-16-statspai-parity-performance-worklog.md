@@ -659,3 +659,148 @@ Known verification note:
   have `torch` installed, so its runtime path was not executed locally. The
   existing skipped test now has a classifier-visible metadata contract, and
   the implementation path remains unchanged.
+
+## 2026-06-17 Batch 38
+
+Target: `sp.regress` simple-formula performance without weakening Patsy
+compatibility.
+
+- Profiled the quick benchmark path and found most `sp.regress("y ~ x0 + ...")`
+  time was spent in Patsy `dmatrices` construction/NA handling rather than the
+  OLS or HC1 numerical kernels.
+- Added a conservative direct design-matrix builder for plain numeric additive
+  formulas such as `y ~ x1 + x2` and `y ~ x1 + x2 - 1`.
+- Tightened the direct builder to use one numeric array plus an NA mask instead
+  of building an intermediate dropped-NA DataFrame.
+- Kept `EconometricResults.pvalues` as the existing ndarray public surface, but
+  moved t-statistic and confidence-interval internals onto ndarray arithmetic
+  before restoring the existing Series outputs.
+- Left categorical transforms, interactions, function calls, quoted names,
+  fixed-effect separators, and non-numeric columns on the Patsy path.
+- Added tests that compare the direct builder against Patsy for NA dropping,
+  row-index retention, intercept/no-intercept semantics, and complex-formula
+  fallback.
+- Refreshed quick benchmark results:
+  - `sp.regress`, n=1,000: 3.2 ms -> 0.9 ms in committed quick results.
+  - `sp.regress`, n=10,000: 4.5 ms -> 2.3 ms in committed quick results.
+  - HDFE quick rows stayed slightly faster than the previous committed results.
+
+Verification run:
+
+- `.venv/bin/python -m pytest -o addopts='' tests/test_ols.py tests/test_reference_alignment_statsmodels.py tests/numerical_accuracy/test_nist_strd_ols.py tests/test_tierg_robustness.py`
+  passed, 54 tests.
+- `.venv/bin/python benchmarks/run_all.py --quick` refreshed
+  `benchmarks/RESULTS.md` and `benchmarks/results.json`.
+- `.venv/bin/python scripts/benchmark_ratchet.py --check` passed; note that
+  the committed baseline was produced under Python 3.13.5 and this run used
+  Python 3.10.20, so the ratio is useful as a regression guard but not a
+  same-interpreter microbenchmark claim.
+- `git diff --check` passed.
+
+Next root-only targets:
+
+1. Run a second performance pass on formula/result packaging overhead for
+   `sp.regress` if the benchmark gap to statsmodels remains material.
+2. Inspect the current weak/smoke/untested registry distribution for shared
+   surfaces where a reliability guard is more valuable than another small
+   performance micro-optimization.
+3. Keep `Paper-JSS/`, `CausalAgentBench/`, `paper.md`, and `paper.bib` out of
+   scope unless a reviewer-facing package artifact explicitly requires them.
+
+## 2026-06-17 Batch 39
+
+Target: root validation/reporting reliability contracts.
+
+- Audited the post-Tier-D evidence distribution and found the remaining
+  weak/smoke/untested rows are mostly non-estimator surfaces: result
+  containers, output helpers, agent/schema helpers, and validation reports.
+- Chose the validation report surface because it is a package-facing evidence
+  boundary used by parity and paper-workflow checks, while still avoiding
+  manuscript edits.
+- Added exact registry reconciliation checks for `sp.validation_report`:
+  per-category, per-stability, per-validation-status, handwritten, and auto
+  spec counts must sum to the reported total.
+- Added lossless aggregation checks for `sp.coverage_matrix(level="category")`
+  against the validation report's live registry snapshot.
+- Added direct round-trip/failure contracts for `ValidationReport`,
+  `ReproductionStep`, and `ReproductionResult`, including skipped-step
+  semantics, failed-step extraction, dict serialization, and Markdown rows.
+- Classifier effect: validation-surface evidence moved from
+  557 -> 562 anchored, 147 -> 145 weak, and 193 -> 190 untested globally;
+  Tier-D estimator-like worklist remains zero.
+
+Verification run:
+
+- `.venv/bin/python -m pytest -o addopts='' tests/test_jss_validation_api.py`
+  passed, 12 tests.
+- `.venv/bin/python scripts/tierd_classify.py report` passed with
+  0 estimator-like Tier-D functions.
+- `git diff --check` passed.
+
+## 2026-06-17 Batch 40
+
+Target: root package gate cleanup after the broader pytest audit, while keeping
+the JSS/Paper-JSS review lane isolated.
+
+- Fixed the root schema lint failure by replacing the `psmatch2` agent-facing
+  `_n1.. _nn` wording with ` _n1 through _nn` in both the runtime summary and
+  registry metadata.
+- Regenerated the committed schema bundles under `schemas/` and
+  `src/statspai/schemas/`; this also synced the live `psmatch2` tool/card
+  entry that was present in the registry but missing from the offline bundle.
+- Migrated high-traffic inference/DID failure paths from generic built-ins to
+  StatsPAI taxonomy exceptions while preserving `ValueError`/`RuntimeError`
+  compatibility through the existing subclass hierarchy:
+  - `fast.inference`: cluster count, bootstrap design, restriction-matrix, and
+    singular-Wald failures now raise `DataInsufficient`,
+    `MethodIncompatibility`, or `NumericalInstability`.
+  - `did.wooldridge_did`: ETWFE/DR-DID treatment-design, panel-completeness,
+    weighting, and aggregation failures now raise `DataInsufficient` or
+    `MethodIncompatibility`.
+- Error-taxonomy audit improved from the failing full-pytest state
+  `76 taxonomy / 1,954 generic` to `143 taxonomy / 1,887 generic`, passing the
+  ratchet ceiling of 1,902 generic raises.
+- Tightened the simple-formula fast path to fall back to Patsy when no complete
+  rows remain, preserving legacy edge-case error behavior while retaining the
+  benchmark win on valid numeric formulas.
+
+Verification run:
+
+- `.venv/bin/python -m pytest -o addopts='' tests/test_ols.py
+  tests/test_reference_alignment_statsmodels.py
+  tests/numerical_accuracy/test_nist_strd_ols.py tests/test_tierg_robustness.py
+  tests/test_tidy_glance.py tests/test_econometric_results_export.py
+  tests/test_regtable_serialization.py tests/test_modelsummary.py` passed,
+  143 tests.
+- `.venv/bin/python -m pytest -o addopts='' tests/test_fast_inference.py
+  tests/test_fast_fepois.py tests/test_wooldridge_did_branches.py
+  tests/test_cov95_did_wooldridge.py tests/test_cov95_did_r2_wooldridge.py
+  tests/test_cov95_did_r3_wooldridge.py` passed, 148 tests and 9 skips.
+- `.venv/bin/python -m pytest -o addopts='' tests/test_schema_export.py
+  tests/test_error_taxonomy_audit.py tests/test_jss_validation_api.py` passed,
+  32 tests.
+- `.venv/bin/python scripts/dump_schemas.py --check` passed.
+- `.venv/bin/python scripts/registry_stats.py --check` passed:
+  1,033 functions across 81 submodules.
+- `.venv/bin/python scripts/tierd_classify.py report` passed with
+  128 reference, 562 anchored, 145 weak, 8 smoke, 190 untested, and
+  0 estimator-like Tier-D functions.
+- `.venv/bin/python scripts/tier_a_fixture_lock.py` reported
+  `tests/r_parity/TIER_A_FIXTURE_LOCK.json is current`.
+- `.venv/bin/python -m compileall -q src/statspai` passed.
+- `.venv/bin/python scripts/benchmark_ratchet.py --check` passed:
+  `sp.regress` quick benchmark remains improved at 3.2 ms -> 0.9 ms for
+  n=1,000 and 4.5 ms -> 2.3 ms for n=10,000; no StatsPAI timing regressed
+  beyond the 1.50x ratchet.
+- `git diff --check` passed.
+
+Known excluded-lane note:
+
+- The full-suite failures that remain in `tests/test_jss_release_manifest.py`
+  are now limited to Paper-JSS/JSS claim-text count synchronization:
+  `test_validation_claim_lint_covers_release_notes` and
+  `test_validation_evidence_audit_separates_grade_from_supplemental_notes`.
+  Those require edits to `Paper-JSS/` and manuscript-facing docs, which this
+  batch intentionally did not touch. Running the JSS test refreshed generated
+  `Paper-JSS/replication/results/*` files; those test-generated artifacts were
+  restored so both nested review repos remain clean.

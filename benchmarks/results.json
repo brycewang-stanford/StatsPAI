@@ -1,10 +1,10 @@
 {
   "meta": {
-    "statspai_version": "1.17.0",
-    "python": "3.13.5",
-    "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+    "statspai_version": "1.18.0",
+    "python": "3.10.20",
+    "platform": "macOS-26.5-arm64-arm-64bit",
     "mode": "quick",
-    "timestamp_utc": "2026-06-12T07:41:49.650815+00:00"
+    "timestamp_utc": "2026-06-17T08:21:20.480226+00:00"
   },
   "regression": {
     "name": "OLS regression (5 covariates, HC1 SE)",
@@ -16,15 +16,15 @@
     "rows": [
       {
         "n": 1000,
-        "sp_regress_s": 0.003206972343226274,
-        "statsmodels_s": 0.0001719166369487842,
-        "speedup_vs_sm": "18.7x slower"
+        "sp_regress_s": 0.0009313469442228476,
+        "statsmodels_s": 0.00017740259257455668,
+        "speedup_vs_sm": "5.2x slower"
       },
       {
         "n": 10000,
-        "sp_regress_s": 0.0044871249701827765,
-        "statsmodels_s": 0.0009574030215541521,
-        "speedup_vs_sm": "4.7x slower"
+        "sp_regress_s": 0.002326139093687137,
+        "statsmodels_s": 0.0009349166260411342,
+        "speedup_vs_sm": "2.5x slower"
       }
     ]
   },
@@ -36,17 +36,17 @@
         "n_units": 500,
         "n_periods": 10,
         "n_obs": 5000,
-        "sp_absorb_ols_s": 0.00043443023848036927,
-        "linearmodels_panelols_s": 0.013602604158222675,
-        "speedup_vs_lm": "31.3x faster"
+        "sp_absorb_ols_s": 0.0004120413213968277,
+        "linearmodels_panelols_s": 0.013057187548838556,
+        "speedup_vs_lm": "31.7x faster"
       },
       {
         "n_units": 2000,
         "n_periods": 10,
         "n_obs": 20000,
-        "sp_absorb_ols_s": 0.0014240279948959749,
-        "linearmodels_panelols_s": 0.024087374564260244,
-        "speedup_vs_lm": "16.9x faster"
+        "sp_absorb_ols_s": 0.0013100693468004465,
+        "linearmodels_panelols_s": 0.022736667073331773,
+        "speedup_vs_lm": "17.4x faster"
       }
     ]
   },
@@ -56,14 +56,14 @@
       {
         "n_units": 200,
         "n_obs": 1600,
-        "cs2021_s": 0.008559353998862207,
-        "wooldridge_s": 0.020011479617096484
+        "cs2021_s": 0.00859366706572473,
+        "wooldridge_s": 0.020539583172649145
       },
       {
         "n_units": 1000,
         "n_obs": 8000,
-        "cs2021_s": 0.008952020667493343,
-        "wooldridge_s": 0.061041437555104494
+        "cs2021_s": 0.009709333535283804,
+        "wooldridge_s": 0.06931939593050629
       }
     ]
   }
