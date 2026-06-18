@@ -72,3 +72,34 @@ class TestSklearnDML:
         preds = model.predict(X)
         assert preds.shape == (n,)
         assert hasattr(model, "ate_")
+
+
+class TestSklearnCausalForest:
+    def test_fit_predict(self):
+        from statspai.compat import SklearnCausalForest
+
+        rng = np.random.RandomState(42)
+        n = 90
+        covariates = rng.randn(n, 2)
+        treatment = rng.binomial(1, 0.5, size=n).astype(float)
+        y = (1.0 + covariates[:, 0]) * treatment + covariates[:, 1]
+        y = y + rng.randn(n) * 0.2
+        X = np.column_stack([treatment, covariates])
+
+        model = SklearnCausalForest(n_trees=4, min_leaf_size=2)
+        model.fit(X, y)
+        preds = model.predict(X[:7])
+
+        assert preds.shape == (7,)
+        assert np.isfinite(preds).all()
+        assert hasattr(model, "results_")
+
+    def test_requires_covariates_after_treatment(self):
+        from statspai.compat import SklearnCausalForest
+
+        model = SklearnCausalForest(n_trees=2, min_leaf_size=1)
+        X = np.array([[0.0], [1.0], [0.0], [1.0]])
+        y = np.arange(4.0)
+
+        with pytest.raises(ValueError, match="at least one covariate"):
+            model.fit(X, y)

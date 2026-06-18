@@ -283,9 +283,11 @@ def handle_prompts_list(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def handle_prompts_get(params: Dict[str, Any],
-                        InvalidParamsError,
-                        ResourceNotFoundError) -> Dict[str, Any]:
+def handle_prompts_get(
+    params: Dict[str, Any],
+    InvalidParamsError: type[Exception],
+    ResourceNotFoundError: type[Exception],
+) -> Dict[str, Any]:
     """Render a prompt template.
 
     The two error classes are passed in (rather than imported) to

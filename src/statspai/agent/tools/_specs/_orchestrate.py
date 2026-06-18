@@ -15,7 +15,7 @@ import pandas as pd
 from .._helpers import _scalar_or_none
 
 
-def _causal_serializer(w) -> Dict[str, Any]:
+def _causal_serializer(w: Any) -> Dict[str, Any]:
     """Serialise a ``CausalWorkflow`` result to a fixed-shape JSON dict."""
     return {
         'design': w.design,
@@ -62,7 +62,7 @@ def _causal_serializer(w) -> Dict[str, Any]:
     }
 
 
-def _recommend_serializer(r) -> Dict[str, Any]:
+def _recommend_serializer(r: Any) -> Dict[str, Any]:
     """Serialise a ``Recommendation`` result to a fixed-shape JSON dict."""
     return {
         'design': getattr(r, 'design', None),
@@ -99,9 +99,13 @@ SPECS: List[Dict[str, Any]] = [
                 'cohort': {'type': 'string'},
                 'running_var': {'type': 'string'},
                 'instrument': {'type': 'string'},
-                'design': {'type': 'string',
-                            'enum': ['did', 'rd', 'iv',
-                                     'observational', 'panel', 'rct']},
+                'design': {
+                    'type': 'string',
+                    'enum': [
+                        'did', 'rd', 'iv',
+                        'observational', 'panel', 'rct',
+                    ],
+                },
             },
             'required': ['y'],
         },

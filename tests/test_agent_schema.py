@@ -16,6 +16,7 @@ from statspai.registry import (
     ParamSpec,
     _REGISTRY,
     _auto_spec_from_callable,
+    _json_schema_type,
     register,
 )
 
@@ -196,6 +197,26 @@ class TestBackwardCompatibility:
         assert params["method"].enum == ["a", "b"]
         assert params["method"].type == "str"
         assert params["n_boot"].description == "Number of bootstrap draws."
+
+    @pytest.mark.parametrize(
+        ("annotation", "expected"),
+        [
+            ("Tuple[float, float]", "array"),
+            ("tuple[float, float]", "array"),
+            ("List[int]", "array"),
+            ("Dict[str, float]", "object"),
+            ("Dict[str, bool] | None", "object"),
+            ("Optional[Mapping[str, float]]", "object"),
+            ("Union[bool, Dict[str, Any], None]", "boolean"),
+            ("Union[bool, Sequence[bool]]", "boolean"),
+            ("dict | list", "array"),
+            ("float | 2x2 array", "number"),
+            ("pandas.DataFrame", "string"),
+            ("np.ndarray", "string"),
+        ],
+    )
+    def test_json_schema_type_prefers_containers(self, annotation, expected):
+        assert _json_schema_type(annotation) == expected
 
 
 class TestFlagshipPopulated:

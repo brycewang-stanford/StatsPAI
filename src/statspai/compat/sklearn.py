@@ -16,10 +16,13 @@ Design principles
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
+from numpy.typing import ArrayLike, NDArray
+
+_FloatArray = NDArray[np.float64]
 
 try:
     from sklearn.base import BaseEstimator, RegressorMixin  # type: ignore[import-untyped]
@@ -29,11 +32,12 @@ except ImportError:
     # Provide stubs so the module can be imported even without sklearn
     class BaseEstimator:  # type: ignore[no-redef]
         pass
+
     class RegressorMixin:  # type: ignore[no-redef]
         pass
 
 
-def _check_sklearn():
+def _check_sklearn() -> None:
     if not HAS_SKLEARN:
         raise ImportError(
             "scikit-learn is required for the compat module.\n"
@@ -41,7 +45,7 @@ def _check_sklearn():
         )
 
 
-def lasso_cv_alphas_kwargs(n_alphas: int) -> dict:
+def lasso_cv_alphas_kwargs(n_alphas: int) -> dict[str, int]:
     """Version-robust keyword for the number of CV path alphas.
 
     scikit-learn 1.7 deprecated the ``n_alphas`` argument of the
@@ -88,11 +92,16 @@ class SklearnOLS(BaseEstimator, RegressorMixin):
     intercept_ : float
     """
 
-    def __init__(self, robust: str = "nonrobust", add_constant: bool = True):
+    def __init__(self, robust: str = "nonrobust", add_constant: bool = True) -> None:
         self.robust = robust
         self.add_constant = add_constant
 
-    def fit(self, X, y, **fit_params):
+    def fit(
+        self,
+        X: ArrayLike,
+        y: ArrayLike,
+        **fit_params: Any,
+    ) -> "SklearnOLS":
         _check_sklearn()
         from ..regression.ols import OLSEstimator
         from ..core.results import EconometricResults
@@ -131,20 +140,14 @@ class SklearnOLS(BaseEstimator, RegressorMixin):
         self._X_fit = X
         return self
 
-    def predict(self, X):
-        X = np.asarray(X, dtype=np.float64)
-        if self.add_constant:
-            X = np.column_stack([np.ones(len(X)), X])
-        return X @ np.concatenate([[self.intercept_], self.coef_]) if self.add_constant else X @ self.coef_
-
-    def predict(self, X):
+    def predict(self, X: ArrayLike) -> _FloatArray:
         X = np.asarray(X, dtype=np.float64)
         if self.add_constant:
             X = np.column_stack([np.ones(len(X)), X])
             params = np.concatenate([[self.intercept_], self.coef_])
         else:
             params = self.coef_
-        return X @ params
+        return np.asarray(X @ params, dtype=np.float64)
 
 
 class SklearnIV(BaseEstimator, RegressorMixin):
@@ -165,11 +168,16 @@ class SklearnIV(BaseEstimator, RegressorMixin):
     treated as excluded instruments.
     """
 
-    def __init__(self, n_instruments: int = 1, add_constant: bool = True):
+    def __init__(self, n_instruments: int = 1, add_constant: bool = True) -> None:
         self.n_instruments = n_instruments
         self.add_constant = add_constant
 
-    def fit(self, X, y, **fit_params):
+    def fit(
+        self,
+        X: ArrayLike,
+        y: ArrayLike,
+        **fit_params: Any,
+    ) -> "SklearnIV":
         _check_sklearn()
         from ..regression.iv import IVRegression
 
@@ -205,11 +213,11 @@ class SklearnIV(BaseEstimator, RegressorMixin):
         self.intercept_ = 0.0
         return self
 
-    def predict(self, X):
+    def predict(self, X: ArrayLike) -> _FloatArray:
         X = np.asarray(X, dtype=np.float64)
         # Use only the non-instrument columns
         k_used = X.shape[1] - self.n_instruments
-        return X[:, :k_used] @ self.coef_[:k_used]
+        return np.asarray(X[:, :k_used] @ self.coef_[:k_used], dtype=np.float64)
 
 
 class SklearnDML(BaseEstimator, RegressorMixin):
@@ -231,12 +239,22 @@ class SklearnDML(BaseEstimator, RegressorMixin):
     variable, remaining columns are controls/confounders.
     """
 
-    def __init__(self, n_folds: int = 5, model_y=None, model_t=None):
+    def __init__(
+        self,
+        n_folds: int = 5,
+        model_y: Optional[object] = None,
+        model_t: Optional[object] = None,
+    ) -> None:
         self.n_folds = n_folds
         self.model_y = model_y
         self.model_t = model_t
 
-    def fit(self, X, y, **fit_params):
+    def fit(
+        self,
+        X: ArrayLike,
+        y: ArrayLike,
+        **fit_params: Any,
+    ) -> "SklearnDML":
         _check_sklearn()
         from ..dml.double_ml import DoubleML
 
@@ -256,12 +274,10 @@ class SklearnDML(BaseEstimator, RegressorMixin):
             y="__y__",
             treat="__treat__",
             covariates=col_names,
+            ml_g=self.model_y,
+            ml_m=self.model_t,
             n_folds=self.n_folds,
         )
-        if self.model_y is not None:
-            model.model_y = self.model_y
-        if self.model_t is not None:
-            model.model_t = self.model_t
 
         self.results_ = model.fit()
         self.coef_ = np.array([self.results_.params.iloc[0]])
@@ -269,9 +285,10 @@ class SklearnDML(BaseEstimator, RegressorMixin):
         self.ate_ = self.coef_[0]
         return self
 
-    def predict(self, X):
+    def predict(self, X: ArrayLike) -> _FloatArray:
         # DML estimates a constant treatment effect
-        return np.full(X.shape[0], self.ate_)
+        n_rows = np.asarray(X).shape[0]
+        return np.full(n_rows, self.ate_, dtype=np.float64)
 
 
 class SklearnCausalForest(BaseEstimator, RegressorMixin):
@@ -287,11 +304,16 @@ class SklearnCausalForest(BaseEstimator, RegressorMixin):
     min_leaf_size : int
     """
 
-    def __init__(self, n_trees: int = 100, min_leaf_size: int = 5):
+    def __init__(self, n_trees: int = 100, min_leaf_size: int = 5) -> None:
         self.n_trees = n_trees
         self.min_leaf_size = min_leaf_size
 
-    def fit(self, X, y, **fit_params):
+    def fit(
+        self,
+        X: ArrayLike,
+        y: ArrayLike,
+        **fit_params: Any,
+    ) -> "SklearnCausalForest":
         _check_sklearn()
         from ..forest.causal_forest import CausalForest
 
@@ -300,6 +322,11 @@ class SklearnCausalForest(BaseEstimator, RegressorMixin):
 
         treatment = X[:, 0]
         covariates = X[:, 1:]
+        if covariates.shape[1] == 0:
+            raise ValueError(
+                "SklearnCausalForest.fit() requires at least one covariate "
+                "column after the treatment column."
+            )
         col_names = [f"x{i}" for i in range(covariates.shape[1])]
 
         df = pd.DataFrame(covariates, columns=col_names)
@@ -308,19 +335,17 @@ class SklearnCausalForest(BaseEstimator, RegressorMixin):
 
         formula = f"__y__ ~ __treat__ | {' + '.join(col_names)}"
         self.cf_ = CausalForest(
-            formula=formula,
-            data=df,
-            n_trees=self.n_trees,
-            min_leaf_size=self.min_leaf_size,
+            n_estimators=self.n_trees,
+            min_samples_leaf=self.min_leaf_size,
         )
-        self.results_ = self.cf_.fit()
-        self.coef_ = np.array([self.results_.params.get("ATE", 0.0)])
+        self.results_ = self.cf_.fit(formula=formula, data=df)
+        self.coef_ = np.array([
+            float(self.cf_.diagnostics.get("average_treatment_effect", 0.0))
+        ])
         self.intercept_ = 0.0
         return self
 
-    def predict(self, X):
+    def predict(self, X: ArrayLike) -> _FloatArray:
         X = np.asarray(X, dtype=np.float64)
         covariates = X[:, 1:]
-        if hasattr(self.cf_, "predict_cate"):
-            return self.cf_.predict_cate(covariates)
-        return np.full(X.shape[0], self.coef_[0])
+        return np.asarray(self.cf_.effect(covariates), dtype=np.float64)

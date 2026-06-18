@@ -12657,18 +12657,42 @@ def _json_schema_type(type_name: str) -> str:
     """Map Python-ish annotation strings to JSON-schema primitive types."""
     t = (type_name or "").replace("typing.", "")
     lower = t.lower()
+    unionish = "|" in lower or lower.startswith("union[")
+    bool_pos = lower.find("bool")
+    container_tokens = (
+        "dict",
+        "mapping",
+        "list",
+        "sequence",
+        "iterable",
+        "tuple",
+        "set",
+    )
+    container_positions = [
+        pos
+        for tok in container_tokens
+        if (pos := lower.find(tok)) >= 0
+    ]
+    first_container_pos = (
+        min(container_positions) if container_positions else -1
+    )
+    if unionish and bool_pos >= 0 and (
+        first_container_pos < 0 or bool_pos < first_container_pos
+    ):
+        return "boolean"
+    if any(
+        token in lower
+        for token in ("list", "sequence", "iterable", "tuple", "set")
+    ):
+        return "array"
+    if any(token in lower for token in ("dict", "mapping")):
+        return "object"
     if "bool" in lower:
         return "boolean"
     if "int" in lower and "interval" not in lower:
         return "integer"
     if any(token in lower for token in ("float", "double", "number")):
         return "number"
-    if any(
-        token in lower for token in ("list", "sequence", "iterable", "tuple", "set")
-    ):
-        return "array"
-    if any(token in lower for token in ("dict", "mapping")):
-        return "object"
     if any(token in lower for token in ("dataframe", "ndarray", "array")):
         return "string"
     return "string"

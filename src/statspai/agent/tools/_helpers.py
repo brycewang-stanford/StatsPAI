@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 
 
-def _scalar_or_none(v) -> Optional[float]:
+def _scalar_or_none(v: Any) -> Optional[float]:
     """Return ``float(v)`` when ``v`` represents a single scalar value.
 
     Handles 0-d arrays, length-1 Series/arrays, and Python numeric
@@ -56,7 +56,7 @@ def _scalar_or_none(v) -> Optional[float]:
         return None
 
 
-def _default_serializer(r, *, detail: str = "agent") -> Dict[str, Any]:
+def _default_serializer(r: Any, *, detail: str = "agent") -> Dict[str, Any]:
     """Serialise a ``CausalResult`` / ``EconometricResults`` to a JSON dict.
 
     LLM tool-use protocol requires JSON-serialisable return values.
@@ -76,22 +76,23 @@ def _default_serializer(r, *, detail: str = "agent") -> Dict[str, Any]:
         # ``except TypeError`` which would also swallow internal
         # serialisation bugs that happen to raise TypeError.
         import inspect
+        params: Any
         try:
             params = inspect.signature(to_dict).parameters
         except (TypeError, ValueError):
             params = {}
         if "detail" in params:
-            out = to_dict(detail=detail)
+            serialized = to_dict(detail=detail)
         else:
             # Legacy result type that predates the unified ``detail``
             # parameter. Call the zero-arg form; any exception here is
             # a real bug — let it propagate so ``execute_tool``'s
             # outer error envelope reports it cleanly.
-            out = to_dict()
-        if isinstance(out, dict) and out:
-            return out
+            serialized = to_dict()
+        if isinstance(serialized, dict) and serialized:
+            return serialized
 
-    def _is_scalar(v) -> bool:
+    def _is_scalar(v: Any) -> bool:
         # A scalar estimate is neither a pandas Series nor a multi-element
         # numpy array; ``float(...)`` only makes sense in that case.
         if isinstance(v, (pd.Series, pd.DataFrame)):
@@ -133,7 +134,7 @@ def _default_serializer(r, *, detail: str = "agent") -> Dict[str, Any]:
 
             # pvalues / std_errors can be either pandas Series (indexable
             # by name) or numpy arrays (indexable by position); handle both.
-            def _get(obj, name, pos):
+            def _get(obj: Any, name: Any, pos: int) -> Optional[float]:
                 if obj is None:
                     return None
                 if isinstance(obj, pd.Series):
@@ -147,8 +148,11 @@ def _default_serializer(r, *, detail: str = "agent") -> Dict[str, Any]:
             for pos, k in enumerate(names):
                 coefs[str(k)] = {
                     'estimate': float(r.params.iloc[pos]),
-                    'std_error': _get(getattr(r, 'std_errors', None),
-                                       k, pos),
+                    'std_error': _get(
+                        getattr(r, 'std_errors', None),
+                        k,
+                        pos,
+                    ),
                     'p_value': _get(getattr(r, 'pvalues', None), k, pos),
                 }
             out['coefficients'] = coefs
@@ -164,7 +168,7 @@ def _default_serializer(r, *, detail: str = "agent") -> Dict[str, Any]:
     return out
 
 
-def _identification_serializer(r) -> Dict[str, Any]:
+def _identification_serializer(r: Any) -> Dict[str, Any]:
     """Serialise an ``IdentificationReport`` to a JSON dict."""
     return {
         'verdict': r.verdict,
