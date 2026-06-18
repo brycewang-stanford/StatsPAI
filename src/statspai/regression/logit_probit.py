@@ -21,14 +21,21 @@ Hosmer, D.W. & Lemeshow, S. (2000).
     *Applied Logistic Regression*, 2nd ed. Wiley. [@hosmer2000applied]
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Callable, Optional, List, Dict, Any, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
 import warnings
 
 from ..core.results import EconometricResults
-from ..core.utils import parse_formula, create_design_matrices, prepare_data
+from ..core.utils import create_design_matrices
+
+LinkFunc = Callable[[np.ndarray], np.ndarray]
+LinkTriplet = Tuple[LinkFunc, LinkFunc, LinkFunc]
+
+
+def _as_float_array(value: Any) -> np.ndarray:
+    return np.asarray(value, dtype=float)
 
 # =========================================================================
 # Link functions: CDF, PDF, and derivatives
@@ -37,61 +44,63 @@ from ..core.utils import parse_formula, create_design_matrices, prepare_data
 
 def _logit_cdf(z: np.ndarray) -> np.ndarray:
     """Logistic CDF  Λ(z) = 1/(1+exp(-z))  (numerically stable)."""
-    return np.where(
-        z >= 0,
-        1.0 / (1.0 + np.exp(-z)),
-        np.exp(z) / (1.0 + np.exp(z)),
+    return _as_float_array(
+        np.where(
+            z >= 0,
+            1.0 / (1.0 + np.exp(-z)),
+            np.exp(z) / (1.0 + np.exp(z)),
+        )
     )
 
 
 def _logit_pdf(z: np.ndarray) -> np.ndarray:
     """Logistic PDF  λ(z) = Λ(z)(1-Λ(z))."""
     p = _logit_cdf(z)
-    return p * (1.0 - p)
+    return _as_float_array(p * (1.0 - p))
 
 
 def _logit_pdf_deriv(z: np.ndarray) -> np.ndarray:
     """d/dz of logistic PDF:  λ'(z) = λ(z)(1-2Λ(z))."""
     p = _logit_cdf(z)
-    return p * (1.0 - p) * (1.0 - 2.0 * p)
+    return _as_float_array(p * (1.0 - p) * (1.0 - 2.0 * p))
 
 
 def _probit_cdf(z: np.ndarray) -> np.ndarray:
     """Standard normal CDF  Φ(z)."""
-    return stats.norm.cdf(z)
+    return _as_float_array(stats.norm.cdf(z))
 
 
 def _probit_pdf(z: np.ndarray) -> np.ndarray:
     """Standard normal PDF  φ(z)."""
-    return stats.norm.pdf(z)
+    return _as_float_array(stats.norm.pdf(z))
 
 
 def _probit_pdf_deriv(z: np.ndarray) -> np.ndarray:
     """d/dz of normal PDF:  φ'(z) = -z φ(z)."""
-    return -z * stats.norm.pdf(z)
+    return _as_float_array(-z * stats.norm.pdf(z))
 
 
 def _cloglog_cdf(z: np.ndarray) -> np.ndarray:
     """Complementary log-log CDF  1 - exp(-exp(z))."""
     # Clip to prevent overflow
     z_clip = np.clip(z, -30, 30)
-    return 1.0 - np.exp(-np.exp(z_clip))
+    return _as_float_array(1.0 - np.exp(-np.exp(z_clip)))
 
 
 def _cloglog_pdf(z: np.ndarray) -> np.ndarray:
     """Complementary log-log PDF  exp(z) * exp(-exp(z))."""
     z_clip = np.clip(z, -30, 30)
-    return np.exp(z_clip) * np.exp(-np.exp(z_clip))
+    return _as_float_array(np.exp(z_clip) * np.exp(-np.exp(z_clip)))
 
 
 def _cloglog_pdf_deriv(z: np.ndarray) -> np.ndarray:
     """d/dz of cloglog PDF."""
     z_clip = np.clip(z, -30, 30)
     ez = np.exp(z_clip)
-    return np.exp(-ez) * ez * (1.0 - ez)
+    return _as_float_array(np.exp(-ez) * ez * (1.0 - ez))
 
 
-_LINKS = {
+_LINKS: Dict[str, LinkTriplet] = {
     "logit": (_logit_cdf, _logit_pdf, _logit_pdf_deriv),
     "probit": (_probit_cdf, _probit_pdf, _probit_pdf_deriv),
     "cloglog": (_cloglog_cdf, _cloglog_pdf, _cloglog_pdf_deriv),
@@ -107,7 +116,7 @@ def _log_likelihood(
     beta: np.ndarray,
     y: np.ndarray,
     X: np.ndarray,
-    cdf_func,
+    cdf_func: LinkFunc,
     weights: Optional[np.ndarray] = None,
 ) -> float:
     """Bernoulli log-likelihood  Σ w_i [y_i log F(Xβ) + (1-y_i) log(1-F(Xβ))]."""
@@ -119,15 +128,15 @@ def _log_likelihood(
     ll = y * np.log(p) + (1.0 - y) * np.log(1.0 - p)
     if weights is not None:
         ll = ll * weights
-    return np.sum(ll)
+    return float(np.sum(ll))
 
 
 def _score(
     beta: np.ndarray,
     y: np.ndarray,
     X: np.ndarray,
-    cdf_func,
-    pdf_func,
+    cdf_func: LinkFunc,
+    pdf_func: LinkFunc,
     weights: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Gradient (score) vector  ∂ℓ/∂β."""
@@ -140,16 +149,16 @@ def _score(
     gen_resid = (y - p) * f / (p * (1.0 - p))
     if weights is not None:
         gen_resid = gen_resid * weights
-    return X.T @ gen_resid
+    return _as_float_array(X.T @ gen_resid)
 
 
 def _hessian(
     beta: np.ndarray,
     y: np.ndarray,
     X: np.ndarray,
-    cdf_func,
-    pdf_func,
-    pdf_deriv_func,
+    cdf_func: LinkFunc,
+    pdf_func: LinkFunc,
+    pdf_deriv_func: LinkFunc,
     weights: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Analytical Hessian  ∂²ℓ/∂β∂β'."""
@@ -165,7 +174,7 @@ def _hessian(
     d2 = (y - p) * (fp * pq - f**2 * (1.0 - 2.0 * p)) / pq**2 - f**2 / pq
     if weights is not None:
         d2 = d2 * weights
-    return X.T @ (d2[:, np.newaxis] * X)
+    return _as_float_array(X.T @ (d2[:, np.newaxis] * X))
 
 
 def _warn_if_separated(y: np.ndarray, p_hat: np.ndarray) -> None:
@@ -284,18 +293,18 @@ def _newton_raphson(
 def _mle_vcov(H: np.ndarray) -> np.ndarray:
     """MLE (observed information) variance: V = -H^{-1}."""
     try:
-        return np.linalg.inv(-H)
+        return _as_float_array(np.linalg.inv(-H))
     except np.linalg.LinAlgError:
         warnings.warn("Hessian is singular; using pseudo-inverse.", stacklevel=3)
-        return np.linalg.pinv(-H)
+        return _as_float_array(np.linalg.pinv(-H))
 
 
 def _score_obs(
     beta: np.ndarray,
     y: np.ndarray,
     X: np.ndarray,
-    cdf_func,
-    pdf_func,
+    cdf_func: LinkFunc,
+    pdf_func: LinkFunc,
     weights: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Per-observation score vectors (n × k)."""
@@ -307,7 +316,7 @@ def _score_obs(
     gen_resid = (y - p) * f / (p * (1.0 - p))
     if weights is not None:
         gen_resid = gen_resid * weights
-    return gen_resid[:, np.newaxis] * X
+    return _as_float_array(gen_resid[:, np.newaxis] * X)
 
 
 def _robust_vcov(
@@ -320,7 +329,7 @@ def _robust_vcov(
     """
     A_inv = _mle_vcov(H)
     B = score_obs.T @ score_obs
-    return A_inv @ B @ A_inv
+    return _as_float_array(A_inv @ B @ A_inv)
 
 
 def _cluster_vcov(
@@ -343,7 +352,7 @@ def _cluster_vcov(
 
     # Finite-sample correction: G/(G-1)
     correction = n_clusters / (n_clusters - 1)
-    return correction * A_inv @ B @ A_inv
+    return _as_float_array(correction * A_inv @ B @ A_inv)
 
 
 # =========================================================================
@@ -354,7 +363,7 @@ def _cluster_vcov(
 def _marginal_effects(
     beta: np.ndarray,
     X: np.ndarray,
-    pdf_func,
+    pdf_func: LinkFunc,
     var_names: List[str],
     kind: str = "average",
     at_values: Optional[Dict[str, float]] = None,
@@ -469,7 +478,7 @@ def _roc_auc(y: np.ndarray, p_hat: np.ndarray) -> float:
 
     rank_sum = ranks[labels == 1].sum()
     u = rank_sum - n1 * (n1 + 1) / 2
-    return u / (n1 * n0)
+    return float(u / (n1 * n0))
 
 
 def _classification_table(
@@ -508,7 +517,7 @@ def _classification_table(
 def _predict(
     beta: np.ndarray,
     X: np.ndarray,
-    cdf_func,
+    cdf_func: LinkFunc,
     pred_type: str = "response",
     cutoff: float = 0.5,
 ) -> np.ndarray:
@@ -521,11 +530,11 @@ def _predict(
     """
     xb = X @ beta
     if pred_type == "link":
-        return xb
+        return _as_float_array(xb)
     elif pred_type == "response":
-        return cdf_func(xb)
+        return _as_float_array(cdf_func(xb))
     elif pred_type == "class":
-        return (cdf_func(xb) >= cutoff).astype(int)
+        return _as_float_array((cdf_func(xb) >= cutoff).astype(int))
     else:
         raise ValueError(f"Unknown predict type: {pred_type}")
 
@@ -727,14 +736,23 @@ def _fit_binary(
         diagnostics=diagnostics,
     )
 
-    # Attach extra methods
-    result.predict = lambda X_new=None, pred_type="response", cutoff=0.5: (
-        _predict(
-            beta, X_new if X_new is not None else X_mat, cdf_func, pred_type, cutoff
-        )
-    )
-    result.classification_table = lambda cutoff=0.5: _classification_table(
-        y_vec, p_hat if cutoff == 0.5 else cdf_func(X_mat @ beta), cutoff
+    def _result_predict(
+        X_new: Optional[np.ndarray] = None,
+        pred_type: str = "response",
+        cutoff: float = 0.5,
+    ) -> np.ndarray:
+        X_pred = X_mat if X_new is None else _as_float_array(X_new)
+        return _predict(beta, X_pred, cdf_func, pred_type, cutoff)
+
+    def _result_classification_table(cutoff: float = 0.5) -> Dict[str, Any]:
+        probs = p_hat if cutoff == 0.5 else cdf_func(X_mat @ beta)
+        return _classification_table(y_vec, _as_float_array(probs), cutoff)
+
+    setattr(result, "predict", _result_predict)
+    setattr(
+        result,
+        "classification_table",
+        _result_classification_table,
     )
 
     return result
@@ -746,19 +764,19 @@ def _fit_binary(
 
 
 def logit(
-    formula: str = None,
-    data: pd.DataFrame = None,
-    y: str = None,
-    x: list = None,
+    formula: Optional[str] = None,
+    data: Optional[pd.DataFrame] = None,
+    y: Optional[str] = None,
+    x: Optional[List[str]] = None,
     robust: str = "nonrobust",
-    cluster: str = None,
-    weights: str = None,
-    marginal_effects: str = None,
+    cluster: Optional[str] = None,
+    weights: Optional[str] = None,
+    marginal_effects: Optional[str] = None,
     odds_ratio: bool = False,
     maxiter: int = 100,
     tol: float = 1e-8,
     alpha: float = 0.05,
-    at_values: dict = None,
+    at_values: Optional[Dict[str, float]] = None,
 ) -> EconometricResults:
     """
     Logit (logistic) regression via maximum likelihood.
@@ -836,18 +854,18 @@ def logit(
 
 
 def probit(
-    formula: str = None,
-    data: pd.DataFrame = None,
-    y: str = None,
-    x: list = None,
+    formula: Optional[str] = None,
+    data: Optional[pd.DataFrame] = None,
+    y: Optional[str] = None,
+    x: Optional[List[str]] = None,
     robust: str = "nonrobust",
-    cluster: str = None,
-    weights: str = None,
-    marginal_effects: str = None,
+    cluster: Optional[str] = None,
+    weights: Optional[str] = None,
+    marginal_effects: Optional[str] = None,
     maxiter: int = 100,
     tol: float = 1e-8,
     alpha: float = 0.05,
-    at_values: dict = None,
+    at_values: Optional[Dict[str, float]] = None,
 ) -> EconometricResults:
     """
     Probit regression via maximum likelihood.
@@ -919,18 +937,18 @@ def probit(
 
 
 def cloglog(
-    formula: str = None,
-    data: pd.DataFrame = None,
-    y: str = None,
-    x: list = None,
+    formula: Optional[str] = None,
+    data: Optional[pd.DataFrame] = None,
+    y: Optional[str] = None,
+    x: Optional[List[str]] = None,
     robust: str = "nonrobust",
-    cluster: str = None,
-    weights: str = None,
-    marginal_effects: str = None,
+    cluster: Optional[str] = None,
+    weights: Optional[str] = None,
+    marginal_effects: Optional[str] = None,
     maxiter: int = 100,
     tol: float = 1e-8,
     alpha: float = 0.05,
-    at_values: dict = None,
+    at_values: Optional[Dict[str, float]] = None,
 ) -> EconometricResults:
     """
     Complementary log-log regression via maximum likelihood.

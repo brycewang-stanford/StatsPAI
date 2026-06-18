@@ -13,12 +13,11 @@ Fan, J. & Gijbels, I. (1996).
 *Chapman & Hall/CRC Monographs on Statistics & Applied Probability*.
 """
 
-from typing import Optional, Union, List
+from typing import Any, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats
-
-from ..core.results import EconometricResults
 
 
 class LPolyResult:
@@ -41,8 +40,20 @@ class LPolyResult:
     True
     """
 
-    def __init__(self, grid, fitted, se, ci_lower, ci_upper, bandwidth,
-                 degree, kernel, n, data_x, data_y):
+    def __init__(
+        self,
+        grid: np.ndarray,
+        fitted: np.ndarray,
+        se: np.ndarray,
+        ci_lower: np.ndarray,
+        ci_upper: np.ndarray,
+        bandwidth: float,
+        degree: int,
+        kernel: str,
+        n: int,
+        data_x: np.ndarray,
+        data_y: np.ndarray,
+    ) -> None:
         self.grid = grid
         self.fitted = fitted
         self.se = se
@@ -66,7 +77,13 @@ class LPolyResult:
         ]
         return "\n".join(lines)
 
-    def plot(self, ax=None, scatter=True, ci=True, **kwargs):
+    def plot(
+        self,
+        ax: Any = None,
+        scatter: bool = True,
+        ci: bool = True,
+        **kwargs: Any,
+    ) -> Any:
         """Plot the local polynomial fit with optional scatter and CI."""
         try:
             import matplotlib.pyplot as plt
@@ -94,23 +111,23 @@ class LPolyResult:
         return ax
 
 
-def _kernel_fn(u, kernel='epanechnikov'):
+def _kernel_fn(u: np.ndarray, kernel: str = 'epanechnikov') -> np.ndarray:
     """Evaluate kernel function at u."""
     if kernel == 'epanechnikov':
         return np.where(np.abs(u) <= 1, 0.75 * (1 - u**2), 0.0)
     elif kernel == 'gaussian':
-        return stats.norm.pdf(u)
+        return np.asarray(stats.norm.pdf(u), dtype=float)
     elif kernel == 'uniform':
         return np.where(np.abs(u) <= 1, 0.5, 0.0)
     elif kernel == 'triangular':
         return np.where(np.abs(u) <= 1, 1 - np.abs(u), 0.0)
     elif kernel == 'biweight':
-        return np.where(np.abs(u) <= 1, (15/16) * (1 - u**2)**2, 0.0)
+        return np.where(np.abs(u) <= 1, (15 / 16) * (1 - u**2)**2, 0.0)
     else:
         raise ValueError(f"Unknown kernel: {kernel}")
 
 
-def _silverman_bandwidth(x):
+def _silverman_bandwidth(x: np.ndarray) -> float:
     """Silverman's rule-of-thumb bandwidth."""
     n = len(x)
     iqr_val = stats.iqr(x)
@@ -118,10 +135,17 @@ def _silverman_bandwidth(x):
     sigma = min(std_val, iqr_val / 1.349) if iqr_val > 0 else std_val
     if sigma == 0:
         sigma = 1.0  # constant data fallback
-    return 1.06 * sigma * n**(-1/5)
+    return float(1.06 * sigma * n ** (-1 / 5))
 
 
-def _local_poly_fit(x0, x, y, h, degree, kernel):
+def _local_poly_fit(
+    x0: float,
+    x: np.ndarray,
+    y: np.ndarray,
+    h: float,
+    degree: int,
+    kernel: str,
+) -> Tuple[float, float]:
     """
     Fit local polynomial at a single point x0.
 
@@ -168,18 +192,18 @@ def _local_poly_fit(x0, x, y, h, degree, kernel):
     vcov = correction * bread @ meat @ bread
     se = np.sqrt(max(vcov[0, 0], 0.0))
 
-    return fitted, se
+    return float(fitted), float(se)
 
 
 def lpoly(
-    data: pd.DataFrame = None,
-    y: str = None,
-    x: str = None,
-    bandwidth: float = None,
+    data: Optional[pd.DataFrame] = None,
+    y: Optional[str] = None,
+    x: Optional[str] = None,
+    bandwidth: Optional[float] = None,
     degree: int = 1,
     kernel: str = "epanechnikov",
     n_grid: int = 100,
-    grid: np.ndarray = None,
+    grid: Optional[np.ndarray] = None,
     ci: bool = True,
     alpha: float = 0.05,
 ) -> LPolyResult:
@@ -199,9 +223,11 @@ def lpoly(
     bandwidth : float, optional
         Kernel bandwidth. If None, uses Silverman's rule-of-thumb.
     degree : int, default 1
-        Polynomial degree (0=Nadaraya-Watson, 1=local linear, 2=local quadratic).
+        Polynomial degree (0=Nadaraya-Watson, 1=local linear,
+        2=local quadratic).
     kernel : str, default 'epanechnikov'
-        Kernel function: 'epanechnikov', 'gaussian', 'uniform', 'triangular', 'biweight'.
+        Kernel function: 'epanechnikov', 'gaussian', 'uniform', 'triangular',
+        'biweight'.
     n_grid : int, default 100
         Number of evaluation grid points.
     grid : np.ndarray, optional
@@ -229,6 +255,8 @@ def lpoly(
     """
     if data is None:
         raise ValueError("data is required")
+    if y is None or x is None:
+        raise ValueError("y and x are required")
     if degree < 0:
         raise ValueError("degree must be non-negative")
     if n_grid <= 0:
@@ -246,7 +274,9 @@ def lpoly(
     n = len(y_data)
 
     if n == 0:
-        raise ValueError("data has no finite observations after dropping missing values")
+        raise ValueError(
+            "data has no finite observations after dropping missing values"
+        )
 
     if bandwidth is None:
         bandwidth = _silverman_bandwidth(x_data)
@@ -262,8 +292,9 @@ def lpoly(
     se = np.empty(len(grid))
 
     for i, x0 in enumerate(grid):
-        fitted[i], se[i] = _local_poly_fit(x0, x_data, y_data, bandwidth,
-                                           degree, kernel)
+        fitted[i], se[i] = _local_poly_fit(
+            x0, x_data, y_data, bandwidth, degree, kernel
+        )
 
     # Confidence intervals
     z_crit = stats.norm.ppf(1 - alpha / 2)

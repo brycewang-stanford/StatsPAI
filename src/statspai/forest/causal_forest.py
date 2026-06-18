@@ -21,18 +21,15 @@ Key features:
 
 import numpy as np
 import pandas as pd
-from typing import Optional, Union, Tuple, Dict, Any, List
+from typing import Optional, Tuple, Dict, Any, List
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.model_selection import cross_val_predict
 from sklearn.tree import DecisionTreeRegressor
 import warnings
 
 # Import our core classes
 from ..core.base import BaseModel
-from ..core.results import EconometricResults
-from ..core.utils import parse_formula
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
@@ -141,8 +138,8 @@ class CausalForest(BaseModel):
         self.min_samples_leaf = min_samples_leaf
         self.max_depth = max_depth
         self.max_samples = max_samples
-        self.model_y = model_y
-        self.model_t = model_t
+        self.model_y: BaseEstimator
+        self.model_t: BaseEstimator
         self.discrete_treatment = discrete_treatment
         self.honest = honest
         self.bootstrap = bootstrap
@@ -151,11 +148,15 @@ class CausalForest(BaseModel):
         self.verbose = verbose
         
         # Initialize default models if not provided
-        if self.model_y is None:
+        if model_y is None:
             self.model_y = RandomForestRegressor(
                 n_estimators=100, random_state=random_state
             )
-        if self.model_t is None:
+        else:
+            self.model_y = model_y
+        if model_t is not None:
+            self.model_t = model_t
+        else:
             if discrete_treatment:
                 self.model_t = RandomForestClassifier(
                     n_estimators=100, random_state=random_state
@@ -171,7 +172,7 @@ class CausalForest(BaseModel):
         self._treatment_values: Optional[np.ndarray] = None
         self._feature_names: Optional[List[str]] = None
         
-    def fit(
+    def fit(  # type: ignore[override]
         self,
         formula: Optional[str] = None,
         data: Optional[pd.DataFrame] = None,
@@ -662,7 +663,7 @@ class CausalForest(BaseModel):
                     "predict() or effect()."
                 ),
             )
-        return X
+        return np.asarray(X, dtype=float)
     
     def _fit_causal_forest(
         self, X: np.ndarray, T_residual: np.ndarray, Y_residual: np.ndarray
@@ -742,7 +743,7 @@ class CausalForest(BaseModel):
         X_estimate: np.ndarray, 
         T_residual_estimate: np.ndarray,
         Y_residual_estimate: np.ndarray,
-    ):
+    ) -> None:
         """
         Replace leaf values with honest causal effect estimates
         
@@ -847,7 +848,7 @@ class CausalForest(BaseModel):
         
         # Return average effect across trees
         predictions = np.array(predictions_list)  # shape: (n_trees, n_samples)
-        return np.mean(predictions, axis=0)  # shape: (n_samples,)
+        return np.asarray(np.mean(predictions, axis=0), dtype=float)
     
     def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
         """
@@ -1012,7 +1013,7 @@ class CausalForest(BaseModel):
             "=" * 60,
             "Causal Forest Results",
             "=" * 60,
-            f"Method:                   Causal Forest",
+            "Method:                   Causal Forest",
             f"Number of trees:          {self.n_estimators}",
             f"Min samples per leaf:     {self.min_samples_leaf}",
             f"Max depth:                {self.max_depth or 'None'}",
@@ -1183,7 +1184,6 @@ class CausalForest(BaseModel):
             )
             cate = self.effect(X)
             gamma = cate
-            T_used = None
         else:
             tau = self.effect(self._X_original)
             Y = self._Y_original.astype(float)
@@ -1210,7 +1210,6 @@ class CausalForest(BaseModel):
 
             self.diagnostics = dict(self.diagnostics or {})
             self.diagnostics["blp_n_clipped_propensities"] = n_clipped
-            T_used = T
 
         # Regress Γ_i on (1, X_std) with HC1 SE.
         X_mean = X.mean(axis=0)
@@ -1320,7 +1319,7 @@ def causal_forest(
     model_t: Optional[BaseEstimator] = None,
     discrete_treatment: bool = True,
     random_state: Optional[int] = None,
-    **kwargs
+    **kwargs: Any,
 ) -> CausalForest:
     """
     Convenience function to fit a Causal Forest model

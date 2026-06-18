@@ -17,7 +17,7 @@ Evidence from a Government Grant Policy Reform."
 *American Economic Journal: Economic Policy*, 2(2), 185-215. [@nielsen2010estimating]
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 
 import numpy as np
 import pandas as pd
@@ -25,6 +25,20 @@ from scipy import stats
 
 from ..core.results import CausalResult
 from ._core import _kernel_fn
+
+
+class RKDResult(CausalResult):
+    """CausalResult with RKD-specific summary and plotting methods."""
+
+    def __init__(self, *, rkd_plot_data: Dict[str, Any], **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._rkd_plot_data = rkd_plot_data
+
+    def summary(self, alpha: Optional[float] = None) -> str:
+        return _rkd_summary(self, alpha)
+
+    def plot(self, type: str = "main", **kwargs: Any) -> Any:
+        return _rkd_plot(self, **kwargs)
 
 
 # ======================================================================
@@ -188,6 +202,7 @@ def rkd(
         extra_info = {}
     else:
         # Fuzzy: ratio of kinks
+        assert T is not None
         b_left_t, V_left_t, _ = _local_poly_fit(
             T[left], X_c[left], w[left], p, cl[left] if cl is not None else None
         )
@@ -272,7 +287,7 @@ def rkd(
         "b_right": b_right_y,
     }
 
-    result = CausalResult(
+    result = RKDResult(
         method="Regression Kink Design (Card et al., 2015)",
         estimand=estimand_label,
         estimate=float(estimate),
@@ -284,13 +299,8 @@ def rkd(
         detail=_build_detail_table(model_info, treatment is not None),
         model_info=model_info,
         _citation_key="rkd",
+        rkd_plot_data=_plot_data,
     )
-
-    # Attach custom summary and plot
-    result._rkd_plot_data = _plot_data
-    result._original_summary = result.summary
-    result.summary = lambda alpha_=None: _rkd_summary(result, alpha_)
-    result.plot = lambda **kw: _rkd_plot(result, **kw)
 
     try:
         from ..output._lineage import attach_provenance as _attach_prov
@@ -324,7 +334,7 @@ def _kernel_weights(u: np.ndarray, kernel: str) -> np.ndarray:
     sandwich variance are invariant to this constant rescaling of the
     weights, so estimated coefficients and standard errors are unchanged.
     """
-    return _kernel_fn(u, kernel)
+    return np.asarray(_kernel_fn(u, kernel), dtype=float)
 
 
 def _local_poly_fit(
@@ -333,7 +343,7 @@ def _local_poly_fit(
     w: np.ndarray,
     p: int,
     cl: Optional[np.ndarray] = None,
-):
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Weighted local polynomial regression.
 
@@ -393,7 +403,7 @@ def _cluster_variance(
     # Small-sample correction: G/(G-1) * (n-1)/(n-k)
     dfc = (G / max(G - 1, 1)) * ((n - 1) / max(n - k, 1))
     V = dfc * ZtWZ_inv @ meat @ ZtWZ_inv
-    return V
+    return np.asarray(V, dtype=float)
 
 
 def _rkd_bandwidth(
@@ -436,7 +446,7 @@ def _rkd_bandwidth(
         pilot_left = left
         pilot_right = right
 
-    def _fit_deriv2(yy, xx):
+    def _fit_deriv2(yy: np.ndarray, xx: np.ndarray) -> float:
         """Fit polynomial and return estimated 2nd derivative at 0."""
         if len(yy) < q + 1:
             return 0.0
@@ -446,7 +456,7 @@ def _rkd_bandwidth(
         except np.linalg.LinAlgError:  # pragma: no cover
             return 0.0
         # 2nd derivative at 0 is 2 * beta[2] (if q >= 2)
-        return 2.0 * beta[2] if q >= 2 else 0.0
+        return float(2.0 * beta[2]) if q >= 2 else 0.0
 
     d2_left = _fit_deriv2(Y[pilot_left], X_c[pilot_left])
     d2_right = _fit_deriv2(Y[pilot_right], X_c[pilot_right])
@@ -571,7 +581,7 @@ def _rkd_summary(result: CausalResult, alpha: Optional[float] = None) -> str:
 # Plot
 # ======================================================================
 
-def _rkd_plot(result: CausalResult, **kwargs):
+def _rkd_plot(result: RKDResult, **kwargs: Any) -> Any:
     """
     RKD plot: scatter + separate polynomial fits on each side of the kink.
 
@@ -613,7 +623,7 @@ def _rkd_plot(result: CausalResult, **kwargs):
     x_left = np.linspace(c - h, c, 200)
     x_right = np.linspace(c, c + h, 200)
 
-    def _poly_val(b, xs, centre):
+    def _poly_val(b: np.ndarray, xs: np.ndarray, centre: float) -> np.ndarray:
         xc = xs - centre
         yhat = np.zeros_like(xs, dtype=float)
         for j in range(len(b)):

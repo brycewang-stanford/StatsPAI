@@ -44,6 +44,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..exceptions import DataInsufficient
+from .._input_validation import require_columns
+
 
 @dataclass
 class ITSResult:
@@ -59,6 +62,12 @@ class ITSResult:
     n_obs: int
     intervention_time: int
     detail: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        """JSON-safe dict of every field (agent-native serialization)."""
+        from .._result_serialize import result_to_dict
+
+        return result_to_dict(self)
 
     def summary(self) -> str:  # pragma: no cover
         return (
@@ -133,13 +142,50 @@ def its(
     """
     if intervention is None:
         raise ValueError("intervention (time index) is required")
+    # Column / type check up front (clear error instead of a bare KeyError).
+    # NB: do *not* dropna here — ``intervention`` is an integer row position
+    # into the time-ordered series, so removing rows would shift it; instead
+    # we fail loudly below if the series is non-finite.
+    require_columns(
+        data, [y] + ([time] if time is not None else []), function="its"
+    )
     df = data.reset_index(drop=True)
     n = len(df)
+    n_params = 4 + (
+        2 * seasonality_harmonics
+        if seasonality_period is not None and seasonality_period > 1
+        else 0
+    )
+    if n <= n_params:
+        raise DataInsufficient(
+            f"its: {n} observation(s) but the segmented regression estimates "
+            f"{n_params} parameter(s) — need strictly more.",
+            recovery_hint="Provide a longer series or drop seasonality "
+            "harmonics.",
+            diagnostics={"n_obs": int(n), "n_params": int(n_params)},
+        )
+    if not (0 < intervention < n):
+        raise DataInsufficient(
+            f"its: intervention index {intervention} leaves an empty pre- or "
+            f"post-period for a series of length {n}; it must satisfy "
+            "0 < intervention < n.",
+            recovery_hint="Pass the integer row position where the "
+            "intervention begins, with observations on both sides.",
+            diagnostics={"intervention": int(intervention), "n_obs": int(n)},
+        )
     if time is None:
         t = np.arange(n, dtype=float)
     else:
         t = df[time].to_numpy(dtype=float)
     Y = df[y].to_numpy(dtype=float)
+    if not (np.isfinite(Y).all() and np.isfinite(t).all()):
+        raise DataInsufficient(
+            "its: outcome/time column contains NaN or inf — segmented "
+            "regression cannot fit a series with missing values.",
+            recovery_hint="Impute or drop missing periods before calling "
+            "sp.its (note the intervention index refers to row position).",
+            diagnostics={"n_nonfinite_y": int((~np.isfinite(Y)).sum())},
+        )
 
     D = (np.arange(n) >= intervention).astype(float)
     # time since intervention (for slope change term)

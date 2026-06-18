@@ -17,7 +17,7 @@ m(D, Z, X) compensates, yielding a doubly-robust ATE.
 from __future__ import annotations
 
 import warnings
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
@@ -115,9 +115,16 @@ def fortified_pci(
 
     # Filled by _fortified_estimate on the point-estimate call only
     # (record=True); the bootstrap replicates reuse the closure silently.
-    fallback_info = {'outcome_augmentation_fallback': False}
+    fallback_info: Dict[str, Any] = {'outcome_augmentation_fallback': False}
 
-    def _fortified_estimate(Yi, Di, Zi, Wi, Xi, record=False):
+    def _fortified_estimate(
+        Yi: np.ndarray,
+        Di: np.ndarray,
+        Zi: np.ndarray,
+        Wi: np.ndarray,
+        Xi: np.ndarray,
+        record: bool = False,
+    ) -> float:
         # Bridge estimate via 2SLS
         const = np.ones((len(Yi), 1))
         X_exog = np.hstack([const, Di.reshape(-1, 1), Xi])

@@ -31,6 +31,8 @@ import pandas as pd
 # file when the user never touches the spillover estimators.
 
 from ..core.results import CausalResult
+from ..exceptions import DataInsufficient
+from .._input_validation import clean_frame
 
 
 __all__ = [
@@ -50,6 +52,12 @@ class NetworkHTEResult:
     individual_spillover: np.ndarray
     covariates: List[str]
     ci_alpha: float
+
+    def to_dict(self) -> dict:
+        """JSON-safe dict of every field (agent-native serialization)."""
+        from .._result_serialize import result_to_dict
+
+        return result_to_dict(self)
 
     def summary(self) -> str:
         from scipy.stats import norm
@@ -80,6 +88,12 @@ class InwardOutwardResult:
     inward_se: float
     outward_se: float
     ratio_in_out: float
+
+    def to_dict(self) -> dict:
+        """JSON-safe dict of every field (agent-native serialization)."""
+        from .._result_serialize import result_to_dict
+
+        return result_to_dict(self)
 
     def summary(self) -> str:
         return "\n".join([
@@ -158,17 +172,18 @@ def network_hte(
     Wu & Yuan (arXiv:2509.18484, 2025). [@wu2025estimating]
     """
     cols = [y, treatment, neighbor_exposure, *covariates]
-    missing = set(cols) - set(data.columns)
-    if missing:
-        raise ValueError(f"Missing columns: {missing}")
-    Y = data[y].to_numpy(dtype=float)
-    D = data[treatment].to_numpy(dtype=float)
-    E = data[neighbor_exposure].to_numpy(dtype=float)
-    X = data[list(covariates)].to_numpy(dtype=float)
-    n = len(data)
+    df = clean_frame(data, cols, function="network_hte", n_params=2)
+    Y = df[y].to_numpy(dtype=float)
+    D = df[treatment].to_numpy(dtype=float)
+    E = df[neighbor_exposure].to_numpy(dtype=float)
+    X = df[list(covariates)].to_numpy(dtype=float)
+    n = len(df)
     if n < n_folds * 10:
-        raise ValueError(
-            f"Too few observations for {n_folds}-fold CV; need >= {n_folds * 10}."
+        raise DataInsufficient(
+            f"network_hte: only {n} complete row(s) — too few for "
+            f"{n_folds}-fold cross-fitting; need >= {n_folds * 10}.",
+            recovery_hint="Provide more observations or reduce n_folds.",
+            diagnostics={"n_complete": int(n), "required": int(n_folds * 10)},
         )
 
     from sklearn.ensemble import (
@@ -300,18 +315,21 @@ def inward_outward_spillover(
     """
     cov_list = list(covariates) if covariates else []
     cols = [y, treatment, inward_exposure, outward_exposure, *cov_list]
-    missing = set(cols) - set(data.columns)
-    if missing:
-        raise ValueError(f"Missing columns: {missing}")
-    Y = data[y].to_numpy(dtype=float)
-    n = len(data)
+    df = clean_frame(
+        data,
+        cols,
+        function="inward_outward_spillover",
+        n_params=4 + len(cov_list),  # intercept + treat + inward + outward + covs
+    )
+    Y = df[y].to_numpy(dtype=float)
+    n = len(df)
     X = np.column_stack([
         np.ones(n),
-        data[treatment].to_numpy(dtype=float),
-        data[inward_exposure].to_numpy(dtype=float),
-        data[outward_exposure].to_numpy(dtype=float),
+        df[treatment].to_numpy(dtype=float),
+        df[inward_exposure].to_numpy(dtype=float),
+        df[outward_exposure].to_numpy(dtype=float),
     ] + (
-        [data[c].to_numpy(dtype=float) for c in cov_list]
+        [df[c].to_numpy(dtype=float) for c in cov_list]
         if cov_list else []
     ))
     beta, *_ = np.linalg.lstsq(X, Y, rcond=None)

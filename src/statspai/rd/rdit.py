@@ -13,7 +13,7 @@ Hausman, C. and Rapson, D.S. (2018).
 Applications." Annual Review of Resource Economics, 10, 533-552. [@hausman2018regression]
 """
 
-from typing import Optional, Tuple
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -57,7 +57,7 @@ def _newey_west_se(X: np.ndarray, residuals: np.ndarray,
         S += bartlett * (G + G.T)
 
     V = XtWX_inv @ S @ XtWX_inv
-    return np.sqrt(np.maximum(np.diag(V), 0))
+    return np.asarray(np.sqrt(np.maximum(np.diag(V), 0)), dtype=float)
 
 
 # ======================================================================
@@ -79,7 +79,7 @@ def _optimal_bandwidth(x: np.ndarray, y: np.ndarray) -> float:
     m2 = 2 * coeffs[0]  # second derivative estimate
 
     if abs(m2) < 1e-12:
-        return h_pilot
+        return float(h_pilot)
 
     # Residual variance estimate
     y_hat = np.polyval(coeffs, x)
@@ -89,7 +89,7 @@ def _optimal_bandwidth(x: np.ndarray, y: np.ndarray) -> float:
     C_k = 3.4375  # triangular kernel constant
     h_opt = (C_k * sigma2 / (m2 ** 2 * n)) ** (1 / 5)
 
-    return max(float(h_opt), h_pilot * 0.5)
+    return float(max(float(h_opt), float(h_pilot) * 0.5))
 
 
 # ======================================================================
@@ -112,7 +112,7 @@ def _deseasonalise(y: np.ndarray, time_vals: pd.Series,
     # Create dummies (drop first to avoid collinearity)
     unique_groups = np.sort(groups.unique())
     if len(unique_groups) <= 1:
-        return y
+        return np.asarray(y, dtype=float)
 
     dummies = np.column_stack([
         (groups.values == g).astype(float) for g in unique_groups[1:]
@@ -121,7 +121,7 @@ def _deseasonalise(y: np.ndarray, time_vals: pd.Series,
 
     coeffs, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
     residuals = y - X @ coeffs
-    return residuals
+    return np.asarray(residuals, dtype=float)
 
 
 # ======================================================================
@@ -132,8 +132,8 @@ def rdit(
     data: pd.DataFrame,
     y: str,
     time: str,
-    cutoff,
-    h=None,
+    cutoff: Any,
+    h: Optional[float] = None,
     p: int = 1,
     kernel: str = "triangular",
     donut: int = 0,
@@ -276,23 +276,26 @@ def rdit(
     # ------------------------------------------------------------------
     # 5. Optimal bandwidth
     # ------------------------------------------------------------------
+    h_auto = h is None
     if h is None:
-        h = _optimal_bandwidth(x_work, y_work)
+        h_value = _optimal_bandwidth(x_work, y_work)
+    else:
+        h_value = float(h)
 
     # ------------------------------------------------------------------
     # 6. Select observations within bandwidth
     # ------------------------------------------------------------------
-    in_bw = np.abs(x_work) <= h
+    in_bw = np.abs(x_work) <= h_value
     x_bw = x_work[in_bw]
     y_bw = y_work[in_bw]
     n_eff = int(np.sum(in_bw))
 
     if n_eff < 2 * (p + 1):
         raise ValueError(f"Only {n_eff} observations within bandwidth "
-                         f"h={h:.2f}. Need at least {2*(p+1)}.")
+                         f"h={h_value:.2f}. Need at least {2*(p+1)}.")
 
     # Kernel weights (canonical definition in ._core)
-    w = _kernel_fn(x_bw / h, kernel)
+    w = _kernel_fn(x_bw / h_value, kernel)
 
     # ------------------------------------------------------------------
     # 7. Local polynomial regression
@@ -312,7 +315,6 @@ def rdit(
         cols.append(D * (x_bw ** j))
 
     X = np.column_stack(cols)
-    n_params = X.shape[1]
 
     # Weighted least squares
     W_sqrt = np.sqrt(w)
@@ -362,10 +364,10 @@ def rdit(
     # 10. Detail DataFrame for plotting
     # ------------------------------------------------------------------
     # Predictions on both sides
-    x_grid_left = np.linspace(-h, 0, 100)
-    x_grid_right = np.linspace(0, h, 100)
+    x_grid_left = np.linspace(-h_value, 0, 100)
+    x_grid_right = np.linspace(0, h_value, 100)
 
-    def _predict(x_grid, treat_flag):
+    def _predict(x_grid: np.ndarray, treat_flag: float) -> np.ndarray:
         D_g = np.full(len(x_grid), treat_flag)
         cols_g = [np.ones(len(x_grid))]
         for j in range(1, p + 1):
@@ -373,7 +375,7 @@ def rdit(
         cols_g.append(D_g)
         for j in range(1, p + 1):
             cols_g.append(D_g * (x_grid ** j))
-        return np.column_stack(cols_g) @ beta
+        return np.asarray(np.column_stack(cols_g) @ beta, dtype=float)
 
     y_pred_left = _predict(x_grid_left, 0.0)
     y_pred_right = _predict(x_grid_right, 1.0)
@@ -394,8 +396,8 @@ def rdit(
 
     model_info = {
         'method': 'RDiT (Hausman & Rapson 2018)',
-        'bandwidth': float(h),
-        'bandwidth_auto': (h is not None),
+        'bandwidth': float(h_value),
+        'bandwidth_auto': h_auto,
         'polynomial_order': p,
         'kernel': kernel,
         'donut': donut,

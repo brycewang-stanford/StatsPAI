@@ -17,7 +17,7 @@ Maddala, G.S. (1983).
 *Cambridge University Press*. [@maddala1983limited]
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Any
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -27,14 +27,18 @@ from ..core.results import EconometricResults
 from ._optim_helpers import robust_convergence
 
 
+def _as_float_array(value: Any) -> np.ndarray:
+    return np.asarray(value, dtype=float)
+
+
 def biprobit(
     data: pd.DataFrame,
     y1: str,
     y2: str,
     x1: List[str],
-    x2: List[str] = None,
+    x2: Optional[List[str]] = None,
     robust: str = "nonrobust",
-    cluster: str = None,
+    cluster: Optional[str] = None,
     maxiter: int = 200,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -89,20 +93,19 @@ def biprobit(
     >>> bool('rho' in result.model_info)  # error correlation reported
     True
     """
-    if x2 is None:
-        x2 = x1
+    x2_names = list(x1) if x2 is None else list(x2)
 
-    df = data.dropna(subset=[y1, y2] + x1 + x2)
+    df = data.dropna(subset=[y1, y2] + x1 + x2_names)
     n = len(df)
 
     y1_data = df[y1].values.astype(float)
     y2_data = df[y2].values.astype(float)
     X1 = np.column_stack([np.ones(n), df[x1].values.astype(float)])
-    X2 = np.column_stack([np.ones(n), df[x2].values.astype(float)])
+    X2 = np.column_stack([np.ones(n), df[x2_names].values.astype(float)])
     k1 = X1.shape[1]
     k2 = X2.shape[1]
 
-    def _bvn_cdf(h, k, rho):
+    def _bvn_cdf(h: np.ndarray, k: np.ndarray, rho: Any) -> np.ndarray:
         """Bivariate standard-normal CDF P(X<=h, Y<=k; corr=rho).
 
         Vectorised over observations via the Drezner-Wesolowsky (1990)
@@ -135,9 +138,9 @@ def biprobit(
             integral += w_j * np.exp(
                 -(h * h - 2.0 * r * h * k + k * k) / (2.0 * denom)
             ) / (2.0 * np.pi * np.sqrt(denom))
-        return base + rho * integral
+        return _as_float_array(base + rho * integral)
 
-    def neg_ll(theta):
+    def neg_ll(theta: np.ndarray) -> float:
         beta1 = theta[:k1]
         beta2 = theta[k1:k1+k2]
         atanh_rho = theta[-1]
@@ -156,7 +159,7 @@ def biprobit(
 
         probs = _bvn_cdf(h, k_, rho_adj)
         probs = np.clip(probs, 1e-10, 1 - 1e-10)
-        return -np.sum(np.log(probs))
+        return float(-np.sum(np.log(probs)))
 
     # Initialize with separate probits
     beta1_init = np.linalg.lstsq(X1, y1_data, rcond=None)[0]
@@ -166,7 +169,7 @@ def biprobit(
     try:
         result = minimize(neg_ll, theta0, method='BFGS',
                           options={'maxiter': maxiter, 'gtol': tol})
-        theta_hat = result.x
+        theta_hat = _as_float_array(result.x)
         converged, grad_norm = robust_convergence(result)
     except Exception:
         theta_hat = theta0
@@ -174,7 +177,7 @@ def biprobit(
 
     beta1 = theta_hat[:k1]
     beta2 = theta_hat[k1:k1+k2]
-    rho = np.tanh(theta_hat[-1])
+    rho = float(np.tanh(theta_hat[-1]))
 
     # Numerical Hessian for SE
     k_total = len(theta_hat)
@@ -198,22 +201,22 @@ def biprobit(
 
     try:
         var_cov = np.linalg.inv(H)
-        se = np.sqrt(np.abs(np.diag(var_cov)))
+        se = _as_float_array(np.sqrt(np.abs(np.diag(var_cov))))
     except np.linalg.LinAlgError:
         se = np.full(k_total, np.nan)
 
     # Delta method for rho SE
-    rho_se = se[-1] * (1 - rho**2)  # d(tanh)/d(atanh) = 1-tanh^2
+    rho_se = float(se[-1] * (1 - rho**2))  # d(tanh)/d(atanh) = 1-tanh^2
 
     names = ['eq1._cons'] + [f'eq1.{v}' for v in x1] + \
-            ['eq2._cons'] + [f'eq2.{v}' for v in x2] + ['rho']
+            ['eq2._cons'] + [f'eq2.{v}' for v in x2_names] + ['rho']
     param_vals = np.concatenate([beta1, beta2, [rho]])
     se_vals = np.concatenate([se[:k1], se[k1:k1+k2], [rho_se]])
 
     params = pd.Series(param_vals, index=names)
     std_errors = pd.Series(se_vals, index=names)
 
-    ll = -neg_ll(theta_hat)
+    ll = float(-neg_ll(theta_hat))
 
     return EconometricResults(
         params=params,
@@ -224,7 +227,10 @@ def biprobit(
             'gradient_norm': grad_norm,
             'rho': rho,
             'rho_se': rho_se,
-            'rho_test_p': 2 * (1 - stats.norm.cdf(abs(rho / rho_se))) if rho_se > 0 else np.nan,
+            'rho_test_p': (
+                float(2 * (1 - stats.norm.cdf(abs(rho / rho_se))))
+                if rho_se > 0 else np.nan
+            ),
         },
         data_info={
             'n_obs': n,
@@ -248,7 +254,7 @@ def etregress(
     z: List[str],
     method: str = "mle",
     robust: str = "nonrobust",
-    cluster: str = None,
+    cluster: Optional[str] = None,
     maxiter: int = 200,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -316,9 +322,7 @@ def etregress(
     y_data = df[y].values.astype(float)
     D_data = df[treatment].values.astype(float)
     X_out = np.column_stack([np.ones(n), df[x].values.astype(float), D_data])
-    Z_sel = np.column_stack([np.ones(n), df[z].values.astype(float)])
     k_out = X_out.shape[1]
-    k_sel = Z_sel.shape[1]
 
     if method == 'twostep':
         # Two-step (control function approach)
@@ -372,8 +376,6 @@ def etregress(
         params = pd.Series(beta, index=out_names)
         std_errors = pd.Series(se, index=out_names)
         ate = beta[k_out - 1]
-
-    z_crit = stats.norm.ppf(1 - alpha / 2)
 
     return EconometricResults(
         params=params,

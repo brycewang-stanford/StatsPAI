@@ -38,6 +38,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import clean_frame
+
 # sklearn is imported lazily inside ``four_way_decomposition`` so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
 # file when the user never touches the four-way mediation decomposition.
@@ -53,6 +55,12 @@ class FourWayResult:
     proportions: Dict[str, float]
     n_obs: int
     detail: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        """JSON-safe dict of every field (agent-native serialization)."""
+        from .._result_serialize import result_to_dict
+
+        return result_to_dict(self)
 
     def summary(self) -> str:  # pragma: no cover
         prop = self.proportions
@@ -101,7 +109,12 @@ def four_way_decomposition(
     cov = list(covariates or [])
     from sklearn.linear_model import LinearRegression
 
-    df = data[[y, treat, mediator] + cov].dropna().reset_index(drop=True)
+    df = clean_frame(
+        data,
+        [y, treat, mediator] + cov,
+        function="four_way_decomposition",
+        n_params=4 + len(cov),  # outcome model: 1 + A + M + A*M + covariates
+    )
     n = len(df)
 
     A = df[treat].to_numpy(dtype=float)

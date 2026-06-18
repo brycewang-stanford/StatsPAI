@@ -16,7 +16,7 @@ Imbens, G. and Kalyanaraman, K. (2012).
 *Review of Economic Studies*, 79(3), 933-959. [@imbens2012optimal]
 """
 
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Optional, List, Tuple, Dict, Any, Union
 from math import factorial
 import warnings
 
@@ -26,6 +26,8 @@ from scipy import stats
 
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+
+Bandwidth = Union[float, Tuple[float, float]]
 
 
 def _require_dataframe(value: Any, name: str) -> pd.DataFrame:
@@ -182,8 +184,8 @@ def rdrobust(
     q: Optional[int] = None,
     kernel: str = "triangular",
     bwselect: str = "mserd",
-    h: Optional[float] = None,
-    b: Optional[float] = None,
+    h: Optional[Bandwidth] = None,
+    b: Optional[Bandwidth] = None,
     rho: Optional[float] = None,
     covs: Optional[List[str]] = None,
     cluster: Optional[str] = None,
@@ -626,7 +628,7 @@ def rdrobust(
     else:
         rd_type = "Sharp"
 
-    def _round_bw(bw):
+    def _round_bw(bw: Bandwidth) -> Bandwidth:
         if isinstance(bw, tuple):
             return (round(bw[0], 6), round(bw[1], 6))
         return round(bw, 6)
@@ -1024,12 +1026,12 @@ def rdplot(
     weights: Optional[str] = None,
     hide_ci: bool = False,
     scatter: bool = True,
-    ax=None,
-    figsize: tuple = (10, 7),
+    ax: Optional[Any] = None,
+    figsize: Tuple[float, float] = (10, 7),
     title: Optional[str] = None,
     x_label: Optional[str] = None,
     y_label: Optional[str] = None,
-):
+) -> Tuple[Any, Any]:
     """
     RD plot: binned scatter with polynomial fit on each side of the cutoff.
 
@@ -1365,7 +1367,12 @@ def _imse_optimal_bins(x: np.ndarray, y: np.ndarray, binselect: str) -> int:
     return J_imse
 
 
-def _bin_means(xv: np.ndarray, yv: np.ndarray, nb: int, quantile: bool = False):
+def _bin_means(
+    xv: np.ndarray,
+    yv: np.ndarray,
+    nb: int,
+    quantile: bool = False,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute bin means with standard errors.
 
     Returns (bin_x, bin_y, bin_se).
@@ -1399,7 +1406,14 @@ def _bin_means(xv: np.ndarray, yv: np.ndarray, nb: int, quantile: bool = False):
     return np.array(bx), np.array(by), np.array(bse)
 
 
-def _weighted_poly_fit_ci(xv, yv, order, x_grid, level, weights=None):
+def _weighted_poly_fit_ci(
+    xv: np.ndarray,
+    yv: np.ndarray,
+    order: int,
+    x_grid: np.ndarray,
+    level: float,
+    weights: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Weighted global polynomial fit with pointwise confidence intervals."""
     order = min(order, len(xv) - 1)
     if len(xv) < 3:
@@ -1447,10 +1461,10 @@ def rdplotdensity(
     ci_level: float = 0.95,
     hist: bool = True,
     nbins: int = 30,
-    ax=None,
-    figsize: tuple = (10, 7),
+    ax: Optional[Any] = None,
+    figsize: Tuple[float, float] = (10, 7),
     title: Optional[str] = None,
-):
+) -> Tuple[Any, Any]:
     """
     Boundary-adaptive density discontinuity plot at the RD cutoff.
 
@@ -1702,7 +1716,7 @@ def _rd_estimate(
     X_c: np.ndarray,
     left: np.ndarray,
     right: np.ndarray,
-    h,
+    h: Bandwidth,
     p: int,
     kernel: str,
     cluster_col: Optional[str],
@@ -1974,8 +1988,8 @@ def _rbc_bootstrap(
     Z: Optional[np.ndarray],
     left: np.ndarray,
     right: np.ndarray,
-    h,
-    b,
+    h: Bandwidth,
+    b: Bandwidth,
     p: int,
     q: int,
     kernel: str,
@@ -2039,6 +2053,7 @@ def _rbc_bootstrap(
     n_ok = 0
     for _ in range(n_boot):
         if have_cluster:
+            assert cluster_vals is not None
             # Cluster bootstrap: resample clusters on each side.
             cl_l = cluster_vals[idx_l]
             cl_r = cluster_vals[idx_r]
@@ -2060,7 +2075,7 @@ def _rbc_bootstrap(
         if lb.sum() < p + 2 or rb.sum() < p + 2:
             continue
         Zb = Z[draw] if Z is not None else None
-        cl_b = cluster_vals[draw] if have_cluster else None
+        cl_b = cluster_vals[draw] if cluster_vals is not None else None
 
         try:
             tb_conv, _, _, _ = _rd_estimate(
@@ -2136,13 +2151,13 @@ def _rbc_bootstrap(
             recovery_hint="Increase bandwidth, reduce polynomial order, or raise n_boot.",
             diagnostics={"valid_replicates": int(n_ok), "n_boot": int(n_boot)},
         )
-    t_star = t_star[:n_ok]
-    q_hi = float(np.quantile(t_star, 1 - alpha / 2))
-    q_lo = float(np.quantile(t_star, alpha / 2))
+    t_valid = t_star[:n_ok]
+    q_hi = float(np.quantile(t_valid, 1 - alpha / 2))
+    q_lo = float(np.quantile(t_valid, alpha / 2))
     ci = (tau_bc - q_hi * se_robust, tau_bc - q_lo * se_robust)
     pval = 2.0 * min(
-        float((t_star <= -abs(tau_bc / se_robust)).mean()) + 0.5 / n_ok,
-        float((t_star >= abs(tau_bc / se_robust)).mean()) + 0.5 / n_ok,
+        float((t_valid <= -abs(tau_bc / se_robust)).mean()) + 0.5 / n_ok,
+        float((t_valid >= abs(tau_bc / se_robust)).mean()) + 0.5 / n_ok,
     )
     return {
         "ci": ci,

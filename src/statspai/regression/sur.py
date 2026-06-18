@@ -24,9 +24,6 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..core.results import EconometricResults
-
-
 class SURResult:
     """Results from SUR estimation.
 
@@ -65,8 +62,17 @@ class SURResult:
     ['demand', 'supply']
     """
 
-    def __init__(self, equations, sigma, params_all, se_all, n_obs,
-                 n_equations, method, breusch_pagan):
+    def __init__(
+        self,
+        equations: Dict[str, Dict[str, Any]],
+        sigma: pd.DataFrame,
+        params_all: np.ndarray,
+        se_all: np.ndarray,
+        n_obs: int,
+        n_equations: int,
+        method: str,
+        breusch_pagan: Optional[Dict[str, Any]],
+    ) -> None:
         self.equations = equations  # dict: eq_name -> {params, se, r2, ...}
         self.sigma = sigma  # cross-equation covariance matrix
         self.params_all = params_all
@@ -317,7 +323,7 @@ def sureg(
 def three_sls(
     equations: Dict[str, Tuple[str, List[str], List[str]]],
     data: pd.DataFrame,
-    instruments: List[str] = None,
+    instruments: Optional[List[str]] = None,
     maxiter: int = 100,
     alpha: float = 0.05,
 ) -> SURResult:
@@ -389,9 +395,13 @@ def three_sls(
     # Build instrument matrix
     if instruments is None:
         # Use all exogenous variables as instruments
-        instruments = list(set().union(*[set(exog) for _, (_, exog, _) in equations.items()]))
+        instrument_names = list(
+            set().union(*[set(exog) for _, (_, exog, _) in equations.items()])
+        )
+    else:
+        instrument_names = list(instruments)
 
-    Z = np.column_stack([np.ones(n), df[instruments].values.astype(float)])
+    Z = np.column_stack([np.ones(n), df[instrument_names].values.astype(float)])
     Pz = Z @ np.linalg.solve(Z.T @ Z, Z.T)  # projection onto instruments
 
     # Stage 1: 2SLS for each equation

@@ -19,6 +19,7 @@ Doan, T., Litterman, R. & Sims, C. (1984). "Forecasting and Conditional
 Kilian, L. & Lütkepohl, H. (2017). *Structural Vector Autoregressive
   Analysis*. Cambridge. [@litterman1986forecasting]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -58,15 +59,16 @@ class BVARResult:
     True
     """
 
-    coef: np.ndarray                 # (K*p + 1, K)  posterior mean B
-    sigma: np.ndarray                # (K, K) posterior mean of Sigma
-    fitted: np.ndarray               # (T-p, K)
-    residuals: np.ndarray            # (T-p, K)
+    coef: np.ndarray  # (K*p + 1, K)  posterior mean B
+    sigma: np.ndarray  # (K, K) posterior mean of Sigma
+    fitted: np.ndarray  # (T-p, K)
+    residuals: np.ndarray  # (T-p, K)
     var_names: list
     lags: int
     n: int
     lambda1: float
     lambda2: float
+    coef_sd: Optional[np.ndarray] = None  # posterior SD, same shape as coef
 
     def forecast(self, horizon: int = 8) -> pd.DataFrame:
         K = self.sigma.shape[0]
@@ -87,16 +89,15 @@ class BVARResult:
             history = np.roll(history, 1, axis=0)
             history[0] = fc[h]
         cols = self.var_names
-        return pd.DataFrame(fc, columns=cols,
-                           index=np.arange(1, horizon + 1))
+        return pd.DataFrame(fc, columns=cols, index=np.arange(1, horizon + 1))
 
     def irf(self, shock_var: int = 0, horizon: int = 20) -> np.ndarray:
         """Orthogonalised impulse responses (Cholesky decomposition)."""
         K = self.sigma.shape[0]
         p = self.lags
-        B = self.coef[:-1]           # exclude constant row
+        B = self.coef[:-1]  # exclude constant row
         # Companion form
-        A_mats = [B[k * K:(k + 1) * K].T for k in range(p)]
+        A_mats = [B[k * K : (k + 1) * K].T for k in range(p)]
         chol = np.linalg.cholesky(self.sigma)
         irfs = np.zeros((horizon, K))
         phi = np.eye(K)
@@ -104,14 +105,32 @@ class BVARResult:
         for h in range(1, horizon):
             phi_new = np.zeros((K, K))
             for j in range(min(h, p)):
-                phi_new += A_mats[j] @ (irfs[h - 1 - j][:, None] @ np.eye(1, K, 0)
-                                         if h - 1 - j == 0 else np.diag(irfs[h - 1 - j]))
+                phi_new += A_mats[j] @ (
+                    irfs[h - 1 - j][:, None] @ np.eye(1, K, 0)
+                    if h - 1 - j == 0
+                    else np.diag(irfs[h - 1 - j])
+                )
             # Simplified: multiply lag coefficients
             contrib = np.zeros(K)
             for j in range(min(h, p)):
                 contrib += A_mats[j] @ irfs[h - 1 - j]
             irfs[h] = contrib
         return irfs
+
+    def credible_interval(self, level: float = 0.90):
+        """Posterior credible interval for every coefficient.
+
+        Returns ``(lower, upper)`` matrices the same shape as ``coef``, using a
+        Normal approximation to the matrix-t marginal posterior (exact as
+        ``T`` grows). ``coef_sd`` is the marginal posterior standard deviation
+        ``sqrt(diag((X'X + V^{-1})^{-1})_i * Sigma_{kk})``.
+        """
+        from scipy import stats
+
+        if self.coef_sd is None:
+            raise ValueError("posterior SD unavailable for this result")
+        z = float(stats.norm.ppf(0.5 + level / 2.0))
+        return self.coef - z * self.coef_sd, self.coef + z * self.coef_sd
 
     def summary(self) -> str:
         K = len(self.var_names)
@@ -123,6 +142,12 @@ class BVARResult:
             "Posterior mean coefficients (first 5 rows):",
             str(pd.DataFrame(self.coef[:5], columns=self.var_names).round(3)),
         ]
+        if self.coef_sd is not None:
+            lines += [
+                "",
+                "Posterior SD (first 5 rows):",
+                str(pd.DataFrame(self.coef_sd[:5], columns=self.var_names).round(3)),
+            ]
         return "\n".join(lines)
 
     def __repr__(self) -> str:
@@ -181,11 +206,11 @@ def bvar(
     T, K = Y_raw.shape
 
     # Build VAR design: Y = X B + E
-    Y = Y_raw[lags:]                          # (T-p, K)
+    Y = Y_raw[lags:]  # (T-p, K)
     n = Y.shape[0]
     X_parts = []
     for lag in range(1, lags + 1):
-        X_parts.append(Y_raw[lags - lag: T - lag])
+        X_parts.append(Y_raw[lags - lag : T - lag])
     X = np.column_stack(X_parts + [np.ones(n)])  # (n, K*p + 1)
     m = X.shape[1]
 
@@ -204,12 +229,12 @@ def bvar(
                 if j == k:
                     V_prior[idx] = (lambda1 / lag) ** 2
                     if lag == 1:
-                        B_prior[idx, k] = 1.0   # RW prior
+                        B_prior[idx, k] = 1.0  # RW prior
                 else:
                     V_prior[idx] = (lambda1 * lambda2 / lag) ** 2 * (
                         sigma_ols[k] / max(sigma_ols[j], 1e-12)
                     )
-        V_prior[-1] = 100.0                     # flat prior on constant
+        V_prior[-1] = 100.0  # flat prior on constant
 
     # Posterior: B_post = (X'X + V^{-1})^{-1} (X'Y + V^{-1} B_prior)
     V_inv = np.diag(1.0 / np.maximum(V_prior, 1e-12))
@@ -222,15 +247,31 @@ def bvar(
     B_post = precision_inv @ (X.T @ Y + V_inv @ B_prior)
     E_post = Y - X @ B_post
     Sigma_post = E_post.T @ E_post / n
+    # Marginal posterior SD from the matrix-normal posterior
+    #   B ~ MN(B_post, (X'X + V^{-1})^{-1}, Sigma):
+    #   sd[i, k] = sqrt( [(X'X + V^{-1})^{-1}]_{ii} * Sigma_{kk} ).
+    coef_sd = np.sqrt(
+        np.outer(
+            np.clip(np.diag(precision_inv), 0.0, None),
+            np.clip(np.diag(Sigma_post), 0.0, None),
+        )
+    )
 
     _result = BVARResult(
-        coef=B_post, sigma=Sigma_post,
-        fitted=X @ B_post, residuals=E_post,
-        var_names=var_names, lags=lags, n=n,
-        lambda1=lambda1, lambda2=lambda2,
+        coef=B_post,
+        sigma=Sigma_post,
+        fitted=X @ B_post,
+        residuals=E_post,
+        var_names=var_names,
+        lags=lags,
+        n=n,
+        lambda1=lambda1,
+        lambda2=lambda2,
+        coef_sd=coef_sd,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.timeseries.bvar",

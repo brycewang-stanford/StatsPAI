@@ -38,9 +38,12 @@ The following labels changed (legacy → new, all canonical to regtable):
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ..core.results import EconometricResults
+
+if TYPE_CHECKING:
+    from .regression_table import RegtableResult
 
 _DEPRECATION_MSG_OUTREG2 = (
     "outreg2() is now a thin wrapper over sp.regtable() and will "
@@ -66,7 +69,7 @@ def _build_regtable(
     show_tstat: bool,
     decimal_places: int,
     variable_labels: Optional[Dict[str, str]],
-):
+) -> "RegtableResult":
     """Translate Stata-flavoured outreg2 kwargs into a ``regtable`` call."""
     from .regression_table import regtable
 
@@ -135,7 +138,7 @@ class OutReg2:
     True
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         _warn_outreg2_deprecation()
         self.results: List[Any] = []
         self.model_names: List[Optional[str]] = []
@@ -178,7 +181,7 @@ class OutReg2:
         show_tstat: bool,
         decimal_places: int,
         variable_labels: Optional[Dict[str, str]],
-    ):
+    ) -> "RegtableResult":
         return _build_regtable(
             models=self.results,
             model_names=self._resolved_model_names(),

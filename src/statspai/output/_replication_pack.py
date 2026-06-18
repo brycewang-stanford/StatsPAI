@@ -53,13 +53,11 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Union
+from typing import Any, Dict, List, Mapping, Optional, Union
 
 from ._bibliography import citations_to_bib_entries
 from ._lineage import (
-    Provenance,
     compute_data_hash,
-    get_provenance,
     lineage_summary,
 )
 
@@ -131,7 +129,7 @@ def _collect_results(target: Any) -> List[Any]:
     return out
 
 
-def _extract_paper(target: Any):
+def _extract_paper(target: Any) -> Optional[Any]:
     """Return a PaperDraft-like object (has ``to_markdown``) if any."""
     for cand in _flatten_targets(target):
         if hasattr(cand, "to_markdown") and hasattr(cand, "sections"):
@@ -198,7 +196,8 @@ def _importlib_freeze_fallback() -> str:
         from importlib.metadata import distributions
         rows = []
         for dist in distributions():
-            name = dist.metadata.get("Name") or "?"
+            metadata = dist.metadata
+            name = metadata["Name"] if "Name" in metadata else "?"
             version = dist.version or "?"
             rows.append(f"{name}=={version}")
         rows.sort(key=str.lower)
@@ -212,9 +211,11 @@ def _dataset_to_csv_bytes(data: Any) -> Optional[bytes]:
     try:
         import pandas as pd
         if isinstance(data, pd.DataFrame):
-            return data.to_csv(index=False).encode("utf-8")
+            csv_text = data.to_csv(index=False)
+            return str(csv_text).encode("utf-8")
         if isinstance(data, pd.Series):
-            return data.to_csv(index=False).encode("utf-8")
+            csv_text = data.to_csv(index=False)
+            return str(csv_text).encode("utf-8")
     except Exception:
         pass
     return None
@@ -328,7 +329,9 @@ def _readme(
         "with:",
         "",
         "```bash",
-        "python -c \"import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())\" data/dataset.csv",
+        "python -c \"import hashlib,sys; "
+        "print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())\" "
+        "data/dataset.csv",
         "```",
         "",
         "and compare against the value in `MANIFEST.json`.",
@@ -370,7 +373,7 @@ class ReplicationPack:
         output_path: Path,
         manifest: Dict[str, Any],
         warnings: List[str],
-    ):
+    ) -> None:
         self.output_path = output_path
         self.manifest = manifest
         self.warnings = warnings

@@ -100,13 +100,13 @@ def _ik_bandwidth_simple(y: np.ndarray, x: np.ndarray, c: float) -> float:
     left = x_c < 0
     right = x_c >= 0
 
-    def _quad_curv(yy, xx, hp):
+    def _quad_curv(yy: np.ndarray, xx: np.ndarray, hp: float) -> float:
         mask = np.abs(xx) <= hp
         if mask.sum() < 5:
             mask = np.ones(len(xx), dtype=bool)
         try:
             coeffs = np.polyfit(xx[mask], yy[mask], 2)
-            return 2 * coeffs[0]
+            return float(2 * coeffs[0])
         except (np.linalg.LinAlgError, ValueError):  # pragma: no cover
             return 0.0
 
@@ -1076,9 +1076,9 @@ def rd_cate_summary(
 def _importance_plot(
     result: CausalResult,
     top_k: int = 10,
-    ax=None,
+    ax: Optional[Any] = None,
     figsize: Tuple[float, float] = (8, 5),
-):
+) -> Any:
     """
     Horizontal bar chart of variable importance for heterogeneity.
 

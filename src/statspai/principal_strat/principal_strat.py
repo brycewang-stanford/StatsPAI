@@ -37,10 +37,12 @@ Causal Inference." *Biometrics*, 58(1), 21-29. [@frangakis2002principal]
 
 Zhang, J.L. and Rubin, D.B. (2003). "Estimation of Causal Effects via
 Principal Stratification When Some Outcomes Are Truncated by 'Death'."
-*Journal of Educational and Behavioral Statistics*, 28(4), 353-368. [@zhang2003estimation]
+*Journal of Educational and Behavioral Statistics*, 28(4), 353-368.
+[@zhang2003estimation]
 
 Angrist, J.D., Imbens, G.W. and Rubin, D.B. (1996). "Identification of
-causal effects using instrumental variables." *JASA*, 91(434), 444-455. [@angrist1996identification]
+causal effects using instrumental variables." *JASA*, 91(434), 444-455.
+[@angrist1996identification]
 
 Ding, P. and Lu, J. (2017). "Principal stratification analysis using
 principal scores." *JRSS-B*, 79(3), 757-777. [@ding2017principal]
@@ -52,7 +54,7 @@ principal causal effect estimation." *Statistics in Medicine*, 28(23),
 
 import warnings
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -100,6 +102,7 @@ class PrincipalStratResult:
     >>> bool("Principal Stratification" in res.summary())
     True
     """
+
     method: str
     strata_proportions: Dict[str, float]
     effects: pd.DataFrame
@@ -120,14 +123,14 @@ class PrincipalStratResult:
         for s, p in self.strata_proportions.items():
             lines.append(f"  {s:<25s}  {p:>7.4f}")
         lines += ["", "Principal causal effects:"]
-        lines.append(self.effects.to_string(index=False, float_format='%.4f'))
+        lines.append(self.effects.to_string(index=False, float_format="%.4f"))
         if self.bounds is not None:
             lines += ["", "Zhang-Rubin sharp bounds:"]
-            lines.append(self.bounds.to_string(index=False, float_format='%.4f'))
+            lines.append(self.bounds.to_string(index=False, float_format="%.4f"))
         lines.append("=" * 72)
         return "\n".join(lines)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.summary()
 
 
@@ -137,7 +140,7 @@ def principal_strat(
     treat: str,
     strata: str,
     covariates: Optional[List[str]] = None,
-    method: str = 'monotonicity',
+    method: str = "monotonicity",
     instrument: Optional[str] = None,
     alpha: float = 0.05,
     n_boot: int = 500,
@@ -209,7 +212,7 @@ def principal_strat(
     >>> res.bounds is not None  # Zhang-Rubin sharp bounds on the SACE
     True
     """
-    if method not in ('monotonicity', 'principal_score'):
+    if method not in ("monotonicity", "principal_score"):
         raise ValueError(
             f"method must be 'monotonicity' or 'principal_score', got '{method}'"
         )
@@ -253,15 +256,31 @@ def principal_strat(
         if not set(np.unique(Z)).issubset({0, 1}):
             raise ValueError("instrument must be binary (0/1).")
         return _fit_instrument_air(
-            Y, D, S, Z, n, alpha, n_boot, seed, method,
+            Y,
+            D,
+            S,
+            Z,
+            n,
+            alpha,
+            n_boot,
+            seed,
+            method,
         )
 
-    if method == 'monotonicity':
+    if method == "monotonicity":
         return _fit_monotonicity(Y, D, S, n, alpha, n_boot, seed)
     return _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed)
 
 
-def _fit_monotonicity(Y, D, S, n, alpha, n_boot, seed):
+def _fit_monotonicity(
+    Y: np.ndarray,
+    D: np.ndarray,
+    S: np.ndarray,
+    n: int,
+    alpha: float,
+    n_boot: int,
+    seed: Optional[int],
+) -> PrincipalStratResult:
     """
     Monotonicity / AIR decomposition, S(1) >= S(0).
 
@@ -288,7 +307,8 @@ def _fit_monotonicity(Y, D, S, n, alpha, n_boot, seed):
     We report Zhang-Rubin (2003) sharp bounds for the always-survivor
     SACE = E[Y(1) - Y(0) | S(0)=S(1)=1].
     """
-    def _point(Y_, D_, S_):
+
+    def _point(Y_: np.ndarray, D_: np.ndarray, S_: np.ndarray) -> Dict[str, float]:
         # Cell probabilities and conditional means
         p_s1_d1 = float(np.mean(S_[D_ == 1])) if np.any(D_ == 1) else 0.0
         p_s1_d0 = float(np.mean(S_[D_ == 0])) if np.any(D_ == 0) else 0.0
@@ -297,7 +317,7 @@ def _fit_monotonicity(Y, D, S, n, alpha, n_boot, seed):
         pi_never = 1 - p_s1_d1
 
         # Conditional means in the (D, S) cells
-        def _safe_mean(mask, fallback=0.0):
+        def _safe_mean(mask: np.ndarray, fallback: float = 0.0) -> float:
             return float(np.mean(Y_[mask])) if np.any(mask) else fallback
 
         mu_11 = _safe_mean((D_ == 1) & (S_ == 1))
@@ -335,8 +355,8 @@ def _fit_monotonicity(Y, D, S, n, alpha, n_boot, seed):
                     # empty in this cell. Bounds collapse to the control-
                     # arm always-taker mean (partial degeneracy); flag
                     # with NaN so callers can detect it.
-                    sace_lo = float('nan')
-                    sace_hi = float('nan')
+                    sace_lo = float("nan")
+                    sace_hi = float("nan")
                 else:
                     y_sorted = np.sort(y_11)
                     # Lower bound on E[Y(1)|always]: bottom-k slice
@@ -348,13 +368,16 @@ def _fit_monotonicity(Y, D, S, n, alpha, n_boot, seed):
                     sace_hi = ub_mu1 - mu_01
 
         return {
-            'pi_complier': pi_complier,
-            'pi_always': pi_always,
-            'pi_never': pi_never,
-            'tau_c': tau_c,
-            'mu_11': mu_11, 'mu_01': mu_01,
-            'mu_10': mu_10, 'mu_00': mu_00,
-            'sace_lo': sace_lo, 'sace_hi': sace_hi,
+            "pi_complier": pi_complier,
+            "pi_always": pi_always,
+            "pi_never": pi_never,
+            "tau_c": tau_c,
+            "mu_11": mu_11,
+            "mu_01": mu_01,
+            "mu_10": mu_10,
+            "mu_00": mu_00,
+            "sace_lo": sace_lo,
+            "sace_hi": sace_hi,
         }
 
     point = _point(Y, D, S)
@@ -368,68 +391,95 @@ def _fit_monotonicity(Y, D, S, n, alpha, n_boot, seed):
         idx = rng.integers(0, n, size=n)
         try:
             bp = _point(Y[idx], D[idx], S[idx])
-            boot_tau[b] = bp['tau_c']
-            boot_lo[b] = bp['sace_lo']
-            boot_hi[b] = bp['sace_hi']
+            boot_tau[b] = bp["tau_c"]
+            boot_lo[b] = bp["sace_lo"]
+            boot_hi[b] = bp["sace_hi"]
         except Exception:
             pass  # leave NaN — low volume of failures in practice
 
-    def _ci(boot_arr, ppoint):
+    def _ci(
+        boot_arr: np.ndarray,
+        ppoint: float,
+    ) -> Tuple[float, Tuple[float, float], float]:
         valid = ~np.isnan(boot_arr)
         if valid.sum() < 2:
-            return float('nan'), (float('nan'), float('nan')), float('nan')
+            return float("nan"), (float("nan"), float("nan")), float("nan")
         se = float(np.nanstd(boot_arr, ddof=1))
         lo = float(np.nanpercentile(boot_arr, 100 * alpha / 2))
         hi = float(np.nanpercentile(boot_arr, 100 * (1 - alpha / 2)))
         if np.isnan(ppoint) or se == 0:
-            pv = float('nan')
+            pv = float("nan")
         else:
             z = ppoint / se
             pv = float(2 * (1 - stats.norm.cdf(abs(z))))
         return se, (lo, hi), pv
 
-    se_tc, ci_tc, pv_tc = _ci(boot_tau, point['tau_c'])
-    se_lo, ci_lo, _ = _ci(boot_lo, point['sace_lo'])
-    se_hi, ci_hi, _ = _ci(boot_hi, point['sace_hi'])
+    se_tc, ci_tc, pv_tc = _ci(boot_tau, point["tau_c"])
+    se_lo, ci_lo, _ = _ci(boot_lo, point["sace_lo"])
+    se_hi, ci_hi, _ = _ci(boot_hi, point["sace_hi"])
 
-    effects = pd.DataFrame([{
-        'stratum': 'Complier (LATE)',
-        'estimate': point['tau_c'],
-        'se': se_tc,
-        'ci_lower': ci_tc[0],
-        'ci_upper': ci_tc[1],
-        'pvalue': pv_tc,
-    }])
+    effects = pd.DataFrame(
+        [
+            {
+                "stratum": "Complier (LATE)",
+                "estimate": point["tau_c"],
+                "se": se_tc,
+                "ci_lower": ci_tc[0],
+                "ci_upper": ci_tc[1],
+                "pvalue": pv_tc,
+            }
+        ]
+    )
 
-    bounds = pd.DataFrame([
-        {'quantity': 'SACE lower bound (always-survivor)',
-         'estimate': point['sace_lo'], 'se': se_lo,
-         'ci_lower': ci_lo[0], 'ci_upper': ci_lo[1]},
-        {'quantity': 'SACE upper bound (always-survivor)',
-         'estimate': point['sace_hi'], 'se': se_hi,
-         'ci_lower': ci_hi[0], 'ci_upper': ci_hi[1]},
-    ])
+    bounds = pd.DataFrame(
+        [
+            {
+                "quantity": "SACE lower bound (always-survivor)",
+                "estimate": point["sace_lo"],
+                "se": se_lo,
+                "ci_lower": ci_lo[0],
+                "ci_upper": ci_lo[1],
+            },
+            {
+                "quantity": "SACE upper bound (always-survivor)",
+                "estimate": point["sace_hi"],
+                "se": se_hi,
+                "ci_lower": ci_hi[0],
+                "ci_upper": ci_hi[1],
+            },
+        ]
+    )
 
     return PrincipalStratResult(
-        method='monotonicity',
+        method="monotonicity",
         strata_proportions={
-            'always-taker / always-survivor': point['pi_always'],
-            'complier': point['pi_complier'],
-            'never-taker / never-survivor': point['pi_never'],
+            "always-taker / always-survivor": point["pi_always"],
+            "complier": point["pi_complier"],
+            "never-taker / never-survivor": point["pi_never"],
         },
         effects=effects,
         bounds=bounds,
         n_obs=n,
         alpha=alpha,
         model_info={
-            'estimator': 'Monotonicity + Zhang-Rubin bounds',
-            'n_boot': n_boot,
-            **{k: v for k, v in point.items() if k.startswith('mu_')},
+            "estimator": "Monotonicity + Zhang-Rubin bounds",
+            "n_boot": n_boot,
+            **{k: v for k, v in point.items() if k.startswith("mu_")},
         },
     )
 
 
-def _fit_instrument_air(Y, D, S, Z, n, alpha, n_boot, seed, method):
+def _fit_instrument_air(
+    Y: np.ndarray,
+    D: np.ndarray,
+    S: np.ndarray,
+    Z: np.ndarray,
+    n: int,
+    alpha: float,
+    n_boot: int,
+    seed: Optional[int],
+    method: str,
+) -> PrincipalStratResult:
     """
     AIR / Wald LATE for the encouragement-design two-layer setup.
 
@@ -484,17 +534,27 @@ def _fit_instrument_air(Y, D, S, Z, n, alpha, n_boot, seed, method):
     -------
     PrincipalStratResult
     """
-    def _point(Y_, D_, S_, Z_):
+
+    def _point(
+        Y_: np.ndarray,
+        D_: np.ndarray,
+        S_: np.ndarray,
+        Z_: np.ndarray,
+    ) -> Dict[str, float]:
         n_z1 = float(np.sum(Z_ == 1))
         n_z0 = float(np.sum(Z_ == 0))
         if n_z1 == 0 or n_z0 == 0:
             return {
-                'pi_c_z': np.nan,
-                'first_stage': np.nan,
-                'tau_y': np.nan, 'tau_s': np.nan,
-                'd_z1': np.nan, 'd_z0': np.nan,
-                'y_z1': np.nan, 'y_z0': np.nan,
-                's_z1': np.nan, 's_z0': np.nan,
+                "pi_c_z": np.nan,
+                "first_stage": np.nan,
+                "tau_y": np.nan,
+                "tau_s": np.nan,
+                "d_z1": np.nan,
+                "d_z0": np.nan,
+                "y_z1": np.nan,
+                "y_z0": np.nan,
+                "s_z1": np.nan,
+                "s_z0": np.nan,
             }
         d_z1 = float(np.mean(D_[Z_ == 1]))
         d_z0 = float(np.mean(D_[Z_ == 0]))
@@ -512,34 +572,39 @@ def _fit_instrument_air(Y, D, S, Z, n, alpha, n_boot, seed, method):
             tau_y = np.nan
             tau_s = np.nan
         return {
-            'pi_c_z': pi_c_z,
-            'first_stage': first_stage,
-            'tau_y': tau_y, 'tau_s': tau_s,
-            'd_z1': d_z1, 'd_z0': d_z0,
-            'y_z1': y_z1, 'y_z0': y_z0,
-            's_z1': s_z1, 's_z0': s_z0,
+            "pi_c_z": pi_c_z,
+            "first_stage": first_stage,
+            "tau_y": tau_y,
+            "tau_s": tau_s,
+            "d_z1": d_z1,
+            "d_z0": d_z0,
+            "y_z1": y_z1,
+            "y_z0": y_z0,
+            "s_z1": s_z1,
+            "s_z0": s_z0,
         }
 
     point = _point(Y, D, S, Z)
 
     weak_first_stage_threshold = 0.02
-    if np.isfinite(point['first_stage']) and point['first_stage'] < -1e-6:
+    if np.isfinite(point["first_stage"]) and point["first_stage"] < -1e-6:
         warnings.warn(
             "Negative first stage on the instrument: "
             "P(D=1|Z=1) < P(D=1|Z=0). This violates monotonicity for "
             "the supplied instrument coding (or Z is reversed). Recode "
             "the instrument before reporting AIR / Wald LATEs.",
-            RuntimeWarning, stacklevel=3,
+            RuntimeWarning,
+            stacklevel=3,
         )
     elif (
-        not np.isfinite(point['pi_c_z'])
-        or point['pi_c_z'] < weak_first_stage_threshold
+        not np.isfinite(point["pi_c_z"]) or point["pi_c_z"] < weak_first_stage_threshold
     ):
         warnings.warn(
             "Weak first stage on the instrument: π_C(Z) is near 0. "
             "Wald LATEs (τ_Y, τ_S) are unreliable. Inspect "
             "P(D=1|Z=1)-P(D=1|Z=0) before reporting.",
-            RuntimeWarning, stacklevel=3,
+            RuntimeWarning,
+            stacklevel=3,
         )
 
     rng = np.random.default_rng(seed)
@@ -550,75 +615,86 @@ def _fit_instrument_air(Y, D, S, Z, n, alpha, n_boot, seed, method):
         idx = rng.integers(0, n, size=n)
         try:
             bp = _point(Y[idx], D[idx], S[idx], Z[idx])
-            boot_y[b] = bp['tau_y']
-            boot_s[b] = bp['tau_s']
-            boot_pi[b] = bp['pi_c_z']
+            boot_y[b] = bp["tau_y"]
+            boot_s[b] = bp["tau_s"]
+            boot_pi[b] = bp["pi_c_z"]
         except Exception:
             pass
 
-    def _ci(boot_arr, ppoint):
+    def _ci(
+        boot_arr: np.ndarray,
+        ppoint: float,
+    ) -> Tuple[float, Tuple[float, float], float]:
         if not np.isfinite(ppoint):
-            return float('nan'), (float('nan'), float('nan')), float('nan')
+            return float("nan"), (float("nan"), float("nan")), float("nan")
         valid = ~np.isnan(boot_arr)
         if valid.sum() < 2:
-            return float('nan'), (float('nan'), float('nan')), float('nan')
+            return float("nan"), (float("nan"), float("nan")), float("nan")
         se = float(np.nanstd(boot_arr, ddof=1))
         lo = float(np.nanpercentile(boot_arr, 100 * alpha / 2))
         hi = float(np.nanpercentile(boot_arr, 100 * (1 - alpha / 2)))
         if np.isnan(ppoint) or se == 0:
-            pv = float('nan')
+            pv = float("nan")
         else:
             z = ppoint / se
             pv = float(2 * (1 - stats.norm.cdf(abs(z))))
         return se, (lo, hi), pv
 
-    se_y, ci_y, pv_y = _ci(boot_y, point['tau_y'])
-    se_s, ci_s, pv_s = _ci(boot_s, point['tau_s'])
-    se_pi, ci_pi, _ = _ci(boot_pi, point['pi_c_z'])
+    se_y, ci_y, pv_y = _ci(boot_y, point["tau_y"])
+    se_s, ci_s, pv_s = _ci(boot_s, point["tau_s"])
+    se_pi, ci_pi, _ = _ci(boot_pi, point["pi_c_z"])
 
-    effects = pd.DataFrame([
-        {
-            'stratum': 'Complier (Z) — Wald LATE on Y',
-            'estimate': point['tau_y'], 'se': se_y,
-            'ci_lower': ci_y[0], 'ci_upper': ci_y[1], 'pvalue': pv_y,
-        },
-        {
-            'stratum': 'Complier (Z) — Wald LATE on S',
-            'estimate': point['tau_s'], 'se': se_s,
-            'ci_lower': ci_s[0], 'ci_upper': ci_s[1], 'pvalue': pv_s,
-        },
-    ])
+    effects = pd.DataFrame(
+        [
+            {
+                "stratum": "Complier (Z) — Wald LATE on Y",
+                "estimate": point["tau_y"],
+                "se": se_y,
+                "ci_lower": ci_y[0],
+                "ci_upper": ci_y[1],
+                "pvalue": pv_y,
+            },
+            {
+                "stratum": "Complier (Z) — Wald LATE on S",
+                "estimate": point["tau_s"],
+                "se": se_s,
+                "ci_lower": ci_s[0],
+                "ci_upper": ci_s[1],
+                "pvalue": pv_s,
+            },
+        ]
+    )
 
     return PrincipalStratResult(
-        method=f'instrument_air ({method})',
+        method=f"instrument_air ({method})",
         strata_proportions={
-            'complier (w.r.t. Z)': point['pi_c_z'],
-            'first_stage (D|Z=1 - D|Z=0)': point['first_stage'],
-            'complier_se': se_pi,
+            "complier (w.r.t. Z)": point["pi_c_z"],
+            "first_stage (D|Z=1 - D|Z=0)": point["first_stage"],
+            "complier_se": se_pi,
             # always-/never-taker decomposition w.r.t. Z is also
             # available analytically but reported only as raw cell
             # probabilities to keep the headline output focused on
             # the two LATE estimands.
-            'P(D=1 | Z=1)': point['d_z1'],
-            'P(D=1 | Z=0)': point['d_z0'],
+            "P(D=1 | Z=1)": point["d_z1"],
+            "P(D=1 | Z=0)": point["d_z0"],
         },
         effects=effects,
         bounds=None,
         n_obs=n,
         alpha=alpha,
         model_info={
-            'estimator': 'AIR / Wald LATE under encouragement design',
-            'method_arg': method,
-            'n_boot': n_boot,
-            'first_stage': point['first_stage'],
-            'weak_first_stage_threshold': weak_first_stage_threshold,
-            'cell_probs': {
-                'P(Y | Z=1)': point['y_z1'],
-                'P(Y | Z=0)': point['y_z0'],
-                'P(S=1 | Z=1)': point['s_z1'],
-                'P(S=1 | Z=0)': point['s_z0'],
+            "estimator": "AIR / Wald LATE under encouragement design",
+            "method_arg": method,
+            "n_boot": n_boot,
+            "first_stage": point["first_stage"],
+            "weak_first_stage_threshold": weak_first_stage_threshold,
+            "cell_probs": {
+                "P(Y | Z=1)": point["y_z1"],
+                "P(Y | Z=0)": point["y_z0"],
+                "P(S=1 | Z=1)": point["s_z1"],
+                "P(S=1 | Z=0)": point["s_z0"],
             },
-            'note': (
+            "note": (
                 "Always-survivor SACE under encouragement design is "
                 "partially identified (Mealli & Pacini 2013); only the "
                 "Wald LATE point estimates are reported here."
@@ -627,7 +703,17 @@ def _fit_instrument_air(Y, D, S, Z, n, alpha, n_boot, seed, method):
     )
 
 
-def _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed):
+def _fit_principal_score(
+    Y: np.ndarray,
+    D: np.ndarray,
+    S: np.ndarray,
+    X: Optional[np.ndarray],
+    covariates: List[str],
+    n: int,
+    alpha: float,
+    n_boot: int,
+    seed: Optional[int],
+) -> PrincipalStratResult:
     """
     Principal-score weighting (Ding & Lu 2017 style).
 
@@ -652,13 +738,15 @@ def _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed):
     paired with a sensitivity analysis (not yet shipped here).
     """
     if X is None or X.size == 0:
-        raise ValueError(
-            "method='principal_score' requires at least one covariate."
-        )
+        raise ValueError("method='principal_score' requires at least one covariate.")
 
-    import statsmodels.api as sm
-
-    def _fit_cell_probs(Y_, D_, S_, X_, check_monotonicity=False):
+    def _fit_cell_probs(
+        Y_: np.ndarray,
+        D_: np.ndarray,
+        S_: np.ndarray,
+        X_: np.ndarray,
+        check_monotonicity: bool = False,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float, float, int]:
         # p11(X) = P(S=1 | D=1, X)
         mask1 = D_ == 1
         mask0 = D_ == 0
@@ -668,14 +756,20 @@ def _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed):
         # marginal P(S=1); track it so the caller can warn rather than report
         # a covariate-adjusted estimate that is not actually adjusted.
         n_logit_fallback = int(p11_fit is None) + int(p10_fit is None)
-        p11 = _logit_predict(p11_fit, X_, fallback=float(np.mean(S_[mask1])) if mask1.any() else 0.5)
-        p10 = _logit_predict(p10_fit, X_, fallback=float(np.mean(S_[mask0])) if mask0.any() else 0.5)
+        p11 = _logit_predict(
+            p11_fit, X_, fallback=float(np.mean(S_[mask1])) if mask1.any() else 0.5
+        )
+        p10 = _logit_predict(
+            p10_fit, X_, fallback=float(np.mean(S_[mask0])) if mask0.any() else 0.5
+        )
         # Raw complier share BEFORE clipping — diagnostics for
         # monotonicity assumption. Under S(1) ≥ S(0), we expect
         # p11(x) ≥ p10(x) for all x; negative raw e_complier flags
         # a monotonicity violation in the data (or small-sample noise).
         raw_complier = p11 - p10
-        violation_frac = float(np.mean(raw_complier < -1e-3)) if check_monotonicity else 0.0
+        violation_frac = (
+            float(np.mean(raw_complier < -1e-3)) if check_monotonicity else 0.0
+        )
         min_raw = float(np.min(raw_complier)) if check_monotonicity else 0.0
         # Enforce monotonicity e_complier ≥ 0 by clipping
         e_always = np.clip(p10, 1e-4, 1 - 1e-4)
@@ -686,12 +780,28 @@ def _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed):
         e_always /= tot
         e_complier /= tot
         e_never /= tot
-        return (e_always, e_complier, e_never, violation_frac, min_raw,
-                n_logit_fallback)
+        return (
+            e_always,
+            e_complier,
+            e_never,
+            violation_frac,
+            min_raw,
+            n_logit_fallback,
+        )
 
-    def _point(Y_, D_, S_, X_, check_monotonicity=False):
+    def _point(
+        Y_: np.ndarray,
+        D_: np.ndarray,
+        S_: np.ndarray,
+        X_: np.ndarray,
+        check_monotonicity: bool = False,
+    ) -> Dict[str, float]:
         e_a, e_c, e_n, viol_frac, min_raw, n_logit_fallback = _fit_cell_probs(
-            Y_, D_, S_, X_, check_monotonicity=check_monotonicity,
+            Y_,
+            D_,
+            S_,
+            X_,
+            check_monotonicity=check_monotonicity,
         )
 
         # For the complier PCE under PI:
@@ -704,14 +814,18 @@ def _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed):
         mask_11 = (D_ == 1) & (S_ == 1)
         mask_00 = (D_ == 0) & (S_ == 0)
 
-        def _weighted_mean(y_arr, w_arr, mask):
+        def _weighted_mean(
+            y_arr: np.ndarray,
+            w_arr: np.ndarray,
+            mask: np.ndarray,
+        ) -> float:
             if not np.any(mask):
-                return float('nan')
+                return float("nan")
             y_sel = y_arr[mask]
             w_sel = w_arr[mask]
             tot = float(np.sum(w_sel))
             if tot <= 0:
-                return float('nan')
+                return float("nan")
             return float(np.sum(y_sel * w_sel) / tot)
 
         mu1_c = _weighted_mean(Y_, w1_c, mask_11)
@@ -723,24 +837,26 @@ def _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed):
         mu1_a = _weighted_mean(Y_, w1_a, mask_11)
         # Y(0) | always identified directly from (D=0, S=1):
         mask_01 = (D_ == 0) & (S_ == 1)
-        mu0_a = float(np.mean(Y_[mask_01])) if np.any(mask_01) else float('nan')
+        mu0_a = float(np.mean(Y_[mask_01])) if np.any(mask_01) else float("nan")
         tau_a = mu1_a - mu0_a if not (np.isnan(mu1_a) or np.isnan(mu0_a)) else np.nan
 
         # Never-taker: Y(1) | never from (D=1, S=0).
         mask_10 = (D_ == 1) & (S_ == 0)
-        mu1_n = float(np.mean(Y_[mask_10])) if np.any(mask_10) else float('nan')
+        mu1_n = float(np.mean(Y_[mask_10])) if np.any(mask_10) else float("nan")
         w0_n = e_n / np.clip(e_c + e_n, 1e-8, None)  # P(never | D=0, S=0, X)
         mu0_n = _weighted_mean(Y_, w0_n, mask_00)
         tau_n = mu1_n - mu0_n if not (np.isnan(mu1_n) or np.isnan(mu0_n)) else np.nan
 
         return {
-            'tau_c': tau_c, 'tau_a': tau_a, 'tau_n': tau_n,
-            'pi_always': float(np.mean(e_a)),
-            'pi_complier': float(np.mean(e_c)),
-            'pi_never': float(np.mean(e_n)),
-            'mono_violation_frac': viol_frac,
-            'mono_min_raw_complier': min_raw,
-            'n_logit_fallback': n_logit_fallback,
+            "tau_c": tau_c,
+            "tau_a": tau_a,
+            "tau_n": tau_n,
+            "pi_always": float(np.mean(e_a)),
+            "pi_complier": float(np.mean(e_c)),
+            "pi_never": float(np.mean(e_n)),
+            "mono_violation_frac": viol_frac,
+            "mono_min_raw_complier": min_raw,
+            "n_logit_fallback": n_logit_fallback,
         }
 
     point = _point(Y, D, S, X, check_monotonicity=True)
@@ -748,7 +864,7 @@ def _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed):
     # meaningful monotonicity violation. Threshold 5% of units is
     # conservative; smaller violations are likely small-sample noise
     # and clipping absorbs them without damage.
-    if point['mono_violation_frac'] > 0.05:
+    if point["mono_violation_frac"] > 0.05:
         warnings.warn(
             f"Principal stratification: fitted p11(x) < p10(x) for "
             f"{point['mono_violation_frac']:.1%} of units (min raw "
@@ -756,24 +872,26 @@ def _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed):
             f"This suggests the monotonicity assumption S(1) ≥ S(0) "
             f"may be violated in the data. Clipping preserves valid "
             f"arithmetic but downstream PCEs rely on monotonicity.",
-            RuntimeWarning, stacklevel=3,
+            RuntimeWarning,
+            stacklevel=3,
         )
 
     # Surface a silent reversion to the *unadjusted* principal score on the
     # main sample (CLAUDE.md §7): the reported PCEs would no longer use the
     # covariate-adjusted principal score the user requested.
-    if point.get('n_logit_fallback', 0) > 0:
+    if point.get("n_logit_fallback", 0) > 0:
         warnings.warn(
             f"Principal stratification: the covariate-adjusted principal-score "
             f"logit failed to fit on {point['n_logit_fallback']} of the 2 "
             f"treatment arms (singular / separated design or non-convergence). "
             f"The reported PCEs use the *unadjusted* marginal P(S=1) for the "
             f"affected arm(s) and are no longer covariate-adjusted.",
-            RuntimeWarning, stacklevel=3,
+            RuntimeWarning,
+            stacklevel=3,
         )
 
     rng = np.random.default_rng(seed)
-    boot = {k: np.full(n_boot, np.nan) for k in ('tau_c', 'tau_a', 'tau_n')}
+    boot = {k: np.full(n_boot, np.nan) for k in ("tau_c", "tau_a", "tau_n")}
     n_boot_logit_fallback = 0
     for b in range(n_boot):
         idx = rng.integers(0, n, size=n)
@@ -781,9 +899,8 @@ def _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed):
             # Suppress per-bootstrap monotonicity warnings — we already
             # fired one on the point estimate; repeating it 500 times
             # is noise.
-            bp = _point(Y[idx], D[idx], S[idx], X[idx],
-                        check_monotonicity=False)
-            if bp.get('n_logit_fallback', 0) > 0:
+            bp = _point(Y[idx], D[idx], S[idx], X[idx], check_monotonicity=False)
+            if bp.get("n_logit_fallback", 0) > 0:
                 n_boot_logit_fallback += 1
             for k in boot:
                 if k in bp:
@@ -791,58 +908,64 @@ def _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed):
         except Exception:
             pass
 
-    def _ci(arr, ppoint):
+    def _ci(
+        arr: np.ndarray,
+        ppoint: float,
+    ) -> Tuple[float, Tuple[float, float], float]:
         valid = ~np.isnan(arr)
         if valid.sum() < 2:
-            return float('nan'), (float('nan'), float('nan')), float('nan')
+            return float("nan"), (float("nan"), float("nan")), float("nan")
         se = float(np.nanstd(arr, ddof=1))
         lo = float(np.nanpercentile(arr, 100 * alpha / 2))
         hi = float(np.nanpercentile(arr, 100 * (1 - alpha / 2)))
         pv = (
             float(2 * (1 - stats.norm.cdf(abs(ppoint / se))))
-            if se > 0 and not np.isnan(ppoint) else float('nan')
+            if se > 0 and not np.isnan(ppoint)
+            else float("nan")
         )
         return se, (lo, hi), pv
 
     rows = []
     for label, key in [
-        ('Complier PCE', 'tau_c'),
-        ('Always-taker PCE', 'tau_a'),
-        ('Never-taker PCE', 'tau_n'),
+        ("Complier PCE", "tau_c"),
+        ("Always-taker PCE", "tau_a"),
+        ("Never-taker PCE", "tau_n"),
     ]:
         se, ci, pv = _ci(boot[key], point[key])
-        rows.append({
-            'stratum': label,
-            'estimate': point[key],
-            'se': se,
-            'ci_lower': ci[0],
-            'ci_upper': ci[1],
-            'pvalue': pv,
-        })
+        rows.append(
+            {
+                "stratum": label,
+                "estimate": point[key],
+                "se": se,
+                "ci_lower": ci[0],
+                "ci_upper": ci[1],
+                "pvalue": pv,
+            }
+        )
 
     effects = pd.DataFrame(rows)
 
     return PrincipalStratResult(
-        method='principal_score',
+        method="principal_score",
         strata_proportions={
-            'always-taker': point['pi_always'],
-            'complier': point['pi_complier'],
-            'never-taker': point['pi_never'],
+            "always-taker": point["pi_always"],
+            "complier": point["pi_complier"],
+            "never-taker": point["pi_never"],
         },
         effects=effects,
         bounds=None,
         n_obs=n,
         alpha=alpha,
         model_info={
-            'estimator': 'Principal score weighting (Ding & Lu 2017)',
-            'n_boot': n_boot,
-            'covariates': covariates,
-            'assumption': 'principal ignorability + monotonicity',
-            'mono_violation_frac': point['mono_violation_frac'],
-            'mono_min_raw_complier': point['mono_min_raw_complier'],
-            'principal_score_degraded': bool(point.get('n_logit_fallback', 0) > 0),
-            'principal_score_fallback_arms': int(point.get('n_logit_fallback', 0)),
-            'n_boot_principal_score_fallback': int(n_boot_logit_fallback),
+            "estimator": "Principal score weighting (Ding & Lu 2017)",
+            "n_boot": n_boot,
+            "covariates": covariates,
+            "assumption": "principal ignorability + monotonicity",
+            "mono_violation_frac": point["mono_violation_frac"],
+            "mono_min_raw_complier": point["mono_min_raw_complier"],
+            "principal_score_degraded": bool(point.get("n_logit_fallback", 0) > 0),
+            "principal_score_fallback_arms": int(point.get("n_logit_fallback", 0)),
+            "n_boot_principal_score_fallback": int(n_boot_logit_fallback),
         },
     )
 
@@ -886,44 +1009,60 @@ def survivor_average_causal_effect(
     True
     """
     ps = principal_strat(
-        data=data, y=y, treat=treat, strata=survival,
-        method='monotonicity', alpha=alpha, n_boot=n_boot, seed=seed,
+        data=data,
+        y=y,
+        treat=treat,
+        strata=survival,
+        method="monotonicity",
+        alpha=alpha,
+        n_boot=n_boot,
+        seed=seed,
     )
-    lo = float(ps.bounds.loc[0, 'estimate'])
-    hi = float(ps.bounds.loc[1, 'estimate'])
+    bounds = ps.bounds
+    if bounds is None:
+        raise RuntimeError(
+            "principal_strat(method='monotonicity') did not return SACE bounds."
+        )  # pragma: no cover
+    lo = float(bounds.loc[0, "estimate"])
+    hi = float(bounds.loc[1, "estimate"])
     midpoint = (lo + hi) / 2
     # Confidence-bound union of the two endpoints (Imbens & Manski style, simplified)
-    ci_lo = float(ps.bounds.loc[0, 'ci_lower'])
-    ci_hi = float(ps.bounds.loc[1, 'ci_upper'])
+    ci_lo = float(bounds.loc[0, "ci_lower"])
+    ci_hi = float(bounds.loc[1, "ci_upper"])
     width_se = max((hi - lo) / 2, 0.0)
 
     model_info = {
-        'estimator': 'Zhang-Rubin SACE bounds',
-        'sace_lower': lo,
-        'sace_upper': hi,
-        'bounds_width': hi - lo,
+        "estimator": "Zhang-Rubin SACE bounds",
+        "sace_lower": lo,
+        "sace_upper": hi,
+        "bounds_width": hi - lo,
         **ps.model_info,
     }
     _result = CausalResult(
-        method='SACE (Zhang-Rubin sharp bounds)',
-        estimand='SACE',
+        method="SACE (Zhang-Rubin sharp bounds)",
+        estimand="SACE",
         estimate=midpoint,
         se=width_se,  # half-width as a rough uncertainty surrogate
-        pvalue=float('nan'),  # partial identification — point-null p-value not defined
+        pvalue=float("nan"),  # partial identification — point-null p-value not defined
         ci=(ci_lo, ci_hi),
         alpha=alpha,
         n_obs=ps.n_obs,
         model_info=model_info,
-        _citation_key='principal_strat',
+        _citation_key="principal_strat",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.principal_strat.survivor_average_causal_effect",
             params={
-                "y": y, "treat": treat, "survival": survival,
-                "alpha": alpha, "n_boot": n_boot, "seed": seed,
+                "y": y,
+                "treat": treat,
+                "survival": survival,
+                "alpha": alpha,
+                "n_boot": n_boot,
+                "seed": seed,
             },
             data=data,
             overwrite=False,
@@ -938,19 +1077,21 @@ def survivor_average_causal_effect(
 # ---------------------------------------------------------------------
 
 
-def _logit_safe(y, X):
+def _logit_safe(y: np.ndarray, X: np.ndarray) -> Any:
     """Thin wrapper over the shared ``core._glm_fit.safe_logit_fit`` primitive
     (kept as a module-level name so it stays mockable in tests)."""
     from ..core._glm_fit import safe_logit_fit
+
     return safe_logit_fit(y, X)
 
 
-def _logit_predict(fit, X, fallback):
+def _logit_predict(fit: Any, X: np.ndarray, fallback: float) -> np.ndarray:
     from ..core._glm_fit import safe_logit_predict
-    return safe_logit_predict(fit, X, fallback)
+
+    return np.asarray(safe_logit_predict(fit, X, fallback), dtype=float)
 
 
-CausalResult._CITATIONS['principal_strat'] = (
+CausalResult._CITATIONS["principal_strat"] = (
     "@article{frangakis2002principal,\n"
     "  title={Principal Stratification in Causal Inference},\n"
     "  author={Frangakis, Constantine E. and Rubin, Donald B.},\n"

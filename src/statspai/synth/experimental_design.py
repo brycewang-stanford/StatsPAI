@@ -35,6 +35,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from ..exceptions import DataInsufficient
+from .._input_validation import require_columns
 from ._core import solve_simplex_weights
 
 
@@ -263,9 +265,9 @@ def synth_experimental_design(
     >>> print(res.summary())  # doctest: +SKIP
     """
     # --- Validation --------------------------------------------------------
-    for col in (unit, time, outcome):
-        if col not in data.columns:
-            raise ValueError(f"column '{col}' not in data")  # pragma: no cover
+    require_columns(
+        data, [unit, time, outcome], function="synth_experimental_design"
+    )
     if risk not in ("mspe", "rmse"):
         raise ValueError(f"risk must be 'mspe' or 'rmse', got {risk!r}")
     if concentration_weight < 0:
@@ -274,6 +276,23 @@ def synth_experimental_design(
     # --- Build wide panel --------------------------------------------------
     wide = _build_wide_panel(data, unit=unit, time=time, outcome=outcome)
     all_units = list(wide.index)
+    # Catch a collapsed panel (empty / fully-missing / single-unit input)
+    # *here*, with a message naming the real problem — otherwise it slips
+    # through to the ``k`` range check below as a misleading
+    # "k must be in [1, -1]" error.
+    if len(all_units) < 2 or wide.shape[1] < 1:
+        raise DataInsufficient(
+            "synth_experimental_design: the panel collapsed to "
+            f"{len(all_units)} unit(s) x {int(wide.shape[1])} period(s) after "
+            "pivoting — an empty, fully-missing, or single-unit panel cannot "
+            "design a synthetic-control experiment.",
+            recovery_hint="Provide a balanced panel with multiple units and "
+            "at least one pre-period observation.",
+            diagnostics={
+                "n_units": len(all_units),
+                "n_periods": int(wide.shape[1]),
+            },
+        )
     if pre_period is not None:
         lo, hi = pre_period
         time_cols = [t for t in wide.columns if lo <= t <= hi]
@@ -281,9 +300,12 @@ def synth_experimental_design(
             raise ValueError(f"pre_period {pre_period} selected 0 periods")
         wide = wide[time_cols]
     if wide.isna().any().any():
-        raise ValueError(  # pragma: no cover
-            "Panel is unbalanced or has NaN in pre_period. "
-            "Balance before calling synth_experimental_design()."
+        raise DataInsufficient(
+            "synth_experimental_design: the panel is unbalanced or has NaN in "
+            "the pre-period; synthetic control needs a balanced donor matrix.",
+            recovery_hint="Balance the panel (e.g. sp.balance_panel) or restrict "
+            "pre_period to fully-observed dates before calling.",
+            diagnostics={"n_missing_cells": int(wide.isna().to_numpy().sum())},
         )
 
     # --- Candidates & donors ----------------------------------------------

@@ -122,6 +122,12 @@ class BCFOrdinalResult:
     method: str = "bcf_ordinal"
     diagnostics: Dict[str, Any] = field(default_factory=dict)
 
+    def to_dict(self) -> dict:
+        """JSON-safe dict of every field (agent-native serialization)."""
+        from .._result_serialize import result_to_dict
+
+        return result_to_dict(self)
+
     def summary(self) -> str:
         lines = [
             "Bayesian Causal Forest — Ordered treatment (Zorzetto et al. 2026)",
@@ -225,6 +231,17 @@ def bcf_ordinal(
             "bcf_ordinal input columns are missing from data.",
             diagnostics={"missing_columns": sorted(str(col) for col in missing)},
             recovery_hint="Pass column names present in the DataFrame.",
+        )
+    if int(pd.Series(data[y]).notna().sum()) < 2:
+        # Otherwise the inner BCF's dropna empties each pair and the failure
+        # surfaces as a misleading "Treatment must be binary" error.
+        raise DataInsufficient(
+            f"bcf_ordinal: outcome '{y}' has fewer than 2 non-missing values.",
+            recovery_hint="Provide a non-missing outcome column.",
+            diagnostics={
+                "n_nonmissing_outcome": int(pd.Series(data[y]).notna().sum())
+            },
+            alternative_functions=_BCF_ORDINAL_ALTERNATIVES,
         )
     t_vals = np.asarray(data[treat])
     levels = sorted([lv for lv in pd.unique(t_vals) if pd.notna(lv)])

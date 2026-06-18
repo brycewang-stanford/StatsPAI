@@ -51,6 +51,12 @@ class BCFFactorExposureResult:
     method: str = "bcf_factor_exposure"
     diagnostics: Dict[str, Any] = field(default_factory=dict)
 
+    def to_dict(self) -> dict:
+        """JSON-safe dict of every field (agent-native serialization)."""
+        from .._result_serialize import result_to_dict
+
+        return result_to_dict(self)
+
     def summary(self) -> str:
         lines = [
             "BCF with Factor-based Exposure Mapping (Zorzetto et al. 2026, arXiv:2601.16595)",
@@ -171,6 +177,13 @@ def bcf_factor_exposure(
     missing = [c for c in (y, *exposures, *covariates) if c not in data.columns]
     if missing:
         raise ValueError(f"columns not in data: {missing}")
+    if int(data[y].notna().sum()) < 2:
+        # Otherwise the inner BCF's dropna empties the frame and the failure
+        # surfaces as a misleading "Treatment must be binary" error.
+        raise ValueError(
+            f"outcome '{y}' has fewer than 2 non-missing values; cannot fit "
+            "the factor-exposure BCF."
+        )
     if n_factors < 1:
         raise ValueError("n_factors must be >= 1")
     if binarize not in ("median", "zero", "none"):

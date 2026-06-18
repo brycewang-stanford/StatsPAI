@@ -46,6 +46,35 @@ class FrailtyResult:
     n_clusters: int
     concordance: float
 
+    # Agent-native accessors (consistent with sp.cox / EconometricResults).
+    # Cox frailty reports log-hazard-ratio coefficients; the frailty variance
+    # parameter stays available via ``.theta``.
+    @property
+    def params(self) -> pd.Series:
+        return pd.Series(
+            np.asarray(self.beta, dtype=float), index=list(self.var_names)
+        )
+
+    @property
+    def std_errors(self) -> pd.Series:
+        return pd.Series(
+            np.asarray(self.se, dtype=float), index=list(self.var_names)
+        )
+
+    @property
+    def tvalues(self) -> pd.Series:
+        return self.params / self.std_errors
+
+    @property
+    def pvalues(self) -> pd.Series:
+        from scipy import stats
+
+        z = (self.params / self.std_errors).to_numpy(dtype=float)
+        return pd.Series(
+            2.0 * (1.0 - stats.norm.cdf(np.abs(z))),
+            index=self.params.index,
+        )
+
     def summary(self) -> str:
         lines = [
             "Cox Model with Shared Gamma Frailty",

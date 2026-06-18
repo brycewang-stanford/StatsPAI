@@ -378,12 +378,12 @@ def rd2d_plot(
     x1: str,
     x2: str,
     treatment: str,
-    boundary: Optional[Callable] = None,
+    boundary: Optional[Callable[..., Any]] = None,
     result: Optional[CausalResult] = None,
     plot_type: str = 'scatter',
-    ax=None,
-    figsize: tuple = (10, 8),
-) -> tuple:
+    ax: Optional[Any] = None,
+    figsize: Tuple[float, float] = (10, 8),
+) -> Tuple[Any, Any]:
     """
     2D boundary RD visualization.
 
@@ -481,6 +481,7 @@ def rd2d_plot(
 
         # Boundary
         if boundary is not None:
+            assert x2_boundary is not None
             ax.plot(x1_range, x2_boundary, 'k-', linewidth=2,
                     label='Boundary', zorder=3)
         else:
@@ -515,6 +516,7 @@ def rd2d_plot(
         fig.colorbar(scatter, ax=ax, label=y, shrink=0.8)
 
         if boundary is not None:
+            assert x2_boundary is not None
             ax.plot(x1_range, x2_boundary, 'k-', linewidth=2.5,
                     label='Boundary', zorder=3)
         else:
@@ -813,7 +815,7 @@ def _signed_distance_to_curve(
     X1: np.ndarray,
     X2: np.ndarray,
     T: np.ndarray,
-    boundary_fn: Callable,
+    boundary_fn: Callable[[float], float],
 ) -> np.ndarray:
     """
     Signed distance to an arbitrary boundary curve f(x1) -> x2.
@@ -835,8 +837,8 @@ def _signed_distance_to_curve(
         xi1, xi2 = X1[i], X2[i]
 
         # Minimize squared distance to boundary curve
-        def sq_dist(t):
-            return (xi1 - t) ** 2 + (xi2 - boundary_fn(t)) ** 2
+        def sq_dist(t: float) -> float:
+            return float((xi1 - t) ** 2 + (xi2 - boundary_fn(t)) ** 2)
 
         # Use bounded minimization with a few restarts
         best_d2 = np.inf
@@ -862,7 +864,7 @@ def _signed_distance_to_curve(
 
     # Apply sign: positive for treated, negative for control
     sign = np.where(T == 1, 1.0, -1.0)
-    return dist * sign
+    return np.asarray(dist * sign, dtype=float)
 
 
 # ======================================================================

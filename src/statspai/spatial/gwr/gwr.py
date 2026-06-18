@@ -13,6 +13,7 @@ The result object mirrors mgwr's ``GWR.fit()`` return: per-observation
 parameter matrix ``params (n × k)``, predictions, residuals, local R²,
 effective degrees of freedom (trace of the hat matrix), AICc.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,13 +22,13 @@ from typing import Literal, Optional
 import numpy as np
 from scipy.spatial import cKDTree
 
-
 KernelName = Literal["gaussian", "bisquare", "exponential"]
 
 
 # --------------------------------------------------------------------- #
 #  Kernel functions
 # --------------------------------------------------------------------- #
+
 
 def _kernel(u: np.ndarray, kernel: KernelName) -> np.ndarray:
     """Kernel evaluated at the scaled distance ``u = d / bw``.
@@ -48,6 +49,7 @@ def _kernel(u: np.ndarray, kernel: KernelName) -> np.ndarray:
 # --------------------------------------------------------------------- #
 #  Weight construction (one row of W_i)
 # --------------------------------------------------------------------- #
+
 
 def _weights_row(
     coords: np.ndarray,
@@ -78,23 +80,26 @@ def _weights_row(
 #  Result dataclass
 # --------------------------------------------------------------------- #
 
+
 @dataclass
 class GWRResult:
-    params: np.ndarray          # (n, k)
-    predicted: np.ndarray       # (n,)
-    residuals: np.ndarray       # (n,)
+    params: np.ndarray  # (n, k)
+    predicted: np.ndarray  # (n,)
+    residuals: np.ndarray  # (n,)
     bw: float
     kernel: KernelName
     fixed: bool
-    local_R2: np.ndarray        # (n,)
+    local_R2: np.ndarray  # (n,)
     aicc: float
     aic: float
     bic: float
     R2: float
     resid_ss: float
-    tr_S: float                 # effective df = tr(H)
+    tr_S: float  # effective df = tr(H)
     n: int
     k: int
+    se: np.ndarray = None  # (n, k) local coefficient standard errors
+    tvals: np.ndarray = None  # (n, k) local t-statistics
 
     def summary(self) -> str:
         lines = [
@@ -127,6 +132,7 @@ class GWRResult:
 # --------------------------------------------------------------------- #
 #  GWR fit
 # --------------------------------------------------------------------- #
+
 
 def gwr(
     coords,
@@ -185,7 +191,9 @@ def gwr(
 
     params = np.empty((n, k))
     predicted = np.empty(n)
-    S_diag = np.empty(n)      # diagonal of the hat matrix
+    S_diag = np.empty(n)  # diagonal of the hat matrix
+    CCt_diag = np.empty((n, k))  # diag(C_i C_i'), C_i = (X'W_iX)^-1 X'W_i
+    tr_StS = 0.0  # tr(S'S) = Σ_i ||s_i||² (effective resid df)
 
     for i in range(n):
         w = _weights_row(coords, i, bw, kernel, fixed, tree)
@@ -195,12 +203,15 @@ def gwr(
             XtWX_inv = np.linalg.inv(XtWX)
         except np.linalg.LinAlgError:
             XtWX_inv = np.linalg.pinv(XtWX)
-        beta_i = XtWX_inv @ (X.T @ (w * y))
+        C_i = XtWX_inv @ (X.T * w)  # (k, n): β̂_i = C_i y
+        beta_i = C_i @ y
         params[i] = beta_i
         predicted[i] = float(X[i] @ beta_i)
-        # Hat-row: s_i = x_i' (X' W_i X)^{-1} X' W_i  → S[i, i] = s_i[i]
-        s_i = X[i] @ XtWX_inv @ (X.T * w)
+        CCt_diag[i] = np.sum(C_i**2, axis=1)
+        # Hat-row: s_i = x_i' C_i  → S[i, i] = s_i[i]; accumulate tr(S'S)
+        s_i = X[i] @ C_i
         S_diag[i] = float(s_i[i])
+        tr_StS += float(s_i @ s_i)
 
     residuals = y - predicted
     resid_ss = float(residuals @ residuals)
@@ -208,12 +219,21 @@ def gwr(
     R2 = 1.0 - resid_ss / tss if tss > 0 else np.nan
     tr_S = float(S_diag.sum())
 
+    # Local standard errors (Fotheringham, Brunsdon & Charlton 2002, §2.4):
+    #   Var(β̂_i) = σ̂² C_i C_i',  σ̂² = RSS / (n - 2 tr(S) + tr(S'S)).
+    delta1 = max(n - 2.0 * tr_S + tr_StS, 1e-6)
+    sigma2_se = resid_ss / delta1
+    se = np.sqrt(np.maximum(sigma2_se * CCt_diag, 0.0))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        tvals = np.where(se > 0, params / se, np.nan)
+
     sigma2 = resid_ss / n
     # AIC / AICc per Fotheringham et al. (2002) eq. (2.34)
     aic = 2 * n * np.log(np.sqrt(sigma2)) + n * np.log(2 * np.pi) + n + tr_S
     denom = max(n - tr_S - 2, 1e-6)
-    aicc = (2 * n * np.log(np.sqrt(sigma2)) + n * np.log(2 * np.pi)
-            + n * (n + tr_S) / denom)
+    aicc = (
+        2 * n * np.log(np.sqrt(sigma2)) + n * np.log(2 * np.pi) + n * (n + tr_S) / denom
+    )
     bic = 2 * n * np.log(np.sqrt(sigma2)) + n * np.log(2 * np.pi) + tr_S * np.log(n)
 
     # Local R²: Leung, Mei & Zhang (2000) definition
@@ -222,7 +242,7 @@ def gwr(
         w = _weights_row(coords, i, bw, kernel, fixed, tree)
         ybar_local = float(w @ y) / float(w.sum()) if w.sum() > 0 else 0.0
         tss_local = float((w * (y - ybar_local) ** 2).sum())
-        rss_local = float((w * residuals ** 2).sum())
+        rss_local = float((w * residuals**2).sum())
         local_R2[i] = 1.0 - rss_local / tss_local if tss_local > 0 else np.nan
 
     return GWRResult(
@@ -241,4 +261,6 @@ def gwr(
         tr_S=tr_S,
         n=n,
         k=k,
+        se=se,
+        tvals=tvals,
     )

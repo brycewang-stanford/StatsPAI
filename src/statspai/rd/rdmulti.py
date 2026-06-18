@@ -26,7 +26,7 @@ Keele, L. & Titiunik, R. (2015).
 [@keele2015geographic]
 """
 
-from typing import Optional, List, Dict, Any, Union
+from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -64,8 +64,16 @@ class RDMultiResult:
     2
     """
 
-    def __init__(self, cutoff_results, pooled_estimate, pooled_se,
-                 pooled_ci, n_cutoffs, n_total, method):
+    def __init__(
+        self,
+        cutoff_results: List[Dict[str, Any]],
+        pooled_estimate: float,
+        pooled_se: float,
+        pooled_ci: Tuple[float, float],
+        n_cutoffs: int,
+        n_total: int,
+        method: str,
+    ) -> None:
         self.cutoff_results = cutoff_results  # list of dicts
         self.pooled_estimate = pooled_estimate
         self.pooled_se = pooled_se
@@ -97,7 +105,7 @@ class RDMultiResult:
         lines.append("=" * 65)
         return "\n".join(lines)
 
-    def plot(self, ax=None, **kwargs):
+    def plot(self, ax: Optional[Any] = None, **kwargs: Any) -> Any:
         """Forest plot of cutoff-specific and pooled estimates."""
         try:
             import matplotlib.pyplot as plt
@@ -116,7 +124,6 @@ class RDMultiResult:
         errors = [[e - cl for e, cl in zip(estimates, ci_lowers)],
                   [cu - e for e, cu in zip(estimates, ci_uppers)]]
 
-        colors = ['steelblue'] * len(self.cutoff_results) + ['red']
         ax.errorbar(estimates, y_pos, xerr=errors, fmt='o', color='steelblue',
                     capsize=3, elinewidth=1.5)
         ax.scatter([self.pooled_estimate], [len(labels)-1], color='red', s=80, zorder=5,
@@ -130,7 +137,13 @@ class RDMultiResult:
         return ax
 
 
-def _local_linear_rd(y, x, c, h, kernel='triangular'):
+def _local_linear_rd(
+    y: np.ndarray,
+    x: np.ndarray,
+    c: float,
+    h: float,
+    kernel: str = 'triangular',
+) -> Tuple[float, float, int]:
     """Local linear RD estimate at cutoff c with bandwidth h."""
     x_centered = x - c
 
@@ -160,7 +173,7 @@ def _local_linear_rd(y, x, c, h, kernel='triangular'):
     except np.linalg.LinAlgError:  # pragma: no cover
         tau, se = np.nan, np.nan  # pragma: no cover
 
-    return tau, se, mask.sum()
+    return float(tau), float(se), int(mask.sum())
 
 
 def rdmc(
@@ -168,7 +181,7 @@ def rdmc(
     y: str,
     x: str,
     cutoffs: List[float],
-    bandwidth: float = None,
+    bandwidth: Optional[float] = None,
     kernel: str = "triangular",
     pooling: str = "ivw",
     alpha: float = 0.05,
@@ -224,13 +237,17 @@ def rdmc(
     x_data = data[x].values.astype(float)
 
     if bandwidth is None:
-        bandwidth = 1.06 * np.std(x_data) * len(x_data)**(-1/5)
+        bandwidth_value = float(1.06 * np.std(x_data) * len(x_data)**(-1/5))
+    else:
+        bandwidth_value = float(bandwidth)
 
     cutoff_results = []
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
     for c in cutoffs:
-        tau, se, n_local = _local_linear_rd(y_data, x_data, c, bandwidth, kernel)
+        tau, se, n_local = _local_linear_rd(
+            y_data, x_data, c, bandwidth_value, kernel
+        )
         p_val = 2 * (1 - stats.norm.cdf(abs(tau / se))) if se > 0 else np.nan
 
         cutoff_results.append({
@@ -241,7 +258,7 @@ def rdmc(
             'ci_upper': tau + z_crit * se,
             'p_value': p_val,
             'n': n_local,
-            'bandwidth': bandwidth,
+            'bandwidth': bandwidth_value,
         })
 
     # Pool estimates
@@ -278,7 +295,7 @@ def rdms(
     x2: str,
     cutoff1: float = 0,
     cutoff2: float = 0,
-    bandwidth: float = None,
+    bandwidth: Optional[float] = None,
     kernel: str = "triangular",
     alpha: float = 0.05,
 ) -> CausalResult:
@@ -340,10 +357,12 @@ def rdms(
     treatment = (x1_data >= 0).astype(float)
 
     if bandwidth is None:
-        bandwidth = 1.06 * np.std(distance) * len(distance)**(-1/5)
+        bandwidth_value = float(1.06 * np.std(distance) * len(distance)**(-1/5))
+    else:
+        bandwidth_value = float(bandwidth)
 
     # Kernel weights based on distance
-    u = distance / bandwidth
+    u = distance / bandwidth_value
     if kernel == 'triangular':
         w = np.where(u <= 1, 1 - u, 0.0)
     elif kernel == 'uniform':
@@ -352,7 +371,7 @@ def rdms(
         w = np.where(u <= 1, 1 - u, 0.0)
 
     mask = w > 0
-    n_local = mask.sum()
+    n_local = int(mask.sum())
 
     if n_local < 10:
         warnings.warn("Very few observations within bandwidth")  # pragma: no cover
@@ -395,7 +414,7 @@ def rdms(
         alpha=alpha,
         n_obs=len(y_data),
         model_info={
-            'bandwidth': bandwidth,
+            'bandwidth': bandwidth_value,
             'kernel': kernel,
             'cutoff1': cutoff1,
             'cutoff2': cutoff2,

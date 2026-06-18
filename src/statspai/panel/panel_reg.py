@@ -27,7 +27,7 @@ Blundell, R. and Bond, S. (1998). "Initial Conditions and Moment Restrictions."
 """
 
 import warnings
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -148,7 +148,7 @@ class PanelResults(EconometricResults):
         _indep_vars: Optional[List[str]] = None,
         _method: Optional[str] = None,
         _lm_result: Optional[Any] = None,
-    ):
+    ) -> None:
         super().__init__(params, std_errors, model_info, data_info, diagnostics)
         self._panel_data = _panel_data
         self._formula = _formula
@@ -158,6 +158,30 @@ class PanelResults(EconometricResults):
         self._indep_vars = _indep_vars
         self._method = _method
         self._lm_result = _lm_result
+
+    def _stored_design(
+        self, diagnostic: str
+    ) -> Tuple[pd.DataFrame, str, List[str], str, str]:
+        if (
+            self._panel_data is None
+            or self._dep_var is None
+            or self._indep_vars is None
+            or self._entity is None
+            or self._time is None
+        ):
+            raise _panel_method_error(
+                f"Stored panel design is incomplete — cannot run {diagnostic}.",
+                diagnostics={"diagnostic": diagnostic},
+                recovery_hint="Run the diagnostic on a PanelResults object "
+                "created by sp.panel().",
+            )  # pragma: no cover
+        return (
+            self._panel_data,
+            self._dep_var,
+            self._indep_vars,
+            self._entity,
+            self._time,
+        )
 
     # ------------------------------------------------------------------
     # Hausman test: FE vs RE
@@ -175,17 +199,13 @@ class PanelResults(EconometricResults):
         dict
             'statistic', 'df', 'pvalue', 'recommendation', 'interpretation'
         """
-        if self._panel_data is None:
-            raise _panel_method_error(
-                "Panel data not stored — cannot run Hausman test.",
-                diagnostics={"diagnostic": "hausman"},
-                recovery_hint="Run the diagnostic on a PanelResults object "
-                "created by sp.panel().",
-            )  # pragma: no cover
+        panel_data, dep_var, indep_vars, entity, time = self._stored_design(
+            "Hausman test"
+        )
         from .panel_diagnostics import _hausman_from_data
+
         return _hausman_from_data(
-            self._panel_data, self._dep_var, self._indep_vars,
-            self._entity, self._time, alpha,
+            panel_data, dep_var, indep_vars, entity, time, alpha,
         )
 
     # ------------------------------------------------------------------
@@ -204,17 +224,13 @@ class PanelResults(EconometricResults):
         dict
             'statistic', 'df', 'pvalue', 'recommendation', 'interpretation'
         """
-        if self._panel_data is None:
-            raise _panel_method_error(
-                "Panel data not stored — cannot run BP-LM test.",
-                diagnostics={"diagnostic": "bp_lm"},
-                recovery_hint="Run the diagnostic on a PanelResults object "
-                "created by sp.panel().",
-            )  # pragma: no cover
+        panel_data, dep_var, indep_vars, entity, time = self._stored_design(
+            "BP-LM test"
+        )
         from .panel_diagnostics import _bp_lm_test
+
         return _bp_lm_test(
-            self._panel_data, self._dep_var, self._indep_vars,
-            self._entity, self._time,
+            panel_data, dep_var, indep_vars, entity, time,
         )
 
     # ------------------------------------------------------------------
@@ -232,17 +248,13 @@ class PanelResults(EconometricResults):
         dict
             'statistic', 'df1', 'df2', 'pvalue', 'interpretation'
         """
-        if self._panel_data is None:
-            raise _panel_method_error(
-                "Panel data not stored — cannot run F-test.",
-                diagnostics={"diagnostic": "f_test_effects"},
-                recovery_hint="Run the diagnostic on a PanelResults object "
-                "created by sp.panel().",
-            )  # pragma: no cover
+        panel_data, dep_var, indep_vars, entity, time = self._stored_design(
+            "F-test"
+        )
         from .panel_diagnostics import _f_test_effects
+
         return _f_test_effects(
-            self._panel_data, self._dep_var, self._indep_vars,
-            self._entity, self._time,
+            panel_data, dep_var, indep_vars, entity, time,
         )
 
     # ------------------------------------------------------------------
@@ -265,15 +277,17 @@ class PanelResults(EconometricResults):
                 recovery_hint="Run the diagnostic on a PanelResults object "
                 "created by a linearmodels-backed sp.panel() method.",
             )  # pragma: no cover
+        panel_data, _, _, entity, time = self._stored_design("Pesaran CD test")
         from .panel_diagnostics import _pesaran_cd
+
         resids = self._lm_result.resids
-        return _pesaran_cd(resids, self._entity, self._time, self._panel_data)
+        return _pesaran_cd(resids, entity, time, panel_data)
 
     # ------------------------------------------------------------------
     # Plotting
     # ------------------------------------------------------------------
 
-    def plot(self, type: str = 'coef', **kwargs):
+    def plot(self, type: str = 'coef', **kwargs: Any) -> Any:
         """
         Generate panel-specific plots.
 
@@ -309,15 +323,15 @@ class PanelResults(EconometricResults):
                 "'hausman'.",
             )
 
-    def plot_effects(self, **kwargs):
+    def plot_effects(self, **kwargs: Any) -> Any:
         """Shortcut for ``.plot(type='effects')``. Distribution of entity FE."""
         return self.plot(type='effects', **kwargs)
 
-    def plot_residuals(self, **kwargs):
+    def plot_residuals(self, **kwargs: Any) -> Any:
         """Shortcut for ``.plot(type='residuals')``. Residual diagnostics (2x2)."""
         return self.plot(type='residuals', **kwargs)
 
-    def plot_hausman(self, **kwargs):
+    def plot_hausman(self, **kwargs: Any) -> Any:
         """Shortcut for ``.plot(type='hausman')``. Visual FE vs RE comparison."""
         return self.plot(type='hausman', **kwargs)
 
@@ -325,7 +339,7 @@ class PanelResults(EconometricResults):
     # Compare with another method
     # ------------------------------------------------------------------
 
-    def compare(self, method: str, **kwargs) -> 'PanelCompareResults':
+    def compare(self, method: str, **kwargs: Any) -> 'PanelCompareResults':
         """
         Re-estimate with a different method and compare side by side.
 
@@ -339,6 +353,18 @@ class PanelResults(EconometricResults):
         PanelCompareResults
             Side-by-side comparison with diagnostics.
         """
+        if (
+            self._panel_data is None
+            or self._formula is None
+            or self._entity is None
+            or self._time is None
+        ):
+            raise _panel_method_error(
+                "Stored panel call is incomplete — cannot compare methods.",
+                diagnostics={"diagnostic": "compare"},
+                recovery_hint="Run compare on a PanelResults object created "
+                "by sp.panel().",
+            )  # pragma: no cover
         other = panel(
             data=self._panel_data, formula=self._formula,
             entity=self._entity, time=self._time,
@@ -376,7 +402,7 @@ class PanelCompareResults:
     True
     """
 
-    def __init__(self, model_a: PanelResults, model_b: PanelResults):
+    def __init__(self, model_a: PanelResults, model_b: PanelResults) -> None:
         self.model_a = model_a
         self.model_b = model_b
 
@@ -414,7 +440,7 @@ class PanelCompareResults:
         lines.append("=" * 78)
         return "\n".join(lines)
 
-    def plot(self, variables: Optional[List[str]] = None, **kwargs):
+    def plot(self, variables: Optional[List[str]] = None, **kwargs: Any) -> Any:
         """
         Side-by-side coefficient comparison plot.
 
@@ -430,12 +456,12 @@ class PanelCompareResults:
             variables=variables, **kwargs,
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         name_a = self.model_a.model_info.get('model_type', 'A')
         name_b = self.model_b.model_info.get('model_type', 'B')
         return f"<PanelCompareResults: {name_a} vs {name_b}>"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.summary()
 
 
@@ -767,8 +793,17 @@ def _dispatch_panel_impl(
 # ======================================================================
 
 def _fit_linearmodels(
-    data, dep_var, indep_vars, entity, time, formula,
-    method, robust, cluster, weights, alpha,
+    data: pd.DataFrame,
+    dep_var: str,
+    indep_vars: List[str],
+    entity: str,
+    time: str,
+    formula: str,
+    method: str,
+    robust: str,
+    cluster: Optional[str],
+    weights: Optional[str],
+    alpha: float,
 ) -> PanelResults:
     # linearmodels is a core dependency (see pyproject.toml ``dependencies``);
     # import lazily to keep module-import time low, but do not mask a broken
@@ -783,6 +818,7 @@ def _fit_linearmodels(
     dep = panel_data[dep_var]
     exog = panel_data[indep_vars]
 
+    lm_model: Any
     if method == 'twoway':
         # Two-way FE: entity + time effects via PanelOLS
         lm_model = PanelOLS(dep, exog, entity_effects=True, time_effects=True)
@@ -843,8 +879,16 @@ _METHOD_NAMES = {
 
 
 def _convert_lm_result(
-    lm_result, method, dep_var, indep_vars, entity, time,
-    formula, robust, cluster, raw_data,
+    lm_result: Any,
+    method: str,
+    dep_var: str,
+    indep_vars: List[str],
+    entity: str,
+    time: str,
+    formula: str,
+    robust: str,
+    cluster: Optional[str],
+    raw_data: pd.DataFrame,
 ) -> PanelResults:
     params = lm_result.params
     std_errors = lm_result.std_errors
@@ -915,8 +959,17 @@ def _convert_lm_result(
 # ======================================================================
 
 def _fit_cre(
-    data, dep_var, indep_vars, entity, time, formula,
-    cre_method, robust, cluster, weights, alpha,
+    data: pd.DataFrame,
+    dep_var: str,
+    indep_vars: List[str],
+    entity: str,
+    time: str,
+    formula: str,
+    cre_method: str,
+    robust: str,
+    cluster: Optional[str],
+    weights: Optional[str],
+    alpha: float,
 ) -> PanelResults:
     """
     Correlated Random Effects: adds group means to a RE model.
@@ -1017,8 +1070,18 @@ def _fit_cre(
 # ======================================================================
 
 def _fit_gmm(
-    data, dep_var, indep_vars, entity, time, formula,
-    gmm_method, lags, gmm_lags, twostep, robust, alpha,
+    data: pd.DataFrame,
+    dep_var: str,
+    indep_vars: List[str],
+    entity: str,
+    time: str,
+    formula: str,
+    gmm_method: str,
+    lags: int,
+    gmm_lags: Tuple[int, Optional[int]],
+    twostep: bool,
+    robust: bool,
+    alpha: float,
 ) -> PanelResults:
     """Route to existing xtabond implementation and wrap as PanelResults."""
     from ..gmm.arellano_bond import xtabond
@@ -1112,7 +1175,7 @@ def panel_compare(
     methods: Optional[List[str]] = None,
     robust: str = 'nonrobust',
     cluster: Optional[str] = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> pd.DataFrame:
     """
     Estimate the same model with multiple methods and compare.
@@ -1158,7 +1221,7 @@ def panel_compare(
     if methods is None:
         methods = ['pooled', 'fe', 're', 'twoway', 'mundlak']
 
-    results = {}
+    results: Dict[str, Union[PanelResults, str]] = {}
     for m in methods:
         try:
             r = panel(data, formula, entity, time, method=m,
@@ -1169,25 +1232,25 @@ def panel_compare(
 
     # Build comparison DataFrame
     # Gather all variable names
-    all_vars = []
-    for name, r in results.items():
-        if isinstance(r, PanelResults):
-            for v in r.params.index:
+    all_vars: List[Any] = []
+    for name, entry in results.items():
+        if isinstance(entry, PanelResults):
+            for v in entry.params.index:
                 if v not in all_vars:
                     all_vars.append(v)
 
-    rows = []
+    rows: List[Dict[str, Any]] = []
     for var in all_vars:
         row = {'Variable': var}
-        for name, r in results.items():
-            if isinstance(r, PanelResults):
-                coef = r.params.get(var, np.nan)
-                se = r.std_errors.get(var, np.nan)
-                pvals = r.pvalues
+        for name, entry in results.items():
+            if isinstance(entry, PanelResults):
+                coef = entry.params.get(var, np.nan)
+                se = entry.std_errors.get(var, np.nan)
+                pvals = entry.pvalues
                 if isinstance(pvals, pd.Series):
                     pv = pvals.get(var, np.nan)
-                elif hasattr(pvals, '__getitem__') and var in r.params.index:
-                    idx = list(r.params.index).index(var)
+                elif hasattr(pvals, '__getitem__') and var in entry.params.index:
+                    idx = list(entry.params.index).index(var)
                     pv = float(pvals[idx]) if idx < len(pvals) else np.nan
                 else:
                     pv = np.nan
@@ -1211,9 +1274,9 @@ def panel_compare(
     # Add diagnostics rows
     for diag_key in ['R-squared', 'N entities', 'N time periods']:
         row = {'Variable': diag_key}
-        for name, r in results.items():
-            if isinstance(r, PanelResults):
-                val = r.diagnostics.get(diag_key, np.nan)
+        for name, entry in results.items():
+            if isinstance(entry, PanelResults):
+                val = entry.diagnostics.get(diag_key, np.nan)
                 if isinstance(val, float):
                     row[name] = f"{val:.4f}"
                 elif isinstance(val, int):
@@ -1227,9 +1290,9 @@ def panel_compare(
 
     # N obs
     row = {'Variable': 'N obs'}
-    for name, r in results.items():
-        if isinstance(r, PanelResults):
-            row[name] = str(r.data_info.get('nobs', ''))
+    for name, entry in results.items():
+        if isinstance(entry, PanelResults):
+            row[name] = str(entry.data_info.get('nobs', ''))
         else:
             row[name] = ''
         row[f"{name} (SE)"] = ''
@@ -1278,7 +1341,7 @@ class PanelRegression:
     True
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         self._kwargs = kwargs
 
     def fit(self) -> PanelResults:

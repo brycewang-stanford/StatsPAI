@@ -32,10 +32,9 @@ for counterfactual learning." *NeurIPS*.
 from __future__ import annotations
 
 import warnings
-from typing import Optional, Sequence, Dict, Any, Callable, Tuple, Union
+from typing import Optional, Dict, Any, Tuple
 
 import numpy as np
-import pandas as pd
 from scipy import stats
 
 from ..exceptions import ConvergenceWarning
@@ -54,19 +53,20 @@ from ..ope.estimators import OPEResult as _CanonicalOPEResult
 OPEResult = _CanonicalOPEResult
 
 
-def _wrap(estimator: str, value: float, se: float, ci: tuple,
-          n_obs: int, **detail: Any) -> OPEResult:
+def _wrap(
+    estimator: str, value: float, se: float, ci: tuple, n_obs: int, **detail: Any
+) -> OPEResult:
     """Pack policy_learning-style returns into the canonical OPEResult."""
     diag: Dict[str, Any] = {"n_obs": int(n_obs), **detail}
-    return OPEResult(method=estimator, value=value, se=se, ci=ci,
-                     diagnostics=diag)
+    return OPEResult(method=estimator, value=value, se=se, ci=ci, diagnostics=diag)
 
 
 # --------------------------------------------------------------------
 # Policy helpers
 # --------------------------------------------------------------------
 
-def _target_prob(pi_target, X: np.ndarray, A: np.ndarray) -> np.ndarray:
+
+def _target_prob(pi_target: Any, X: np.ndarray, A: np.ndarray) -> np.ndarray:
     """
     pi_target can be:
       * a 2-D array (n, K) with probabilities per action, indexed by A,
@@ -75,18 +75,19 @@ def _target_prob(pi_target, X: np.ndarray, A: np.ndarray) -> np.ndarray:
     """
     if callable(pi_target):
         probs = pi_target(X)
-        return np.asarray([probs[i, A[i]] for i in range(len(A))])
+        return np.asarray([probs[i, A[i]] for i in range(len(A))], dtype=float)
     arr = np.asarray(pi_target, dtype=float)
     if arr.ndim == 1:
         return arr
     if arr.ndim == 2:
-        return arr[np.arange(len(A)), A]
+        return np.asarray(arr[np.arange(len(A)), A], dtype=float)
     raise ValueError("pi_target must be (n,), (n,K), or callable")
 
 
 def _fit_propensity(X: np.ndarray, A: np.ndarray) -> Tuple[np.ndarray, bool]:
     """Fit behaviour-policy propensities; returns (probs, fallback_flag)."""
     from sklearn.linear_model import LogisticRegression
+
     try:
         lr = LogisticRegression(solver="lbfgs", max_iter=500)
         lr.fit(X, A)
@@ -107,9 +108,12 @@ def _fit_propensity(X: np.ndarray, A: np.ndarray) -> Tuple[np.ndarray, bool]:
 def _fit_q(X: np.ndarray, A: np.ndarray, R: np.ndarray, n_actions: int) -> np.ndarray:
     """Return (n, K) Q-hat matrix via a single RF on (X, A one-hot)."""
     from sklearn.ensemble import RandomForestRegressor
+
     oh = np.eye(n_actions)[A]
     features = np.column_stack([X, oh])
-    rf = RandomForestRegressor(n_estimators=200, min_samples_leaf=5, n_jobs=-1, random_state=0)
+    rf = RandomForestRegressor(
+        n_estimators=200, min_samples_leaf=5, n_jobs=-1, random_state=0
+    )
     rf.fit(features, R)
     Q = np.zeros((len(A), n_actions))
     for a in range(n_actions):
@@ -125,11 +129,17 @@ def _fit_q(X: np.ndarray, A: np.ndarray, R: np.ndarray, n_actions: int) -> np.nd
 
 
 def direct_method(
-    X: np.ndarray, A: np.ndarray, R: np.ndarray,
-    pi_target, n_actions: Optional[int] = None, alpha: float = 0.05,
+    X: np.ndarray,
+    A: np.ndarray,
+    R: np.ndarray,
+    pi_target: Any,
+    n_actions: Optional[int] = None,
+    alpha: float = 0.05,
 ) -> OPEResult:
     """Direct outcome regression (plug-in Q-model) OPE."""
-    X = np.asarray(X); A = np.asarray(A); R = np.asarray(R)
+    X = np.asarray(X)
+    A = np.asarray(A)
+    R = np.asarray(R)
     if n_actions is None:
         n_actions = int(A.max()) + 1
     Q = _fit_q(X, A, R, n_actions)
@@ -147,14 +157,24 @@ def direct_method(
     V = float(V_per.mean())
     se = float(V_per.std(ddof=1) / np.sqrt(len(A)))
     crit = float(stats.norm.ppf(1 - alpha / 2))
-    return _wrap("direct", V, se, (V - crit * se, V + crit * se),
-                 n_obs=len(A), n_actions=int(n_actions))
+    return _wrap(
+        "direct",
+        V,
+        se,
+        (V - crit * se, V + crit * se),
+        n_obs=len(A),
+        n_actions=int(n_actions),
+    )
 
 
 def ips(
-    X: np.ndarray, A: np.ndarray, R: np.ndarray,
-    pi_target, pi_behavior: Optional[np.ndarray] = None,
-    clip: float = 50.0, alpha: float = 0.05,
+    X: np.ndarray,
+    A: np.ndarray,
+    R: np.ndarray,
+    pi_target: Any,
+    pi_behavior: Optional[np.ndarray] = None,
+    clip: float = 50.0,
+    alpha: float = 0.05,
 ) -> OPEResult:
     """Inverse propensity score OPE.
 
@@ -165,7 +185,9 @@ def ips(
     ``ConvergenceWarning`` is emitted and
     ``diagnostics['propensity_fallback']`` is set to True.
     """
-    X = np.asarray(X); A = np.asarray(A); R = np.asarray(R)
+    X = np.asarray(X)
+    A = np.asarray(A)
+    R = np.asarray(R)
     pi_t = _target_prob(pi_target, X, A)
     if pi_behavior is not None:
         pi_b, pi_b_fallback = pi_behavior, False
@@ -177,18 +199,27 @@ def ips(
     V = float(V_per.mean())
     se = float(V_per.std(ddof=1) / np.sqrt(len(A)))
     crit = float(stats.norm.ppf(1 - alpha / 2))
-    return _wrap("IPS", V, se, (V - crit * se, V + crit * se),
-                 n_obs=len(A),
-                 ess=float(ratio.sum() ** 2 / max(np.sum(ratio ** 2), 1e-12)),
-                 weight_max=float(np.max(ratio)),
-                 weight_mean=float(np.mean(ratio)),
-                 propensity_fallback=pi_b_fallback)
+    return _wrap(
+        "IPS",
+        V,
+        se,
+        (V - crit * se, V + crit * se),
+        n_obs=len(A),
+        ess=float(ratio.sum() ** 2 / max(np.sum(ratio**2), 1e-12)),
+        weight_max=float(np.max(ratio)),
+        weight_mean=float(np.mean(ratio)),
+        propensity_fallback=pi_b_fallback,
+    )
 
 
 def snips(
-    X: np.ndarray, A: np.ndarray, R: np.ndarray,
-    pi_target, pi_behavior: Optional[np.ndarray] = None,
-    clip: float = 50.0, alpha: float = 0.05,
+    X: np.ndarray,
+    A: np.ndarray,
+    R: np.ndarray,
+    pi_target: Any,
+    pi_behavior: Optional[np.ndarray] = None,
+    clip: float = 50.0,
+    alpha: float = 0.05,
 ) -> OPEResult:
     """Self-normalised IPS (bias-reduction for large IS weights).
 
@@ -199,7 +230,9 @@ def snips(
     ``ConvergenceWarning`` is emitted and
     ``diagnostics['propensity_fallback']`` is set to True.
     """
-    X = np.asarray(X); A = np.asarray(A); R = np.asarray(R)
+    X = np.asarray(X)
+    A = np.asarray(A)
+    R = np.asarray(R)
     pi_t = _target_prob(pi_target, X, A)
     if pi_behavior is not None:
         pi_b, pi_b_fallback = pi_behavior, False
@@ -214,21 +247,34 @@ def snips(
     denom_var = np.var(ratio, ddof=1)
     cov = np.cov(ratio * R, ratio, ddof=1)[0, 1]
     n = len(A)
-    se = float(np.sqrt(max(numer_var / denom - V * cov * 2 / denom + V ** 2 * denom_var / denom, 0)
-                        / n))
+    se = float(
+        np.sqrt(
+            max(numer_var / denom - V * cov * 2 / denom + V**2 * denom_var / denom, 0)
+            / n
+        )
+    )
     crit = float(stats.norm.ppf(1 - alpha / 2))
-    return _wrap("SNIPS", V, se, (V - crit * se, V + crit * se),
-                 n_obs=n,
-                 ess=float(ratio.sum() ** 2 / max(np.sum(ratio ** 2), 1e-12)),
-                 weight_max=float(np.max(ratio)),
-                 weight_mean=float(np.mean(ratio)),
-                 propensity_fallback=pi_b_fallback)
+    return _wrap(
+        "SNIPS",
+        V,
+        se,
+        (V - crit * se, V + crit * se),
+        n_obs=n,
+        ess=float(ratio.sum() ** 2 / max(np.sum(ratio**2), 1e-12)),
+        weight_max=float(np.max(ratio)),
+        weight_mean=float(np.mean(ratio)),
+        propensity_fallback=pi_b_fallback,
+    )
 
 
 def doubly_robust(
-    X: np.ndarray, A: np.ndarray, R: np.ndarray,
-    pi_target, pi_behavior: Optional[np.ndarray] = None,
-    n_actions: Optional[int] = None, clip: float = 50.0,
+    X: np.ndarray,
+    A: np.ndarray,
+    R: np.ndarray,
+    pi_target: Any,
+    pi_behavior: Optional[np.ndarray] = None,
+    n_actions: Optional[int] = None,
+    clip: float = 50.0,
     alpha: float = 0.05,
 ) -> OPEResult:
     """Doubly-robust OPE (Dudik et al. 2011).
@@ -240,7 +286,9 @@ def doubly_robust(
     ``ConvergenceWarning`` is emitted and
     ``diagnostics['propensity_fallback']`` is set to True.
     """
-    X = np.asarray(X); A = np.asarray(A); R = np.asarray(R)
+    X = np.asarray(X)
+    A = np.asarray(A)
+    R = np.asarray(R)
     if n_actions is None:
         n_actions = int(A.max()) + 1
     pi_t_a = _target_prob(pi_target, X, A)
@@ -268,12 +316,17 @@ def doubly_robust(
     V = float(V_per.mean())
     se = float(V_per.std(ddof=1) / np.sqrt(len(A)))
     crit = float(stats.norm.ppf(1 - alpha / 2))
-    return _wrap("Doubly Robust", V, se, (V - crit * se, V + crit * se),
-                 n_obs=len(A),
-                 ess=float(ratio.sum() ** 2 / max(np.sum(ratio ** 2), 1e-12)),
-                 weight_max=float(np.max(ratio)),
-                 n_actions=int(n_actions),
-                 propensity_fallback=pi_b_fallback)
+    return _wrap(
+        "Doubly Robust",
+        V,
+        se,
+        (V - crit * se, V + crit * se),
+        n_obs=len(A),
+        ess=float(ratio.sum() ** 2 / max(np.sum(ratio**2), 1e-12)),
+        weight_max=float(np.max(ratio)),
+        n_actions=int(n_actions),
+        propensity_fallback=pi_b_fallback,
+    )
 
 
 __all__ = ["direct_method", "ips", "snips", "doubly_robust", "OPEResult"]

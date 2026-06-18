@@ -50,6 +50,12 @@ class RosenbaumResult:
     alternative: str
     detail: pd.DataFrame = field(default_factory=pd.DataFrame)
 
+    def to_dict(self) -> dict:
+        """JSON-safe dict of every field (agent-native serialization)."""
+        from .._result_serialize import result_to_dict
+
+        return result_to_dict(self)
+
     def summary(self) -> str:  # pragma: no cover - thin formatter
         lines = [
             "Rosenbaum Sensitivity Bounds",
@@ -192,6 +198,12 @@ def rosenbaum_bounds(
     if data is not None:
         if not all([y, treat, pair_id]):
             raise ValueError("When `data` is given, y/treat/pair_id are required")
+        _miss = [c for c in (y, treat, pair_id) if c not in data.columns]
+        if _miss:
+            raise ValueError(
+                f"rosenbaum_bounds: columns {_miss} not found in data "
+                f"(available: {list(data.columns)})."
+            )
         d = data[[y, treat, pair_id]].dropna().copy()
         wide = d.pivot(index=pair_id, columns=treat, values=y)
         if 0 not in wide.columns or 1 not in wide.columns:

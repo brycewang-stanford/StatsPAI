@@ -48,6 +48,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import clean_frame
+
 
 @dataclass
 class NegativeControlResult:
@@ -62,6 +64,12 @@ class NegativeControlResult:
     n_obs: int = 0
     detail: Dict[str, Any] = field(default_factory=dict)
     interpretation: str = ""
+
+    def to_dict(self) -> dict:
+        """JSON-safe dict of every field (agent-native serialization)."""
+        from .._result_serialize import result_to_dict
+
+        return result_to_dict(self)
 
     def summary(self) -> str:  # pragma: no cover - cosmetic
         return (
@@ -143,7 +151,12 @@ def negative_control_outcome(
     NegativeControlResult
     """
     cov = list(covariates or [])
-    df = data[[nco, treat] + cov].dropna()
+    df = clean_frame(
+        data,
+        [nco, treat] + cov,
+        function="negative_control_outcome",
+        n_params=2 + len(cov),  # intercept + treat + covariates
+    )
     y = df[nco].to_numpy(dtype=float)
     X = _design(df, [treat] + cov)
     beta, se, _ = _ols_with_se(y, X)
@@ -189,7 +202,12 @@ def negative_control_exposure(
     exposure axis (selection, measurement error, etc.).
     """
     cov = list(covariates or [])
-    df = data[[y, nce] + cov].dropna()
+    df = clean_frame(
+        data,
+        [y, nce] + cov,
+        function="negative_control_exposure",
+        n_params=2 + len(cov),  # intercept + nce + covariates
+    )
     yv = df[y].to_numpy(dtype=float)
     X = _design(df, [nce] + cov)
     beta, se, _ = _ols_with_se(yv, X)
@@ -248,7 +266,12 @@ def double_negative_control(
     with Shi et al. (2020, §3) closed-form.
     """
     cov = list(covariates or [])
-    df = data[[y, treat, nce, nco] + cov].dropna()
+    df = clean_frame(
+        data,
+        [y, treat, nce, nco] + cov,
+        function="double_negative_control",
+        n_params=3 + len(cov),  # D + NCO + intercept + covariates (2SLS)
+    )
     yv = df[y].to_numpy(dtype=float)
     D = df[treat].to_numpy(dtype=float)
     W = df[nco].to_numpy(dtype=float)

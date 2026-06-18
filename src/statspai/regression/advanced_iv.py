@@ -25,26 +25,25 @@ Belloni, A., Chen, D., Chernozhukov, V. & Hansen, C. (2012).
 to Eminent Domain." *Econometrica*, 80(6), 2369-2429. [@belloni2011sparse]
 """
 
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List
 import numpy as np
 import pandas as pd
-from scipy import stats
 import warnings
 
 from ..core.results import EconometricResults
-from ..core.utils import parse_formula, create_design_matrices, prepare_data
+from ..exceptions import MethodIncompatibility
 
 
 def liml(
-    formula: str = None,
-    data: pd.DataFrame = None,
-    y: str = None,
-    x_endog: List[str] = None,
-    x_exog: List[str] = None,
-    z: List[str] = None,
+    formula: Optional[str] = None,
+    data: Optional[pd.DataFrame] = None,
+    y: Optional[str] = None,
+    x_endog: Optional[List[str]] = None,
+    x_exog: Optional[List[str]] = None,
+    z: Optional[List[str]] = None,
     robust: str = "nonrobust",
-    cluster: str = None,
-    fuller: float = None,
+    cluster: Optional[str] = None,
+    fuller: Optional[float] = None,
     alpha: float = 0.05,
 ) -> EconometricResults:
     """
@@ -109,6 +108,15 @@ def liml(
 
     if x_exog is None:
         x_exog = []
+    if data is None or y is None or x_endog is None or z is None:
+        raise MethodIncompatibility(
+            "liml requires data, y, x_endog, and z unless all are supplied "
+            "by formula",
+            recovery_hint=(
+                "Pass data= plus y=, x_endog=, z=, or provide a complete "
+                "IV formula."
+            ),
+        )
 
     df = data.dropna(subset=[y] + x_endog + x_exog + z)
     n = len(df)
@@ -124,7 +132,6 @@ def liml(
     # All regressors: exogenous + endogenous
     X_all = np.column_stack([X_exog, X_endog])
     k = X_all.shape[1]
-    k_endog = X_endog.shape[1]
 
     # Residual maker for X_exog
     Px_exog = X_exog @ np.linalg.solve(X_exog.T @ X_exog, X_exog.T)
@@ -275,10 +282,10 @@ def jive(
     data: pd.DataFrame,
     y: str,
     x_endog: List[str],
-    x_exog: List[str] = None,
-    z: List[str] = None,
+    x_exog: Optional[List[str]] = None,
+    z: Optional[List[str]] = None,
     robust: str = "nonrobust",
-    cluster: str = None,
+    cluster: Optional[str] = None,
     variant: str = "jive1",
     alpha: float = 0.05,
 ) -> EconometricResults:
@@ -324,6 +331,11 @@ def jive(
     """
     if x_exog is None:
         x_exog = []
+    if z is None:
+        raise MethodIncompatibility(
+            "jive requires z excluded instruments",
+            recovery_hint="Pass z=[...] with at least one excluded instrument.",
+        )
 
     df = data.dropna(subset=[y] + x_endog + x_exog + z)
     n = len(df)
@@ -434,10 +446,10 @@ def lasso_iv(
     data: pd.DataFrame,
     y: str,
     x_endog: List[str],
-    x_exog: List[str] = None,
-    z: List[str] = None,
+    x_exog: Optional[List[str]] = None,
+    z: Optional[List[str]] = None,
     robust: str = "robust",
-    cluster: str = None,
+    cluster: Optional[str] = None,
     penalty: str = "bic",
     alpha: float = 0.05,
 ) -> EconometricResults:
@@ -487,6 +499,11 @@ def lasso_iv(
     """
     if x_exog is None:
         x_exog = []
+    if z is None:
+        raise MethodIncompatibility(
+            "lasso_iv requires z candidate instruments",
+            recovery_hint="Pass z=[...] with the candidate instrument set.",
+        )
 
     df = data.dropna(subset=[y] + x_endog + x_exog + z)
     n = len(df)

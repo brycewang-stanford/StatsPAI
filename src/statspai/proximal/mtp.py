@@ -86,7 +86,14 @@ def pci_mtp(
     X = df[cov].to_numpy(float) if cov else np.zeros((len(df), 0))
     n = len(df)
 
-    def _mtp(Yi, Di, Zi, Wi, Xi, delta):
+    def _mtp(
+        Yi: np.ndarray,
+        Di: np.ndarray,
+        Zi: np.ndarray,
+        Wi: np.ndarray,
+        Xi: np.ndarray,
+        delta: float,
+    ) -> float:
         # Linear bridge h(W, D, X) = γ0 + γD D + γW W + γX X
         # via 2SLS with instruments (1, D, X, Z) for (1, D, X, W).
         const = np.ones((len(Yi), 1))

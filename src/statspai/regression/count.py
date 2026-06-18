@@ -12,7 +12,7 @@ References
   high-dimensional fixed effects." Stata Journal. [@cameron2013regression]
 """
 
-from typing import List, Dict, Any, Sequence
+from typing import Optional, List, Dict, Any, Sequence, Tuple
 import pandas as pd
 import numpy as np
 from scipy import stats, optimize, special
@@ -138,8 +138,12 @@ def _positive_exposure(data: pd.DataFrame, exposure: str) -> np.ndarray:
 
 
 def _parse_formula_or_xy(
-    formula, data, y, x, add_constant=True
-):
+    formula: Optional[str],
+    data: Any,
+    y: Optional[str],
+    x: Any,
+    add_constant: bool = True,
+) -> Tuple[np.ndarray, np.ndarray, List[str], str, List[str], pd.DataFrame]:
     """Parse formula/data or y/x into arrays + variable names."""
     if formula is not None and data is not None:
         data = _require_count_dataframe(data, "count regression")
@@ -242,12 +246,17 @@ def _append_fixed_effect_dummies(
     return np.column_stack(blocks), names, level_counts
 
 
-def _safe_exp(eta, cap=700.0):
+def _safe_exp(eta: np.ndarray, cap: float = 700.0) -> np.ndarray:
     """Exponentiate with overflow protection."""
-    return np.exp(np.clip(eta, -cap, cap))
+    return np.asarray(np.exp(np.clip(eta, -cap, cap)), dtype=np.float64)
 
 
-def _sandwich_vcov(X, mu, residuals, XtX_inv_bread=None):
+def _sandwich_vcov(
+    X: np.ndarray,
+    mu: np.ndarray,
+    residuals: np.ndarray,
+    XtX_inv_bread: Optional[np.ndarray] = None,
+) -> np.ndarray:
     """Robust (HC0) sandwich variance-covariance."""
     n, k = X.shape
     W = mu  # Poisson weight
@@ -266,7 +275,12 @@ def _sandwich_vcov(X, mu, residuals, XtX_inv_bread=None):
     return sandwich_vcov(XtWX_inv, X * residuals[:, None], correction="none")
 
 
-def _cluster_vcov(X, mu, residuals, cluster_arr):
+def _cluster_vcov(
+    X: np.ndarray,
+    mu: np.ndarray,
+    residuals: np.ndarray,
+    cluster_arr: np.ndarray,
+) -> np.ndarray:
     """Clustered sandwich variance-covariance."""
     from ..core._vcov import sandwich_vcov
 
@@ -282,7 +296,13 @@ def _cluster_vcov(X, mu, residuals, cluster_arr):
                          clusters=cluster_arr, correction="cgm")
 
 
-def _poisson_vcov(X, mu, residuals, robust, cluster_arr):
+def _poisson_vcov(
+    X: np.ndarray,
+    mu: np.ndarray,
+    residuals: np.ndarray,
+    robust: str,
+    cluster_arr: Optional[np.ndarray],
+) -> np.ndarray:
     """Compute variance-covariance for Poisson-family models."""
     n, k = X.shape
     W = mu
@@ -304,17 +324,26 @@ def _poisson_vcov(X, mu, residuals, robust, cluster_arr):
         return XtWX_inv
 
 
-def _poisson_loglik(y, mu):
+def _poisson_loglik(y: np.ndarray, mu: np.ndarray) -> float:
     """Poisson log-likelihood (up to constant)."""
     # l = sum(y*log(mu) - mu - log(y!))
-    return np.sum(y * np.log(np.maximum(mu, 1e-300)) - mu - special.gammaln(y + 1))
+    return float(
+        np.sum(y * np.log(np.maximum(mu, 1e-300)) - mu - special.gammaln(y + 1))
+    )
 
 
 # ---------------------------------------------------------------------------
 # Poisson IRLS
 # ---------------------------------------------------------------------------
 
-def _poisson_irls(y, X, offset=None, weights=None, maxiter=100, tol=1e-8):
+def _poisson_irls(
+    y: np.ndarray,
+    X: np.ndarray,
+    offset: Optional[np.ndarray] = None,
+    weights: Optional[np.ndarray] = None,
+    maxiter: int = 100,
+    tol: float = 1e-8,
+) -> Tuple[np.ndarray, np.ndarray, bool, int]:
     """
     Poisson regression via Iteratively Reweighted Least Squares.
 
@@ -364,7 +393,7 @@ def _poisson_irls(y, X, offset=None, weights=None, maxiter=100, tol=1e-8):
 # Negative Binomial MLE
 # ---------------------------------------------------------------------------
 
-def _nb2_loglik(y, mu, alpha):
+def _nb2_loglik(y: np.ndarray, mu: np.ndarray, alpha: float) -> float:
     """NB2 log-likelihood: Var(y) = mu + alpha * mu^2."""
     r = 1.0 / max(alpha, 1e-300)
     # Sum lgamma(y + r) - lgamma(r) - lgamma(y+1)
@@ -376,10 +405,10 @@ def _nb2_loglik(y, mu, alpha):
         + r * np.log(r / (r + mu))
         + y * np.log(np.maximum(mu, 1e-300) / (r + mu))
     )
-    return ll
+    return float(ll)
 
 
-def _nb1_loglik(y, mu, delta):
+def _nb1_loglik(y: np.ndarray, mu: np.ndarray, delta: float) -> float:
     """NB1 log-likelihood: Var(y) = mu + delta * mu  =>  Var = mu*(1+delta)."""
     # Parameterize as r = mu/delta  so Var = mu + delta*mu
     delta = max(delta, 1e-300)
@@ -391,10 +420,17 @@ def _nb1_loglik(y, mu, delta):
         + r * np.log(r / (r + mu))
         + y * np.log(np.maximum(mu, 1e-300) / (r + mu))
     )
-    return ll
+    return float(ll)
 
 
-def _nb2_fit(y, X, offset=None, weights=None, maxiter=100, tol=1e-8):
+def _nb2_fit(
+    y: np.ndarray,
+    X: np.ndarray,
+    offset: Optional[np.ndarray] = None,
+    weights: Optional[np.ndarray] = None,
+    maxiter: int = 100,
+    tol: float = 1e-8,
+) -> Tuple[np.ndarray, np.ndarray, float, bool, int]:
     """
     NB2 via iterating: Poisson IRLS for beta given alpha, then profile
     likelihood optimization for alpha.
@@ -443,8 +479,8 @@ def _nb2_fit(y, X, offset=None, weights=None, maxiter=100, tol=1e-8):
         mu = _safe_exp(eta)
 
         # Profile likelihood for alpha
-        def neg_profile_ll(log_alpha):
-            a = np.exp(log_alpha)
+        def neg_profile_ll(log_alpha: float) -> float:
+            a = float(np.exp(log_alpha))
             return -_nb2_loglik(y, mu, a)
 
         res = optimize.minimize_scalar(
@@ -465,7 +501,14 @@ def _nb2_fit(y, X, offset=None, weights=None, maxiter=100, tol=1e-8):
     return beta, mu, alpha, converged, outer + 1
 
 
-def _nb1_fit(y, X, offset=None, weights=None, maxiter=100, tol=1e-8):
+def _nb1_fit(
+    y: np.ndarray,
+    X: np.ndarray,
+    offset: Optional[np.ndarray] = None,
+    weights: Optional[np.ndarray] = None,
+    maxiter: int = 100,
+    tol: float = 1e-8,
+) -> Tuple[np.ndarray, np.ndarray, float, bool, int]:
     """NB1 fit: Var(y) = mu * (1 + delta)."""
     n, k = X.shape
     if offset is None:
@@ -503,8 +546,8 @@ def _nb1_fit(y, X, offset=None, weights=None, maxiter=100, tol=1e-8):
         eta = X @ beta + offset
         mu = _safe_exp(eta)
 
-        def neg_profile_ll(log_delta):
-            d = np.exp(log_delta)
+        def neg_profile_ll(log_delta: float) -> float:
+            d = float(np.exp(log_delta))
             return -_nb1_loglik(y, mu, d)
 
         res = optimize.minimize_scalar(
@@ -529,7 +572,14 @@ def _nb1_fit(y, X, offset=None, weights=None, maxiter=100, tol=1e-8):
 # PPML helpers: fixed-effect absorption via alternating projection
 # ---------------------------------------------------------------------------
 
-def _demean_poisson(y, X, fe_indices_list, mu, maxiter_demean=500, tol_demean=1e-10):
+def _demean_poisson(
+    y: np.ndarray,
+    X: np.ndarray,
+    fe_indices_list: Sequence[np.ndarray],
+    mu: np.ndarray,
+    maxiter_demean: int = 500,
+    tol_demean: float = 1e-10,
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Demean X (weighted by mu) by absorbing high-dimensional fixed effects
     via alternating projection (Gauss-Seidel on normal equations).
@@ -578,7 +628,11 @@ def _demean_poisson(y, X, fe_indices_list, mu, maxiter_demean=500, tol_demean=1e
     return Z_dm[:, 0], Z_dm[:, 1:]
 
 
-def _detect_separation(y, X, fe_indices_list=None):
+def _detect_separation(
+    y: np.ndarray,
+    X: np.ndarray,
+    fe_indices_list: Optional[Sequence[np.ndarray]] = None,
+) -> List[str]:
     """
     Simple separation detection for PPML.
 
@@ -622,8 +676,14 @@ def _detect_separation(y, X, fe_indices_list=None):
 # PPML with HDFE via IRLS + alternating projection
 # ---------------------------------------------------------------------------
 
-def _ppml_hdfe_irls(y, X, fe_indices_list=None, weights=None,
-                    maxiter=1000, tol=1e-8):
+def _ppml_hdfe_irls(
+    y: np.ndarray,
+    X: np.ndarray,
+    fe_indices_list: Optional[Sequence[np.ndarray]] = None,
+    weights: Optional[np.ndarray] = None,
+    maxiter: int = 1000,
+    tol: float = 1e-8,
+) -> Tuple[np.ndarray, np.ndarray, bool, int, Optional[np.ndarray]]:
     """
     PPML estimation with high-dimensional fixed effects.
 
@@ -633,7 +693,8 @@ def _ppml_hdfe_irls(y, X, fe_indices_list=None, weights=None,
     Returns (beta, mu, converged, n_iter).
     """
     n, k = X.shape
-    has_fe = fe_indices_list is not None and len(fe_indices_list) > 0
+    fe_list = list(fe_indices_list or [])
+    has_fe = len(fe_list) > 0
     if weights is None:
         weights = np.ones(n)
 
@@ -643,7 +704,7 @@ def _ppml_hdfe_irls(y, X, fe_indices_list=None, weights=None,
         beta = np.zeros(k)
         # Initialize FE as group log-means
         eta = np.zeros(n)
-        for fe_idx in fe_indices_list:
+        for fe_idx in fe_list:
             for g in np.unique(fe_idx):
                 mask = fe_idx == g
                 gm = np.mean(y_init[mask])
@@ -669,7 +730,7 @@ def _ppml_hdfe_irls(y, X, fe_indices_list=None, weights=None,
             Z_dm = Z.copy()
             for _ in range(500):
                 max_change = 0.0
-                for fe_idx in fe_indices_list:
+                for fe_idx in fe_list:
                     # Vectorized group demeaning
                     for g in np.unique(fe_idx):
                         mask = fe_idx == g
@@ -727,7 +788,7 @@ def _ppml_hdfe_irls(y, X, fe_indices_list=None, weights=None,
                 max_score = 0.0
                 eta_total = eta_X + eta_fe
                 exp_total = _safe_exp(eta_total)
-                for fe_idx in fe_indices_list:
+                for fe_idx in fe_list:
                     for g in np.unique(fe_idx):
                         mask = fe_idx == g
                         w_g = weights[mask]
@@ -772,7 +833,7 @@ def _ppml_hdfe_irls(y, X, fe_indices_list=None, weights=None,
         X_dm_final = X.copy()
         for _ in range(500):
             max_change = 0.0
-            for fe_idx in fe_indices_list:
+            for fe_idx in fe_list:
                 for g in np.unique(fe_idx):
                     mask = fe_idx == g
                     w_g = w_final[mask]
@@ -795,7 +856,7 @@ def _ppml_hdfe_irls(y, X, fe_indices_list=None, weights=None,
 # Cameron-Trivedi overdispersion test
 # ---------------------------------------------------------------------------
 
-def _overdispersion_test(y, mu):
+def _overdispersion_test(y: np.ndarray, mu: np.ndarray) -> Tuple[float, float]:
     """
     Cameron-Trivedi (1990) test for overdispersion.
 
@@ -823,15 +884,15 @@ def _overdispersion_test(y, mu):
 # ===========================================================================
 
 def poisson(
-    formula: str = None,
+    formula: Optional[str] = None,
     data: pd.DataFrame = None,
-    y: str = None,
-    x: list = None,
+    y: Optional[str] = None,
+    x: Optional[List[str]] = None,
     robust: str = "nonrobust",
-    cluster: str = None,
-    weights: str = None,
-    offset: str = None,
-    exposure: str = None,
+    cluster: Optional[str] = None,
+    weights: Optional[str] = None,
+    offset: Optional[str] = None,
+    exposure: Optional[str] = None,
     irr: bool = False,
     maxiter: int = 100,
     tol: float = 1e-8,
@@ -1034,15 +1095,15 @@ def poisson(
 
 
 def nbreg(
-    formula: str = None,
+    formula: Optional[str] = None,
     data: pd.DataFrame = None,
-    y: str = None,
-    x: list = None,
+    y: Optional[str] = None,
+    x: Optional[List[str]] = None,
     robust: str = "nonrobust",
-    cluster: str = None,
-    weights: str = None,
-    offset: str = None,
-    exposure: str = None,
+    cluster: Optional[str] = None,
+    weights: Optional[str] = None,
+    offset: Optional[str] = None,
+    exposure: Optional[str] = None,
     irr: bool = False,
     dispersion: str = "mean",
     maxiter: int = 100,
@@ -1183,15 +1244,15 @@ def nbreg(
     mu_null = np.full(n, np.mean(y_arr))
     if is_nb2:
         # Optimize alpha for null model
-        def neg_null_ll(log_a):
-            return -_nb2_loglik(y_arr, mu_null, np.exp(log_a))
+        def neg_null_ll(log_a: float) -> float:
+            return -_nb2_loglik(y_arr, mu_null, float(np.exp(log_a)))
         res_null = optimize.minimize_scalar(
             neg_null_ll, bounds=(np.log(1e-8), np.log(1e4)), method='bounded'
         )
         ll_null = -res_null.fun
     else:
-        def neg_null_ll(log_d):
-            return -_nb1_loglik(y_arr, mu_null, np.exp(log_d))
+        def neg_null_ll(log_a: float) -> float:
+            return -_nb1_loglik(y_arr, mu_null, float(np.exp(log_a)))
         res_null = optimize.minimize_scalar(
             neg_null_ll, bounds=(np.log(1e-8), np.log(1e4)), method='bounded'
         )
@@ -1288,19 +1349,19 @@ def nbreg(
 
 
 def xtnbreg(
-    formula: str = None,
+    formula: Optional[str] = None,
     data: pd.DataFrame = None,
-    y: str = None,
-    x: Sequence[str] = None,
-    entity: str = None,
-    time: str = None,
+    y: Optional[str] = None,
+    x: Optional[Sequence[str]] = None,
+    entity: Optional[str] = None,
+    time: Optional[str] = None,
     model: str = "fe",
     time_effects: bool = False,
     robust: str = "nonrobust",
-    cluster: str = None,
-    weights: str = None,
-    offset: str = None,
-    exposure: str = None,
+    cluster: Optional[str] = None,
+    weights: Optional[str] = None,
+    offset: Optional[str] = None,
+    exposure: Optional[str] = None,
     irr: bool = False,
     dispersion: str = "mean",
     maxiter: int = 100,
@@ -1540,14 +1601,14 @@ def xtnbreg(
 
 
 def ppmlhdfe(
-    formula: str = None,
+    formula: Optional[str] = None,
     data: pd.DataFrame = None,
-    y: str = None,
-    x: list = None,
-    absorb: str = None,
+    y: Optional[str] = None,
+    x: Optional[List[str]] = None,
+    absorb: Optional[str] = None,
     robust: str = "robust",
-    cluster: str = None,
-    weights: str = None,
+    cluster: Optional[str] = None,
+    weights: Optional[str] = None,
     separation: bool = True,
     maxiter: int = 1000,
     tol: float = 1e-8,

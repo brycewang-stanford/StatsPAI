@@ -452,6 +452,10 @@ def shift_share_political(
             recovery_hint="Ensure `shares.index` contains the unit identifiers in `data`.",
             diagnostics={"function": "shift_share_political"},
         )
+    # Guard the differenced outcome/endog: an all-NaN (or non-numeric) outcome
+    # otherwise flows through the IV and returns a silent `estimate=nan`. This
+    # mirrors the finite-check the panel sibling already applies.
+    _finite_frame(cs[[outcome, endog]], name="shift_share_political outcome/endog")
     cs_with_shares = cs.reset_index()
     cs_with_shares = cs_with_shares.rename(columns={"index": unit}) \
         if unit not in cs_with_shares.columns else cs_with_shares

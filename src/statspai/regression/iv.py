@@ -28,7 +28,7 @@ References
   Estimation. *Journal of Applied Econometrics*, 14(1), 57-67.
 """
 
-from typing import Optional, Union, Dict, Any, List
+from typing import Optional, Union, Dict, Any, List, Tuple
 import pandas as pd
 import numpy as np
 from scipy import stats
@@ -64,6 +64,10 @@ def _not_fitted_error(accessor: str) -> MethodIncompatibility:
         recovery_hint="Call fit() before accessing fitted IV diagnostics.",
         diagnostics={"accessor": accessor, "is_fitted": False},
     )
+
+
+def _as_float_array(value: Any) -> np.ndarray:
+    return np.asarray(value, dtype=float)
 
 
 # ====================================================================== #
@@ -105,13 +109,11 @@ def _k_class_fit(
 
     # Full instrument matrix: [X_exog, Z]
     W = np.column_stack([X_exog, Z])
-    k1 = X_exog.shape[1]
 
     # --- First stage (for diagnostics & projections) ---
     WtW_inv = np.linalg.inv(W.T @ W)
     P_W = W @ WtW_inv @ W.T
 
-    X_endog_hat = P_W @ X_endog
     first_stage_results = _first_stage_diagnostics(
         X_exog, X_endog, W, n, m,
     )
@@ -559,7 +561,7 @@ def _first_stage_diagnostics(
     return results
 
 
-def _normalize_robust(robust) -> str:
+def _normalize_robust(robust: Any) -> str:
     """Canonicalise the SE-type vocabulary for the IV estimators.
 
     Accepts (case-insensitively) ``'nonrobust'`` / ``'hc0'`` / ``'hc1'`` /
@@ -614,7 +616,7 @@ def _robust_cov(
         raise ValueError(f"Unknown robust type: {robust_type}")
 
     meat = X_hat.T @ np.diag(weights) @ X_hat
-    return bread @ meat @ bread
+    return _as_float_array(bread @ meat @ bread)
 
 
 def _cluster_cov(
@@ -638,7 +640,7 @@ def _cluster_cov(
         meat += np.outer(moments_c, moments_c)
 
     correction = (n_clusters / (n_clusters - 1)) * ((n - 1) / (n - k))
-    return correction * bread @ meat @ bread
+    return _as_float_array(correction * bread @ meat @ bread)
 
 
 def _sargan_test(
@@ -717,15 +719,34 @@ class IVEstimator(BaseEstimator):
     def estimate(
         self,
         y: np.ndarray,
-        X_exog: np.ndarray,
-        X_endog: np.ndarray,
-        Z: np.ndarray,
-        robust: str = 'nonrobust',
+        X: np.ndarray,
+        X_endog: Optional[np.ndarray] = None,
+        Z: Optional[np.ndarray] = None,
+        robust: Any = 'nonrobust',
         cluster: Optional[pd.Series] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
-        return _k_class_fit(y, X_exog, X_endog, Z, kappa=1.0,
-                            robust=robust, cluster=cluster)
+        if X_endog is None:
+            X_endog = kwargs.get("X_endog")
+        if Z is None:
+            Z = kwargs.get("Z")
+        if X_endog is None or Z is None:
+            raise MethodIncompatibility(
+                "IVEstimator.estimate requires X_endog and Z.",
+                diagnostics={
+                    "has_X_endog": X_endog is not None,
+                    "has_Z": Z is not None,
+                },
+            )
+        return _k_class_fit(
+            y,
+            X,
+            X_endog,
+            Z,
+            kappa=1.0,
+            robust=_normalize_robust(robust),
+            cluster=cluster,
+        )
 
 
 # ====================================================================== #
@@ -800,9 +821,18 @@ class IVRegression(BaseModel):
         X_exog: Optional[np.ndarray] = None,
         X_endog: Optional[np.ndarray] = None,
         Z: Optional[np.ndarray] = None,
-        var_names: Optional[Dict[str, List[str]]] = None,
-    ):
+        var_names: Optional[Dict[str, Any]] = None,
+    ) -> None:
         super().__init__()
+        self._results: Optional[EconometricResults] = None
+        self._exog_names: List[str] = []
+        self._endog_names: List[str] = []
+        self._instrument_names: List[str] = []
+        self._first_stage: List[Dict[str, float]] = []
+        self._sargan: Optional[Dict[str, float]] = None
+        self._hausman: Dict[str, float] = {}
+        self._instruments: List[str] = []
+        self._raw_results: Dict[str, Any] = {}
         if formula is not None:
             formula = _require_string(formula, "formula")
         if data is not None:
@@ -831,8 +861,17 @@ class IVRegression(BaseModel):
                 },
             )
 
-    def _prepare_from_formula(self):
+    def _prepare_from_formula(self) -> None:
         """Parse formula and build matrices from data."""
+        if self.formula is None or self.data is None:
+            raise MethodIncompatibility(
+                "Formula preparation requires both formula and data.",
+                diagnostics={
+                    "has_formula": self.formula is not None,
+                    "has_data": self.data is not None,
+                },
+            )
+        data = self.data
         parsed = parse_formula(self.formula)
 
         if not parsed['endogenous'] or not parsed['instruments']:
@@ -851,7 +890,7 @@ class IVRegression(BaseModel):
         instrument_names = parsed['instruments']
 
         all_vars = [self.dependent_var] + exog_names + endog_names + instrument_names
-        missing = [v for v in all_vars if v not in self.data.columns]
+        missing = [v for v in all_vars if v not in data.columns]
         if missing:
             raise MethodIncompatibility(
                 f"Variables not found in data: {missing}",
@@ -862,8 +901,8 @@ class IVRegression(BaseModel):
                 diagnostics={"missing_columns": missing},
             )
 
-        extra_cols = [c for c in self.data.columns if c not in all_vars]
-        clean = self.data[all_vars + extra_cols].dropna(subset=all_vars)
+        extra_cols = [c for c in data.columns if c not in all_vars]
+        clean = data[all_vars + extra_cols].dropna(subset=all_vars)
         if len(clean) == 0:
             raise DataInsufficient(
                 "No rows remain after dropping NaNs.",
@@ -896,9 +935,9 @@ class IVRegression(BaseModel):
 
     def fit(
         self,
-        robust: str = 'nonrobust',
+        robust: Any = 'nonrobust',
         cluster: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> EconometricResults:
         """
         Fit the IV model.
@@ -945,21 +984,72 @@ class IVRegression(BaseModel):
                 },
             )
         else:
+            y_arr = self.y
+            X_exog_arr = self.X_exog
+            X_endog_arr = self.X_endog
+            Z_arr = self.Z
+            if (
+                y_arr is None
+                or X_exog_arr is None
+                or X_endog_arr is None
+                or Z_arr is None
+            ):
+                raise MethodIncompatibility(
+                    "Raw IV design arrays are incomplete.",
+                    diagnostics={
+                        "has_y": y_arr is not None,
+                        "has_X_exog": X_exog_arr is not None,
+                        "has_X_endog": X_endog_arr is not None,
+                        "has_Z": Z_arr is not None,
+                    },
+            )
             self._exog_names = (
-                self.var_names.get('exog', [f'exog{i}' for i in range(self.X_exog.shape[1])])
-                if self.var_names else [f'exog{i}' for i in range(self.X_exog.shape[1])]
+                self.var_names.get(
+                    'exog',
+                    [f'exog{i}' for i in range(X_exog_arr.shape[1])],
+                )
+                if self.var_names
+                else [f'exog{i}' for i in range(X_exog_arr.shape[1])]
             )
             self._endog_names = (
-                self.var_names.get('endog', [f'endog{i}' for i in range(self.X_endog.shape[1])])
-                if self.var_names else [f'endog{i}' for i in range(self.X_endog.shape[1])]
+                self.var_names.get(
+                    'endog',
+                    [f'endog{i}' for i in range(X_endog_arr.shape[1])],
+                )
+                if self.var_names
+                else [f'endog{i}' for i in range(X_endog_arr.shape[1])]
             )
             self._instrument_names = (
-                self.var_names.get('instruments', [f'z{i}' for i in range(self.Z.shape[1])])
-                if self.var_names else [f'z{i}' for i in range(self.Z.shape[1])]
+                self.var_names.get(
+                    'instruments',
+                    [f'z{i}' for i in range(Z_arr.shape[1])],
+                )
+                if self.var_names
+                else [f'z{i}' for i in range(Z_arr.shape[1])]
             )
             self.dependent_var = (
                 self.var_names.get('dependent', 'y')
                 if self.var_names else 'y'
+            )
+
+        y_fit = self.y
+        X_exog_fit = self.X_exog
+        X_endog_fit = self.X_endog
+        Z_fit = self.Z
+        if (
+            y_fit is None
+            or X_exog_fit is None
+            or X_endog_fit is None
+            or Z_fit is None
+        ):
+            raise MethodIncompatibility(
+                "IV design arrays are unavailable after preparation.",
+                diagnostics={
+                    "has_y": y_fit is not None,
+                    "has_X_exog": X_exog_fit is not None,
+                    "has_X_endog": X_endog_fit is not None,
+                    "has_Z": Z_fit is not None,
+                },
             )
 
         # Cluster variable
@@ -995,27 +1085,32 @@ class IVRegression(BaseModel):
             if method == '2sls':
                 kappa = 1.0
             elif method == 'liml':
-                kappa = _liml_kappa(self.y, self.X_exog, self.X_endog, self.Z)
+                kappa = _liml_kappa(y_fit, X_exog_fit, X_endog_fit, Z_fit)
             else:  # fuller
-                kappa_liml = _liml_kappa(self.y, self.X_exog, self.X_endog, self.Z)
-                n = len(self.y)
-                K = self.X_exog.shape[1] + self.Z.shape[1]
+                kappa_liml = _liml_kappa(
+                    y_fit,
+                    X_exog_fit,
+                    X_endog_fit,
+                    Z_fit,
+                )
+                n = len(y_fit)
+                K = X_exog_fit.shape[1] + Z_fit.shape[1]
                 kappa = kappa_liml - self.fuller_alpha / (n - K)
 
             results = _k_class_fit(
-                self.y, self.X_exog, self.X_endog, self.Z,
+                y_fit, X_exog_fit, X_endog_fit, Z_fit,
                 kappa=kappa, robust=robust, cluster=cluster_var,
             )
 
         elif method == 'gmm':
             results = _gmm_fit(
-                self.y, self.X_exog, self.X_endog, self.Z,
+                y_fit, X_exog_fit, X_endog_fit, Z_fit,
                 robust=robust, cluster=cluster_var,
             )
 
         elif method == 'jive':
             results = _jive_fit(
-                self.y, self.X_exog, self.X_endog, self.Z,
+                y_fit, X_exog_fit, X_endog_fit, Z_fit,
                 robust=robust, cluster=cluster_var,
             )
 
@@ -1081,13 +1176,15 @@ class IVRegression(BaseModel):
             diagnostics['Hausman p-value'] = results['hausman']['pvalue']
 
         # Store for programmatic access
-        self._first_stage = results['first_stage']
-        self._sargan = results['sargan']
-        self._hausman = results['hausman']
+        self._first_stage = [dict(fs) for fs in results['first_stage']]
+        self._sargan = (
+            dict(results['sargan']) if results['sargan'] is not None else None
+        )
+        self._hausman = dict(results['hausman'])
         self._instruments = self._instrument_names
         self._raw_results = results
 
-        self._results = EconometricResults(
+        results_obj = EconometricResults(
             params=params,
             std_errors=std_errors,
             model_info=model_info,
@@ -1095,8 +1192,9 @@ class IVRegression(BaseModel):
             diagnostics=diagnostics,
         )
 
+        self._results = results_obj
         self.is_fitted = True
-        return self._results
+        return results_obj
 
     def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
         """Generate predictions from the fitted IV model.
@@ -1119,8 +1217,14 @@ class IVRegression(BaseModel):
                 recovery_hint="Call fit() before predict().",
                 diagnostics={"is_fitted": False},
             )
+        if self._results is None:
+            raise MethodIncompatibility(
+                "Model results are unavailable.",
+                recovery_hint="Refit the IV model before prediction.",
+                diagnostics={"missing_state": "results"},
+            )
         if data is None:
-            return self._results.fitted_values()
+            return _as_float_array(self._results.fitted_values())
         if self.formula is None:
             raise MethodIncompatibility(
                 "Out-of-sample prediction requires the model to have been fit "
@@ -1156,7 +1260,7 @@ class IVRegression(BaseModel):
                 diagnostics={"missing_columns": missing},
             )
 
-        params = np.asarray(self._results.params)
+        params = _as_float_array(self._results.params)
         names = list(self._results.params.index) if hasattr(
             self._results.params, "index"
         ) else list(self._exog_names) + list(self._endog_names)
@@ -1188,7 +1292,7 @@ class IVRegression(BaseModel):
                     diagnostics={"parameter": nm},
                 )
         X_new = np.column_stack(X_new_cols)
-        return X_new @ params
+        return _as_float_array(X_new @ params)
 
     @property
     def first_stage(self) -> List[Dict[str, float]]:
@@ -1384,7 +1488,7 @@ def _iv_absorb_run(
     robust: str,
     cluster: Optional[str],
     **kwargs: Any,
-):
+) -> Tuple[EconometricResults, IVRegression, Dict[str, Any]]:
     """Internal helper: run 2SLS with HDFE absorption.
 
     Returns ``(result, model, pre)`` where ``pre`` is the dict from
@@ -1479,7 +1583,7 @@ def iv(
     cluster: Optional[str] = None,
     fuller_alpha: float = 1.0,
     absorb: Optional[Union[str, List[str]]] = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> EconometricResults:
     """
     Unified instrumental variables estimation.
@@ -1649,7 +1753,7 @@ def ivreg(
     data: pd.DataFrame,
     robust: str = 'nonrobust',
     cluster: Optional[str] = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> EconometricResults:
     """
     Instrumental variables regression (2SLS).

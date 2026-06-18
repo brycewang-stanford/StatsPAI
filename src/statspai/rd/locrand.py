@@ -20,7 +20,7 @@ Cattaneo, M.D., Titiunik, R. and Vazquez-Bare, G. (2016).
 *The Stata Journal*, 16(2), 331-367. [@cattaneo2016inference]
 """
 
-from typing import Optional, List
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -53,7 +53,7 @@ CausalResult._CITATIONS['rdlocrand'] = (
 # ======================================================================
 
 def _select_window(data: pd.DataFrame, x: str, c: float,
-                   wl: Optional[float], wr: Optional[float]):
+                   wl: Optional[float], wr: Optional[float]) -> np.ndarray:
     """Return mask for observations within [c+wl, c+wr]."""
     xv = data[x].values
     if wl is None or wr is None:
@@ -63,7 +63,7 @@ def _select_window(data: pd.DataFrame, x: str, c: float,
         )
     left = c + wl   # wl is typically negative
     right = c + wr
-    return (xv >= left) & (xv <= right)
+    return np.asarray((xv >= left) & (xv <= right), dtype=bool)
 
 
 def _polynomial_residuals(y: np.ndarray, x: np.ndarray, p: int,
@@ -82,23 +82,23 @@ def _polynomial_residuals(y: np.ndarray, x: np.ndarray, p: int,
             parts.append(covs)
 
     if len(parts) == 0:
-        return y - np.mean(y)
+        return np.asarray(y - np.mean(y), dtype=float)
 
     X_design = np.column_stack(parts)
     X_design = np.column_stack([np.ones(n), X_design])
     beta, _, _, _ = np.linalg.lstsq(X_design, y, rcond=None)
-    return y - X_design @ beta
+    return np.asarray(y - X_design @ beta, dtype=float)
 
 
 def _diffmeans(y: np.ndarray, d: np.ndarray) -> float:
     """Difference in means: E[Y|D=1] - E[Y|D=0]."""
-    return y[d == 1].mean() - y[d == 0].mean()
+    return float(y[d == 1].mean() - y[d == 0].mean())
 
 
 def _ks_stat(y: np.ndarray, d: np.ndarray) -> float:
     """Kolmogorov-Smirnov statistic."""
     stat, _ = sp_stats.ks_2samp(y[d == 1], y[d == 0])
-    return stat
+    return float(stat)
 
 
 def _ranksum_stat(y: np.ndarray, d: np.ndarray) -> float:
@@ -115,10 +115,10 @@ def _ranksum_stat(y: np.ndarray, d: np.ndarray) -> float:
     sigma = np.sqrt(n1 * n0 * (n1 + n0 + 1) / 12)
     if sigma == 0:
         return 0.0
-    return abs((stat - mu) / sigma)
+    return float(abs((stat - mu) / sigma))
 
 
-_STAT_FUNCS = {
+_STAT_FUNCS: Dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
     'diffmeans': _diffmeans,
     'ksmirnov': _ks_stat,
     'ranksum': _ranksum_stat,
@@ -132,7 +132,7 @@ def _compute_stat(y: np.ndarray, d: np.ndarray, stat_name: str) -> float:
 
 def _permutation_pvalue(y: np.ndarray, d: np.ndarray, stat_name: str,
                         n_perms: int, rng: np.random.Generator,
-                        two_sided: bool = True) -> tuple:
+                        two_sided: bool = True) -> Tuple[float, float]:
     """
     Fisher randomization p-value via permutation.
 
@@ -154,7 +154,7 @@ def _permutation_pvalue(y: np.ndarray, d: np.ndarray, stat_name: str,
 
 
 def _asymptotic_pvalue(y: np.ndarray, d: np.ndarray,
-                       stat_name: str) -> tuple:
+                       stat_name: str) -> Tuple[float, float]:
     """
     Asymptotic p-value for the chosen test statistic.
 
@@ -171,21 +171,21 @@ def _asymptotic_pvalue(y: np.ndarray, d: np.ndarray,
             return diff, 0.0 if abs(diff) > 1e-14 else 1.0
         t = diff / se
         pval = 2 * (1 - sp_stats.t.cdf(abs(t), df=n1 + n0 - 2))
-        return diff, pval
+        return float(diff), float(pval)
     elif stat_name == 'ksmirnov':
         stat, pval = sp_stats.ks_2samp(y[d == 1], y[d == 0])
-        return stat, pval
+        return float(stat), float(pval)
     elif stat_name == 'ranksum':
         stat, pval = sp_stats.mannwhitneyu(
             y[d == 1], y[d == 0], alternative='two-sided'
         )
-        return stat, pval
+        return float(stat), float(pval)
     else:
         raise ValueError(f"Unknown statistic: {stat_name}")  # pragma: no cover
 
 
 def _wald_iv(y: np.ndarray, d_actual: np.ndarray,
-             z: np.ndarray) -> tuple:
+             z: np.ndarray) -> Tuple[float, float]:
     """
     Wald (IV) estimator: tau = E[Y|Z=1]-E[Y|Z=0] / E[D|Z=1]-E[D|Z=0].
 
@@ -215,7 +215,7 @@ def _wald_iv(y: np.ndarray, d_actual: np.ndarray,
     var_num = var_y1 + var_y0
     var_den = var_d1 + var_d0
     se = np.sqrt(var_num / den**2 + num**2 * var_den / den**4)
-    return tau, se
+    return float(tau), float(se)
 
 
 # ======================================================================
@@ -316,14 +316,21 @@ def rdrandinf(
     True
     """
     rng = np.random.default_rng(seed)
+    if wl is None or wr is None:
+        raise ValueError(
+            "Window bounds wl and wr must be specified. "
+            "Use rdwinselect() to choose a data-driven window."
+        )
+    wl_value = float(wl)
+    wr_value = float(wr)
 
     # --- subset to window ---
-    mask = _select_window(data, x, c, wl, wr)
+    mask = _select_window(data, x, c, wl_value, wr_value)
     df_w = data.loc[mask].copy()
     n_obs = len(df_w)
     if n_obs < 4:
         raise ValueError(  # pragma: no cover
-            f"Only {n_obs} observations in window [{c+wl}, {c+wr}]. "
+            f"Only {n_obs} observations in window [{c+wl_value}, {c+wr_value}]. "
             "Widen the window or check your data."
         )
 
@@ -379,7 +386,7 @@ def rdrandinf(
             n_obs=n_obs,
             model_info={
                 'cutoff': c,
-                'window': (c + wl, c + wr),
+                'window': (c + wl_value, c + wr_value),
                 'n_left': n_left,
                 'n_right': n_right,
                 'statistic': 'wald_iv',
@@ -449,7 +456,7 @@ def rdrandinf(
         detail=detail,
         model_info={
             'cutoff': c,
-            'window': (c + wl, c + wr),
+            'window': (c + wl_value, c + wr_value),
             'n_left': n_left,
             'n_right': n_right,
             'statistic': statistic,
@@ -466,7 +473,7 @@ def rdrandinf(
 
 def _ci_test_inversion(y: np.ndarray, d: np.ndarray, n_perms: int,
                        alpha: float, rng: np.random.Generator,
-                       n_grid: int = 101) -> tuple:
+                       n_grid: int = 101) -> Tuple[float, float]:
     """
     Confidence interval by test inversion for difference-in-means.
 
@@ -637,7 +644,6 @@ def rdwinselect(
 
         mask = (xv >= c + wl) & (xv <= c + wr)
         df_w = data.loc[mask]
-        n = len(df_w)
         xw = df_w[x].values.astype(float)
         z = (xw >= c).astype(int)
         n_left = int((z == 0).sum())
@@ -782,7 +788,6 @@ def rdsensitivity(
         wl = -w
         wr = w
         mask = (xv >= c + wl) & (xv <= c + wr)
-        n_in = int(mask.sum())
         z_in = (xv[mask] >= c).astype(int)
         n_left = int((z_in == 0).sum())
         n_right = int((z_in == 1).sum())
@@ -945,12 +950,19 @@ def rdrbounds(
     [1.0, 1.5, 2.0]
     """
     rng = np.random.default_rng(seed)
+    if wl is None or wr is None:
+        raise ValueError(
+            "Window bounds wl and wr must be specified. "
+            "Use rdwinselect() to choose a data-driven window."
+        )
+    wl_value = float(wl)
+    wr_value = float(wr)
 
     if gamma_list is None:
         gamma_list = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]
 
     # Subset to window
-    mask = _select_window(data, x, c, wl, wr)
+    mask = _select_window(data, x, c, wl_value, wr_value)
     df_w = data.loc[mask].copy()
     n_obs = len(df_w)
     if n_obs < 4:

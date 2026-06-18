@@ -19,7 +19,7 @@ Chernozhukov, V. and Hansen, C. (2005).
 *Econometrica*, 73(1), 245-261. [@chernozhukov2005model]
 """
 
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -28,6 +28,10 @@ from scipy.optimize import linprog
 
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
+
+
+def _as_float_array(value: object) -> np.ndarray:
+    return np.asarray(value, dtype=float)
 
 
 def qreg(
@@ -194,7 +198,10 @@ def sqreg(
     results = {}
     for q in quantiles:
         r = qreg(data, y=y, x=x, quantile=q, alpha=alpha)
-        for _, row in r.detail.iterrows():
+        detail = r.detail
+        if not isinstance(detail, pd.DataFrame):
+            raise MethodIncompatibility("qreg detail table is unavailable")
+        for _, row in detail.iterrows():
             var = row['variable']
             if var not in results:
                 results[var] = {'variable': var}
@@ -208,7 +215,7 @@ def sqreg(
 # Internal
 # ======================================================================
 
-def _qreg_fit(Y, X, tau):
+def _qreg_fit(Y: np.ndarray, X: np.ndarray, tau: float) -> np.ndarray:
     """Solve quantile regression via linear programming (interior point)."""
     n, k = X.shape
 
@@ -232,7 +239,7 @@ def _qreg_fit(Y, X, tau):
         result = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds,
                          method='highs', options={'maxiter': 5000})
         if result.success:
-            return result.x[:k]
+            return _as_float_array(result.x[:k])
     except Exception:
         pass
 
@@ -240,7 +247,12 @@ def _qreg_fit(Y, X, tau):
     return _qreg_irls(Y, X, tau)
 
 
-def _qreg_irls(Y, X, tau, max_iter=50):
+def _qreg_irls(
+    Y: np.ndarray,
+    X: np.ndarray,
+    tau: float,
+    max_iter: int = 50,
+) -> np.ndarray:
     """IRLS fallback for quantile regression."""
     n, k = X.shape
     beta = np.linalg.lstsq(X, Y, rcond=None)[0]
@@ -259,10 +271,16 @@ def _qreg_irls(Y, X, tau, max_iter=50):
             break
         beta = beta_new
 
-    return beta
+    return _as_float_array(beta)
 
 
-def _qreg_se(Y, X, beta, resid, tau):
+def _qreg_se(
+    Y: np.ndarray,
+    X: np.ndarray,
+    beta: np.ndarray,
+    resid: np.ndarray,
+    tau: float,
+) -> np.ndarray:
     """Powell (1991) kernel sandwich SE for quantile regression."""
     n, k = X.shape
 
@@ -283,18 +301,20 @@ def _qreg_se(Y, X, beta, resid, tau):
     XtX_inv = np.linalg.pinv(X.T @ X)
     vcov = tau * (1 - tau) / (f0 ** 2) * XtX_inv
 
-    return np.sqrt(np.maximum(np.diag(vcov), 1e-20))
+    return _as_float_array(np.sqrt(np.maximum(np.diag(vcov), 1e-20)))
 
 
-def _pseudo_r2(Y, resid, tau):
+def _pseudo_r2(Y: np.ndarray, resid: np.ndarray, tau: float) -> float:
     """Koenker-Machado (1999) pseudo R² for quantile regression."""
-    rho = lambda u: u * (tau - (u < 0))
+    def rho(u: np.ndarray) -> np.ndarray:
+        return _as_float_array(u * (tau - (u < 0)))
+
     obj_full = np.sum(rho(resid))
     obj_null = np.sum(rho(Y - np.quantile(Y, tau)))
-    return 1 - obj_full / obj_null if obj_null > 0 else 0
+    return float(1 - obj_full / obj_null) if obj_null > 0 else 0.0
 
 
-def _parse_formula(formula):
+def _parse_formula(formula: str) -> Tuple[str, List[str]]:
     """Parse 'y ~ x1 + x2' into (y, [x1, x2])."""
     parts = formula.split('~')
     if len(parts) != 2:

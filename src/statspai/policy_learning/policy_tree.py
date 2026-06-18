@@ -30,6 +30,8 @@ import pandas as pd
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
+TreeNode = Dict[str, Any]
+
 
 # ======================================================================
 # Result class — promoted from a plain dict to a rich result object
@@ -86,7 +88,8 @@ class PolicyTreeResult(dict):
     """
 
     def __init__(
-        self, *,
+        self,
+        *,
         tree: "PolicyTree",
         policy: np.ndarray,
         value_treat_all: float,
@@ -102,14 +105,18 @@ class PolicyTreeResult(dict):
         value_gain_se: float = float("nan"),
         policy_covariates: Tuple[str, ...] = (),
         max_depth: int = 0,
-    ):
+    ) -> None:
         super().__init__(
-            tree=tree, policy=policy,
+            tree=tree,
+            policy=policy,
             value_treat_all=value_treat_all,
             value_treat_none=value_treat_none,
-            value_policy=value_policy, value_gain=value_gain,
-            fraction_treated=fraction_treated, rules=rules,
-            n_obs=n_obs, scores=scores,
+            value_policy=value_policy,
+            value_gain=value_gain,
+            fraction_treated=fraction_treated,
+            rules=rules,
+            n_obs=n_obs,
+            scores=scores,
             value_policy_se=value_policy_se,
             value_policy_ci=value_policy_ci,
             value_gain_se=value_gain_se,
@@ -118,7 +125,7 @@ class PolicyTreeResult(dict):
         )
 
     # Attribute access mirrors dict keys for ergonomic .field syntax.
-    def __getattr__(self, key):
+    def __getattr__(self, key: str) -> Any:
         try:
             return self[key]
         except KeyError as e:
@@ -127,6 +134,7 @@ class PolicyTreeResult(dict):
     # ------- reporting -------
     def summary(self) -> str:
         lo, hi = self.value_policy_ci
+        rules = str(self["rules"])
         return (
             "Policy Tree (Athey-Wager 2021)\n"
             "----------------------------------------\n"
@@ -140,13 +148,18 @@ class PolicyTreeResult(dict):
             f"  (SE {self.value_policy_se:.4f}, "
             f"95% CI [{lo:+.4f}, {hi:+.4f}])\n"
             f"  Value gain vs best uniform : {self.value_gain:+.4f}\n"
-            "\nLearned policy:\n" + self.rules
+            "\nLearned policy:\n" + rules
         )
 
     def __repr__(self) -> str:  # pragma: no cover
         return self.summary()
 
-    def plot_tree(self, ax=None, figsize=(8.0, 5.0), node_color="#e8f0fe"):
+    def plot_tree(
+        self,
+        ax: Any = None,
+        figsize: Tuple[float, float] = (8.0, 5.0),
+        node_color: str = "#e8f0fe",
+    ) -> Tuple[Any, Any]:
         """Draw the policy tree as a labeled hierarchical diagram.
 
         Each split node shows ``feature ≤ threshold``; each leaf shows
@@ -163,7 +176,7 @@ class PolicyTreeResult(dict):
         node = self.tree._tree
         var_names = list(self.policy_covariates)
 
-        def _count_leaves(n):
+        def _count_leaves(n: TreeNode) -> int:
             if n["type"] == "leaf":
                 return 1
             return _count_leaves(n["left"]) + _count_leaves(n["right"])
@@ -171,7 +184,12 @@ class PolicyTreeResult(dict):
         total_leaves = _count_leaves(node)
         positions: List[Dict[str, Any]] = []
 
-        def _assign(n, depth, x_left, x_right):
+        def _assign(
+            n: TreeNode,
+            depth: int,
+            x_left: float,
+            x_right: float,
+        ) -> None:
             x = (x_left + x_right) / 2
             entry = {"node": n, "depth": depth, "x": x}
             if n["type"] == "leaf":
@@ -179,8 +197,9 @@ class PolicyTreeResult(dict):
                 return
             left_leaves = _count_leaves(n["left"])
             right_leaves = _count_leaves(n["right"])
-            split_x = x_left + (x_right - x_left) * (left_leaves /
-                                                    (left_leaves + right_leaves))
+            split_x = x_left + (x_right - x_left) * (
+                left_leaves / (left_leaves + right_leaves)
+            )
             _assign(n["left"], depth + 1, x_left, split_x)
             _assign(n["right"], depth + 1, split_x, x_right)
             positions.append(entry)
@@ -194,38 +213,73 @@ class PolicyTreeResult(dict):
 
         max_depth = max(p["depth"] for p in positions)
 
-        def _draw(n, x, depth):
+        def _draw(n: TreeNode, x: float, depth: int) -> None:
             y = max_depth - depth
             if n["type"] == "leaf":
                 action = "TREAT" if n["action"] == 1 else "DON'T TREAT"
                 color = "#a3d9a5" if n["action"] == 1 else "#f5b7b1"
-                ax.add_patch(mpatches.FancyBboxPatch(
-                    (x - 0.45, y - 0.25), 0.9, 0.5,
-                    boxstyle="round,pad=0.02",
-                    fc=color, ec="#555", lw=1.0,
-                ))
-                ax.text(x, y, f"{action}\nv={n['value']:+.3f}\nn={n['n']}",
-                        ha="center", va="center", fontsize=8)
+                ax.add_patch(
+                    mpatches.FancyBboxPatch(
+                        (x - 0.45, y - 0.25),
+                        0.9,
+                        0.5,
+                        boxstyle="round,pad=0.02",
+                        fc=color,
+                        ec="#555",
+                        lw=1.0,
+                    )
+                )
+                ax.text(
+                    x,
+                    y,
+                    f"{action}\nv={n['value']:+.3f}\nn={n['n']}",
+                    ha="center",
+                    va="center",
+                    fontsize=8,
+                )
                 return
 
             # split node
-            feat = var_names[n["feature"]] if n["feature"] < len(var_names) \
+            feat = (
+                var_names[n["feature"]]
+                if n["feature"] < len(var_names)
                 else f"X{n['feature']}"
-            ax.add_patch(mpatches.FancyBboxPatch(
-                (x - 0.55, y - 0.22), 1.1, 0.45,
-                boxstyle="round,pad=0.02",
-                fc=node_color, ec="#333", lw=1.0,
-            ))
-            ax.text(x, y, f"{feat}\n≤ {n['threshold']:.3f}",
-                    ha="center", va="center", fontsize=9)
+            )
+            ax.add_patch(
+                mpatches.FancyBboxPatch(
+                    (x - 0.55, y - 0.22),
+                    1.1,
+                    0.45,
+                    boxstyle="round,pad=0.02",
+                    fc=node_color,
+                    ec="#333",
+                    lw=1.0,
+                )
+            )
+            ax.text(
+                x,
+                y,
+                f"{feat}\n≤ {n['threshold']:.3f}",
+                ha="center",
+                va="center",
+                fontsize=9,
+            )
 
             # children positions: pull out next-level entries from `positions`
             left_entry = next(p for p in positions if p["node"] is n["left"])
             right_entry = next(p for p in positions if p["node"] is n["right"])
-            ax.plot([x, left_entry["x"]], [y - 0.22, max_depth - left_entry["depth"] + 0.22],
-                    color="#555", lw=1.0)
-            ax.plot([x, right_entry["x"]], [y - 0.22, max_depth - right_entry["depth"] + 0.22],
-                    color="#555", lw=1.0)
+            ax.plot(
+                [x, left_entry["x"]],
+                [y - 0.22, max_depth - left_entry["depth"] + 0.22],
+                color="#555",
+                lw=1.0,
+            )
+            ax.plot(
+                [x, right_entry["x"]],
+                [y - 0.22, max_depth - right_entry["depth"] + 0.22],
+                color="#555",
+                lw=1.0,
+            )
             _draw(n["left"], left_entry["x"], depth + 1)
             _draw(n["right"], right_entry["x"], depth + 1)
 
@@ -238,8 +292,9 @@ class PolicyTreeResult(dict):
         ax.set_title(f"Policy Tree (depth ≤ {self.max_depth})", fontsize=12)
         return fig, ax
 
-    def to_latex(self, caption: Optional[str] = None,
-                 label: str = "tab:policy_tree") -> str:
+    def to_latex(
+        self, caption: Optional[str] = None, label: str = "tab:policy_tree"
+    ) -> str:
         """Render a publication-style summary table (LaTeX)."""
         cap = caption or "Policy Learning Results (Athey-Wager 2021)"
         lo, hi = self.value_policy_ci
@@ -273,17 +328,32 @@ class PolicyTreeResult(dict):
 
     def to_excel(self, path: str, digits: int = 4) -> str:
         """Write a single-sheet Excel summary."""
-        df = pd.DataFrame({
-            "quantity": ["V(treat_all)", "V(treat_none)", "V(policy)",
-                         "V(policy)_SE", "V(policy)_CI_lo", "V(policy)_CI_hi",
-                         "value_gain", "fraction_treated", "n_obs"],
-            "value": [
-                self.value_treat_all, self.value_treat_none,
-                self.value_policy, self.value_policy_se,
-                self.value_policy_ci[0], self.value_policy_ci[1],
-                self.value_gain, self.fraction_treated, self.n_obs,
-            ],
-        })
+        df = pd.DataFrame(
+            {
+                "quantity": [
+                    "V(treat_all)",
+                    "V(treat_none)",
+                    "V(policy)",
+                    "V(policy)_SE",
+                    "V(policy)_CI_lo",
+                    "V(policy)_CI_hi",
+                    "value_gain",
+                    "fraction_treated",
+                    "n_obs",
+                ],
+                "value": [
+                    self.value_treat_all,
+                    self.value_treat_none,
+                    self.value_policy,
+                    self.value_policy_se,
+                    self.value_policy_ci[0],
+                    self.value_policy_ci[1],
+                    self.value_gain,
+                    self.fraction_treated,
+                    self.n_obs,
+                ],
+            }
+        )
         with pd.ExcelWriter(path) as writer:
             df.round(digits).to_excel(writer, sheet_name="Summary", index=False)
             pd.DataFrame({"rules": [self.rules]}).to_excel(
@@ -298,6 +368,7 @@ class PolicyTreeResult(dict):
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def policy_tree(
     data: pd.DataFrame,
@@ -367,10 +438,16 @@ def policy_tree(
     >>> print(f"Policy value gain: {result['value_gain']:.4f}")
     """
     est = PolicyTree(
-        data=data, y=y, treat=treat, covariates=covariates,
+        data=data,
+        y=y,
+        treat=treat,
+        covariates=covariates,
         policy_covariates=policy_covariates,
-        max_depth=max_depth, min_leaf_size=min_leaf_size,
-        n_folds=n_folds, alpha=alpha, random_state=random_state,
+        max_depth=max_depth,
+        min_leaf_size=min_leaf_size,
+        n_folds=n_folds,
+        alpha=alpha,
+        random_state=random_state,
     )
     return est.fit()
 
@@ -423,6 +500,7 @@ def policy_value(
 # ======================================================================
 # Policy Tree class
 # ======================================================================
+
 
 class PolicyTree:
     """
@@ -496,8 +574,9 @@ class PolicyTree:
     def fit(self) -> Dict[str, Any]:
         """Learn the optimal policy tree."""
         # Prepare data
-        all_cols = list(set([self.y, self.treat] + self.covariates +
-                            self.policy_covariates))
+        all_cols = list(
+            set([self.y, self.treat] + self.covariates + self.policy_covariates)
+        )
         missing = [c for c in all_cols if c not in self.data.columns]
         if missing:
             raise ValueError(f"Columns not found in data: {missing}")
@@ -511,7 +590,7 @@ class PolicyTree:
 
         unique_d = np.unique(D)
         if not (len(unique_d) == 2 and set(unique_d.astype(int)) == {0, 1}):
-            raise ValueError(f"Treatment must be binary (0/1)")
+            raise ValueError("Treatment must be binary (0/1)")
 
         # Step 1: Compute doubly robust scores via cross-fitting
         scores = self._compute_dr_scores(Y, D, W, n)
@@ -541,15 +620,21 @@ class PolicyTree:
         # The same construction yields an SE on V_gain by replacing the
         # contrast policy with the best uniform policy.
         contrib_pol = scores * policy_decisions
-        v_se = float(np.std(contrib_pol, ddof=1) / np.sqrt(n)) if n > 1 else float("nan")
+        v_se = (
+            float(np.std(contrib_pol, ddof=1) / np.sqrt(n)) if n > 1 else float("nan")
+        )
         from scipy import stats as _stats
+
         z = float(_stats.norm.ppf(1 - self.alpha / 2))
         v_ci = (value_policy - z * v_se, value_policy + z * v_se)
 
-        contrast = (np.zeros_like(scores) if value_all <= value_none
-                    else np.ones_like(scores))
+        contrast = (
+            np.zeros_like(scores) if value_all <= value_none else np.ones_like(scores)
+        )
         contrib_gain = scores * (policy_decisions - contrast)
-        gain_se = float(np.std(contrib_gain, ddof=1) / np.sqrt(n)) if n > 1 else float("nan")
+        gain_se = (
+            float(np.std(contrib_gain, ddof=1) / np.sqrt(n)) if n > 1 else float("nan")
+        )
 
         return PolicyTreeResult(
             tree=self,
@@ -583,7 +668,7 @@ class PolicyTree:
         np.ndarray (n,)
             Binary treatment recommendations (0 or 1).
         """
-        if not hasattr(self, '_tree'):
+        if not hasattr(self, "_tree"):
             raise MethodIncompatibility(
                 "PolicyTree.predict() requires a fitted policy tree.",
                 recovery_hint="Call fit() before predict().",
@@ -640,7 +725,13 @@ class PolicyTree:
             )
         return self._predict_tree(self._tree, X_new)
 
-    def _compute_dr_scores(self, Y, D, W, n):
+    def _compute_dr_scores(
+        self,
+        Y: np.ndarray,
+        D: np.ndarray,
+        W: np.ndarray,
+        n: int,
+    ) -> np.ndarray:
         """Compute AIPW doubly robust scores for treatment benefit."""
         from sklearn.ensemble import (
             GradientBoostingRegressor,
@@ -648,8 +739,7 @@ class PolicyTree:
         )
         from sklearn.model_selection import KFold
 
-        kf = KFold(n_splits=self.n_folds, shuffle=True,
-                    random_state=self.random_state)
+        kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=self.random_state)
 
         mu1_hat = np.zeros(n)
         mu0_hat = np.zeros(n)
@@ -682,8 +772,7 @@ class PolicyTree:
                 n_estimators=100, max_depth=3, random_state=self.random_state
             )
             prop.fit(W_tr, D_tr)
-            e_hat[test_idx] = np.clip(prop.predict_proba(W_te)[:, 1],
-                                       0.025, 0.975)
+            e_hat[test_idx] = np.clip(prop.predict_proba(W_te)[:, 1], 0.025, 0.975)
 
         # AIPW score for treatment benefit
         scores = (
@@ -692,9 +781,14 @@ class PolicyTree:
             - (1 - D) * (Y - mu0_hat) / (1 - e_hat)
         )
 
-        return scores
+        return np.asarray(scores, dtype=float)
 
-    def _grow_tree(self, X, scores, depth):
+    def _grow_tree(
+        self,
+        X: np.ndarray,
+        scores: np.ndarray,
+        depth: int,
+    ) -> TreeNode:
         """
         Recursively grow the policy tree.
 
@@ -705,10 +799,10 @@ class PolicyTree:
         # Leaf node: assign treatment if mean score > 0
         if depth >= self.max_depth or n < 2 * self.min_leaf_size:
             return {
-                'type': 'leaf',
-                'action': 1 if np.mean(scores) > 0 else 0,
-                'value': float(np.mean(scores)),
-                'n': n,
+                "type": "leaf",
+                "action": 1 if np.mean(scores) > 0 else 0,
+                "value": float(np.mean(scores)),
+                "n": n,
             }
 
         best_gain = -np.inf
@@ -752,75 +846,80 @@ class PolicyTree:
                 if gain > best_gain:
                     best_gain = gain
                     best_split = {
-                        'feature': j,
-                        'threshold': float(threshold),
-                        'left_mask': left_mask,
-                        'right_mask': right_mask,
+                        "feature": j,
+                        "threshold": float(threshold),
+                        "left_mask": left_mask,
+                        "right_mask": right_mask,
                     }
 
         # If no valid split found, return leaf
         if best_split is None:
             return {
-                'type': 'leaf',
-                'action': 1 if np.mean(scores) > 0 else 0,
-                'value': float(np.mean(scores)),
-                'n': n,
+                "type": "leaf",
+                "action": 1 if np.mean(scores) > 0 else 0,
+                "value": float(np.mean(scores)),
+                "n": n,
             }
 
         # Recurse
         left_child = self._grow_tree(
-            X[best_split['left_mask']],
-            scores[best_split['left_mask']],
+            X[best_split["left_mask"]],
+            scores[best_split["left_mask"]],
             depth + 1,
         )
         right_child = self._grow_tree(
-            X[best_split['right_mask']],
-            scores[best_split['right_mask']],
+            X[best_split["right_mask"]],
+            scores[best_split["right_mask"]],
             depth + 1,
         )
 
         return {
-            'type': 'split',
-            'feature': best_split['feature'],
-            'threshold': best_split['threshold'],
-            'left': left_child,
-            'right': right_child,
-            'n': n,
+            "type": "split",
+            "feature": best_split["feature"],
+            "threshold": best_split["threshold"],
+            "left": left_child,
+            "right": right_child,
+            "n": n,
         }
 
-    def _predict_tree(self, tree, X):
+    def _predict_tree(self, tree: TreeNode, X: np.ndarray) -> np.ndarray:
         """Predict treatment assignments from a tree."""
         n = X.shape[0]
         policy = np.zeros(n, dtype=int)
 
         for i in range(n):
             node = tree
-            while node['type'] == 'split':
-                if X[i, node['feature']] <= node['threshold']:
-                    node = node['left']
+            while node["type"] == "split":
+                if X[i, node["feature"]] <= node["threshold"]:
+                    node = node["left"]
                 else:
-                    node = node['right']
-            policy[i] = node['action']
+                    node = node["right"]
+            policy[i] = node["action"]
 
         return policy
 
-    def _tree_to_rules(self, tree, var_names, prefix=""):
+    def _tree_to_rules(
+        self,
+        tree: TreeNode,
+        var_names: List[str],
+        prefix: str = "",
+    ) -> str:
         """Convert tree to human-readable rules."""
-        if tree['type'] == 'leaf':
-            action = "TREAT" if tree['action'] == 1 else "DON'T TREAT"
-            return (f"{prefix}{action} "
-                    f"(n={tree['n']}, avg_benefit={tree['value']:.4f})\n")
+        if tree["type"] == "leaf":
+            action = "TREAT" if tree["action"] == 1 else "DON'T TREAT"
+            return (
+                f"{prefix}{action} "
+                f"(n={tree['n']}, avg_benefit={tree['value']:.4f})\n"
+            )
 
-        feat = var_names[tree['feature']]
-        thresh = tree['threshold']
+        feat = var_names[tree["feature"]]
+        thresh = tree["threshold"]
 
         rules = ""
         rules += f"{prefix}IF {feat} <= {thresh:.4f}:\n"
-        rules += self._tree_to_rules(tree['left'], var_names,
-                                     prefix + "  ")
+        rules += self._tree_to_rules(tree["left"], var_names, prefix + "  ")
         rules += f"{prefix}ELSE ({feat} > {thresh:.4f}):\n"
-        rules += self._tree_to_rules(tree['right'], var_names,
-                                     prefix + "  ")
+        rules += self._tree_to_rules(tree["right"], var_names, prefix + "  ")
         return rules
 
 
@@ -828,7 +927,7 @@ class PolicyTree:
 # Citation
 # ======================================================================
 
-CausalResult._CITATIONS['policy_tree'] = (
+CausalResult._CITATIONS["policy_tree"] = (
     "@article{athey2021policy,\n"
     "  title={Policy Learning with Observational Data},\n"
     "  author={Athey, Susan and Wager, Stefan},\n"

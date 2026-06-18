@@ -12,7 +12,7 @@ References
 - Cameron, A.C. and Trivedi, P.K. (2005). Microeconometrics: Methods and Applications. [@mccullagh1989generalized]
 """
 
-from typing import Optional, Union, Dict, Any, List, Callable, Tuple
+from typing import Optional, Union, Dict, Any, List, Type
 import pandas as pd
 import numpy as np
 from scipy import stats, optimize, special
@@ -20,7 +20,7 @@ import warnings
 
 from ..core.base import BaseModel, BaseEstimator
 from ..core.results import EconometricResults
-from ..core.utils import parse_formula, create_design_matrices, prepare_data
+from ..core.utils import create_design_matrices
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
@@ -115,12 +115,18 @@ def _coerce_column_list(value: Any, name: str) -> List[str]:
     return cols
 
 
+def _as_float_array(value: Any) -> np.ndarray:
+    return np.asarray(value, dtype=float)
+
+
 # ---------------------------------------------------------------------------
 # Link functions
 # ---------------------------------------------------------------------------
 
 class LinkFunction:
     """Base class for GLM link functions."""
+
+    name: str = "link"
 
     def link(self, mu: np.ndarray) -> np.ndarray:
         raise NotImplementedError
@@ -136,87 +142,87 @@ class LinkFunction:
 class IdentityLink(LinkFunction):
     name = "identity"
 
-    def link(self, mu):
+    def link(self, mu: np.ndarray) -> np.ndarray:
         return mu
 
-    def inverse(self, eta):
+    def inverse(self, eta: np.ndarray) -> np.ndarray:
         return eta
 
-    def deriv(self, mu):
+    def deriv(self, mu: np.ndarray) -> np.ndarray:
         return np.ones_like(mu)
 
 
 class LogLink(LinkFunction):
     name = "log"
 
-    def link(self, mu):
-        return np.log(np.clip(mu, 1e-20, None))
+    def link(self, mu: np.ndarray) -> np.ndarray:
+        return _as_float_array(np.log(np.clip(mu, 1e-20, None)))
 
-    def inverse(self, eta):
-        return np.exp(np.clip(eta, -500, 500))
+    def inverse(self, eta: np.ndarray) -> np.ndarray:
+        return _as_float_array(np.exp(np.clip(eta, -500, 500)))
 
-    def deriv(self, mu):
-        return 1.0 / np.clip(mu, 1e-20, None)
+    def deriv(self, mu: np.ndarray) -> np.ndarray:
+        return _as_float_array(1.0 / np.clip(mu, 1e-20, None))
 
 
 class LogitLink(LinkFunction):
     name = "logit"
 
-    def link(self, mu):
+    def link(self, mu: np.ndarray) -> np.ndarray:
         mu = np.clip(mu, 1e-15, 1 - 1e-15)
-        return np.log(mu / (1 - mu))
+        return _as_float_array(np.log(mu / (1 - mu)))
 
-    def inverse(self, eta):
+    def inverse(self, eta: np.ndarray) -> np.ndarray:
         eta = np.clip(eta, -500, 500)
-        return 1.0 / (1.0 + np.exp(-eta))
+        return _as_float_array(1.0 / (1.0 + np.exp(-eta)))
 
-    def deriv(self, mu):
+    def deriv(self, mu: np.ndarray) -> np.ndarray:
         mu = np.clip(mu, 1e-15, 1 - 1e-15)
-        return 1.0 / (mu * (1 - mu))
+        return _as_float_array(1.0 / (mu * (1 - mu)))
 
 
 class ProbitLink(LinkFunction):
     name = "probit"
 
-    def link(self, mu):
+    def link(self, mu: np.ndarray) -> np.ndarray:
         mu = np.clip(mu, 1e-15, 1 - 1e-15)
-        return stats.norm.ppf(mu)
+        return _as_float_array(stats.norm.ppf(mu))
 
-    def inverse(self, eta):
-        return stats.norm.cdf(eta)
+    def inverse(self, eta: np.ndarray) -> np.ndarray:
+        return _as_float_array(stats.norm.cdf(eta))
 
-    def deriv(self, mu):
+    def deriv(self, mu: np.ndarray) -> np.ndarray:
         mu = np.clip(mu, 1e-15, 1 - 1e-15)
-        return 1.0 / stats.norm.pdf(stats.norm.ppf(mu))
+        return _as_float_array(1.0 / stats.norm.pdf(stats.norm.ppf(mu)))
 
 
 class InverseLink(LinkFunction):
     name = "inverse"
 
-    def link(self, mu):
-        return 1.0 / np.clip(mu, 1e-20, None)
+    def link(self, mu: np.ndarray) -> np.ndarray:
+        return _as_float_array(1.0 / np.clip(mu, 1e-20, None))
 
-    def inverse(self, eta):
-        return 1.0 / np.clip(eta, 1e-20, None)
+    def inverse(self, eta: np.ndarray) -> np.ndarray:
+        return _as_float_array(1.0 / np.clip(eta, 1e-20, None))
 
-    def deriv(self, mu):
-        return -1.0 / np.clip(mu ** 2, 1e-40, None)
+    def deriv(self, mu: np.ndarray) -> np.ndarray:
+        return _as_float_array(-1.0 / np.clip(mu ** 2, 1e-40, None))
 
 
 class CLogLogLink(LinkFunction):
     name = "cloglog"
 
-    def link(self, mu):
+    def link(self, mu: np.ndarray) -> np.ndarray:
         mu = np.clip(mu, 1e-15, 1 - 1e-15)
-        return np.log(-np.log(1 - mu))
+        return _as_float_array(np.log(-np.log(1 - mu)))
 
-    def inverse(self, eta):
+    def inverse(self, eta: np.ndarray) -> np.ndarray:
         eta = np.clip(eta, -500, 500)
-        return 1.0 - np.exp(-np.exp(eta))
+        return _as_float_array(1.0 - np.exp(-np.exp(eta)))
 
-    def deriv(self, mu):
+    def deriv(self, mu: np.ndarray) -> np.ndarray:
         mu = np.clip(mu, 1e-15, 1 - 1e-15)
-        return 1.0 / ((1 - mu) * (-np.log(1 - mu)))
+        return _as_float_array(1.0 / ((1 - mu) * (-np.log(1 - mu))))
 
 
 class PowerLink(LinkFunction):
@@ -225,36 +231,38 @@ class PowerLink(LinkFunction):
     def __init__(self, power: float = 1.0):
         self.power = power
 
-    def link(self, mu):
+    def link(self, mu: np.ndarray) -> np.ndarray:
         if self.power == 0:
-            return np.log(np.clip(mu, 1e-20, None))
-        return np.clip(mu, 1e-20, None) ** self.power
+            return _as_float_array(np.log(np.clip(mu, 1e-20, None)))
+        return _as_float_array(np.clip(mu, 1e-20, None) ** self.power)
 
-    def inverse(self, eta):
+    def inverse(self, eta: np.ndarray) -> np.ndarray:
         if self.power == 0:
-            return np.exp(np.clip(eta, -500, 500))
-        return np.clip(eta, 1e-20, None) ** (1.0 / self.power)
+            return _as_float_array(np.exp(np.clip(eta, -500, 500)))
+        return _as_float_array(np.clip(eta, 1e-20, None) ** (1.0 / self.power))
 
-    def deriv(self, mu):
+    def deriv(self, mu: np.ndarray) -> np.ndarray:
         if self.power == 0:
-            return 1.0 / np.clip(mu, 1e-20, None)
-        return self.power * np.clip(mu, 1e-20, None) ** (self.power - 1)
+            return _as_float_array(1.0 / np.clip(mu, 1e-20, None))
+        return _as_float_array(
+            self.power * np.clip(mu, 1e-20, None) ** (self.power - 1)
+        )
 
 
 class SqrtLink(LinkFunction):
     name = "sqrt"
 
-    def link(self, mu):
-        return np.sqrt(np.clip(mu, 0, None))
+    def link(self, mu: np.ndarray) -> np.ndarray:
+        return _as_float_array(np.sqrt(np.clip(mu, 0, None)))
 
-    def inverse(self, eta):
-        return np.clip(eta, 0, None) ** 2
+    def inverse(self, eta: np.ndarray) -> np.ndarray:
+        return _as_float_array(np.clip(eta, 0, None) ** 2)
 
-    def deriv(self, mu):
-        return 0.5 / np.sqrt(np.clip(mu, 1e-20, None))
+    def deriv(self, mu: np.ndarray) -> np.ndarray:
+        return _as_float_array(0.5 / np.sqrt(np.clip(mu, 1e-20, None)))
 
 
-LINK_FUNCTIONS = {
+LINK_FUNCTIONS: Dict[str, Type[LinkFunction]] = {
     "identity": IdentityLink,
     "log": LogLink,
     "logit": LogitLink,
@@ -280,14 +288,19 @@ class Family:
         """Variance function V(mu)."""
         raise NotImplementedError
 
-    def deviance_residuals(self, y: np.ndarray, mu: np.ndarray, weights: np.ndarray) -> np.ndarray:
+    def deviance_residuals(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+    ) -> np.ndarray:
         """Unit deviance d(y, mu)."""
         raise NotImplementedError
 
     def deviance(self, y: np.ndarray, mu: np.ndarray, weights: np.ndarray) -> float:
         """Total deviance = sum(w * d(y, mu))."""
         d = self.deviance_residuals(y, mu, weights)
-        return np.sum(weights * d)
+        return float(np.sum(weights * d))
 
     def log_likelihood(self, y: np.ndarray, mu: np.ndarray, weights: np.ndarray,
                        scale: float) -> float:
@@ -301,49 +314,85 @@ class Family:
     def dispersion(self, y: np.ndarray, mu: np.ndarray, weights: np.ndarray,
                    df_resid: int) -> float:
         """Estimate dispersion (phi). 1.0 for binomial/poisson."""
-        return self.deviance(y, mu, weights) / df_resid
+        return float(self.deviance(y, mu, weights) / df_resid)
 
 
 class Gaussian(Family):
     name = "gaussian"
     canonical_link = "identity"
 
-    def variance(self, mu):
+    def variance(self, mu: np.ndarray) -> np.ndarray:
         return np.ones_like(mu)
 
-    def deviance_residuals(self, y, mu, weights):
-        return (y - mu) ** 2
+    def deviance_residuals(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+    ) -> np.ndarray:
+        return _as_float_array((y - mu) ** 2)
 
-    def log_likelihood(self, y, mu, weights, scale):
+    def log_likelihood(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+        scale: float,
+    ) -> float:
         n = len(y)
-        return -0.5 * (n * np.log(2 * np.pi * scale) + np.sum(weights * (y - mu) ** 2) / scale)
+        return float(
+            -0.5
+            * (
+                n * np.log(2 * np.pi * scale)
+                + np.sum(weights * (y - mu) ** 2) / scale
+            )
+        )
 
 
 class Binomial(Family):
     name = "binomial"
     canonical_link = "logit"
 
-    def variance(self, mu):
+    def variance(self, mu: np.ndarray) -> np.ndarray:
         mu = np.clip(mu, 1e-15, 1 - 1e-15)
-        return mu * (1 - mu)
+        return _as_float_array(mu * (1 - mu))
 
-    def deviance_residuals(self, y, mu, weights):
+    def deviance_residuals(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+    ) -> np.ndarray:
         mu = np.clip(mu, 1e-15, 1 - 1e-15)
         # Use safe log to avoid 0*log(0) warnings
         y_safe = np.clip(y, 1e-15, None)
         omy_safe = np.clip(1 - y, 1e-15, None)
         d = np.where(y > 0, 2 * y * np.log(y_safe / mu), 0.0) + \
             np.where(y < 1, 2 * (1 - y) * np.log(omy_safe / (1 - mu)), 0.0)
-        return d
+        return _as_float_array(d)
 
-    def log_likelihood(self, y, mu, weights, scale):
+    def log_likelihood(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+        scale: float,
+    ) -> float:
         mu = np.clip(mu, 1e-15, 1 - 1e-15)
-        return np.sum(weights * (y * np.log(mu) + (1 - y) * np.log(1 - mu)))
+        return float(
+            np.sum(weights * (y * np.log(mu) + (1 - y) * np.log(1 - mu)))
+        )
 
-    def initialize_mu(self, y):
+    def initialize_mu(self, y: np.ndarray) -> np.ndarray:
         return np.clip((y + 0.5) / 2.0, 0.01, 0.99)
 
-    def dispersion(self, y, mu, weights, df_resid):
+    def dispersion(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+        df_resid: int,
+    ) -> float:
         return 1.0
 
 
@@ -351,23 +400,42 @@ class Poisson(Family):
     name = "poisson"
     canonical_link = "log"
 
-    def variance(self, mu):
+    def variance(self, mu: np.ndarray) -> np.ndarray:
         return np.clip(mu, 1e-20, None)
 
-    def deviance_residuals(self, y, mu, weights):
+    def deviance_residuals(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+    ) -> np.ndarray:
         mu = np.clip(mu, 1e-20, None)
         y_safe = np.clip(y, 1e-20, None)
         d = np.where(y > 0, 2 * (y * np.log(y_safe / mu) - (y - mu)), 2 * mu)
         return d
 
-    def log_likelihood(self, y, mu, weights, scale):
+    def log_likelihood(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+        scale: float,
+    ) -> float:
         mu = np.clip(mu, 1e-20, None)
-        return np.sum(weights * (y * np.log(mu) - mu - special.gammaln(y + 1)))
+        return float(
+            np.sum(weights * (y * np.log(mu) - mu - special.gammaln(y + 1)))
+        )
 
-    def initialize_mu(self, y):
+    def initialize_mu(self, y: np.ndarray) -> np.ndarray:
         return np.clip(y, 0.1, None)
 
-    def dispersion(self, y, mu, weights, df_resid):
+    def dispersion(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+        df_resid: int,
+    ) -> float:
         return 1.0
 
 
@@ -375,24 +443,43 @@ class Gamma(Family):
     name = "gamma"
     canonical_link = "inverse"
 
-    def variance(self, mu):
+    def variance(self, mu: np.ndarray) -> np.ndarray:
         return np.clip(mu, 1e-20, None) ** 2
 
-    def deviance_residuals(self, y, mu, weights):
+    def deviance_residuals(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+    ) -> np.ndarray:
         mu = np.clip(mu, 1e-20, None)
         y = np.clip(y, 1e-20, None)
-        return 2 * (-np.log(y / mu) + (y - mu) / mu)
+        return _as_float_array(2 * (-np.log(y / mu) + (y - mu) / mu))
 
-    def log_likelihood(self, y, mu, weights, scale):
+    def log_likelihood(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+        scale: float,
+    ) -> float:
         mu = np.clip(mu, 1e-20, None)
         y = np.clip(y, 1e-20, None)
         nu = 1.0 / scale  # shape parameter
-        return np.sum(weights * (
-            nu * np.log(nu) - special.gammaln(nu)
-            + (nu - 1) * np.log(y) - nu * y / mu - nu * np.log(mu)
-        ))
+        return float(
+            np.sum(
+                weights
+                * (
+                    nu * np.log(nu)
+                    - special.gammaln(nu)
+                    + (nu - 1) * np.log(y)
+                    - nu * y / mu
+                    - nu * np.log(mu)
+                )
+            )
+        )
 
-    def initialize_mu(self, y):
+    def initialize_mu(self, y: np.ndarray) -> np.ndarray:
         return np.clip(y, 0.1, None)
 
 
@@ -400,24 +487,40 @@ class InverseGaussian(Family):
     name = "inverse_gaussian"
     canonical_link = "inverse"
 
-    def variance(self, mu):
+    def variance(self, mu: np.ndarray) -> np.ndarray:
         return np.clip(mu, 1e-20, None) ** 3
 
-    def deviance_residuals(self, y, mu, weights):
+    def deviance_residuals(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+    ) -> np.ndarray:
         mu = np.clip(mu, 1e-20, None)
         y = np.clip(y, 1e-20, None)
-        return (y - mu) ** 2 / (y * mu ** 2)
+        return _as_float_array((y - mu) ** 2 / (y * mu ** 2))
 
-    def log_likelihood(self, y, mu, weights, scale):
+    def log_likelihood(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+        scale: float,
+    ) -> float:
         mu = np.clip(mu, 1e-20, None)
         y = np.clip(y, 1e-20, None)
         lam = 1.0 / scale
-        return np.sum(weights * (
-            0.5 * np.log(lam / (2 * np.pi * y ** 3))
-            - lam * (y - mu) ** 2 / (2 * mu ** 2 * y)
-        ))
+        return float(
+            np.sum(
+                weights
+                * (
+                    0.5 * np.log(lam / (2 * np.pi * y ** 3))
+                    - lam * (y - mu) ** 2 / (2 * mu ** 2 * y)
+                )
+            )
+        )
 
-    def initialize_mu(self, y):
+    def initialize_mu(self, y: np.ndarray) -> np.ndarray:
         return np.clip(y, 0.1, None)
 
 
@@ -434,42 +537,68 @@ class NegativeBinomial(Family):
     def __init__(self, alpha: float = 1.0):
         self.alpha = alpha
 
-    def variance(self, mu):
-        return np.clip(mu, 1e-20, None) + self.alpha * np.clip(mu, 1e-20, None) ** 2
+    def variance(self, mu: np.ndarray) -> np.ndarray:
+        mu = np.clip(mu, 1e-20, None)
+        return mu + self.alpha * mu ** 2
 
-    def deviance_residuals(self, y, mu, weights):
+    def deviance_residuals(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+    ) -> np.ndarray:
         mu = np.clip(mu, 1e-20, None)
         y_safe = np.clip(y, 1e-20, None)
         alpha = self.alpha
         if alpha < 1e-20:
             # Degenerate to Poisson
-            return np.where(y > 0, 2 * (y * np.log(y_safe / mu) - (y - mu)), 2 * mu)
+            return _as_float_array(
+                np.where(
+                    y > 0,
+                    2 * (y * np.log(y_safe / mu) - (y - mu)),
+                    2 * mu,
+                )
+            )
         inv_alpha = 1.0 / alpha
         d = 2 * (
             np.where(y > 0, y * np.log(y_safe / mu), 0.0)
             - (y + inv_alpha) * np.log((1 + alpha * y) / (1 + alpha * mu))
         )
-        return d
+        return _as_float_array(d)
 
-    def log_likelihood(self, y, mu, weights, scale):
+    def log_likelihood(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+        scale: float,
+    ) -> float:
         mu = np.clip(mu, 1e-20, None)
         alpha = self.alpha
         inv_alpha = 1.0 / alpha
         ll = (
-            special.gammaln(y + inv_alpha) - special.gammaln(inv_alpha) - special.gammaln(y + 1)
+            special.gammaln(y + inv_alpha)
+            - special.gammaln(inv_alpha)
+            - special.gammaln(y + 1)
             + inv_alpha * np.log(inv_alpha / (inv_alpha + mu))
             + y * np.log(mu / (inv_alpha + mu))
         )
-        return np.sum(weights * ll)
+        return float(np.sum(weights * ll))
 
-    def initialize_mu(self, y):
+    def initialize_mu(self, y: np.ndarray) -> np.ndarray:
         return np.clip(y, 0.1, None)
 
-    def dispersion(self, y, mu, weights, df_resid):
+    def dispersion(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+        df_resid: int,
+    ) -> float:
         return 1.0
 
 
-FAMILIES = {
+FAMILIES: Dict[str, Type[Family]] = {
     "gaussian": Gaussian,
     "binomial": Binomial,
     "poisson": Poisson,
@@ -549,8 +678,8 @@ class GLMEstimator(BaseEstimator):
         self,
         y: np.ndarray,
         X: np.ndarray,
-        family: Family,
-        link: LinkFunction,
+        family: Optional[Family] = None,
+        link: Optional[LinkFunction] = None,
         robust: str = "nonrobust",
         cluster: Optional[pd.Series] = None,
         weights: Optional[np.ndarray] = None,
@@ -558,7 +687,7 @@ class GLMEstimator(BaseEstimator):
         maxiter: int = 100,
         tol: float = 1e-8,
         alpha_nb: Optional[float] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """
         Estimate GLM parameters via IRLS.
@@ -595,6 +724,14 @@ class GLMEstimator(BaseEstimator):
         maxiter = _require_int_at_least(maxiter, "maxiter", 1)
         tol = _require_positive_float(tol, "tol")
         robust = _require_string(robust, "robust").lower()
+        if family is None or link is None:
+            raise MethodIncompatibility(
+                "GLMEstimator requires family and link instances.",
+                diagnostics={
+                    "has_family": family is not None,
+                    "has_link": link is not None,
+                },
+            )
         n, k = X.shape
         if weights is None:
             weights = np.ones(n)
@@ -776,13 +913,32 @@ class GLMEstimator(BaseEstimator):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _score_obs(X, y, mu, V, g_prime, weights):
+    def _score_obs(
+        X: np.ndarray,
+        y: np.ndarray,
+        mu: np.ndarray,
+        V: np.ndarray,
+        g_prime: np.ndarray,
+        weights: np.ndarray,
+    ) -> np.ndarray:
         """Per-observation score contributions (n, k)."""
         r = (y - mu) / V
         w = weights / g_prime
-        return X * (r * w)[:, np.newaxis]
+        return _as_float_array(X * (r * w)[:, np.newaxis])
 
-    def _robust_cov(self, X, y, mu, V, g_prime, weights, bread, robust_type, n, k):
+    def _robust_cov(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        mu: np.ndarray,
+        V: np.ndarray,
+        g_prime: np.ndarray,
+        weights: np.ndarray,
+        bread: np.ndarray,
+        robust_type: str,
+        n: int,
+        k: int,
+    ) -> np.ndarray:
         """Sandwich HC0-HC3 covariance."""
         S = self._score_obs(X, y, mu, V, g_prime, weights)
 
@@ -808,9 +964,21 @@ class GLMEstimator(BaseEstimator):
                 diagnostics={"robust_type": robust_type},
             )
 
-        return bread @ meat @ bread
+        return _as_float_array(bread @ meat @ bread)
 
-    def _cluster_cov(self, X, y, mu, V, g_prime, weights, bread, cluster, n, k):
+    def _cluster_cov(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        mu: np.ndarray,
+        V: np.ndarray,
+        g_prime: np.ndarray,
+        weights: np.ndarray,
+        bread: np.ndarray,
+        cluster: pd.Series,
+        n: int,
+        k: int,
+    ) -> np.ndarray:
         """Clustered (sandwich) covariance."""
         S = self._score_obs(X, y, mu, V, g_prime, weights)
         cluster_arr = np.asarray(cluster)
@@ -824,9 +992,21 @@ class GLMEstimator(BaseEstimator):
             meat += np.outer(s_c, s_c)
 
         correction = n_clusters / (n_clusters - 1) * (n - 1) / (n - k)
-        return correction * bread @ meat @ bread
+        return _as_float_array(correction * bread @ meat @ bread)
 
-    def _hac_cov(self, X, y, mu, V, g_prime, weights, bread, n, k, lags=None):
+    def _hac_cov(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        mu: np.ndarray,
+        V: np.ndarray,
+        g_prime: np.ndarray,
+        weights: np.ndarray,
+        bread: np.ndarray,
+        n: int,
+        k: int,
+        lags: Optional[int] = None,
+    ) -> np.ndarray:
         """Newey-West HAC covariance."""
         S = self._score_obs(X, y, mu, V, g_prime, weights)
         if lags is None:
@@ -839,24 +1019,31 @@ class GLMEstimator(BaseEstimator):
             w = 1 - j / (lags + 1)
             gamma_sum += w * (gamma_j + gamma_j.T)
 
-        return bread @ gamma_sum @ bread
+        return _as_float_array(bread @ gamma_sum @ bread)
 
     # ------------------------------------------------------------------
     # NB alpha estimation
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _estimate_nb_alpha(y, mu, weights, alpha_init):
+    def _estimate_nb_alpha(
+        y: np.ndarray,
+        mu: np.ndarray,
+        weights: np.ndarray,
+        alpha_init: float,
+    ) -> float:
         """Profile MLE for NB2 overdispersion parameter alpha."""
-        def neg_ll(log_alpha):
+        def neg_ll(log_alpha: float) -> float:
             alpha = np.exp(log_alpha)
             inv_a = 1.0 / alpha
             ll = np.sum(weights * (
-                special.gammaln(y + inv_a) - special.gammaln(inv_a) - special.gammaln(y + 1)
+                special.gammaln(y + inv_a)
+                - special.gammaln(inv_a)
+                - special.gammaln(y + 1)
                 + inv_a * np.log(inv_a / (inv_a + mu))
                 + y * np.log(mu / (inv_a + mu))
             ))
-            return -ll
+            return float(-ll)
 
         try:
             res = optimize.minimize_scalar(
@@ -864,7 +1051,7 @@ class GLMEstimator(BaseEstimator):
                 bounds=(np.log(1e-6), np.log(1e4)),
                 method="bounded",
             )
-            return np.exp(res.x)
+            return float(np.exp(res.x))
         except Exception:
             return alpha_init
 
@@ -923,7 +1110,7 @@ class GLMRegression(BaseModel):
         var_names: Optional[List[str]] = None,
         family: str = "gaussian",
         link: Optional[str] = None,
-    ):
+    ) -> None:
         super().__init__()
         if formula is not None:
             formula = _require_string(formula, "formula")
@@ -951,7 +1138,7 @@ class GLMRegression(BaseModel):
         maxiter: int = 100,
         tol: float = 1e-8,
         alpha: float = 0.05,
-        **kwargs,
+        **kwargs: Any,
     ) -> EconometricResults:
         """
         Fit the GLM.
@@ -1060,7 +1247,7 @@ class GLMRegression(BaseModel):
                     f"{role} column '{column}' must contain finite values.",
                     diagnostics={"column": column, "role": role},
                 )
-            return values
+            return np.asarray(values, dtype=float)
 
         # Weights, offset, exposure
         w = None
@@ -1185,7 +1372,7 @@ class GLMRegression(BaseModel):
         if isinstance(self.family, NegativeBinomial):
             diagnostics["NB alpha"] = self.family.alpha
 
-        self._results = EconometricResults(
+        results_obj = EconometricResults(
             params=params,
             std_errors=std_errors,
             model_info=model_info,
@@ -1193,8 +1380,9 @@ class GLMRegression(BaseModel):
             diagnostics=diagnostics,
         )
 
+        self._results = results_obj
         self.is_fitted = True
-        return self._results
+        return results_obj
 
     def predict(
         self,
@@ -1300,6 +1488,12 @@ class GLMRegression(BaseModel):
                 )
             X_pred = X_new[var_names].values
         else:
+            if self.X is None:
+                raise MethodIncompatibility(
+                    "Prediction design matrix is unavailable.",
+                    recovery_hint="Refit the model before prediction.",
+                    diagnostics={"missing_state": "X"},
+                )
             X_pred = self.X
 
         params = np.asarray(self._results.params)
@@ -1347,12 +1541,16 @@ class GLMRegression(BaseModel):
             eta = eta + offset_arr
 
         if type == "link":
-            return eta
+            return np.asarray(eta, dtype=float)
         mu = self.link.inverse(eta)
         if type == "response":
-            return mu
+            return np.asarray(mu, dtype=float)
         if type == "variance":
-            return self.family.variance(mu)
+            return np.asarray(self.family.variance(mu), dtype=float)
+        raise MethodIncompatibility(
+            "Unknown prediction type.",
+            diagnostics={"type": type, "valid": sorted(valid_types)},
+        )
 
     # ------------------------------------------------------------------
     # Marginal effects
@@ -1378,7 +1576,7 @@ class GLMRegression(BaseModel):
         dmu_deta = 1.0 / g_prime
         # AME_j = mean( beta_j * dmu_deta )
         ame = params * np.mean(dmu_deta)
-        return ame
+        return np.asarray(ame, dtype=float)
 
 
 # ---------------------------------------------------------------------------
@@ -1386,17 +1584,17 @@ class GLMRegression(BaseModel):
 # ---------------------------------------------------------------------------
 
 def glm(
-    formula: str = None,
-    data: pd.DataFrame = None,
-    y: str = None,
-    x: list = None,
+    formula: Optional[str] = None,
+    data: Optional[pd.DataFrame] = None,
+    y: Optional[str] = None,
+    x: Optional[Union[str, List[str]]] = None,
     family: str = "gaussian",
-    link: str = None,
+    link: Optional[str] = None,
     robust: str = "nonrobust",
-    cluster: str = None,
-    weights: str = None,
-    offset: str = None,
-    exposure: str = None,
+    cluster: Optional[str] = None,
+    weights: Optional[str] = None,
+    offset: Optional[str] = None,
+    exposure: Optional[str] = None,
     maxiter: int = 100,
     tol: float = 1e-8,
     alpha: float = 0.05,

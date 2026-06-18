@@ -15,13 +15,10 @@ Cattaneo, M.D., Idrobo, N. and Titiunik, R. (2020).
 *Cambridge Elements*. [@cattaneo2019practical]
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import stats
-
-from ..core.results import CausalResult
 
 
 # ======================================================================
@@ -38,10 +35,10 @@ def rdbwsensitivity(
     kernel: str = 'triangular',
     bw_grid: Optional[List[float]] = None,
     n_grid: int = 15,
-    bw_range: tuple = (0.5, 2.0),
+    bw_range: Tuple[float, float] = (0.5, 2.0),
     alpha: float = 0.05,
-    ax=None,
-    figsize: tuple = (10, 6),
+    ax: Optional[Any] = None,
+    figsize: Tuple[float, float] = (10, 6),
 ) -> pd.DataFrame:
     """
     Bandwidth sensitivity analysis for RD estimates.
@@ -261,8 +258,8 @@ def rdplacebo(
     p: int = 1,
     kernel: str = 'triangular',
     alpha: float = 0.05,
-    ax=None,
-    figsize: tuple = (10, 6),
+    ax: Optional[Any] = None,
+    figsize: Tuple[float, float] = (10, 6),
 ) -> pd.DataFrame:
     """
     Placebo cutoff test for RD validity.
@@ -611,7 +608,7 @@ def rdsummary(
 
 
 def _print_rdsummary(results: Dict[str, Any], alpha: float,
-                     full: bool = False):
+                     full: bool = False) -> None:
     """Pretty-print the RD summary."""
     est = results['estimate']
     mi = est.model_info
@@ -638,7 +635,7 @@ def _print_rdsummary(results: Dict[str, Any], alpha: float,
     dt = results.get('density_test')
     if dt is not None:
         sig = "*" if dt.pvalue < alpha else ""
-        print(f"\n--- Density Manipulation Test (CJM 2020) ---")
+        print("\n--- Density Manipulation Test (CJM 2020) ---")
         print(f"  T-stat = {dt.estimate:.3f}, p = {dt.pvalue:.4f} {sig}")
         if dt.pvalue < alpha:
             print("  WARNING: Evidence of manipulation at cutoff!")
@@ -648,7 +645,7 @@ def _print_rdsummary(results: Dict[str, Any], alpha: float,
     # Balance
     bal = results.get('balance')
     if bal is not None:
-        print(f"\n--- Covariate Balance at Cutoff ---")
+        print("\n--- Covariate Balance at Cutoff ---")
         n_sig = bal['significant'].sum()
         print(bal[['covariate', 'estimate', 'pvalue', 'significant']]
               .to_string(index=False))
@@ -661,7 +658,7 @@ def _print_rdsummary(results: Dict[str, Any], alpha: float,
     # BW sensitivity
     bws = results.get('bw_sensitivity')
     if bws is not None:
-        print(f"\n--- Bandwidth Sensitivity ---")
+        print("\n--- Bandwidth Sensitivity ---")
         print(bws[['bandwidth', 'estimate', 'pvalue']].to_string(index=False))
         all_sig = (bws['pvalue'] < alpha).all()
         print(f"  {'Robust' if all_sig else 'NOT robust'} across bandwidths.")
@@ -672,7 +669,7 @@ def _print_rdsummary(results: Dict[str, Any], alpha: float,
         honest = results.get('honest_ci')
         if honest is not None:
             h_mi = honest.model_info
-            print(f"\n--- Honest CI (Armstrong-Kolesar 2020) ---")
+            print("\n--- Honest CI (Armstrong-Kolesar 2020) ---")
             print(f"  Honest 95% CI:  [{honest.ci[0]:.4f}, {honest.ci[1]:.4f}]")
             print(f"  Naive 95% CI:   [{h_mi['naive_ci'][0]:.4f}, "
                   f"{h_mi['naive_ci'][1]:.4f}]")
@@ -682,14 +679,14 @@ def _print_rdsummary(results: Dict[str, Any], alpha: float,
         # Power
         power = results.get('power')
         if power is not None:
-            print(f"\n--- Power Analysis ---")
+            print("\n--- Power Analysis ---")
             print(f"  Power (current): {power.power:.2%}")
             print(f"  MDE (80% power): {power.mde:.4f}")
 
         # Placebos
         placebos = results.get('placebos')
         if placebos is not None:
-            print(f"\n--- Placebo Cutoff Tests ---")
+            print("\n--- Placebo Cutoff Tests ---")
             n_placebo_sig = placebos.loc[
                 ~placebos['is_true_cutoff'], 'pvalue'
             ].lt(alpha).sum()
@@ -704,7 +701,7 @@ def _print_rdsummary(results: Dict[str, Any], alpha: float,
         # Bandwidth comparison
         bw_comp = results.get('bandwidth_comparison')
         if bw_comp is not None:
-            print(f"\n--- Bandwidth Comparison ---")
+            print("\n--- Bandwidth Comparison ---")
             print(bw_comp.to_string(index=False))
 
     print("\n" + "=" * 60)
@@ -715,11 +712,10 @@ def _rd_diagnostic_plot(
     y: str, x: str, c: float,
     results: Dict[str, Any],
     alpha: float,
-):
+) -> Any:
     """Generate a multi-panel RD diagnostic figure."""
     import matplotlib.pyplot as plt
 
-    n_panels = 4
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
     # Panel 1: RD Plot
@@ -814,6 +810,6 @@ def _rd_diagnostic_plot(
                  fontsize=12, color='gray')
 
     fig.suptitle('RD Diagnostic Dashboard', fontsize=14, fontweight='bold')
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
 
     return fig

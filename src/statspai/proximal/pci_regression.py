@@ -56,6 +56,7 @@ import pandas as pd
 from scipy import stats
 
 from ..exceptions import ConvergenceWarning
+from .._input_validation import clean_frame
 # sklearn is imported lazily inside the functions that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
 # file when the user never touches proximal_regression.
@@ -71,6 +72,12 @@ class ProximalRegResult:
     propensity_coefs: Dict[str, float]
     n_obs: int
     detail: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        """JSON-safe dict of every field (agent-native serialization)."""
+        from .._result_serialize import result_to_dict
+
+        return result_to_dict(self)
 
     def summary(self) -> str:  # pragma: no cover
         lo, hi = self.ci
@@ -131,7 +138,12 @@ def proximal_regression(
     ``detail['propensity_fallback']`` set to True.
     """
     X_cols = list(covariates or [])
-    df = data[[y, treat, z_proxy, w_proxy] + X_cols].dropna().reset_index(drop=True)
+    df = clean_frame(
+        data,
+        [y, treat, z_proxy, w_proxy] + X_cols,
+        function="proximal_regression",
+        n_params=3 + len(X_cols),  # intercept + D + W/Z + covariates (per stage)
+    )
     n = len(df)
 
     Y = df[y].to_numpy(dtype=float)
@@ -162,6 +174,7 @@ def proximal_regression(
     # --- Treatment bridge q(Z, X): logistic propensity P(D=1 | Z, X) ---
     prop_design = np.column_stack([np.ones(n), Zp, Xc])
     propensity_fallback = False
+    lr = None
     try:
         from sklearn.linear_model import LogisticRegression
         lr = LogisticRegression(C=1e6, solver="lbfgs", max_iter=500)
@@ -194,8 +207,13 @@ def proximal_regression(
     for name, c in zip(X_cols, alpha_X):
         bridge_coefs[name] = float(c)
 
-    prop_dict = {"intercept": float(lr.intercept_[0])} if hasattr(lr, "intercept_") else {}
-    if hasattr(lr, "coef_"):
+    # ``lr`` is None when the logistic fit fell back above; guard so the
+    # graceful-degradation path the docstring promises cannot itself raise
+    # a NameError when sklearn is absent.
+    prop_dict = {}
+    if lr is not None and hasattr(lr, "intercept_"):
+        prop_dict["intercept"] = float(lr.intercept_[0])
+    if lr is not None and hasattr(lr, "coef_"):
         names = ["Z"] + X_cols
         for name, c in zip(names, lr.coef_[0]):
             prop_dict[name] = float(c)

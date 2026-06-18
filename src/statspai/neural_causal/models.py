@@ -403,7 +403,12 @@ def dragonnet(
 # Data preparation
 # ======================================================================
 
-def _prepare_data(data, y, treat, covariates):
+def _prepare_data(
+    data: pd.DataFrame,
+    y: str,
+    treat: str,
+    covariates: List[str],
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int]:
     """Validate and extract arrays from DataFrame."""
     cols = [y, treat] + covariates
     missing = [c for c in cols if c not in data.columns]
@@ -424,7 +429,7 @@ def _prepare_data(data, y, treat, covariates):
     return Y, D, X, len(Y)
 
 
-def _standardise(arr):
+def _standardise(arr: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Standardise array columns to zero mean, unit variance."""
     mean = arr.mean(axis=0)
     std = arr.std(axis=0) + 1e-8
@@ -435,7 +440,7 @@ def _standardise(arr):
 # PyTorch network components
 # ======================================================================
 
-def _check_torch():
+def _check_torch() -> Tuple[Any, Any]:
     """Import and return torch, raising clear error if unavailable."""
     try:
         import torch
@@ -448,7 +453,11 @@ def _check_torch():
         )
 
 
-def _build_repr_net(input_dim, hidden_layers, dropout):
+def _build_repr_net(
+    input_dim: int,
+    hidden_layers: Tuple[int, ...],
+    dropout: float,
+) -> Tuple[Any, int]:
     """Build shared representation network Phi(X)."""
     torch, nn = _check_torch()
 
@@ -463,7 +472,7 @@ def _build_repr_net(input_dim, hidden_layers, dropout):
     return nn.Sequential(*layers), prev
 
 
-def _build_head(input_dim, hidden_layers):
+def _build_head(input_dim: int, hidden_layers: Tuple[int, ...]) -> Any:
     """Build a treatment-arm outcome head."""
     torch, nn = _check_torch()
 
@@ -477,12 +486,16 @@ def _build_head(input_dim, hidden_layers):
     return nn.Sequential(*layers)
 
 
-def _module_device(module):
+def _module_device(module: Any) -> Any:
     """Return the device that holds a fitted torch module's parameters."""
     return next(module.parameters()).device
 
 
-def _train_val_indices(n: int, validation_fraction: float, random_state: int):
+def _train_val_indices(
+    n: int,
+    validation_fraction: float,
+    random_state: int,
+) -> Tuple[np.ndarray, np.ndarray]:
     """Deterministically split row positions into train/validation indices."""
     if validation_fraction < 0 or validation_fraction >= 0.5:
         raise ValueError("validation_fraction must be in [0, 0.5)")
@@ -495,12 +508,12 @@ def _train_val_indices(n: int, validation_fraction: float, random_state: int):
     return np.sort(idx[n_val:]), np.sort(idx[:n_val])
 
 
-def _checkpoint_modules(*modules):
+def _checkpoint_modules(*modules: Any) -> List[Any]:
     """Copy torch module states so early stopping can restore the best epoch."""
     return [copy.deepcopy(m.state_dict()) for m in modules]
 
 
-def _restore_modules(states, *modules) -> None:
+def _restore_modules(states: List[Any], *modules: Any) -> None:
     for module, state in zip(modules, states):
         module.load_state_dict(state)
 
@@ -705,7 +718,6 @@ class TARNet:
         history: List[Dict[str, Any]] = []
         best_val = float("inf")
         best_state = None
-        best_epsilon = None
         wait = 0
         for epoch in range(self.epochs):
             repr_net.train()
@@ -834,7 +846,7 @@ class TARNet:
             raise ValueError("Model must be fitted first. Call .fit()")
 
         if X_new is None:
-            return self._cate.copy()
+            return np.asarray(self._cate, dtype=float).copy()
 
         X_new = np.asarray(X_new, dtype=np.float32)
         X_s = (X_new - self._x_mean) / self._x_std
@@ -850,9 +862,19 @@ class TARNet:
             mu0 = self._head_0(phi).squeeze().cpu().numpy()
             mu1 = self._head_1(phi).squeeze().cpu().numpy()
 
-        return (mu1 - mu0) * self._y_std[0]
+        y_scale = float(np.asarray(self._y_std).ravel()[0])
+        return np.asarray((mu1 - mu0) * y_scale, dtype=float)
 
-    def _build_model_info(self, cate, D, n, mu0, mu1, device, history):
+    def _build_model_info(
+        self,
+        cate: np.ndarray,
+        D: np.ndarray,
+        n: int,
+        mu0: np.ndarray,
+        mu1: np.ndarray,
+        device: Any,
+        history: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
         info = _basic_neural_info(
             architecture='TARNet',
             cate=cate,
@@ -1189,7 +1211,7 @@ class CFRNet:
             raise ValueError("Model must be fitted first. Call .fit()")
 
         if X_new is None:
-            return self._cate.copy()
+            return np.asarray(self._cate, dtype=float).copy()
 
         X_new = np.asarray(X_new, dtype=np.float32)
         X_s = (X_new - self._x_mean) / self._x_std
@@ -1205,7 +1227,8 @@ class CFRNet:
             mu0 = self._head_0(phi).squeeze().cpu().numpy()
             mu1 = self._head_1(phi).squeeze().cpu().numpy()
 
-        return (mu1 - mu0) * self._y_std[0]
+        y_scale = float(np.asarray(self._y_std).ravel()[0])
+        return np.asarray((mu1 - mu0) * y_scale, dtype=float)
 
 
 # ======================================================================
@@ -1606,7 +1629,7 @@ class DragonNet:
             raise ValueError("Model must be fitted first. Call .fit()")
 
         if X_new is None:
-            return self._cate.copy()
+            return np.asarray(self._cate, dtype=float).copy()
 
         X_new = np.asarray(X_new, dtype=np.float32)
         X_s = (X_new - self._x_mean) / self._x_std
@@ -1622,7 +1645,8 @@ class DragonNet:
             mu0 = self._head_0(phi).squeeze().cpu().numpy()
             mu1 = self._head_1(phi).squeeze().cpu().numpy()
 
-        return (mu1 - mu0) * self._y_std[0]
+        y_scale = float(np.asarray(self._y_std).ravel()[0])
+        return np.asarray((mu1 - mu0) * y_scale, dtype=float)
 
     def propensity(self, X_new: Optional[np.ndarray] = None) -> np.ndarray:
         """
@@ -1644,7 +1668,7 @@ class DragonNet:
             raise ValueError("Model must be fitted first. Call .fit()")
 
         if X_new is None:
-            return self._e_hat.copy()
+            return np.asarray(self._e_hat, dtype=float).copy()
 
         X_new = np.asarray(X_new, dtype=np.float32)
         X_s = (X_new - self._x_mean) / self._x_std
@@ -1658,14 +1682,14 @@ class DragonNet:
             phi = self._repr_net(X_t)
             e = self._prop_head(phi).squeeze().cpu().numpy()
 
-        return np.clip(e, 0.01, 0.99)
+        return np.asarray(np.clip(e, 0.01, 0.99), dtype=float)
 
 
 # ======================================================================
 # IPM: MMD with RBF kernel
 # ======================================================================
 
-def _mmd_rbf(X, Y, bandwidth=None):
+def _mmd_rbf(X: Any, Y: Any, bandwidth: Optional[float] = None) -> Any:
     """
     Maximum Mean Discrepancy with RBF (Gaussian) kernel.
 
@@ -1705,7 +1729,7 @@ def _mmd_rbf(X, Y, bandwidth=None):
                 bandwidth = 1.0
             bandwidth = max(bandwidth, 1e-6)
 
-    def rbf(A, B):
+    def rbf(A: Any, B: Any) -> Any:
         dist_sq = torch.cdist(A, B).pow(2)
         return torch.exp(-dist_sq / (2 * bandwidth))
 
@@ -1731,7 +1755,11 @@ def _mmd_rbf(X, Y, bandwidth=None):
 # Shared inference helpers
 # ======================================================================
 
-def _bootstrap_ate_se(cate, n_bootstrap, random_state):
+def _bootstrap_ate_se(
+    cate: np.ndarray,
+    n_bootstrap: int,
+    random_state: int,
+) -> float:
     """Bootstrap standard error of ATE from individual CATE values."""
     rng = np.random.RandomState(random_state)
     n = len(cate)
@@ -1742,7 +1770,11 @@ def _bootstrap_ate_se(cate, n_bootstrap, random_state):
     return float(np.std(boot_means, ddof=1))
 
 
-def _inference(estimate, se, alpha):
+def _inference(
+    estimate: float,
+    se: float,
+    alpha: float,
+) -> Tuple[float, Tuple[float, float]]:
     """Compute p-value and confidence interval."""
     if se > 0:
         z_stat = estimate / se

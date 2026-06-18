@@ -116,25 +116,28 @@ class FEOLSResult:
         lines: List[str] = []
         lines.append(f"FEOLS (reghdfe-style)  |  {self.formula}")
         lines.append("=" * max(60, len(self.formula) + 25))
-        lines.append(f"Obs: {self.n_obs:,d}   Singletons dropped: {self.n_singletons_dropped:,d}")
-        lines.append(f"Absorbed FE: groups={self.n_fe}   dof_fe={self.dof_fe}   df_resid={self.df_resid}")
+        lines.append(
+            f"Obs: {self.n_obs:,d}   Singletons dropped: {self.n_singletons_dropped:,d}"
+        )
+        lines.append(
+            f"Absorbed FE: groups={self.n_fe}   dof_fe={self.dof_fe}   "
+            f"df_resid={self.df_resid}"
+        )
         lines.append(f"R² (within) = {self.r2_within:.4f}")
         lines.append(f"SE type: {self.se_type}")
         if self.cluster_info:
             lines.append(f"Cluster info: {self.cluster_info}")
         lines.append("-" * 60)
-        lines.append(f"{'Variable':<20}{'Estimate':>12}{'Std.Err':>12}{'t':>8}{'p':>10}")
+        lines.append(
+            f"{'Variable':<20}{'Estimate':>12}{'Std.Err':>12}{'t':>8}{'p':>10}"
+        )
         lines.append("-" * 60)
         for name in self.params.index:
             b = self.params[name]
             se = self.std_errors[name]
             t = self.tvalues[name]
             p = self.pvalues[name]
-            stars = (
-                "***" if p < 0.01 else
-                "**" if p < 0.05 else
-                "*" if p < 0.10 else ""
-            )
+            stars = "***" if p < 0.01 else "**" if p < 0.05 else "*" if p < 0.10 else ""
             lines.append(f"{name:<20}{b:>12.4f}{se:>12.4f}{t:>8.2f}{p:>10.4f}  {stars}")
         lines.append("=" * 60)
         return "\n".join(lines)
@@ -284,7 +287,9 @@ def feols(
 
     df = data[list(dict.fromkeys(cols))].dropna().copy()
     if len(df) == 0:
-        raise ValueError("No non-missing rows remaining after dropna.")  # pragma: no cover
+        raise ValueError(
+            "No non-missing rows remaining after dropna."
+        )  # pragma: no cover
 
     y_arr = df[lhs].to_numpy(dtype=np.float64)
     if not x_vars:
@@ -301,7 +306,11 @@ def feols(
     elif weights is not None:
         raw_w = np.asarray(weights, dtype=np.float64).ravel()
         if raw_w.size == len(data):
-            w_arr = pd.Series(raw_w, index=data.index).loc[df.index].to_numpy(dtype=np.float64)
+            w_arr = (
+                pd.Series(raw_w, index=data.index)
+                .loc[df.index]
+                .to_numpy(dtype=np.float64)
+            )
         elif raw_w.size == len(df):
             w_arr = raw_w
         else:
@@ -316,7 +325,9 @@ def feols(
     else:
         # No FE -> fall back to plain OLS/WLS with intercept.
         if not x_vars:
-            raise ValueError("Need at least one regressor or one FE.")  # pragma: no cover
+            raise ValueError(
+                "Need at least one regressor or one FE."
+            )  # pragma: no cover
         return _ols_no_fe(df, lhs, x_vars, w_arr, cluster_names, alpha, formula)
 
     cluster_arr = None
@@ -361,10 +372,7 @@ def feols(
     if cluster_names:
         cluster_info = {
             "cluster": cluster_names,
-            "n_clusters": [
-                int(pd.Series(df[c]).nunique())
-                for c in cluster_names
-            ],
+            "n_clusters": [int(pd.Series(df[c]).nunique()) for c in cluster_names],
         }
 
     # Optional wild bootstrap
@@ -374,13 +382,18 @@ def feols(
                 "Wild cluster bootstrap with multi-way clustering is not yet supported."
             )
         from ..inference.wild_bootstrap import wild_cluster_bootstrap
+
         # Run per x_var on the absorbed model: we regress y_tilde on X_tilde.
         # Build a temporary DataFrame of within-residualized variables.
         ab = result["absorber"]
         mask = ab.keep_mask
         df_sub = df.iloc[mask].reset_index(drop=True)
-        yw = ab.demean(df_sub[lhs].to_numpy(dtype=np.float64), copy=True, already_masked=True)
-        Xw = ab.demean(df_sub[x_vars].to_numpy(dtype=np.float64), copy=True, already_masked=True)
+        yw = ab.demean(
+            df_sub[lhs].to_numpy(dtype=np.float64), copy=True, already_masked=True
+        )
+        Xw = ab.demean(
+            df_sub[x_vars].to_numpy(dtype=np.float64), copy=True, already_masked=True
+        )
         cl_w = df_sub[cluster_names[0]].to_numpy()
 
         wild_data = pd.DataFrame(
@@ -441,7 +454,7 @@ def _ols_no_fe(
     df: pd.DataFrame,
     lhs: str,
     x_vars: List[str],
-    weights,
+    weights: Optional[np.ndarray],
     cluster_names: List[str],
     alpha: float,
     formula: str,
@@ -475,7 +488,7 @@ def _ols_no_fe(
         coef = XtX_inv @ Xty
     resid = y - X @ coef
     df_resid = n - k
-    ss_res_w = float((resid ** 2).sum()) if w is None else float((w * resid ** 2).sum())
+    ss_res_w = float((resid**2).sum()) if w is None else float((w * resid**2).sum())
     sigma2 = ss_res_w / df_resid
 
     if cluster_names:
@@ -486,12 +499,20 @@ def _ols_no_fe(
         )
         if w is None:
             from ..inference.multiway_cluster import multiway_cluster_vcov
+
             vcov = multiway_cluster_vcov(X, resid, cl, df_adjust=True, n_params=k)
         else:
             from .hdfe import _cluster_sandwich
+
             vcov = _cluster_sandwich(
-                X, resid, coef, XtX_inv, cl, df_resid=df_resid,
-                weights=w, n_absorbed=k,
+                X,
+                resid,
+                coef,
+                XtX_inv,
+                cl,
+                df_resid=df_resid,
+                weights=w,
+                n_absorbed=k,
             )
         se_type = "cluster" if len(cluster_names) == 1 else "multiway_cluster"
     else:
@@ -520,6 +541,7 @@ def _ols_no_fe(
         n_kept = n
         n_dropped = 0
         n_fe: list = []
+
     ab = _Identity()
 
     return FEOLSResult(

@@ -60,12 +60,12 @@ _VALID_OUTPUTS = {"text", "latex", "markdown", "md", "html"}
 _VALID_SECOND = {"se", "t", "p", "ci", "none"}
 
 
-def _resolve_term(result, term: Optional[str]) -> str:
+def _resolve_term(result: Any, term: Optional[str]) -> str:
     """Pick the term to cite from a result object."""
     if term is not None:
         return term
     if hasattr(result, "estimand"):
-        return getattr(result, "estimand")
+        return str(getattr(result, "estimand"))
     if hasattr(result, "params"):
         params = getattr(result, "params")
         if hasattr(params, "index") and len(params.index) > 0:
@@ -75,7 +75,10 @@ def _resolve_term(result, term: Optional[str]) -> str:
     )
 
 
-def _extract_point(result, term: str) -> Tuple[float, float, float, Optional[Tuple[float, float]], Optional[int]]:
+def _extract_point(
+    result: Any,
+    term: str,
+) -> Tuple[float, float, float, Optional[Tuple[float, float]], Any]:
     """Return ``(estimate, se, pvalue, ci, df_resid)`` for *term*.
 
     Works on both ``EconometricResults`` (pull from ``params`` /
@@ -83,7 +86,11 @@ def _extract_point(result, term: str) -> Tuple[float, float, float, Optional[Tup
     (pull from scalar attributes).
     """
     # CausalResult path
-    if hasattr(result, "estimand") and hasattr(result, "estimate") and hasattr(result, "se"):
+    if (
+        hasattr(result, "estimand")
+        and hasattr(result, "estimate")
+        and hasattr(result, "se")
+    ):
         if term != getattr(result, "estimand", None) and term not in (None, ""):
             warnings.warn(
                 f"CausalResult exposes only one term ({result.estimand!r}); "
@@ -92,9 +99,17 @@ def _extract_point(result, term: str) -> Tuple[float, float, float, Optional[Tup
             )
         est = float(result.estimate)
         se = float(result.se)
-        pv = float(result.pvalue) if getattr(result, "pvalue", None) is not None else np.nan
+        pv = (
+            float(result.pvalue)
+            if getattr(result, "pvalue", None) is not None
+            else np.nan
+        )
         ci_attr = getattr(result, "ci", None)
-        ci = (float(ci_attr[0]), float(ci_attr[1])) if ci_attr is not None else None
+        ci = (
+            (float(ci_attr[0]), float(ci_attr[1]))
+            if ci_attr is not None
+            else None
+        )
         df_resid = None
         mi = getattr(result, "model_info", None) or {}
         if isinstance(mi, dict):
@@ -156,7 +171,11 @@ def _extract_point(result, term: str) -> Tuple[float, float, float, Optional[Tup
 
 
 def _ci_at_alpha(
-    est: float, se: float, ci: Optional[Tuple[float, float]], alpha: float, df_resid
+    est: float,
+    se: float,
+    ci: Optional[Tuple[float, float]],
+    alpha: float,
+    df_resid: Any,
 ) -> Tuple[float, float]:
     """Get CI bounds at *alpha*. Reuses 95% from result when alpha=0.05."""
     if abs(alpha - 0.05) < 1e-12 and ci is not None and all(np.isfinite(ci)):
@@ -197,7 +216,7 @@ def _wrap_estimate(text: str, output: str) -> str:
 
 
 def cite(
-    result,
+    result: Any,
     term: Optional[str] = None,
     *,
     fmt: str = "%.3f",

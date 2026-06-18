@@ -54,7 +54,7 @@ Cui, Y., Pu, H., Shi, X., Miao, W. and Tchetgen Tchetgen, E.J. (2024).
 """
 
 import warnings
-from typing import Optional, List
+from typing import Any, Optional, List, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -332,7 +332,7 @@ class ProximalCausalInference:
     'ATE'
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         self._kwargs = kwargs
         self.result_: Optional[CausalResult] = None
 
@@ -341,7 +341,12 @@ class ProximalCausalInference:
         return self
 
 
-def _linear_iv_fit(y, X, Zmat, k_exog):
+def _linear_iv_fit(
+    y: np.ndarray,
+    X: np.ndarray,
+    Zmat: np.ndarray,
+    k_exog: int,
+) -> Tuple[np.ndarray, np.ndarray, Optional[float]]:
     """
     2SLS: regress X on Zmat to get X_hat, then OLS y on X_hat.
 

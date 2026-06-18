@@ -47,13 +47,16 @@ Simulated Likelihood." *Stata Journal*, 7(3), 388-401. [@hole2007fitting]
 from __future__ import annotations
 
 from typing import Optional, List, Dict, Any, Tuple
-import warnings
 
 import numpy as np
 import pandas as pd
 from scipy import stats, optimize
 
-from ..core.results import EconometricResults
+from ..core.results import EconometricResults, CausalResult
+
+
+def _as_float_array(value: Any) -> np.ndarray:
+    return np.asarray(value, dtype=float)
 
 
 # ---------------------------------------------------------------------------
@@ -90,19 +93,19 @@ def _halton_draws(n_draws: int, n_dim: int, n_ind: int,
     different individuals sample different regions.
     """
     total = n_ind * n_draws
-    U = np.empty((total, n_dim))
+    U2 = np.empty((total, n_dim))
     for d in range(n_dim):
-        U[:, d] = _halton(total, _PRIMES[d % len(_PRIMES)])
+        U2[:, d] = _halton(total, _PRIMES[d % len(_PRIMES)])
     # Randomized-start Halton (Bhat 2003): one uniform shift per dim,
     # modulo 1. Preserves low-discrepancy while decorrelating parallel
     # dims and avoiding exact ties when many individuals share Primes.
     rng = np.random.default_rng(seed)
     shift = rng.uniform(0.0, 1.0, size=(1, n_dim))
-    U = (U + shift) % 1.0
+    U_shifted = (U2 + shift) % 1.0
     # Clip to avoid Φ⁻¹(0) = -∞ / Φ⁻¹(1) = +∞
-    U = np.clip(U, 1e-12, 1.0 - 1e-12)
-    U = U.reshape(n_ind, n_draws, n_dim)
-    return stats.norm.ppf(U)
+    U_clipped = np.clip(U_shifted, 1e-12, 1.0 - 1e-12)
+    U3 = U_clipped.reshape(n_ind, n_draws, n_dim)
+    return _as_float_array(stats.norm.ppf(U3))
 
 
 # (Per-column distribution transforms are applied inside
@@ -230,8 +233,42 @@ def mixlogit(
 
 class _MixedLogitFitter:
 
-    def __init__(self, **kw):
-        self.__dict__.update(kw)
+    def __init__(
+        self,
+        *,
+        data: pd.DataFrame,
+        y: str,
+        alt: Optional[str],
+        chid: str,
+        x_fixed: List[str],
+        x_random: List[str],
+        random_dist: Dict[str, str],
+        panel_id: Optional[str],
+        n_draws: int,
+        correlated: bool,
+        robust: bool,
+        alpha: float,
+        maxiter: int,
+        tol: float,
+        halton_seed: int,
+        verbose: bool,
+    ) -> None:
+        self.data = data
+        self.y = y
+        self.alt = alt
+        self.chid = chid
+        self.x_fixed = x_fixed
+        self.x_random = x_random
+        self.random_dist = random_dist
+        self.panel_id = panel_id
+        self.n_draws = n_draws
+        self.correlated = correlated
+        self.robust = robust
+        self.alpha = alpha
+        self.maxiter = maxiter
+        self.tol = tol
+        self.halton_seed = halton_seed
+        self.verbose = verbose
         if not self.x_random:
             raise ValueError("x_random must contain at least one column")
         required = [self.y, self.chid] + self.x_fixed + self.x_random
@@ -259,7 +296,7 @@ class _MixedLogitFitter:
 
     # ------------------------- data prep ------------------------------
 
-    def _prepare(self):
+    def _prepare(self) -> Dict[str, Any]:
         # Sort rows so each ``chid`` is contiguous. Using a stable sort
         # preserves the within-chid alternative ordering.
         sort_cols = [self.panel_id, self.chid] if self.panel_id else [self.chid]
@@ -319,7 +356,12 @@ class _MixedLogitFitter:
 
     # ------------------- log-likelihood helpers -----------------------
 
-    def _unpack(self, theta, kf, kr):
+    def _unpack(
+        self,
+        theta: np.ndarray,
+        kf: int,
+        kr: int,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         theta layout:
             [ fixed (kf) | mean_random (kr) | scale_params (n_scale) ]
@@ -331,7 +373,13 @@ class _MixedLogitFitter:
         sc = theta[kf + kr:]
         return bf, mu, sc
 
-    def _apply_draws(self, zR, mu, sc, kr):
+    def _apply_draws(
+        self,
+        zR: np.ndarray,
+        mu: np.ndarray,
+        sc: np.ndarray,
+        kr: int,
+    ) -> np.ndarray:
         """
         Build per-individual random-coefficient draws from standard-normal
         base ``zR`` shaped ``(n_ind, R, kr)``.
@@ -353,7 +401,7 @@ class _MixedLogitFitter:
             L[np.tril_indices(kr)] = sc
             diag = np.arange(kr)
             L[diag, diag] = np.abs(L[diag, diag]) + 1e-6
-            return mu[None, None, :] + zR @ L.T
+            return _as_float_array(mu[None, None, :] + zR @ L.T)
 
         # Diagonal: transform each dim independently
         beta = np.empty_like(zR)
@@ -377,30 +425,48 @@ class _MixedLogitFitter:
                 beta[..., k] = mu[k] + sig[k] * t
             else:  # pragma: no cover — validated in __init__
                 raise ValueError(f"distribution '{dist}' not supported")
-        return beta
+        return _as_float_array(beta)
 
-    def _grad_ll(self, theta, D, kf, kr, draws, eps):
+    def _grad_ll(
+        self,
+        theta: np.ndarray,
+        D: Dict[str, Any],
+        kf: int,
+        kr: int,
+        draws: np.ndarray,
+        eps: float,
+    ) -> np.ndarray:
         """Central-difference gradient of total log-likelihood (sum_i ℓ_i)."""
         p = len(theta)
         g = np.zeros(p)
         for j in range(p):
-            tp = theta.copy(); tp[j] += eps
-            tm = theta.copy(); tm[j] -= eps
+            tp = theta.copy()
+            tp[j] += eps
+            tm = theta.copy()
+            tm[j] -= eps
             ll_p = self._loglik_per_ind(tp, D, kf, kr, draws).sum()
             ll_m = self._loglik_per_ind(tm, D, kf, kr, draws).sum()
             g[j] = (ll_p - ll_m) / (2.0 * eps)
-        return g
+        return _as_float_array(g)
 
-    def _loglik_per_ind(self, theta, D, kf, kr, draws):
+    def _loglik_per_ind(
+        self,
+        theta: np.ndarray,
+        D: Dict[str, Any],
+        kf: int,
+        kr: int,
+        draws: np.ndarray,
+    ) -> np.ndarray:
         bf, mu, sc = self._unpack(theta, kf, kr)
 
-        Xr = D['Xr']             # (N_rows, kr)
-        Xf = D['Xf']             # (N_rows, kf)
-        y = D['y']
-        ind_of_row = D['ind_of_row']
-        sit_starts = D['sit_starts']
-        n_sit = D['n_sit']
-        n_ind = D['n_ind']
+        Xr = _as_float_array(D['Xr'])             # (N_rows, kr)
+        Xf = _as_float_array(D['Xf'])             # (N_rows, kf)
+        y = _as_float_array(D['y'])
+        ind_of_row = np.asarray(D['ind_of_row'], dtype=np.int64)
+        sit_starts = np.asarray(D['sit_starts'], dtype=np.int64)
+        sit_to_ind = np.asarray(D['sit_to_ind'], dtype=np.int64)
+        n_sit = int(D['n_sit'])
+        n_ind = int(D['n_ind'])
         R = draws.shape[1]
 
         beta_draws = self._apply_draws(draws, mu, sc, kr)     # (n_ind, R, kr)
@@ -434,7 +500,7 @@ class _MixedLogitFitter:
         #   ℓ_i(theta) = log(1/R * sum_r prod_s P_{s,r})
         # Vectorised accumulator via np.add.at (sit_to_ind is bounded).
         sum_logP_per_ind_per_draw = np.zeros((n_ind, R))
-        np.add.at(sum_logP_per_ind_per_draw, D['sit_to_ind'], logP_sit)
+        np.add.at(sum_logP_per_ind_per_draw, sit_to_ind, logP_sit)
 
         # Numerically stable log-mean-exp with underflow guard: if every
         # draw is effectively -inf (pathological parameter region during
@@ -449,7 +515,7 @@ class _MixedLogitFitter:
             -1e300,
         )
         ll_per_ind = m.ravel() + log_mean
-        return ll_per_ind
+        return _as_float_array(ll_per_ind)
 
     # ---------------------- optimization ------------------------------
 
@@ -457,9 +523,12 @@ class _MixedLogitFitter:
         D = self._prepare()
         kf = len(self.x_fixed)
         kr = len(self.x_random)
-        n_scale = (kr * (kr + 1)) // 2 if self.correlated else kr
 
-        draws = _halton_draws(self.n_draws, kr, D['n_ind'],
+        n_ind = int(D['n_ind'])
+        n_sit = int(D['n_sit'])
+        n_rows = int(D['n_rows'])
+
+        draws = _halton_draws(self.n_draws, kr, n_ind,
                               seed=self.halton_seed)
 
         # Initial values: zero fixed, zero means, unit scales
@@ -470,9 +539,9 @@ class _MixedLogitFitter:
              if self.correlated else np.ones(kr)),
         ])
 
-        def neg_ll(theta):
+        def neg_ll(theta: np.ndarray) -> float:
             ll_i = self._loglik_per_ind(theta, D, kf, kr, draws)
-            val = -ll_i.sum()
+            val = float(-ll_i.sum())
             if self.verbose:
                 print(f"  f={val:.6f}")
             return val
@@ -482,8 +551,8 @@ class _MixedLogitFitter:
             options={'maxiter': self.maxiter, 'gtol': self.tol,
                      'disp': self.verbose},
         )
-        theta_hat = opt.x
-        ll_hat = -opt.fun
+        theta_hat = _as_float_array(opt.x)
+        ll_hat = float(-opt.fun)
 
         # --- Standard errors -----------------------------------------
         #
@@ -500,10 +569,12 @@ class _MixedLogitFitter:
         # ``robust=False`` → plain numerical Hessian inverse.
         p = len(theta_hat)
         eps = 1e-4
-        scores = np.zeros((D['n_ind'], p))
+        scores = np.zeros((n_ind, p))
         for j in range(p):
-            th_plus = theta_hat.copy();  th_plus[j]  += eps
-            th_minus = theta_hat.copy(); th_minus[j] -= eps
+            th_plus = theta_hat.copy()
+            th_plus[j] += eps
+            th_minus = theta_hat.copy()
+            th_minus[j] -= eps
             ll_p = self._loglik_per_ind(th_plus,  D, kf, kr, draws)
             ll_m = self._loglik_per_ind(th_minus, D, kf, kr, draws)
             scores[:, j] = (ll_p - ll_m) / (2.0 * eps)
@@ -513,29 +584,31 @@ class _MixedLogitFitter:
         grad_plus  = np.zeros((p, p))
         grad_minus = np.zeros((p, p))
         for j in range(p):
-            th_plus  = theta_hat.copy(); th_plus[j]  += eps
-            th_minus = theta_hat.copy(); th_minus[j] -= eps
+            th_plus = theta_hat.copy()
+            th_plus[j] += eps
+            th_minus = theta_hat.copy()
+            th_minus[j] -= eps
             # reuse central-difference gradient of full LL (sum over i)
             grad_plus[j]  = self._grad_ll(th_plus,  D, kf, kr, draws, eps)
             grad_minus[j] = self._grad_ll(th_minus, D, kf, kr, draws, eps)
         H = -(grad_plus - grad_minus) / (2.0 * eps)          # -∂²ℓ/∂θ∂θ'
         H = 0.5 * (H + H.T)                                  # symmetrize
         try:
-            H_inv = np.linalg.inv(H + 1e-8 * np.eye(p))
+            H_inv = _as_float_array(np.linalg.inv(H + 1e-8 * np.eye(p)))
         except np.linalg.LinAlgError:
-            H_inv = np.linalg.pinv(H)
+            H_inv = _as_float_array(np.linalg.pinv(H))
 
         if self.robust:
-            V = H_inv @ B @ H_inv
+            V = _as_float_array(H_inv @ B @ H_inv)
         else:
             V = H_inv
 
-        se = np.sqrt(np.clip(np.diag(V), 0, np.inf))
-        t_stat = theta_hat / np.where(se > 0, se, 1)
-        pvals = 2 * (1 - stats.norm.cdf(np.abs(t_stat)))
-        zcrit = stats.norm.ppf(1 - self.alpha / 2)
-        ci_lo = theta_hat - zcrit * se
-        ci_hi = theta_hat + zcrit * se
+        se = _as_float_array(np.sqrt(np.clip(np.diag(V), 0, np.inf)))
+        t_stat = _as_float_array(theta_hat / np.where(se > 0, se, 1))
+        pvals = _as_float_array(2 * (1 - stats.norm.cdf(np.abs(t_stat))))
+        zcrit = float(stats.norm.ppf(1 - self.alpha / 2))
+        ci_lo = _as_float_array(theta_hat - zcrit * se)
+        ci_hi = _as_float_array(theta_hat + zcrit * se)
 
         # Parameter names
         names = (list(self.x_fixed)
@@ -553,19 +626,20 @@ class _MixedLogitFitter:
             'log_likelihood': float(ll_hat),
             'converged': bool(opt.success),
             'iterations': int(opt.nit) if hasattr(opt, 'nit') else None,
+            'citation_key': 'mixlogit',
             '_citation_key': 'mixlogit',
         }
         data_info = {
-            'n_obs': int(D['n_rows']),
-            'n_individuals': int(D['n_ind']),
-            'n_choice_situations': int(D['n_sit']),
+            'n_obs': n_rows,
+            'n_individuals': n_ind,
+            'n_choice_situations': n_sit,
             'n_fixed': kf,
             'n_random': kr,
         }
         diagnostics = {
             'log_likelihood': float(ll_hat),
             'AIC': float(2 * len(theta_hat) - 2 * ll_hat),
-            'BIC': float(np.log(D['n_sit']) * len(theta_hat) - 2 * ll_hat),
+            'BIC': float(np.log(n_sit) * len(theta_hat) - 2 * ll_hat),
             'ci_lower': pd.Series(ci_lo, index=names),
             'ci_upper': pd.Series(ci_hi, index=names),
             'z': pd.Series(t_stat, index=names),
@@ -585,15 +659,12 @@ class _MixedLogitFitter:
 # Citation
 # ---------------------------------------------------------------------------
 
-try:
-    EconometricResults._CITATIONS['mixlogit'] = (
-        "@book{train2009discrete,\n"
-        "  title={Discrete Choice Methods with Simulation},\n"
-        "  author={Train, Kenneth E.},\n"
-        "  edition={2nd},\n"
-        "  year={2009},\n"
-        "  publisher={Cambridge University Press}\n"
-        "}"
-    )
-except Exception:
-    pass
+CausalResult._CITATIONS['mixlogit'] = (
+    "@book{train2009discrete,\n"
+    "  title={Discrete Choice Methods with Simulation},\n"
+    "  author={Train, Kenneth E.},\n"
+    "  edition={2nd},\n"
+    "  year={2009},\n"
+    "  publisher={Cambridge University Press}\n"
+    "}"
+)

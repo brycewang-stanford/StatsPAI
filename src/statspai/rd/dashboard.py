@@ -35,12 +35,10 @@ Extensions." Cambridge University Press. doi:10.1017/9781009441896.
 
 from __future__ import annotations
 
-from typing import Optional, List, Dict, Any, Sequence, Tuple, Union
+from typing import Optional, List, Dict, Any, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
-
-from ..core.results import CausalResult
 
 
 # =============================================================================
@@ -59,7 +57,7 @@ def rd_dashboard(
     figsize: Tuple[float, float] = (12, 9),
     title: Optional[str] = None,
     save: Optional[str] = None,
-):
+) -> Tuple[Any, Any]:
     """
     Four-panel RD diagnostic dashboard.
 
@@ -130,9 +128,11 @@ def rd_dashboard(
         try:
             h_ref = rdrobust(data, y=y, x=x, c=c, p=1, fuzzy=fuzzy,
                              warn_mass_points=False, warn_weak_first_stage=False)
-            h = h_ref.model_info.get('bandwidth_h', None)
-            if isinstance(h, tuple):
-                h = float(h[0])
+            h_auto = h_ref.model_info.get('bandwidth_h', None)
+            if isinstance(h_auto, tuple):
+                h = float(h_auto[0])
+            elif h_auto is not None:
+                h = float(h_auto)
         except Exception:  # pragma: no cover
             h = None
 
@@ -169,7 +169,13 @@ def rd_dashboard(
     return fig, axes
 
 
-def _plot_balance(ax, data: pd.DataFrame, x: str, c: float, covs: List[str]):
+def _plot_balance(
+    ax: Any,
+    data: pd.DataFrame,
+    x: str,
+    c: float,
+    covs: List[str],
+) -> None:
     df = data.dropna(subset=[x])
     left = df[df[x] < c]
     right = df[df[x] >= c]
@@ -200,7 +206,12 @@ def _plot_balance(ax, data: pd.DataFrame, x: str, c: float, covs: List[str]):
     ax.set_title("(c) Covariate balance at cutoff", fontsize=11)
 
 
-def _plot_running_var_summary(ax, data: pd.DataFrame, x: str, c: float):
+def _plot_running_var_summary(
+    ax: Any,
+    data: pd.DataFrame,
+    x: str,
+    c: float,
+) -> None:
     X = data[x].dropna().to_numpy(dtype=float)
     n_unique = int(np.unique(X).size)
     ax.hist(X[X < c], bins=30, alpha=0.5, color='#E74C3C', label='Left')
@@ -215,10 +226,10 @@ def _plot_running_var_summary(ax, data: pd.DataFrame, x: str, c: float):
 
 
 def _plot_bw_sensitivity(
-    ax, data: pd.DataFrame, y: str, x: str, c: float,
+    ax: Any, data: pd.DataFrame, y: str, x: str, c: float,
     fuzzy: Optional[str], h_ref: Optional[float],
     bw_grid: Optional[Sequence[float]],
-):
+) -> None:
     from .rdrobust import rdrobust
 
     if h_ref is None or h_ref <= 0:
@@ -227,11 +238,12 @@ def _plot_bw_sensitivity(
         ax.set_title("(d) Bandwidth sensitivity"); ax.axis('off')
         return
     if bw_grid is None:
-        bw_grid = np.array([0.5, 0.75, 1.0, 1.25, 1.5, 2.0]) * h_ref
-    bw_grid = np.atleast_1d(bw_grid).astype(float)
+        bw_values = np.array([0.5, 0.75, 1.0, 1.25, 1.5, 2.0]) * h_ref
+    else:
+        bw_values = np.atleast_1d(bw_grid).astype(float)
 
     estimates, lows, highs = [], [], []
-    for h_val in bw_grid:
+    for h_val in bw_values:
         try:
             r = rdrobust(data, y=y, x=x, c=c, h=h_val, fuzzy=fuzzy,
                          warn_mass_points=False, warn_weak_first_stage=False)
@@ -240,10 +252,11 @@ def _plot_bw_sensitivity(
             lows.append(float(lo)); highs.append(float(hi))
         except Exception:  # pragma: no cover
             estimates.append(np.nan); lows.append(np.nan); highs.append(np.nan)
-    estimates, lows, highs = map(np.array, (estimates, lows, highs))
+    est_values, low_values, high_values = map(np.array, (estimates, lows, highs))
 
-    ax.fill_between(bw_grid, lows, highs, color='#3498DB', alpha=0.20)
-    ax.plot(bw_grid, estimates, '-o', color='#2C3E50', linewidth=1.4)
+    ax.fill_between(bw_values, low_values, high_values,
+                    color='#3498DB', alpha=0.20)
+    ax.plot(bw_values, est_values, '-o', color='#2C3E50', linewidth=1.4)
     ax.axvline(h_ref, color='gray', linestyle='--', linewidth=0.8,
                label=f'h_MSE = {h_ref:.3f}')
     ax.axhline(0, color='black', linewidth=0.5)

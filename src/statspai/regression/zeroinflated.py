@@ -31,7 +31,7 @@ Mullahy, J. (1986).
 *Journal of Econometrics*, 33(3), 341-365. [@mullahy1986specification]
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Callable, Optional, List, Dict, Any, Tuple
 
 import numpy as np
 import pandas as pd
@@ -39,21 +39,28 @@ from scipy import stats, optimize, special
 
 from ..core.results import EconometricResults
 from ._optim_helpers import robust_convergence
-from ..core.utils import parse_formula, create_design_matrices, prepare_data
+from ..core.utils import parse_formula
 
 
 # ---------------------------------------------------------------------------
 # Helper utilities
 # ---------------------------------------------------------------------------
 
+
+def _as_float_array(value: Any) -> np.ndarray:
+    return np.asarray(value, dtype=float)
+
+
 def _logit(z: np.ndarray) -> np.ndarray:
     """Logistic sigmoid, numerically stable."""
-    return special.expit(z)
+    return _as_float_array(special.expit(z))
 
 
 def _log_poisson_pmf(y: np.ndarray, mu: np.ndarray) -> np.ndarray:
     """Log P(Y=y | mu) for Poisson, vectorized."""
-    return y * np.log(np.maximum(mu, 1e-20)) - mu - special.gammaln(y + 1)
+    return _as_float_array(
+        y * np.log(np.maximum(mu, 1e-20)) - mu - special.gammaln(y + 1)
+    )
 
 
 def _log_nb2_pmf(y: np.ndarray, mu: np.ndarray, alpha: float) -> np.ndarray:
@@ -71,25 +78,27 @@ def _log_nb2_pmf(y: np.ndarray, mu: np.ndarray, alpha: float) -> np.ndarray:
         + r * np.log(r / (r + mu))
         + y * np.log(np.maximum(mu, 1e-20) / (r + mu))
     )
-    return log_p
+    return _as_float_array(log_p)
 
 
 def _build_matrices(
-    data: pd.DataFrame,
+    data: Optional[pd.DataFrame],
     formula: Optional[str],
     y: Optional[str],
     x: Optional[List[str]],
     inflate: Optional[List[str]],
-):
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[str], List[str], str, pd.DataFrame]:
     """
     Parse inputs and return (Y, X_count, X_inflate, count_names, inflate_names, dep_var).
 
     X matrices include a constant column.
     """
+    if data is None:
+        raise ValueError("`data` must be provided.")
     if formula is not None:
         parsed = parse_formula(formula)
-        dep_var = parsed['dependent']
-        x_vars = parsed['exogenous']
+        dep_var = str(parsed['dependent'])
+        x_vars = [str(name) for name in parsed['exogenous']]
     else:
         if y is None or x is None:
             raise ValueError("Provide either `formula` or both `y` and `x`.")
@@ -132,7 +141,7 @@ def _robust_se(score_obs: np.ndarray, hessian_inv: np.ndarray) -> np.ndarray:
     """
     from ..core._vcov import sandwich_vcov
     V = sandwich_vcov(hessian_inv, score_obs, correction="none")
-    return np.sqrt(np.maximum(np.diag(V), 1e-20))
+    return _as_float_array(np.sqrt(np.maximum(np.diag(V), 1e-20)))
 
 
 def _cluster_se(
@@ -146,14 +155,17 @@ def _cluster_se(
     from ..core._vcov import sandwich_vcov
     V = sandwich_vcov(hessian_inv, score_obs, clusters=clusters,
                       correction="stacked")
-    return np.sqrt(np.maximum(np.diag(V), 1e-20))
+    return _as_float_array(np.sqrt(np.maximum(np.diag(V), 1e-20)))
 
 
-def _numerical_hessian(func, x0, eps=1e-5):
+def _numerical_hessian(
+    func: Callable[[np.ndarray], float],
+    x0: np.ndarray,
+    eps: float = 1e-5,
+) -> np.ndarray:
     """Compute numerical Hessian of func at x0."""
     n = len(x0)
     H = np.zeros((n, n))
-    f0 = func(x0)
     for i in range(n):
         for j in range(i, n):
             x_pp = x0.copy()
@@ -170,10 +182,15 @@ def _numerical_hessian(func, x0, eps=1e-5):
             x_mm[j] -= eps
             H[i, j] = (func(x_pp) - func(x_pm) - func(x_mp) + func(x_mm)) / (4 * eps * eps)
             H[j, i] = H[i, j]
-    return H
+    return _as_float_array(H)
 
 
-def _numerical_score(neg_loglik, theta, n_obs, eps=1e-5):
+def _numerical_score(
+    neg_loglik: Callable[[np.ndarray], float],
+    theta: np.ndarray,
+    n_obs: int,
+    eps: float = 1e-5,
+) -> np.ndarray:
     """Compute per-observation numerical score (gradient of log-lik contribution)."""
     # This is an approximation — compute gradient of total neg_loglik
     k = len(theta)
@@ -184,7 +201,7 @@ def _numerical_score(neg_loglik, theta, n_obs, eps=1e-5):
         theta_p[j] += eps
         theta_m[j] -= eps
         grad[j] = (neg_loglik(theta_p) - neg_loglik(theta_m)) / (2 * eps)
-    return grad
+    return _as_float_array(grad)
 
 
 def _vuong_test(
@@ -220,13 +237,13 @@ def _vuong_test(
 # ===================================================================
 
 def zip_model(
-    formula: str = None,
-    data: pd.DataFrame = None,
-    y: str = None,
-    x: list = None,
-    inflate: list = None,
+    formula: Optional[str] = None,
+    data: Optional[pd.DataFrame] = None,
+    y: Optional[str] = None,
+    x: Optional[List[str]] = None,
+    inflate: Optional[List[str]] = None,
     robust: str = "nonrobust",
-    cluster: str = None,
+    cluster: Optional[str] = None,
     maxiter: int = 200,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -307,7 +324,7 @@ def zip_model(
     k_total = k_count + k_inflate
 
     # --- Negative log-likelihood ---
-    def neg_loglik(theta):
+    def neg_loglik(theta: np.ndarray) -> float:
         beta = theta[:k_count]
         gamma = theta[k_count:]
 
@@ -326,9 +343,9 @@ def zip_model(
             np.log(np.maximum(1 - pi[pos_mask], 1e-20))
             + _log_poisson_pmf(Y[pos_mask], mu[pos_mask])
         )
-        return -ll.sum()
+        return float(-ll.sum())
 
-    def neg_loglik_obs(theta):
+    def neg_loglik_obs(theta: np.ndarray) -> np.ndarray:
         """Per-observation negative log-likelihood (for robust SE)."""
         beta = theta[:k_count]
         gamma = theta[k_count:]
@@ -344,7 +361,7 @@ def zip_model(
             np.log(np.maximum(1 - pi[pos_mask], 1e-20))
             + _log_poisson_pmf(Y[pos_mask], mu[pos_mask])
         )
-        return ll
+        return _as_float_array(ll)
 
     # --- Initial values ---
     # Count: log-linear OLS on log(y+1)
@@ -359,7 +376,7 @@ def zip_model(
         options={'maxiter': maxiter, 'gtol': tol},
     )
 
-    theta_hat = result.x
+    theta_hat = _as_float_array(result.x)
     beta_hat = theta_hat[:k_count]
     gamma_hat = theta_hat[k_count:]
 
@@ -368,19 +385,24 @@ def zip_model(
     # --- Standard errors ---
     H = _numerical_hessian(neg_loglik, theta_hat)
     try:
-        H_inv = np.linalg.inv(H)
+        H_inv = _as_float_array(np.linalg.inv(H))
     except np.linalg.LinAlgError:
-        H_inv = np.linalg.pinv(H)
+        H_inv = _as_float_array(np.linalg.pinv(H))
 
     if cluster is not None:
-        clusters = df[cluster].values if cluster in df.columns else data.loc[df.index, cluster].values
+        if data is None:
+            raise ValueError("`data` must be provided for clustered SEs.")
+        clusters = (
+            df[cluster].values if cluster in df.columns
+            else data.loc[df.index, cluster].values
+        )
         score_obs = _compute_zip_score_obs(theta_hat, Y, X_count, X_inflate, k_count, n)
         se = _cluster_se(score_obs, H_inv, clusters)
     elif robust != "nonrobust":
         score_obs = _compute_zip_score_obs(theta_hat, Y, X_count, X_inflate, k_count, n)
         se = _robust_se(score_obs, H_inv)
     else:
-        se = np.sqrt(np.maximum(np.diag(H_inv), 1e-20))
+        se = _as_float_array(np.sqrt(np.maximum(np.diag(H_inv), 1e-20)))
 
     # --- Vuong test: ZIP vs plain Poisson ---
     mu_hat = np.exp(np.clip(X_count @ beta_hat, -20, 20))
@@ -445,7 +467,14 @@ def zip_model(
     )
 
 
-def _compute_zip_score_obs(theta, Y, X_count, X_inflate, k_count, n):
+def _compute_zip_score_obs(
+    theta: np.ndarray,
+    Y: np.ndarray,
+    X_count: np.ndarray,
+    X_inflate: np.ndarray,
+    k_count: int,
+    n: int,
+) -> np.ndarray:
     """Compute per-observation score for ZIP (numerical)."""
     k_total = len(theta)
     eps = 1e-5
@@ -503,7 +532,7 @@ def _compute_zip_score_obs(theta, Y, X_count, X_inflate, k_count, n):
 
         score[:, j] = (ll_p - ll_m) / (2 * eps)
 
-    return score
+    return _as_float_array(score)
 
 
 # ===================================================================
@@ -511,13 +540,13 @@ def _compute_zip_score_obs(theta, Y, X_count, X_inflate, k_count, n):
 # ===================================================================
 
 def zinb(
-    formula: str = None,
-    data: pd.DataFrame = None,
-    y: str = None,
-    x: list = None,
-    inflate: list = None,
+    formula: Optional[str] = None,
+    data: Optional[pd.DataFrame] = None,
+    y: Optional[str] = None,
+    x: Optional[List[str]] = None,
+    inflate: Optional[List[str]] = None,
     robust: str = "nonrobust",
-    cluster: str = None,
+    cluster: Optional[str] = None,
     maxiter: int = 200,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -590,7 +619,7 @@ def zinb(
     # theta = [beta, gamma, log_alpha]
     k_total = k_count + k_inflate + 1
 
-    def neg_loglik(theta):
+    def neg_loglik(theta: np.ndarray) -> float:
         beta = theta[:k_count]
         gamma = theta[k_count:k_count + k_inflate]
         log_alpha = theta[-1]
@@ -613,9 +642,9 @@ def zinb(
             np.log(np.maximum(1 - pi[pos_mask], 1e-20))
             + _log_nb2_pmf(Y[pos_mask], mu[pos_mask], disp)
         )
-        return -ll.sum()
+        return float(-ll.sum())
 
-    def neg_loglik_obs(theta):
+    def neg_loglik_obs(theta: np.ndarray) -> np.ndarray:
         beta = theta[:k_count]
         gamma = theta[k_count:k_count + k_inflate]
         log_alpha = theta[-1]
@@ -633,7 +662,7 @@ def zinb(
             np.log(np.maximum(1 - pi[pos_mask], 1e-20))
             + _log_nb2_pmf(Y[pos_mask], mu[pos_mask], disp)
         )
-        return ll
+        return _as_float_array(ll)
 
     # Initial values
     beta0 = np.linalg.lstsq(X_count, np.log(Y + 1), rcond=None)[0]
@@ -646,28 +675,33 @@ def zinb(
         options={'maxiter': maxiter, 'gtol': tol},
     )
 
-    theta_hat = result.x
+    theta_hat = _as_float_array(result.x)
     beta_hat = theta_hat[:k_count]
     gamma_hat = theta_hat[k_count:k_count + k_inflate]
-    alpha_hat = np.exp(theta_hat[-1])
+    alpha_hat = float(np.exp(theta_hat[-1]))
     ll_zinb = float(-result.fun)
 
     # Standard errors
     H = _numerical_hessian(neg_loglik, theta_hat)
     try:
-        H_inv = np.linalg.inv(H)
+        H_inv = _as_float_array(np.linalg.inv(H))
     except np.linalg.LinAlgError:
-        H_inv = np.linalg.pinv(H)
+        H_inv = _as_float_array(np.linalg.pinv(H))
 
     if cluster is not None:
-        clusters = df[cluster].values if cluster in df.columns else data.loc[df.index, cluster].values
+        if data is None:
+            raise ValueError("`data` must be provided for clustered SEs.")
+        clusters = (
+            df[cluster].values if cluster in df.columns
+            else data.loc[df.index, cluster].values
+        )
         score_obs = _compute_zi_score_obs(neg_loglik_obs, theta_hat, Y, X_count, X_inflate, k_count, k_inflate, n, nb=True)
         se = _cluster_se(score_obs, H_inv, clusters)
     elif robust != "nonrobust":
         score_obs = _compute_zi_score_obs(neg_loglik_obs, theta_hat, Y, X_count, X_inflate, k_count, k_inflate, n, nb=True)
         se = _robust_se(score_obs, H_inv)
     else:
-        se = np.sqrt(np.maximum(np.diag(H_inv), 1e-20))
+        se = _as_float_array(np.sqrt(np.maximum(np.diag(H_inv), 1e-20)))
 
     # Vuong test: ZINB vs plain NB
     mu_hat = np.exp(np.clip(X_count @ beta_hat, -20, 20))
@@ -733,12 +767,21 @@ def zinb(
     )
 
 
-def _compute_zi_score_obs(neg_loglik_obs_fn, theta, Y, X_count, X_inflate, k_count, k_inflate, n, nb=False):
+def _compute_zi_score_obs(
+    neg_loglik_obs_fn: Callable[[np.ndarray], np.ndarray],
+    theta: np.ndarray,
+    Y: np.ndarray,
+    X_count: np.ndarray,
+    X_inflate: np.ndarray,
+    k_count: int,
+    k_inflate: int,
+    n: int,
+    nb: bool = False,
+) -> np.ndarray:
     """Numerical per-observation score for ZI models."""
     k_total = len(theta)
     eps = 1e-5
     score = np.zeros((n, k_total))
-    ll_base = neg_loglik_obs_fn(theta)
 
     for j in range(k_total):
         theta_p = theta.copy()
@@ -749,7 +792,7 @@ def _compute_zi_score_obs(neg_loglik_obs_fn, theta, Y, X_count, X_inflate, k_cou
         ll_m = neg_loglik_obs_fn(theta_m)
         score[:, j] = (ll_p - ll_m) / (2 * eps)
 
-    return score
+    return _as_float_array(score)
 
 
 # ===================================================================
@@ -757,13 +800,13 @@ def _compute_zi_score_obs(neg_loglik_obs_fn, theta, Y, X_count, X_inflate, k_cou
 # ===================================================================
 
 def hurdle(
-    formula: str = None,
-    data: pd.DataFrame = None,
-    y: str = None,
-    x: list = None,
+    formula: Optional[str] = None,
+    data: Optional[pd.DataFrame] = None,
+    y: Optional[str] = None,
+    x: Optional[List[str]] = None,
     count_model: str = "poisson",
     robust: str = "nonrobust",
-    cluster: str = None,
+    cluster: Optional[str] = None,
     maxiter: int = 200,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -830,10 +873,12 @@ def hurdle(
 
     See Mullahy (1986, *Journal of Econometrics*).
     """
+    if data is None:
+        raise ValueError("`data` must be provided.")
     if formula is not None:
         parsed = parse_formula(formula)
-        dep_var = parsed['dependent']
-        x_vars = parsed['exogenous']
+        dep_var = str(parsed['dependent'])
+        x_vars = [str(name) for name in parsed['exogenous']]
     else:
         if y is None or x is None:
             raise ValueError("Provide either `formula` or both `y` and `x`.")
@@ -866,7 +911,7 @@ def hurdle(
     k_count = k
     k_total = k_hurdle + k_count + (1 if use_negbin else 0)
 
-    def neg_loglik(theta):
+    def neg_loglik(theta: np.ndarray) -> float:
         delta = theta[:k_hurdle]
         beta = theta[k_hurdle:k_hurdle + k_count]
 
@@ -891,9 +936,9 @@ def hurdle(
         ll_count = log_f - np.log(np.maximum(1 - np.exp(log_f0), 1e-20))
 
         total = ll_binary.sum() + ll_count.sum()
-        return -total
+        return float(-total)
 
-    def neg_loglik_obs(theta):
+    def neg_loglik_obs(theta: np.ndarray) -> np.ndarray:
         delta = theta[:k_hurdle]
         beta = theta[k_hurdle:k_hurdle + k_count]
         p = _logit(X @ delta)
@@ -915,7 +960,7 @@ def hurdle(
             + log_f
             - np.log(np.maximum(1 - np.exp(log_f0), 1e-20))
         )
-        return ll
+        return _as_float_array(ll)
 
     # Initial values
     delta0 = np.zeros(k_hurdle)
@@ -930,7 +975,7 @@ def hurdle(
         options={'maxiter': maxiter, 'gtol': tol},
     )
 
-    theta_hat = result.x
+    theta_hat = _as_float_array(result.x)
     delta_hat = theta_hat[:k_hurdle]
     beta_hat = theta_hat[k_hurdle:k_hurdle + k_count]
     ll_hurdle = float(-result.fun)
@@ -938,25 +983,28 @@ def hurdle(
     # Standard errors
     H = _numerical_hessian(neg_loglik, theta_hat)
     try:
-        H_inv = np.linalg.inv(H)
+        H_inv = _as_float_array(np.linalg.inv(H))
     except np.linalg.LinAlgError:
-        H_inv = np.linalg.pinv(H)
+        H_inv = _as_float_array(np.linalg.pinv(H))
 
     if cluster is not None:
-        clusters = df[cluster].values if cluster in df.columns else data.loc[df.index, cluster].values
+        clusters = (
+            df[cluster].values if cluster in df.columns
+            else data.loc[df.index, cluster].values
+        )
         score_obs = _compute_hurdle_score_obs(neg_loglik_obs, theta_hat, n)
         se = _cluster_se(score_obs, H_inv, clusters)
     elif robust != "nonrobust":
         score_obs = _compute_hurdle_score_obs(neg_loglik_obs, theta_hat, n)
         se = _robust_se(score_obs, H_inv)
     else:
-        se = np.sqrt(np.maximum(np.diag(H_inv), 1e-20))
+        se = _as_float_array(np.sqrt(np.maximum(np.diag(H_inv), 1e-20)))
 
     # Predicted values
     p_hat = _logit(X @ delta_hat)
     mu_hat = np.exp(np.clip(X @ beta_hat, -20, 20))
     if use_negbin:
-        alpha_hat = np.exp(theta_hat[-1])
+        alpha_hat = float(np.exp(theta_hat[-1]))
         f0 = np.exp(_log_nb2_pmf(np.zeros(n), mu_hat, alpha_hat))
     else:
         alpha_hat = None
@@ -988,6 +1036,7 @@ def hurdle(
         'pct_zeros': float(zero_mask.mean() * 100),
     }
     if use_negbin:
+        assert alpha_hat is not None
         model_info['alpha_dispersion'] = float(alpha_hat)
 
     data_info = {
@@ -1009,6 +1058,7 @@ def hurdle(
         'bic': model_info['bic'],
     }
     if use_negbin:
+        assert alpha_hat is not None
         diagnostics['alpha_dispersion'] = float(alpha_hat)
 
     return EconometricResults(
@@ -1025,7 +1075,11 @@ def count_names_from_vars(var_names: List[str]) -> List[str]:
     return ['count_' + v for v in var_names]
 
 
-def _compute_hurdle_score_obs(neg_loglik_obs_fn, theta, n):
+def _compute_hurdle_score_obs(
+    neg_loglik_obs_fn: Callable[[np.ndarray], np.ndarray],
+    theta: np.ndarray,
+    n: int,
+) -> np.ndarray:
     """Numerical per-observation score for hurdle models."""
     k_total = len(theta)
     eps = 1e-5
@@ -1040,4 +1094,4 @@ def _compute_hurdle_score_obs(neg_loglik_obs_fn, theta, n):
         ll_m = neg_loglik_obs_fn(theta_m)
         score[:, j] = (ll_p - ll_m) / (2 * eps)
 
-    return score
+    return _as_float_array(score)

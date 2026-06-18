@@ -20,12 +20,12 @@ Ferrari, S.L.P. & Cribari-Neto, F. (2004).
 *Journal of Applied Statistics*, 31(7), 799-815. [@ferrari2004beta]
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Callable, Optional, List
 import numpy as np
 import pandas as pd
 from scipy import stats
 from scipy.optimize import minimize
-from scipy.special import gammaln, digamma
+from scipy.special import gammaln
 
 from ..core.results import EconometricResults
 from ._optim_helpers import robust_convergence
@@ -33,11 +33,11 @@ from ._optim_helpers import robust_convergence
 
 def fracreg(
     data: pd.DataFrame = None,
-    y: str = None,
-    x: List[str] = None,
+    y: Optional[str] = None,
+    x: Optional[List[str]] = None,
     link: str = "logit",
     robust: str = "robust",
-    cluster: str = None,
+    cluster: Optional[str] = None,
     maxiter: int = 100,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -81,7 +81,9 @@ def fracreg(
     >>> age = rng.normal(0, 1, n)
     >>> mu = 1 / (1 + np.exp(-(0.5 + 0.8 * income - 0.3 * age)))
     >>> df = pd.DataFrame({
-    ...     'participation_rate': np.clip(mu + rng.normal(0, 0.05, n), 0.01, 0.99),
+    ...     'participation_rate': np.clip(
+    ...         mu + rng.normal(0, 0.05, n), 0.01, 0.99
+    ...     ),
     ...     'income': income,
     ...     'age': age,
     ... })
@@ -89,28 +91,32 @@ def fracreg(
     >>> bool(isinstance(result.summary(), str))
     True
     """
-    df = data.dropna(subset=[y] + x)
+    if data is None or y is None or x is None:
+        raise ValueError("fracreg requires data, y, and x")
+
+    x_names = list(x)
+    df = data.dropna(subset=[y] + x_names)
     n = len(df)
 
     y_data = df[y].values.astype(float)
-    X_data = np.column_stack([np.ones(n), df[x].values.astype(float)])
+    X_data = np.column_stack([np.ones(n), df[x_names].values.astype(float)])
     k = X_data.shape[1]
-    var_names = ['_cons'] + list(x)
+    var_names = ['_cons'] + x_names
 
     if link == 'logit':
-        def g(xb):
+        def g(xb: np.ndarray) -> np.ndarray:
             xb = np.clip(xb, -500, 500)
-            return 1 / (1 + np.exp(-xb))
+            return np.asarray(1 / (1 + np.exp(-xb)), dtype=float)
 
-        def g_prime(xb):
+        def g_prime(xb: np.ndarray) -> np.ndarray:
             p = g(xb)
-            return p * (1 - p)
+            return np.asarray(p * (1 - p), dtype=float)
     elif link == 'probit':
-        def g(xb):
-            return stats.norm.cdf(xb)
+        def g(xb: np.ndarray) -> np.ndarray:
+            return np.asarray(stats.norm.cdf(xb), dtype=float)
 
-        def g_prime(xb):
-            return stats.norm.pdf(xb)
+        def g_prime(xb: np.ndarray) -> np.ndarray:
+            return np.asarray(stats.norm.pdf(xb), dtype=float)
     else:
         raise ValueError(f"Unknown link: {link}")
 
@@ -154,9 +160,11 @@ def fracreg(
     # Robust (sandwich) standard errors — always for QMLE
     score = ((y_data - mu) * dmu / (mu * (1 - mu)))[:, np.newaxis] * X_data
     try:
-        XtWX_inv = np.linalg.inv(X_data.T @ np.diag(dmu**2 / (mu * (1 - mu))) @ X_data)
+        weight_mat = np.diag(dmu**2 / (mu * (1 - mu)))
+        XtWX_inv = np.linalg.inv(X_data.T @ weight_mat @ X_data)
     except np.linalg.LinAlgError:
-        XtWX_inv = np.linalg.pinv(X_data.T @ np.diag(dmu**2 / (mu * (1 - mu))) @ X_data)
+        weight_mat = np.diag(dmu**2 / (mu * (1 - mu)))
+        XtWX_inv = np.linalg.pinv(X_data.T @ weight_mat @ X_data)
 
     if cluster is not None:
         clusters = df[cluster].values
@@ -200,12 +208,12 @@ def fracreg(
 
 def betareg(
     data: pd.DataFrame = None,
-    y: str = None,
-    x: List[str] = None,
-    z: List[str] = None,
+    y: Optional[str] = None,
+    x: Optional[List[str]] = None,
+    z: Optional[List[str]] = None,
     link: str = "logit",
     robust: str = "nonrobust",
-    cluster: str = None,
+    cluster: Optional[str] = None,
     maxiter: int = 200,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -256,33 +264,50 @@ def betareg(
     >>> bool(isinstance(result.summary(), str))
     True
     """
-    df = data.dropna(subset=[y] + x + (z or []))
+    if data is None or y is None or x is None:
+        raise ValueError("betareg requires data, y, and x")
+
+    x_names = list(x)
+    z_names = list(z) if z is not None else []
+    df = data.dropna(subset=[y] + x_names + z_names)
     n = len(df)
 
     y_data = df[y].values.astype(float)
     # Squeeze away from boundaries
     y_data = np.clip(y_data, 1e-6, 1 - 1e-6)
 
-    X_mean = np.column_stack([np.ones(n), df[x].values.astype(float)])
+    X_mean = np.column_stack([np.ones(n), df[x_names].values.astype(float)])
     k_mean = X_mean.shape[1]
-    mean_names = ['_cons'] + list(x)
+    mean_names = ['_cons'] + x_names
 
-    if z is not None:
-        X_prec = np.column_stack([np.ones(n), df[z].values.astype(float)])
-        prec_names = ['_cons_phi'] + [f'phi_{v}' for v in z]
+    if z_names:
+        X_prec = np.column_stack(
+            [np.ones(n), df[z_names].values.astype(float)]
+        )
+        prec_names = ['_cons_phi'] + [f'phi_{v}' for v in z_names]
     else:
         X_prec = np.ones((n, 1))
         prec_names = ['_cons_phi']
     k_prec = X_prec.shape[1]
 
+    g: Callable[[np.ndarray], np.ndarray]
     if link == 'logit':
-        g = lambda xb: 1 / (1 + np.exp(-np.clip(xb, -500, 500)))
+        def g(xb: np.ndarray) -> np.ndarray:
+            return np.asarray(
+                1 / (1 + np.exp(-np.clip(xb, -500, 500))),
+                dtype=float,
+            )
     elif link == 'probit':
-        g = lambda xb: stats.norm.cdf(xb)
+        def g(xb: np.ndarray) -> np.ndarray:
+            return np.asarray(stats.norm.cdf(xb), dtype=float)
     else:
-        g = lambda xb: 1 / (1 + np.exp(-np.clip(xb, -500, 500)))
+        def g(xb: np.ndarray) -> np.ndarray:
+            return np.asarray(
+                1 / (1 + np.exp(-np.clip(xb, -500, 500))),
+                dtype=float,
+            )
 
-    def neg_log_lik(theta):
+    def neg_log_lik(theta: np.ndarray) -> float:
         beta = theta[:k_mean]
         gamma = theta[k_mean:]
         mu = g(X_mean @ beta)
@@ -293,9 +318,14 @@ def betareg(
         a = mu * phi
         b = (1 - mu) * phi
 
-        ll = np.sum(gammaln(phi) - gammaln(a) - gammaln(b) +
-                     (a - 1) * np.log(y_data) + (b - 1) * np.log(1 - y_data))
-        return -ll
+        ll = np.sum(
+            gammaln(phi)
+            - gammaln(a)
+            - gammaln(b)
+            + (a - 1) * np.log(y_data)
+            + (b - 1) * np.log(1 - y_data)
+        )
+        return float(-ll)
 
     # Initialize
     theta0 = np.zeros(k_mean + k_prec)
@@ -310,14 +340,10 @@ def betareg(
         theta_hat = theta0
         converged = False
 
-    beta_hat = theta_hat[:k_mean]
-    gamma_hat = theta_hat[k_mean:]
-
     # Numerical Hessian for SE
     eps = 1e-5
     k_total = len(theta_hat)
     H = np.zeros((k_total, k_total))
-    f0 = neg_log_lik(theta_hat)
     for i in range(k_total):
         for j in range(i, k_total):
             ei, ej = np.zeros(k_total), np.zeros(k_total)

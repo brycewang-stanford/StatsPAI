@@ -13,7 +13,7 @@ Hausman, J.A. & Wise, D.A. (1977).
 Estimation." *Econometrica*, 45(4), 919-938. [@hausman1977social]
 """
 
-from typing import Optional, List
+from typing import Optional, List, Any
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -23,14 +23,18 @@ from ..core.results import EconometricResults
 from ._optim_helpers import robust_convergence
 
 
+def _as_float_array(value: Any) -> np.ndarray:
+    return np.asarray(value, dtype=float)
+
+
 def truncreg(
-    data: pd.DataFrame = None,
-    y: str = None,
-    x: List[str] = None,
-    ll: float = None,
-    ul: float = None,
+    data: Optional[pd.DataFrame] = None,
+    y: Optional[str] = None,
+    x: Optional[List[str]] = None,
+    ll: Optional[float] = None,
+    ul: Optional[float] = None,
     robust: str = "nonrobust",
-    cluster: str = None,
+    cluster: Optional[str] = None,
     maxiter: int = 200,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -83,18 +87,23 @@ def truncreg(
     ...                      x=['education', 'experience'], ll=0)
     >>> print(result.summary())  # doctest: +SKIP
     """
+    if data is None:
+        raise ValueError("'data' must be provided.")
+    if y is None or x is None:
+        raise ValueError("Both 'y' and 'x' must be provided.")
     if ll is not None and ul is not None and ll >= ul:
         raise ValueError(f"Lower limit ({ll}) must be < upper limit ({ul})")
 
-    df = data.dropna(subset=[y] + x)
+    x_names = list(x)
+    df = data.dropna(subset=[y] + x_names)
     n = len(df)
 
     y_data = df[y].values.astype(float)
-    X_data = np.column_stack([np.ones(n), df[x].values.astype(float)])
+    X_data = np.column_stack([np.ones(n), df[x_names].values.astype(float)])
     k = X_data.shape[1]
-    var_names = ['_cons'] + list(x)
+    var_names = ['_cons'] + x_names
 
-    def neg_log_lik(theta):
+    def neg_log_lik(theta: np.ndarray) -> float:
         beta = theta[:k]
         ln_sigma = theta[k]
         sigma = np.exp(ln_sigma)
@@ -119,7 +128,7 @@ def truncreg(
         else:
             log_denom = 0
 
-        return -np.sum(log_pdf - log_denom)
+        return float(-np.sum(log_pdf - log_denom))
 
     # Initialize with OLS
     beta_init = np.linalg.lstsq(X_data, y_data, rcond=None)[0]
@@ -132,10 +141,10 @@ def truncreg(
     # BFGS often reports status-2 ("precision loss") at a good optimum;
     # derive ``converged`` from the gradient norm (see robust_convergence).
     converged, grad_norm = robust_convergence(result)
-    theta_hat = result.x
+    theta_hat = _as_float_array(result.x)
 
     beta_hat = theta_hat[:k]
-    sigma_hat = np.exp(theta_hat[k])
+    sigma_hat = float(np.exp(theta_hat[k]))
 
     # Standard errors via numerical Hessian
     eps = 1e-5
@@ -159,7 +168,7 @@ def truncreg(
 
     try:
         var_cov = np.linalg.inv(H)
-        se = np.sqrt(np.abs(np.diag(var_cov)))
+        se = _as_float_array(np.sqrt(np.abs(np.diag(var_cov))))
     except np.linalg.LinAlgError:
         se = np.full(k_total, np.nan)
 
@@ -169,7 +178,7 @@ def truncreg(
     params = pd.Series(all_params, index=all_names)
     std_errors = pd.Series(se, index=all_names)
 
-    ll_val = -neg_log_lik(theta_hat)
+    ll_val = float(-neg_log_lik(theta_hat))
 
     return EconometricResults(
         params=params,

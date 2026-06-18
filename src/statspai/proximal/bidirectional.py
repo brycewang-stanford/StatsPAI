@@ -11,7 +11,7 @@ robust to misspecification in either direction.
 from __future__ import annotations
 
 import warnings
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
@@ -92,10 +92,16 @@ def bidirectional_pci(
 
     # Filled by _bidir on the point-estimate call only (record=True);
     # the bootstrap replicates reuse the closure without signalling.
-    fallback_info = {'treatment_bridge_fallback': False}
+    fallback_info: Dict[str, Any] = {'treatment_bridge_fallback': False}
 
-    def _bidir(Yi, Di, Zi, Wi, Xi, record=False):
-        from sklearn.linear_model import LinearRegression
+    def _bidir(
+        Yi: np.ndarray,
+        Di: np.ndarray,
+        Zi: np.ndarray,
+        Wi: np.ndarray,
+        Xi: np.ndarray,
+        record: bool = False,
+    ) -> float:
         # Outcome bridge: linear h(W, D, X) via 2SLS
         const = np.ones((len(Yi), 1))
         X_exog = np.hstack([const, Di.reshape(-1, 1), Xi])

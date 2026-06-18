@@ -46,6 +46,12 @@ class BCFLongResult:
     individual_cate: pd.DataFrame  # per-(unit, time) CATE
     model_info: Dict = field(default_factory=dict)
 
+    def to_dict(self) -> dict:
+        """JSON-safe dict of every field (agent-native serialization)."""
+        from .._result_serialize import result_to_dict
+
+        return result_to_dict(self)
+
     def summary(self) -> str:
         lo, hi = self.average_ci
         lines = [
@@ -214,6 +220,11 @@ def bcf_longitudinal(
     missing = required - set(data.columns)
     if missing:
         raise ValueError(f"Missing columns in data: {sorted(missing)}")
+    if int(data[outcome].notna().sum()) < 2:
+        raise ValueError(
+            f"outcome '{outcome}' has fewer than 2 non-missing values; "
+            "cannot fit the longitudinal BCF."
+        )
     df = data.copy()
     if df[[unit, time]].duplicated().any():
         raise ValueError(

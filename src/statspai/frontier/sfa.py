@@ -237,7 +237,10 @@ class FrontierResult(EconometricResults):
             from . import _core as _fc
             pval = _fc.mixed_chi_bar_pvalue(float(lr), df_boundary=1)
             lines.append("")
-            lines.append(f"LR test vs OLS (H0: sigma_u=0):  chi-bar^2(1)={lr:.4f}  p={pval:.4f}")
+            lines.append(
+                "LR test vs OLS (H0: sigma_u=0):  "
+                f"chi-bar^2(1)={lr:.4f}  p={pval:.4f}"
+            )
 
         return base + "\n" + "\n".join(lines)
 
@@ -319,7 +322,7 @@ class FrontierResult(EconometricResults):
     # Out-of-sample prediction
     # ------------------------------------------------------------------
 
-    def predict(
+    def predict(  # type: ignore[override]
         self,
         new_data: pd.DataFrame,
         what: str = "frontier",
@@ -382,7 +385,12 @@ class FrontierResult(EconometricResults):
         vsigma_cols = self.data_info.get("vsigma_cols") or []
         emean_cols = self.data_info.get("emean_cols") or []
 
-        required = list(regressors) + list(usigma_cols) + list(vsigma_cols) + list(emean_cols)
+        required = (
+            list(regressors)
+            + list(usigma_cols)
+            + list(vsigma_cols)
+            + list(emean_cols)
+        )
         needs_y = what.startswith("conditional_")
         if needs_y:
             y_col = self.data_info.get("dep_var")
@@ -541,23 +549,33 @@ class FrontierResult(EconometricResults):
         this stays consistent with parameter naming at fit time.
         """
         if not cols:
-            return np.exp(np.full(len(df), self.params[log_sigma_const_name]))
+            return np.asarray(
+                np.exp(
+                    np.full(
+                        len(df), float(self.params[log_sigma_const_name])
+                    )
+                ),
+                dtype=float,
+            )
         intercept_name = _fc.const_name_for(coef_prefix)
-        intercept = self.params[intercept_name]
+        intercept = float(self.params[intercept_name])
         W = df[cols].to_numpy(dtype=float)
-        coefs = np.array([self.params[f"{coef_prefix}{c}"] for c in cols])
-        return np.exp(intercept + W @ coefs)
+        coefs = np.asarray(
+            [self.params[f"{coef_prefix}{c}"] for c in cols],
+            dtype=float,
+        )
+        return np.asarray(np.exp(intercept + W @ coefs), dtype=float)
 
     def _eval_mu(self, df: pd.DataFrame, cols: List[str]) -> np.ndarray:
         """Compute per-row mu for truncated-normal emean."""
         if "mu" in self.params.index and not cols:
-            return np.full(len(df), self.params["mu"])
+            return np.full(len(df), float(self.params["mu"]))
         if not cols:
             return np.zeros(len(df))  # half-normal / exponential: no mu
-        intercept = self.params[_fc.const_name_for("mu_")]
+        intercept = float(self.params[_fc.const_name_for("mu_")])
         Z = df[cols].to_numpy(dtype=float)
-        coefs = np.array([self.params[f"mu_{c}"] for c in cols])
-        return intercept + Z @ coefs
+        coefs = np.asarray([self.params[f"mu_{c}"] for c in cols], dtype=float)
+        return np.asarray(intercept + Z @ coefs, dtype=float)
 
     # ------------------------------------------------------------------
     # Marginal effects (BC95 + Caudill-Ford-Gropper)
@@ -577,8 +595,8 @@ class FrontierResult(EconometricResults):
             Currently only ``E[u]`` marginal effects are supported.
         source : {'emean', 'usigma'}
             ``'emean'``  — derivative wrt the BC95 mean covariates
-            ``z`` via ``mu_i = delta'[1, z_i]``. Requires ``dist='truncated-normal'``
-            and a model fitted with ``emean=[...]``.
+            ``z`` via ``mu_i = delta'[1, z_i]``. Requires
+            ``dist='truncated-normal'`` and a model fitted with ``emean=[...]``.
             ``'usigma'`` — derivative wrt the Caudill-Ford-Gropper (1995)
             ``sigma_u`` covariates ``w`` via ``ln sigma_u_i = gamma'[1, w_i]``.
             Requires a model fitted with ``usigma=[...]``.
@@ -593,7 +611,9 @@ class FrontierResult(EconometricResults):
         usigma (exponential):
             d E[u_i] / d w_ij = gamma_j * sigma_u_i
         usigma (truncated-normal):
-            d E[u_i] / d w_ij = gamma_j * sigma_u_i * [phi/Phi + ratio * phi/Phi * (phi/Phi - (-ratio))]
+            d E[u_i] / d w_ij =
+                gamma_j * sigma_u_i * [phi/Phi + ratio * phi/Phi
+                * (phi/Phi - (-ratio))]
             (chain rule through sigma_u_i = exp(gamma'[1, w_i])).
         """
         kind = _require_string_option(kind, "kind").lower()
@@ -690,12 +710,16 @@ class FrontierResult(EconometricResults):
             mu_i = np.asarray(self.diagnostics["mu_i"])
             ratio = mu_i / sigma_u_i
             phi_over_Phi = _fc._phi_over_Phi(ratio)
-            # d E[u]/d sigma_u = phi/Phi(r) - mu/sigma * (1 - r*phi/Phi - (phi/Phi)^2)
-            # Simpler derivation: d/d sigma [mu + sigma * M(mu/sigma)] where M = phi/Phi.
+            # d E[u]/d sigma_u = phi/Phi(r) - mu/sigma
+            # * (1 - r*phi/Phi - (phi/Phi)^2).
+            # Simpler derivation: d/d sigma [mu + sigma * M(mu/sigma)]
+            # where M = phi/Phi.
             # = M(r) + sigma * M'(r) * (-mu/sigma^2)
             # = M(r) - (mu/sigma) * M'(r) = M(r) - r * [-r*M - M^2] = M + r^2 M + r*M^2
             # = M * (1 + r^2) + r * M^2
-            factor = sigma_u_i * (phi_over_Phi * (1.0 + ratio**2) + ratio * phi_over_Phi**2)
+            factor = sigma_u_i * (
+                phi_over_Phi * (1.0 + ratio**2) + ratio * phi_over_Phi**2
+            )
 
         gammas = np.array([self.params[f"u_{c}"] for c in usigma_cols])
         effects = factor[:, None] * gammas[None, :]
@@ -713,7 +737,7 @@ class FrontierResult(EconometricResults):
         self,
         inputs: Optional[List[str]] = None,
         alpha: float = 0.05,
-    ) -> Dict[str, float]:
+    ) -> Dict[str, Any]:
         """Sum of input elasticities (RTS) with Wald test H0: RTS = 1 (CRS).
 
         Parameters
@@ -861,13 +885,13 @@ class FrontierResult(EconometricResults):
 def _refit_bootstrap(
     df_b: pd.DataFrame,
     y: str,
-    x: list,
+    x: List[str],
     dist: str,
     cost: bool,
-    usigma: Optional[list],
-    vsigma: Optional[list],
-    emean: Optional[list],
-    spec,  # _FrontierSpec describing parameter layout
+    usigma: Optional[List[str]],
+    vsigma: Optional[List[str]],
+    emean: Optional[List[str]],
+    spec: "_FrontierSpec",
     start: np.ndarray,
     maxiter: int,
     tol: float,
@@ -887,12 +911,16 @@ def _refit_bootstrap(
             vce="oim",  # fast SE; we only need the point estimate here
             maxiter=maxiter, tol=tol, start=start,
         )
-        return res.params.to_numpy()
+        return np.asarray(res.params.to_numpy(), dtype=float)
     except Exception:
         return np.full(spec.k_total, np.nan)
 
 
-def _draw_truncated_normal(mu, sigma, rng) -> np.ndarray:
+def _draw_truncated_normal(
+    mu: Any,
+    sigma: Any,
+    rng: np.random.Generator,
+) -> np.ndarray:
     """Draw u ~ N^+(mu, sigma^2) truncated at 0 (inverse-CDF)."""
     mu = np.asarray(mu, dtype=float)
     sigma = np.asarray(sigma, dtype=float)
@@ -902,7 +930,7 @@ def _draw_truncated_normal(mu, sigma, rng) -> np.ndarray:
     lo = stats.norm.cdf(-mu / sigma)
     p = lo + u * (1.0 - lo)
     p = np.clip(p, 1e-15, 1.0 - 1e-15)
-    return mu + sigma * stats.norm.ppf(p)
+    return np.asarray(mu + sigma * stats.norm.ppf(p), dtype=float)
 
 
 # ---------------------------------------------------------------------------
@@ -1154,14 +1182,20 @@ def frontier(
 
     # ---------------------- Log-likelihood ----------------------
 
-    def _unpack(theta: np.ndarray):
+    def _unpack(
+        theta: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
         beta = theta[sl_beta]
         gamma_u = theta[sl_gu]
         gamma_v = theta[sl_gv]
         delta = theta[sl_dm] if k_delta_mu > 0 else None
 
-        sigma_u = _fc.evaluate_sigma(gamma_u, W_mat, gamma_u[0] if W_mat is None else 0.0, n)
-        sigma_v = _fc.evaluate_sigma(gamma_v, R_mat, gamma_v[0] if R_mat is None else 0.0, n)
+        sigma_u = _fc.evaluate_sigma(
+            gamma_u, W_mat, gamma_u[0] if W_mat is None else 0.0, n
+        )
+        sigma_v = _fc.evaluate_sigma(
+            gamma_v, R_mat, gamma_v[0] if R_mat is None else 0.0, n
+        )
         if delta is not None:
             if Z_mat is None:
                 mu = np.full(n, delta[0])
@@ -1169,9 +1203,14 @@ def frontier(
                 mu = Z_mat @ delta
         else:
             mu = None
-        return beta, sigma_u, sigma_v, mu
+        return (
+            np.asarray(beta, dtype=float),
+            np.asarray(sigma_u, dtype=float),
+            np.asarray(sigma_v, dtype=float),
+            None if mu is None else np.asarray(mu, dtype=float),
+        )
 
-    def per_obs_loglik(theta):
+    def per_obs_loglik(theta: np.ndarray) -> np.ndarray:
         """Return vector of per-observation log-likelihoods (length n)."""
         beta, sigma_u, sigma_v, mu = _unpack(theta)
         eps = y_vec - X_mat @ beta
@@ -1181,10 +1220,11 @@ def frontier(
             elif dist == "exponential":
                 ll = _fc.loglik_exponential(eps, sigma_v, sigma_u, sign)
             else:
+                assert mu is not None
                 ll = _fc.loglik_truncated_normal(eps, sigma_v, sigma_u, mu, sign)
-        return ll
+        return np.asarray(ll, dtype=float)
 
-    def neg_loglik(theta):
+    def neg_loglik(theta: np.ndarray) -> float:
         if not np.all(np.isfinite(theta)):
             return 1e20
         beta, sigma_u, sigma_v, mu = _unpack(theta)
@@ -1279,7 +1319,7 @@ def frontier(
         for _ in range(k_delta_mu - 1):
             bounds.append((-50.0, 50.0))
 
-    def _fit_from(start_vec):
+    def _fit_from(start_vec: np.ndarray) -> Any:
         return minimize(
             neg_loglik,
             start_vec,
@@ -1380,6 +1420,7 @@ def frontier(
     elif dist == "exponential":
         E_u, TE_bc = _fc.jondrow_exponential(eps_hat, sigma_v_i, sigma_u_i, sign)
     else:
+        assert mu_i is not None
         E_u, TE_bc = _fc.jondrow_truncnormal(eps_hat, sigma_v_i, sigma_u_i, mu_i, sign)
     TE_jlms = np.clip(np.exp(-E_u), 0.0, 1.0)
 

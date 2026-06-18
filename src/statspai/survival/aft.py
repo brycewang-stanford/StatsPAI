@@ -73,6 +73,47 @@ class AFTResult:
     bic: float
     n: int
     n_events: int
+    se_log_sigma: float | None = None
+
+    # ------------------------------------------------------------------
+    # Agent-native accessors (consistent with EconometricResults /
+    # sp.survreg). The regression coefficients live on the log-time scale;
+    # ``log(sigma)`` is appended for the estimated-scale families (every
+    # family except ``exponential``, whose scale is fixed at 1).
+    # ------------------------------------------------------------------
+    @property
+    def params(self) -> pd.Series:
+        names = list(self.var_names)
+        vals = list(np.asarray(self.beta, dtype=float))
+        if self.family != "exponential":
+            names = names + ["log(sigma)"]
+            vals = vals + [float(np.log(self.sigma))]
+        return pd.Series(vals, index=names)
+
+    @property
+    def std_errors(self) -> pd.Series:
+        names = list(self.var_names)
+        vals = list(np.asarray(self.se, dtype=float))
+        if self.family != "exponential":
+            names = names + ["log(sigma)"]
+            vals = vals + [
+                float(self.se_log_sigma)
+                if self.se_log_sigma is not None
+                else float("nan")
+            ]
+        return pd.Series(vals, index=names)
+
+    @property
+    def tvalues(self) -> pd.Series:
+        return self.params / self.std_errors
+
+    @property
+    def pvalues(self) -> pd.Series:
+        z = (self.params / self.std_errors).to_numpy(dtype=float)
+        return pd.Series(
+            2.0 * (1.0 - sp_stats.norm.cdf(np.abs(z))),
+            index=self.params.index,
+        )
 
     def summary(self) -> str:
         lines = [
@@ -174,9 +215,12 @@ def aft(
         ) / (2 * h)
     try:
         V = np.linalg.inv(H)
-        se = np.sqrt(np.maximum(np.diag(V), 0))[:k]
+        se_full = np.sqrt(np.maximum(np.diag(V), 0))
+        se = se_full[:k]
+        se_log_sigma = float(se_full[k]) if not fix_sigma else None
     except np.linalg.LinAlgError:
         se = np.full(k, np.nan)
+        se_log_sigma = None
 
     ll = float(-opt.fun)
     aic = -2 * ll + 2 * n_params
@@ -187,6 +231,7 @@ def aft(
         var_names=["Intercept"] + covariates,
         family=family, log_likelihood=ll,
         aic=aic, bic=bic, n=n, n_events=n_events,
+        se_log_sigma=se_log_sigma,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov

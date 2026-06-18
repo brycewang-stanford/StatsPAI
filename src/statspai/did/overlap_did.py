@@ -27,6 +27,8 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ..exceptions import DataInsufficient
+from .._input_validation import require_columns
 
 # sklearn is imported lazily inside ``overlap_weighted_did`` /
 # ``dl_propensity_score`` so ``import statspai`` does not pull
@@ -106,7 +108,20 @@ def overlap_weighted_did(
     missing = cols - set(data.columns)
     if missing:
         raise ValueError(f"Missing columns: {missing}")
-    df = data.copy()
+    # Drop incomplete rows up front: an all-NaN / partially-missing outcome
+    # otherwise collapses the weighted cell means to a silent 0.0 (the
+    # groupby's NaN-sum), returning estimate=0.0 with no warning.
+    needed = [y, treat, time] + (list(covariates) if covariates else [])
+    df = data.dropna(subset=needed).copy()
+    if len(df) < 4:
+        raise DataInsufficient(
+            "overlap_weighted_did: fewer than 4 complete rows after dropping "
+            "missing values — a 2x2 overlap-weighted DID needs both treatment "
+            "groups in both periods.",
+            recovery_hint="Provide more complete observations across the "
+            "treated/control x pre/post cells.",
+            diagnostics={"n_complete": int(len(df))},
+        )
     # Validate 0/1 treat + time
     for col in (treat, time):
         vals = set(pd.Series(df[col]).dropna().unique())
@@ -252,8 +267,33 @@ def dl_propensity_score(
     Peng, Li, Wu & Li (arXiv:2404.04794, 2024). [@peng2024local]
     """
     from sklearn.neural_network import MLPClassifier
+    # Validate columns (clear error instead of a bare KeyError). No dropna:
+    # the returned score must stay row-aligned with ``data``.
+    require_columns(
+        data, [treatment, *covariates], function="dl_propensity_score"
+    )
     X = data[list(covariates)].to_numpy(dtype=float)
     T = data[treatment].to_numpy(dtype=int)
+    n = len(data)
+    if n < max(2, len(covariates) + 1) or len(np.unique(T)) < 2:
+        raise DataInsufficient(
+            "dl_propensity_score: need at least 2 rows spanning both "
+            f"treatment classes to fit a propensity model; got {n} row(s) "
+            f"with treatment value(s) {sorted(set(T.tolist()))}.",
+            recovery_hint="Provide more observations with both treated and "
+            "control units.",
+            diagnostics={
+                "n": int(n),
+                "n_treatment_classes": int(len(np.unique(T))),
+            },
+        )
+    if not np.isfinite(X).all():
+        raise DataInsufficient(
+            "dl_propensity_score: covariates contain NaN/inf — the neural "
+            "propensity model cannot fit missing values.",
+            recovery_hint="Impute or drop missing covariate rows first.",
+            diagnostics={"n_nonfinite": int((~np.isfinite(X)).sum())},
+        )
     clf = MLPClassifier(
         hidden_layer_sizes=tuple(hidden_sizes),
         max_iter=max_iter,

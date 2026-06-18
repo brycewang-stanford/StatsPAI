@@ -369,6 +369,19 @@ def ltmle(
             diagnostics={"n": n},
             alternative_functions=_LTMLE_ALTERNATIVES,
         )
+    # Guard an all-/mostly-NaN outcome up front: otherwise the nuisance fit
+    # leaks a cryptic sklearn ``ValueError: Input y contains NaN`` instead of a
+    # StatsPAI message naming the outcome (censoring is handled via the
+    # ``censoring`` argument, not NaN outcomes).
+    if int(df[y].notna().sum()) < 2:
+        raise DataInsufficient(
+            f"ltmle: outcome '{y}' has fewer than two non-missing values; "
+            "the nuisance models cannot be fit.",
+            recovery_hint="Provide a non-missing outcome; encode dropout via "
+            "the `censoring` argument rather than NaN outcomes.",
+            diagnostics={"n_nonmissing_outcome": int(df[y].notna().sum())},
+            alternative_functions=_LTMLE_ALTERNATIVES,
+        )
 
     # Detect outcome type
     if outcome_type == "auto":
