@@ -15,14 +15,14 @@ the exact audit artifacts under `Paper-JSS/replication/results/`.
 - Package archive: <https://doi.org/10.5281/zenodo.19933900>
 - PyPI: <https://pypi.org/project/StatsPAI/>
 - License: MIT, with a plain-text `LICENSE` file in the repository.
-- JSS source-snapshot package metadata version: `1.17.0`; the final-publication release gate remains pending until a clean tagged release snapshot is cut.
+- JSS source-snapshot package metadata version: `1.18.0`; the final-publication release gate remains pending until a clean tagged release snapshot is cut.
 - JSS source-snapshot audit date: 2026-05-31.
 - Public GitHub repository creation date: 2025-07-26.
 
 ## Software Scope
 
 StatsPAI exposes a unified Python interface for causal inference and applied
-econometrics. The live registry reports 1,031 registered public functions
+econometrics. The live registry reports 1,070 registered public functions
 across 81 submodules:
 
 ```bash
@@ -36,9 +36,9 @@ does not mean every registered helper is numerically validated.
 
 ## Validation Boundary
 
-Current JSS source-snapshot audit counts: 61 `certified`, 25 `validated`, 942
+Current JSS source-snapshot audit counts: 61 `certified`, 49 `validated`, 957
 `api_stable`, and 3 `experimental` registry symbols. The certified/validated
-surface is therefore 86 symbols, while 757 stable auto-registered symbols
+surface is therefore 110 symbols, while 783 stable auto-registered symbols
 remain API-stable but not parity-backed.
 
 The `validated` tier requires known-truth, reference-parity, external-parity,
@@ -47,11 +47,11 @@ API stability; they do not by themselves promote a function to `validated`.
 `certified` is reserved for entries in the main cross-language or published
 reference parity harness.
 
-The source-snapshot evidence audit checks that all 86 certified/validated symbols
+The source-snapshot evidence audit checks that all 110 certified/validated symbols
 have registry-attached evidence notes and that those notes resolve to source
-files included in the JSS package. The current archive includes 137
+files included in the JSS package. The current archive includes 148
 registry-evidence source files.
-The current source snapshot also tracks 137 registry-evidence source files
+The current source snapshot also tracks 148 registry-evidence source files
 in the live validation-note inventory.
 
 ## Reproducible Audit Artifacts
