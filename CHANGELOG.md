@@ -6,18 +6,25 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
-- **Agent-native `.to_dict()` serialization on the domain result objects.**
-  The flagship `CausalResult` / `EconometricResults` already serialised to a
-  JSON-safe dict, but the lighter result dataclasses only had `.summary()`.
-  Ten more now expose `.to_dict()` — `NegativeControlResult`,
-  `ProximalRegResult`, `FourWayResult`, `NetworkHTEResult`,
-  `InwardOutwardResult`, `ITSResult`, `RosenbaumResult`,
-  `BCFFactorExposureResult`, `BCFLongResult` and `BCFOrdinalResult` — so an
-  agent gets the same structured, `json.dumps`-safe payload (numpy / pandas /
-  NaN-aware) from every estimator's result, not just the regression families.
-  The conversion reuses the existing `core.results._to_jsonable` through a new
-  one-line shared helper (`statspai._result_serialize.result_to_dict`), so the
-  logic lives in exactly one place. Pinned by `tests/test_result_to_dict.py`.
+- **Agent-native result protocol (`.to_dict()` / `.to_latex()` / `.cite()`) on
+  50 domain result objects.** The flagship `CausalResult` /
+  `EconometricResults` already exposed the full protocol, but the lighter
+  result dataclasses only had `.summary()`. A new `ResultProtocolMixin`
+  (`statspai._result_serialize`) now gives **50** result classes — across the
+  negative-control / proximal / mediation / interference / ITS / Rosenbaum /
+  BCF, plus the Mendelian-randomization, meta-learner, multiple-testing,
+  multilevel, QTE, robustness, transport, target-trial, OPE, longitudinal-TMLE,
+  selection and time-series families — a uniform, JSON-safe `.to_dict()`
+  (numpy / pandas / NaN-aware, via the existing `core.results._to_jsonable`), a
+  compact booktabs `.to_latex()` table of the scalar fields, and a `.cite()`
+  returning the estimator's **verified** paper.bib citation key(s). The
+  citation keys are sourced from the modules' existing references and checked
+  against `paper.bib` — zero-hallucination (CLAUDE.md §10): a method with no
+  single canonical paper honestly returns a placeholder rather than a
+  fabricated reference, and a CI test (`tests/test_result_protocol.py`) fails
+  if any `_citation_keys` value is absent from `paper.bib`. The serialisation
+  logic lives in exactly one place. Pinned by `tests/test_result_protocol.py`
+  and `tests/test_result_to_dict.py`.
 - **29 estimators made agent-discoverable (`__all__` / registry drift repair).**
   A family of estimators — the proximal / negative-control identification
   methods (`sp.double_negative_control`, `sp.proximal_regression`,

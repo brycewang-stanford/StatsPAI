@@ -31787,18 +31787,18 @@
       "properties": {
         "bandwidth": {
           "description": "Bandwidth used for local smoothing or kernel weighting.",
-          "type": "string"
+          "type": "number"
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
         "density": {
-          "description": "density parameter.",
+          "description": "density parameter (ndarray).",
           "type": "string"
         },
         "grid": {
-          "description": "grid parameter.",
+          "description": "grid parameter (ndarray).",
           "type": "string"
         },
         "kernel": {
@@ -31806,8 +31806,8 @@
           "type": "string"
         },
         "n": {
-          "description": "n parameter.",
-          "type": "string"
+          "description": "n parameter (int).",
+          "type": "integer"
         }
       },
       "required": [
@@ -32061,12 +32061,12 @@
     "parameters": {
       "properties": {
         "bic": {
-          "description": "bic parameter.",
-          "type": "string"
+          "description": "bic parameter (Optional[float]).",
+          "type": "number"
         },
         "break_dates": {
-          "description": "break_dates parameter.",
-          "type": "string"
+          "description": "break_dates parameter (list[int]).",
+          "type": "integer"
         },
         "f_stats": {
           "description": "f_stats parameter.",
@@ -32074,26 +32074,26 @@
         },
         "n_breaks": {
           "description": "Number of breaks.",
-          "type": "string"
+          "type": "integer"
         },
         "n_obs": {
           "description": "Number of obs.",
-          "type": "string"
+          "type": "integer"
         },
         "p_values": {
           "description": "p_values parameter.",
           "type": "string"
         },
         "rss_full": {
-          "description": "rss_full parameter.",
-          "type": "string"
+          "description": "rss_full parameter (float).",
+          "type": "number"
         },
         "rss_segments": {
-          "description": "rss_segments parameter.",
-          "type": "string"
+          "description": "rss_segments parameter (Optional[float]).",
+          "type": "number"
         },
         "test_type": {
-          "description": "test_type parameter.",
+          "description": "test_type parameter (str).",
           "type": "string"
         }
       },
@@ -33358,39 +33358,39 @@
     "parameters": {
       "properties": {
         "critical_values": {
-          "description": "critical_values parameter.",
-          "type": "string"
+          "description": "critical_values parameter (list[float]).",
+          "type": "number"
         },
         "eigenvalues": {
-          "description": "eigenvalues parameter.",
+          "description": "eigenvalues parameter (Optional[numpy.ndarray]).",
           "type": "string"
         },
         "eigenvectors": {
-          "description": "eigenvectors parameter.",
+          "description": "eigenvectors parameter (Optional[numpy.ndarray]).",
           "type": "string"
         },
         "lags": {
-          "description": "lags parameter.",
-          "type": "string"
+          "description": "lags parameter (int).",
+          "type": "integer"
         },
         "n_obs": {
           "description": "Number of obs.",
-          "type": "string"
+          "type": "integer"
         },
         "n_vars": {
           "description": "Number of vars.",
-          "type": "string"
+          "type": "integer"
         },
         "rank": {
-          "description": "rank parameter.",
-          "type": "string"
+          "description": "rank parameter (int).",
+          "type": "integer"
         },
         "test_stats": {
           "description": "test_stats parameter.",
           "type": "string"
         },
         "test_type": {
-          "description": "test_type parameter.",
+          "description": "test_type parameter (str).",
           "type": "string"
         }
       },
@@ -38541,7 +38541,7 @@
     "parameters": {
       "properties": {
         "ax": {
-          "description": "ax parameter.",
+          "description": "ax parameter (Optional[Any]).",
           "type": "string"
         },
         "w": {
@@ -38717,7 +38717,7 @@
     "parameters": {
       "properties": {
         "ax": {
-          "description": "ax parameter.",
+          "description": "ax parameter (Optional[Any]).",
           "type": "string"
         },
         "gdf": {
@@ -38924,7 +38924,10 @@
       "properties": {
         "regimes": {
           "description": "Length-``n`` array of group labels (any hashable dtype). Units with equal labels become mutual neighbours.",
-          "type": "string"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -44473,7 +44476,7 @@
     }
   },
   {
-    "description": "Container for Cochran's Q / Rucker's Q' heterogeneity diagnostics.",
+    "description": "HeterogeneityResult(Q: 'float', Q_df: 'int', Q_p: 'float', I2: 'float', method: 'str')",
     "name": "HeterogeneityResult",
     "parameters": {
       "properties": {
@@ -44509,7 +44512,7 @@
     }
   },
   {
-    "description": "Container for the MR-Egger intercept (directional-pleiotropy) test.",
+    "description": "PleiotropyResult(intercept: 'float', se: 'float', p_value: 'float')",
     "name": "PleiotropyResult",
     "parameters": {
       "properties": {
@@ -44535,7 +44538,7 @@
     }
   },
   {
-    "description": "Container for leave-one-out IVW estimates.",
+    "description": "LeaveOneOutResult(table: 'pd.DataFrame')",
     "name": "LeaveOneOutResult",
     "parameters": {
       "properties": {
@@ -44551,7 +44554,7 @@
     }
   },
   {
-    "description": "Container for the Steiger directionality test.",
+    "description": "SteigerResult(correct_direction: 'bool', steiger_pvalue: 'float', r2_exposure: 'float', r2_outcome: 'float', sample_size_exposure: 'int', sample_size_outcome: 'int')",
     "name": "SteigerResult",
     "parameters": {
       "properties": {
@@ -44592,7 +44595,7 @@
     }
   },
   {
-    "description": "Container for MR-PRESSO global test and outlier-corrected estimates.",
+    "description": "MRPressoResult(raw_estimate: 'float', raw_se: 'float', raw_p: 'float', outlier_corrected_estimate: 'Optional[float]', outlier_corrected_se: 'Optional[float]', outlier_corrected_p: 'Optional[float]', outliers: 'List[int]' = <factory>, global_test_rss_obs: 'float' = 0.0, global_test_pvalue: 'float' = 1.0, distortion_p: 'Optional[float]' = None)",
     "name": "MRPressoResult",
     "parameters": {
       "properties": {
@@ -44652,7 +44655,7 @@
     }
   },
   {
-    "description": "Container for radial-MR diagnostics.",
+    "description": "RadialResult(table: 'pd.DataFrame', total_Q: 'float', Q_pvalue: 'float', outliers: 'list[int]')",
     "name": "RadialResult",
     "parameters": {
       "properties": {
@@ -44755,7 +44758,7 @@
     }
   },
   {
-    "description": "Result container returned by :func:`mr_mode`.",
+    "description": "ModeBasedResult(estimate: 'float', se: 'float', ci: 'tuple[float, float]', p_value: 'float', n_snps: 'int', bandwidth: 'float', method: 'str' = 'weighted-mode')",
     "name": "ModeBasedResult",
     "parameters": {
       "properties": {
@@ -44801,7 +44804,7 @@
     }
   },
   {
-    "description": "Result container returned by :func:`mr_f_statistic`.",
+    "description": "FStatisticResult(f_mean: 'float', f_min: 'float', f_max: 'float', weak_instrument_risk: 'bool', r2_mean: 'float', per_snp_F: 'np.ndarray')",
     "name": "FStatisticResult",
     "parameters": {
       "properties": {
