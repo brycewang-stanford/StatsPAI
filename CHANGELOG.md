@@ -42,15 +42,36 @@ All notable changes to StatsPAI will be documented in this file.
   errors match `ivregress 2sls, small` / `ivregress 2sls, robust small` (the
   finite-sample *t* convention StatsPAI uses) to machine precision. Pinned in
   `tests/reference_parity/test_regress_weights_iv_robust_parity.py`.
-- **Reliability — spurious `converged: False` on `sp.tobit`, `sp.heckman`'s
-  selection probit, and `sp.truncreg`.** These MLE estimators reported
+- **⚠️ Correctness — `sp.biprobit` always reported zero error correlation.**
+  The bivariate-probit MLE estimated `rho` via a per-observation
+  `scipy.stats.multivariate_normal.cdf` loop whose ~1e-8 precision floor
+  corrupted BFGS's finite-difference gradient. BFGS died at the starting
+  point on its very first step (status 2), so `rho` was pinned at its initial
+  value of **0** for *every* dataset — the model silently claimed the two
+  equations' errors were uncorrelated no matter how correlated they actually
+  were (a researcher would wrongly conclude "no cross-equation selection").
+  The bivariate-normal CDF is now a smooth, fully vectorised Drezner–Wesolowsky
+  (1990) Gauss–Legendre quadrature (matches SciPy to ~8e-6, ~280× faster), so
+  the optimiser recovers `rho` correctly: on simulated data with true ρ≈0.45
+  it returns ρ̂≈0.47 (p<0.001) and on independent errors ρ̂≈0 (p≈0.97). It now
+  also reports `model_info['converged']`. Marginal coefficients match separate
+  univariate probits and reproduce the pre-regression reference values
+  (`tests/test_v06_round2.py::TestSelectionModels::test_biprobit`, previously
+  failing, now green). Behavioural regression test added in
+  `tests/test_limited_dep_lane.py`.
+- **Reliability — spurious `converged: False` on the BFGS-based MLEs.**
+  `sp.tobit`, `sp.heckman`'s selection probit, `sp.truncreg`, `sp.zip` /
+  `sp.zinb`, `sp.betareg` and `sp.biprobit` reported
   `model_info['converged'] = False` at perfectly good optima because SciPy's
   BFGS returns `success=False` with status 2 ("Desired error not necessarily
   achieved due to precision loss") on flat log-likelihoods — a line-search
   artefact, not a real failure (Nelder-Mead reaches the identical objective
-  and coefficients to ~1e-13). The flag is now derived from the gradient norm
-  at the optimum (`success` **or** ‖∇‖ < 1e-3 with a finite objective), and a
-  new `model_info['gradient_norm']` is reported for transparency. Point
+  and coefficients to ~1e-13). A single shared helper
+  (`statspai.regression._optim_helpers.robust_convergence`) now derives the
+  flag from the gradient norm at the optimum (`success` **or** ‖∇‖ < 1e-3 with
+  a finite objective) and returns `model_info['gradient_norm']` for
+  transparency. It only ever relaxes a false negative — a genuinely
+  non-converged run keeps a large gradient and still reports `False`. Point
   estimates and standard errors are byte-identical; only the boolean flag
   changes. Pinned in `tests/test_limited_dep_lane.py`.
 
