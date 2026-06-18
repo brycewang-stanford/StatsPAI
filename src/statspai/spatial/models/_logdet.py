@@ -13,25 +13,25 @@ Two paths:
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 from scipy import sparse
 
 
-def _to_csr(W):
+def _to_csr(W: Any) -> Any:
     if sparse.issparse(W):
         return W.tocsr()
     return sparse.csr_matrix(np.asarray(W, dtype=float))
 
 
-def log_det_exact(W, rho: float) -> float:
+def log_det_exact(W: Any, rho: float) -> float:
     W = _to_csr(W)
     eigvals = np.linalg.eigvals(W.toarray())
     return float(np.sum(np.log(np.abs(1.0 - rho * eigvals))))
 
 
-def log_det_approx(W, rho: float, n_draws: int = 50, order: int = 50,
+def log_det_approx(W: Any, rho: float, n_draws: int = 50, order: int = 50,
                    seed: Optional[int] = None) -> float:
     W = _to_csr(W)
     n = W.shape[0]

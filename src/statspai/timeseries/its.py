@@ -46,10 +46,13 @@ from scipy import stats
 
 from ..exceptions import DataInsufficient
 from .._input_validation import require_columns
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class ITSResult:
+class ITSResult(ResultProtocolMixin):
+    _citation_keys = ("wagner2002segmented", "lopezbernal2016interrupted")
+
     level_change: float
     slope_change: float
     se_level: float

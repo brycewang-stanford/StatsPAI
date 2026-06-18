@@ -20,9 +20,11 @@ from typing import Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._result_serialize import ResultProtocolMixin
+
 
 @dataclass
-class ARIMAResult:
+class ARIMAResult(ResultProtocolMixin):
     """Fitted ARIMA(p,d,q) / SARIMAX model returned by :func:`statspai.arima`.
 
     Carries the estimated ``params`` / ``se`` (indexed by parameter name),

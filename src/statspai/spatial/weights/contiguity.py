@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, Dict, List
+
 from .core import W
 
 try:
@@ -10,7 +12,7 @@ except ImportError:
     _gpd = None
 
 
-def _require_gpd():
+def _require_gpd() -> None:
     if _gpd is None:
         raise ImportError(
             "geopandas is required for contiguity weights. "
@@ -18,14 +20,14 @@ def _require_gpd():
         )
 
 
-def _contiguity(gdf, criterion: str) -> W:
+def _contiguity(gdf: Any, criterion: str) -> W:
     _require_gpd()
     if criterion not in {"queen", "rook"}:
         raise ValueError("criterion must be 'queen' or 'rook'")
     geoms = list(gdf.geometry.values)
     n = len(geoms)
     sindex = gdf.sindex
-    neighbors = {i: [] for i in range(n)}
+    neighbors: Dict[int, List[int]] = {i: [] for i in range(n)}
     for i in range(n):
         candidates = list(sindex.intersection(geoms[i].bounds))
         for j in candidates:
@@ -44,7 +46,7 @@ def _contiguity(gdf, criterion: str) -> W:
     return W(neighbors)
 
 
-def queen_weights(gdf) -> W:
+def queen_weights(gdf: Any) -> W:
     """Queen-contiguity spatial weights from polygon geometries.
 
     Two areal units are queen-contiguous if their geometries share at least
@@ -80,7 +82,7 @@ def queen_weights(gdf) -> W:
     return _contiguity(gdf, "queen")
 
 
-def rook_weights(gdf) -> W:
+def rook_weights(gdf: Any) -> W:
     """Rook-contiguity spatial weights from polygon geometries.
 
     Two areal units are rook-contiguous if their geometries share a boundary

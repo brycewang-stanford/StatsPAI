@@ -10,7 +10,7 @@ Adaptive (integer nearest-neighbour) search bounds default to
 """
 from __future__ import annotations
 
-from typing import Callable, Literal, Tuple
+from typing import Any, Callable, Literal, Optional, Tuple
 
 import numpy as np
 
@@ -71,14 +71,14 @@ def _golden_section(
 
 
 def gwr_bandwidth(
-    coords,
-    y,
-    X,
+    coords: Any,
+    y: Any,
+    X: Any,
     kernel: KernelName = "bisquare",
     fixed: bool = False,
     criterion: Criterion = "AICc",
-    bw_min: float = None,
-    bw_max: float = None,
+    bw_min: Optional[float] = None,
+    bw_max: Optional[float] = None,
     add_constant: bool = True,
     tol: float = 1e-3,
 ) -> float:

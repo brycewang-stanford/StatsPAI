@@ -17,10 +17,9 @@ Johansen, S. (1991).
 Gaussian Vector Autoregressive Models." *Econometrica*, 59(6), 1551-1580. [@johansen1991estimation]
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Any
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 
 class CointegrationResult:
@@ -54,8 +53,18 @@ class CointegrationResult:
     [@engle1987integration]
     """
 
-    def __init__(self, test_type, test_stats, critical_values, rank,
-                 eigenvalues, eigenvectors, n_obs, n_vars, lags):
+    def __init__(
+        self,
+        test_type: str,
+        test_stats: Any,
+        critical_values: list[float],
+        rank: int,
+        eigenvalues: Optional[np.ndarray],
+        eigenvectors: Optional[np.ndarray],
+        n_obs: int,
+        n_vars: int,
+        lags: int,
+    ) -> None:
         self.test_type = test_type
         self.test_stats = test_stats
         self.critical_values = critical_values
@@ -100,8 +109,8 @@ class CointegrationResult:
 
 def engle_granger(
     data: pd.DataFrame,
-    variables: List[str] = None,
-    lags: int = None,
+    variables: Optional[List[str]] = None,
+    lags: Optional[int] = None,
     trend: str = "c",
     alpha: float = 0.05,
 ) -> CointegrationResult:
@@ -235,7 +244,7 @@ def engle_granger(
 
 def johansen(
     data: pd.DataFrame,
-    variables: List[str] = None,
+    variables: Optional[List[str]] = None,
     lags: int = 1,
     trend: str = "c",
     test: str = "trace",
@@ -306,11 +315,11 @@ def johansen(
     Y_lag_trim = Y_lag[lags:]  # T_eff x k
 
     # Lagged differences
-    Z = []
+    lag_blocks: list[np.ndarray] = []
     for j in range(1, lags + 1):
-        Z.append(dY[lags - j:T - 1 - j])
-    if len(Z) > 0:
-        Z = np.hstack(Z)  # T_eff x (k*lags)
+        lag_blocks.append(dY[lags - j:T - 1 - j])
+    if lag_blocks:
+        Z = np.hstack(lag_blocks)  # T_eff x (k*lags)
     else:
         Z = np.empty((T_eff, 0))
 

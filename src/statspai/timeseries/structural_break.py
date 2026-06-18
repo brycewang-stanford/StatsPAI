@@ -24,7 +24,7 @@ Brown, R.L., Durbin, J. & Evans, J.M. (1975).
 """
 
 from functools import lru_cache
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import numpy as np
 import pandas as pd
 
@@ -122,8 +122,18 @@ class StructuralBreakResult:
     True
     """
 
-    def __init__(self, test_type, break_dates, f_stats, p_values,
-                 n_breaks, rss_full, rss_segments, bic, n_obs):
+    def __init__(
+        self,
+        test_type: str,
+        break_dates: list[int],
+        f_stats: Any,
+        p_values: Any,
+        n_breaks: int,
+        rss_full: float,
+        rss_segments: Optional[float],
+        bic: Optional[float],
+        n_obs: int,
+    ) -> None:
         self.test_type = test_type
         self.break_dates = break_dates
         self.f_stats = f_stats
@@ -154,7 +164,7 @@ class StructuralBreakResult:
         lines.append("=" * 55)
         return "\n".join(lines)
 
-    def plot(self, ax=None, **kwargs):
+    def plot(self, ax: Any = None, **kwargs: Any) -> Any:
         """Plot with break dates marked."""
         try:
             import matplotlib.pyplot as plt
@@ -169,9 +179,9 @@ class StructuralBreakResult:
 
 
 def structural_break(
-    data: pd.DataFrame = None,
-    y: str = None,
-    x: List[str] = None,
+    data: Optional[pd.DataFrame] = None,
+    y: Optional[str] = None,
+    x: Optional[List[str]] = None,
     max_breaks: int = 5,
     min_segment: float = 0.15,
     method: str = "bai-perron",
@@ -244,6 +254,7 @@ def structural_break(
     """
     if data is None:
         raise ValueError("data is required")
+    assert y is not None
 
     y_data = data[y].values.astype(float)
     n = len(y_data)
@@ -291,13 +302,14 @@ def structural_break(
         # Andrews (1993) sup-F law, NOT F(k, n-2k). Using the naive F CDF here
         # inflated the false-positive rate to ~35% on white noise.
         p_value = _supf_pvalue(best_f, k, n, min_segment)
+        selected_breaks = [best_break] if p_value < alpha and best_break is not None else []
 
         return StructuralBreakResult(
             test_type='Sup-F' if method == 'sup-f' else 'Chow',
-            break_dates=[best_break] if p_value < alpha else [],
+            break_dates=selected_breaks,
             f_stats=best_f,
             p_values=p_value,
-            n_breaks=1 if p_value < alpha else 0,
+            n_breaks=len(selected_breaks),
             rss_full=rss_full,
             rss_segments=None,
             bic=None,
@@ -344,6 +356,7 @@ def structural_break(
 
         if best_break is None:
             break
+        assert best_seg_idx is not None
 
         # Sequential sup-F(l+1 | l) stopping rule. best_f is the largest Chow
         # F across segments and candidate break points, so it is referred to
@@ -399,7 +412,7 @@ def structural_break(
 def cusum_test(
     data: pd.DataFrame,
     y: str,
-    x: List[str] = None,
+    x: Optional[List[str]] = None,
     alpha: float = 0.05,
 ) -> Dict[str, Any]:
     """
@@ -453,7 +466,7 @@ def cusum_test(
     k = X_data.shape[1]
 
     # Recursive residuals
-    rec_resid = []
+    rec_resid_values: list[float] = []
     for t in range(k, n):
         Xt = X_data[:t]
         yt = y_data[:t]
@@ -461,9 +474,9 @@ def cusum_test(
         pred = X_data[t] @ bt
         resid = y_data[t] - pred
         ft = 1 + X_data[t] @ np.linalg.solve(Xt.T @ Xt, X_data[t])
-        rec_resid.append(resid / np.sqrt(max(ft, 1e-10)))
+        rec_resid_values.append(float(resid / np.sqrt(max(ft, 1e-10))))
 
-    rec_resid = np.array(rec_resid)
+    rec_resid = np.array(rec_resid_values)
     sigma = np.std(rec_resid, ddof=1)
 
     # CUSUM statistic

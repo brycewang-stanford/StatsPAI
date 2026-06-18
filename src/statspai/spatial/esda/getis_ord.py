@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 from scipy import stats as sp_stats
@@ -12,7 +12,7 @@ from ._base import SpatialStatistic, permutation_pvalue
 
 
 def getis_ord_g(
-    y, w: W, permutations: int = 999, seed: Optional[int] = None
+    y: Any, w: W, permutations: int = 999, seed: Optional[int] = None
 ) -> SpatialStatistic:
     """Global Getis-Ord G — overall concentration of high (or low) values.
 
@@ -111,8 +111,12 @@ def getis_ord_g(
 
 
 def getis_ord_local(
-    y, w: W, star: bool = True, permutations: int = 999, seed: Optional[int] = None
-):
+    y: Any,
+    w: W,
+    star: bool = True,
+    permutations: int = 999,
+    seed: Optional[int] = None,
+) -> Dict[str, np.ndarray]:
     """Local Getis-Ord Gi / Gi* — hotspot and coldspot detection.
 
     Computes a standardised local statistic for each unit measuring whether it

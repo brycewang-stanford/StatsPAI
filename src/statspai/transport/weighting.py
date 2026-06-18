@@ -17,9 +17,11 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
+from .._result_serialize import ResultProtocolMixin
+
 
 @dataclass
-class TransportWeightResult:
+class TransportWeightResult(ResultProtocolMixin):
     """Result of density-ratio (inverse-odds-of-sampling) transport weighting.
 
     Attributes

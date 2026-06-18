@@ -54,4 +54,4 @@ def permutation_pvalue(observed: float, sims: np.ndarray) -> float:
     sims = np.asarray(sims)
     centre = sims.mean()
     larger = np.sum(np.abs(sims - centre) >= abs(observed - centre))
-    return (larger + 1) / (len(sims) + 1)
+    return float((larger + 1) / (len(sims) + 1))

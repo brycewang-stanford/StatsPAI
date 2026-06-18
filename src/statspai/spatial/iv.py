@@ -40,7 +40,6 @@ from typing import Optional, Sequence, Dict, Any
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 
 @dataclass
@@ -102,7 +101,7 @@ class SpatialIVResult:
         return f"SpatialIVResult(rho={self.rho:+.4f})"
 
 
-def _coerce_W(W) -> np.ndarray:
+def _coerce_W(W: Any) -> np.ndarray:
     if hasattr(W, "full"):
         return np.asarray(W.full()[0], dtype=float)
     if hasattr(W, "toarray"):
@@ -115,7 +114,7 @@ def spatial_iv(
     y: str,
     endog: Sequence[str],
     exog: Sequence[str],
-    W,
+    W: Any,
     instruments: Optional[Sequence[str]] = None,
     include_WY: bool = True,
     alpha: float = 0.05,

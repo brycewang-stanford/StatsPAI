@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 
@@ -10,7 +10,9 @@ from ..weights.core import W
 from ._base import permutation_pvalue
 
 
-def join_counts(y, w: W, permutations: int = 999, seed: Optional[int] = None):
+def join_counts(
+    y: Any, w: W, permutations: int = 999, seed: Optional[int] = None
+) -> Dict[str, Any]:
     """Join-count statistics for a binary spatial variable.
 
     For a 0/1 ("white"/"black") variable defined over a spatial network,

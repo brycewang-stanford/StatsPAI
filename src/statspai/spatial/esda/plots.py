@@ -1,7 +1,7 @@
 """Visualisations for ESDA."""
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -14,7 +14,7 @@ except ImportError:
     _gpd = None
 
 
-def moran_plot(y, w: W, ax=None):
+def moran_plot(y: Any, w: W, ax: Optional[Any] = None) -> Any:
     """Moran scatter: z vs spatial lag Wz. Slope of OLS line = Moran's I.
 
     Examples
@@ -48,7 +48,13 @@ def moran_plot(y, w: W, ax=None):
     return ax
 
 
-def lisa_cluster_map(y, w: W, gdf, ax=None, p_threshold: float = 0.05):
+def lisa_cluster_map(
+    y: Any,
+    w: W,
+    gdf: Any,
+    ax: Optional[Any] = None,
+    p_threshold: float = 0.05,
+) -> Any:
     """Classify each observation HH/LL/HL/LH/Not significant and colour on a GDF.
 
     Requires ``geopandas`` (install with ``pip install geopandas``); the

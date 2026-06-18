@@ -159,7 +159,7 @@ class SurveyDesign:
         formula: str,
         family: str = "gaussian",
         alpha: float = 0.05,
-    ):
+    ) -> SurveyResult:
         """Survey-weighted generalised linear model."""
         return svyglm(formula, design=self, family=family, alpha=alpha)
 

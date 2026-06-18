@@ -9,10 +9,11 @@ import numpy as np
 import pandas as pd
 
 from .protocol import TargetTrialProtocol
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class TargetTrialResult:
+class TargetTrialResult(ResultProtocolMixin):
     """Result of target trial emulation.
 
     Attributes

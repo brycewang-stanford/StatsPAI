@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 from scipy import stats as sp_stats
@@ -12,7 +12,7 @@ from ._base import SpatialStatistic, permutation_pvalue
 
 
 def geary(
-    y, w: W, permutations: int = 999, seed: Optional[int] = None
+    y: Any, w: W, permutations: int = 999, seed: Optional[int] = None
 ) -> SpatialStatistic:
     """Global Geary's C — squared-difference measure of spatial autocorrelation.
 

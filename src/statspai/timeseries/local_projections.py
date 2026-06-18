@@ -22,6 +22,7 @@ import pandas as pd
 from scipy import stats
 
 from ..exceptions import DataInsufficient
+from .._result_serialize import ResultProtocolMixin
 
 
 # --------------------------------------------------------------------- #
@@ -54,7 +55,7 @@ def _newey_west(X: np.ndarray, e: np.ndarray, lags: int) -> np.ndarray:
 # --------------------------------------------------------------------- #
 
 @dataclass
-class LocalProjectionsResult:
+class LocalProjectionsResult(ResultProtocolMixin):
     """Impulse-response container returned by :func:`local_projections`.
 
     Examples

@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from typing import Any, DefaultDict, Dict, Hashable, List, Sequence
 
 import numpy as np
 
 from .core import W
 
 
-def block_weights(regimes) -> W:
+def block_weights(regimes: Sequence[Any]) -> W:
     """Block (regime) spatial weights — full connectivity within each group.
 
     Builds a weights object in which every unit is a neighbour of every other
@@ -35,11 +36,11 @@ def block_weights(regimes) -> W:
     >>> sorted(w.neighbors[2])
     [3, 4]
     """
-    regimes = np.asarray(regimes)
-    buckets = defaultdict(list)
-    for i, r in enumerate(regimes):
+    regime_array = np.asarray(regimes)
+    buckets: DefaultDict[Hashable, List[int]] = defaultdict(list)
+    for i, r in enumerate(regime_array):
         buckets[r].append(i)
-    neighbors = {i: [] for i in range(len(regimes))}
+    neighbors: Dict[int, List[int]] = {i: [] for i in range(len(regime_array))}
     for ids in buckets.values():
         for i in ids:
             neighbors[i] = [j for j in ids if j != i]

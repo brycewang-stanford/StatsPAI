@@ -18,13 +18,11 @@ LeSage, J. and Pace, R.K. (2009).
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import stats as sp_stats
 from scipy.optimize import minimize_scalar
-from scipy import sparse
 
 from ...core.results import EconometricResults
 
@@ -216,7 +214,7 @@ class SpatialModel:
         model_type: str = "sar",
         row_normalize: bool = True,
         alpha: float = 0.05,
-    ):
+    ) -> None:
         self.model_type = model_type.lower()
         self.alpha = alpha
 
@@ -248,8 +246,16 @@ class SpatialModel:
 
         # Eigenvalues of W (for concentrated log-likelihood bounds)
         self._eigenvalues = np.real(np.linalg.eigvals(W))
-        self._rho_min = 1.0 / min(self._eigenvalues[self._eigenvalues < 0]) if any(self._eigenvalues < 0) else -0.99
-        self._rho_max = 1.0 / max(self._eigenvalues[self._eigenvalues > 0]) if any(self._eigenvalues > 0) else 0.99
+        self._rho_min = (
+            1.0 / min(self._eigenvalues[self._eigenvalues < 0])
+            if any(self._eigenvalues < 0)
+            else -0.99
+        )
+        self._rho_max = (
+            1.0 / max(self._eigenvalues[self._eigenvalues > 0])
+            if any(self._eigenvalues > 0)
+            else 0.99
+        )
         # Safety margin
         self._rho_min = max(self._rho_min * 0.99, -0.99)
         self._rho_max = min(self._rho_max * 0.99, 0.99)
@@ -275,7 +281,7 @@ class SpatialModel:
         # Concentrated ML: for given ρ, β = (X'X)^{-1} X'(y - ρWy)
         XtX_inv = np.linalg.inv(X.T @ X)
 
-        def neg_conc_ll(rho):
+        def neg_conc_ll(rho: float) -> float:
             y_star = y - rho * Wy
             beta = XtX_inv @ X.T @ y_star
             e = y_star - X @ beta
@@ -284,11 +290,11 @@ class SpatialModel:
                 return 1e20
             ll = -n / 2 * np.log(sigma2)
             ll += np.sum(np.log(np.abs(1 - rho * self._eigenvalues)))
-            return -ll
+            return float(-ll)
 
         result = minimize_scalar(neg_conc_ll, bounds=(self._rho_min, self._rho_max),
                                  method="bounded")
-        rho = result.x
+        rho = float(result.x)
 
         # Recover β, σ²
         y_star = y - rho * Wy
@@ -313,7 +319,7 @@ class SpatialModel:
     def _fit_sem(self) -> EconometricResults:
         W, y, X, n = self.W, self.y, self.X, self.n
 
-        def neg_conc_ll(lam):
+        def neg_conc_ll(lam: float) -> float:
             A = np.eye(n) - lam * W
             y_star = A @ y
             X_star = A @ X
@@ -325,11 +331,11 @@ class SpatialModel:
                 return 1e20
             ll = -n / 2 * np.log(sigma2)
             ll += np.sum(np.log(np.abs(1 - lam * self._eigenvalues)))
-            return -ll
+            return float(-ll)
 
         result = minimize_scalar(neg_conc_ll, bounds=(self._rho_min, self._rho_max),
                                  method="bounded")
-        lam = result.x
+        lam = float(result.x)
 
         # Recover β
         A = np.eye(n) - lam * W
@@ -349,7 +355,9 @@ class SpatialModel:
         all_params = np.append(beta, lam)
         all_se = np.append(se_beta, se_lam)
 
-        return self._make_results(all_params, all_se, all_names, sigma2, lam, e, param_name="lambda")
+        return self._make_results(
+            all_params, all_se, all_names, sigma2, lam, e, param_name="lambda"
+        )
 
     # ------------------------------------------------------------------ #
     #  SDM:  Y = ρWY + Xβ + WXθ + ε
@@ -362,12 +370,11 @@ class SpatialModel:
         # Augment X with WX (spatial lags of covariates, skip constant)
         WX = W @ X[:, 1:]  # don't lag the constant
         X_aug = np.column_stack([X, WX])
-        k_aug = X_aug.shape[1]
         XtX_inv = np.linalg.inv(X_aug.T @ X_aug)
 
         lag_names = [f"W_{v}" for v in self._indep_vars]
 
-        def neg_conc_ll(rho):
+        def neg_conc_ll(rho: float) -> float:
             y_star = y - rho * Wy
             beta = XtX_inv @ X_aug.T @ y_star
             e = y_star - X_aug @ beta
@@ -376,11 +383,11 @@ class SpatialModel:
                 return 1e20
             ll = -n / 2 * np.log(sigma2)
             ll += np.sum(np.log(np.abs(1 - rho * self._eigenvalues)))
-            return -ll
+            return float(-ll)
 
         result = minimize_scalar(neg_conc_ll, bounds=(self._rho_min, self._rho_max),
                                  method="bounded")
-        rho = result.x
+        rho = float(result.x)
 
         y_star = y - rho * Wy
         beta_aug = XtX_inv @ X_aug.T @ y_star
@@ -408,7 +415,15 @@ class SpatialModel:
     #  Helpers
     # ------------------------------------------------------------------ #
 
-    def _spatial_se(self, X, e, Wy, rho, sigma2, model):
+    def _spatial_se(
+        self,
+        X: np.ndarray,
+        e: np.ndarray,
+        Wy: np.ndarray,
+        rho: float,
+        sigma2: float,
+        model: str,
+    ) -> Tuple[np.ndarray, float]:
         """Approximate SE from concentrated likelihood Hessian."""
         n, k = X.shape
         XtX_inv = np.linalg.inv(X.T @ X)
@@ -416,14 +431,19 @@ class SpatialModel:
 
         # SE for rho: from information matrix diagonal
         A_inv_W = np.linalg.solve(np.eye(n) - rho * self.W, self.W)
-        tr1 = np.trace(A_inv_W)
         tr2 = np.trace(A_inv_W @ A_inv_W)
         I_rho = tr2 + (A_inv_W @ X @ XtX_inv @ X.T @ A_inv_W.T).trace() / sigma2
         se_rho = 1.0 / np.sqrt(max(I_rho, 1e-10))
 
-        return se_beta, se_rho
+        return np.asarray(se_beta, dtype=float), float(se_rho)
 
-    def _lambda_se(self, W, e, lam, sigma2):
+    def _lambda_se(
+        self,
+        W: np.ndarray,
+        e: np.ndarray,
+        lam: float,
+        sigma2: float,
+    ) -> float:
         """Approximate SE for spatial error parameter."""
         n = len(e)
         A_inv_W = np.linalg.solve(np.eye(n) - lam * W, W)
@@ -432,7 +452,12 @@ class SpatialModel:
         I_lam = tr2 + tr1 ** 2 / n
         return float(1.0 / np.sqrt(max(I_lam, 1e-10)))
 
-    def _compute_effects(self, rho, beta, theta):
+    def _compute_effects(
+        self,
+        rho: float,
+        beta: np.ndarray,
+        theta: np.ndarray,
+    ) -> Dict[str, Dict[str, float]]:
         """Direct, indirect, total effects for SDM (LeSage & Pace 2009)."""
         n = self.n
         S_inv = np.linalg.inv(np.eye(n) - rho * self.W)
@@ -449,13 +474,30 @@ class SpatialModel:
             indirect[j] = total[j] - direct[j]
 
         return {
-            "Direct effects": dict(zip(self._indep_vars, np.round(direct, 6))),
-            "Indirect effects": dict(zip(self._indep_vars, np.round(indirect, 6))),
-            "Total effects": dict(zip(self._indep_vars, np.round(total, 6))),
+            "Direct effects": {
+                name: float(value)
+                for name, value in zip(self._indep_vars, np.round(direct, 6))
+            },
+            "Indirect effects": {
+                name: float(value)
+                for name, value in zip(self._indep_vars, np.round(indirect, 6))
+            },
+            "Total effects": {
+                name: float(value)
+                for name, value in zip(self._indep_vars, np.round(total, 6))
+            },
         }
 
-    def _make_results(self, params, se, names, sigma2, spatial_param, resid,
-                      param_name="rho"):
+    def _make_results(
+        self,
+        params: np.ndarray,
+        se: np.ndarray,
+        names: List[str],
+        sigma2: float,
+        spatial_param: float,
+        resid: np.ndarray,
+        param_name: str = "rho",
+    ) -> EconometricResults:
         """Build EconometricResults."""
         model_names = {"sar": "SAR (Spatial Lag)", "sem": "SEM (Spatial Error)",
                        "sdm": "SDM (Spatial Durbin)"}
@@ -484,7 +526,7 @@ class SpatialModel:
             },
         )
 
-    def _log_likelihood(self, sigma2, spatial_param):
+    def _log_likelihood(self, sigma2: float, spatial_param: float) -> float:
         """Full log-likelihood at ML estimates."""
         n = self.n
         ll = -n / 2 * np.log(2 * np.pi) - n / 2 * np.log(sigma2) - n / 2

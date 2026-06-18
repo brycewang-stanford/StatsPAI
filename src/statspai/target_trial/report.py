@@ -17,6 +17,8 @@ from .emulate import TargetTrialResult
 
 __all__ = ["to_paper", "target_checklist", "TARGET_ITEMS"]
 
+ProtocolRow = tuple[str, str]
+
 
 # ---------------------------------------------------------------------------
 # TARGET Statement 21-item checklist (JAMA / BMJ, September 2025)
@@ -253,7 +255,7 @@ def to_paper(
     p: TargetTrialProtocol = result.protocol
     lo, hi = result.ci
 
-    proto_rows = [
+    proto_rows: list[ProtocolRow] = [
         ("Eligibility", _stringify(p.eligibility)),
         ("Treatment strategies", ", ".join(p.treatment_strategies)),
         ("Assignment", p.assignment),
@@ -279,7 +281,7 @@ def to_paper(
     return _render_text(proto_rows, result, title)
 
 
-def _stringify(val) -> str:
+def _stringify(val: object) -> str:
     if isinstance(val, str):
         return val
     if isinstance(val, (list, tuple)):
@@ -289,7 +291,11 @@ def _stringify(val) -> str:
     return repr(val)
 
 
-def _render_markdown(proto_rows, result: TargetTrialResult, title) -> str:
+def _render_markdown(
+    proto_rows: list[ProtocolRow],
+    result: TargetTrialResult,
+    title: Optional[str],
+) -> str:
     header = f"# {title}\n\n" if title else ""
     lines = [
         header,
@@ -323,7 +329,11 @@ def _render_markdown(proto_rows, result: TargetTrialResult, title) -> str:
     return "\n".join(lines)
 
 
-def _render_latex(proto_rows, result: TargetTrialResult, title) -> str:
+def _render_latex(
+    proto_rows: list[ProtocolRow],
+    result: TargetTrialResult,
+    title: Optional[str],
+) -> str:
     header = f"\\section*{{{title}}}\n\n" if title else ""
     body = [
         header,
@@ -564,7 +574,11 @@ def _render_jama(
     return "\n".join(lines)
 
 
-def _render_text(proto_rows, result: TargetTrialResult, title) -> str:
+def _render_text(
+    proto_rows: list[ProtocolRow],
+    result: TargetTrialResult,
+    title: Optional[str],
+) -> str:
     bar = "=" * 72
     lines = [bar]
     if title:

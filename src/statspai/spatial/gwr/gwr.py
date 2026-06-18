@@ -17,7 +17,7 @@ effective degrees of freedom (trace of the hat matrix), AICc.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 import numpy as np
 from scipy.spatial import cKDTree
@@ -38,11 +38,11 @@ def _kernel(u: np.ndarray, kernel: KernelName) -> np.ndarray:
     """
     u = np.asarray(u, dtype=float)
     if kernel == "gaussian":
-        return np.exp(-0.5 * u * u)
+        return np.asarray(np.exp(-0.5 * u * u), dtype=float)
     if kernel == "bisquare":
-        return np.where(u < 1.0, (1.0 - u * u) ** 2, 0.0)
+        return np.asarray(np.where(u < 1.0, (1.0 - u * u) ** 2, 0.0), dtype=float)
     if kernel == "exponential":
-        return np.where(u < 1.0, np.exp(-u), 0.0)
+        return np.asarray(np.where(u < 1.0, np.exp(-u), 0.0), dtype=float)
     raise ValueError(f"unknown kernel {kernel!r}")
 
 
@@ -98,8 +98,8 @@ class GWRResult:
     tr_S: float  # effective df = tr(H)
     n: int
     k: int
-    se: np.ndarray = None  # (n, k) local coefficient standard errors
-    tvals: np.ndarray = None  # (n, k) local t-statistics
+    se: Optional[np.ndarray] = None  # (n, k) local coefficient standard errors
+    tvals: Optional[np.ndarray] = None  # (n, k) local t-statistics
 
     def summary(self) -> str:
         lines = [
@@ -135,9 +135,9 @@ class GWRResult:
 
 
 def gwr(
-    coords,
-    y,
-    X,
+    coords: Any,
+    y: Any,
+    X: Any,
     bw: float,
     kernel: KernelName = "bisquare",
     fixed: bool = False,

@@ -8,7 +8,7 @@ Implements the same variance formulas as R ``survey::svymean``,
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Union, List, Optional, TYPE_CHECKING
 
 import numpy as np
@@ -57,7 +57,7 @@ class SurveyResult:
         return tbl
 
     def __repr__(self) -> str:
-        return self.summary().to_string()
+        return str(self.summary().to_string())
 
 
 # ====================================================================== #
@@ -300,7 +300,7 @@ def svyglm(
     design: "SurveyDesign",
     family: str = "gaussian",
     alpha: float = 0.05,
-):
+) -> SurveyResult:
     """
     Survey-weighted generalised linear model.
 
@@ -360,10 +360,6 @@ def svyglm(
     # Sandwich variance with survey design correction
     # Score contributions: z_i = w_i * r_i * x_i  (linearised influence)
     scores = w[:, None] * working_residuals[:, None] * X
-
-    design_var = _stratified_cluster_var(
-        scores, design.strata, design.cluster_ids, design.fpc_values,
-    )
 
     # Bread: (X'WX)^{-1}
     WX = X * w[:, None]

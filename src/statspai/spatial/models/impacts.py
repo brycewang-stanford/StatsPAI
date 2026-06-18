@@ -17,14 +17,18 @@ point estimate with covariance diag(se²)).
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import sparse
 
+from ...exceptions import NumericalInstability
 
-def impacts(result, n_sim: int = 1000, seed: Optional[int] = None) -> pd.DataFrame:
+
+def impacts(
+    result: Any, n_sim: int = 1000, seed: Optional[int] = None
+) -> pd.DataFrame:
     """Compute direct / indirect / total impacts + simulated SEs.
 
     Parameters
@@ -75,20 +79,17 @@ def impacts(result, n_sim: int = 1000, seed: Optional[int] = None) -> pd.DataFra
 
     # Locate spatial parameter and β slice (and θ slice for SDM)
     if model_type == "SAR":
-        rho = float(result.model_info["spatial_param_value"])
         rho_idx = names.index("rho")
         beta_idx = [i for i, nm in enumerate(names) if nm not in {"const", "rho"}]
         theta_idx: list[int] = []
         covariate_names = [names[i] for i in beta_idx]
     elif model_type == "SAC":
-        rho = float(result.model_info["spatial_param_value"])
         rho_idx = names.index("rho")
         beta_idx = [i for i, nm in enumerate(names)
                     if nm not in {"const", "rho", "lambda"}]
         theta_idx = []
         covariate_names = [names[i] for i in beta_idx]
     else:    # SDM
-        rho = float(result.model_info["spatial_param_value"])
         rho_idx = names.index("rho")
         lag_cols = [i for i, nm in enumerate(names) if nm.startswith("W_")]
         beta_idx = [i for i, nm in enumerate(names)
@@ -104,9 +105,10 @@ def impacts(result, n_sim: int = 1000, seed: Optional[int] = None) -> pd.DataFra
     W_matrix = _fetch_W_from_result(result)
     n = W_matrix.shape[0]
     I = np.eye(n)
-    S_inv = np.linalg.inv(I - rho * W_matrix)
 
-    def _point_impacts(params_vec):
+    def _point_impacts(
+        params_vec: np.ndarray,
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
         r = float(params_vec[rho_idx])
         if not (-0.999 < r < 0.999):
             return None
@@ -117,45 +119,68 @@ def impacts(result, n_sim: int = 1000, seed: Optional[int] = None) -> pd.DataFra
             b = float(params_vec[i])
             if theta_idx:
                 t = float(params_vec[theta_idx[m]])
-                S_k = Sinv @ (b * I + t * W_matrix)
+                S_k = np.asarray(Sinv @ (b * I + t * W_matrix), dtype=float)
             else:
-                S_k = Sinv * b
+                S_k = np.asarray(Sinv * b, dtype=float)
             direct[m] = float(np.trace(S_k)) / n
             total[m] = float(S_k.sum()) / n
         return direct, total
 
-    direct_pt, total_pt = _point_impacts(params)
+    point = _point_impacts(params)
+    if point is None:
+        raise NumericalInstability(
+            "Spatial autoregressive parameter is outside impact bounds.",
+            recovery_hint=(
+                "Refit the spatial model with a stable spatial parameter "
+                "before computing impacts."
+            ),
+            diagnostics={"rho": float(params[rho_idx]), "model_type": model_type},
+        )
+    direct_pt, total_pt = point
     indirect_pt = total_pt - direct_pt
 
     # Monte-Carlo for SEs
     rng = np.random.default_rng(seed)
     cov = np.diag(se ** 2)                     # diagonal approximation
     draws = rng.multivariate_normal(params, cov, size=n_sim)
-    d_draws, t_draws = [], []
+    d_draws: List[np.ndarray] = []
+    t_draws: List[np.ndarray] = []
     for d in draws:
         out = _point_impacts(d)
         if out is None:
             continue
         d_draws.append(out[0])
         t_draws.append(out[1])
-    d_draws = np.asarray(d_draws)
-    t_draws = np.asarray(t_draws)
-    i_draws = t_draws - d_draws
+    d_draws_arr = np.asarray(d_draws, dtype=float)
+    t_draws_arr = np.asarray(t_draws, dtype=float)
+    i_draws_arr = t_draws_arr - d_draws_arr
 
     return pd.DataFrame(
         {
             "Direct":   direct_pt,
-            "SE_Direct":   d_draws.std(axis=0, ddof=1) if len(d_draws) > 1 else np.nan,
+            "SE_Direct": (
+                d_draws_arr.std(axis=0, ddof=1)
+                if len(d_draws_arr) > 1
+                else np.nan
+            ),
             "Indirect": indirect_pt,
-            "SE_Indirect": i_draws.std(axis=0, ddof=1) if len(i_draws) > 1 else np.nan,
+            "SE_Indirect": (
+                i_draws_arr.std(axis=0, ddof=1)
+                if len(i_draws_arr) > 1
+                else np.nan
+            ),
             "Total":    total_pt,
-            "SE_Total":    t_draws.std(axis=0, ddof=1) if len(t_draws) > 1 else np.nan,
+            "SE_Total": (
+                t_draws_arr.std(axis=0, ddof=1)
+                if len(t_draws_arr) > 1
+                else np.nan
+            ),
         },
         index=covariate_names,
     )
 
 
-def _fetch_W_from_result(result) -> np.ndarray:
+def _fetch_W_from_result(result: Any) -> np.ndarray:
     """Recover the W matrix from a spatial result's data_info payload.
 
     Requires that the estimator attached W. New ml.sar/sem/sdm do this via
@@ -169,5 +194,5 @@ def _fetch_W_from_result(result) -> np.ndarray:
             "current StatsPAI version — it attaches W to data_info automatically."
         )
     if sparse.issparse(W):
-        return W.toarray()
+        return np.asarray(W.toarray(), dtype=float)
     return np.asarray(W, dtype=float)

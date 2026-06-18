@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 from scipy import stats as sp_stats
@@ -11,13 +11,13 @@ from ..weights.core import W
 from ._base import SpatialStatistic, permutation_pvalue
 
 
-def _center(y):
-    y = np.asarray(y, dtype=float).ravel()
-    return y - y.mean()
+def _center(y: Any) -> np.ndarray:
+    arr: np.ndarray = np.asarray(y, dtype=float).ravel()
+    return np.asarray(arr - arr.mean(), dtype=float)
 
 
 def moran(
-    y,
+    y: Any,
     w: W,
     permutations: int = 999,
     two_tailed: bool = True,
@@ -146,7 +146,9 @@ def moran(
     )
 
 
-def moran_local(y, w: W, permutations: int = 999, seed: Optional[int] = None):
+def moran_local(
+    y: Any, w: W, permutations: int = 999, seed: Optional[int] = None
+) -> Dict[str, Any]:
     """Local Moran's I (LISA) — per-location spatial association.
 
     Decomposes global Moran's I into a contribution ``I_i`` for each spatial

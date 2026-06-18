@@ -197,7 +197,8 @@ class SpatialDiDResult:
 
     @property
     def diagnostics(self) -> Dict[str, Any]:
-        return self.detail.get("diagnostics", {})
+        diagnostics = self.detail.get("diagnostics", {})
+        return diagnostics if isinstance(diagnostics, dict) else {}
 
     def summary(self) -> str:
         lines = [
@@ -346,7 +347,7 @@ class SpatialDiDResult:
                 row[key] = val
         return pd.DataFrame([row])
 
-    def to_dataframe(self, **kwargs) -> pd.DataFrame:
+    def to_dataframe(self, **kwargs: Any) -> pd.DataFrame:
         return self.tidy(**kwargs)
 
     def to_dict(self, *, detail: str = "standard", detail_head: int = 20) -> Dict[str, Any]:
@@ -358,7 +359,7 @@ class SpatialDiDResult:
                 ),
                 diagnostics={"detail": detail},
             )
-        out = {
+        out: Dict[str, Any] = {
             "method": "Spatial Difference-in-Differences",
             "direct_effect": _to_jsonable(self.direct_effect),
             "spillover_effect": _to_jsonable(self.spillover_effect),
@@ -409,17 +410,17 @@ class SpatialDiDResult:
             ]
         return out
 
-    def to_json(self, indent: Optional[int] = None, **kwargs) -> str:
+    def to_json(self, indent: Optional[int] = None, **kwargs: Any) -> str:
         return json.dumps(self.to_dict(**kwargs), indent=indent, default=_to_jsonable)
 
-    def to_markdown(self, path: Optional[str] = None, **kwargs) -> str:
-        md = self.tidy(**kwargs).to_markdown(index=False, floatfmt=".4f")
+    def to_markdown(self, path: Optional[str] = None, **kwargs: Any) -> str:
+        md = str(self.tidy(**kwargs).to_markdown(index=False, floatfmt=".4f"))
         if path is not None:
             Path(path).write_text(md, encoding="utf-8")
         return md
 
-    def to_csv(self, path: Optional[str] = None, **kwargs) -> str:
-        csv = self.tidy(**kwargs).to_csv(index=False)
+    def to_csv(self, path: Optional[str] = None, **kwargs: Any) -> str:
+        csv = str(self.tidy(**kwargs).to_csv(index=False))
         if path is not None:
             Path(path).write_text(csv, encoding="utf-8")
         return csv
@@ -429,21 +430,21 @@ class SpatialDiDResult:
         caption: Optional[str] = None,
         label: Optional[str] = None,
         path: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> str:
         table = self.tidy(**kwargs)
-        latex = table.to_latex(
+        latex = str(table.to_latex(
             index=False,
             float_format="%.4f",
             caption=caption or "Spatial difference-in-differences estimates.",
             label=label or "tab:spatial-did",
             escape=True,
-        )
+        ))
         if path is not None:
             Path(path).write_text(latex, encoding="utf-8")
         return latex
 
-    def to_excel(self, path: str, **kwargs) -> str:
+    def to_excel(self, path: str, **kwargs: Any) -> str:
         with pd.ExcelWriter(path) as writer:
             self.tidy(**kwargs).to_excel(writer, sheet_name="effects", index=False)
             self.coefficients.to_excel(writer, sheet_name="coefficients", index=False)
@@ -453,7 +454,13 @@ class SpatialDiDResult:
                 es.to_excel(writer, sheet_name="event_study", index=False)
         return path
 
-    def plot(self, kind: str = "coef", ax=None, figsize=(8, 5), **kwargs):
+    def plot(
+        self,
+        kind: str = "coef",
+        ax: Any = None,
+        figsize: tuple[int, int] = (8, 5),
+        **kwargs: Any,
+    ) -> Any:
         """Plot coefficient, exposure, or spatial event-study diagnostics."""
         try:
             import matplotlib.pyplot as plt
@@ -565,7 +572,7 @@ class SpatialDiDResult:
         )
 
 
-def _as_weight_matrix(W) -> Tuple[np.ndarray, Optional[Sequence[Any]]]:
+def _as_weight_matrix(W: Any) -> Tuple[np.ndarray, Optional[Sequence[Any]]]:
     """Return a dense weights matrix and any object-level unit order."""
     id_order = getattr(W, "_id_order", None)
     try:
@@ -606,7 +613,10 @@ def _as_weight_matrix(W) -> Tuple[np.ndarray, Optional[Sequence[Any]]]:
 
 def _row_normalize(W_mat: np.ndarray) -> np.ndarray:
     rs = W_mat.sum(axis=1, keepdims=True)
-    return np.divide(W_mat, np.where(np.abs(rs) < _EPS, 1.0, rs))
+    return np.asarray(
+        np.divide(W_mat, np.where(np.abs(rs) < _EPS, 1.0, rs)),
+        dtype=float,
+    )
 
 
 def _resolve_unit_order(
@@ -688,15 +698,19 @@ def _cluster_vcov(X: np.ndarray, resid: np.ndarray, cluster: np.ndarray) -> np.n
     # Byte-identical to the prior hand-rolled sandwich for G >= 2.
     from ..core._vcov import sandwich_vcov
     XtX_inv = np.linalg.pinv(X.T @ X)
-    return sandwich_vcov(XtX_inv, X * resid[:, None], clusters=cluster,
-                         correction="cr1")
+    return np.asarray(
+        sandwich_vcov(
+            XtX_inv, X * resid[:, None], clusters=cluster, correction="cr1"
+        ),
+        dtype=float,
+    )
 
 
 def _hc1_vcov(X: np.ndarray, resid: np.ndarray) -> np.ndarray:
     n, k = X.shape
     XtX_inv = np.linalg.pinv(X.T @ X)
     meat = X.T @ ((resid ** 2)[:, None] * X)
-    return (n / max(n - k, 1)) * XtX_inv @ meat @ XtX_inv
+    return np.asarray((n / max(n - k, 1)) * XtX_inv @ meat @ XtX_inv, dtype=float)
 
 
 def _haversine_unit_distances(
@@ -732,7 +746,10 @@ def _haversine_unit_distances(
         + np.cos(lat_vals[:, None]) * np.cos(lat_vals[None, :])
         * np.sin(dlon / 2) ** 2
     )
-    return 2 * _EARTH_RADIUS_KM * np.arcsin(np.sqrt(np.minimum(a, 1.0)))
+    return np.asarray(
+        2 * _EARTH_RADIUS_KM * np.arcsin(np.sqrt(np.minimum(a, 1.0))),
+        dtype=float,
+    )
 
 
 def _distance_kernel(dist: np.ndarray, cutoff: float, kernel: str) -> np.ndarray:
@@ -780,7 +797,7 @@ def _conley_spatial_vcov(
         S = scores[idx_arr]
         meat += S.T @ K @ S
     scale = n / max(n - k, 1)
-    return scale * XtX_inv @ meat @ XtX_inv
+    return np.asarray(scale * XtX_inv @ meat @ XtX_inv, dtype=float)
 
 
 def _vcov(
@@ -1068,7 +1085,7 @@ def spatial_did(
     treat: str,
     unit: str,
     time: str,
-    W,
+    W: Any,
     covariates: Optional[Sequence[str]] = None,
     cluster: Optional[str] = None,
     alpha: float = 0.05,

@@ -29,9 +29,11 @@ from typing import Callable, Sequence
 import numpy as np
 import pandas as pd
 
+from .._result_serialize import ResultProtocolMixin
+
 
 @dataclass
-class CloneCensorWeightResult:
+class CloneCensorWeightResult(ResultProtocolMixin):
     """Cloned, censored and IP-of-censoring-weighted target-trial data.
 
     Produced by :func:`clone_censor_weight`. ``cloned_data`` holds one row

@@ -18,9 +18,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
+from .._result_serialize import ResultProtocolMixin
+
 
 @dataclass
-class TransportIdentificationResult:
+class TransportIdentificationResult(ResultProtocolMixin):
     """Result of a Pearl-Bareinboim transportability identification check.
 
     Attributes

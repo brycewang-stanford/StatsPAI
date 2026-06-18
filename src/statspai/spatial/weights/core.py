@@ -1,7 +1,7 @@
 """Sparse-backed spatial weights object."""
 from __future__ import annotations
 
-from typing import Dict, List, Mapping, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 import numpy as np
 from scipy import sparse
@@ -52,7 +52,7 @@ class W:
         else:
             self._weights = {i: list(weights[i]) for i in self._id_order}
         self._transform = "O"
-        self._sparse: Optional[sparse.csr_matrix] = None
+        self._sparse: Optional[Any] = None
 
     @property
     def n(self) -> int:
@@ -67,7 +67,7 @@ class W:
         return [i for i, v in self._neighbors.items() if len(v) == 0]
 
     @property
-    def sparse(self) -> sparse.csr_matrix:
+    def sparse(self) -> Any:
         if self._sparse is None:
             self._sparse = self._build_sparse()
         return self._sparse
@@ -102,7 +102,7 @@ class W:
         self._transform = value
         self._sparse = None
 
-    def _build_sparse(self) -> sparse.csr_matrix:
+    def _build_sparse(self) -> Any:
         rows, cols, data = [], [], []
         for i, nbrs in self._neighbors.items():
             row = self._id_to_idx[i]
@@ -117,9 +117,9 @@ class W:
         )
 
     def full(self) -> np.ndarray:
-        return self.sparse.toarray()
+        return np.asarray(self.sparse.toarray(), dtype=float)
 
-    def to_libpysal(self):
+    def to_libpysal(self) -> Any:
         try:
             from libpysal.weights import W as _LPW
         except ImportError as e:
@@ -130,5 +130,5 @@ class W:
         return _LPW(self._neighbors, self._weights, id_order=self._id_order)
 
     @classmethod
-    def from_libpysal(cls, w) -> "W":
+    def from_libpysal(cls, w: Any) -> "W":
         return cls(dict(w.neighbors), dict(w.weights), id_order=list(w.id_order))

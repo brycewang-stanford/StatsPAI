@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from ...core.results import EconometricResults
+from ...exceptions import MethodIncompatibility
 
 
 _METHOD_REFS: Dict[str, str] = {
@@ -62,6 +63,15 @@ class ProductionResult(EconometricResults):
     'lp'
     """
 
+    method: str
+    coef: Dict[str, float]
+    tfp: np.ndarray
+    _residuals: np.ndarray
+    productivity_process: Dict[str, float]
+    sample: pd.DataFrame
+    _cov: Optional[np.ndarray]
+    markup: Optional[np.ndarray]
+
     def __init__(
         self,
         method: str,
@@ -93,18 +103,26 @@ class ProductionResult(EconometricResults):
         self.method = method
         self.coef = coef
         self.tfp = np.asarray(tfp)
-        self.residuals = np.asarray(residuals)
+        self._residuals = np.asarray(residuals)
+        setattr(self, "residuals", self._residuals)
         self.productivity_process = productivity_process
         self.sample = sample
-        self.cov = cov
+        self._cov = cov
+        setattr(self, "cov", cov)
         self.markup: Optional[np.ndarray] = None
 
     # ------------------------------------------------------------------ #
     #  Public surface
     # ------------------------------------------------------------------ #
 
-    def cite(self) -> str:
+    def cite(self, format: str = "bibtex") -> str:
         """Return the canonical reference string for ``self.method``."""
+        if format not in {"bibtex", "apa", "json"}:
+            raise MethodIncompatibility(
+                f"format must be 'bibtex', 'apa' or 'json'; got {format!r}",
+                recovery_hint="Use format='bibtex', 'apa', or 'json'.",
+                diagnostics={"format": format},
+            )
         return _METHOD_REFS.get(self.method, "")
 
     def __repr__(self) -> str:  # pragma: no cover - cosmetic

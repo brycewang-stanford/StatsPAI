@@ -13,11 +13,11 @@ you may want to compare against mgwr.MGWR directly after calling this.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Literal, Optional
+from typing import Any, List, Optional
 
 import numpy as np
 
-from .gwr import gwr, GWRResult, KernelName
+from .gwr import gwr, KernelName
 from .bandwidth import gwr_bandwidth
 
 
@@ -62,9 +62,9 @@ class MGWRResult:
 
 
 def mgwr(
-    coords,
-    y,
-    X,
+    coords: Any,
+    y: Any,
+    X: Any,
     kernel: KernelName = "bisquare",
     fixed: bool = False,
     add_constant: bool = True,

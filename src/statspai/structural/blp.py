@@ -29,7 +29,7 @@ Logit Models of Demand. Journal of Economics & Management Strategy, 9(4), 513-54
 
 from __future__ import annotations
 
-from typing import Dict, Any, Optional, List, Union
+from typing import Any, Optional
 import warnings
 
 import numpy as np
@@ -87,7 +87,7 @@ def _halton_sequence(n: int, dim: int, seed: int | None = None) -> np.ndarray:
     # Map uniform to standard normal via inverse CDF
     draws = np.clip(draws, 1e-6, 1 - 1e-6)
     draws = stats.norm.ppf(draws)
-    return draws
+    return np.asarray(draws, dtype=float)
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +160,6 @@ def _compute_market_shares(delta: np.ndarray, mu: np.ndarray,
         Predicted market shares.
     """
     J = len(delta)
-    R = mu.shape[1]
     shares = np.zeros(J)
 
     unique_markets = np.unique(market_ids)
@@ -248,7 +247,7 @@ def _compute_mu(X_random: np.ndarray, sigma: np.ndarray,
         mu_{jr} = Σ_k σ_k * x_{jk} * v_{rk}
     """
     # (J, K_r) @ diag(sigma) @ (K_r, R) = (J, R)
-    return (X_random * sigma) @ draws.T
+    return np.asarray((X_random * sigma) @ draws.T, dtype=float)
 
 
 def _iv_regression(delta: np.ndarray, X: np.ndarray,
@@ -271,7 +270,6 @@ def _iv_regression(delta: np.ndarray, X: np.ndarray,
     theta : np.ndarray, shape (K,)
     xi : np.ndarray, shape (N,)
     """
-    ZW = Z.T @ Z if W is None else Z.T
     # Standard 2SLS: theta = (X'Pz X)^{-1} X'Pz delta where Pz = Z(Z'Z)^{-1}Z'
     # With GMM weighting: theta = (X'Z W Z'X)^{-1} X'Z W Z'delta
     ZtX = Z.T @ X
@@ -350,9 +348,6 @@ def _compute_elasticities(delta: np.ndarray, mu: np.ndarray,
         denom = exp_v.sum(axis=0) + exp_outside
         s_ir = exp_v / denom  # (J_m, R)  individual choice probs
 
-        # Price coefficient for each draw: alpha + sigma_price * v_r
-        # v_r is the draw for the price random coefficient (first dim if present)
-        alpha_i = alpha  # scalar; random coefficient adds sigma_price * v_r
         # For simplicity, use mean price coefficient here
         # (full random coefficient on price handled through mu already)
 
@@ -532,7 +527,7 @@ class BLPResult:
 
     # ---- Elasticity matrix ------------------------------------------------
 
-    def elasticity_matrix(self, market_id=None) -> pd.DataFrame:
+    def elasticity_matrix(self, market_id: Optional[Any] = None) -> pd.DataFrame:
         """
         Return the full own- and cross-price elasticity matrix for a market.
 
@@ -559,7 +554,7 @@ class BLPResult:
 
     # ---- Diversion ratios -------------------------------------------------
 
-    def diversion_ratios(self, market_id=None) -> pd.DataFrame:
+    def diversion_ratios(self, market_id: Optional[Any] = None) -> pd.DataFrame:
         """
         Compute diversion ratios for a given market.
 
@@ -885,14 +880,14 @@ def blp(
     # ---- Outer loop: minimize GMM objective over sigma --------------------
     best_delta = delta_init.copy()
 
-    def _obj_wrapper(sigma_vec):
+    def _obj_wrapper(sigma_vec: np.ndarray) -> float:
         nonlocal best_delta
         obj, xi, delta = _gmm_objective(
             sigma_vec, s_obs, X_linear, X_random_mat, Z, W,
             draws, market_ids, best_delta, tol_inner, maxiter_inner=1000,
         )
         best_delta = delta.copy()
-        return obj
+        return float(obj)
 
     if K_sigma > 0:
         opt_result = optimize.minimize(
@@ -926,14 +921,14 @@ def blp(
     # Re-estimate with optimal W
     best_delta_2 = delta_hat.copy()
 
-    def _obj_wrapper_2(sigma_vec):
+    def _obj_wrapper_2(sigma_vec: np.ndarray) -> float:
         nonlocal best_delta_2
         obj, xi, delta = _gmm_objective(
             sigma_vec, s_obs, X_linear, X_random_mat, Z, W_opt,
             draws, market_ids, best_delta_2, tol_inner, maxiter_inner=1000,
         )
         best_delta_2 = delta.copy()
-        return obj
+        return float(obj)
 
     if K_sigma > 0:
         opt_result_2 = optimize.minimize(

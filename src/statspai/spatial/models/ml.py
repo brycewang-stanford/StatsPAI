@@ -14,7 +14,7 @@ Anselin (1988); Ord (1975); LeSage & Pace (2009). [@anselin1988spatial]
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -47,10 +47,11 @@ def _coerce_W(W: ArrayOrW, n_expected: Optional[int],
     so behaviour is identical regardless of input type. (Re-normalising an
     already row-stochastic matrix is a no-op.)
     """
+    M: sparse.csr_matrix
     if isinstance(W, _W):
-        M = W.sparse
+        M = sparse.csr_matrix(W.sparse)
     elif sparse.issparse(W):
-        M = W.tocsr()
+        M = sparse.csr_matrix(W)
     else:
         M = sparse.csr_matrix(np.asarray(W, dtype=float))
     if n_expected is not None and M.shape != (n_expected, n_expected):
@@ -58,10 +59,10 @@ def _coerce_W(W: ArrayOrW, n_expected: Optional[int],
             f"W must be ({n_expected}, {n_expected}), got {M.shape}"
         )
     if row_normalize:
-        rs = np.asarray(M.sum(axis=1)).ravel()
-        rs = np.where(rs == 0, 1.0, rs)
-        M = sparse.diags(1.0 / rs) @ M
-    return M.tocsr()
+        row_sums = np.asarray(M.sum(axis=1)).ravel()
+        safe_row_sums = np.where(row_sums == 0, 1.0, row_sums)
+        M = sparse.csr_matrix(sparse.diags(1.0 / safe_row_sums) @ M)
+    return M
 
 
 def _parse_formula(formula: str, data: pd.DataFrame
@@ -218,7 +219,7 @@ def _spatial_se_rho(M: sparse.csr_matrix, X: np.ndarray, beta: np.ndarray,
     from scipy.sparse.linalg import splu
     lu = splu(A.tocsc())
 
-    def _G(V):  # rows v_i -> (W A^{-1} v_i)
+    def _G(V: np.ndarray) -> np.ndarray:  # rows v_i -> (W A^{-1} v_i)
         out = np.empty_like(V, dtype=float)
         for i in range(V.shape[0]):
             out[i] = M @ lu.solve(V[i])
@@ -260,7 +261,7 @@ def _spatial_se_lambda(M: sparse.csr_matrix, lam: float) -> float:
     from scipy.sparse.linalg import splu
     lu = splu(A.tocsc())
 
-    def _G(V):
+    def _G(V: np.ndarray) -> np.ndarray:
         out = np.empty_like(V, dtype=float)
         for i in range(V.shape[0]):
             out[i] = M @ lu.solve(V[i])
@@ -329,7 +330,7 @@ def sar(W: ArrayOrW, data: pd.DataFrame, formula: str,
             return 1e20
         ll = -n / 2.0 * np.log(sigma2)
         ll += _logdet(M, rho, eigvals)
-        return -ll
+        return float(-ll)
 
     opt = minimize_scalar(neg_conc_ll, bounds=(rho_min, rho_max),
                           method="bounded")
@@ -406,7 +407,7 @@ def sem(W: ArrayOrW, data: pd.DataFrame, formula: str,
             return 1e20
         ll = -n / 2.0 * np.log(sigma2)
         ll += _logdet(M, lam, eigvals)
-        return -ll
+        return float(-ll)
 
     opt = minimize_scalar(neg_conc_ll, bounds=(lam_min, lam_max),
                           method="bounded")
@@ -493,7 +494,7 @@ def sdm(W: ArrayOrW, data: pd.DataFrame, formula: str,
             return 1e20
         ll = -n / 2.0 * np.log(sigma2)
         ll += _logdet(M, rho, eigvals)
-        return -ll
+        return float(-ll)
 
     opt = minimize_scalar(neg_conc_ll, bounds=(rho_min, rho_max),
                           method="bounded")
@@ -669,7 +670,7 @@ def sac(W: ArrayOrW, data: pd.DataFrame, formula: str,
             return 1e20
         ll = -n / 2.0 * np.log(sigma2)
         ll += _logdet(M, rho, eigvals) + _logdet(M, lam, eigvals)
-        return -ll
+        return float(-ll)
 
     from scipy.optimize import minimize, differential_evolution
     # Multi-start: coarse global search via differential evolution, then
@@ -695,11 +696,23 @@ def sac(W: ArrayOrW, data: pd.DataFrame, formula: str,
     se_beta = np.sqrt(np.diag(sigma2 * XtX_inv))
     # Numerical Hessian for the two spatial params (2x2 block, diagonal used)
     h = 1e-4
-    def _num_d2(f, x, i, j):
-        e_i = np.zeros_like(x); e_j = np.zeros_like(x)
-        e_i[i] = h; e_j[j] = h
-        return (f(x + e_i + e_j) - f(x + e_i - e_j)
-                - f(x - e_i + e_j) + f(x - e_i - e_j)) / (4 * h * h)
+    def _num_d2(
+        f: Callable[[np.ndarray], float],
+        x: np.ndarray,
+        i: int,
+        j: int,
+    ) -> float:
+        e_i = np.zeros_like(x)
+        e_j = np.zeros_like(x)
+        e_i[i] = h
+        e_j[j] = h
+        return float(
+            (
+                f(x + e_i + e_j) - f(x + e_i - e_j)
+                - f(x - e_i + e_j) + f(x - e_i - e_j)
+            )
+            / (4 * h * h)
+        )
     try:
         drr = _num_d2(neg_conc_ll, np.array([rho_hat, lam_hat]), 0, 0)
         dll = _num_d2(neg_conc_ll, np.array([rho_hat, lam_hat]), 1, 1)
