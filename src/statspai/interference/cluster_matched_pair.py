@@ -16,9 +16,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
+
 
 @dataclass
-class MatchedPairResult:
+class MatchedPairResult(ResultProtocolMixin):
     """Output of matched-pair cluster RCT estimation.
 
     Examples

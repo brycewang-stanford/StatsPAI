@@ -39,9 +39,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
+
 
 @dataclass
-class PeerEffectsResult:
+class PeerEffectsResult(ResultProtocolMixin):
     """Container for :func:`peer_effects` linear-in-means estimates.
 
     Attributes
@@ -73,6 +75,12 @@ class PeerEffectsResult:
     >>> isinstance(res.endogenous_peer, float)
     True
     """
+
+    _citation_keys = (
+        "manski1993identification",
+        "bramoull2009identification",
+        "lee2007identification",
+    )
 
     endogenous_peer: float  # beta (mean of neighbors' y)
     contextual_peer: Dict[str, float]  # gamma per covariate

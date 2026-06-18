@@ -17,9 +17,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
+
 
 @dataclass
-class CrossClusterRCTResult:
+class CrossClusterRCTResult(ResultProtocolMixin):
     """Output of cross-cluster RCT with interference correction.
 
     Produced by :func:`cluster_cross_interference`. Holds the estimated

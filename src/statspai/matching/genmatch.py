@@ -35,9 +35,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
+
 
 @dataclass
-class GenMatchResult:
+class GenMatchResult(ResultProtocolMixin):
     """Output of :func:`sp.genmatch` (Diamond-Sekhon genetic matching).
 
     Holds the ATT estimate and bootstrap SE, the optimal covariate
@@ -64,6 +66,8 @@ class GenMatchResult:
     >>> res.n_treated
     111
     """
+
+    _citation_keys = ("diamond2013genetic",)
 
     att: float
     att_se: float

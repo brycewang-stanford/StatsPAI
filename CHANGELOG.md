@@ -7,14 +7,15 @@ All notable changes to StatsPAI will be documented in this file.
 ### Added
 
 - **Agent-native result protocol (`.to_dict()` / `.to_latex()` / `.cite()`) on
-  50 domain result objects.** The flagship `CausalResult` /
+  64 domain result objects.** The flagship `CausalResult` /
   `EconometricResults` already exposed the full protocol, but the lighter
   result dataclasses only had `.summary()`. A new `ResultProtocolMixin`
-  (`statspai._result_serialize`) now gives **50** result classes — across the
-  negative-control / proximal / mediation / interference / ITS / Rosenbaum /
-  BCF, plus the Mendelian-randomization, meta-learner, multiple-testing,
-  multilevel, QTE, robustness, transport, target-trial, OPE, longitudinal-TMLE,
-  selection and time-series families — a uniform, JSON-safe `.to_dict()`
+  (`statspai._result_serialize`) now gives **64** result classes — across the
+  negative-control / proximal / mediation / interference (orthogonal + cluster
+  designs) / ITS / Rosenbaum / BCF, plus the Mendelian-randomization,
+  meta-learner, multiple-testing, multilevel, QTE, robustness, transport,
+  target-trial, OPE, longitudinal-TMLE, g-formula, bootstrap, meta-analysis,
+  matching, selection and time-series families — a uniform, JSON-safe `.to_dict()`
   (numpy / pandas / NaN-aware, via the existing `core.results._to_jsonable`), a
   compact booktabs `.to_latex()` table of the scalar fields, and a `.cite()`
   returning the estimator's **verified** paper.bib citation key(s). The

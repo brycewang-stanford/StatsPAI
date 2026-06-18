@@ -47,7 +47,7 @@ PROTOCOL_CLASSES = sorted(
 
 def test_protocol_class_count_is_substantial():
     # Guard against an accidental mass-revert of the mixin wiring.
-    assert len(PROTOCOL_CLASSES) >= 45, PROTOCOL_CLASSES
+    assert len(PROTOCOL_CLASSES) >= 60, PROTOCOL_CLASSES
 
 
 class TestProtocolShape:

@@ -49,6 +49,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
+
 
 # --------------------------------------------------------------------
 # Result container
@@ -56,7 +58,7 @@ from scipy import stats
 
 
 @dataclass
-class NetworkExposureResult:
+class NetworkExposureResult(ResultProtocolMixin):
     """Container for :func:`network_exposure` Horvitz-Thompson estimates.
 
     Attributes
@@ -86,6 +88,8 @@ class NetworkExposureResult:
     >>> res.exposure_levels
     ['c00', 'c01', 'c10', 'c11']
     """
+
+    _citation_keys = ("aronow2017estimating",)
 
     estimates: pd.DataFrame  # one row per exposure level
     contrasts: pd.DataFrame  # pairwise contrasts (e.g. direct, spillover)

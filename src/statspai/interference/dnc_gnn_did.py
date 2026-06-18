@@ -19,9 +19,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
+
 
 @dataclass
-class DNCGNNDiDResult:
+class DNCGNNDiDResult(ResultProtocolMixin):
     """Output of DNC + GNN + DiD.
 
     Examples

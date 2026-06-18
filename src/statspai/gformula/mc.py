@@ -48,9 +48,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats as _stats
 
+from .._result_serialize import ResultProtocolMixin
+
 
 @dataclass
-class MCGFormulaResult:
+class MCGFormulaResult(ResultProtocolMixin):
     """Result of one or two Monte-Carlo g-formula arms.
 
     Examples

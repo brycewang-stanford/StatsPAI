@@ -31,6 +31,8 @@ from typing import Any, Dict, List, Optional, Sequence
 import numpy as np
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
+
 __all__ = [
     "MetaAnalysisResult",
     "meta_analysis",
@@ -38,7 +40,7 @@ __all__ = [
 
 
 @dataclass
-class MetaAnalysisResult:
+class MetaAnalysisResult(ResultProtocolMixin):
     """Result of a summary-data meta-analysis.
 
     Attributes
@@ -76,6 +78,12 @@ class MetaAnalysisResult:
     >>> bool(result.estimate > 0)  # all studies show a positive effect
     True
     """
+
+    _citation_keys = (
+        "dersimonian1986meta",
+        "higgins2002quantifying",
+        "egger1997bias",
+    )
 
     estimate: float
     se: float

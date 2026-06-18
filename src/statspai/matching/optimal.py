@@ -22,9 +22,11 @@ import pandas as pd
 from scipy import optimize
 from scipy.spatial.distance import cdist
 
+from .._result_serialize import ResultProtocolMixin
+
 
 @dataclass
-class OptimalMatchResult:
+class OptimalMatchResult(ResultProtocolMixin):
     """Result of :func:`optimal_match` (optimal 1:1 Hungarian matching).
 
     Attributes
@@ -225,7 +227,7 @@ def optimal_match(
 # --------------------------------------------------------------------- #
 
 @dataclass
-class CardinalityMatchResult:
+class CardinalityMatchResult(ResultProtocolMixin):
     """Result of :func:`cardinality_match` (Zubizarreta cardinality matching).
 
     Attributes

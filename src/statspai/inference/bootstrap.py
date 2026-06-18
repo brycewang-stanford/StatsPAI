@@ -29,9 +29,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._result_serialize import ResultProtocolMixin
+
 
 @dataclass
-class BootstrapResult:
+class BootstrapResult(ResultProtocolMixin):
     """Container for bootstrap inference results.
 
     Returned by :func:`bootstrap`. Holds the point estimate, the
@@ -56,6 +58,8 @@ class BootstrapResult:
     >>> bool(res.ci_lower < res.estimate < res.ci_upper)
     True
     """
+
+    _citation_keys = ("cameron2008bootstrap",)
 
     estimate: float
     se: float

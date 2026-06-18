@@ -23,9 +23,11 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
+from .._result_serialize import ResultProtocolMixin
+
 
 @dataclass
-class ICEResult:
+class ICEResult(ResultProtocolMixin):
     """Result of the iterative conditional expectation (ICE) g-formula.
 
     Returned by :func:`sp.gformula_ice_fn`. Holds the estimated mean
