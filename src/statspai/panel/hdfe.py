@@ -54,7 +54,7 @@ fit models with high-dimensional fixed effects." Stata Journal, 10(4).
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -63,7 +63,7 @@ import pandas as pd
 _VALID_SOLVERS = ("map", "lsmr", "lsqr")
 
 
-def _hdfe_kernels():
+def _hdfe_kernels() -> Any:
     """Load Numba HDFE kernels on first HDFE use, not on package import."""
     from . import _hdfe_kernels as _kernels
     return _kernels
@@ -164,7 +164,7 @@ def _aitken_accelerate(x0: np.ndarray, x1: np.ndarray, x2: np.ndarray) -> np.nda
     if denom < 1e-30:
         return x2
     alpha = float(dx1 @ d2) / denom
-    return x0 - alpha * dx1
+    return np.asarray(x0 - alpha * dx1)
 
 
 # ======================================================================
@@ -349,11 +349,14 @@ class Absorber:
             n_fe.append(G)
 
         # Weighted group sums, pre-compute wsum per group
+        wsum_list: Optional[List[np.ndarray]]
+        self.weights: Optional[np.ndarray]
         if weights is not None:
             w_kept = np.ascontiguousarray(weights[keep_mask], dtype=np.float64)
-            wsum_list: Optional[List[np.ndarray]] = []
+            _wsum: List[np.ndarray] = []
             for codes_k, G in zip(fe_codes, n_fe):
-                wsum_list.append(np.bincount(codes_k, weights=w_kept, minlength=G))
+                _wsum.append(np.bincount(codes_k, weights=w_kept, minlength=G))
+            wsum_list = _wsum
             self.weights = w_kept
         else:
             wsum_list = None
@@ -518,6 +521,7 @@ def _group_mean_sweep_seq(
         for k in range(K):
             kernels.sweep(col, fe_codes[k], counts_list[k])
     else:
+        assert wsum_list is not None
         for k in range(K):
             kernels.sweep_weighted(col, weights, fe_codes[k], wsum_list[k])
 
@@ -530,7 +534,7 @@ def _group_mean_sweep_seq(
 def _build_fe_design(
     fe_codes: List[np.ndarray],
     n_rows: int,
-):
+) -> Any:
     """Horizontally stack one-hot FE indicator matrices into a sparse CSR.
 
     Each FE dimension contributes an ``(n_rows, G_k)`` indicator block.
@@ -835,7 +839,7 @@ def _cluster_sandwich(
         np.add.at(agg, codes, scores)
         meat = agg.T @ agg
         scale = (G / max(G - 1, 1)) * ((n - 1) / max(n - n_absorbed, 1))
-        return scale * XtX_inv @ meat @ XtX_inv
+        return np.asarray(scale * XtX_inv @ meat @ XtX_inv)
 
     if len(clusters_list) == 1:
         V = _one_way(clusters_list[0])

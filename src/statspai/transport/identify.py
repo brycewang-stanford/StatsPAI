@@ -16,7 +16,7 @@ effect is transportable via the transport formula
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Any, Iterable
 
 from .._result_serialize import ResultProtocolMixin
 
@@ -63,10 +63,10 @@ class TransportIdentificationResult(ResultProtocolMixin):
 
 
 def identify_transport(
-    dag,
-    treatment,
-    outcome,
-    selection_nodes,
+    dag: Any,
+    treatment: str | Iterable[str],
+    outcome: str | Iterable[str],
+    selection_nodes: str | Iterable[str],
 ) -> TransportIdentificationResult:
     """Test s-admissibility of some conditioning set.
 
@@ -100,7 +100,7 @@ def identify_transport(
     >>> sorted(res.admissible_set)
     ['W']
     """
-    def _ensure_set(s):
+    def _ensure_set(s: str | Iterable[str]) -> set[str]:
         if isinstance(s, str):
             return {s}
         return set(s)

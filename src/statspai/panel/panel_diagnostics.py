@@ -18,7 +18,7 @@ Pesaran, M.H. (2004). "General Diagnostic Tests for Cross Section
     Dependence in Panels." [@hausman1978specification]
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -311,7 +311,9 @@ def _pesaran_cd(
 # Internal helpers (from diagnostics/hausman.py)
 # ======================================================================
 
-def _within_estimator(df, y, x, id_col):
+def _within_estimator(
+    df: pd.DataFrame, y: str, x: List[str], id_col: str
+) -> Tuple[np.ndarray, np.ndarray]:
     """Fixed Effects (within transformation)."""
     n = len(df)
     k = len(x)
@@ -342,7 +344,9 @@ def _within_estimator(df, y, x, id_col):
     return beta, vcov
 
 
-def _re_estimator(df, y, x, id_col):
+def _re_estimator(
+    df: pd.DataFrame, y: str, x: List[str], id_col: str
+) -> Tuple[np.ndarray, np.ndarray]:
     """Random Effects (GLS with estimated variance components)."""
     n = len(df)
     k = len(x)

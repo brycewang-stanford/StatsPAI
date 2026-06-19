@@ -4,7 +4,7 @@ Target trial emulation — end-to-end pipeline wiring a protocol to data.
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Literal, cast
 import numpy as np
 import pandas as pd
 
@@ -90,7 +90,11 @@ class TargetTrialResult(ResultProtocolMixin):
         See :func:`statspai.target_trial.to_paper` for details.
         """
         from .report import to_paper as _to_paper
-        return _to_paper(self, fmt=fmt, title=title)
+        fmt_lit = cast(
+            Literal["markdown", "latex", "text", "target", "jama", "bmj"],
+            fmt,
+        )
+        return _to_paper(self, fmt=fmt_lit, title=title)
 
 
 def emulate(

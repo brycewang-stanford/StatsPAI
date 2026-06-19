@@ -424,8 +424,8 @@ def mice(
 
 def mi_estimate(
     mice_result: MICEResult,
-    estimator,
-    **kwargs,
+    estimator: Any,
+    **kwargs: Any,
 ) -> Dict[str, Any]:
     """
     Run an estimator on each imputed dataset and combine using Rubin's rules.

@@ -251,7 +251,7 @@ def _as_matrix(df: pd.DataFrame, cols: Sequence[str]) -> np.ndarray:
             recovery_hint="Drop or impute missing surrogate/covariate values.",
             diagnostics={"columns": list(cols)},
         )
-    return arr
+    return np.asarray(arr)
 
 
 def _fit_outcome_model(
@@ -279,7 +279,7 @@ def _fit_outcome_model(
 
         def predict(Snew: np.ndarray) -> np.ndarray:
             Xnew = np.column_stack([np.ones(Snew.shape[0]), Snew])
-            return Xnew @ beta
+            return np.asarray(Xnew @ beta)
 
         return predict
 
@@ -299,7 +299,8 @@ def _fit_outcome_model(
             fit_fn(S, Y)
     except TypeError:
         fit_fn(S, Y)
-    return predict_fn
+    predict_callable: Callable[[np.ndarray], np.ndarray] = predict_fn
+    return predict_callable
 
 
 def _delta_variance(
@@ -328,7 +329,7 @@ def _delta_variance(
     var_obs = (
         float(np.var(resid_obs, ddof=1)) * float(np.var(h_pred_obs)) / max(n_obs, 1)
     )
-    return var_exp + var_obs
+    return float(var_exp + var_obs)
 
 
 # ---------------------------------------------------------------------------
@@ -657,7 +658,7 @@ def long_term_from_short(
 
     rng = np.random.default_rng(random_state)
     n_e, n_o = len(experimental), len(observational)
-    boots = np.empty(n_boot)
+    boots: np.ndarray = np.empty(n_boot)
     n_ok = 0
     for b in range(n_boot):
         ix_o = rng.integers(0, n_o, size=n_o)
@@ -808,7 +809,9 @@ def proximal_surrogate_index(
     _raise_missing_columns("observational", missing_o)
     _raise_missing_columns("experimental", missing_e)
 
-    def _bridge_predict(obs_df: pd.DataFrame) -> Callable[[np.ndarray], np.ndarray]:
+    def _bridge_predict(
+        obs_df: pd.DataFrame,
+    ) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
         """Solve E[Y|S,X,W] = Wα + h(S,X) by 2SLS.
 
         First stage: regress S on W (and X) → S_hat(W, X)
@@ -848,7 +851,7 @@ def proximal_surrogate_index(
             val = intercept + S_exp @ beta_s
             if beta_x is not None and X_exp is not None:
                 val = val + X_exp @ beta_x
-            return val
+            return np.asarray(val)
 
         return predict
 
@@ -864,7 +867,7 @@ def proximal_surrogate_index(
 
     rng = np.random.default_rng(random_state)
     n_e, n_o = len(experimental), len(observational)
-    boots = np.empty(n_boot)
+    boots: np.ndarray = np.empty(n_boot)
     n_ok = 0
     for b in range(n_boot):
         ix_o = rng.integers(0, n_o, size=n_o)

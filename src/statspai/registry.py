@@ -6426,8 +6426,8 @@ def _build_registry() -> None:
                     "kind",
                     "str",
                     True,
-                    "Which bridge to invoke",
-                    [
+                    description="Which bridge to invoke",
+                    enum=[
                         "did_sc",
                         "ewm_cate",
                         "cb_ipw",

@@ -102,10 +102,10 @@ def _distance_matrix(
         # cdist computes the identical sqrt((x-y)' VI (x-y)) in C, ~3-5x faster
         # than the per-treated-unit Python loop and without materialising the
         # (n_treat, n_ctrl, k) difference tensor a full broadcast would need.
-        return cdist(X_treat, X_ctrl, metric="mahalanobis", VI=cov_inv)
+        return np.asarray(cdist(X_treat, X_ctrl, metric="mahalanobis", VI=cov_inv))
     if metric == "euclidean":
         diff = X_treat[:, None, :] - X_ctrl[None, :, :]
-        return np.linalg.norm(diff, axis=2)
+        return np.asarray(np.linalg.norm(diff, axis=2))
     raise ValueError(f"unknown metric {metric!r}")
 
 
