@@ -47,6 +47,10 @@ from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
+class _CausalImpactDataTypeError(MethodIncompatibility, TypeError):
+    """Compatibility bridge for legacy TypeError and taxonomy catches."""
+
+
 def _require_dataframe(value: Any, name: str) -> pd.DataFrame:
     if not isinstance(value, pd.DataFrame):
         raise MethodIncompatibility(
@@ -682,6 +686,11 @@ def causal_impact(
     # ------------------------------------------------------------------
     # Input validation
     # ------------------------------------------------------------------
+    if not isinstance(data, pd.DataFrame):
+        raise _CausalImpactDataTypeError(
+            "`data` must be a pandas DataFrame.",
+            diagnostics={"data": data.__class__.__name__},
+        )
     data = _require_dataframe(data, "data")
     pre_period = _require_period_pair(pre_period, "pre_period")
     post_period = _require_period_pair(post_period, "post_period")
