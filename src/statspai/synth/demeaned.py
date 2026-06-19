@@ -123,7 +123,6 @@ def demeaned_synth(
 
     # --- De-mean or de-trend ---
     time_numeric = np.arange(len(times), dtype=np.float64)
-    pre_idx = np.where(pre_mask)[0]
 
     if variant == "demeaned":
         # Subtract pre-treatment means
@@ -161,7 +160,6 @@ def demeaned_synth(
     # --- Compute synthetic with intercept correction ---
     # The gap is computed in the adjusted space, then the synthetic
     # in original space includes the treated unit's level/trend.
-    gap_adj = Y_treated_adj - Y_donors_adj @ weights
     if variant == "demeaned":
         # Synthetic in original space: mean_treated + adjusted_synthetic
         Y_synth = mean_treated + Y_donors_adj @ weights
@@ -192,7 +190,6 @@ def demeaned_synth(
             Y_p = all_Y[:, idx_p]
             Y_p_adj = all_Y_adj[:, idx_p]
             didx = [j for j in range(all_Y.shape[1]) if j != idx_p]
-            Y_d = all_Y[:, didx]
             Y_d_adj = all_Y_adj[:, didx]
 
             try:

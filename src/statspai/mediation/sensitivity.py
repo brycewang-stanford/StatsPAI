@@ -207,7 +207,6 @@ def mediate_sensitivity(
     # ρ * sigma_y * sigma_m to the covariance of (ε_M, ε_Y), which biases
     # β₂ by ρ * sigma_y / sigma_m per omitted-variable algebra.
     # ACME bias = alpha_1 * Δβ₂ = alpha_1 * ρ * sigma_y / sigma_m
-    var_m = float(resid_m.var())
     rho_grid = np.linspace(rho_range[0], rho_range[1], n_grid)
     acme_at_rho = np.empty(n_grid)
     for k, rho in enumerate(rho_grid):

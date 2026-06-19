@@ -508,7 +508,6 @@ def _averaged_weights(
     This is simpler and faster but may discard information when outcome
     factor loadings differ substantially.
     """
-    K = len(outcomes)
     y1_avg = np.mean([Y1_pres[oc] for oc in outcomes], axis=0)   # (T0,)
     Y0_avg = np.mean([Y0_pres[oc] for oc in outcomes], axis=0)   # (J, T0)
 

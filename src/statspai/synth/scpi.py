@@ -371,7 +371,6 @@ def scpi(
     Y_donors_pre = sc["Y_donors_pre"]   # (T0, J)
     Y_donors_post = sc["Y_donors_post"]  # (T1, J)
     donor_names = sc["donor_names"]
-    pre_times = sc["pre_times"]
     post_times = sc["post_times"]
     all_times = sc["times"]
 
@@ -722,8 +721,6 @@ def _out_of_sample_variance(
     np.ndarray, shape (T1,)
         Estimated out-of-sample variance for each post-treatment period.
     """
-    T0 = len(e_pre)
-
     if e_method == "gaussian":
         return _out_of_sample_gaussian(e_pre, T1)
     elif e_method == "ls":
@@ -793,7 +790,6 @@ def _out_of_sample_qreg(
     the out-of-sample component.  Convert the quantile range to an
     equivalent variance for the Gaussian PI formula.
     """
-    T0 = len(e_pre)
     lo_q = alpha / 2
     hi_q = 1 - alpha / 2
 

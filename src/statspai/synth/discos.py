@@ -145,8 +145,6 @@ def discos(
     ----------
     gunsilius2023distributional
     """
-    rng = np.random.default_rng(seed)
-
     if method not in ("mixture", "quantile"):
         raise ValueError(  # pragma: no cover
             f"method must be 'mixture' or 'quantile', got '{method}'"

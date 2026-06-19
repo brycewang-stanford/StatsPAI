@@ -161,7 +161,6 @@ def econometric_next_steps(result: Any) -> List[Step]:
     robust = result.model_info.get("robust", "nonrobust")
     has_residuals = result.data_info.get("residuals") is not None
     has_X = result.data_info.get("X") is not None
-    n_obs = result.data_info.get("nobs", 0)
     dep_var = result.data_info.get("dependent_var", "y")
 
     # ── Diagnostics ────────────────────────────────────────────────── #

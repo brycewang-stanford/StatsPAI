@@ -297,7 +297,6 @@ def dml_sensitivity(
 
     theta = float(result.estimate)
     se = float(result.se)
-    n = len(y_resid)
 
     # Bias scaling factor S = σ(Y_resid) / σ(D_resid) for PLR.
     # Equivalent forms appear in §3 of the paper.
@@ -310,7 +309,6 @@ def dml_sensitivity(
     rv_q = _robustness_value(q * abs(theta), s)
 
     # RV_qa: strength to push the (1-α)/2 CI lower bound across zero.
-    z = float(np.abs(theta) / se) if se > 0 else float("inf")
     crit = 1.96  # default α=0.05 two-sided; we honour result.alpha below.
     from scipy import stats as _stats
     if hasattr(result, "alpha") and result.alpha is not None:

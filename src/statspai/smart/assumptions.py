@@ -747,9 +747,6 @@ def _audit_panel(
     """Assumption tests for panel models."""
     checks: List[AssumptionCheck] = []
 
-    mi = getattr(result, 'model_info', {})
-    method = mi.get('method', mi.get('model_type', ''))
-
     # 1. FE vs RE (Hausman)
     checks.append(AssumptionCheck(
         assumption='FE vs RE specification',

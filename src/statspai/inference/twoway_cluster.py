@@ -142,7 +142,6 @@ def twoway_cluster(
     # --- Build new results ---
     se = pd.Series(np.sqrt(np.diag(V_twoway)), index=result.params.index)
 
-    n = X.shape[0]
     G1 = len(np.unique(c1))
     G2 = len(np.unique(c2))
     df_resid = min(G1, G2) - 1  # Conservative DoF

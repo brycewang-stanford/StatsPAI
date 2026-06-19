@@ -118,7 +118,6 @@ def _gap_closing_core(
     trim: float, target_dist: int,
 ) -> Tuple[float, float]:
     """Core gap-closing computation; returns (observed, counterfactual)."""
-    n = len(y)
     mask_a = g == 0
     mask_b = g == 1
     y_a, y_b = y[mask_a], y[mask_b]
@@ -672,9 +671,7 @@ def disparity_decompose(
     # Initial disparity: E[Y | G=1, M=m_star] − E[Y | G=0]
     # Use covariates of G=1 obs for expectation
     mask_b = G == 1
-    mask_a = G == 0
     C_b = C[mask_b] if cov else np.empty((mask_b.sum(), 0))
-    M_b = M[mask_b]
     M_star_b = np.full(mask_b.sum(), m_star)
     y_b_cf_initial = float(pred(1.0, M_star_b, C_b).mean())
     y_a_cf_initial = y_a_obs  # observed

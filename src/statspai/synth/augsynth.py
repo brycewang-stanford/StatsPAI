@@ -219,7 +219,6 @@ def augsynth(
 
     # --- Step 2: Counterfactual trajectory using augmented weights ---
     Y1_hat_scm_pre = Y0_pre.T @ syn_weights
-    Y1_hat_scm_post = Y0_post.T @ syn_weights
     Y1_hat_aug_pre = Y0_pre.T @ gamma
     Y1_hat_aug_post = Y0_post.T @ gamma
 

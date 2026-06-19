@@ -329,7 +329,6 @@ class CEVAE:
 
             # Re-fit encoder to match X reconstruction (X ~ z B)
             B, *_ = np.linalg.lstsq(z, X, rcond=None)
-            recon = z @ B
             # Update A such that X A reproduces z better (1-step gradient)
             grad = (X.T @ (X @ A - z)) / n
             A = A - 0.1 * grad

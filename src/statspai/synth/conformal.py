@@ -135,7 +135,6 @@ def conformal_synth(
     T0 = int(pre_mask.sum())
     T1 = int(post_mask.sum())
     post_indices = np.where(post_mask)[0]
-    pre_indices = np.where(pre_mask)[0]
 
     # --- Fit standard SCM for point estimate ---
     weights = _solve_weights(

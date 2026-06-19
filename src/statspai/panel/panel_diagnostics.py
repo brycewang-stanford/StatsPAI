@@ -129,7 +129,6 @@ def _bp_lm_test(
     # Group residuals by entity
     ids = df[id_col].values
     unique_ids = np.unique(ids)
-    N = len(unique_ids)
     nT = len(e)
 
     # Average T per unit

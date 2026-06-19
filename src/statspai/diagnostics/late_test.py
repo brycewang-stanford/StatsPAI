@@ -171,18 +171,10 @@ def _compute_test_statistic(
     if n1 == 0 or n0 == 0:
         return 0.0, 0.0, 0.0
 
-    # First stage probabilities
-    p_d1_z1 = d[z1].mean()  # P(D=1 | Z=1)
-    p_d1_z0 = d[z0].mean()  # P(D=1 | Z=0)
-
     max_viol_t = 0.0
     max_viol_u = 0.0
 
     for yval in grid:
-        # CDF estimates
-        F_y_z1 = np.mean(y[z1] <= yval)  # P(Y <= y | Z=1)
-        F_y_z0 = np.mean(y[z0] <= yval)  # P(Y <= y | Z=0)
-
         # Condition 1: treated complier CDF must be non-negative
         # P(Y <= y | Z=1) - P(Y <= y | Z=0) >= 0 is NOT the right condition;
         # The correct conditions from Kitagawa (2015) Theorem 1:
@@ -196,7 +188,6 @@ def _compute_test_statistic(
 
         # P(Y<=y, D=0 | Z=z)
         F_yd0_z1 = np.mean((y[z1] <= yval) & (d[z1] == 0))
-        F_yd0_z0 = np.mean((y[z0] <= yval) & (d[z0] == 1))
 
         # Condition 1 (treated complier CDF numerator >= 0):
         # P(Y<=y, D=1|Z=1) - P(Y<=y, D=1|Z=0) >= 0

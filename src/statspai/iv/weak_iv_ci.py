@@ -253,10 +253,6 @@ def conditional_lr_ci(
     crit_arr = np.empty(len(beta_grid))
 
     df_r = max(n - kW - k, 1)
-    # Precompute Zs'Dt (invariant across loop)
-    ZsDt = Zs.T @ Dt  # (k,)
-    DtDt = float(Dt @ Dt)
-    DtZsZsDt = float(ZsDt @ ZsDt)
 
     for i, b0 in enumerate(beta_grid):
         ustar = Yt - b0 * Dt

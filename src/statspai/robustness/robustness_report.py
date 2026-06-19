@@ -139,7 +139,6 @@ class RobustnessResult(ResultProtocolMixin):
     ) -> str:
         """Export to LaTeX table."""
         df = self.results_df
-        n_cols = 5
         lines = [
             r"\begin{table}[htbp]",
             r"\centering",

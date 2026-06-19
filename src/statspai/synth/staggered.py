@@ -146,12 +146,10 @@ def staggered_synth(
         if method == "pooled":
             # Pool: use average of cohort units as target
             Y1_pre = outcome_panel.loc[cohort_units, pre_times_c].mean(axis=0).values
-            Y1_post = outcome_panel.loc[cohort_units, post_times_c].mean(axis=0).values
 
             weights = _solve_weights(Y1_pre, Y0_pre.T, penalization)
             Y1_hat = Y0_post.T @ weights
-            effects = Y1_post - Y1_hat
-            att_c = float(np.mean(effects))
+            # Cohort target Y1_hat is reused below to score each cohort unit.
 
             for u in cohort_units:
                 Y_u_post = outcome_panel.loc[u, post_times_c].values.astype(np.float64)

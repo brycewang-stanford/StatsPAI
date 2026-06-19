@@ -95,7 +95,6 @@ def panel_fgls(
     times = df[time].unique()
     N = len(units)
     T = len(times)
-    k = len(x)
 
     # Build matrices
     y_data = df[y].values.astype(float)

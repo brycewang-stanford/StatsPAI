@@ -181,7 +181,6 @@ def bayesian_synth(
     # -0.5 * (T0+K) * log(2 pi sigma^2) term would artificially inflate
     # the penalty on sigma proportional to the number of covariate rows.
     # ------------------------------------------------------------------
-    n_outcome_rows = len(pre_times)
     if covariates is not None and len(covariates) > 0:
         # Reference scale: pooled pre-treatment outcome SD (treated + donors).
         outcome_sd = float(
@@ -405,7 +404,6 @@ def _log_posterior(
         return -np.inf
 
     T0 = len(Y1_pre)
-    J = len(w)
 
     # --- Log-likelihood ---
     residual = Y1_pre - Y0_pre.T @ w  # (T0,)
@@ -679,7 +677,6 @@ def _compute_rhat(chain_samples: List[np.ndarray]) -> np.ndarray:
         chain_means = np.array([np.mean(s[:, j]) for s in splits])
         chain_vars = np.array([np.var(s[:, j], ddof=1) for s in splits])
 
-        grand_mean = np.mean(chain_means)
         B = N * np.var(chain_means, ddof=1)  # between-chain variance
         W = np.mean(chain_vars)              # within-chain variance
 

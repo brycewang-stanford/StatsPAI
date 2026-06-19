@@ -312,7 +312,6 @@ def _components_from_nuisance(
     (doubly-robust) terms; with ``efficient=False`` (default) we fall
     back on the plug-in formulas in the paper's Section 4.1.
     """
-    n = len(y)
     grp_a = r == 1
     grp_b = r == 0
 
@@ -352,12 +351,6 @@ def _components_from_nuisance(
         ey0_b = float(np.mean(
             m_b0_in + (1 - t_b) / (1 - p_b_in) * (y_b - m_b0_in)
         ))
-        ey1_a = float(np.mean(
-            m_a1_in + t_a / p_a_in * (y_a - m_a1_in)
-        ))
-        ey1_b = float(np.mean(
-            m_b1_in + t_b / p_b_in * (y_b - m_b1_in)
-        ))
         psi_a = (
             m_a1_in - m_a0_in
             + t_a / p_a_in * (y_a - m_a1_in)
@@ -380,8 +373,6 @@ def _components_from_nuisance(
     else:
         ey0_a = float(m_a0_all[grp_a].mean())
         ey0_b = float(m_b0_all[grp_b].mean())
-        ey1_a = float(m_a1_all[grp_a].mean())
-        ey1_b = float(m_b1_all[grp_b].mean())
         tau_a_per_obs = m_a1_all - m_a0_all
         tau_b_per_obs = m_b1_all - m_b0_all
         e_tau_a = float(tau_a_per_obs[grp_a].mean())

@@ -101,7 +101,6 @@ def _unconditional_quantiles(
     Returns Q(τ) for τ in tau_eval.
     """
     J, k = beta_grid.shape
-    n = X_source.shape[0]
     # Predicted conditional quantiles: (J, n)
     preds = beta_grid @ X_source.T
     # Flatten to get unconditional sample

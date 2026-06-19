@@ -97,7 +97,6 @@ def distance_band(coords: np.ndarray, threshold: float, binary: bool = True) -> 
     knn_weights : Fixed neighbour count instead of fixed radius.
     """
     coords = np.asarray(coords, dtype=float)
-    n = coords.shape[0]
     tree = cKDTree(coords)
     pairs = tree.query_ball_point(coords, r=threshold)
     neighbors, weights = {}, {}

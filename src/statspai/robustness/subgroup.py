@@ -384,7 +384,6 @@ def _interaction_het_test(
         return None
 
     # Create dummies (drop first)
-    ref = groups[0]
     interaction_names = []
     for g in groups[1:]:
         col_d = f"_d_{g}"

@@ -533,16 +533,8 @@ def _run_placebos(
 
     J = Y0_pre.shape[0]
 
-    # All donor pre/post data stacked with treated at position 0
-    all_pre = np.vstack([Y1_pre.reshape(1, -1), Y0_pre])   # (J+1, T0)
-    all_post = np.vstack([
-        np.zeros((1, Y0_post.shape[1])),  # placeholder — filled per iter
-        Y0_post,
-    ])
-    # We need treated post as well for the full pool
-    # Treated post is not in Y0_post; we omit the treated from placebos
-    # and only iterate over donors.
-
+    # In-space placebo: omit the actual treated unit and iterate over the
+    # donors only, cycling each donor as the pseudo-treated unit.
     for i in range(J):
         placebo_unit = donors[i]
         # The "treated" in this iteration is donor i

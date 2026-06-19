@@ -270,7 +270,7 @@ def _dte_cic(
         sv, c = np.sort(v), np.arange(1, len(v) + 1) / len(v)
         return interp1d(c, sv, bounds_error=False, fill_value=(sv[0], sv[-1]))
 
-    F_00, F_10, F_01 = _ecdf_f(groups[0]), _ecdf_f(groups[2]), _ecdf_f(groups[1])
+    F_10, F_01 = _ecdf_f(groups[2]), _ecdf_f(groups[1])
     Q_00 = _qf(groups[0])
 
     cdf_t = _weighted_ecdf(groups[3], np.ones(len(groups[3])), grid)

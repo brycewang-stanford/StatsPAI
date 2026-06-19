@@ -179,9 +179,8 @@ def peer_effects(
     W2X = W_mat @ WX if WX.shape[1] > 0 else np.zeros((n, 0))
     W3X = W_mat @ W2X if W2X.shape[1] > 0 else np.zeros((n, 0))
 
-    # Build design: [1, WY, X, optionally WX]
+    # Build design: [1, WY, X, optionally WX]; WY is the endogenous regressor.
     cols = ["(Intercept)", "WY"]
-    endog_cols = ["WY"]
     full = np.column_stack([np.ones(n), WY])
     if X.shape[1] > 0:
         full = np.column_stack([full, X])

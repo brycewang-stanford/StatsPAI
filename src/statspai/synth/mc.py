@@ -142,7 +142,6 @@ def mc_synth(
     J = len(donors)
     T0 = len(pre_times)
     T1 = len(post_times)
-    T_total = len(all_times)
 
     # Full panel matrix (N x T)
     Y_full = pivot.loc[all_units, all_times].values.astype(np.float64)

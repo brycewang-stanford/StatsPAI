@@ -286,7 +286,8 @@ def wooldridge_prod(
     theta_hat = res.x
 
     beta_hat = theta_hat[:n_inputs]
-    gamma_hat = theta_hat[n_inputs:n_inputs + n_basis_h]
+    # gamma block (theta_hat[n_inputs : n_inputs + n_basis_h]) is re-sliced
+    # inside _wooldridge_residuals below to form omega = h(m,k); no local needed.
     delta_hat = theta_hat[n_inputs + n_basis_h:]
 
     # Recover productivity & innovations.

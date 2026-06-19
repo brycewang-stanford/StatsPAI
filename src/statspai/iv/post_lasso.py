@@ -205,7 +205,6 @@ def _refine_loadings(
 ) -> np.ndarray:
     """Heteroskedastic per-coef loadings:  ψ_j = √{(1/n) Σ_i X_{ij}² ε̂_i²}."""
     r = y - X @ beta
-    n = len(y)
     psi = np.sqrt((X ** 2 * (r ** 2)[:, None]).mean(axis=0))
     psi = np.where(psi > 0, psi, 1.0)
     return psi
@@ -396,7 +395,6 @@ def bch_post_lasso_iv(
     # Recover intercept/controls via Frisch-Waugh
     intercept_and_controls = {}
     if W.shape[1] > 0:
-        resid_Y_on_W = Y - (W @ np.linalg.lstsq(W, Y, rcond=None)[0])
         # β̂ is for partialled-out D; original-scale β is identical
         # Controls: regress (Y - β D) on W
         b_w, *_ = np.linalg.lstsq(W, Y - beta * D, rcond=None)

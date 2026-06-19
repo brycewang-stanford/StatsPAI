@@ -308,7 +308,6 @@ def machado_mata(
     if inference == "bootstrap":
         rng_b = np.random.default_rng(seed)
         boot_list = []
-        n_total = len(df)
         strata = g
         for _ in range(n_boot):
             # Stratified bootstrap

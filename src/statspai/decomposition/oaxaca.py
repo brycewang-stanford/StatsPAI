@@ -866,9 +866,6 @@ def gelbach(
 
     # ── Auxiliary regressions: regress each added_x on base_x ────────
     # gamma_tilde[j] = coef on var_of_interest from regressing added_x_j on base_x
-    base_var_names = ['_cons'] + base_x
-    full_var_names = ['_cons'] + all_x
-
     decomp_rows = []
     delta_vec = np.zeros(len(added_x))
     delta_var = np.zeros(len(added_x))

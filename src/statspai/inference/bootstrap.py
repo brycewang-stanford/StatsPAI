@@ -274,8 +274,6 @@ def _bca_ci(
     block: Optional[str],
 ) -> tuple:
     """Bias-corrected and accelerated (BCa) confidence interval."""
-    n_boot = len(boot_stats)
-
     # Bias correction factor z0
     prop_less = np.mean(boot_stats < theta_hat)
     z0 = sp_stats.norm.ppf(max(min(prop_less, 0.999), 0.001))

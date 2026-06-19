@@ -367,8 +367,6 @@ def _ks_stat(x_t: np.ndarray, x_c: np.ndarray,
     if w_c is None:
         w_c = np.ones(len(x_c))
 
-    cdf_t = np.searchsorted(np.sort(x_t), all_vals, side="right")
-    cdf_c = np.searchsorted(np.sort(x_c), all_vals, side="right")
     # Approximate weighted CDF via order-based approach
     idx_t = np.argsort(x_t)
     idx_c = np.argsort(x_c)

@@ -150,7 +150,6 @@ def sparse_synth(
     # 2. Optional covariates — append to the pre-treatment matrix
     # ------------------------------------------------------------------
     if covariates:
-        cov_panel = data.pivot_table(index=unit, columns=time, values=covariates)
         # Average covariates over pre-treatment for each unit
         cov_treated = np.array([
             data.loc[

@@ -51,7 +51,6 @@ class KinkUnifiedResult:
     n_obs: int
 
     def summary(self) -> str:
-        z_crit = 1.96
         return (
             "Kink-Bunching-RDD Unified Estimator\n"
             "=" * 42 + "\n"

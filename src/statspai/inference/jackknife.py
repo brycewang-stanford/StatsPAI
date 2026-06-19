@@ -92,7 +92,6 @@ def jackknife_se(
     """
     # Extract formula components from the result
     formula = result.model_info.get('formula', '')
-    model_type = result.model_info.get('model_type', 'OLS')
 
     # Parse the formula to get y and X variable names
     y_var, x_vars = _parse_formula(formula, result)
@@ -110,12 +109,7 @@ def jackknife_se(
     cl = df[cluster].values
     unique_cl = np.unique(cl)
     G = len(unique_cl)
-    n = len(Y)
     k = X.shape[1]
-
-    # Full-sample OLS
-    XtX_inv = np.linalg.inv(X.T @ X)
-    beta_hat = XtX_inv @ X.T @ Y
 
     # Leave-one-cluster-out estimates
     beta_loo = np.zeros((G, k))
@@ -264,7 +258,6 @@ def cr2_se(
     cl = df[cluster].values
     unique_cl = np.unique(cl)
     G = len(unique_cl)
-    n = len(Y)
     k = X.shape[1]
 
     XtX_inv = np.linalg.inv(X.T @ X)

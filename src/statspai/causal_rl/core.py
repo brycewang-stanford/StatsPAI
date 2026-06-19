@@ -164,7 +164,6 @@ def causal_bandit(
     """
     if len(arms) < 2:
         raise ValueError("Need >= 2 arms.")
-    rng = np.random.default_rng(rng_seed)
     expected = np.zeros(len(arms))
     for i, a in enumerate(arms):
         draws = np.array([

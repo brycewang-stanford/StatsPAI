@@ -223,7 +223,6 @@ def mte(
         mode='treated'   : weight_k(p) = p^k / (k+1)
         mode='untreated' : weight_k(p) = (1 - p^{k+1}) / ((k+1) * (1-p))
         """
-        n_here = len(p)
         cols = []
         for k in range(K + 1):
             if mode == "treated":
@@ -446,7 +445,6 @@ def _mte_point_only(
     Used by the bootstrap inside :func:`mte`. No standard errors, no
     diagnostic plumbing — this runs many times so it must be cheap.
     """
-    n = len(Y)
     Z_prop = np.column_stack([X, Z])
     p = _fit_propensity(D, Z_prop, model=propensity_model)
     keep = (p > trim) & (p < 1 - trim) & ~np.isnan(p)

@@ -708,7 +708,6 @@ def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """Cook's distance, DFBETAS, and leverage diagnostics."""
     resid = _get_residuals(result)
     X = _get_X(result)
-    y = _get_y(result)
     n, k = X.shape
 
     # Hat matrix diagonal
@@ -734,7 +733,6 @@ def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     # where MSE_i is the leave-one-out MSE
     # For efficiency, use the approximation:
     #   MSE_{(i)} = (n-k)*MSE - e_i^2/(1-h_ii)) / (n-k-1)
-    e_loo = resid / (1.0 - h)  # studentized deletion residuals (numerator)
     mse_loo = np.maximum(
         ((n - k) * mse - resid ** 2 / (1.0 - h)) / (n - k - 1),
         1e-16,
@@ -1052,7 +1050,6 @@ def _print_result(out: Dict[str, Any]) -> None:
 
     # Leverage / influence
     elif "cooks_d" in out:
-        cd = out["cooks_d"]
         n_inf = out["n_influential"]
         thresh = out["cooks_d_threshold"]
         print(f"  Cook's D threshold (4/n) = {thresh:.4f}")

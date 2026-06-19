@@ -880,7 +880,6 @@ def treatment_rollout_plot(
     df = data.copy()
     time_periods = sorted(df[time].unique())
     T = len(time_periods)
-    time_map = {t: i for i, t in enumerate(time_periods)}
 
     # Determine each unit's first treatment period
     unit_info = df.groupby(id)[treat].first().reset_index()

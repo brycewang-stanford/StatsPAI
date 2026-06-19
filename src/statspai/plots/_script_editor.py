@@ -37,8 +37,6 @@ def create_script_editor(editor: FigureEditor) -> None:
         plt.show()
         return
 
-    ax = plot_axes[0]
-
     # Store state for click-editing
     _state: Dict[str, Any] = {
         'selected_text': None,

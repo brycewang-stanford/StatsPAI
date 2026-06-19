@@ -63,7 +63,6 @@ def german_reunification() -> pd.DataFrame:
 
     years = list(range(1960, 2004))
     treat_year = 1990
-    n_countries = len(countries)
     n_years = len(years)
 
     # Country-specific base GDP per capita circa 1960 (thousands, then *1000)
@@ -159,7 +158,6 @@ def basque_terrorism() -> pd.DataFrame:
 
     years = list(range(1955, 1998))
     treat_year = 1970
-    n_regions = len(regions)
     n_years = len(years)
 
     # Base GDP per capita circa 1955 (thousands of 1986 USD)

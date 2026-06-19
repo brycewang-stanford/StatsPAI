@@ -403,8 +403,6 @@ def _compute_bins(
     """Compute bin means (and optionally CIs)."""
     from scipy import stats as sp_stats
 
-    n = len(X)
-
     # Determine bin edges
     if quantiles:
         # Equal-frequency bins

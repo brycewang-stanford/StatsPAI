@@ -255,7 +255,6 @@ def pub_ready(
         done_flags['main_results'] = True
         for r in results:
             mi = getattr(r, 'model_info', {})
-            di = getattr(r, 'diagnostics', {})
             if 'robust' in str(mi) or 'hc1' in str(mi):
                 done_flags['robust_se'] = True
 

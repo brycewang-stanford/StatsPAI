@@ -138,7 +138,6 @@ def focal_cate(
     X = df[list(covariates)].to_numpy(float)
     Xt = test_df.to_numpy(float)
     D = df[treat].to_numpy(int)
-    rng = np.random.default_rng(seed)
 
     # Single propensity for all t (D is the same)
     try:

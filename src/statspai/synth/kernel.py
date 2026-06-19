@@ -452,7 +452,6 @@ def kernel_synth(
 
     # Append covariates if provided
     if covariates:
-        panel_cov = data.pivot_table(index=unit, columns=time, values=outcome)
         cov_means = data.groupby(unit)[covariates].mean()
         Y1_cov = cov_means.loc[treated_unit].values.astype(np.float64)
         Y0_cov = cov_means.loc[donors].values.astype(np.float64)

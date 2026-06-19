@@ -77,7 +77,6 @@ def ivdml(
     Z = df[list(instruments)].to_numpy(float)
     X = df[cov].to_numpy(float) if cov else np.zeros((len(df), 0))
     n = len(df)
-    rng = np.random.default_rng(seed)
 
     # Cross-fit
     kf = KFold(n_splits=n_folds, shuffle=True, random_state=seed)

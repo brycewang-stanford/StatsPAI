@@ -310,8 +310,6 @@ def dfl_decompose(
     if inference == "bootstrap":
         rng = np.random.default_rng(seed)
         n = len(df)
-        idx_a = np.where(mask_a)[0]
-        idx_b = np.where(mask_b)[0]
         strata = np.where(mask_a, 0, 1)
 
         def stat_fn(idx: np.ndarray) -> np.ndarray:
