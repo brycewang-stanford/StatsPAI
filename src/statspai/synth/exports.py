@@ -863,8 +863,8 @@ def _normalise(
     from .compare import SynthComparison
 
     if isinstance(obj, CausalResult):
-        results = [obj]
-        names = list(method_names) if method_names else [
+        results: List[CausalResult] = [obj]
+        names: List[str] = list(method_names) if method_names else [
             getattr(obj, "method", "SCM")
         ]
         return results, names
