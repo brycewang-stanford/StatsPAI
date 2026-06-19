@@ -139,6 +139,12 @@ def _jsonable(value: Any) -> Any:
     return str(value)
 
 
+def _jsonable_dict(obj: Dict[str, Any]) -> Dict[str, Any]:
+    """``_jsonable`` of a dict, typed as ``Dict[str, Any]`` for callers."""
+    payload: Dict[str, Any] = _jsonable(obj)
+    return payload
+
+
 def _candidate_status(candidates: Dict[str, Any]) -> List[Dict[str, Any]]:
     """JSON-safe status records for raw candidate result objects."""
     out: List[Dict[str, Any]] = []
@@ -217,7 +223,7 @@ class AutoDIDResult:
 
     def to_dict(self) -> Dict[str, Any]:
         """JSON-safe leaderboard and candidate-status payload."""
-        return _jsonable({
+        return _jsonable_dict({
             "kind": "auto_did_result",
             "selection_rule": self.selection_rule,
             "winner_method": self._winner_method(),
@@ -231,7 +237,7 @@ class AutoDIDResult:
         statuses = _candidate_status(self.candidates)
         successes = [row for row in statuses if row["ok"]]
         failures = [row for row in statuses if not row["ok"]]
-        return _jsonable({
+        return _jsonable_dict({
             "kind": "auto_did_agent_summary",
             "selection_rule": self.selection_rule,
             "winner_method": self._winner_method(),
@@ -478,7 +484,7 @@ class AutoIVResult:
 
     def to_dict(self) -> Dict[str, Any]:
         """JSON-safe leaderboard and candidate-status payload."""
-        return _jsonable({
+        return _jsonable_dict({
             "kind": "auto_iv_result",
             "selection_rule": self.selection_rule,
             "winner_method": self._winner_method(),
@@ -492,7 +498,7 @@ class AutoIVResult:
         statuses = _candidate_status(self.candidates)
         successes = [row for row in statuses if row["ok"]]
         failures = [row for row in statuses if not row["ok"]]
-        return _jsonable({
+        return _jsonable_dict({
             "kind": "auto_iv_agent_summary",
             "selection_rule": self.selection_rule,
             "winner_method": self._winner_method(),
@@ -518,7 +524,7 @@ class AutoIVResult:
         )
 
 
-def _coef(result, name: str) -> Optional[float]:
+def _coef(result: Any, name: str) -> Optional[float]:
     """Extract a specific coefficient from an EconometricResults object."""
     params = getattr(result, "params", None)
     if params is None:
@@ -528,7 +534,13 @@ def _coef(result, name: str) -> Optional[float]:
     return None
 
 
-def _se(result, name: str) -> Optional[float]:
+def _coef_or_nan(result: Any, name: str) -> float:
+    """``_coef`` as a plain float, mapping a missing coefficient to NaN."""
+    c = _coef(result, name)
+    return float("nan") if c is None else c
+
+
+def _se(result: Any, name: str) -> Optional[float]:
     se = getattr(result, "std_errors", None)
     if se is None:
         return None
@@ -541,7 +553,7 @@ def auto_iv(
     data: pd.DataFrame,
     y: str,
     endog: str,
-    instruments,
+    instruments: Any,
     *,
     exog: Optional[List[str]] = None,
     methods: Optional[List[str]] = None,
@@ -701,14 +713,14 @@ def auto_iv(
         # deterministic (NaN compares False both ways under Python's sort).
         sortable = {
             k: v for k, v in successes.items()
-            if _coef(v, endog) is not None and np.isfinite(_coef(v, endog))
+            if np.isfinite(_coef_or_nan(v, endog))
         }
         if not sortable:
             # All successes have NaN coefs; fall back to first_success.
             winner = next(iter(successes.values()))
         else:
             sorted_pairs = sorted(
-                sortable.items(), key=lambda kv: float(_coef(kv[1], endog)),
+                sortable.items(), key=lambda kv: _coef_or_nan(kv[1], endog),
             )
             mid = len(sorted_pairs) // 2
             winner = sorted_pairs[mid][1]

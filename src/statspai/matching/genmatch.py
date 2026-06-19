@@ -273,8 +273,8 @@ def genmatch(
                 idx_mut = rng.integers(0, p)
                 child[idx_mut] *= rng.uniform(0.5, 2.0)
             children.append(child)
-        children = np.asarray(children)
-        population = np.vstack([parents, children])
+        children_arr = np.asarray(children)
+        population = np.vstack([parents, children_arr])
         fitness = np.array([_fitness(X_t, X_c, w, k, cov) for w in population])
 
     best = population[np.argmax(fitness)]

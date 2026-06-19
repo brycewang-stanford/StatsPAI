@@ -7,7 +7,7 @@ cosmetic editing when running outside Jupyter notebooks.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict
 
 if TYPE_CHECKING:
     from .interactive import FigureEditor
@@ -40,7 +40,7 @@ def create_script_editor(editor: FigureEditor) -> None:
     ax = plot_axes[0]
 
     # Store state for click-editing
-    _state = {
+    _state: Dict[str, Any] = {
         'selected_text': None,
         'editing': False,
         'plot_axes': plot_axes,  # only real plot axes, not toolbar
