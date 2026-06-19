@@ -146,7 +146,7 @@ def _cross_fit_mu(
     Returns a length-n vector of out-of-fold predictions for every unit.
     """
     n = len(Y)
-    pred = np.full(n, np.nan)
+    pred: np.ndarray = np.full(n, np.nan)
     kf = KFold(n_splits=n_splits, shuffle=True,
                random_state=int(rng.integers(0, 2**31 - 1)))
     idx_all = np.arange(n)
@@ -182,7 +182,7 @@ def _cross_fit_pi(
 ) -> np.ndarray:
     """Cross-fit propensity π(x) = P(A=1 | X=x)."""
     n = len(T)
-    pred = np.full(n, np.nan)
+    pred: np.ndarray = np.full(n, np.nan)
     kf = KFold(n_splits=n_splits, shuffle=True,
                random_state=int(rng.integers(0, 2**31 - 1)))
     for train_idx, test_idx in kf.split(np.arange(n)):

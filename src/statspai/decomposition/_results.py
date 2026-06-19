@@ -34,7 +34,9 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import is_dataclass, asdict
-from typing import Any, Dict, Iterable, Mapping, Optional, Tuple, Union
+from typing import (
+    Any, ClassVar, Dict, Iterable, Mapping, Optional, Tuple, Union,
+)
 import io
 import json
 import warnings
@@ -66,7 +68,7 @@ DECOMP_PALETTE: Dict[str, str] = {
 }
 
 
-def apply_decomp_style(ax) -> None:
+def apply_decomp_style(ax: Any) -> None:
     """In-place styling: light grid, grey spines, despined top/right.
 
     Idempotent — safe to call repeatedly. Used by every plot helper to
@@ -299,9 +301,9 @@ class DecompResultMixin:
     """
 
     #: Pretty label used in plot titles / Word headings.
-    method_name: str = "Decomposition"
+    method_name: ClassVar[str] = "Decomposition"
     #: BibTeX keys (must match :data:`_CITATIONS` and ``paper.bib``).
-    bib_keys: Tuple[str, ...] = ()
+    bib_keys: ClassVar[Tuple[str, ...]] = ()
 
     # ── Confidence intervals from analytical SE ─────────────────────
 
@@ -389,9 +391,10 @@ class DecompResultMixin:
                 k: v for k, v in self.__dict__.items()
                 if not k.startswith("_")
             }
-        return _coerce_for_json(base)
+        coerced: Dict[str, Any] = _coerce_for_json(base)
+        return coerced
 
-    def to_json(self, **kwargs) -> str:
+    def to_json(self, **kwargs: Any) -> str:
         """JSON string of :meth:`to_dict` (passes ``**kwargs`` to json.dumps)."""
         kwargs.setdefault("indent", 2)
         kwargs.setdefault("default", str)
@@ -500,7 +503,8 @@ class DecompResultMixin:
                         and not isinstance(val, bool)
                         else str(val)
                     )
-        cite_str = self.cite("string") if hasattr(self, "cite") else ""
+        cite_obj = self.cite("string") if hasattr(self, "cite") else ""
+        cite_str: str = cite_obj if isinstance(cite_obj, str) else str(cite_obj)
         if cite_str:
             doc.add_heading("References", level=2)
             doc.add_paragraph(cite_str)

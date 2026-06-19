@@ -193,6 +193,7 @@ def sparse_synth(
     elif mode == "constrained_lasso":
         weights = _constrained_lasso_weights(Y1_pre, Y0_pre, lambda_w)
     elif mode == "joint":
+        assert lambda_v is not None
         weights, feature_weights = _joint_optimization(
             Y0_pre, Y1_pre, lambda_w, lambda_v,
         )
@@ -235,6 +236,7 @@ def sparse_synth(
                 elif mode == "constrained_lasso":
                     w_p = _constrained_lasso_weights(y_p, Y_d_pre, lambda_w)
                 else:  # joint
+                    assert lambda_v is not None
                     w_p, _ = _joint_optimization(
                         Y_d_pre, y_p, lambda_w, lambda_v,
                     )
@@ -365,7 +367,7 @@ def sparse_synth(
 
 def _soft_threshold(x: np.ndarray, lam: float) -> np.ndarray:
     """Soft-thresholding (proximal) operator for LASSO."""
-    return np.sign(x) * np.maximum(np.abs(x) - lam, 0.0)
+    return np.asarray(np.sign(x) * np.maximum(np.abs(x) - lam, 0.0))
 
 
 def _coordinate_descent(
@@ -486,7 +488,7 @@ def _constrained_lasso_weights(
         return 0.5 * float(r @ r) + lambda_w * float(np.sum(w))
 
     def gradient(w: np.ndarray) -> np.ndarray:
-        return -X.T @ (y - X @ w) + lambda_w * np.ones(J)
+        return np.asarray(-X.T @ (y - X @ w) + lambda_w * np.ones(J))
 
     w0 = np.ones(J) / J
     res = optimize.minimize(
@@ -498,7 +500,7 @@ def _constrained_lasso_weights(
         constraints={"type": "eq", "fun": lambda w: np.sum(w) - 1.0},
         options={"maxiter": 2000, "ftol": 1e-12},
     )
-    return res.x
+    return np.asarray(res.x)
 
 
 def _joint_optimization(

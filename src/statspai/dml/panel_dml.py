@@ -193,7 +193,7 @@ class DMLPanelResult:
         )
 
 
-def _default_outcome_learner():
+def _default_outcome_learner() -> Any:
     """Gradient boosting for g(X) — same convention as sp.dml PLR."""
     from sklearn.ensemble import GradientBoostingRegressor
     return GradientBoostingRegressor(
@@ -201,7 +201,7 @@ def _default_outcome_learner():
     )
 
 
-def _default_treatment_learner():
+def _default_treatment_learner() -> Any:
     """Gradient boosting regressor for m(X̃) ≈ E[D̃ | X̃].
 
     PLR-with-FE residualises D against the within-transformed covariates,
@@ -259,7 +259,7 @@ def _within_transform(values: np.ndarray, unit_idx: np.ndarray,
         else:
             time_means = pd.Series(v).groupby(time_idx).transform("mean").to_numpy()
         v = v - time_means
-    return v
+    return np.asarray(v)
 
 
 def _cluster_se_from_psi(
@@ -627,7 +627,9 @@ def dml_panel(
 
     from sklearn.base import clone
 
-    def _maybe_weighted_fit(learner, Xfit, yfit, wfit):
+    def _maybe_weighted_fit(
+        learner: Any, Xfit: Any, yfit: Any, wfit: Any
+    ) -> Any:
         clf = clone(learner)
         if wfit is None:
             clf.fit(Xfit, yfit)

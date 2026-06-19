@@ -23,7 +23,7 @@ Firpo, S. (2007). Efficient Semiparametric Estimation of Quantile Treatment
 
 from __future__ import annotations
 
-from typing import Optional, List, Union
+from typing import Any, Optional, List, Union
 
 import numpy as np
 import pandas as pd
@@ -181,7 +181,7 @@ class QTEResult:
 
     # ── plot ──────────────────────────────────────────────────────── #
 
-    def plot(self, ax=None):
+    def plot(self, ax: Any = None) -> Any:
         """QTE plot with CI bands and ATE reference line.
 
         Returns (fig, ax).
@@ -221,7 +221,7 @@ class QTEResult:
 def _quantile_func(x: np.ndarray, probs: np.ndarray) -> np.ndarray:
     xs = np.sort(x)
     cdf = np.arange(1, len(xs) + 1) / len(xs)
-    return np.interp(probs, cdf, xs)
+    return np.asarray(np.interp(probs, cdf, xs))
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -303,7 +303,10 @@ def qdid(
         if len(arr) < 2:
             raise ValueError(f"Too few observations in {label} cell ({len(arr)}).")
 
-    def _point(y00_, y01_, y10_, y11_, taus_):
+    def _point(
+        y00_: np.ndarray, y01_: np.ndarray,
+        y10_: np.ndarray, y11_: np.ndarray, taus_: np.ndarray,
+    ) -> np.ndarray:
         q00 = _quantile_func(y00_, taus_)
         q01 = _quantile_func(y01_, taus_)
         q10 = _quantile_func(y10_, taus_)
@@ -374,7 +377,7 @@ def _qreg_coef(y: np.ndarray, X: np.ndarray, tau: float,
             beta = beta_new
             break
         beta = beta_new
-    return beta
+    return np.asarray(beta)
 
 
 def qte(
@@ -450,7 +453,9 @@ def qte(
 
 
 def _qte_qreg(
-    df, yv, dv, taus, y_col, treat_col, controls, n_boot, alpha, seed,
+    df: pd.DataFrame, yv: np.ndarray, dv: np.ndarray, taus: np.ndarray,
+    y_col: str, treat_col: str, controls: Optional[List[str]],
+    n_boot: int, alpha: float, seed: int,
 ) -> QTEResult:
     """QTE via quantile regression."""
     # Build design matrix: [intercept, treatment, controls...]
@@ -497,7 +502,9 @@ def _qte_qreg(
 
 
 def _qte_distribution(
-    df, yv, dv, taus, y_col, treat_col, controls, n_boot, alpha, seed,
+    df: pd.DataFrame, yv: np.ndarray, dv: np.ndarray, taus: np.ndarray,
+    y_col: str, treat_col: str, controls: Optional[List[str]],
+    n_boot: int, alpha: float, seed: int,
 ) -> QTEResult:
     """QTE via propensity-score reweighting (distribution method)."""
     # Estimate propensity score with logistic regression
@@ -510,12 +517,12 @@ def _qte_distribution(
     # Simple logistic via scipy
     from scipy.optimize import minimize
 
-    def _loglik(beta):
+    def _loglik(beta: np.ndarray) -> float:
         z = Xp @ beta
         z = np.clip(z, -30, 30)
         p = 1 / (1 + np.exp(-z))
         p = np.clip(p, 1e-10, 1 - 1e-10)
-        return -np.mean(dv * np.log(p) + (1 - dv) * np.log(1 - p))
+        return float(-np.mean(dv * np.log(p) + (1 - dv) * np.log(1 - p)))
 
     beta0 = np.zeros(Xp.shape[1])
     res = minimize(_loglik, beta0, method="BFGS")

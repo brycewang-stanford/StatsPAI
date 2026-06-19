@@ -97,6 +97,7 @@ class MCGFormulaResult(ResultProtocolMixin):
             f"  n_simulations per arm        : {self.n_simulations}"
         )
         if self.contrast_value is not None:
+            assert self.contrast_ci is not None
             s += (
                 "\n  Contrast (treat vs. control) : "
                 f"{self.contrast_value:.4f}"
@@ -115,7 +116,7 @@ class MCGFormulaResult(ResultProtocolMixin):
 
 def _fit_ols(X: np.ndarray, y: np.ndarray) -> np.ndarray:
     """OLS coefficients with an intercept column assumed in X."""
-    return np.linalg.lstsq(X, y, rcond=None)[0]
+    return np.asarray(np.linalg.lstsq(X, y, rcond=None)[0])
 
 
 def _fit_logit(X: np.ndarray, y: np.ndarray, max_iter: int = 50,
@@ -142,17 +143,17 @@ def _fit_logit(X: np.ndarray, y: np.ndarray, max_iter: int = 50,
 
 
 def _predict_ols(beta: np.ndarray, X: np.ndarray) -> np.ndarray:
-    return X @ beta
+    return np.asarray(X @ beta)
 
 
 def _predict_logit(beta: np.ndarray, X: np.ndarray) -> np.ndarray:
     eta = X @ beta
-    return 1.0 / (1.0 + np.exp(-np.clip(eta, -35.0, 35.0)))
+    return np.asarray(1.0 / (1.0 + np.exp(-np.clip(eta, -35.0, 35.0))))
 
 
 def _design(*cols: np.ndarray) -> np.ndarray:
     """Stack a constant + the supplied 1-d or 2-d columns into a design matrix."""
-    pieces = [np.ones((len(cols[0]), 1))]
+    pieces: list[np.ndarray] = [np.ones((len(cols[0]), 1))]
     for c in cols:
         c = np.asarray(c, dtype=float)
         if c.ndim == 1:
@@ -181,13 +182,13 @@ class _FittedModels:
 
     def __init__(
         self,
-        conf_models,          # list of list of (kind, beta, sd, feature_cols)
-        outcome_model,        # (kind, beta, sd, feature_cols)
-        conf_cols_by_t,       # list of list[str]
-        treatment_cols,
-        outcome_col,
-        K,
-    ):
+        conf_models: list,    # list of list of (kind, beta, sd, feature_cols)
+        outcome_model: tuple,  # (kind, beta, sd, feature_cols)
+        conf_cols_by_t: list,  # list of list[str]
+        treatment_cols: Sequence[str],
+        outcome_col: str,
+        K: int,
+    ) -> None:
         self.conf_models = conf_models
         self.outcome_model = outcome_model
         self.conf_cols_by_t = conf_cols_by_t
@@ -234,6 +235,7 @@ def _fit_models(
     # Outcome model using full history
     Y = df[outcome_col].values.astype(float)
     X_out = _design(*(df[c].values.astype(float) for c in history_cols))
+    outcome_model: tuple
     if _is_binary(Y):
         beta_o = _fit_logit(X_out, Y)
         outcome_model = ("binary", beta_o, None, list(history_cols))
@@ -437,7 +439,8 @@ def gformula_mc(
     if isinstance(confounder_cols[0], (list, tuple)):
         conf_cols_by_t = [list(c) for c in confounder_cols]
     else:
-        conf_cols_by_t = [list(confounder_cols) for _ in range(len(treatment_cols))]
+        flat_cc = [str(c) for c in confounder_cols]
+        conf_cols_by_t = [list(flat_cc) for _ in range(len(treatment_cols))]
 
     K = len(treatment_cols)
     if len(conf_cols_by_t) != K:
@@ -491,6 +494,7 @@ def gformula_mc(
                               max(n_simulations // 4, 500), rng, False)
             boot_t[b] = mt
             if control_strategy is not None:
+                assert boot_c is not None
                 mc, _ = _simulate(fit_b, control_strategy, df_b,
                                   max(n_simulations // 4, 500), rng, False)
                 boot_c[b] = mc
@@ -498,6 +502,7 @@ def gformula_mc(
         z = float(_stats.norm.ppf(1 - alpha / 2))
         ci_t = (val_t - z * se_t, val_t + z * se_t)
         if control_strategy is not None:
+            assert boot_c is not None
             diffs = boot_t - boot_c
             se_c = float(np.std(diffs, ddof=1))
             ci_c = (contrast - z * se_c, contrast + z * se_c)

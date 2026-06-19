@@ -100,7 +100,7 @@ def solve_simplex_weights(
         g = -2.0 * X.T @ r
         if penalization > 0:
             g = g + 2.0 * penalization * w
-        return g
+        return np.asarray(g)
 
     if w0 is None:
         w0 = np.ones(J) / J
@@ -226,7 +226,7 @@ def _v_from_params(v_params: np.ndarray, K: int) -> np.ndarray:
     s = ev.sum()
     if not np.isfinite(s) or s <= 0:
         return np.ones(K)
-    return K * ev / s
+    return np.asarray(K * ev / s)
 
 
 def _regression_v_init(
@@ -251,7 +251,7 @@ def _regression_v_init(
         v = beta**2
         if v.sum() <= 1e-12 or not np.all(np.isfinite(v)):
             return np.ones(K)
-        return K * v / v.sum()
+        return np.asarray(K * v / v.sum())
     except np.linalg.LinAlgError:
         return np.ones(K)
 

@@ -289,19 +289,19 @@ def _solve_weights(
     if J == 0:
         raise ValueError("No donor units")
 
-    def objective(w):
+    def objective(w: np.ndarray) -> float:
         r = y - X @ w
         loss = r @ r
         if penalization > 0:
             loss += penalization * (w @ w)
-        return loss
+        return float(loss)
 
-    def jac(w):
+    def jac(w: np.ndarray) -> np.ndarray:
         r = y - X @ w
         g = -2 * X.T @ r
         if penalization > 0:
             g += 2 * penalization * w
-        return g
+        return np.asarray(g)
 
     res = optimize.minimize(
         objective, np.ones(J) / J, jac=jac, method="SLSQP",
@@ -309,7 +309,7 @@ def _solve_weights(
         constraints={"type": "eq", "fun": lambda w: np.sum(w) - 1},
         options={"maxiter": 1000, "ftol": 1e-12},
     )
-    return res.x
+    return np.asarray(res.x)
 
 
 # Citation

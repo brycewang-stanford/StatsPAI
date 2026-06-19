@@ -38,20 +38,20 @@ __all__ = ["Regime", "regime", "always_treat", "never_treat"]
 #  Tiny AST-walking interpreter (no eval)
 # --------------------------------------------------------------------------- #
 
-_BIN_OPS = {
+_BIN_OPS: Dict[type, Callable[..., Any]] = {
     ast.Add: op.add, ast.Sub: op.sub, ast.Mult: op.mul, ast.Div: op.truediv,
     ast.Mod: op.mod, ast.Pow: op.pow, ast.FloorDiv: op.floordiv,
 }
-_UNARY_OPS = {
+_UNARY_OPS: Dict[type, Callable[..., Any]] = {
     ast.UAdd: op.pos, ast.USub: op.neg, ast.Not: op.not_,
 }
-_CMP_OPS = {
+_CMP_OPS: Dict[type, Callable[..., Any]] = {
     ast.Lt: op.lt, ast.LtE: op.le, ast.Gt: op.gt, ast.GtE: op.ge,
     ast.Eq: op.eq, ast.NotEq: op.ne,
 }
 
 
-def _walk(node: ast.AST, env: Dict[str, Any]):
+def _walk(node: ast.AST, env: Dict[str, Any]) -> Any:
     """Recursively evaluate a whitelisted AST node against ``env``."""
     if isinstance(node, ast.Expression):
         return _walk(node.body, env)
@@ -111,7 +111,7 @@ _ALLOWED_NODE_TYPES = (
 )
 
 
-def _compile(expr: str):
+def _compile(expr: str) -> Callable[[Dict[str, Any]], Any]:
     """Parse ``expr`` into an AST root and return a callable ``env -> value``.
 
     Also validates at compile time that only whitelisted AST nodes are
@@ -128,7 +128,7 @@ def _compile(expr: str):
             )
     root = tree.body
 
-    def _eval(env: Dict[str, Any]):
+    def _eval(env: Dict[str, Any]) -> Any:
         return _walk(root, env)
 
     return _eval
@@ -165,23 +165,30 @@ class Regime:
     name: str
     rule: Union[list, Callable]
 
-    def treatment(self, history: dict, t: int = 0, K: int = 1):
+    def treatment(self, history: dict, t: int = 0, K: int = 1) -> Any:
         """Evaluate the regime at time ``t`` given history."""
+        rule = self.rule
         if self.kind == "static":
-            seq = list(self.rule)
+            assert not callable(rule)
+            seq = list(rule)
             if t >= len(seq):
                 return seq[-1]
             return seq[t]
-        return self.rule(history, t)
+        assert callable(rule)
+        return rule(history, t)
 
     def apply(self, history_df: pd.DataFrame) -> pd.Series:
         """Vectorized: apply the regime to each row of a history dataframe."""
+        rule = self.rule
         if self.kind == "static":
+            assert not callable(rule)
+            seq = list(rule)
             return pd.Series(
-                [self.rule[0]] * len(history_df),
+                [seq[0]] * len(history_df),
                 index=history_df.index,
             )
-        values = [self.rule(row.to_dict(), 0) for _, row in history_df.iterrows()]
+        assert callable(rule)
+        values = [rule(row.to_dict(), 0) for _, row in history_df.iterrows()]
         return pd.Series(values, index=history_df.index)
 
 
