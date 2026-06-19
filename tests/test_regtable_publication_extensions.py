@@ -115,6 +115,22 @@ class TestEform:
         # Footer note must mark eform transformation transparently
         assert "exp(b)" in out or "exponentiated" in out.lower()
 
+    def test_eform_excel_adds_footer_note(self, logit_model, tmp_path):
+        openpyxl = pytest.importorskip("openpyxl")
+        out = tmp_path / "eform.xlsx"
+
+        sp.regtable(logit_model, eform=True).to_excel(str(out))
+
+        ws = openpyxl.load_workbook(str(out)).active
+        values = [
+            cell
+            for row in ws.iter_rows(values_only=True)
+            for cell in row
+            if isinstance(cell, str)
+        ]
+        assert any("exp(b)" in value or "exponentiated" in value.lower()
+                   for value in values)
+
     def test_eform_preserves_stars(self, logit_model):
         """Significance stars come from the original p-value, not the exp cell."""
         out = sp.regtable(logit_model, eform=True).to_text()

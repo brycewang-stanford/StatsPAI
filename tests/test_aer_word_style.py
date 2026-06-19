@@ -149,6 +149,19 @@ def test_balance_table_word_uses_booktab(tmp_path, small_df):
     assert bot and bot["sz"] == "12"
 
 
+def test_balance_table_word_uses_requested_numeric_format(tmp_path):
+    df = pd.DataFrame({"x": [1.234, 2.345, 3.456, 4.567], "z": [0, 0, 1, 1]})
+    out = tmp_path / "balance_fmt.docx"
+
+    sp.mean_comparison(df, ["x"], group="z", fmt="%.1f").to_word(str(out))
+
+    table = Document(str(out)).tables[0]
+    body = [cell.text for cell in table.rows[1].cells]
+    assert body[1] == "1.8"
+    assert body[2] == "0.8"
+    assert body[3] == "4.0"
+
+
 def test_sumstats_word_uses_booktab(tmp_path, small_df):
     out = tmp_path / "sumstats.docx"
     sp.sumstats(small_df, vars=["x", "y"], output=str(out))

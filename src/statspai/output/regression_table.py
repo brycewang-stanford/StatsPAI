@@ -931,6 +931,19 @@ class RegtableResult:
         # presets stay byte-aligned) and the alternative notation tuples.
         return self._star_note_text()
 
+    def _footer_note_lines(self) -> List[str]:
+        """Canonical footer lines shared by Word/Excel bundle exports."""
+        note_lines = [f"{self._se_label()} in parentheses"]
+        for ext_idx, (label, _) in enumerate(self.multi_se):
+            lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
+            note_lines.append(f"{label} in {lo}…{hi}")
+        if self._has_any_eform():
+            note_lines.append(self._eform_note())
+        if self.show_stars:
+            note_lines.append(self._star_note())
+        note_lines.extend(self.notes)
+        return note_lines
+
     def _all_models_flat(self) -> List[_ModelData]:
         out: List[_ModelData] = []
         for p in self.panels:
@@ -2553,26 +2566,12 @@ class RegtableResult:
             n_cols=n_cols,
         )
 
-        # Notes — emit the same lines that to_text/to_html/to_latex/to_word
-        # emit so users who pass multi_se / repro / notes do not lose them
-        # when exporting to Excel.
+        # Notes — shared with Word/bundle exports so multi_se / eform /
+        # repro/user notes do not drift across file formats.
         note_row = body_bot_row + 1
-        ws.cell(
-            row=note_row, column=1,
-            value=f"{self._se_label()} in parentheses"
-        ).font = notes_font
-        for ext_idx, (label, _) in enumerate(self.multi_se):
-            lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
-            note_row += 1
-            ws.cell(row=note_row, column=1,
-                    value=f"{label} in {lo}…{hi}").font = notes_font
-        if self.show_stars:
-            note_row += 1
-            ws.cell(row=note_row, column=1,
-                    value=self._star_note()).font = notes_font
-        for note in self.notes:
-            note_row += 1
+        for note in self._footer_note_lines():
             ws.cell(row=note_row, column=1, value=note).font = notes_font
+            note_row += 1
 
         autofit_columns(ws, n_cols, max_width=25)
         wb.save(filename)
@@ -2660,17 +2659,7 @@ class RegtableResult:
             header_bot_idx=header_row_idx,
         )
 
-        # Notes (italic, 8pt)
-        note_lines = [f"{self._se_label()} in parentheses"]
-        for ext_idx, (label, _) in enumerate(self.multi_se):
-            lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
-            note_lines.append(f"{label} in {lo}…{hi}")
-        if self._has_any_eform():
-            note_lines.append(self._eform_note())
-        if self.show_stars:
-            note_lines.append(self._star_note())
-        note_lines.extend(self.notes)
-        add_word_notes_paragraph(doc, "\n".join(note_lines))
+        add_word_notes_paragraph(doc, "\n".join(self._footer_note_lines()))
 
         doc.save(filename)
 

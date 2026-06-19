@@ -364,6 +364,17 @@ class MeanComparisonResult:
         df = df.set_index("Variable")
         return df
 
+    def _formatted_dataframe(self) -> pd.DataFrame:
+        """Return the display DataFrame used by Word/Excel exports."""
+        df = self.to_dataframe().copy()
+
+        def _format_value(val: Any) -> Any:
+            if isinstance(val, (float, np.floating)):
+                return self.fmt % val if not np.isnan(val) else ""
+            return val
+
+        return df.apply(lambda col: col.map(_format_value))
+
     # ═══════════════════════════════════════════════════════════════════════
     # Excel / Word / Save
     # ═══════════════════════════════════════════════════════════════════════
@@ -377,10 +388,11 @@ class MeanComparisonResult:
             return
         from ._excel_style import render_dataframe_to_xlsx
         render_dataframe_to_xlsx(
-            self.to_dataframe(),
+            self._formatted_dataframe(),
             filename,
             title=getattr(self, "title", None),
             sheet_name="Balance Table",
+            notes=["* p<0.10, ** p<0.05, *** p<0.01"],
             index_label="Variable",
         )
 
@@ -392,34 +404,16 @@ class MeanComparisonResult:
             warnings.warn("python-docx required for Word export: pip install python-docx")
             return
 
-        from ._aer_style import (
-            apply_word_booktab_rules,
-            style_word_table_typography,
-            add_word_notes_paragraph,
-        )
+        from ._aer_style import render_dataframe_to_word_table
 
         doc = Document()
         doc.add_heading(self.title, level=2)
-        df = self.to_dataframe().reset_index()
-        n_rows = len(df) + 1
-        n_cols = len(df.columns)
-        table = doc.add_table(rows=n_rows, cols=n_cols)
-        table.autofit = True
-
-        for j, col in enumerate(df.columns):
-            table.rows[0].cells[j].text = str(col)
-
-        for i, (_, row_data) in enumerate(df.iterrows(), 1):
-            for j, val in enumerate(row_data):
-                cell = table.rows[i].cells[j]
-                if isinstance(val, float):
-                    cell.text = self.fmt % val if not np.isnan(val) else ""
-                else:
-                    cell.text = str(val)
-
-        style_word_table_typography(table, header_rows=(0,))
-        apply_word_booktab_rules(table, header_top_idx=0, header_bot_idx=0)
-        add_word_notes_paragraph(doc, "* p<0.10, ** p<0.05, *** p<0.01")
+        render_dataframe_to_word_table(
+            doc,
+            self._formatted_dataframe(),
+            index_label="Variable",
+            notes="* p<0.10, ** p<0.05, *** p<0.01",
+        )
         doc.save(filename)
 
     def save(self, filename: str) -> None:
