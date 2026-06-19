@@ -19,7 +19,7 @@ Hernan & Robins. *Causal Inference: What If*, ch. 21.
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Any, Sequence
 import numpy as np
 import pandas as pd
 
@@ -65,7 +65,7 @@ class ICEResult(ResultProtocolMixin):
     se: float
     ci: tuple[float, float]
     method: str = "parametric-g-formula-ICE"
-    per_timepoint_means: list[float] = None
+    per_timepoint_means: list[float] | None = None
 
     def summary(self) -> str:
         return (
@@ -82,7 +82,7 @@ def ice(
     treatment_cols: Sequence[str],
     confounder_cols: Sequence[Sequence[str]] | Sequence[str],
     outcome_col: str,
-    treatment_strategy,
+    treatment_strategy: Any,
     bootstrap: int = 0,
     seed: int | None = None,
 ) -> ICEResult:
@@ -150,27 +150,31 @@ def ice(
     """
     K = len(treatment_cols)
     if not isinstance(confounder_cols[0], (list, tuple)):
-        confounder_cols = [list(confounder_cols)] * K
+        flat = [str(c) for c in confounder_cols]
+        conf: list[list[str]] = [list(flat) for _ in range(K)]
     else:
-        confounder_cols = [list(c) for c in confounder_cols]
+        conf = [list(c) for c in confounder_cols]
 
     strategy = _resolve_strategy(treatment_strategy, K)
 
-    val = _ice_once(data, treatment_cols, confounder_cols, outcome_col, strategy)
+    val = _ice_once(data, treatment_cols, conf, outcome_col, strategy)
 
     if bootstrap > 0:
         rng = np.random.default_rng(seed)
         n = len(data)
-        vals = []
+        vals: list[float] = []
         for _ in range(bootstrap):
             idx = rng.integers(0, n, n)
             bd = data.iloc[idx].reset_index(drop=True)
             vals.append(
-                _ice_once(bd, treatment_cols, confounder_cols, outcome_col, strategy)
+                _ice_once(bd, treatment_cols, conf, outcome_col, strategy)
             )
-        vals = np.array(vals)
-        se = float(vals.std(ddof=1))
-        ci = (float(np.quantile(vals, 0.025)), float(np.quantile(vals, 0.975)))
+        vals_arr = np.asarray(vals, dtype=float)
+        se = float(vals_arr.std(ddof=1))
+        ci = (
+            float(np.quantile(vals_arr, 0.025)),
+            float(np.quantile(vals_arr, 0.975)),
+        )
     else:
         se = float(
             data[outcome_col].std(ddof=1) / np.sqrt(max(len(data), 1))
@@ -202,7 +206,7 @@ def ice(
     return _result
 
 
-def gformula_ice(*args, **kwargs) -> ICEResult:
+def gformula_ice(*args: Any, **kwargs: Any) -> ICEResult:
     """Alias for :func:`ice` to match Stata's gformula naming."""
     return ice(*args, **kwargs)
 
@@ -213,10 +217,10 @@ def gformula_ice(*args, **kwargs) -> ICEResult:
 
 def _ice_once(
     data: pd.DataFrame,
-    treatment_cols: list[str],
-    confounder_cols: list[list[str]],
+    treatment_cols: Sequence[str],
+    confounder_cols: Sequence[Sequence[str]],
     outcome_col: str,
-    strategy: list,
+    strategy: Sequence[Any],
 ) -> float:
     df = data.copy()
     # pseudo outcome: start with Y_K = Y
@@ -225,7 +229,7 @@ def _ice_once(
 
     # Walk backwards from t=K-1 ... 0
     for t in reversed(range(K)):
-        hist = []
+        hist: list[str] = []
         for s in range(t + 1):
             hist.extend(confounder_cols[s])
             hist.append(treatment_cols[s])
@@ -251,7 +255,7 @@ def _ice_once(
     return float(pseudo.mean())
 
 
-def _resolve_strategy(strategy, K: int) -> list:
+def _resolve_strategy(strategy: Any, K: int) -> list:
     if callable(strategy):
         return [strategy(t) for t in range(K)]
     if isinstance(strategy, (list, tuple, np.ndarray)):
