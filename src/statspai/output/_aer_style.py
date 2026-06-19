@@ -309,7 +309,7 @@ def render_dataframe_to_word_table(
     try:
         from docx.enum.table import WD_TABLE_ALIGNMENT
     except ImportError:
-        WD_TABLE_ALIGNMENT = None
+        WD_TABLE_ALIGNMENT = None  # type: ignore[assignment,misc]
 
     if index_label is None:
         header = list(df.columns)

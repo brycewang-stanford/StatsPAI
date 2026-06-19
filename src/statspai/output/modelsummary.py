@@ -109,7 +109,7 @@ def _translate_stats(stats: Optional[List[str]]) -> Optional[List[str]]:
 
 
 def modelsummary(
-    *models,
+    *models: Any,
     model_names: Optional[List[str]] = None,
     stars: Union[bool, Dict[str, float]] = True,
     se_type: str = "parentheses",
@@ -253,7 +253,7 @@ def modelsummary(
 # ======================================================================
 
 def coefplot(
-    *models,
+    *models: Any,
     model_names: Optional[List[str]] = None,
     variables: Optional[List[str]] = None,
     ax=None,
@@ -318,7 +318,7 @@ def coefplot(
 
     # Variables to plot
     if variables is None:
-        all_v = set()
+        all_v: set = set()
         for cd in coef_data:
             all_v.update(cd.keys())
         variables = sorted(all_v)
@@ -384,7 +384,7 @@ def _coefplot_tikz_escape(s: str) -> str:
 
 
 def coefplot_tikz(
-    *models,
+    *models: Any,
     model_names: Optional[List[str]] = None,
     variables: Optional[List[str]] = None,
     coef_labels: Optional[Dict[str, str]] = None,
@@ -520,7 +520,7 @@ def coefplot_tikz(
     return "\n".join(lines)
 
 
-def _extract_coefs(model) -> Dict[str, tuple]:
+def _extract_coefs(model: Any) -> Dict[str, tuple]:
     """Extract {var_name: (coef, se, pvalue)} from a model object.
 
     Used by :func:`coefplot`. Coefficient extraction for the table

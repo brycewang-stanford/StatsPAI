@@ -111,7 +111,7 @@ def tab(
     return _format_tab(ct_display, test_result, output, title)
 
 
-def _one_way_tab(data, var, output, title):
+def _one_way_tab(data: Any, var: str, output: str, title: str) -> Any:
     """One-way frequency table."""
     counts = data[var].value_counts().sort_index()
     pcts = data[var].value_counts(normalize=True).sort_index()
@@ -129,7 +129,7 @@ def _one_way_tab(data, var, output, title):
     return _format_tab(df, None, output, title)
 
 
-def _format_tab(df, test_result, output, title):
+def _format_tab(df: Any, test_result: Any, output: str, title: str) -> Any:
     """Route to output format."""
     if output == 'dataframe':
         return df
@@ -161,14 +161,14 @@ def _format_tab(df, test_result, output, title):
     return '\n'.join(lines)
 
 
-def _tab_to_latex(df, test_result, title):
+def _tab_to_latex(df: Any, test_result: Any, title: str) -> str:
     latex = df.to_latex(caption=title)
     if test_result:
         latex += f"\n% chi2({test_result['df']}) = {test_result['chi2']:.4f}, p = {test_result['pvalue']:.4f}"
     return latex
 
 
-def _tab_to_excel(df, test_result, filename, title):
+def _tab_to_excel(df: Any, test_result: Any, filename: str, title: str) -> Any:
     """Cross-tabulation -> book-tab xlsx.
 
     Layout follows the shared three-line convention. The chi-square /
@@ -229,7 +229,7 @@ def _tab_to_excel(df, test_result, filename, title):
     wb.save(filename)
 
 
-def _tab_to_word(df, test_result, filename, title):
+def _tab_to_word(df: Any, test_result: Any, filename: str, title: str) -> Any:
     try:
         from docx import Document
         from docx.shared import Pt
