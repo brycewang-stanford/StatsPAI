@@ -256,12 +256,12 @@ def coefplot(
     *models: Any,
     model_names: Optional[List[str]] = None,
     variables: Optional[List[str]] = None,
-    ax=None,
+    ax: Any = None,
     figsize: tuple = (8, 6),
     colors: Optional[List[str]] = None,
     title: Optional[str] = None,
     alpha: float = 0.05,
-):
+) -> Any:
     """
     Forest plot comparing coefficients across models.
 
