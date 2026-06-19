@@ -33,7 +33,7 @@ models with group interactions, contextual factors and fixed effects."
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Sequence, Dict, Any
+from typing import Optional, Sequence, Dict, Any, List
 
 import numpy as np
 import pandas as pd
@@ -107,14 +107,14 @@ class PeerEffectsResult(ResultProtocolMixin):
 def _row_normalise(W: np.ndarray) -> np.ndarray:
     rs = W.sum(axis=1, keepdims=True)
     rs = np.where(rs == 0, 1.0, rs)
-    return W / rs
+    return np.asarray(W / rs)
 
 
 def peer_effects(
     data: pd.DataFrame,
     y: str,
     covariates: Sequence[str],
-    W,
+    W: Any,
     include_contextual: bool = True,
     alpha: float = 0.05,
 ) -> PeerEffectsResult:
@@ -191,7 +191,7 @@ def peer_effects(
         cols += [f"W*{c}" for c in cov]
 
     # Instruments: [1, X, WX, W^2 X, W^3 X]
-    instr_list = [np.ones(n)]
+    instr_list: List[np.ndarray] = [np.ones(n)]
     if X.shape[1] > 0:
         instr_list += [X, WX, W2X, W3X]
     instruments = np.column_stack(instr_list) if instr_list else np.ones((n, 1))

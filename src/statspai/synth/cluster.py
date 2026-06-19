@@ -402,7 +402,7 @@ def _fit_cluster(
             n_init=10,
             random_state=seed,
         )
-        return model.fit_predict(X)
+        return np.asarray(model.fit_predict(X))
 
     if method == "spectral":
         n_samples = X.shape[0]
@@ -414,14 +414,14 @@ def _fit_cluster(
             random_state=seed,
             assign_labels="kmeans",
         )
-        return model.fit_predict(X)
+        return np.asarray(model.fit_predict(X))
 
     # hierarchical
     model = AgglomerativeClustering(
         n_clusters=n_clusters,
         linkage="ward",
     )
-    return model.fit_predict(X)
+    return np.asarray(model.fit_predict(X))
 
 
 def _compute_centers(X: np.ndarray, labels: np.ndarray) -> np.ndarray:

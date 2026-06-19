@@ -32,7 +32,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from itertools import combinations
 from math import factorial
-from typing import ClassVar, Dict, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Any, ClassVar, Dict, List, Optional, Sequence, Tuple, Union,
+)
 
 import numpy as np
 import pandas as pd
@@ -217,12 +219,13 @@ class SubgroupDecompResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         from .plots import inequality_subgroup_plot
         return inequality_subgroup_plot(self, **kwargs)
 
     def to_latex(self) -> str:
-        return self.per_group.round(4).to_latex(index=False)
+        latex: str = self.per_group.round(4).to_latex(index=False)
+        return latex
 
     def _repr_html_(self) -> str:
         return (f"<div><h3>Inequality Subgroup — {self.index}</h3>"
@@ -460,7 +463,7 @@ class SourceDecompResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         from .plots import detailed_waterfall
         return detailed_waterfall(
             self.sources, value_col="contribution",
@@ -488,11 +491,12 @@ class SourceDecompResult(DecompResultMixin):
         return "\n".join(lines)
 
     def _repr_html_(self) -> str:
+        html: str = self.sources.round(4).to_html(index=False)
         return (
             "<div style='font-family:monospace;'>"
             "<h3>Gini Source Decomposition</h3>"
             f"<p>Total Gini = {self.total_gini:.4f}</p>"
-            + self.sources.round(4).to_html(index=False) + "</div>"
+            + html + "</div>"
         )
 
     def __repr__(self) -> str:
@@ -604,7 +608,7 @@ class ShapleyInequalityResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         from .plots import detailed_waterfall
         return detailed_waterfall(self.shapley, value_col="contribution",
                                   label_col="variable", **kwargs)
@@ -627,11 +631,12 @@ class ShapleyInequalityResult(DecompResultMixin):
         return "\n".join(lines)
 
     def _repr_html_(self) -> str:
+        html: str = self.shapley.round(4).to_html(index=False)
         return (
             "<div style='font-family:monospace;'>"
             f"<h3>Shapley Inequality — {self.index}</h3>"
             f"<p>Total = {self.total:.4f}</p>"
-            + self.shapley.round(4).to_html(index=False) + "</div>"
+            + html + "</div>"
         )
 
     def __repr__(self) -> str:
@@ -699,7 +704,7 @@ def shapley_inequality(
             return np.full_like(y_vec, y_vec.mean())
         X_s = add_constant(X_raw[:, list(subset_idx)])
         beta, _, _ = wls(y_vec, X_s, w=w)
-        return X_s @ beta
+        return np.asarray(X_s @ beta)
 
     # Enumerate all subsets up to |x|≤10; else sample
     if k <= 10:

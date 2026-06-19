@@ -187,7 +187,12 @@ class OaxacaResult(DecompResultMixin):
 
     # ── Plotting ─────────────────────────────────────────────────────
 
-    def plot(self, figsize=(8, 5), kind: str = "waterfall", **kwargs):
+    def plot(
+        self,
+        figsize: Any = (8, 5),
+        kind: str = "waterfall",
+        **kwargs: Any,
+    ) -> Any:
         """Bar / forest chart of per-variable explained contributions.
 
         Parameters
@@ -414,7 +419,7 @@ class GelbachResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, figsize=(8, 5), color="#4CAF50"):
+    def plot(self, figsize: Any = (8, 5), color: str = "#4CAF50") -> Any:
         """
         Horizontal bar chart of Gelbach contributions.
 

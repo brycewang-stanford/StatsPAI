@@ -58,7 +58,7 @@ class DNCGNNDiDResult(ResultProtocolMixin):
     ci: tuple
     n_obs: int
     method: str = "DNC + GNN-aware DiD"
-    diagnostics: dict = None
+    diagnostics: Optional[dict] = None
 
     def summary(self) -> str:
         diag = self.diagnostics or {}

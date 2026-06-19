@@ -10,7 +10,7 @@ Hilbert space, with a uniform confidence band (vs. pointwise CIs).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -68,7 +68,7 @@ class KernelIVResult:
         return "\n".join(rows)
 
 
-def _gauss(u, h):
+def _gauss(u: Any, h: Any) -> Any:
     return np.exp(-0.5 * (u / h) ** 2) / (h * np.sqrt(2 * np.pi))
 
 
@@ -138,7 +138,7 @@ def kernel_iv(
                             np.quantile(D, 0.95), 30)
     rng = np.random.default_rng(seed)
 
-    def _fit(Yi, Di, Zi):
+    def _fit(Yi: Any, Di: Any, Zi: Any) -> np.ndarray:
         # Two-stage kernel ridge regression:
         # 1) Conditional density f(D|Z) → estimate E[D|Z] kernel-smoothed
         # 2) E[Y|Z] kernel-smoothed

@@ -228,9 +228,19 @@ def analyze(
 
 
 def _run_msm(
-    data, id_col, time_col, treatment_col, outcome_col,
-    time_varying, baseline, regime, alpha, trim, n, n_periods,
-):
+    data: pd.DataFrame,
+    id_col: str,
+    time_col: str,
+    treatment_col: str,
+    outcome_col: str,
+    time_varying: Sequence[str],
+    baseline: Sequence[str],
+    regime: Regime,
+    alpha: float,
+    trim: float,
+    n: int,
+    n_periods: int,
+) -> LongitudinalResult:
     from ..msm import msm as _msm
 
     res = _msm(
@@ -252,7 +262,7 @@ def _run_msm(
     if ci is None or any(x is None for x in ci):
         z = 1.96
         ci = (est - z * se, est + z * se)
-    diag = {}
+    diag: dict = {}
     info = getattr(res, "model_info", None)
     if isinstance(info, dict):
         for key in ("weight_mean", "weight_min", "weight_max",
@@ -279,9 +289,18 @@ def _run_msm(
 
 
 def _run_gformula(
-    data, id_col, time_col, treatment_col, outcome_col,
-    time_varying, baseline, regime, alpha, n, n_periods,
-):
+    data: pd.DataFrame,
+    id_col: str,
+    time_col: str,
+    treatment_col: str,
+    outcome_col: str,
+    time_varying: Sequence[str],
+    baseline: Sequence[str],
+    regime: Regime,
+    alpha: float,
+    n: int,
+    n_periods: int,
+) -> LongitudinalResult:
     from ..gformula import ice as _ice_fn
 
     # Wide panel: one column per period for treatment + confounders.
@@ -302,6 +321,7 @@ def _run_gformula(
 
     # Static regime: use the sequence; Dynamic: call regime on row.
     if regime.kind == "static":
+        assert not callable(regime.rule)
         strategy = list(regime.rule)
         if len(strategy) < K:
             strategy = strategy + [strategy[-1]] * (K - len(strategy))
@@ -336,20 +356,24 @@ def _run_gformula(
 
 
 def _pivot_panel(
-    data, id_col, time_col,
-    treatment_col, outcome_col,
-    time_varying, baseline,
-    periods,
-):
+    data: pd.DataFrame,
+    id_col: str,
+    time_col: str,
+    treatment_col: str,
+    outcome_col: str,
+    time_varying: Sequence[str],
+    baseline: Sequence[str],
+    periods: Sequence[Any],
+) -> pd.DataFrame:
     """Transform long panel into wide format expected by the ICE function."""
     df = data.sort_values([id_col, time_col])
     idx_map = {p: i for i, p in enumerate(periods)}
     subjects = df[id_col].unique()
-    rows = []
-    last_row_by_id = {}
+    rows: list = []
+    last_row_by_id: dict = {}
     for sid in subjects:
         sub = df.loc[df[id_col] == sid]
-        row = {id_col: sid}
+        row: dict = {id_col: sid}
         for _, obs in sub.iterrows():
             t = idx_map[obs[time_col]]
             row[f"A_{t}"] = obs[treatment_col]
@@ -386,7 +410,12 @@ def _pivot_panel(
     return out.fillna(0.0)
 
 
-def _materialize_dynamic(wide, regime, K, time_varying):
+def _materialize_dynamic(
+    wide: pd.DataFrame,
+    regime: Regime,
+    K: int,
+    time_varying: Sequence[str],
+) -> list:
     """For dynamic regimes we evaluate the rule on the observed history
     at each period t and return the implied sequence of mean values.
 
@@ -396,6 +425,7 @@ def _materialize_dynamic(wide, regime, K, time_varying):
     """
     seq = []
     for t in range(K):
+        hist: dict
         if time_varying:
             hist = {c: float(wide[f"L_{t}_{c}"].mean()) for c in time_varying}
         else:
@@ -410,9 +440,18 @@ def _materialize_dynamic(wide, regime, K, time_varying):
 
 
 def _run_ipw(
-    data, id_col, time_col, treatment_col, outcome_col,
-    baseline, regime, alpha, trim, n, n_periods,
-):
+    data: pd.DataFrame,
+    id_col: str,
+    time_col: str,
+    treatment_col: str,
+    outcome_col: str,
+    baseline: Sequence[str],
+    regime: Regime,
+    alpha: float,
+    trim: float,
+    n: int,
+    n_periods: int,
+) -> LongitudinalResult:
     """Baseline-only IPW when no time-varying confounders are given."""
     df = data.sort_values([id_col, time_col]).groupby(id_col).tail(1).copy()
     a = df[treatment_col].to_numpy(dtype=float)
@@ -430,6 +469,7 @@ def _run_ipw(
     # Apply regime: if regime is static [1, ...] we estimate E[Y(1)]; if [0, ...] E[Y(0)].
     # For dynamic or mixed regimes, fall back to the contrast of observed arms.
     if regime.kind == "static":
+        assert not callable(regime.rule)
         target = regime.rule[0]
         mask = a == target
         wm = w[mask]
@@ -479,6 +519,7 @@ def _logit_fit_predict(X: np.ndarray, y: np.ndarray) -> np.ndarray:
         W = p * (1 - p)
         grad = X_.T @ (y - p)
         H = (X_.T * W) @ X_
+        step: Any
         try:
             step = np.linalg.solve(H, grad)
         except np.linalg.LinAlgError:
@@ -503,7 +544,7 @@ def contrast(
     outcome: str,
     regime_a: Union[str, Sequence, Regime],
     regime_b: Union[str, Sequence, Regime],
-    **kwargs,
+    **kwargs: Any,
 ) -> dict:
     """Estimate E[Y(regime_a)] - E[Y(regime_b)] using :func:`analyze`.
 

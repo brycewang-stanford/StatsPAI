@@ -196,6 +196,7 @@ def _gap_table(result: CausalResult) -> Optional[pd.DataFrame]:
         return None
 
     # Normalise to np.array and pull index for time axis
+    times: Any
     if isinstance(yt, pd.Series):
         times = list(yt.index)
         yt_arr = yt.to_numpy(dtype=float)
@@ -444,12 +445,12 @@ def synth_to_latex(
     lines.append(rule_mid)
 
     # Diagnostics
-    def _fmt_int(v):
+    def _fmt_int(v: Any) -> str:
         if v is None or (isinstance(v, float) and np.isnan(v)):
             return "—"
         return str(int(v))
 
-    def _fmt_float(v, d=digits):
+    def _fmt_float(v: Any, d: int = digits) -> str:
         if v is None or (isinstance(v, float) and np.isnan(v)):
             return "—"
         return f"{float(v):.{d}f}"
@@ -496,7 +497,7 @@ def synth_to_latex(
             "\\multicolumn{" + str(n_cols)
             + "}{l}{\\emph{Top donor weights}} \\\\"
         )
-        per_method = []
+        per_method: List[Any] = []
         max_rows = 0
         for r in results:
             wmap = _donor_weights(r)
@@ -636,7 +637,7 @@ def synth_to_markdown(
             )
         lines.append("| " + " | ".join(cells) + " |")
 
-    def _fmt(v, d=digits):
+    def _fmt(v: Any, d: int = digits) -> str:
         if v is None or (isinstance(v, float) and np.isnan(v)):
             return "—"
         if isinstance(v, (int, np.integer)):
@@ -679,8 +680,10 @@ def synth_to_markdown(
             top = sorted(
                 wmap.items(), key=lambda kv: abs(kv[1]), reverse=True,
             )[:top_n_weights]
-            cells = ", ".join(f"{name} ({w:.{digits}f})" for name, w in top)
-            lines.append(f"- *{n}*: {cells}")
+            weight_cells = ", ".join(
+                f"{name} ({w:.{digits}f})" for name, w in top
+            )
+            lines.append(f"- *{n}*: {weight_cells}")
 
     lines.append("")
     lines.append(

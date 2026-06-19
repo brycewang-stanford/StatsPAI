@@ -589,7 +589,7 @@ def _weights_lasso(
 
     # Unstandardise
     w_orig = w / X_std
-    return w_orig
+    return np.asarray(w_orig)
 
 
 def _weights_ridge(
@@ -599,13 +599,13 @@ def _weights_ridge(
     J = X.shape[1]
     XtX = X.T @ X + lam * np.eye(J)
     Xty = X.T @ y
-    return np.linalg.solve(XtX, Xty)
+    return np.asarray(np.linalg.solve(XtX, Xty))
 
 
 def _weights_ols(y: np.ndarray, X: np.ndarray) -> np.ndarray:
     """Unconstrained OLS weights."""
     w, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
-    return w
+    return np.asarray(w)
 
 
 def _soft_threshold(x: float, lam: float) -> float:
@@ -690,7 +690,7 @@ def _in_sample_variance(
     # Subsampling variance correction: Var_sub * (b / T0)
     in_var *= (b / T0)
 
-    return in_var
+    return np.asarray(in_var)
 
 
 # ====================================================================== #
@@ -774,7 +774,7 @@ def _out_of_sample_location_scale(
         post_t = np.arange(T0, T0 + T1, dtype=np.float64)
         scale_post = np.maximum(a_hat + b_hat * post_t, 1e-10)
         # Variance = scale^2
-        return scale_post ** 2
+        return np.asarray(scale_post ** 2)
     else:
         # Too few periods for location-scale; fall back to constant
         sigma2 = float(np.var(e_pre, ddof=1)) if T0 > 1 else float(

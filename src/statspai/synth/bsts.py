@@ -458,7 +458,7 @@ def _neg_log_likelihood(
     ll = kf["log_likelihood"]
     if not np.isfinite(ll):
         return 1e12
-    return -ll
+    return float(-ll)
 
 
 def _fit_model(

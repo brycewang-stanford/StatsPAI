@@ -42,7 +42,7 @@ van der Laan, M. J., Benkeser, D. & Cai, W. (2023). Efficient estimation
 from __future__ import annotations
 
 import inspect
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -101,14 +101,14 @@ class _BaseHAL:
         # for sklearn-protocol compatibility but ignored — HAL params
         # are scalars, not nested estimators.
         del deep
-        params = {}
-        for name in inspect.signature(self.__init__).parameters:
+        params: dict = {}
+        for name in inspect.signature(type(self).__init__).parameters:
             if name == "self":
                 continue
             params[name] = getattr(self, name)
         return params
 
-    def set_params(self, **params) -> "_BaseHAL":
+    def set_params(self, **params: Any) -> "_BaseHAL":
         for k, v in params.items():
             setattr(self, k, v)
         return self
@@ -123,7 +123,7 @@ def _hal_basis(
     X: np.ndarray,
     anchors: Optional[np.ndarray] = None,
     max_anchors_per_col: int = 40,
-) -> np.ndarray:
+) -> Tuple[np.ndarray, np.ndarray]:
     """Main-effects HAL basis: column-wise step functions at anchor points.
 
     ``anchors`` is a flat 2-column array ``[[j, value], ...]`` of (feature
@@ -134,7 +134,8 @@ def _hal_basis(
     """
     n, p = X.shape
     if anchors is None:
-        cols, vals = [], []
+        cols: list = []
+        vals: list = []
         for j in range(p):
             xv = np.unique(X[:, j])
             if len(xv) > max_anchors_per_col:
@@ -155,7 +156,7 @@ def _hal_basis(
     return B, anchors
 
 
-def _validate_hal_positive_int(value, *, name: str) -> int:
+def _validate_hal_positive_int(value: Any, *, name: str) -> int:
     if (
         not isinstance(value, (int, np.integer))
         or isinstance(value, bool)
@@ -170,7 +171,7 @@ def _validate_hal_positive_int(value, *, name: str) -> int:
 
 
 def _coerce_hal_matrix(
-    X,
+    X: Any,
     *,
     context: str,
     expected_features: Optional[int] = None,
@@ -232,7 +233,7 @@ def _coerce_hal_matrix(
     return X_arr
 
 
-def _coerce_hal_target(y, *, context: str) -> np.ndarray:
+def _coerce_hal_target(y: Any, *, context: str) -> np.ndarray:
     try:
         y_arr = np.asarray(y, dtype=float).ravel()
     except (TypeError, ValueError) as exc:
@@ -298,7 +299,7 @@ class HALRegressor(_BaseHAL):
         self.random_state = random_state
         self.n_features_in_: Optional[int] = None
 
-    def fit(self, X, y):
+    def fit(self, X: Any, y: Any) -> "HALRegressor":
         max_anchors = _validate_hal_positive_int(
             self.max_anchors_per_col,
             name="max_anchors_per_col",
@@ -362,7 +363,7 @@ class HALRegressor(_BaseHAL):
         self.n_features_in_ = X.shape[1]
         return self
 
-    def predict(self, X):
+    def predict(self, X: Any) -> np.ndarray:
         if not hasattr(self, "_model") or not hasattr(self, "_anchors"):
             raise MethodIncompatibility(
                 "HALRegressor.predict() requires a fitted model.",
@@ -374,7 +375,7 @@ class HALRegressor(_BaseHAL):
             expected_features=self.n_features_in_,
         )
         B, _ = _hal_basis(X, anchors=self._anchors)
-        return self._model.predict(B)
+        return np.asarray(self._model.predict(B))
 
 
 class HALClassifier(_BaseHAL):
@@ -420,7 +421,7 @@ class HALClassifier(_BaseHAL):
         self.random_state = random_state
         self.n_features_in_: Optional[int] = None
 
-    def fit(self, X, y):
+    def fit(self, X: Any, y: Any) -> "HALClassifier":
         max_anchors = _validate_hal_positive_int(
             self.max_anchors_per_col,
             name="max_anchors_per_col",
@@ -481,7 +482,7 @@ class HALClassifier(_BaseHAL):
         self.n_features_in_ = X.shape[1]
         return self
 
-    def predict(self, X):
+    def predict(self, X: Any) -> np.ndarray:
         if not hasattr(self, "_model") or not hasattr(self, "_anchors"):
             raise MethodIncompatibility(
                 "HALClassifier.predict() requires a fitted model.",
@@ -493,9 +494,9 @@ class HALClassifier(_BaseHAL):
             expected_features=self.n_features_in_,
         )
         B, _ = _hal_basis(X, anchors=self._anchors)
-        return self._model.predict(B)
+        return np.asarray(self._model.predict(B))
 
-    def predict_proba(self, X):
+    def predict_proba(self, X: Any) -> np.ndarray:
         if not hasattr(self, "_model") or not hasattr(self, "_anchors"):
             raise MethodIncompatibility(
                 "HALClassifier.predict_proba() requires a fitted model.",
@@ -507,7 +508,7 @@ class HALClassifier(_BaseHAL):
             expected_features=self.n_features_in_,
         )
         B, _ = _hal_basis(X, anchors=self._anchors)
-        return self._model.predict_proba(B)
+        return np.asarray(self._model.predict_proba(B))
 
 
 def hal_tmle(
@@ -522,7 +523,7 @@ def hal_tmle(
     n_folds: int = 5,
     estimand: str = "ATE",
     alpha: float = 0.05,
-    propensity_bounds=(0.025, 0.975),
+    propensity_bounds: Tuple[float, float] = (0.025, 0.975),
     random_state: int = 42,
 ) -> CausalResult:
     """TMLE with Highly Adaptive Lasso (HAL) nuisance learners.

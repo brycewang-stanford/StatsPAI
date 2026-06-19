@@ -34,7 +34,7 @@ Kleibergen, F. and Zivot, E. (2003). "Bayesian and Classical Approaches
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -73,11 +73,11 @@ class BayesianIVResult:
         return pd.DataFrame({"beta": self.posterior_draws})
 
 
-def _grab(v, data, cols=False):
+def _grab(v: Any, data: Any, cols: bool = False) -> np.ndarray:
     if isinstance(v, str):
-        return data[v].values.astype(float)
+        return np.asarray(data[v].values.astype(float))
     if cols and isinstance(v, list) and all(isinstance(x, str) for x in v):
-        return data[v].values.astype(float)
+        return np.asarray(data[v].values.astype(float))
     return np.asarray(v, dtype=float)
 
 
@@ -85,10 +85,10 @@ def _residualize(M: np.ndarray, W: Optional[np.ndarray]) -> np.ndarray:
     if W is None or W.size == 0 or W.shape[1] == 0:
         return M
     b, *_ = np.linalg.lstsq(W, M, rcond=None)
-    return M - W @ b
+    return np.asarray(M - W @ b)
 
 
-def _hpd(draws: np.ndarray, level: float = 0.95):
+def _hpd(draws: np.ndarray, level: float = 0.95) -> Tuple[float, float]:
     """Highest Posterior Density interval."""
     n = len(draws)
     alpha = 1 - level
@@ -125,7 +125,7 @@ def bayesian_iv(
     y: Union[np.ndarray, pd.Series, str],
     endog: Union[np.ndarray, pd.Series, str],
     instruments: Union[np.ndarray, pd.DataFrame, List[str]],
-    exog=None,
+    exog: Any = None,
     data: Optional[pd.DataFrame] = None,
     n_draws: int = 5000,
     n_warmup: int = 2000,

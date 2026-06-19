@@ -184,21 +184,23 @@ class YuElwertResult(DecompResultMixin):
 
     # ── Plot delegate ────────────────────────────────────────────────
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         from .plots import yu_elwert_mechanisms_plot
         return yu_elwert_mechanisms_plot(self, **kwargs)
 
     # ── confint override (the mixin reads from `overall`, but
     #    YuElwertResult uses flat scalar fields plus an `se` dict.) ──
 
-    def confint(self, alpha: float = 0.05, which: str = "overall"):  # type: ignore[override]
+    def confint(  # type: ignore[override]
+        self, alpha: float = 0.05, which: str = "overall"
+    ) -> Optional[Dict[str, Tuple[float, float]]]:
         if which == "detailed":
             return super().confint(alpha=alpha, which="detailed")
         if not self.se:
             return None
         from scipy.stats import norm
         z = float(norm.ppf(1 - alpha / 2))
-        out = {}
+        out: Dict[str, Tuple[float, float]] = {}
         for key in ("disparity", "baseline", "prevalence", "effect",
                     "selection"):
             v = getattr(self, key)
@@ -315,7 +317,7 @@ def _components_from_nuisance(
     grp_b = r == 0
 
     def m(rv: int, tv: int) -> np.ndarray:
-        return X @ m_coef[(rv, tv)]
+        return np.asarray(X @ m_coef[(rv, tv)])
 
     def p(rv: int) -> np.ndarray:
         return logit_predict(p_coef[rv], X)

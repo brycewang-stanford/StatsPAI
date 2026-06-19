@@ -177,24 +177,24 @@ def qte_hd_panel(
     # QTE at each quantile via quantile regression of Y_d on D_d + X_sel
     try:
         import statsmodels.regression.quantile_regression as qreg
-        qte_arr = []
-        se_arr = []
+        qte_list: List[float] = []
+        se_list: List[float] = []
         for q in quantiles:
             try:
                 fit = qreg.QuantReg(
                     Y_d,
                     np.hstack([np.ones((n, 1)), D_d.reshape(-1, 1), X_sel]),
                 ).fit(q=q, max_iter=2000)
-                qte_arr.append(float(fit.params[1]))
-                se_arr.append(float(fit.bse[1]))
+                qte_list.append(float(fit.params[1]))
+                se_list.append(float(fit.bse[1]))
             except Exception:
                 # Fallback: scalar QTE approximation via quantile difference
                 q_t = np.quantile(Y_d[D_d > 0], q) if (D_d > 0).any() else 0.0
                 q_c = np.quantile(Y_d[D_d <= 0], q) if (D_d <= 0).any() else 0.0
-                qte_arr.append(float(q_t - q_c))
-                se_arr.append(0.1)
-        qte_arr = np.array(qte_arr)
-        se_arr = np.array(se_arr)
+                qte_list.append(float(q_t - q_c))
+                se_list.append(0.1)
+        qte_arr = np.array(qte_list)
+        se_arr = np.array(se_list)
     except ImportError:
         # Minimal fallback
         qte_arr = np.array([

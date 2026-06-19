@@ -28,7 +28,7 @@ models." *The Annals of Applied Statistics*, 9(1), 247-274. [@brodersen2015infer
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -48,8 +48,8 @@ def bayesian_synth(
     outcome: str,
     unit: str,
     time: str,
-    treated_unit,
-    treatment_time,
+    treated_unit: Any,
+    treatment_time: Any,
     covariates: Optional[List[str]] = None,
     n_iter: int = 2000,
     n_warmup: int = 1000,
@@ -423,7 +423,7 @@ def _log_posterior(
     a0, b0 = 1.0, 1.0
     lp_sigma = -(a0 + 1) * np.log(sigma) - b0 / sigma
 
-    return ll + lp_w + lp_sigma
+    return float(ll + lp_w + lp_sigma)
 
 
 def _dirichlet_proposal(
@@ -483,7 +483,7 @@ def _log_dirichlet_proposal_density(
     # Dirichlet log-density (up to normalising constant that does NOT cancel)
     log_norm = gammaln(np.sum(conc)) - np.sum(gammaln(conc))
     log_kernel = np.sum((conc - 1.0) * np.log(np.maximum(w_proposed, 1e-300)))
-    return log_norm + log_kernel
+    return float(log_norm + log_kernel)
 
 
 def _mcmc_sampler(
@@ -549,7 +549,7 @@ def _mcmc_sampler(
     n_post = n_iter - n_warmup
     max_samples = n_post // thin + 1
     w_store = np.empty((max_samples, J), dtype=np.float64)
-    sigma_store = np.empty(max_samples, dtype=np.float64)
+    sigma_store: np.ndarray = np.empty(max_samples, dtype=np.float64)
 
     current_lp = _log_posterior(w, sigma, Y1_pre, Y0_pre, dirichlet_alpha)
 
@@ -787,4 +787,4 @@ def _autocorr_fft(x: np.ndarray, max_lag: int) -> np.ndarray:
         return np.zeros(max_lag)
 
     acf_norm = acf_raw / acf_raw[0]
-    return acf_norm[:max_lag]
+    return np.asarray(acf_norm[:max_lag])

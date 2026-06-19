@@ -21,7 +21,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import permutations
-from typing import ClassVar, Dict, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Any, ClassVar, Dict, List, Optional, Sequence, Tuple, Union,
+)
 
 import numpy as np
 import pandas as pd
@@ -70,7 +72,7 @@ class KitagawaResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         from .plots import detailed_waterfall
         return detailed_waterfall(
             self.per_cell,
@@ -80,7 +82,8 @@ class KitagawaResult(DecompResultMixin):
         )
 
     def to_latex(self) -> str:
-        return self.per_cell.round(4).to_latex(index=False)
+        latex: str = self.per_cell.round(4).to_latex(index=False)
+        return latex
 
     def _repr_html_(self) -> str:
         return (f"<div><h3>Kitagawa Decomposition</h3>"
@@ -271,7 +274,7 @@ class DasGuptaResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         from .plots import detailed_waterfall
         return detailed_waterfall(self.factor_effects, value_col="effect",
                                   label_col="factor", **kwargs)
@@ -294,12 +297,13 @@ class DasGuptaResult(DecompResultMixin):
         return "\n".join(lines)
 
     def _repr_html_(self) -> str:
+        html: str = self.factor_effects.round(4).to_html(index=False)
         return (
             "<div style='font-family:monospace;'>"
             f"<h3>Das Gupta Multi-Factor Decomposition</h3>"
             f"<p>Aggregate A = {self.rate_a:.4f}, B = {self.rate_b:.4f}, "
             f"gap = {self.gap:.4f}</p>"
-            + self.factor_effects.round(4).to_html(index=False)
+            + html
             + "</div>"
         )
 
@@ -367,7 +371,7 @@ def das_gupta(
     # Das Gupta effect for factor j:
     # Δ_j = mean over all orderings ρ:
     #   ∏_{k such that σ(k) < σ(j)} vA_k · (vA_j - vB_j) · ∏_{k such that σ(k) > σ(j)} vB_k
-    effects = np.zeros(m)
+    effects: np.ndarray = np.zeros(m)
     count = 0
     for perm in permutations(range(m)):
         count += 1

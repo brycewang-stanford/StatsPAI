@@ -195,7 +195,7 @@ class IVDiagResult:
 
     def to_frame(self) -> pd.DataFrame:
         """Return a tidy summary table — one row per estimator/metric."""
-        rows = []
+        rows: List[Tuple[Any, ...]] = []
         ci_lo, ci_hi = self.ci_analytic_2sls
         rows.append(("2SLS (analytic)", self.beta_2sls, self.se_2sls,
                      self.t_2sls, self.p_2sls, ci_lo, ci_hi))
@@ -375,7 +375,7 @@ class IVDiagResult:
             cap = f"\\caption{{{caption}}}\n" if caption else ""
             lab = f"\\label{{{label}}}\n" if label else ""
             tex = "\\begin{table}[!htbp]\n\\centering\n" + cap + lab + tex + "\\end{table}"
-        return tex
+        return str(tex)
 
     def to_excel(self, path: str) -> None:
         """Write the summary table to ``path`` (one sheet)."""
@@ -411,7 +411,7 @@ class IVDiagResult:
             )
         doc.save(path)
 
-    def plot(self, kind: str = "diagnostic", **kwargs):
+    def plot(self, kind: str = "diagnostic", **kwargs: Any) -> Any:
         """Dispatch to :mod:`statspai.iv.plot` plotting helpers.
 
         Parameters
@@ -1006,7 +1006,7 @@ def iv_compare(
     methods: Sequence[str] = ("2sls", "liml", "fuller", "jive"),
     alpha: float = 0.05,
     endog_name: Optional[str] = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> pd.DataFrame:
     """Run several k-class / JIVE estimators and return a one-row-per-method
     comparison table — useful for quick sensitivity checks across estimators.

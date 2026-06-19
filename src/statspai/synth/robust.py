@@ -288,11 +288,11 @@ def _solve_penalized_constrained(
     """SCM constraints (w >= 0, sum = 1) + elastic-net penalty."""
     J = X.shape[1]
 
-    def objective(w):
+    def objective(w: np.ndarray) -> float:
         r = y - X @ w
-        return (r @ r
-                + l2_penalty * (w @ w)
-                + l1_penalty * np.sum(np.abs(w)))
+        return float(r @ r
+                     + l2_penalty * (w @ w)
+                     + l1_penalty * np.sum(np.abs(w)))
 
     res = optimize.minimize(
         objective, np.ones(J) / J, method="SLSQP",

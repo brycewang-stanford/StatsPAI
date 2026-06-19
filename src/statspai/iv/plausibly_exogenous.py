@@ -30,7 +30,7 @@ van Kippersluis, H. and Rietveld, C.A. (2018).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Any, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -65,19 +65,19 @@ class PlausiblyExogenousResult:
         return "\n".join(lines)
 
 
-def _as_matrix(x) -> np.ndarray:
+def _as_matrix(x: Any) -> np.ndarray:
     a = np.asarray(x, dtype=float)
     return a.reshape(-1, 1) if a.ndim == 1 else a
 
 
 def _prep(
-    y, endog, instruments, exog, data, add_const,
+    y: Any, endog: Any, instruments: Any, exog: Any, data: Any, add_const: Any,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    def grab(v, prefix):
+    def grab(v: Any, prefix: Any) -> np.ndarray:
         if isinstance(v, str):
-            return data[v].values.astype(float)
+            return np.asarray(data[v].values.astype(float))
         if isinstance(v, list) and all(isinstance(x, str) for x in v):
-            return data[v].values.astype(float)
+            return np.asarray(data[v].values.astype(float))
         return np.asarray(v, dtype=float)
 
     Y = grab(y, "y").reshape(-1)

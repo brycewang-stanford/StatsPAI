@@ -155,13 +155,13 @@ class LTMLESurvivalResult(ResultProtocolMixin):
 #  Internal helpers (mirror ltmle.py's style)
 # ═══════════════════════════════════════════════════════════════════════
 
-def _fit_logit(X: np.ndarray, y: np.ndarray):
+def _fit_logit(X: np.ndarray, y: np.ndarray) -> Any:
     if np.all(y == y[0]):
         class _Const:
-            def __init__(self, p):
+            def __init__(self, p: float) -> None:
                 self.p = p
 
-            def predict_proba(self, X):
+            def predict_proba(self, X: np.ndarray) -> np.ndarray:
                 return np.column_stack([
                     1 - self.p * np.ones(X.shape[0]),
                     self.p * np.ones(X.shape[0]),
@@ -173,12 +173,12 @@ def _fit_logit(X: np.ndarray, y: np.ndarray):
     return lr
 
 
-def _predict_proba(model, X: np.ndarray) -> np.ndarray:
+def _predict_proba(model: Any, X: np.ndarray) -> np.ndarray:
     prob = model.predict_proba(X)
-    return prob[:, 1] if prob.ndim == 2 else prob
+    return np.asarray(prob[:, 1] if prob.ndim == 2 else prob)
 
 
-def _safe_logit(p, eps=1e-6):
+def _safe_logit(p: Any, eps: float = 1e-6) -> Any:
     return logit(np.clip(p, eps, 1 - eps))
 
 
@@ -371,8 +371,8 @@ def ltmle_survival(
     for k in range(K):
         hist_cols = list(baseline)
         for j in range(k):
-            hist_cols += [treatments[j]] + covariates_time[j]
-        hist_cols += covariates_time[k]
+            hist_cols += [treatments[j]] + list(covariates_time[j])
+        hist_cols += list(covariates_time[k])
         X_k = (df[hist_cols].to_numpy(dtype=float)
                if hist_cols else np.ones((n, 0)))
         X_k = np.column_stack([np.ones(n), X_k])
@@ -395,7 +395,11 @@ def ltmle_survival(
             cens_probs.append(np.ones(n))
 
     # ── Fit & target discrete-time hazards under each regime ─────────
-    def _run_regime(regime_mat: np.ndarray):
+    def _run_regime(
+        regime_mat: np.ndarray,
+    ) -> Tuple[
+        np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
+    ]:
         """Returns per-subject sequences plus the population survival curve.
 
         Returned arrays (all per-subject):
@@ -432,8 +436,8 @@ def ltmle_survival(
         for k in range(K):
             hist_cols = list(baseline)
             for j in range(k):
-                hist_cols += [treatments[j]] + covariates_time[j]
-            hist_cols += covariates_time[k]
+                hist_cols += [treatments[j]] + list(covariates_time[j])
+            hist_cols += list(covariates_time[k])
             X_hist = (df[hist_cols].to_numpy(dtype=float)
                       if hist_cols else np.ones((n, 0)))
             X_hist = np.column_stack([np.ones(n), X_hist])

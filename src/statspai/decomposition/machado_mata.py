@@ -73,7 +73,7 @@ def _qreg_irls(
             beta = beta_new
             break
         beta = beta_new
-    return beta
+    return np.asarray(beta)
 
 
 def _qreg_grid(
@@ -132,7 +132,7 @@ class MachadoMataResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         from .plots import quantile_process_plot
         return quantile_process_plot(self, **kwargs)
 
@@ -153,10 +153,11 @@ class MachadoMataResult(DecompResultMixin):
         return "\n".join(lines)
 
     def _repr_html_(self) -> str:
+        html: str = self.quantile_grid.round(4).to_html(index=False)
         return (
             "<div style='font-family:monospace;'>"
             "<h3>Machado-Mata Decomposition</h3>"
-            + self.quantile_grid.round(4).to_html(index=False)
+            + html
             + "</div>"
         )
 
@@ -248,8 +249,12 @@ def machado_mata(
         raise ValueError("Need ≥20 obs per group for Machado-Mata.")
 
     if tau_grid is None:
-        tau_grid = np.round(np.arange(0.1, 0.95, 0.1), 2)
-    tau_grid = np.asarray(tau_grid, dtype=float)
+        tau_src: Sequence[float] | np.ndarray = np.round(
+            np.arange(0.1, 0.95, 0.1), 2
+        )
+    else:
+        tau_src = tau_grid
+    tau_arr = np.asarray(tau_src, dtype=float)
 
     tau_qr = np.linspace(0.01, 0.99, n_tau_qr)
     beta_a_grid = _qreg_grid(y_a, X_a, tau_qr)
@@ -257,14 +262,16 @@ def machado_mata(
 
     rng = np.random.default_rng(seed)
 
-    def simulate(beta_grid, X_source, n):
+    def simulate(
+        beta_grid: np.ndarray, X_source: np.ndarray, n: int
+    ) -> np.ndarray:
         """Draw n times: random τ, random row from X_source, predict y."""
         n_src = X_source.shape[0]
         t_idx = rng.integers(0, len(tau_qr), size=n)
         r_idx = rng.integers(0, n_src, size=n)
         b = beta_grid[t_idx]        # (n, k)
         xrow = X_source[r_idx]      # (n, k)
-        return np.sum(b * xrow, axis=1)
+        return np.asarray(np.sum(b * xrow, axis=1))
 
     # Simulated (marginal) distributions
     y_a_sim = simulate(beta_a_grid, X_a, n_sim)
@@ -277,7 +284,7 @@ def machado_mata(
         y_cf_sim = simulate(beta_b_grid, X_a, n_sim)
 
     rows = []
-    for t in tau_grid:
+    for t in tau_arr:
         q_a = float(np.quantile(y_a_sim, t))
         q_b = float(np.quantile(y_b_sim, t))
         q_cf = float(np.quantile(y_cf_sim, t))
@@ -332,7 +339,7 @@ def machado_mata(
                     ycf_sim = simulate(beta_b_i, X_a_i, n_sim)
                 gaps_b = []
                 comps_b = []
-                for t in tau_grid:
+                for t in tau_arr:
                     q_a_b = np.quantile(ya_sim, t)
                     q_b_b = np.quantile(yb_sim, t)
                     q_cf_b = np.quantile(ycf_sim, t)
@@ -348,7 +355,7 @@ def machado_mata(
             gaps_arr = np.array([b[0] for b in boot_list])
             comps_arr = np.array([b[1] for b in boot_list])
             se_df = pd.DataFrame({
-                "tau": tau_grid,
+                "tau": tau_arr,
                 "gap_se": gaps_arr.std(axis=0, ddof=1),
                 "composition_se": comps_arr.std(axis=0, ddof=1),
             })

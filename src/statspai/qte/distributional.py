@@ -12,7 +12,7 @@ Athey, S. & Imbens, G. W. (2006).
     Identification and Inference in Nonlinear DID Models. *Econometrica*, 74(2).
 """
 from __future__ import annotations
-from typing import Optional, List
+from typing import Any, Callable, Dict, Optional, List
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -48,9 +48,11 @@ class DTEResult:
     [1.63, 1.51, 1.57]
     """
 
-    def __init__(self, grid, dte, dte_se, qte_taus, qte_effects, qte_se,
-                 cdf_treated, cdf_counterfactual, ks_stat, ks_pvalue,
-                 n_obs, method="ipw", alpha=0.05):
+    def __init__(self, grid: Any, dte: Any, dte_se: Any, qte_taus: Any,
+                 qte_effects: Any, qte_se: Any,
+                 cdf_treated: Any, cdf_counterfactual: Any,
+                 ks_stat: Any, ks_pvalue: Any,
+                 n_obs: Any, method: str = "ipw", alpha: float = 0.05) -> None:
         self.grid = np.asarray(grid)
         self.dte = np.asarray(dte)
         self.dte_se = np.asarray(dte_se)
@@ -108,7 +110,7 @@ class DTEResult:
 
     # ── plots ────────────────────────────────────────────────────── #
 
-    def plot(self, ax=None):
+    def plot(self, ax: Any = None) -> Any:
         """Plot the DTE curve with CI band. Returns (fig, ax)."""
         import matplotlib.pyplot as plt
         if ax is None:
@@ -127,7 +129,7 @@ class DTEResult:
         ax.legend()
         return fig, ax
 
-    def plot_cdf(self, ax=None):
+    def plot_cdf(self, ax: Any = None) -> Any:
         """Plot treated vs. counterfactual CDFs. Returns (fig, ax)."""
         import matplotlib.pyplot as plt
         if ax is None:
@@ -153,10 +155,12 @@ def _propensity_score(X: np.ndarray, D: np.ndarray) -> np.ndarray:
     from sklearn.linear_model import LogisticRegression
     clf = LogisticRegression(max_iter=2000, solver="lbfgs", C=1e6)
     clf.fit(X, D)
-    return clf.predict_proba(X)[:, 1]
+    return np.asarray(clf.predict_proba(X)[:, 1])
 
 
-def _weighted_ecdf(vals, w, grid):
+def _weighted_ecdf(
+    vals: np.ndarray, w: np.ndarray, grid: np.ndarray,
+) -> np.ndarray:
     """Weighted empirical CDF on *grid*."""
     ws = w.sum()
     if ws == 0:
@@ -164,7 +168,9 @@ def _weighted_ecdf(vals, w, grid):
     return np.array([np.sum(w * (vals <= g)) / ws for g in grid])
 
 
-def _quantile_from_cdf(grid, cdf, taus):
+def _quantile_from_cdf(
+    grid: np.ndarray, cdf: np.ndarray, taus: np.ndarray,
+) -> np.ndarray:
     """Invert CDF on grid to get quantiles."""
     out = np.empty(len(taus))
     for i, tau in enumerate(taus):
@@ -173,7 +179,10 @@ def _quantile_from_cdf(grid, cdf, taus):
     return out
 
 
-def _fit_cond_cdf_ctrl(X_ctrl, Y_ctrl, X_all, grid):
+def _fit_cond_cdf_ctrl(
+    X_ctrl: np.ndarray, Y_ctrl: np.ndarray,
+    X_all: np.ndarray, grid: np.ndarray,
+) -> np.ndarray:
     """Fit P(Y<=y|X,D=0) on controls, predict for all obs. Returns (n, n_grid)."""
     from sklearn.linear_model import LinearRegression
     n, ng = X_all.shape[0], len(grid)
@@ -188,7 +197,10 @@ def _fit_cond_cdf_ctrl(X_ctrl, Y_ctrl, X_all, grid):
 #  Core estimators
 # ══════════════════════════════════════════════════════════════════════
 
-def _dte_ipw(Y, D, X, grid, taus):
+def _dte_ipw(
+    Y: np.ndarray, D: np.ndarray, X: Optional[np.ndarray],
+    grid: np.ndarray, taus: np.ndarray,
+) -> Dict[str, Any]:
     """IPW estimator for DTE."""
     treated, control = (D == 1), (D == 0)
     ps = _propensity_score(X, D) if X is not None else np.full(len(D), D.mean())
@@ -205,7 +217,10 @@ def _dte_ipw(Y, D, X, grid, taus):
                 qte=qt - qcf, ks_stat=float(np.max(np.abs(dte))))
 
 
-def _dte_dr(Y, D, X, grid, taus):
+def _dte_dr(
+    Y: np.ndarray, D: np.ndarray, X: np.ndarray,
+    grid: np.ndarray, taus: np.ndarray,
+) -> Dict[str, Any]:
     """Doubly-robust estimator for DTE."""
     treated, control = (D == 1), (D == 0)
     n1 = treated.sum()
@@ -217,7 +232,7 @@ def _dte_dr(Y, D, X, grid, taus):
     cdf_t = _weighted_ecdf(Y[treated], np.ones(n1), grid)
 
     # DR counterfactual CDF
-    cdf_cf = np.zeros(len(grid))
+    cdf_cf: np.ndarray = np.zeros(len(grid))
     w_ratio = ps / (1 - ps)
     for j in range(len(grid)):
         ind_y = (Y <= grid[j]).astype(float)
@@ -233,7 +248,9 @@ def _dte_dr(Y, D, X, grid, taus):
                 qte=qt - qcf, ks_stat=float(np.max(np.abs(dte))))
 
 
-def _dte_cic(Y, D, grid, taus):
+def _dte_cic(
+    Y: np.ndarray, D: np.ndarray, grid: np.ndarray, taus: np.ndarray,
+) -> Dict[str, Any]:
     """Changes-in-Changes distributional estimator.
 
     D encoding: 0=control-pre, 1=control-post, 2=treated-pre, 3=treated-post.
@@ -245,11 +262,11 @@ def _dte_cic(Y, D, grid, taus):
         raise ValueError(
             "CiC requires 4 groups: 0=ctrl-pre, 1=ctrl-post, 2=treat-pre, 3=treat-post.")
 
-    def _ecdf_f(v):
+    def _ecdf_f(v: np.ndarray) -> Any:
         sv, c = np.sort(v), np.arange(1, len(v) + 1) / len(v)
         return interp1d(sv, c, bounds_error=False, fill_value=(0., 1.))
 
-    def _qf(v):
+    def _qf(v: np.ndarray) -> Any:
         sv, c = np.sort(v), np.arange(1, len(v) + 1) / len(v)
         return interp1d(c, sv, bounds_error=False, fill_value=(sv[0], sv[-1]))
 
@@ -343,7 +360,9 @@ def distributional_te(
     grid = np.linspace(np.min(yr) - margin, np.max(yr) + margin, n_grid)
 
     # Dispatch
-    _est = {"ipw": _dte_ipw, "dr": _dte_dr, "cic": _dte_cic}
+    _est: Dict[str, Callable[..., Dict[str, Any]]] = {
+        "ipw": _dte_ipw, "dr": _dte_dr, "cic": _dte_cic,
+    }
     args = (Y_vec, D_vec, grid, taus) if method == "cic" else (Y_vec, D_vec, X_mat, grid, taus)
     res0 = _est[method](*args)
 

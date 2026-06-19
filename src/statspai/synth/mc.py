@@ -339,7 +339,7 @@ def _svt(Z: np.ndarray, lam: float) -> np.ndarray:
     """Singular Value Thresholding: soft-threshold singular values by lam."""
     U, S, Vt = np.linalg.svd(Z, full_matrices=False)
     S_thresh = np.maximum(S - lam, 0.0)
-    return (U * S_thresh) @ Vt
+    return np.asarray((U * S_thresh) @ Vt)
 
 
 def _init_from_means(Y: np.ndarray, obs_mask: np.ndarray) -> np.ndarray:
@@ -483,7 +483,9 @@ def _partial_out_covariates(
     data_res[outcome] = data_res[outcome].values - X_all @ beta
 
     pivot = data_res.pivot_table(index=unit, columns=time, values=outcome)
-    return pivot.loc[all_units, all_times].values.astype(np.float64)
+    return np.asarray(
+        pivot.loc[all_units, all_times].values.astype(np.float64)
+    )
 
 
 # ====================================================================== #

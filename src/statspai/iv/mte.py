@@ -39,7 +39,7 @@ Mogstad, M., Santos, A. and Torgovitsky, A. (2018). "Using Instrumental
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -87,16 +87,16 @@ class MTEResult:
         return "\n".join(lines)
 
 
-def _as_matrix(x) -> np.ndarray:
+def _as_matrix(x: Any) -> np.ndarray:
     a = np.asarray(x, dtype=float)
     return a.reshape(-1, 1) if a.ndim == 1 else a
 
 
-def _grab(v, data, cols=False):
+def _grab(v: Any, data: Any, cols: bool = False) -> np.ndarray:
     if isinstance(v, str):
-        return data[v].values.astype(float)
+        return np.asarray(data[v].values.astype(float))
     if cols and isinstance(v, list) and all(isinstance(x, str) for x in v):
-        return data[v].values.astype(float)
+        return np.asarray(data[v].values.astype(float))
     return np.asarray(v, dtype=float)
 
 
@@ -217,7 +217,7 @@ def mte(
             f"Try smaller degree or more data."
         )
 
-    def build_design(p, mode: str) -> np.ndarray:
+    def build_design(p: Any, mode: str) -> np.ndarray:
         """For each observation, stack X * weight_k(p) across k=0..K.
 
         mode='treated'   : weight_k(p) = p^k / (k+1)
@@ -378,7 +378,7 @@ def _fit_propensity(D: np.ndarray, Z: np.ndarray, model: str = "logit") -> np.nd
     if model == "linear":
         beta, *_ = np.linalg.lstsq(Z, D, rcond=None)
         p = Z @ beta
-        return np.clip(p, 1e-4, 1 - 1e-4)
+        return np.asarray(np.clip(p, 1e-4, 1 - 1e-4))
     # Newton-Raphson for logit / probit
     n, k = Z.shape
     beta = np.zeros(k)
@@ -404,12 +404,12 @@ def _fit_propensity(D: np.ndarray, Z: np.ndarray, model: str = "logit") -> np.nd
             break
     eta = Z @ beta
     p = 1.0 / (1.0 + np.exp(-eta)) if model == "logit" else stats.norm.cdf(eta)
-    return np.clip(p, 1e-4, 1 - 1e-4)
+    return np.asarray(np.clip(p, 1e-4, 1 - 1e-4))
 
 
 def _wald_tsls(Y: np.ndarray, D: np.ndarray, X: np.ndarray, p: np.ndarray) -> float:
     """Reference 2SLS of Y on D using p(Z, X) as instrument after partialling out X."""
-    def _partial(M):
+    def _partial(M: Any) -> Any:
         b, *_ = np.linalg.lstsq(X, M, rcond=None)
         return M - X @ b
     Yp = _partial(Y)
@@ -460,7 +460,7 @@ def _mte_point_only(
     if mask1.sum() < dx * (K + 1) or mask0.sum() < dx * (K + 1):
         raise ValueError("Arm too small in bootstrap draw.")  # pragma: no cover
 
-    def build(p_sub, Xs, mode):
+    def build(p_sub: Any, Xs: Any, mode: Any) -> Any:
         cols = []
         for k in range(K + 1):
             if mode == "treated":

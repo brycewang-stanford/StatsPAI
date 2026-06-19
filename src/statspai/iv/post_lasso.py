@@ -34,7 +34,7 @@ Belloni, A., Chernozhukov, V. and Hansen, C. (2014). "Inference on
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -95,23 +95,23 @@ def _residualize(M: np.ndarray, W: Optional[np.ndarray]) -> np.ndarray:
     if W is None or W.size == 0 or W.shape[1] == 0:
         return M
     b, *_ = np.linalg.lstsq(W, M, rcond=None)
-    return M - W @ b
+    return np.asarray(M - W @ b)
 
 
-def _as_matrix(x) -> np.ndarray:
+def _as_matrix(x: Any) -> np.ndarray:
     a = np.asarray(x, dtype=float)
     return a.reshape(-1, 1) if a.ndim == 1 else a
 
 
-def _grab(v, data, cols=False):
+def _grab(v: Any, data: Any, cols: bool = False) -> np.ndarray:
     if isinstance(v, str):
-        return data[v].values.astype(float)
+        return np.asarray(data[v].values.astype(float))
     if cols and isinstance(v, list) and all(isinstance(x, str) for x in v):
-        return data[v].values.astype(float)
+        return np.asarray(data[v].values.astype(float))
     return np.asarray(v, dtype=float)
 
 
-def _names(v, prefix, n):
+def _names(v: Any, prefix: Any, n: Any) -> List[Any]:
     if isinstance(v, pd.DataFrame):
         return list(v.columns)
     if isinstance(v, list) and all(isinstance(x, str) for x in v):
@@ -146,7 +146,7 @@ def bch_lambda(
     -------
     float
     """
-    return 2.0 * c * np.sqrt(2.0 * n * np.log(2.0 * p / alpha))
+    return float(2.0 * c * np.sqrt(2.0 * n * np.log(2.0 * p / alpha)))
 
 
 # ═══════════════════════════════════════════════════════════════════════

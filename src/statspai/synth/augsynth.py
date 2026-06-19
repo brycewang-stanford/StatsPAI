@@ -47,14 +47,14 @@ def augsynth(
     outcome: str,
     unit: str,
     time: str,
-    treated_unit,
-    treatment_time,
+    treated_unit: Any,
+    treatment_time: Any,
     covariates: Optional[List[str]] = None,
     ridge_lambda: Optional[float] = None,
     placebo: bool = True,
     alpha: float = 0.05,
     backend: str = "native",
-    **kwargs,
+    **kwargs: Any,
 ) -> CausalResult:
     """
     Augmented Synthetic Control Method (Ben-Michael, Feller & Rothstein 2021).
@@ -231,6 +231,7 @@ def augsynth(
     att = float(np.mean(effects))
 
     # --- Inference via placebo permutation ---
+    placebo_effects: Any
     if placebo:
         placebo_effects = []
         for j in range(J):
@@ -313,8 +314,8 @@ def augsynth(
             "scm_pre_treatment_rmse": float(np.sqrt(np.mean(pre_residual_scm ** 2))),
             "post_rmspe": float(np.sqrt(np.mean(effects ** 2))),
             "weights": weight_df,
-            "weights_dict": dict(zip(donors, gamma)),
-            "synthetic_weights": dict(zip(donors, syn_weights)),
+            "weights_dict": dict(zip(donors, np.asarray(gamma))),
+            "synthetic_weights": dict(zip(donors, np.asarray(syn_weights))),
             "augmented_weights_can_be_negative": True,
             "n_donors": J,
             "n_pre_periods": T0,
@@ -515,9 +516,9 @@ def _scm_weights(Y1_pre: np.ndarray, Y0_pre: np.ndarray) -> np.ndarray:
 def _solve_ridge_system(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """Solve a ridge normal equation with a pseudo-inverse fallback."""
     try:
-        return np.linalg.solve(a, b)
+        return np.asarray(np.linalg.solve(a, b))
     except np.linalg.LinAlgError:
-        return np.linalg.pinv(a) @ b
+        return np.asarray(np.linalg.pinv(a) @ b)
 
 
 def _fit_ridge_augmented_weights(

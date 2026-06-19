@@ -116,12 +116,12 @@ class SyntheticSurvivalResult(ResultProtocolMixin):
 def _cloglog(S: np.ndarray) -> np.ndarray:
     """Complementary log-log of a survival curve."""
     S = np.clip(S, 1e-6, 1 - 1e-6)
-    return np.log(-np.log(S))
+    return np.asarray(np.log(-np.log(S)))
 
 
 def _inv_cloglog(L: np.ndarray) -> np.ndarray:
     """Inverse: ``exp(-exp(L))``."""
-    return np.exp(-np.exp(np.clip(L, -50, 50)))
+    return np.asarray(np.exp(-np.exp(np.clip(L, -50, 50))))
 
 
 def _simplex_ls(Y: np.ndarray, X: np.ndarray, n_iter: int = 2000) -> np.ndarray:
@@ -140,7 +140,7 @@ def _simplex_ls(Y: np.ndarray, X: np.ndarray, n_iter: int = 2000) -> np.ndarray:
         w = np.clip(w, 1e-12, None)
         w /= w.sum()
         lr *= 0.9995
-    return w
+    return np.asarray(w)
 
 
 def synth_survival(

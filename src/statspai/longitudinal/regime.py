@@ -281,7 +281,7 @@ def _compile_string_regime(text: str, *, name: str) -> Regime:
         then_fn = _compile(m.group(2))
         else_fn = _compile(m.group(3))
 
-        def _rule(history, t=0):
+        def _rule(history: dict, t: int = 0) -> Any:
             env = dict(history)
             env["t"] = t
             return then_fn(env) if cond_fn(env) else else_fn(env)
@@ -290,7 +290,7 @@ def _compile_string_regime(text: str, *, name: str) -> Regime:
 
     cond_fn = _compile(s)
 
-    def _rule_bool(history, t=0):
+    def _rule_bool(history: dict, t: int = 0) -> int:
         env = dict(history)
         env["t"] = t
         return int(bool(cond_fn(env)))

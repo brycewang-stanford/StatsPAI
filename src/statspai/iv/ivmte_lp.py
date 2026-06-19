@@ -45,7 +45,7 @@ Heckman, J.J. and Vytlacil, E.J. (2005). Op. cit. [@heckman2005structural]
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -85,11 +85,11 @@ class IVMTEBounds:
 #  Helpers
 # ═══════════════════════════════════════════════════════════════════════
 
-def _grab(v, data, cols=False):
+def _grab(v: Any, data: Any, cols: bool = False) -> np.ndarray:
     if isinstance(v, str):
-        return data[v].values.astype(float)
+        return np.asarray(data[v].values.astype(float))
     if cols and isinstance(v, list) and all(isinstance(x, str) for x in v):
-        return data[v].values.astype(float)
+        return np.asarray(data[v].values.astype(float))
     return np.asarray(v, dtype=float)
 
 
@@ -110,7 +110,9 @@ def _fit_logit(D: np.ndarray, Z: np.ndarray) -> np.ndarray:
         beta += step
         if np.linalg.norm(step) < 1e-8:
             break
-    return np.clip(1.0 / (1.0 + np.exp(-(Z @ beta))), 1e-4, 1 - 1e-4)
+    return np.asarray(
+        np.clip(1.0 / (1.0 + np.exp(-(Z @ beta))), 1e-4, 1 - 1e-4)
+    )
 
 
 def _poly_u(u: np.ndarray, K: int) -> np.ndarray:
@@ -212,7 +214,7 @@ def _target_weights(
     if target == "ate":
         # ATE = E[m_1 - m_0] = theta_1' ones - theta_0' ones
         c = np.concatenate([ones, -ones])
-        return c
+        return np.asarray(c)
 
     if target == "att":
         # ATT = ∫_0^1 MTE(u) · Pr(P ≥ u | D=1) du  / E[P | D=1]

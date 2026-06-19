@@ -87,7 +87,7 @@ class GapClosingResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         from .plots import gap_closing_plot
         return gap_closing_plot(self, **kwargs)
 
@@ -336,7 +336,7 @@ class MediationDecompResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         from .plots import detailed_waterfall
         df = pd.DataFrame({
             "component": ["NDE", "NIE"],
@@ -550,7 +550,7 @@ class DisparityDecompResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         from .plots import detailed_waterfall
         df = pd.DataFrame({
             "component": ["Initial disparity", "Mediator-attributable"],
@@ -662,7 +662,7 @@ def disparity_decompose(
         if c.shape[1] > 0:
             cols.append(c)
         Xnew = np.column_stack(cols)
-        return Xnew @ beta
+        return np.asarray(Xnew @ beta)
 
     # Observed means
     y_a_obs = float(Y[G == 0].mean())

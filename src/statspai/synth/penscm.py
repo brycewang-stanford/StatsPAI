@@ -369,7 +369,7 @@ def _compute_pairwise_distances(
     else:
         distances = np.sum(diff ** 2, axis=1)
 
-    return distances
+    return np.asarray(distances)
 
 
 def _penalized_weights(
@@ -416,7 +416,7 @@ def _penalized_weights(
         return float(w @ H @ w + 2.0 * c @ w)
 
     def gradient(w: np.ndarray) -> np.ndarray:
-        return 2.0 * H @ w + 2.0 * c
+        return np.asarray(2.0 * H @ w + 2.0 * c)
 
     # Constraints
     constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
@@ -437,7 +437,7 @@ def _penalized_weights(
     # Project onto simplex (numerical cleanup)
     w = np.maximum(w, 0.0)
     w /= w.sum() if w.sum() > 0 else 1.0
-    return w
+    return np.asarray(w)
 
 
 def _penalized_weights_max_dev(
@@ -503,7 +503,7 @@ def _penalized_weights_max_dev(
     w = result.x[:J]
     w = np.maximum(w, 0.0)
     w /= w.sum() if w.sum() > 0 else 1.0
-    return w
+    return np.asarray(w)
 
 
 def _cv_lambda(

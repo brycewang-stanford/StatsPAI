@@ -11,7 +11,7 @@ indicators.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -152,7 +152,9 @@ def beyond_average_late(
     #  The complier QTE at level q is Q_{1,c}(q) - Q_{0,c}(q).
     # ------------------------------------------------------------------ #
 
-    def _complier_cdfs(Yi: np.ndarray, Di: np.ndarray, Zi: np.ndarray):
+    def _complier_cdfs(
+        Yi: np.ndarray, Di: np.ndarray, Zi: np.ndarray,
+    ) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
         """Return (grid, F1_c, F0_c) monotone CDFs on a shared y-grid."""
         dp = (Di[Zi == 1].mean() - Di[Zi == 0].mean())
         if abs(dp) < 1e-8:
@@ -193,11 +195,13 @@ def beyond_average_late(
         """Empirical quantile: smallest y such that F(y) >= q."""
         if not len(grid):
             return np.nan
-        idx = np.searchsorted(F, q, side='left')
-        idx = min(int(idx), len(grid) - 1)
+        idx = int(np.searchsorted(F, q, side='left'))
+        idx = min(idx, len(grid) - 1)
         return float(grid[idx])
 
-    def _late_q(Yi, Di, Zi, q):
+    def _late_q(
+        Yi: np.ndarray, Di: np.ndarray, Zi: np.ndarray, q: float,
+    ) -> float:
         cdfs = _complier_cdfs(Yi, Di, Zi)
         if cdfs is None:
             return np.nan

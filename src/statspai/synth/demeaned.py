@@ -133,7 +133,9 @@ def demeaned_synth(
         Y_donors_adj = Y_donors - means_donors[np.newaxis, :]
     elif variant == "detrended":
         # Subtract unit-specific linear trends fit on pre-period
-        def _detrend(y, t_pre, t_all):
+        def _detrend(
+            y: np.ndarray, t_pre: np.ndarray, t_all: np.ndarray,
+        ) -> tuple[np.ndarray, Any, Any]:
             slope, intercept = np.polyfit(t_pre, y[pre_mask], 1)
             return y - (intercept + slope * t_all), intercept, slope
 
@@ -282,19 +284,19 @@ def _solve_weights(
     if J == 0:
         raise ValueError("No donor units available")
 
-    def objective(w):
+    def objective(w: np.ndarray) -> float:
         r = Y_treated_pre - Y_donors_pre @ w
         loss = r @ r
         if penalization > 0:
             loss += penalization * (w @ w)
-        return loss
+        return float(loss)
 
-    def jac(w):
+    def jac(w: np.ndarray) -> np.ndarray:
         r = Y_treated_pre - Y_donors_pre @ w
         g = -2 * Y_donors_pre.T @ r
         if penalization > 0:
             g += 2 * penalization * w
-        return g
+        return np.asarray(g)
 
     res = optimize.minimize(
         objective, np.ones(J) / J, jac=jac, method="SLSQP",
@@ -302,7 +304,7 @@ def _solve_weights(
         constraints={"type": "eq", "fun": lambda w: np.sum(w) - 1},
         options={"maxiter": 1000, "ftol": 1e-12},
     )
-    return res.x
+    return np.asarray(res.x)
 
 
 # Citation

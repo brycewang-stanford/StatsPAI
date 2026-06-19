@@ -102,7 +102,7 @@ class DFLResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         """Delegate to plots.dfl_plot()."""
         from .plots import dfl_plot
         return dfl_plot(self, **kwargs)
@@ -153,7 +153,9 @@ def _dfl_core(
     y_b: np.ndarray, X_b: np.ndarray, w_b: np.ndarray,
     stat: str, tau: float, reference: int,
     trim: float = 0.001,
-) -> Tuple[float, float, float, float, float, np.ndarray, np.ndarray]:
+) -> Tuple[
+    float, float, float, float, float, float, np.ndarray, np.ndarray
+]:
     """
     Core DFL computation, returning:
       gap, composition, structure, stat_a, stat_b, stat_cf, psi_weights, logit_beta

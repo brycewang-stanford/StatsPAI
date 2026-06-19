@@ -140,7 +140,7 @@ class DMLDiagnostics:
     def __repr__(self) -> str:  # pragma: no cover
         return self.summary()
 
-    def plot(self, figsize=(10.0, 8.0), bins: int = 30):
+    def plot(self, figsize: Any = (10.0, 8.0), bins: int = 30) -> Any:
         """Render a 2×2 publication-style diagnostic panel.
 
         Top-left  : overlap histogram (propensity for IRM, |D-resid| for PLR).
@@ -206,7 +206,7 @@ class DMLDiagnostics:
         return fig, axes
 
 
-def dml_diagnostics(result, clip: float = 0.02) -> DMLDiagnostics:
+def dml_diagnostics(result: Any, clip: float = 0.02) -> DMLDiagnostics:
     """Build a :class:`DMLDiagnostics` report from a DML CausalResult.
 
     Parameters

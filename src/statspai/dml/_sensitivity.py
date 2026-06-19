@@ -157,8 +157,8 @@ class DMLSensitivityResult:
     def __repr__(self) -> str:  # pragma: no cover
         return self.summary()
 
-    def plot(self, ax=None, levels: Sequence[float] = (0.0, 0.5, 1.0),
-             figsize=(6.0, 5.0)):
+    def plot(self, ax: Any = None, levels: Sequence[float] = (0.0, 0.5, 1.0),
+             figsize: Any = (6.0, 5.0)) -> Any:
         """Plot bias-contour grid for hypothetical (cf_y, cf_d) pairs.
 
         Plots the |bias|/|θ̂| contour as a function of the confounder
@@ -224,7 +224,7 @@ def _robustness_value(target: float, s: float) -> float:
 
 
 def dml_sensitivity(
-    result,
+    result: Any,
     q: float = 1.0,
     cf_y: Optional[float] = None,
     cf_d: Optional[float] = None,

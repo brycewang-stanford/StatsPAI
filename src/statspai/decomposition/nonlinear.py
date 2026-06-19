@@ -31,7 +31,7 @@ Detailed Wage Decompositions." *Economic Inquiry*, 43(4), 766-772. [@yun2005simp
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar, Dict, List, Optional, Sequence, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -90,7 +90,7 @@ def _probit_fit(y: np.ndarray, X: np.ndarray,
 
 def _probit_predict(beta: np.ndarray, X: np.ndarray) -> np.ndarray:
     from scipy.stats import norm
-    return norm.cdf(np.clip(X @ beta, -8, 8))
+    return np.asarray(norm.cdf(np.clip(X @ beta, -8, 8)))
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -139,7 +139,7 @@ class NonlinearDecompResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         from .plots import detailed_waterfall
         return detailed_waterfall(self.detailed, value_col="contribution",
                                   label_col="variable", **kwargs)

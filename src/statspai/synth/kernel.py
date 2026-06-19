@@ -28,7 +28,7 @@ Kloft, M. and Blanchard, G. (2011).
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -63,7 +63,7 @@ def _rbf_kernel(X: np.ndarray, Y: np.ndarray, sigma: float) -> np.ndarray:
     )
     # Clamp negative values from floating-point noise
     sq_dists = np.maximum(sq_dists, 0.0)
-    return np.exp(-sq_dists / (2.0 * sigma ** 2))
+    return np.asarray(np.exp(-sq_dists / (2.0 * sigma ** 2)))
 
 
 def _polynomial_kernel(
@@ -84,7 +84,7 @@ def _polynomial_kernel(
     """
     X = np.atleast_2d(X)
     Y = np.atleast_2d(Y)
-    return (X @ Y.T + c) ** degree
+    return np.asarray((X @ Y.T + c) ** degree)
 
 
 def _laplacian_kernel(
@@ -106,7 +106,7 @@ def _laplacian_kernel(
     Y = np.atleast_2d(Y)
     # L1 pairwise distances
     l1_dists = np.sum(np.abs(X[:, None, :] - Y[None, :, :]), axis=2)
-    return np.exp(-l1_dists / sigma)
+    return np.asarray(np.exp(-l1_dists / sigma))
 
 
 def _median_heuristic(X: np.ndarray) -> float:
@@ -225,7 +225,7 @@ def _kernel_weights(K: np.ndarray, k_vec: np.ndarray) -> np.ndarray:
         return float(w @ K_reg @ w - 2.0 * w @ k_vec)
 
     def gradient(w: np.ndarray) -> np.ndarray:
-        return 2.0 * K_reg @ w - 2.0 * k_vec
+        return np.asarray(2.0 * K_reg @ w - 2.0 * k_vec)
 
     constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}
     bounds = [(0.0, 1.0)] * J
@@ -244,7 +244,7 @@ def _kernel_weights(K: np.ndarray, k_vec: np.ndarray) -> np.ndarray:
     # Project onto simplex (clamp tiny negatives)
     w = np.maximum(w, 0.0)
     w /= w.sum() if w.sum() > 0 else 1.0
-    return w
+    return np.asarray(w)
 
 
 # ====================================================================== #
@@ -257,8 +257,8 @@ def _reshape_panel(
     outcome: str,
     unit: str,
     time: str,
-    treated_unit,
-    treatment_time,
+    treated_unit: Any,
+    treatment_time: Any,
 ) -> Tuple[
     np.ndarray, np.ndarray, np.ndarray, np.ndarray,
     List, List, List,
@@ -372,8 +372,8 @@ def kernel_synth(
     outcome: str,
     unit: str,
     time: str,
-    treated_unit,
-    treatment_time,
+    treated_unit: Any,
+    treatment_time: Any,
     kernel: str = "rbf",
     sigma: Optional[float] = None,
     degree: int = 2,
@@ -547,8 +547,8 @@ def kernel_ridge_synth(
     outcome: str,
     unit: str,
     time: str,
-    treated_unit,
-    treatment_time,
+    treated_unit: Any,
+    treatment_time: Any,
     kernel: str = "rbf",
     sigma: Optional[float] = None,
     degree: int = 2,

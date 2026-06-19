@@ -22,7 +22,7 @@ van der Laan, M. J., Polley, E. C., & Hubbard, A. E. (2007).
 Statistical Applications in Genetics and Molecular Biology, 6(1). [@vanderlaan2007super]
 """
 
-from typing import Optional, List, TYPE_CHECKING
+from typing import Any, List, Optional, TYPE_CHECKING
 import numpy as np
 from scipy.optimize import minimize
 
@@ -149,7 +149,7 @@ class SuperLearner:
         self._fitted = False
         self.n_features_in_: Optional[int] = None
 
-    def fit(self, X, y):
+    def fit(self, X: Any, y: Any) -> "SuperLearner":
         """
         Fit the Super Learner.
 
@@ -261,12 +261,12 @@ class SuperLearner:
         ZTZ = Z.T @ Z
         ZTy = Z.T @ y
 
-        def _obj(w):
+        def _obj(w: np.ndarray) -> float:
             # 0.5 * ||y - Z w||² up to a constant
             return 0.5 * float(w @ ZTZ @ w) - float(ZTy @ w)
 
-        def _grad(w):
-            return ZTZ @ w - ZTy
+        def _grad(w: np.ndarray) -> np.ndarray:
+            return np.asarray(ZTZ @ w - ZTy)
 
         w0 = np.ones(n_learners) / n_learners
         bounds = [(0.0, 1.0)] * n_learners
@@ -336,7 +336,9 @@ class SuperLearner:
             )
         self.n_folds = int(self.n_folds)
 
-    def _prepare_fit_arrays(self, X, y) -> tuple[np.ndarray, np.ndarray]:
+    def _prepare_fit_arrays(
+        self, X: Any, y: Any
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Coerce and validate fit arrays with clear taxonomy errors."""
         try:
             X_arr = np.asarray(X, dtype=np.float64)
@@ -390,7 +392,7 @@ class SuperLearner:
             )
         return X_arr, y_arr
 
-    def _prepare_predict_matrix(self, X) -> np.ndarray:
+    def _prepare_predict_matrix(self, X: Any) -> np.ndarray:
         """Validate prediction features against the fitted feature count."""
         try:
             X_arr = np.asarray(X, dtype=np.float64)
@@ -444,7 +446,7 @@ class SuperLearner:
             )
         return X_arr
 
-    def predict(self, X):
+    def predict(self, X: Any) -> np.ndarray:
         """
         Predict using the weighted ensemble.
 
@@ -488,9 +490,9 @@ class SuperLearner:
         # (e.g. RandomForest with deterministic terminal nodes).
         if self.task == 'classification':
             out = np.clip(out, 1e-6, 1 - 1e-6)
-        return out
+        return np.asarray(out)
 
-    def predict_proba(self, X):
+    def predict_proba(self, X: Any) -> np.ndarray:
         """Predict probabilities (for classification task).
 
         Identical to :meth:`predict` under ``task='classification'`` —
@@ -509,6 +511,7 @@ class SuperLearner:
         lines.append(f"{'Learner':<30} {'Weight':>8} {'CV Risk':>10}")
         lines.append("-" * 50)
 
+        assert self.library is not None
         for k, learner in enumerate(self.library):
             name = type(learner).__name__
             w = self.weights_[k]
@@ -519,7 +522,7 @@ class SuperLearner:
         lines.append("-" * 50)
         return "\n".join(lines)
 
-    def _default_library(self):
+    def _default_library(self) -> List[Any]:
         """Build a diverse default library of learners."""
         from sklearn.linear_model import (
             LinearRegression, Ridge, Lasso, LogisticRegression,

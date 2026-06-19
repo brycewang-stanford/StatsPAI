@@ -534,12 +534,12 @@ def stochastic_dominance(
 def discos_plot(
     result: CausalResult,
     type: str = "quantile_effect",
-    ax=None,
+    ax: Any = None,
     figsize: Tuple[int, int] = (10, 6),
     color: str = "#2C3E50",
     ci_alpha: float = 0.2,
     title: Optional[str] = None,
-):
+) -> Any:
     """
     Visualise distributional synthetic control results.
 
@@ -711,7 +711,7 @@ def _empirical_quantile_function(
     y_clean = y[~np.isnan(y)]
     if len(y_clean) < 2:
         return np.full_like(tau_grid, np.nan)
-    return np.quantile(y_clean, tau_grid)
+    return np.asarray(np.quantile(y_clean, tau_grid))
 
 
 def _mixture_weights(
@@ -739,7 +739,7 @@ def _mixture_weights(
     """
     J = Q_donors.shape[0]
 
-    def objective(w):
+    def objective(w: np.ndarray) -> float:
         residual = Q_treated - w @ Q_donors
         return float(np.sum(residual ** 2))
 
@@ -755,7 +755,7 @@ def _mixture_weights(
         constraints=constraints,
         options={"maxiter": 1000, "ftol": 1e-12},
     )
-    return res.x
+    return np.asarray(res.x)
 
 
 def _quantile_weights(

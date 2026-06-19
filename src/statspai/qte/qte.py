@@ -311,7 +311,7 @@ def qdid(
         q01 = _quantile_func(y01_, taus_)
         q10 = _quantile_func(y10_, taus_)
         q11 = _quantile_func(y11_, taus_)
-        return q11 - q10 - (q01 - q00)
+        return np.asarray(q11 - q10 - (q01 - q00))
 
     qte_point = _point(y00, y01, y10, y11, taus)
     ate = float(np.mean(y11) - np.mean(y10) - (np.mean(y01) - np.mean(y00)))
@@ -529,7 +529,10 @@ def _qte_distribution(
     pscore = 1 / (1 + np.exp(-np.clip(Xp @ res.x, -30, 30)))
     pscore = np.clip(pscore, 0.01, 0.99)
 
-    def _weighted_quantiles(y_, d_, ps_, taus_):
+    def _weighted_quantiles(
+        y_: np.ndarray, d_: np.ndarray,
+        ps_: np.ndarray, taus_: np.ndarray,
+    ) -> np.ndarray:
         """IPW-based quantile estimates for treated and counterfactual."""
         # Treated quantiles (unweighted among treated)
         y1 = y_[d_ == 1]
@@ -544,7 +547,7 @@ def _qte_distribution(
         w0s = w0[order]
         wcdf = np.cumsum(w0s) / np.sum(w0s)
         q0 = np.interp(taus_, wcdf, y0s)
-        return q1 - q0
+        return np.asarray(q1 - q0)
 
     qte_point = _weighted_quantiles(yv, dv, pscore, taus)
     ate = float(np.mean(yv[dv == 1]) - np.sum(yv[dv == 0] * pscore[dv == 0] / (1 - pscore[dv == 0])) / np.sum(pscore[dv == 0] / (1 - pscore[dv == 0])))
@@ -559,12 +562,14 @@ def _qte_distribution(
         db = dv[idx]
         Xpb = Xp[idx]
         # Re-estimate propensity score
-        def _ll(beta):
+        def _ll(beta: np.ndarray) -> float:
             z = Xpb @ beta
             z = np.clip(z, -30, 30)
             p = 1 / (1 + np.exp(-z))
             p = np.clip(p, 1e-10, 1 - 1e-10)
-            return -np.mean(db * np.log(p) + (1 - db) * np.log(1 - p))
+            return float(
+                -np.mean(db * np.log(p) + (1 - db) * np.log(1 - p))
+            )
 
         rb = minimize(_ll, res.x, method="BFGS")
         psb = 1 / (1 + np.exp(-np.clip(Xpb @ rb.x, -30, 30)))

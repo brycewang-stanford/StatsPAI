@@ -38,7 +38,7 @@ Andrews, I., Stock, J.H. and Sun, L. (2019). "Weak Instruments in IV
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -102,11 +102,11 @@ class WeakIVConfidenceSet:
         return "\n".join(lines)
 
 
-def _grab(v, data, cols=False):
+def _grab(v: Any, data: Any, cols: bool = False) -> np.ndarray:
     if isinstance(v, str):
-        return data[v].values.astype(float)
+        return np.asarray(data[v].values.astype(float))
     if cols and isinstance(v, list) and all(isinstance(x, str) for x in v):
-        return data[v].values.astype(float)
+        return np.asarray(data[v].values.astype(float))
     return np.asarray(v, dtype=float)
 
 
@@ -114,10 +114,12 @@ def _residualize(M: np.ndarray, W: np.ndarray) -> np.ndarray:
     if W.size == 0 or W.shape[1] == 0:
         return M
     b, *_ = np.linalg.lstsq(W, M, rcond=None)
-    return M - W @ b
+    return np.asarray(M - W @ b)
 
 
-def _prep(y, endog, instruments, exog, data, add_const):
+def _prep(
+    y: Any, endog: Any, instruments: Any, exog: Any, data: Any, add_const: Any
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int, int]:
     Y = _grab(y, data).reshape(-1)
     D = _grab(endog, data).reshape(-1)
     Z = _grab(instruments, data, cols=True)
@@ -369,7 +371,8 @@ def k_test_ci(
 #  Shared result builder
 # ═══════════════════════════════════════════════════════════════════════
 
-def _build_set(method, level, beta_grid, stat_arr, crit_arr, in_set,
+def _build_set(method: Any, level: Any, beta_grid: Any, stat_arr: Any,
+               crit_arr: Any, in_set: Any,
                extra: dict) -> WeakIVConfidenceSet:
     if not in_set.any():
         lo = hi = np.nan

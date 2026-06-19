@@ -115,7 +115,7 @@ class FFLResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         from .plots import ffl_waterfall
         return ffl_waterfall(self, **kwargs)
 

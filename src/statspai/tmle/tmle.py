@@ -435,7 +435,14 @@ class TMLE:
             _citation_key='tmle',
         )
 
-    def _fit_epsilon(self, Y, logit_Q, H, max_iter=50, tol=1e-8):
+    def _fit_epsilon(
+        self,
+        Y: np.ndarray,
+        logit_Q: np.ndarray,
+        H: np.ndarray,
+        max_iter: int = 50,
+        tol: float = 1e-8,
+    ) -> Any:
         """
         Fit the fluctuation parameter epsilon via Newton-Raphson.
 

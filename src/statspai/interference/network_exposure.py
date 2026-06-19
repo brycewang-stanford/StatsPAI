@@ -117,14 +117,15 @@ class NetworkExposureResult(ResultProtocolMixin):
 # Adjacency helpers
 # --------------------------------------------------------------------
 
-def _to_adj(adj_or_edges, n: Optional[int] = None) -> np.ndarray:
+def _to_adj(adj_or_edges: Any, n: Optional[int] = None) -> np.ndarray:
     """Coerce adjacency input (matrix or edge list) into a binary numpy matrix."""
     if isinstance(adj_or_edges, np.ndarray):
         A = adj_or_edges.astype(int)
     elif isinstance(adj_or_edges, pd.DataFrame):
         A = adj_or_edges.to_numpy().astype(int)
     elif isinstance(adj_or_edges, (list, tuple, np.generic)):
-        edges = np.asarray(list(adj_or_edges))
+        # np.generic is in the guard but edge lists are list/tuple at runtime.
+        edges = np.asarray(list(adj_or_edges))  # type: ignore[arg-type]
         if edges.ndim != 2 or edges.shape[1] != 2:
             raise ValueError("edge list must be (n_edges, 2)")
         if n is None:
@@ -157,7 +158,10 @@ def _as4_mapping(Z: np.ndarray, A: np.ndarray) -> np.ndarray:
     return out
 
 
-def _fraction_mapping(Z: np.ndarray, A: np.ndarray, thresholds=(0.0, 0.5)) -> np.ndarray:
+def _fraction_mapping(
+    Z: np.ndarray, A: np.ndarray,
+    thresholds: Tuple[float, ...] = (0.0, 0.5),
+) -> np.ndarray:
     """Bin own treatment x fraction of treated neighbours."""
     deg = A.sum(axis=1).astype(float)
     frac = np.where(deg > 0, (A @ Z) / np.maximum(deg, 1), 0.0)
@@ -231,7 +235,7 @@ def _ht_estimate(
 def network_exposure(
     Y: Sequence[float],
     Z: Sequence[int],
-    adjacency,
+    adjacency: Any,
     *,
     mapping: str = "as4",
     p_treat: Optional[float] = None,
@@ -295,11 +299,11 @@ def network_exposure(
     ['direct (c10 - c00)', 'spillover (c01 - c00)',
      'composite (c11 - c00)', 'spillover_on_treated (c11 - c10)']
     """
-    Y = np.asarray(Y, dtype=float)
-    Z = np.asarray(Z, dtype=int)
-    if Y.shape != Z.shape:
+    Y_arr = np.asarray(Y, dtype=float)
+    Z_arr = np.asarray(Z, dtype=int)
+    if Y_arr.shape != Z_arr.shape:
         raise ValueError("Y and Z must have the same length")
-    n = Y.shape[0]
+    n = Y_arr.shape[0]
     A = _to_adj(adjacency, n)
     if A.shape[0] != n:
         raise ValueError("adjacency size must match Y/Z length")
@@ -307,7 +311,7 @@ def network_exposure(
         raise NotImplementedError("Only 'bernoulli' design is implemented")
 
     if p_treat is None:
-        p_treat = float(Z.mean())
+        p_treat = float(Z_arr.mean())
     if not (0 < p_treat < 1):
         raise ValueError("p_treat must be in (0, 1)")
 
@@ -319,7 +323,7 @@ def network_exposure(
         raise ValueError("mapping must be 'as4' or 'fraction'")
 
     rng = np.random.default_rng(seed)
-    exposures = map_fn(Z, A)
+    exposures = map_fn(Z_arr, A)
     probs, levels = _exposure_probabilities(A, p_treat, map_fn, n_sim=n_sim, rng=rng)
 
     # Make sure realised levels appear (in case MC missed rare ones).
@@ -329,7 +333,7 @@ def network_exposure(
             levels.append(lev)
     levels = sorted(levels)
 
-    est = _ht_estimate(Y, exposures, probs, levels)
+    est = _ht_estimate(Y_arr, exposures, probs, levels)
 
     # Pairwise contrasts (for AS4)
     contrasts_rows = []
@@ -337,7 +341,7 @@ def network_exposure(
         m = est.set_index("exposure")["mean_Y(d)"].to_dict()
         s = est.set_index("exposure")["se"].to_dict()
 
-        def diff(a, b):
+        def diff(a: str, b: str) -> Optional[Tuple[float, float, float]]:
             if a in m and b in m:
                 est_d = m[a] - m[b]
                 se_d = float(np.sqrt(s[a] ** 2 + s[b] ** 2))

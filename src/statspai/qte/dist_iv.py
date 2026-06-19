@@ -138,7 +138,10 @@ def dist_iv(
     n = len(df)
     rng = np.random.default_rng(seed)
 
-    def _quantile_iv(Yi, Di, Zi, Xi, q):
+    def _quantile_iv(
+        Yi: np.ndarray, Di: np.ndarray, Zi: np.ndarray,
+        Xi: np.ndarray, q: float,
+    ) -> float:
         # Wald-style quantile IV estimator (single binary instrument):
         # LATE_q = [F^{-1}(q | Z=1) - F^{-1}(q | Z=0)] /
         #         [P(D=1 | Z=1) - P(D=1 | Z=0)]

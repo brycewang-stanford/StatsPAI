@@ -23,7 +23,7 @@ Quantile Regression." Swiss Institute for International Economics.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar, Dict, Optional, Sequence, Tuple
+from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -70,18 +70,20 @@ class MellyResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         from .plots import quantile_process_plot
         return quantile_process_plot(self, **kwargs)
 
     def to_latex(self) -> str:
-        return self.quantile_grid.round(4).to_latex(index=False)
+        latex: str = self.quantile_grid.round(4).to_latex(index=False)
+        return latex
 
     def _repr_html_(self) -> str:
+        html: str = self.quantile_grid.round(4).to_html(index=False)
         return (
             "<div style='font-family:monospace;'>"
             "<h3>Melly Decomposition</h3>"
-            + self.quantile_grid.round(4).to_html(index=False) + "</div>"
+            + html + "</div>"
         )
 
     def __repr__(self) -> str:
@@ -104,7 +106,7 @@ def _unconditional_quantiles(
     preds = beta_grid @ X_source.T
     # Flatten to get unconditional sample
     sample = preds.ravel()
-    return np.quantile(sample, tau_eval)
+    return np.asarray(np.quantile(sample, tau_eval))
 
 
 def melly_decompose(
@@ -167,8 +169,12 @@ def melly_decompose(
         raise ValueError("Need ≥20 obs per group for Melly.")
 
     if tau_grid is None:
-        tau_grid = np.round(np.arange(0.1, 0.95, 0.1), 2)
-    tau_eval = np.asarray(tau_grid, dtype=float)
+        tau_seq: Sequence[float] | np.ndarray = np.round(
+            np.arange(0.1, 0.95, 0.1), 2
+        )
+    else:
+        tau_seq = tau_grid
+    tau_eval = np.asarray(tau_seq, dtype=float)
 
     tau_qr = np.linspace(0.01, 0.99, n_tau_qr)
     beta_a_grid = _qreg_grid(y_a, X_a, tau_qr)

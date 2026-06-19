@@ -43,7 +43,7 @@ from ._common import (
 def _threshold_grid(y: np.ndarray, n_thresh: int = 40) -> np.ndarray:
     """Evenly-spaced quantiles of y as threshold grid."""
     qs = np.linspace(0.02, 0.98, n_thresh)
-    return np.quantile(y, qs)
+    return np.asarray(np.quantile(y, qs))
 
 
 def _fit_dr(
@@ -111,7 +111,7 @@ def _invert_cdf(thr: np.ndarray, cdf: np.ndarray, taus: np.ndarray) -> np.ndarra
     # np.interp requires strictly increasing xp; apply small ε jitter
     eps = 1e-9 * np.arange(len(cdf))
     cdf_j = cdf + eps
-    return np.interp(taus, cdf_j, thr)
+    return np.asarray(np.interp(taus, cdf_j, thr))
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -169,18 +169,20 @@ class CFMResult(DecompResultMixin):
         print(text)
         return text
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         from .plots import counterfactual_cdf_plot
         return counterfactual_cdf_plot(self, **kwargs)
 
     def to_latex(self) -> str:
-        return self.quantile_grid.round(4).to_latex(index=False)
+        latex: str = self.quantile_grid.round(4).to_latex(index=False)
+        return latex
 
     def _repr_html_(self) -> str:
+        html: str = self.quantile_grid.round(4).to_html(index=False)
         return (
             "<div style='font-family:monospace;'>"
             "<h3>CFM Counterfactual Decomposition</h3>"
-            + self.quantile_grid.round(4).to_html(index=False) + "</div>"
+            + html + "</div>"
         )
 
     def __repr__(self) -> str:
@@ -248,8 +250,12 @@ def cfm_decompose(
         raise ValueError("Need ≥20 obs per group for CFM.")
 
     if tau_grid is None:
-        tau_grid = np.round(np.arange(0.1, 0.95, 0.1), 2)
-    tau_eval = np.asarray(tau_grid, dtype=float)
+        tau_seq: Sequence[float] | np.ndarray = np.round(
+            np.arange(0.1, 0.95, 0.1), 2
+        )
+    else:
+        tau_seq = tau_grid
+    tau_eval = np.asarray(tau_seq, dtype=float)
 
     # Common threshold grid based on pooled y
     thr = _threshold_grid(y_vec, n_thresh=n_thresh)

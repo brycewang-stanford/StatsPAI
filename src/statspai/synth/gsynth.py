@@ -196,10 +196,10 @@ def gsynth(
 
     # --- Fit the gsynth/fect convention on never-treated controls ---
     fit = _fit_control_factor_model(Y0_all, Y1_pre, T0, n_factors)
-    Y1_hat_all = fit["treated_counterfactual"]
+    Y1_hat_all = np.asarray(fit["treated_counterfactual"])
     Y1_hat_pre = Y1_hat_all[:T0]
     Y1_hat_post = Y1_hat_all[T0:]
-    F_all = fit["factors"]
+    F_all = np.asarray(fit["factors"])
     F_pre = F_all[:T0]
     F_post = F_all[T0:]
     L_control = fit["control_loadings"]
@@ -229,7 +229,7 @@ def gsynth(
                 plac_fit = _fit_control_factor_model(
                     Y_ctrl_all, Y_plac, T0, r_p
                 )
-                hat_post = plac_fit["treated_counterfactual"][T0:]
+                hat_post = np.asarray(plac_fit["treated_counterfactual"])[T0:]
                 placebo_atts.append(float(np.mean(Y_plac_post - hat_post)))
             except Exception:
                 continue
@@ -475,7 +475,7 @@ jsonlite::write_json(
 #  Internal helpers
 # ====================================================================== #
 
-def _twoway_demean(Y: np.ndarray):
+def _twoway_demean(Y: np.ndarray) -> tuple[Any, Any, Any, Any]:
     """Remove row means, column means, and grand mean."""
     grand_mean = np.nanmean(Y)
     row_means = np.nanmean(Y, axis=1)
@@ -604,9 +604,10 @@ def _select_factors_cv(
 
 
 def _partial_out_covariates(
-    data, outcome, unit, time, treated_unit, treatment_time,
-    covariates, donors, pre_times, post_times,
-):
+    data: Any, outcome: Any, unit: Any, time: Any, treated_unit: Any,
+    treatment_time: Any, covariates: Any, donors: Any, pre_times: Any,
+    post_times: Any,
+) -> tuple[Any, Any, Any, Any, Any]:
     """Partial out covariates via OLS, return residualised outcomes."""
     pre_ctrl = data[
         (data[unit].isin(donors)) & (data[time].isin(pre_times))

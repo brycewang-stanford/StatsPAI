@@ -119,17 +119,17 @@ def cluster_matched_pair(
     df = data[[y, cluster, treat, pair]].dropna().reset_index(drop=True)
     # Cluster-level means
     cl = df.groupby([pair, cluster, treat])[y].mean().reset_index()
-    pair_diffs = []
+    pair_diff_list = []
     for p, sub in cl.groupby(pair):
         if len(sub) != 2:
             continue
         try:
             yt = sub.loc[sub[treat] == 1, y].iloc[0]
             yc = sub.loc[sub[treat] == 0, y].iloc[0]
-            pair_diffs.append(yt - yc)
+            pair_diff_list.append(yt - yc)
         except Exception:
             continue
-    pair_diffs = np.array(pair_diffs)
+    pair_diffs = np.array(pair_diff_list)
     if len(pair_diffs) < 2:
         raise ValueError(
             f"Need at least 2 valid pairs (got {len(pair_diffs)})."
