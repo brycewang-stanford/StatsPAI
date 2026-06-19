@@ -1604,50 +1604,6 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
         "alternatives": ["direct_standardize", "incidence_rate_ratio", "poisson"],
         "typical_n_min": 50,
     },
-    "inward_outward_spillover": {
-        "assumptions": [
-            "Directed-network interference separable into inward "
-            "(incoming edges) and outward (outgoing edges) "
-            "channels",
-            "Exposure summaries E_in and E_out correctly "
-            "constructed from the directed adjacency",
-            "Linear partially-additive model in own treatment and "
-            "the two directed exposures",
-            "Known directed network structure used to build the "
-            "two exposure columns",
-        ],
-        "pre_conditions": [
-            "Outcome and unit-level treatment columns",
-            "User-constructed inward_exposure and "
-            "outward_exposure columns from a directed network",
-        ],
-        "failure_modes": [
-            {
-                "symptom": "inward and outward exposure nearly "
-                "collinear, unstable tau_in/tau_out",
-                "exception": "NumericalInstability",
-                "remedy": "Check that the directed network "
-                "actually distinguishes incoming from "
-                "outgoing edges.",
-                "alternative": "network_hte",
-            },
-            {
-                "symptom": "Exposure column missing or " "non-numeric",
-                "exception": "ValueError",
-                "remedy": "Build numeric directed "
-                "inward/outward exposure shares "
-                "before calling.",
-                "alternative": "network_exposure",
-            },
-        ],
-        "alternatives": [
-            "network_hte",
-            "cluster_cross_interference",
-            "spillover",
-            "interference",
-        ],
-        "typical_n_min": 200,
-    },
     "ipcw": {
         "assumptions": [
             "Censoring is at random given the modeled covariates "
@@ -2394,45 +2350,6 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
         ],
         "alternatives": ["poisson", "xtnbreg", "regress"],
         "typical_n_min": 200,
-    },
-    "network_hte": {
-        "assumptions": [
-            "Partially-linear network model with scalar "
-            "neighbourhood exposure E_i (e.g. share treated)",
-            "Conditional exogeneity: residual mean zero given "
-            "covariates, own treatment, and exposure",
-            "Exposure mapping E_i correctly summarises " "neighbourhood treatment",
-            "Cross-fitting nuisances are consistently estimated",
-        ],
-        "pre_conditions": [
-            "Outcome, own-treatment, and scalar " "neighbor_exposure columns",
-            "Covariate set sufficient to satisfy the "
-            "orthogonality (conditional mean) condition",
-            "Enough observations to support n_folds " "cross-fitting",
-        ],
-        "failure_modes": [
-            {
-                "symptom": "Nuisance models overfit or fail to "
-                "converge in cross-fitting",
-                "exception": "ConvergenceFailure",
-                "remedy": "Reduce model complexity or n_folds, "
-                "or supply richer covariates.",
-                "alternative": "inward_outward_spillover",
-            },
-            {
-                "symptom": "Sample too small to split into " "n_folds cross-fit folds",
-                "exception": "DataInsufficient",
-                "remedy": "Lower n_folds or collect more units.",
-                "alternative": "cluster_cross_interference",
-            },
-        ],
-        "alternatives": [
-            "inward_outward_spillover",
-            "cluster_cross_interference",
-            "spillover",
-            "interference",
-        ],
-        "typical_n_min": 500,
     },
     "odds_ratio": {
         "assumptions": [
