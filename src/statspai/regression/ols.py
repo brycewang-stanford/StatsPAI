@@ -1093,6 +1093,7 @@ def regress(
     data: pd.DataFrame,
     robust: str = "nonrobust",
     cluster: Optional[str] = None,
+    weights: Optional[Any] = None,
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -1180,6 +1181,11 @@ def regress(
             f"cannot estimate regression."
         )
 
+    # ``weights`` is an explicit parameter (Stata ``aweight`` semantics) but
+    # the downstream ``OLSRegression.fit`` consumes it via ``**kwargs``; only
+    # re-inject when provided so the no-weights path stays byte-identical.
+    if weights is not None:
+        kwargs["weights"] = weights
     model = OLSRegression(formula=formula, data=data)
     _result = model.fit(robust=robust, cluster=cluster, **kwargs)
     try:
