@@ -8254,6 +8254,193 @@ def _build_registry() -> None:
         )
     )
 
+    # -- Social network analysis (sp.network) ------------------------- #
+    register(
+        FunctionSpec(
+            name="network_graph",
+            category="network",
+            description=(
+                "Construct a network Graph from an adjacency matrix or an "
+                "edge list (directed/undirected, weighted). The single entry "
+                "point feeding every sp.network analysis."
+            ),
+            params=[
+                ParamSpec("adjacency", "ndarray", False,
+                          description="Square adjacency (or scipy.sparse / W)"),
+                ParamSpec("edges", "list", False,
+                          description="Edge list of (u, v) pairs"),
+                ParamSpec("directed", "bool", False, False),
+                ParamSpec("node_labels", "list", False),
+                ParamSpec("weights", "list", False),
+            ],
+            returns="Graph",
+            example="sp.network_graph(edges=[(0,1),(1,2),(2,0)])",
+            tags=["network", "graph", "sna", "adjacency", "edgelist"],
+            reference="wasserman1994social",
+        )
+    )
+    register(
+        FunctionSpec(
+            name="network_summary",
+            category="network",
+            description=(
+                "Structural summary of a network: density, components, "
+                "diameter, average path length, transitivity (global "
+                "clustering), reciprocity, and Newman degree assortativity."
+            ),
+            params=[ParamSpec("graph", "Graph", True)],
+            returns="NetworkSummaryResult",
+            example="sp.network_summary(sp.karate_club())",
+            tags=["network", "descriptives", "density", "clustering", "sna"],
+            reference="watts1998collective",
+        )
+    )
+    register(
+        FunctionSpec(
+            name="centrality",
+            category="network",
+            description=(
+                "Centrality dispatcher: degree, closeness, betweenness "
+                "(Brandes), eigenvector, Katz, PageRank, Bonacich power. "
+                "Returns a per-node score table."
+            ),
+            params=[
+                ParamSpec("graph", "Graph", True),
+                ParamSpec("kind", "str", False, "all",
+                          "Measure(s) to compute",
+                          ["all", "degree", "closeness", "betweenness",
+                           "eigenvector", "katz", "pagerank", "bonacich"]),
+                ParamSpec("normalized", "bool", False, True),
+            ],
+            returns="CentralityResult",
+            example='sp.centrality(sp.karate_club(), kind="betweenness")',
+            tags=["network", "centrality", "betweenness", "pagerank", "sna"],
+            reference="freeman1978centrality",
+        )
+    )
+    register(
+        FunctionSpec(
+            name="community_detection",
+            category="network",
+            description=(
+                "Partition a network into communities by modularity "
+                "optimisation: Louvain (Blondel 2008), greedy/CNM "
+                "(Clauset-Newman-Moore 2004), or label propagation."
+            ),
+            params=[
+                ParamSpec("graph", "Graph", True),
+                ParamSpec("method", "str", False, "louvain",
+                          "Detection algorithm",
+                          ["louvain", "greedy", "label_prop"]),
+                ParamSpec("resolution", "float", False, 1.0),
+                ParamSpec("seed", "int", False),
+            ],
+            returns="CommunityResult",
+            example='sp.community_detection(sp.karate_club(), method="louvain")',
+            tags=["network", "community", "modularity", "louvain", "sna"],
+            reference="blondel2008fast",
+        )
+    )
+    register(
+        FunctionSpec(
+            name="netlm",
+            category="network",
+            description=(
+                "MRQAP linear network regression of one relational matrix on "
+                "others, with permutation inference (Dekker double-semi-"
+                "partialling) robust to network autocorrelation. sna::netlm."
+            ),
+            params=[
+                ParamSpec("y", "ndarray", True, description="Dependent network matrix"),
+                ParamSpec("predictors", "ndarray", True,
+                          description="Predictor matrix / list / {name: matrix}"),
+                ParamSpec("directed", "bool", False),
+                ParamSpec("nperm", "int", False, 1000),
+                ParamSpec("method", "str", False, "dsp", "Permutation scheme",
+                          ["dsp", "y"]),
+                ParamSpec("seed", "int", False),
+            ],
+            returns="QAPResult",
+            example="sp.netlm(Y, {'dist': D}, nperm=1000)",
+            tags=["network", "qap", "mrqap", "regression", "sna"],
+            reference="dekker2007sensitivity",
+        )
+    )
+    register(
+        FunctionSpec(
+            name="netlogit",
+            category="network",
+            description=(
+                "QAP logistic network regression for a binary dependent "
+                "network, with dependent-matrix-permutation inference. "
+                "sna::netlogit analogue."
+            ),
+            params=[
+                ParamSpec("y", "ndarray", True, description="Binary dependent network"),
+                ParamSpec("predictors", "ndarray", True),
+                ParamSpec("directed", "bool", False),
+                ParamSpec("nperm", "int", False, 1000),
+                ParamSpec("seed", "int", False),
+            ],
+            returns="QAPResult",
+            example="sp.netlogit(Ybinary, X, nperm=1000)",
+            tags=["network", "qap", "logistic", "regression", "sna"],
+            reference="krackhardt1988predicting",
+        )
+    )
+    register(
+        FunctionSpec(
+            name="dyadic_regression",
+            category="network",
+            description=(
+                "OLS on dyadic data with Aronow-Samii-Assenova dyadic-cluster-"
+                "robust standard errors that allow arbitrary dependence "
+                "between dyads sharing a node (Fafchamps-Gubert)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True),
+                ParamSpec("covariates", "list", True),
+                ParamSpec("i", "str", True, description="First-node id column"),
+                ParamSpec("j", "str", True, description="Second-node id column"),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="DyadicRegressionResult",
+            example='sp.dyadic_regression(df, y="trade", covariates=["dist"], i="i", j="j")',
+            tags=["network", "dyadic", "robust", "regression", "sna"],
+            reference="aronow2015cluster",
+        )
+    )
+    register(
+        FunctionSpec(
+            name="ergm",
+            category="network",
+            description=(
+                "Exponential random graph model (ERGM) fit by maximum "
+                "pseudo-likelihood (MPLE). Terms: edges, mutual, triangles, "
+                "nodematch/nodecov/absdiff. MPLE=MLE for dyad-independent "
+                "models; MCMC-MLE is the roadmap."
+            ),
+            params=[
+                ParamSpec("graph", "Graph", True),
+                ParamSpec("terms", "list", False, ["edges"],
+                          description="ERGM terms, e.g. ['edges','nodematch:gender']"),
+                ParamSpec("node_attrs", "DataFrame", False),
+                ParamSpec("directed", "bool", False),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="ERGMResult",
+            example='sp.ergm(g, terms=["edges", "nodematch:dept"], node_attrs=attrs)',
+            tags=["network", "ergm", "formation", "pstar", "sna"],
+            reference="robins2007introduction",
+            assumptions=[
+                "Dyad-independent terms: MPLE coincides with MLE",
+                "Dyad-dependent terms (triangles): MPLE approximate; SEs "
+                "understate uncertainty — use MCMC-MLE when available",
+            ],
+        )
+    )
+
     register(
         FunctionSpec(
             name="multi_treatment",

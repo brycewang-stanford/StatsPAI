@@ -8915,6 +8915,293 @@
     }
   },
   {
+    "description": "Construct a network Graph from an adjacency matrix or an edge list (directed/undirected, weighted). The single entry point feeding every sp.network analysis.",
+    "name": "network_graph",
+    "parameters": {
+      "properties": {
+        "adjacency": {
+          "description": "Square adjacency (or scipy.sparse / W)",
+          "type": "string"
+        },
+        "directed": {
+          "default": false,
+          "description": "directed parameter (bool).",
+          "type": "boolean"
+        },
+        "edges": {
+          "description": "Edge list of (u, v) pairs",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "node_labels": {
+          "description": "node_labels parameter (list).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "weights": {
+          "description": "Observation weights.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Structural summary of a network: density, components, diameter, average path length, transitivity (global clustering), reciprocity, and Newman degree assortativity.",
+    "name": "network_summary",
+    "parameters": {
+      "properties": {
+        "graph": {
+          "description": "graph parameter (Graph).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Centrality dispatcher: degree, closeness, betweenness (Brandes), eigenvector, Katz, PageRank, Bonacich power. Returns a per-node score table.",
+    "name": "centrality",
+    "parameters": {
+      "properties": {
+        "graph": {
+          "description": "graph parameter (Graph).",
+          "type": "string"
+        },
+        "kind": {
+          "default": "all",
+          "description": "Measure(s) to compute",
+          "enum": [
+            "all",
+            "degree",
+            "closeness",
+            "betweenness",
+            "eigenvector",
+            "katz",
+            "pagerank",
+            "bonacich"
+          ],
+          "type": "string"
+        },
+        "normalized": {
+          "default": true,
+          "description": "normalized parameter (bool).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Partition a network into communities by modularity optimisation: Louvain (Blondel 2008), greedy/CNM (Clauset-Newman-Moore 2004), or label propagation.",
+    "name": "community_detection",
+    "parameters": {
+      "properties": {
+        "graph": {
+          "description": "graph parameter (Graph).",
+          "type": "string"
+        },
+        "method": {
+          "default": "louvain",
+          "description": "Detection algorithm",
+          "enum": [
+            "louvain",
+            "greedy",
+            "label_prop"
+          ],
+          "type": "string"
+        },
+        "resolution": {
+          "default": 1.0,
+          "description": "resolution parameter (float).",
+          "type": "number"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "MRQAP linear network regression of one relational matrix on others, with permutation inference (Dekker double-semi-partialling) robust to network autocorrelation. sna::netlm.",
+    "name": "netlm",
+    "parameters": {
+      "properties": {
+        "directed": {
+          "description": "directed parameter (bool).",
+          "type": "boolean"
+        },
+        "method": {
+          "default": "dsp",
+          "description": "Permutation scheme",
+          "enum": [
+            "dsp",
+            "y"
+          ],
+          "type": "string"
+        },
+        "nperm": {
+          "default": 1000,
+          "description": "nperm parameter (int).",
+          "type": "integer"
+        },
+        "predictors": {
+          "description": "Predictor matrix / list / {name: matrix}",
+          "type": "string"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "y": {
+          "description": "Dependent network matrix",
+          "type": "string"
+        }
+      },
+      "required": [
+        "y",
+        "predictors"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "QAP logistic network regression for a binary dependent network, with dependent-matrix-permutation inference. sna::netlogit analogue.",
+    "name": "netlogit",
+    "parameters": {
+      "properties": {
+        "directed": {
+          "description": "directed parameter (bool).",
+          "type": "boolean"
+        },
+        "nperm": {
+          "default": 1000,
+          "description": "nperm parameter (int).",
+          "type": "integer"
+        },
+        "predictors": {
+          "description": "predictors parameter (ndarray).",
+          "type": "string"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "y": {
+          "description": "Binary dependent network",
+          "type": "string"
+        }
+      },
+      "required": [
+        "y",
+        "predictors"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "OLS on dyadic data with Aronow-Samii-Assenova dyadic-cluster-robust standard errors that allow arbitrary dependence between dyads sharing a node (Fafchamps-Gubert).",
+    "name": "dyadic_regression",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "covariates": {
+          "description": "Covariate matrix, DataFrame, or column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "i": {
+          "description": "First-node id column",
+          "type": "string"
+        },
+        "j": {
+          "description": "Second-node id column",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "covariates",
+        "i",
+        "j"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Exponential random graph model (ERGM) fit by maximum pseudo-likelihood (MPLE). Terms: edges, mutual, triangles, nodematch/nodecov/absdiff. MPLE=MLE for dyad-independent models; MCMC-MLE is the roadmap.",
+    "name": "ergm",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "directed": {
+          "description": "directed parameter (bool).",
+          "type": "boolean"
+        },
+        "graph": {
+          "description": "graph parameter (Graph).",
+          "type": "string"
+        },
+        "node_attrs": {
+          "description": "node_attrs parameter (DataFrame).",
+          "type": "string"
+        },
+        "terms": {
+          "default": [
+            "edges"
+          ],
+          "description": "ERGM terms, e.g. ['edges','nodematch:gender']",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level.",
     "name": "multi_treatment",
     "parameters": {
@@ -49549,6 +49836,809 @@
     "parameters": {
       "properties": {},
       "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "A social network as a dense adjacency matrix.",
+    "name": "Graph",
+    "parameters": {
+      "properties": {
+        "adjacency": {
+          "description": "Square ``(n, n)`` adjacency. Entry ``A[i, j]`` is the weight of the tie from ``i`` to ``j`` (``1`` for an unweighted tie).",
+          "type": "string"
+        },
+        "allow_self_loops": {
+          "default": false,
+          "description": "Keep the diagonal of ``adjacency``. Off by default (SNA convention).",
+          "type": "boolean"
+        },
+        "directed": {
+          "default": false,
+          "description": "If ``False`` the graph is treated as undirected and stored symmetrically.",
+          "type": "boolean"
+        },
+        "node_labels": {
+          "description": "Human-readable node names (defaults to ``\"0\"..\"n-1\"``).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "weighted": {
+          "description": "Whether to treat off-diagonal entries as weights. If ``None`` (default) it is inferred: the graph is *weighted* when any entry is not in ``{0, 1}``.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "adjacency"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Structural summary of a network (the ``sp.network_summary`` output).",
+    "name": "NetworkSummaryResult",
+    "parameters": {
+      "properties": {
+        "assortativity": {
+          "description": "assortativity parameter (float).",
+          "type": "number"
+        },
+        "average_clustering": {
+          "description": "average_clustering parameter (float).",
+          "type": "number"
+        },
+        "average_path_length": {
+          "description": "average_path_length parameter (float).",
+          "type": "number"
+        },
+        "density": {
+          "description": "density parameter (float).",
+          "type": "number"
+        },
+        "detail": {
+          "default": null,
+          "description": "Amount of result detail to return.",
+          "type": "object"
+        },
+        "diameter": {
+          "description": "diameter parameter (float).",
+          "type": "number"
+        },
+        "directed": {
+          "description": "directed parameter (bool).",
+          "type": "boolean"
+        },
+        "is_connected": {
+          "description": "is_connected parameter (bool).",
+          "type": "boolean"
+        },
+        "largest_component_frac": {
+          "description": "largest_component_frac parameter (float).",
+          "type": "number"
+        },
+        "mean_degree": {
+          "description": "mean_degree parameter (float).",
+          "type": "number"
+        },
+        "n_components": {
+          "description": "Number of generated components or embedding dimensions.",
+          "type": "integer"
+        },
+        "n_edges": {
+          "description": "Number of edges.",
+          "type": "integer"
+        },
+        "n_nodes": {
+          "description": "Number of nodes.",
+          "type": "integer"
+        },
+        "reciprocity": {
+          "description": "reciprocity parameter (float).",
+          "type": "number"
+        },
+        "transitivity": {
+          "description": "transitivity parameter (float).",
+          "type": "number"
+        },
+        "weighted": {
+          "description": "weighted parameter (bool).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "n_nodes",
+        "n_edges",
+        "directed",
+        "weighted",
+        "density",
+        "n_components",
+        "largest_component_frac",
+        "is_connected",
+        "diameter",
+        "average_path_length",
+        "mean_degree",
+        "transitivity",
+        "average_clustering",
+        "reciprocity",
+        "assortativity"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Global clustering coefficient (transitivity).",
+    "name": "transitivity",
+    "parameters": {
+      "properties": {
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Per-node local clustering coefficient (Watts-Strogatz).",
+    "name": "clustering",
+    "parameters": {
+      "properties": {
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Directed reciprocity: share of arcs that are reciprocated.",
+    "name": "reciprocity",
+    "parameters": {
+      "properties": {
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Newman degree-assortativity coefficient.",
+    "name": "assortativity",
+    "parameters": {
+      "properties": {
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Connected-component decomposition.",
+    "name": "network_components",
+    "parameters": {
+      "properties": {
+        "connection": {
+          "default": "weak",
+          "description": "For directed graphs, whether to use weak or strong connectivity. Ignored for undirected graphs.",
+          "enum": [
+            "weak",
+            "strong"
+          ],
+          "type": "string"
+        },
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Connected-component decomposition of a graph.",
+    "name": "ComponentsResult",
+    "parameters": {
+      "properties": {
+        "connection": {
+          "default": "weak",
+          "description": "connection parameter (str).",
+          "type": "string"
+        },
+        "largest_size": {
+          "description": "largest_size parameter (int).",
+          "type": "integer"
+        },
+        "membership": {
+          "description": "membership parameter (pd.Series).",
+          "type": "string"
+        },
+        "n_components": {
+          "description": "Number of generated components or embedding dimensions.",
+          "type": "integer"
+        },
+        "sizes": {
+          "description": "sizes parameter (List[int]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "n_components",
+        "membership",
+        "sizes",
+        "largest_size"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Per-node centrality table (the ``sp.centrality`` output).",
+    "name": "CentralityResult",
+    "parameters": {
+      "properties": {
+        "measures": {
+          "description": "measures parameter (List[str]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "most_central": {
+          "default": null,
+          "description": "most_central parameter (Dict[str, Any]).",
+          "type": "object"
+        },
+        "scores": {
+          "description": "scores parameter (pd.DataFrame).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scores",
+        "measures"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Degree centrality.",
+    "name": "degree_centrality",
+    "parameters": {
+      "properties": {
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        },
+        "mode": {
+          "default": "all",
+          "description": "mode parameter (str).",
+          "enum": [
+            "all",
+            "in",
+            "out"
+          ],
+          "type": "string"
+        },
+        "normalized": {
+          "default": true,
+          "description": "Divide by ``n - 1`` (the maximum possible degree).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Closeness centrality with the Wasserman-Faust disconnected correction.",
+    "name": "closeness_centrality",
+    "parameters": {
+      "properties": {
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        },
+        "weighted": {
+          "description": "weighted parameter (Optional[bool]).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Shortest-path betweenness centrality (Brandes 2001).",
+    "name": "betweenness_centrality",
+    "parameters": {
+      "properties": {
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        },
+        "normalized": {
+          "default": true,
+          "description": "Scale by ``1/((n-1)(n-2))`` (directed) or ``2/((n-1)(n-2))`` (undirected), so scores lie in ``[0, 1]``.",
+          "type": "boolean"
+        },
+        "weighted": {
+          "description": "Use tie weights as path lengths (Dijkstra). Defaults to the graph's own weighted flag.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Eigenvector centrality (leading eigenvector of the adjacency matrix).",
+    "name": "eigenvector_centrality",
+    "parameters": {
+      "properties": {
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        },
+        "max_iter": {
+          "default": 1000,
+          "description": "Maximum number of optimisation iterations.",
+          "type": "integer"
+        },
+        "tol": {
+          "default": 1e-09,
+          "description": "Numerical convergence tolerance.",
+          "type": "number"
+        },
+        "weighted": {
+          "description": "weighted parameter (Optional[bool]).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Katz centrality.",
+    "name": "katz_centrality",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.1,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "beta": {
+          "default": 1.0,
+          "description": "beta parameter (float).",
+          "type": "number"
+        },
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        },
+        "normalized": {
+          "default": true,
+          "description": "normalized parameter (bool).",
+          "type": "boolean"
+        },
+        "weighted": {
+          "description": "weighted parameter (Optional[bool]).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Google PageRank (Brin & Page 1998).",
+    "name": "pagerank",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.85,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        },
+        "max_iter": {
+          "default": 1000,
+          "description": "Maximum number of optimisation iterations.",
+          "type": "integer"
+        },
+        "tol": {
+          "default": 1e-12,
+          "description": "Numerical convergence tolerance.",
+          "type": "number"
+        },
+        "weighted": {
+          "description": "weighted parameter (Optional[bool]).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Bonacich (1987) power centrality.",
+    "name": "bonacich_power",
+    "parameters": {
+      "properties": {
+        "beta": {
+          "default": 0.1,
+          "description": "beta parameter (float).",
+          "type": "number"
+        },
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        },
+        "weighted": {
+          "description": "weighted parameter (Optional[bool]).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Kleinberg HITS hub and authority scores.",
+    "name": "hits",
+    "parameters": {
+      "properties": {
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        },
+        "max_iter": {
+          "default": 1000,
+          "description": "Maximum number of optimisation iterations.",
+          "type": "integer"
+        },
+        "tol": {
+          "default": 1e-12,
+          "description": "Numerical convergence tolerance.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "graph"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Community-detection partition (the ``sp.community_detection`` output).",
+    "name": "CommunityResult",
+    "parameters": {
+      "properties": {
+        "membership": {
+          "description": "membership parameter (pd.Series).",
+          "type": "string"
+        },
+        "method": {
+          "description": "Estimator or algorithm variant to use.",
+          "type": "string"
+        },
+        "modularity": {
+          "description": "modularity parameter (float).",
+          "type": "number"
+        },
+        "n_communities": {
+          "description": "Number of communities.",
+          "type": "integer"
+        },
+        "sizes": {
+          "default": null,
+          "description": "sizes parameter (List[int]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "membership",
+        "n_communities",
+        "modularity",
+        "method"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Newman-Girvan modularity ``Q`` of a partition.",
+    "name": "network_modularity",
+    "parameters": {
+      "properties": {
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        },
+        "membership": {
+          "description": "Community label per node (any hashable labels).",
+          "type": "string"
+        },
+        "resolution": {
+          "default": 1.0,
+          "description": "resolution parameter (float).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "graph",
+        "membership"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "QAP / MRQAP network-regression result (``sp.netlm`` / ``sp.netlogit``).",
+    "name": "QAPResult",
+    "parameters": {
+      "properties": {
+        "coefficients": {
+          "description": "coefficients parameter (pd.DataFrame).",
+          "type": "string"
+        },
+        "detail": {
+          "default": null,
+          "description": "Amount of result detail to return.",
+          "type": "object"
+        },
+        "method": {
+          "description": "Estimator or algorithm variant to use.",
+          "type": "string"
+        },
+        "n_dyads": {
+          "description": "Number of dyads.",
+          "type": "integer"
+        },
+        "nperm": {
+          "description": "nperm parameter (int).",
+          "type": "integer"
+        },
+        "p_qap": {
+          "description": "p_qap parameter (Dict[str, float]).",
+          "type": "object"
+        },
+        "permutation": {
+          "default": "dsp",
+          "description": "permutation parameter (str).",
+          "type": "string"
+        },
+        "r_squared": {
+          "description": "r_squared parameter (float).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "coefficients",
+        "p_qap",
+        "r_squared",
+        "n_dyads",
+        "nperm",
+        "method"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Dyadic OLS with dyadic-cluster-robust standard errors.",
+    "name": "DyadicRegressionResult",
+    "parameters": {
+      "properties": {
+        "coefficients": {
+          "description": "coefficients parameter (pd.DataFrame).",
+          "type": "string"
+        },
+        "detail": {
+          "default": null,
+          "description": "Amount of result detail to return.",
+          "type": "object"
+        },
+        "n_dyads": {
+          "description": "Number of dyads.",
+          "type": "integer"
+        },
+        "n_nodes": {
+          "description": "Number of nodes.",
+          "type": "integer"
+        },
+        "r_squared": {
+          "description": "r_squared parameter (float).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "coefficients",
+        "n_dyads",
+        "n_nodes",
+        "r_squared"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "ERGM fit by maximum pseudo-likelihood (the ``sp.ergm`` output).",
+    "name": "ERGMResult",
+    "parameters": {
+      "properties": {
+        "coefficients": {
+          "description": "coefficients parameter (pd.DataFrame).",
+          "type": "string"
+        },
+        "detail": {
+          "default": null,
+          "description": "Amount of result detail to return.",
+          "type": "object"
+        },
+        "directed": {
+          "description": "directed parameter (bool).",
+          "type": "boolean"
+        },
+        "dyad_independent": {
+          "description": "dyad_independent parameter (bool).",
+          "type": "boolean"
+        },
+        "log_pseudolikelihood": {
+          "description": "log_pseudolikelihood parameter (float).",
+          "type": "number"
+        },
+        "method": {
+          "default": "MPLE",
+          "description": "Estimator or algorithm variant to use.",
+          "type": "string"
+        },
+        "n_dyads": {
+          "description": "Number of dyads.",
+          "type": "integer"
+        },
+        "terms": {
+          "description": "terms parameter (List[str]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "coefficients",
+        "terms",
+        "log_pseudolikelihood",
+        "n_dyads",
+        "directed",
+        "dyad_independent"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Zachary's karate club friendship network (undirected, 34 nodes).",
+    "name": "karate_club",
+    "parameters": {
+      "properties": {},
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Padgett's Florentine marriage network (undirected, 15 families).",
+    "name": "florentine_families",
+    "parameters": {
+      "properties": {},
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Draw a network as a node-link diagram.",
+    "name": "network_plot",
+    "parameters": {
+      "properties": {
+        "ax": {
+          "description": "ax parameter.",
+          "type": "string"
+        },
+        "cmap": {
+          "default": "tab10",
+          "description": "cmap parameter (str).",
+          "type": "string"
+        },
+        "edge_alpha": {
+          "default": 0.35,
+          "description": "edge_alpha parameter (float).",
+          "type": "number"
+        },
+        "graph": {
+          "description": "graph parameter.",
+          "type": "string"
+        },
+        "labels": {
+          "default": false,
+          "description": "Annotate nodes with their labels.",
+          "type": "boolean"
+        },
+        "layout": {
+          "default": "spring",
+          "description": "layout parameter (str).",
+          "enum": [
+            "spring",
+            "circular"
+          ],
+          "type": "string"
+        },
+        "node_color": {
+          "description": "Per-node values (e.g. a community membership :class:`pandas.Series`) mapped through ``cmap``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "node_size": {
+          "description": "Per-node sizes (e.g. a centrality score); rescaled to a sensible point range.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Layout seed (spring layout).",
+          "type": "integer"
+        },
+        "title": {
+          "description": "title parameter (Optional[str]).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "graph"
+      ],
       "type": "object"
     }
   },

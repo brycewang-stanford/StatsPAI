@@ -16455,6 +16455,65 @@
     "validation_status": "validated"
   },
   {
+    "alternatives": [],
+    "assumptions": [
+      "Dyad-independent terms: MPLE coincides with MLE",
+      "Dyad-dependent terms (triangles): MPLE approximate; SEs understate uncertainty -- use MCMC-MLE when available"
+    ],
+    "category": "network",
+    "description": "Exponential random graph model (ERGM) fit by maximum pseudo-likelihood (MPLE). Terms: edges, mutual, triangles, nodematch/nodecov/absdiff. MPLE=MLE for dyad-independent models; MCMC-MLE is the roadmap.",
+    "example": "sp.ergm(g, terms=[\"edges\", \"nodematch:dept\"], node_attrs=attrs)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ergm",
+    "pre_conditions": [],
+    "reference": "robins2007introduction",
+    "signature": {
+      "description": "Exponential random graph model (ERGM) fit by maximum pseudo-likelihood (MPLE). Terms: edges, mutual, triangles, nodematch/nodecov/absdiff. MPLE=MLE for dyad-independent models; MCMC-MLE is the roadmap.",
+      "name": "ergm",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "directed": {
+            "description": "directed parameter (bool).",
+            "type": "boolean"
+          },
+          "graph": {
+            "description": "graph parameter (Graph).",
+            "type": "string"
+          },
+          "node_attrs": {
+            "description": "node_attrs parameter (DataFrame).",
+            "type": "string"
+          },
+          "terms": {
+            "default": [
+              "edges"
+            ],
+            "description": "ERGM terms, e.g. ['edges','nodematch:gender']",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "graph"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
     "alternatives": [
       "multi_arm_forest",
       "dml",
