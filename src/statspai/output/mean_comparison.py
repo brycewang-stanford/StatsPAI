@@ -281,7 +281,7 @@ class MeanComparisonResult:
         lines.append("<tfoot>")
         lines.append(
             '<tr><td colspan="5" style="text-align:left; font-size:11px; padding:4px 10px;">'
-            f"* p&lt;0.10, ** p&lt;0.05, *** p&lt;0.01</td></tr>"
+            "* p&lt;0.10, ** p&lt;0.05, *** p&lt;0.01</td></tr>"
         )
         lines.append("</tfoot>")
         lines.append("</table>")
