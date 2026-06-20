@@ -3,11 +3,14 @@ Unified results class for all econometric models
 """
 
 from html import escape as _html_escape
-from typing import Any, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 import pandas as pd
 import numpy as np
 
 from ..exceptions import MethodIncompatibility
+
+if TYPE_CHECKING:
+    from ._decision import DecisionSummary
 
 
 def _scipy_stats() -> Any:
@@ -2549,6 +2552,56 @@ class CausalResult:
         from ._agent_summary import causal_agent_summary
 
         return causal_agent_summary(self)
+
+    def decision_summary(
+        self,
+        *,
+        rope: Any = None,
+        sesoi: Optional[float] = None,
+        alpha: Optional[float] = None,
+    ) -> "DecisionSummary":
+        """Judge the effect's statistical *and* practical significance.
+
+        Statistical tests answer "is the effect distinguishable from
+        zero?".  This method also answers "is it large enough to
+        matter?" by comparing the confidence interval to a *region of
+        practical equivalence* (ROPE) — the band of effect sizes too
+        small to be meaningful — using the frequentist equivalence-test
+        logic of Lakens (2018).
+
+        Parameters
+        ----------
+        rope : float or (float, float), optional
+            The ROPE.  A positive scalar ``r`` means the band
+            ``(-r, r)``; a tuple gives an asymmetric band.  When omitted,
+            only statistical significance is reported (practical
+            significance is *not* guessed).
+        sesoi : float, optional
+            Smallest effect size of interest — convenience alias for
+            ``rope=sesoi``.  Mutually exclusive with ``rope``.
+        alpha : float, optional
+            Interval level; defaults to the estimator's own
+            ``self.alpha``.  A different value recomputes a
+            normal-approximation CI from the standard error.
+
+        Returns
+        -------
+        DecisionSummary
+            Object exposing ``.table`` (one-row DataFrame), ``.text``
+            (prose verdict), ``.verdict`` (stable code), and
+            ``.to_dict()`` (agent payload).
+
+        Examples
+        --------
+        >>> r = sp.did(df, y='wage', treat='treated', time='post')
+        >>> s = r.decision_summary(rope=0.5)
+        >>> print(s.text)
+        >>> s.verdict
+        'meaningful_effect'
+        """
+        from ._decision import decision_summary
+
+        return decision_summary(self, rope=rope, sesoi=sesoi, alpha=alpha)
 
     def to_dict(
         self, *, detail_head: int = 5, detail: str = "standard"
