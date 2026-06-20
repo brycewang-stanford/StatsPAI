@@ -6,6 +6,40 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Cross-engine validation (`sp.cross_validate`).** Estimate one model with
+  several *independent* engines and report whether they agree — operationalising
+  the cross-package-reproducibility discipline (Scott Cunningham: "estimate the
+  same model two ways, trust it only when they match") as one call for humans
+  and agents.
+  - **Engines.** StatsPAI native, **pyfixest**, **linearmodels**, **DoubleML**
+    (in-process Python), R's **`fixest`** and **`did`** via `Rscript`, and
+    **Stata** (`regress` / `ivregress` / `reghdfe`) via batch `do`.
+    `engines="auto"` runs every installed, applicable backend; a named-but-
+    missing engine is reported `unavailable` and recorded as a degradation —
+    never silently skipped.
+  - **Estimands.** `ols`, `feols` (HDFE), `iv` (2SLS), `poisson`, `dml`, and
+    **`did`** (Callaway–Sant'Anna: StatsPAI's `callaway_santanna` overall ATT
+    vs R's `did::att_gt` + `aggte`, reproducing Scott Cunningham's exact
+    cross-package experiment — they agree to ~1e-15 on the canonical `mpdta`).
+    Accepts a fixest-style formula, structured args, or a fitted StatsPAI
+    result. The `R::did` adapter coerces integer cohort/time/id columns to
+    numeric — `att_gt` silently returns a different estimate for integer vs
+    numeric group columns, a real cross-package fragility the cross-check
+    neutralises.
+  - **Honest verdicts.** AGREE / PARTIAL / DISAGREE / INSUFFICIENT, with a
+    tolerance regime chosen *and explained* per estimand: closed-form methods
+    (OLS/IV/FE) compared at `rtol=1e-6`; randomised methods (DML/forests) on a
+    standard-error scale. Verified: StatsPAI reproduces R's `fixest` and
+    pyfixest to machine precision (`max_rel ≈ 1e-15`) on OLS/IV/FE.
+  - **Result object.** `CrossValidationResult` with `.summary()`, `.plot()`,
+    `.to_markdown()`, `.to_latex()`, `.to_dict(detail="agent")` (verdict +
+    per-engine table + next steps + version `provenance`). Registered and
+    MCP-exposed.
+- **Data-source ingestion normalisers (`sp.from_worldbank` / `sp.from_fred` /
+  `sp.from_sdmx`).** Reshape a payload a data MCP already fetched (World Bank
+  Indicators, FRED series, OECD/Eurostat SDMX-JSON) into a tidy long/wide panel
+  ready for `sp.detect_design` → `sp.recommend` → `sp.cross_validate`. Pure
+  normalisers — no network calls, deterministic and offline-testable.
 - **Social network analysis (`sp.network`).** A new numpy/scipy-native SNA
   module aligned with R's `igraph` / `sna` / `statnet` and Stata's
   `nwcommands` — no `networkx` dependency. Covers the full applied stack:
