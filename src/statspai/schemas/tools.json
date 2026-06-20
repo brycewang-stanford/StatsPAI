@@ -3932,6 +3932,89 @@
     "name": "cr3_jackknife_vcov"
   },
   {
+    "description": "Cross-validate ONE estimand across INDEPENDENT engines (StatsPAI, pyfixest, linearmodels, DoubleML, R's fixest, Stata) and report whether they agree (AGREE / PARTIAL / DISAGREE / INSUFFICIENT). Use this to honour the cross-package reproducibility rule: trust a number only when >=2 independent implementations reproduce it. Needs a data_path.",
+    "input_schema": {
+      "properties": {
+        "covariates": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "endog": {
+          "description": "Endogenous regressors (IV).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "engines": {
+          "description": "Engines to run, e.g. ['statspai','R::fixest','pyfixest','Stata']. Omit for 'auto' (all installed + applicable).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "estimand": {
+          "description": "Model family to fit in every engine.",
+          "enum": [
+            "ols",
+            "feols",
+            "iv",
+            "poisson",
+            "dml",
+            "did"
+          ],
+          "type": "string"
+        },
+        "fixed_effects": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "formula": {
+          "description": "fixest-style 'y ~ x | fe | endog ~ z'.",
+          "type": "string"
+        },
+        "g": {
+          "description": "DiD only: cohort / first-treatment period (0 = never treated).",
+          "type": "string"
+        },
+        "i": {
+          "description": "DiD only: unit-id column.",
+          "type": "string"
+        },
+        "instruments": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "t": {
+          "description": "DiD only: time column.",
+          "type": "string"
+        },
+        "treatment": {
+          "description": "Focal regressor (reconciled coefficient).",
+          "type": "string"
+        },
+        "vcov": {
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome column.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "estimand"
+      ],
+      "type": "object"
+    },
+    "name": "cross_validate"
+  },
+  {
     "description": "One-call staggered-DID workflow: estimate -> aggregate -> sensitivity.",
     "input_schema": {
       "properties": {

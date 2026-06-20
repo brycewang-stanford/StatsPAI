@@ -8912,6 +8912,144 @@
   },
   {
     "alternatives": [
+      "compare_estimators",
+      "verify",
+      "replicate"
+    ],
+    "assumptions": [
+      "Each engine is asked for the SAME estimand on the SAME sample",
+      "Numerical agreement checks reproducibility, not unbiasedness"
+    ],
+    "category": "workflow",
+    "description": "Estimate ONE model with several INDEPENDENT engines (StatsPAI, pyfixest, linearmodels, DoubleML, R's fixest, Stata) and report whether they agree (AGREE / PARTIAL / DISAGREE / INSUFFICIENT). Operationalises the cross-package reproducibility check: trust a number only when >=2 independent implementations reproduce it.",
+    "example": "sp.cross_validate(df, 'iv', y='wage', endog=['educ'], instruments=['qob'], engines=['statspai','R::fixest'])",
+    "failure_modes": [
+      {
+        "alternative": "compare_estimators",
+        "exception": "",
+        "remedy": "Fewer than two engines ran; install pyfixest / linearmodels or put Rscript / Stata on PATH.",
+        "symptom": "Verdict INSUFFICIENT (a WorkflowDegradedWarning is also emitted for a named-but-missing engine)"
+      },
+      {
+        "alternative": "",
+        "exception": "",
+        "remedy": "Engines disagree beyond tolerance -- reconcile sample, controls, fixed effects, treatment coding.",
+        "symptom": "Verdict DISAGREE"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "cross_validate",
+    "pre_conditions": [
+      "data has every column referenced by the model spec",
+      "at least two engines are installed/available for the estimand"
+    ],
+    "reference": "",
+    "signature": {
+      "description": "Estimate ONE model with several INDEPENDENT engines (StatsPAI, pyfixest, linearmodels, DoubleML, R's fixest, Stata) and report whether they agree (AGREE / PARTIAL / DISAGREE / INSUFFICIENT). Operationalises the cross-package reproducibility check: trust a number only when >=2 independent implementations reproduce it.",
+      "name": "cross_validate",
+      "parameters": {
+        "properties": {
+          "covariates": {
+            "description": "Covariate matrix, DataFrame, or column names.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data_or_result": {
+            "description": "Dataset (with `estimand` + spec) or a fitted StatsPAI result to re-run elsewhere.",
+            "type": "string"
+          },
+          "endog": {
+            "description": "IV endogenous",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "engines": {
+            "default": "auto",
+            "description": "'auto' (all installed, applicable) or a list e.g. ['statspai','R::fixest','pyfixest','Stata']",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "estimand": {
+            "description": "ols / feols / iv / poisson / dml / did (Callaway-Sant'Anna; and aliases)",
+            "enum": [
+              "ols",
+              "feols",
+              "iv",
+              "poisson",
+              "dml",
+              "did"
+            ],
+            "type": "string"
+          },
+          "fixed_effects": {
+            "description": "fixed_effects parameter (list[str]).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "formula": {
+            "description": "fixest-style: 'y ~ x | fe | endog ~ z'",
+            "type": "string"
+          },
+          "g": {
+            "description": "DiD cohort / first-treatment period (0 = never)",
+            "type": "string"
+          },
+          "i": {
+            "description": "DiD unit-id column",
+            "type": "string"
+          },
+          "instruments": {
+            "description": "instruments parameter (list[str]).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "t": {
+            "description": "DiD time column",
+            "type": "string"
+          },
+          "tol": {
+            "description": "Override tolerance, e.g. {'coef_rtol':1e-4}",
+            "type": "object"
+          },
+          "treatment": {
+            "description": "Focal regressor (default reconciled term)",
+            "type": "string"
+          },
+          "vcov": {
+            "description": "Variance estimator",
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome column",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data_or_result"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 30,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_cross_validate.py"
+    ],
+    "validation_status": "api_stable"
+  },
+  {
+    "alternatives": [
       "evalue",
       "sensemakr",
       "oster_bounds",

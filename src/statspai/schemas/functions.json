@@ -4757,6 +4757,159 @@
     }
   },
   {
+    "description": "Estimate ONE model with several INDEPENDENT engines (StatsPAI, pyfixest, linearmodels, DoubleML, R's fixest, Stata) and report whether they agree (AGREE / PARTIAL / DISAGREE / INSUFFICIENT). Operationalises the cross-package reproducibility check: trust a number only when >=2 independent implementations reproduce it.",
+    "name": "cross_validate",
+    "parameters": {
+      "properties": {
+        "covariates": {
+          "description": "Covariate matrix, DataFrame, or column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "data_or_result": {
+          "description": "Dataset (with `estimand` + spec) or a fitted StatsPAI result to re-run elsewhere.",
+          "type": "string"
+        },
+        "endog": {
+          "description": "IV endogenous",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "engines": {
+          "default": "auto",
+          "description": "'auto' (all installed, applicable) or a list e.g. ['statspai','R::fixest','pyfixest','Stata']",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "estimand": {
+          "description": "ols / feols / iv / poisson / dml / did (Callaway-Sant'Anna; and aliases)",
+          "enum": [
+            "ols",
+            "feols",
+            "iv",
+            "poisson",
+            "dml",
+            "did"
+          ],
+          "type": "string"
+        },
+        "fixed_effects": {
+          "description": "fixed_effects parameter (list[str]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "formula": {
+          "description": "fixest-style: 'y ~ x | fe | endog ~ z'",
+          "type": "string"
+        },
+        "g": {
+          "description": "DiD cohort / first-treatment period (0 = never)",
+          "type": "string"
+        },
+        "i": {
+          "description": "DiD unit-id column",
+          "type": "string"
+        },
+        "instruments": {
+          "description": "instruments parameter (list[str]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "t": {
+          "description": "DiD time column",
+          "type": "string"
+        },
+        "tol": {
+          "description": "Override tolerance, e.g. {'coef_rtol':1e-4}",
+          "type": "object"
+        },
+        "treatment": {
+          "description": "Focal regressor (default reconciled term)",
+          "type": "string"
+        },
+        "vcov": {
+          "description": "Variance estimator",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data_or_result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Normalise a World Bank Indicators payload (already fetched via a data MCP / REST) into a tidy long or wide panel ready for sp.feols / sp.cross_validate. No network call.",
+    "name": "from_worldbank",
+    "parameters": {
+      "properties": {
+        "payload": {
+          "description": "World Bank Indicators API v2 / Data360 response, already fetched.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "payload"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Normalise FRED series observations (one or many series) into a tidy time series with parsed dates and NaN for '.' missings. No network call.",
+    "name": "from_fred",
+    "parameters": {
+      "properties": {
+        "payload": {
+          "description": "FRED series observations response, already fetched.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "payload"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Expand an SDMX-JSON payload (OECD / Eurostat / IMF) into a long frame with one column per dimension plus a value column. No network call.",
+    "name": "from_sdmx",
+    "parameters": {
+      "properties": {
+        "payload": {
+          "description": "SDMX-JSON (OECD / Eurostat / IMF) response, already fetched.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "payload"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Run every applicable sensitivity analysis in one shot: E-value, Oster delta (when R^2 inputs given), Rosenbaum Gamma (when matched_pairs outcomes exposed), Sensemakr (when raw data supplied via data/y/treat/controls), and a breakdown-frontier bias estimate. Also available as result.sensitivity().",
     "name": "unified_sensitivity",
     "parameters": {
@@ -34944,6 +35097,56 @@
         "estimates_table",
         "agreement",
         "n_obs"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Outcome of cross-validating one estimand across several engines.",
+    "name": "CrossValidationResult",
+    "parameters": {
+      "properties": {
+        "agreement": {
+          "description": "agreement parameter (AgreementReport).",
+          "type": "string"
+        },
+        "degradations": {
+          "description": "degradations parameter (Optional[List[Dict[str, Any]]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "estimand": {
+          "description": "estimand parameter (str).",
+          "type": "string"
+        },
+        "estimates": {
+          "description": "estimates parameter (List[EngineEstimate]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "provenance": {
+          "description": "provenance parameter (Optional[Dict[str, Any]]).",
+          "type": "object"
+        },
+        "spec": {
+          "description": "spec parameter (Dict[str, Any]).",
+          "type": "object"
+        },
+        "term": {
+          "description": "term parameter (str).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "estimand",
+        "term",
+        "estimates",
+        "agreement",
+        "spec"
       ],
       "type": "object"
     }
