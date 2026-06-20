@@ -524,9 +524,64 @@ class TestDegradation:
             )
         assert cv.verdict == VERDICT_INSUFFICIENT
 
+    def test_agent_output_marks_insufficient_as_not_cross_engine(self, ols_data):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            cv = sp.cross_validate(
+                ols_data,
+                "ols",
+                formula="y ~ x1 + x2",
+                treatment="x1",
+                engines=["statspai", "definitely_not_an_engine"],
+            )
+        d = cv.to_dict(detail="agent")
+        assert d["engine_status_counts"]["ok"] == 1
+        assert d["engine_status_counts"]["unavailable"] == 1
+        assert d["can_claim_cross_engine_agreement"] is False
+
 
 # --------------------------------------------------------------------------- #
-# 5. Result object + public API
+# 5. Data-MCP provenance: normalized frames carry their source into the result
+# --------------------------------------------------------------------------- #
+
+
+class TestDataMCPProvenance:
+    def test_worldbank_ingest_attrs_reach_cross_validate(self):
+        rng = np.random.default_rng(44)
+        rows = []
+        for i in range(30):
+            gdp = 10_000 + 250 * i + rng.normal(0, 50)
+            life = 55 + 0.001 * gdp + rng.normal(0, 0.5)
+            for ind, val in (("gdp", gdp), ("life", life)):
+                rows.append(
+                    {
+                        "indicator": {"id": ind, "value": ind},
+                        "country": {"id": f"C{i}", "value": f"Country {i}"},
+                        "countryiso3code": f"C{i:02d}",
+                        "date": "2020",
+                        "value": val,
+                    }
+                )
+        frame = sp.from_worldbank(rows, wide=True)
+
+        cv = sp.cross_validate(
+            frame,
+            "ols",
+            formula="life ~ gdp",
+            treatment="gdp",
+            engines=["statspai"],
+        )
+
+        data_prov = cv.provenance["data"]
+        assert data_prov["source"] == "worldbank"
+        assert data_prov["normalizer"] == "from_worldbank"
+        assert data_prov["shape"] == "wide"
+        assert data_prov["n_rows"] == len(frame)
+        assert cv.to_dict(detail="agent")["provenance"]["data"] == data_prov
+
+
+# --------------------------------------------------------------------------- #
+# 6. Result object + public API
 # --------------------------------------------------------------------------- #
 
 

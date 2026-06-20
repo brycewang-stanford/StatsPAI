@@ -366,6 +366,25 @@ class TestToolsCall:
         assert "coefficients" in payload
         assert "next_steps" in payload
 
+    def test_cross_validate_tool_keeps_claim_flag_and_data_provenance(
+            self, sample_csv):
+        msg = _rpc("tools/call", {
+            "name": "cross_validate",
+            "arguments": {
+                "estimand": "ols",
+                "formula": "y ~ x",
+                "treatment": "x",
+                "engines": ["statspai", "definitely_not_an_engine"],
+                "data_path": str(sample_csv),
+            },
+        })
+        payload = msg["result"]["structuredContent"]
+        assert payload["verdict"] == "INSUFFICIENT"
+        assert payload["can_claim_cross_engine_agreement"] is False
+        assert payload["engine_status_counts"]["ok"] == 1
+        assert payload["engine_status_counts"]["unavailable"] == 1
+        assert payload["data_provenance"]["source"] == str(sample_csv)
+
     def test_detail_minimal_returns_smaller_payload(self, sample_csv):
         # Verify the MCP-level detail control yields a strictly smaller
         # payload than the agent default — agents trade richness for
@@ -718,6 +737,7 @@ class TestPrompts:
         assert "from_stata" in text
         assert "from_r" in text
         assert "convention mismatch" in text
+        assert "can_claim_cross_engine_agreement" in text
         assert "statspai://parity/track-a-summary" in text
         assert "tool_evidence" in text
         assert "do not claim live Stata or R execution" in text

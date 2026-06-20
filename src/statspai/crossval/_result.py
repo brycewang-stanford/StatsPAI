@@ -114,6 +114,19 @@ class CrossValidationResult:
         """Only the engines that produced an estimate."""
         return pd.DataFrame([e.to_dict() for e in self.estimates if e.ok])
 
+    @property
+    def engine_status_counts(self) -> Dict[str, int]:
+        """Count engines by status, including unavailable/error entries."""
+        counts: Dict[str, int] = {}
+        for e in self.estimates:
+            counts[e.status] = counts.get(e.status, 0) + 1
+        return counts
+
+    @property
+    def can_claim_cross_engine_agreement(self) -> bool:
+        """Whether it is honest to report cross-engine agreement."""
+        return self.verdict == VERDICT_AGREE and self.agreement.n_ok >= 2
+
     # -- rendering -------------------------------------------------------- #
     def summary(self) -> Any:
         a = self.agreement
@@ -256,6 +269,8 @@ class CrossValidationResult:
             "verdict": self.verdict,
             "engines": [e.to_dict() for e in self.estimates],
             "agreement": self.agreement.to_dict(),
+            "engine_status_counts": self.engine_status_counts,
+            "can_claim_cross_engine_agreement": self.can_claim_cross_engine_agreement,
         }
         if detail == "minimal":
             out["engines"] = [

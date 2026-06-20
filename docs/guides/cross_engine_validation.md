@@ -82,6 +82,13 @@ that ran:
 | **DISAGREE** | Coefficients differ beyond tolerance. The result is implementation-sensitive; reconcile the specification before trusting it. |
 | **INSUFFICIENT** | Fewer than two engines produced an estimate. Cross-validation could not run — install another backend. |
 
+For agents, `cv.to_dict(detail="agent")` includes two guard fields:
+`engine_status_counts` and `can_claim_cross_engine_agreement`. The latter is
+true only when the verdict is `AGREE` and at least two engines actually ran.
+If it is false, do not write "cross-engine validated" in a table note or paper
+draft; report the unavailable engines and rerun after installing another
+backend.
+
 ### Tolerance is honest about *why*
 
 Not every method *should* match to fifteen digits, and pretending otherwise
@@ -175,15 +182,19 @@ cv.to_dict(detail="agent")
 # {
 #   "verdict": "AGREE",
 #   "engines": [{"engine": "statspai", "coef": ..., "status": "ok"}, ...],
+#   "engine_status_counts": {"ok": 3},
+#   "can_claim_cross_engine_agreement": true,
 #   "agreement": {"max_rel_coef_diff": 1.7e-15, "policy": {...}, ...},
 #   "next_steps": ["Estimate is engine-robust; safe to report. ..."],
-#   "provenance": {"statspai": "1.18.0", "R::fixest": "R 4.5.2", ...},
+#   "provenance": {"data": {...}, "statspai": "1.18.0",
+#                  "R::fixest": "R 4.5.2", ...},
 #   "degradations": [...],   # engines asked for but unavailable
 # }
 ```
 
-`provenance` records the exact engine versions that ran, so a cross-validated
-result is reproducible by construction.
+`provenance` records the exact engine versions that ran. If the input frame was
+created by `sp.from_worldbank`, `sp.from_fred`, or `sp.from_sdmx`, it also
+records the normalized data-source metadata under `provenance["data"]`.
 
 ## Installing more engines
 

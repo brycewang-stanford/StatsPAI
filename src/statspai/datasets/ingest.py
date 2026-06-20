@@ -28,6 +28,42 @@ import pandas as pd
 JSONLike = Union[Mapping[str, Any], Sequence[Any], pd.DataFrame]
 
 
+def _payload_kind(payload: Any) -> str:
+    if isinstance(payload, pd.DataFrame):
+        return "dataframe"
+    if isinstance(payload, Mapping):
+        return "mapping"
+    if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes)):
+        return "sequence"
+    return type(payload).__name__
+
+
+def _stamp_attrs(
+    df: pd.DataFrame,
+    *,
+    source: str,
+    normalizer: str,
+    payload_kind: str,
+    shape: str,
+    extra: Optional[Mapping[str, Any]] = None,
+) -> pd.DataFrame:
+    """Attach deterministic source metadata to a normalized data-MCP frame."""
+    provenance: Dict[str, Any] = {
+        "source": source,
+        "source_type": "data_mcp_payload",
+        "normalizer": normalizer,
+        "payload_kind": payload_kind,
+        "shape": shape,
+        "n_rows": int(len(df)),
+        "columns": [str(c) for c in df.columns],
+    }
+    if extra:
+        provenance.update({k: v for k, v in extra.items() if v is not None})
+    df.attrs["source"] = source
+    df.attrs["provenance"] = provenance
+    return df
+
+
 # --------------------------------------------------------------------------- #
 # World Bank
 # --------------------------------------------------------------------------- #
@@ -81,6 +117,7 @@ def from_worldbank(
     >>> int(df.loc[0, 'year'])
     2020
     """
+    kind = _payload_kind(payload)
     rows = _worldbank_rows(payload)
     if isinstance(rows, pd.DataFrame):
         long = rows.copy()
@@ -102,9 +139,20 @@ def from_worldbank(
         long = pd.DataFrame.from_records(recs)
     long = long.dropna(subset=["year"]).reset_index(drop=True)
     long["year"] = long["year"].astype("Int64").astype("int64")
-    long.attrs["source"] = "worldbank"
     if not wide:
-        return long
+        return _stamp_attrs(
+            long,
+            source="worldbank",
+            normalizer="from_worldbank",
+            payload_kind=kind,
+            shape="long",
+            extra={
+                "value_name": value_name,
+                "indicator_ids": sorted(
+                    str(x) for x in long.get("indicator_id", pd.Series()).dropna().unique()
+                ),
+            },
+        )
     wide_df = long.pivot_table(
         index=["iso3", "year"],
         columns="indicator_id",
@@ -112,8 +160,19 @@ def from_worldbank(
         aggfunc="first",
     ).reset_index()
     wide_df.columns.name = None
-    wide_df.attrs["source"] = "worldbank"
-    return wide_df
+    return _stamp_attrs(
+        wide_df,
+        source="worldbank",
+        normalizer="from_worldbank",
+        payload_kind=kind,
+        shape="wide",
+        extra={
+            "value_name": value_name,
+            "indicator_ids": sorted(
+                str(x) for x in long.get("indicator_id", pd.Series()).dropna().unique()
+            ),
+        },
+    )
 
 
 def _worldbank_rows(payload: JSONLike) -> Union[List[Dict[str, Any]], pd.DataFrame]:
@@ -184,6 +243,7 @@ def from_fred(
     >>> bool(df['cpi'].isna().iloc[1])
     True
     """
+    kind = _payload_kind(payload)
     # Mapping of several series → merge on date.
     if (
         isinstance(payload, Mapping)
@@ -201,12 +261,24 @@ def from_fred(
             if merged is not None
             else pd.DataFrame(columns=["date"])
         )
-        out.attrs["source"] = "fred"
-        return out
+        return _stamp_attrs(
+            out,
+            source="fred",
+            normalizer="from_fred",
+            payload_kind="multi_series_mapping",
+            shape="wide",
+            extra={"series_ids": [str(sid) for sid in payload.keys()]},
+        )
 
     out = _fred_one(payload, series_id or "value")
-    out.attrs["source"] = "fred"
-    return out
+    return _stamp_attrs(
+        out,
+        source="fred",
+        normalizer="from_fred",
+        payload_kind=kind,
+        shape="long",
+        extra={"series_ids": [series_id or "value"]},
+    )
 
 
 def _fred_one(payload: JSONLike, col: str) -> pd.DataFrame:
@@ -264,14 +336,25 @@ def from_sdmx(payload: JSONLike, *, value_name: str = "value") -> pd.DataFrame:
     >>> df.loc[0, "LOCATION"], df.loc[0, "TIME_PERIOD"], df.loc[0, "value"]
     ('USA', '2020', 3.2)
     """
+    kind = _payload_kind(payload)
     if isinstance(payload, pd.DataFrame):
         out = payload.copy()
-        out.attrs["source"] = "sdmx"
-        return out
+        return _stamp_attrs(
+            out,
+            source="sdmx",
+            normalizer="from_sdmx",
+            payload_kind=kind,
+            shape="long",
+        )
     if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes)):
         out = pd.DataFrame.from_records(list(payload))
-        out.attrs["source"] = "sdmx"
-        return out
+        return _stamp_attrs(
+            out,
+            source="sdmx",
+            normalizer="from_sdmx",
+            payload_kind=kind,
+            shape="long",
+        )
     if not isinstance(payload, Mapping) or "dataSets" not in payload:
         raise ValueError(
             "Unrecognised SDMX payload; expected SDMX-JSON with 'dataSets' / "
@@ -305,8 +388,17 @@ def from_sdmx(payload: JSONLike, *, value_name: str = "value") -> pd.DataFrame:
                 rec[value_name] = _to_float(ovals[0] if ovals else None)
                 recs.append(rec)
     out = pd.DataFrame.from_records(recs)
-    out.attrs["source"] = "sdmx"
-    return out
+    return _stamp_attrs(
+        out,
+        source="sdmx",
+        normalizer="from_sdmx",
+        payload_kind=kind,
+        shape="long",
+        extra={
+            "value_name": value_name,
+            "dimensions": [str(x) for x in series_names + obs_names if x],
+        },
+    )
 
 
 # --------------------------------------------------------------------------- #

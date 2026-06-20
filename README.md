@@ -517,6 +517,10 @@ they reproduce the same coefficient — with a tolerance regime chosen and
 *explained* per estimand (closed-form vs randomised). This is the piece the
 Python causal-ML stack has been missing:
 
+Agent outputs include `engine_status_counts` and
+`can_claim_cross_engine_agreement`, so an `INSUFFICIENT` run cannot be mistaken
+for a successful cross-language check.
+
 | Library | What it gives you | What `cross_validate` adds |
 | --- | --- | --- |
 | **EconML** | Heterogeneous effects, DML, DR-learner | — |

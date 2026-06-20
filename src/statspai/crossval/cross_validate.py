@@ -161,7 +161,7 @@ weights, vcov : optional
         estimates=estimates,
         agreement=report,
         spec=spec.to_dict(),
-        provenance=_provenance(estimates),
+        provenance=_provenance(estimates, spec=spec),
         degradations=degradations,
     )
 
@@ -245,9 +245,31 @@ _VERSION_MODULES = {
 }
 
 
-def _provenance(estimates: List[EngineEstimate]) -> Dict[str, Any]:
+def _data_source_provenance(spec: EstimandSpec) -> Optional[Dict[str, Any]]:
+    attrs = getattr(spec.data, "attrs", {}) or {}
+    raw = attrs.get("provenance")
+    if isinstance(raw, dict):
+        out = dict(raw)
+    elif attrs.get("source"):
+        out = {"source": attrs.get("source")}
+    else:
+        return None
+    out.setdefault("n_rows", int(len(spec.data)))
+    out.setdefault("columns", [str(c) for c in spec.data.columns])
+    return out
+
+
+def _provenance(
+    estimates: List[EngineEstimate],
+    *,
+    spec: Optional[EstimandSpec] = None,
+) -> Dict[str, Any]:
     """Capture engine versions for the engines that actually ran."""
     prov: Dict[str, Any] = {}
+    if spec is not None:
+        data_prov = _data_source_provenance(spec)
+        if data_prov:
+            prov["data"] = data_prov
     ran = {e.engine for e in estimates if e.ok}
     for engine in ran:
         mod = _VERSION_MODULES.get(engine)

@@ -61,6 +61,7 @@ class TestWorldBank:
         # USA appears in two years, China in one → 3 (iso3, year) rows.
         assert len(df) == 3
         assert {"iso3", "year"} <= set(df.columns)
+        assert df.attrs["provenance"]["shape"] == "wide"
 
     def test_missing_value_becomes_nan(self):
         rows = _wb_rows()
@@ -71,6 +72,11 @@ class TestWorldBank:
     def test_attrs_source(self):
         df = from_worldbank(_wb_rows())
         assert df.attrs.get("source") == "worldbank"
+        prov = df.attrs["provenance"]
+        assert prov["source_type"] == "data_mcp_payload"
+        assert prov["normalizer"] == "from_worldbank"
+        assert prov["shape"] == "long"
+        assert prov["indicator_ids"] == ["NY.GDP.PCAP.KD"]
 
     def test_bad_mapping_raises(self):
         with pytest.raises(ValueError, match="Unrecognised"):
@@ -115,6 +121,8 @@ class TestFred:
         # Outer merge → 3 distinct dates, with NaNs where a series is missing.
         assert len(df) == 3
         assert df["UNRATE"].isna().sum() == 1
+        assert df.attrs["provenance"]["series_ids"] == ["CPI", "UNRATE"]
+        assert df.attrs["provenance"]["shape"] == "wide"
 
     def test_sorted_by_date(self):
         obs = [
@@ -127,6 +135,8 @@ class TestFred:
     def test_attrs_source(self):
         df = from_fred([{"date": "2020-01-01", "value": "1"}])
         assert df.attrs.get("source") == "fred"
+        assert df.attrs["provenance"]["series_ids"] == ["value"]
+        assert df.attrs["provenance"]["normalizer"] == "from_fred"
 
 
 # --------------------------------------------------------------------------- #
@@ -170,6 +180,11 @@ class TestSdmx:
         assert {"LOCATION", "SUBJECT", "TIME_PERIOD", "value"} == set(df.columns)
         usa20 = df[(df["LOCATION"] == "USA") & (df["TIME_PERIOD"] == "2020")]
         assert usa20["value"].iloc[0] == pytest.approx(3.4)
+        assert df.attrs["provenance"]["dimensions"] == [
+            "LOCATION",
+            "SUBJECT",
+            "TIME_PERIOD",
+        ]
 
     def test_ragged_series(self):
         # USA has 2 periods, DEU has 1 → 3 observations total.

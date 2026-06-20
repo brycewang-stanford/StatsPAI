@@ -91,7 +91,15 @@ loop.
 
 Every ingested frame stamps `df.attrs["source"]` (`"worldbank"` / `"fred"` /
 `"sdmx"`) so downstream tooling and your own audit trail know where the numbers
-came from.
+came from. It also stamps `df.attrs["provenance"]`, a deterministic dictionary
+that records the normalizer, payload kind, output shape, row count, columns and
+source-specific labels such as World Bank indicator ids, FRED series ids, or
+SDMX dimensions.
+
+`sp.cross_validate` preserves that metadata under
+`cv.provenance["data"]`. In an MCP run that loads a CSV/Parquet/Stata file via
+`data_path`, the MCP response also includes a top-level `data_provenance`
+record with the local file hash or a sanitized remote URL.
 
 ## Scope, on purpose
 
