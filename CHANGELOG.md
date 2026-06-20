@@ -4,6 +4,52 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Social network analysis (`sp.network`).** A new numpy/scipy-native SNA
+  module aligned with R's `igraph` / `sna` / `statnet` and Stata's
+  `nwcommands` — no `networkx` dependency. Covers the full applied stack:
+  - **Graph object + factory** — `sp.network_graph(...)` builds from a dense/
+    sparse adjacency, edge list, or tidy `DataFrame` (directed/undirected,
+    weighted); asymmetric matrices passed as undirected are symmetrised with a
+    loud warning, never silently.
+  - **Descriptives** — `sp.network_summary`, `sp.transitivity`,
+    `sp.clustering`, `sp.reciprocity`, `sp.assortativity` (Newman),
+    `sp.network_components`. Verified to match `networkx` to machine precision
+    on Zachary's karate club (density, transitivity, average clustering,
+    diameter, average path length, degree assortativity).
+  - **Centrality** — `sp.centrality(g, kind=...)` dispatcher plus degree,
+    closeness (Wasserman-Faust), betweenness (Brandes 2001), eigenvector,
+    Katz, PageRank (Brin-Page), Bonacich power, and HITS. Betweenness/
+    closeness/eigenvector/Katz match `networkx`; PageRank matches the exact
+    Google-matrix stationary distribution (`igraph`-equivalent) to 1e-13.
+  - **Community detection** — `sp.community_detection(g, method=...)` with
+    Louvain (Blondel 2008), greedy/CNM (Clauset-Newman-Moore 2004), and label
+    propagation (Raghavan 2007), plus `sp.network_modularity`. Greedy
+    reproduces `networkx`'s CNM partition exactly on the karate club
+    (Q = 0.3807, 3 communities); Louvain reaches Q ≈ 0.419.
+  - **Network regression** — `sp.netlm` / `sp.netlogit` (QAP / MRQAP with
+    Dekker-Krackhardt-Snijders double-semi-partialling) and
+    `sp.dyadic_regression` with Aronow-Samii-Assenova (2015) dyadic-cluster-
+    robust standard errors (verified against a brute-force O(D²) computation).
+  - **Network formation** — `sp.ergm(...)` fits exponential random graph
+    models by maximum pseudo-likelihood (MPLE; Strauss-Ikeda 1990). MPLE
+    coincides with the exact MLE for dyad-independent terms (edges / nodematch
+    / nodecov / absdiff / mutual); dyad-dependent terms (`triangles`) emit a
+    loud warning that MPLE is approximate. Full MCMC-MLE and SAOM/RSiena
+    dynamics are documented as the roadmap (not silently stubbed).
+  - **Data & plots** — `sp.karate_club()` (Zachary 1977) and
+    `sp.florentine_families()` (Padgett-Ansell 1993) canonical reference
+    networks; `sp.network_plot(...)` node-link drawing with a numpy
+    Fruchterman-Reingold layout and lazy `matplotlib` import (no hard
+    dependency).
+
+  All eight flagship functions carry curated agent-native registry specs
+  (`sp.describe_function` / `sp.function_schema`). 21 new references verified
+  via the Crossref API and added to `paper.bib`. New test suite
+  `tests/test_network.py` (42 cases: karate/Florentine parity, analytic
+  small-graph closed forms, and boundary cases).
+
 ### ⚠ Correctness
 
 - **`sp.conformal_synth` average-effect p-value corrected to the moving-block

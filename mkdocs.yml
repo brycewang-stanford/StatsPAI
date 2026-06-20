@@ -120,6 +120,7 @@ nav:
       - "PSM-DID and the Stata psmatch2 workflow": guides/psm_did.md
       - "Choosing an ML causal estimator (DML / TMLE / metalearner / causal_forest)": guides/choosing_ml_causal_estimator.md
       - "Panel data — FE / RE / Hausman / HDFE / dynamic GMM": guides/panel_data.md
+      - "Social network analysis (centrality / community / QAP / ERGM)": guides/social_network_analysis.md
       - "Migrating from R to StatsPAI": guides/migration-from-r.md
       - "sp.dml and the DoubleML reference implementation": guides/sp_dml_vs_doubleml.md
       - "Robustness workflow": guides/robustness_workflow.md
