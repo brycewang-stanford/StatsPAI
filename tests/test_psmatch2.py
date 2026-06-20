@@ -340,12 +340,20 @@ class TestPSMatch2Surface:
         assert m.att == pytest.approx(m.result.estimate)
         assert abs(m.att - 2.0) < 0.5  # recovers true ATT = 2.0
         assert "psmatch2" in m.summary().lower()
+        mi = m.result.model_info
+        assert mi["propensity_model"] == "logit"
+        assert mi["estimand_scope"] == "ATT"
+        assert mi["outcome_status"] == "observed"
+        assert mi["att_defined"] is True
 
     def test_outcome_optional(self, psm_data):
         m = sp.psmatch2(psm_data, treat="d", covariates=["x1", "x2"])
         assert np.isnan(m.att)
         assert "_weight" in m.matched_data.columns
         assert "_y" not in m.matched_data.columns  # no outcome -> no _y
+        assert m.result.model_info["outcome_status"] == "omitted"
+        assert m.result.model_info["att_defined"] is False
+        assert "ATT matched-frame" in m.result.model_info["matched_frame_semantics"]
 
     def test_outcome_in_covariates_raises(self, psm_data):
         with pytest.raises(MethodIncompatibility, match="covariates"):

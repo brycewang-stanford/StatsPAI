@@ -944,6 +944,20 @@ def psmatch2(
             recovery_hint="Report this internal invariant failure with the "
             "matching inputs.",
         )
+    model_info = dict(result.model_info or {})
+    model_info.update(
+        {
+            "psmatch2_method": method,
+            "propensity_model": "logit",
+            "estimand_scope": "ATT",
+            "outcome_status": "observed" if out_var is not None else "omitted",
+            "att_defined": out_var is not None,
+            "matched_frame_semantics": (
+                "Stata psmatch2 ATT matched-frame columns; do not reuse as "
+                "a generic ATE bookkeeping surface."
+            ),
+        }
+    )
     if out_var is None:
         # Drop the synthetic outcome and its matched-outcome column; the ATT
         # is meaningless without a real outcome.
@@ -952,6 +966,7 @@ def psmatch2(
         result.se = float("nan")
         result.pvalue = float("nan")
         result.ci = (float("nan"), float("nan"))
+    result.model_info = model_info
 
     return PSMatch2Result(
         result=result,

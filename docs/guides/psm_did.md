@@ -101,6 +101,12 @@ Stata 18 to machine precision; the smooth Epanechnikov kernel ATT matches to
 ~1e-8 (bounded by the independent logit propensity-score estimate, not the
 matching algorithm).
 
+`m.result.model_info` records the migration contract explicitly:
+`propensity_model="logit"`, `estimand_scope="ATT"`, `outcome_status`, and
+`att_defined`. When `outcome` is omitted, `sp.psmatch2` still returns
+`matched_data` and `_weight` for downstream PSM-DID, but the cross-sectional
+ATT is intentionally `NaN` and `att_defined=False`.
+
 > **Local-linear (`llr`) matching is not provided.** Stata routes its default
 > `psmatch2 ... llr` through the `lpoly` command, whose bandwidth and boundary
 > handling are not bit-reproducible; rather than ship an estimator that
@@ -192,6 +198,7 @@ DiD unweighted.
 | default `r(seatt)` analytic SE                    | `... se='psmatch2'` (default)                        |
 | `psmatch2 d x, out(y) ai(2)`                      | `... ai=2` (Abadie-Imbens robust SE)                |
 | `psmatch2 d x, out(y) common`                    | `... common_support='minmax'`                       |
+| `psmatch2 d x` without `outcome()`                 | matched-frame only; ATT undefined (`att_defined=False`) |
 | `_weight`, `_support`; nearest-neighbour `_n1`, `_nn`, `_pdif` | columns on `m.matched_data`                         |
 | `pstest x, both`                                 | `m.balance()`                                       |
 | `psgraph` / kdensity of `_pscore`               | `m.psplot()`                                         |

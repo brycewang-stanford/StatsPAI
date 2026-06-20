@@ -116,7 +116,7 @@ StatsPAI 提供单命令翻译工具：
 
 | 来源 | MCP 工具 | 常见命令 |
 | --- | --- | --- |
-| Stata | `from_stata` | `regress`、`xtreg`、`reghdfe`、`ivreg2`、`csdid`、`did_imputation`、`synth`、`rdrobust`、`psmatch2` |
+| Stata | `from_stata` | `regress`、`xtreg`、`reghdfe`、`ivreg2`、`ivreghdfe`、`csdid`、`did_imputation`、`synth`、`rdrobust`、`psmatch2` |
 | R | `from_r` | `feols`、`felm`、`lm`、`glm`、`plm`、`matchit`、`att_gt`、`did` |
 
 MCP prompts 中也有三个快捷入口：
@@ -135,6 +135,10 @@ MCP prompts 中也有三个快捷入口：
 `common` 和 `ai()` 路径映射到 `sp.psmatch2`。会改变约定的选项，例如 Stata 的
 `probit` 倾向得分或 ATE 取向请求，会以 notes 形式返回，而不是静默宣称完全对齐；
 ATE 取向的 matching 应直接使用 `sp.match`。
+
+对于 `ivreghdfe`，`from_stata` 会映射到与 R `feols(... | fe | endog ~ instr)`
+一致的 StatsPAI/fixest 形状：公式里保留 IV block，`fe=[...]` 保留吸收固定效应。
+这只是命令迁移合同，不是 live Stata 执行。
 
 ## 跨软件验证
 

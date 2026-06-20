@@ -269,6 +269,46 @@ def _h_ivreg2(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("ivreg", args, python, notes)
 
 
+def _h_ivreghdfe(cmd: StataCommand) -> Dict[str, Any]:
+    """``ivreghdfe y x (d = z), absorb(id year)`` → ``sp.fixest`` IV+FE."""
+    if not cmd.varlist:
+        return _emit_error("ivreghdfe requires an outcome variable", command="ivreghdfe")
+    joined = " ".join(cmd.varlist)
+    import re
+
+    m = re.match(r"^\s*(\S+)\s*(.*?)\s*\(\s*(\S+)\s*=\s*([^)]+?)\s*\)\s*$", joined)
+    if not m:
+        return _emit_error(
+            f"could not parse ivreghdfe syntax {joined!r}; expected "
+            "`y [exog_x...] (endog = instruments...)`",
+            command="ivreghdfe",
+        )
+    y, exog_xs, endog, instruments = m.group(1), m.group(2), m.group(3), m.group(4)
+    exog = [x for x in exog_xs.split() if x]
+    main = _build_formula(y, exog)
+    instr = " + ".join(x for x in instruments.split() if x)
+    formula = f"{main} + ({endog} ~ {instr})"
+    absorb = cmd.options.get("absorb") or ""
+    fe_list = [v for v in absorb.split() if v]
+    cluster = _vce_cluster(cmd) or cmd.options.get("cluster")
+    if cluster:
+        cluster = cluster.split()[0]
+    args: Dict[str, Any] = {"formula": formula, "fe": fe_list}
+    if cluster:
+        args["cluster"] = cluster
+    notes = [
+        "Mapped Stata ivreghdfe to StatsPAI/fixest IV-with-fixed-effects "
+        "syntax. This is a command migration contract, not a live Stata run."
+    ]
+    if not fe_list:
+        notes.append("ivreghdfe without absorb() is equivalent to IV without HDFE.")
+    code_pairs = ["data=df", f"fe={fe_list!r}"]
+    if cluster:
+        code_pairs.append(f"cluster={cluster!r}")
+    python = f"sp.fixest({formula!r}, {', '.join(code_pairs)})"
+    return _emit("fixest", args, python, notes)
+
+
 def _h_csdid(cmd: StataCommand) -> Dict[str, Any]:
     """``csdid y, ivar(id) tvar(t) gvar(g)`` → ``sp.callaway_santanna``."""
     if not cmd.varlist:
@@ -1058,6 +1098,7 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "reghdfe": _h_reghdfe,
     "ivreg2": _h_ivreg2,
     "ivregress": _h_ivreg2,  # close-enough mapping
+    "ivreghdfe": _h_ivreghdfe,
     "csdid": _h_csdid,
     "did_imputation": _h_did_imputation,
     "synth": _h_synth,

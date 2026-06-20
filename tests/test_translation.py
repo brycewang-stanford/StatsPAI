@@ -109,6 +109,10 @@ TIER1_ROUND_TRIPS = [
      "ivreg", {"formula": "y ~ x1 + (d ~ z1 z2)"}),
     ("ivregress y (d = z), cluster(id)",
      "ivreg", {"formula": "y ~ (d ~ z)"}),
+    ("ivreghdfe y x1 x2 (d = z1 z2), absorb(firm year) cluster(firm)",
+     "fixest",
+     {"formula": "y ~ x1 + x2 + (d ~ z1 + z2)",
+      "fe": ["firm", "year"], "cluster": "firm"}),
     # csdid
     ("csdid wage, ivar(worker_id) tvar(year) gvar(first_treat)",
      "callaway_santanna",
@@ -260,6 +264,20 @@ class TestEconomistMigrationUseCases:
         for key in ("y", "i", "t", "g", "estimator"):
             assert stata["arguments"][key] == r["arguments"][key]
 
+    def test_ivreghdfe_and_feols_iv_share_estimand_shape(self):
+        stata = from_stata(
+            "ivreghdfe y x1 x2 (d = z1 z2), absorb(firm year) cluster(firm)"
+        )
+        r = from_r(
+            'feols(y ~ x1 + x2 | firm + year | (d ~ z1 + z2), '
+            'data=df, cluster="firm")'
+        )
+
+        assert stata["ok"] is True, stata
+        assert r["ok"] is True, r
+        assert stata["tool"] == r["tool"] == "fixest"
+        assert stata["arguments"] == r["arguments"]
+
 
 # ----------------------------------------------------------------------
 # MCP integration: workflow tool dispatch
@@ -283,6 +301,20 @@ class TestExecuteToolFromStata:
         assert out["source"] == "stata"
         assert out["arguments"]["method"] == "kernel"
         assert out["arguments"]["bwidth"] == 0.06
+
+    def test_ivreghdfe_via_execute_tool(self):
+        out = execute_tool(
+            "from_stata",
+            {
+                "command": (
+                    "ivreghdfe y x (d = z), absorb(id year) cluster(id)"
+                )
+            },
+        )
+        assert out["ok"] is True
+        assert out["tool"] == "fixest"
+        assert out["arguments"]["formula"] == "y ~ x + (d ~ z)"
+        assert out["arguments"]["fe"] == ["id", "year"]
 
     def test_missing_command(self):
         out = execute_tool("from_stata", {})

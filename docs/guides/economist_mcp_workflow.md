@@ -169,7 +169,7 @@ StatsPAI ships translator tools for one command at a time:
 
 | Source | MCP tool | Examples |
 | --- | --- | --- |
-| Stata | `from_stata` | `regress`, `xtreg`, `reghdfe`, `ivreg2`, `csdid`, `did_imputation`, `synth`, `rdrobust`, `psmatch2`, count-panel commands |
+| Stata | `from_stata` | `regress`, `xtreg`, `reghdfe`, `ivreg2`, `ivreghdfe`, `csdid`, `did_imputation`, `synth`, `rdrobust`, `psmatch2`, count-panel commands |
 | R | `from_r` | `feols`, `felm`, `lm`, `glm`, `plm`, `matchit`, `att_gt`, `did`, `synth` |
 
 Use the built-in prompts:
@@ -190,6 +190,12 @@ For `psmatch2`, `from_stata` maps the common nearest-neighbor, kernel, radius,
 as Stata's `probit` propensity score or ATE-focused requests are surfaced as
 notes rather than silently claimed as exact parity; use `sp.match` directly for
 ATE-oriented matching.
+
+For `ivreghdfe`, `from_stata` maps the IV-with-fixed-effects command to the
+same StatsPAI/fixest shape produced by R `feols(... | fe | endog ~ instr)`:
+the formula contains the IV block and `fe=[...]` carries the absorbed fixed
+effects. This is a migration contract for dispatching StatsPAI; it is not a
+live Stata run.
 
 ## Cross-software verification discipline
 
