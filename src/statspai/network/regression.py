@@ -211,6 +211,16 @@ def netlm(
     References
     ----------
     dekker2007sensitivity
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> X = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]], float)
+    >>> Y = 1.0 + 2.0 * X
+    >>> res = sp.netlm(Y, X, nperm=10, seed=0)
+    >>> res.method
+    'netlm'
     """
     Y = _to_matrix(y)
     n = Y.shape[0]
@@ -323,6 +333,16 @@ def netlogit(
     References
     ----------
     krackhardt1988predicting
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> X = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]], float)
+    >>> Y = (X > 0).astype(float)
+    >>> res = sp.netlogit(Y, X, nperm=5, seed=0)
+    >>> res.method
+    'netlogit'
     """
     Y = (_to_matrix(y) != 0).astype(float)
     n = Y.shape[0]
@@ -494,6 +514,20 @@ def dyadic_regression(
     References
     ----------
     aronow2015cluster
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({
+    ...     "i": [0, 0, 1, 1],
+    ...     "j": [1, 2, 2, 3],
+    ...     "x": [0.0, 1.0, 0.5, 1.5],
+    ...     "y": [1.0, 2.0, 1.5, 2.5],
+    ... })
+    >>> res = sp.dyadic_regression(df, y="y", covariates=["x"], i="i", j="j")
+    >>> res.n_dyads
+    4
     """
     cols = list(covariates)
     needed = [y] + cols + [i, j]

@@ -49989,7 +49989,7 @@
     "parameters": {
       "properties": {
         "graph": {
-          "description": "graph parameter.",
+          "description": "Network whose local clustering coefficients should be computed.",
           "type": "string"
         }
       },
@@ -50005,7 +50005,7 @@
     "parameters": {
       "properties": {
         "graph": {
-          "description": "graph parameter.",
+          "description": "Directed network. Undirected inputs return ``1.0`` by construction.",
           "type": "string"
         }
       },
@@ -50021,7 +50021,7 @@
     "parameters": {
       "properties": {
         "graph": {
-          "description": "graph parameter.",
+          "description": "Network whose endpoint-degree correlation should be computed.",
           "type": "string"
         }
       },
@@ -50161,11 +50161,11 @@
     "parameters": {
       "properties": {
         "graph": {
-          "description": "graph parameter.",
+          "description": "Network to score.",
           "type": "string"
         },
         "weighted": {
-          "description": "weighted parameter (Optional[bool]).",
+          "description": "Use tie weights as distances. Defaults to the graph's weighted flag.",
           "type": "boolean"
         }
       },
@@ -50206,21 +50206,21 @@
     "parameters": {
       "properties": {
         "graph": {
-          "description": "graph parameter.",
+          "description": "Network to score.",
           "type": "string"
         },
         "max_iter": {
           "default": 1000,
-          "description": "Maximum number of optimisation iterations.",
+          "description": "Maximum power-iteration steps.",
           "type": "integer"
         },
         "tol": {
           "default": 1e-09,
-          "description": "Numerical convergence tolerance.",
+          "description": "Convergence tolerance on the score vector.",
           "type": "number"
         },
         "weighted": {
-          "description": "weighted parameter (Optional[bool]).",
+          "description": "Use tie weights; defaults to the graph's weighted flag.",
           "type": "boolean"
         }
       },
@@ -50237,25 +50237,25 @@
       "properties": {
         "alpha": {
           "default": 0.1,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Attenuation parameter. Must be below ``1 / lambda_max(A)``.",
           "type": "number"
         },
         "beta": {
           "default": 1.0,
-          "description": "beta parameter (float).",
+          "description": "Baseline score for each node.",
           "type": "number"
         },
         "graph": {
-          "description": "graph parameter.",
+          "description": "Network to score.",
           "type": "string"
         },
         "normalized": {
           "default": true,
-          "description": "normalized parameter (bool).",
+          "description": "L2-normalise the returned vector.",
           "type": "boolean"
         },
         "weighted": {
-          "description": "weighted parameter (Optional[bool]).",
+          "description": "Use tie weights; defaults to the graph's weighted flag.",
           "type": "boolean"
         }
       },
@@ -50272,25 +50272,25 @@
       "properties": {
         "alpha": {
           "default": 0.85,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Probability of following a tie rather than teleporting.",
           "type": "number"
         },
         "graph": {
-          "description": "graph parameter.",
+          "description": "Directed or undirected network to score.",
           "type": "string"
         },
         "max_iter": {
           "default": 1000,
-          "description": "Maximum number of optimisation iterations.",
+          "description": "Maximum power-iteration steps.",
           "type": "integer"
         },
         "tol": {
           "default": 1e-12,
-          "description": "Numerical convergence tolerance.",
+          "description": "L1 convergence tolerance.",
           "type": "number"
         },
         "weighted": {
-          "description": "weighted parameter (Optional[bool]).",
+          "description": "Use tie weights; defaults to the graph's weighted flag.",
           "type": "boolean"
         }
       },
@@ -50307,15 +50307,15 @@
       "properties": {
         "beta": {
           "default": 0.1,
-          "description": "beta parameter (float).",
+          "description": "Bonacich attenuation parameter. Positive values reward ties to powerful nodes; negative values reward ties to weak nodes.",
           "type": "number"
         },
         "graph": {
-          "description": "graph parameter.",
+          "description": "Network to score.",
           "type": "string"
         },
         "weighted": {
-          "description": "weighted parameter (Optional[bool]).",
+          "description": "Use tie weights; defaults to the graph's weighted flag.",
           "type": "boolean"
         }
       },
@@ -50331,17 +50331,17 @@
     "parameters": {
       "properties": {
         "graph": {
-          "description": "graph parameter.",
+          "description": "Directed or undirected network to score.",
           "type": "string"
         },
         "max_iter": {
           "default": 1000,
-          "description": "Maximum number of optimisation iterations.",
+          "description": "Maximum power-iteration steps.",
           "type": "integer"
         },
         "tol": {
           "default": 1e-12,
-          "description": "Numerical convergence tolerance.",
+          "description": "L1 convergence tolerance for hub and authority vectors.",
           "type": "number"
         }
       },

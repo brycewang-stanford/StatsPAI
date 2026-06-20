@@ -80,6 +80,13 @@ def degree_centrality(
     Returns
     -------
     pandas.Series
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.network_graph(edges=[(0, 1), (1, 2), (1, 3)])
+    >>> sp.degree_centrality(g, normalized=False).loc[1]
+    3.0
     """
     g = as_graph(graph)
     d: np.ndarray = g.degree(mode=mode).astype(float)
@@ -100,9 +107,23 @@ def closeness_centrality(graph: Any, weighted: Optional[bool] = None) -> pd.Seri
     ``C(i) = (r / T) * (r / (n - 1))``.  On a connected graph this reduces to
     ``(n - 1) / T``.
 
+    Parameters
+    ----------
+    graph : Graph or adjacency-like
+        Network to score.
+    weighted : bool, optional
+        Use tie weights as distances. Defaults to the graph's weighted flag.
+
     Returns
     -------
     pandas.Series
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.network_graph(edges=[(0, 1), (1, 2), (2, 3)])
+    >>> sp.closeness_centrality(g).idxmax()
+    1
     """
     from ._core import shortest_path_lengths
 
@@ -207,6 +228,13 @@ def betweenness_centrality(
     References
     ----------
     brandes2001faster
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.network_graph(edges=[(0, 1), (1, 2), (2, 3)])
+    >>> sp.betweenness_centrality(g, normalized=False).loc[1]
+    2.0
     """
     g = as_graph(graph)
     n = g.n_nodes
@@ -238,9 +266,27 @@ def eigenvector_centrality(
     ``igraph`` / ``networkx`` convention.  For directed graphs the right
     eigenvector is used (centrality flows along out-ties' reverse).
 
+    Parameters
+    ----------
+    graph : Graph or adjacency-like
+        Network to score.
+    weighted : bool, optional
+        Use tie weights; defaults to the graph's weighted flag.
+    max_iter : int, default 1000
+        Maximum power-iteration steps.
+    tol : float, default 1e-9
+        Convergence tolerance on the score vector.
+
     Returns
     -------
     pandas.Series
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.network_graph(edges=[(0, 1), (1, 2), (1, 3)])
+    >>> sp.eigenvector_centrality(g).idxmax()
+    1
     """
     g = as_graph(graph)
     use_w = g.is_weighted if weighted is None else weighted
@@ -283,6 +329,19 @@ def katz_centrality(
     ``beta`` plus ``alpha`` times the centrality of nodes pointing to it.
     Requires ``alpha < 1 / lambda_max(A)`` for convergence.
 
+    Parameters
+    ----------
+    graph : Graph or adjacency-like
+        Network to score.
+    alpha : float, default 0.1
+        Attenuation parameter. Must be below ``1 / lambda_max(A)``.
+    beta : float, default 1.0
+        Baseline score for each node.
+    normalized : bool, default True
+        L2-normalise the returned vector.
+    weighted : bool, optional
+        Use tie weights; defaults to the graph's weighted flag.
+
     Returns
     -------
     pandas.Series
@@ -290,6 +349,13 @@ def katz_centrality(
     References
     ----------
     katz1953new
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.network_graph(edges=[(0, 1), (1, 2), (1, 3)])
+    >>> sp.katz_centrality(g, alpha=0.05).idxmax()
+    1
     """
     g = as_graph(graph)
     use_w = g.is_weighted if weighted is None else weighted
@@ -330,6 +396,19 @@ def pagerank(
     probability ``alpha`` and teleports uniformly with probability
     ``1 - alpha``.  Dangling nodes redistribute their mass uniformly.
 
+    Parameters
+    ----------
+    graph : Graph or adjacency-like
+        Directed or undirected network to score.
+    alpha : float, default 0.85
+        Probability of following a tie rather than teleporting.
+    max_iter : int, default 1000
+        Maximum power-iteration steps.
+    tol : float, default 1e-12
+        L1 convergence tolerance.
+    weighted : bool, optional
+        Use tie weights; defaults to the graph's weighted flag.
+
     Returns
     -------
     pandas.Series
@@ -338,6 +417,13 @@ def pagerank(
     References
     ----------
     brin1998anatomy
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.network_graph(edges=[(0, 1), (1, 2), (1, 3)])
+    >>> round(float(sp.pagerank(g).sum()), 6)
+    1.0
     """
     g = as_graph(graph)
     use_w = g.is_weighted if weighted is None else weighted
@@ -380,6 +466,16 @@ def bonacich_power(
     powerful others; ``beta < 0`` (bargaining contexts) rewards being
     connected to *weak* others; ``beta = 0`` reduces to degree.
 
+    Parameters
+    ----------
+    graph : Graph or adjacency-like
+        Network to score.
+    beta : float, default 0.1
+        Bonacich attenuation parameter. Positive values reward ties to
+        powerful nodes; negative values reward ties to weak nodes.
+    weighted : bool, optional
+        Use tie weights; defaults to the graph's weighted flag.
+
     Returns
     -------
     pandas.Series
@@ -387,6 +483,13 @@ def bonacich_power(
     References
     ----------
     bonacich1987power
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.network_graph(edges=[(0, 1), (1, 2), (1, 3)])
+    >>> sp.bonacich_power(g, beta=0).idxmax()
+    1
     """
     g = as_graph(graph)
     use_w = g.is_weighted if weighted is None else weighted
@@ -419,6 +522,15 @@ def hits(graph: Any, max_iter: int = 1000, tol: float = 1e-12) -> pd.DataFrame:
     authorities.  Scores are L1-normalised (sum to 1).  On an undirected
     graph hub and authority coincide with the eigenvector centrality.
 
+    Parameters
+    ----------
+    graph : Graph or adjacency-like
+        Directed or undirected network to score.
+    max_iter : int, default 1000
+        Maximum power-iteration steps.
+    tol : float, default 1e-12
+        L1 convergence tolerance for hub and authority vectors.
+
     Returns
     -------
     pandas.DataFrame
@@ -427,6 +539,13 @@ def hits(graph: Any, max_iter: int = 1000, tol: float = 1e-12) -> pd.DataFrame:
     References
     ----------
     kleinberg1999authoritative
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.network_graph(edges=[(0, 1), (0, 2)], directed=True)
+    >>> set(sp.hits(g).columns)
+    {'authority', 'hub'}
     """
     g = as_graph(graph)
     A = g.binary()

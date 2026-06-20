@@ -88,10 +88,22 @@ def clustering(graph: Any) -> pd.Series:
     ``c_i = 2 e_i / (k_i (k_i - 1))`` where ``e_i`` is the number of ties
     among the ``k_i`` neighbours of ``i``.  Nodes with degree < 2 receive 0.
 
+    Parameters
+    ----------
+    graph : Graph or adjacency-like
+        Network whose local clustering coefficients should be computed.
+
     Returns
     -------
     pandas.Series
         Indexed by node label.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.network_graph(edges=[(0, 1), (1, 2), (2, 0)])
+    >>> sp.clustering(g).tolist()
+    [1.0, 1.0, 1.0]
     """
     g = as_graph(graph)
     B = g.binary()
@@ -112,9 +124,21 @@ def reciprocity(graph: Any) -> float:
     ``sum_{i!=j} A_ij A_ji / sum_{i!=j} A_ij`` on the binarised graph.  An
     undirected graph returns ``1.0`` (every tie is mutual by construction).
 
+    Parameters
+    ----------
+    graph : Graph or adjacency-like
+        Directed network. Undirected inputs return ``1.0`` by construction.
+
     Returns
     -------
     float
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.network_graph(edges=[(0, 1), (1, 0), (1, 2)], directed=True)
+    >>> round(sp.reciprocity(g), 3)
+    0.667
     """
     g = (
         as_graph(graph, directed=True)
@@ -143,6 +167,11 @@ def assortativity(graph: Any) -> float:
     nodes (assortative mixing); negative values indicate disassortativity
     (hub-and-spoke), as in many social and technological networks.
 
+    Parameters
+    ----------
+    graph : Graph or adjacency-like
+        Network whose endpoint-degree correlation should be computed.
+
     Returns
     -------
     float
@@ -150,6 +179,13 @@ def assortativity(graph: Any) -> float:
     References
     ----------
     newman2002assortative
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> val = sp.assortativity(sp.karate_club())
+    >>> bool(val < 0)
+    True
     """
     g = as_graph(graph)
     B = g.binary()
@@ -194,6 +230,13 @@ class ComponentsResult(ResultProtocolMixin):
     largest_size : int
     connection : str
         ``"weak"`` or ``"strong"`` (directed graphs only).
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.network_graph(edges=[(0, 1), (2, 3)], node_labels=[0, 1, 2, 3])
+    >>> sp.network_components(g).sizes
+    [2, 2]
     """
 
     n_components: int
@@ -227,6 +270,13 @@ def network_components(graph: Any, connection: str = "weak") -> ComponentsResult
     Returns
     -------
     ComponentsResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> g = sp.network_graph(edges=[(0, 1), (2, 3)], node_labels=[0, 1, 2, 3])
+    >>> sp.network_components(g).n_components
+    2
     """
     from scipy.sparse import csgraph
 
