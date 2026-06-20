@@ -4792,6 +4792,169 @@ def _build_registry() -> None:
         )
     )
 
+    # -- v1.19: Cross-engine validation ----------------------------- #
+    register(
+        FunctionSpec(
+            name="cross_validate",
+            category="workflow",
+            description=(
+                "Estimate ONE model with several INDEPENDENT engines "
+                "(StatsPAI, pyfixest, linearmodels, DoubleML, R's fixest, "
+                "Stata) and report whether they agree (AGREE / PARTIAL / "
+                "DISAGREE / INSUFFICIENT). Operationalises the cross-package "
+                "reproducibility check: trust a number only when ≥2 "
+                "independent implementations reproduce it."
+            ),
+            params=[
+                ParamSpec(
+                    "data_or_result",
+                    "DataFrame | result",
+                    True,
+                    description=(
+                        "Dataset (with `estimand` + spec) or a fitted "
+                        "StatsPAI result to re-run elsewhere."
+                    ),
+                ),
+                ParamSpec(
+                    "estimand",
+                    "str",
+                    False,
+                    description=(
+                        "ols / feols / iv / poisson / dml / did "
+                        "(Callaway–Sant'Anna; and aliases)"
+                    ),
+                    enum=["ols", "feols", "iv", "poisson", "dml", "did"],
+                ),
+                ParamSpec(
+                    "formula",
+                    "str",
+                    False,
+                    description="fixest-style: 'y ~ x | fe | endog ~ z'",
+                ),
+                ParamSpec("y", "str", False, description="Outcome column"),
+                ParamSpec(
+                    "g",
+                    "str",
+                    False,
+                    description="DiD cohort / first-treatment period (0 = never)",
+                ),
+                ParamSpec("t", "str", False, description="DiD time column"),
+                ParamSpec("i", "str", False, description="DiD unit-id column"),
+                ParamSpec(
+                    "treatment", "str", False,
+                    description="Focal regressor (default reconciled term)",
+                ),
+                ParamSpec("covariates", "list[str]", False),
+                ParamSpec("fixed_effects", "list[str]", False),
+                ParamSpec("endog", "list[str]", False, description="IV endogenous"),
+                ParamSpec("instruments", "list[str]", False),
+                ParamSpec("vcov", "str", False, description="Variance estimator"),
+                ParamSpec(
+                    "engines",
+                    "str | list[str]",
+                    False,
+                    "auto",
+                    description=(
+                        "'auto' (all installed, applicable) or a list e.g. "
+                        "['statspai','R::fixest','pyfixest','Stata']"
+                    ),
+                ),
+                ParamSpec(
+                    "tol",
+                    "dict",
+                    False,
+                    description="Override tolerance, e.g. {'coef_rtol':1e-4}",
+                ),
+            ],
+            returns="CrossValidationResult",
+            example=(
+                "sp.cross_validate(df, 'iv', y='wage', endog=['educ'], "
+                "instruments=['qob'], engines=['statspai','R::fixest'])"
+            ),
+            tags=[
+                "workflow",
+                "validation",
+                "reproducibility",
+                "cross_check",
+                "robustness",
+            ],
+            pre_conditions=[
+                "data has every column referenced by the model spec",
+                "at least two engines are installed/available for the estimand",
+            ],
+            assumptions=[
+                "Each engine is asked for the SAME estimand on the SAME sample",
+                "Numerical agreement checks reproducibility, not unbiasedness",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Verdict INSUFFICIENT (a WorkflowDegradedWarning "
+                    "is also emitted for a named-but-missing engine)",
+                    exception="",
+                    remedy=(
+                        "Fewer than two engines ran; install pyfixest / "
+                        "linearmodels or put Rscript / Stata on PATH."
+                    ),
+                    alternative="compare_estimators",
+                ),
+                FailureMode(
+                    symptom="Verdict DISAGREE",
+                    exception="",
+                    remedy=(
+                        "Engines disagree beyond tolerance — reconcile sample, "
+                        "controls, fixed effects, treatment coding."
+                    ),
+                    alternative="",
+                ),
+            ],
+            alternatives=["compare_estimators", "verify", "replicate"],
+            typical_n_min=30,
+        )
+    )
+
+    # -- v1.19: Data-source ingestion normalisers ------------------- #
+    for _ing_name, _ing_src, _ing_desc in (
+        (
+            "from_worldbank",
+            "World Bank Indicators API v2 / Data360",
+            "Normalise a World Bank Indicators payload (already fetched via a "
+            "data MCP / REST) into a tidy long or wide panel ready for "
+            "sp.feols / sp.cross_validate. No network call.",
+        ),
+        (
+            "from_fred",
+            "FRED series observations",
+            "Normalise FRED series observations (one or many series) into a "
+            "tidy time series with parsed dates and NaN for '.' missings. "
+            "No network call.",
+        ),
+        (
+            "from_sdmx",
+            "SDMX-JSON (OECD / Eurostat / IMF)",
+            "Expand an SDMX-JSON payload (OECD / Eurostat / IMF) into a long "
+            "frame with one column per dimension plus a value column. "
+            "No network call.",
+        ),
+    ):
+        register(
+            FunctionSpec(
+                name=_ing_name,
+                category="datasets",
+                description=_ing_desc,
+                params=[
+                    ParamSpec(
+                        "payload",
+                        "list | dict | DataFrame",
+                        True,
+                        description=f"{_ing_src} response, already fetched.",
+                    ),
+                ],
+                returns="DataFrame",
+                example=f"df = sp.{_ing_name}(payload)",
+                tags=["datasets", "ingestion", "data_mcp", "reshape"],
+            )
+        )
+
     # -- v0.9.17: Unified sensitivity dashboard --------------------- #
     register(
         FunctionSpec(

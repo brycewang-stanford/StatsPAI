@@ -396,6 +396,77 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
             "required": ["keys"],
         },
     },
+    {
+        "name": "cross_validate",
+        "statspai_fn": "cross_validate",
+        "description": (
+            "Cross-validate ONE estimand across INDEPENDENT engines "
+            "(StatsPAI, pyfixest, linearmodels, DoubleML, R's fixest, Stata) "
+            "and report whether they agree (AGREE / PARTIAL / DISAGREE / "
+            "INSUFFICIENT). Use this to honour the cross-package "
+            "reproducibility rule: trust a number only when >=2 independent "
+            "implementations reproduce it. Needs a data_path."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "estimand": {
+                    "type": "string",
+                    "enum": ["ols", "feols", "iv", "poisson", "dml", "did"],
+                    "description": "Model family to fit in every engine.",
+                },
+                "formula": {
+                    "type": "string",
+                    "description": "fixest-style 'y ~ x | fe | endog ~ z'.",
+                },
+                "y": {"type": "string", "description": "Outcome column."},
+                "g": {
+                    "type": "string",
+                    "description": (
+                        "DiD only: cohort / first-treatment period "
+                        "(0 = never treated)."
+                    ),
+                },
+                "t": {"type": "string", "description": "DiD only: time column."},
+                "i": {
+                    "type": "string",
+                    "description": "DiD only: unit-id column.",
+                },
+                "treatment": {
+                    "type": "string",
+                    "description": "Focal regressor (reconciled coefficient).",
+                },
+                "covariates": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "fixed_effects": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "endog": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Endogenous regressors (IV).",
+                },
+                "instruments": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "vcov": {"type": "string"},
+                "engines": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Engines to run, e.g. "
+                        "['statspai','R::fixest','pyfixest','Stata']. "
+                        "Omit for 'auto' (all installed + applicable)."
+                    ),
+                },
+            },
+            "required": ["estimand"],
+        },
+    },
 ]
 
 
@@ -470,6 +541,9 @@ def execute_workflow_tool(
             detail=detail,
             as_handle=as_handle,
         )
+
+    if name == "cross_validate":
+        return _tool_cross_validate(arguments, data, detail=detail)
 
     if name in {"audit_result", "audit"}:
         return _tool_audit(rid_arg, detail=detail)
@@ -1121,6 +1195,39 @@ def _tool_preflight(
         result_dict["result_id"] = rid
         result_dict["result_uri"] = f"statspai://result/{rid}"
     return result_dict
+
+
+def _tool_cross_validate(
+    arguments: Dict[str, Any],
+    data: Optional[pd.DataFrame],
+    *,
+    detail: str,
+) -> Dict[str, Any]:
+    """Run sp.cross_validate on freshly-loaded data and serialise the verdict."""
+    if data is None:
+        return {"error": "cross_validate requires data_path"}
+    import statspai as sp
+
+    fn = getattr(sp, "cross_validate", None)
+    if fn is None:  # pragma: no cover - cross_validate is a core export
+        return {"error": "sp.cross_validate is not available"}
+    estimand = arguments.get("estimand")
+    if not estimand:
+        return {"error": "cross_validate requires `estimand`"}
+    kwargs = {
+        k: v for k, v in arguments.items() if k not in ("estimand",) and v is not None
+    }
+    try:
+        out = fn(data, estimand, **kwargs)
+    except Exception as e:
+        from .remediation import remediate
+
+        return {
+            "error": f"{type(e).__name__}: {e}",
+            "remediation": remediate(e, context={"tool": "cross_validate"}),
+        }
+    payload: Dict[str, Any] = out.to_dict(detail=detail)
+    return payload
 
 
 # ----------------------------------------------------------------------

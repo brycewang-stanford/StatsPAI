@@ -749,6 +749,10 @@ from .question import (
 # === Canonical datasets (consolidated facade) ===
 from . import datasets  # noqa: F401 — exposed as ``sp.datasets``
 
+# Data-source ingestion normalisers, also surfaced at top level so an agent can
+# reshape a World Bank / FRED / OECD-SDMX payload with one call before fitting.
+from .datasets.ingest import from_worldbank, from_fred, from_sdmx
+
 # === End-to-end workflow orchestrator ===
 # After ``import statspai.causal`` (the deprecated forest-shim) Python rebinds
 # ``sp.causal`` to that submodule, shadowing this function.  The shim works
@@ -1006,6 +1010,13 @@ from .smart import (
 # drag in the resampling-stability machinery unless the caller actually
 # asks for it. Preserves the "zero overhead when verify=False" guarantee
 # in recommend().
+
+# === Cross-engine validation ===
+# sp.cross_validate runs one estimand through independent engines (StatsPAI,
+# pyfixest, linearmodels, DoubleML, R::fixest, Stata) and reports whether they
+# agree. Heavy backends import lazily inside each adapter, so this eager import
+# stays light (numpy / pandas only).
+from .crossval import cross_validate, CrossValidationResult
 
 # === NEW v0.6 Round 3 ===
 # Truncated Regression
@@ -1715,6 +1726,11 @@ __all__ = [
     "IdentificationError",
     "compare_estimators",
     "ComparisonResult",
+    "cross_validate",
+    "CrossValidationResult",
+    "from_worldbank",
+    "from_fred",
+    "from_sdmx",
     "assumption_audit",
     "AssumptionResult",
     "audit",

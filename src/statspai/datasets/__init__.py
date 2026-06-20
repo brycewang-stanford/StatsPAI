@@ -77,6 +77,11 @@ from ..synth.datasets import (
 )
 from ._canonical import _load_bundled_csv
 
+# Data-source ingestion normalisers (World Bank / FRED / OECD-Eurostat SDMX).
+# These reshape payloads a data MCP already fetched into tidy StatsPAI frames;
+# they do not hit the network.
+from .ingest import from_worldbank, from_fred, from_sdmx
+
 
 def california_prop99(simulated: bool = True) -> pd.DataFrame:
     """California Proposition 99 panel (Abadie-Diamond-Hainmueller 2010).
@@ -263,4 +268,7 @@ __all__ = [
     "nhefs",
     "load_nhefs",
     "list_datasets",
+    "from_worldbank",
+    "from_fred",
+    "from_sdmx",
 ]
